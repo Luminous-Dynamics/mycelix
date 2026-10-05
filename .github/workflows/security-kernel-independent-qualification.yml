@@ -358,6 +358,11 @@ jobs:
           assert lock.get("version") == 4, f"unsupported Cargo.lock format: {lock.get('version')!r}"
           packages=lock.get("package", [])
           assert packages, "Cargo.lock contains no package records"
+          max_lock_packages=4096
+          max_lock_dependency_edges=32768
+          assert len(packages) <= max_lock_packages, f"Cargo.lock exceeds {max_lock_packages} package records"
+          lock_dependency_edges=sum(len(p.get("dependencies", [])) for p in packages)
+          assert lock_dependency_edges <= max_lock_dependency_edges, f"Cargo.lock exceeds {max_lock_dependency_edges} dependency edges"
           roots=[p for p in packages if p.get("name") == "mycelix-bridge-common" and p.get("version") == package.get("version")]
           assert len(roots) == 1, "Cargo.lock must contain exactly one exact root package record"
           forbidden_sources=[]
@@ -484,9 +489,13 @@ jobs:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
         run: |
           set -euo pipefail
-          lock_digest="$(sha256sum "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" | awk '{print $1}')"
+          lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"
+          lock_digest="$(sha256sum "$lock_path" | awk '{print $1}')"
           test "${#lock_digest}" -eq 64
-          printf 'lock_digest=%s\n' "$lock_digest" >> "$GITHUB_OUTPUT"
+          lock_package_count="$(grep -c '^[[][]package[]]$' "$lock_path")"
+          printf "%s" "$lock_package_count" | grep -Eq "^[0-9]+$"
+          test "$lock_package_count" -le 4096
+          printf 'lock_digest=%s\nlock_package_count=%s\n' "$lock_digest" "$lock_package_count"
           echo "PASS: committed Cargo.lock identity captured before candidate execution"
 
       - name: Pull and preflight pinned sandbox image
@@ -833,6 +842,7 @@ jobs:
           SOURCE_TOTAL_BYTES: ${{ steps.resolve_source.outputs.source_total_bytes }}
           SOURCE_MAX_BLOB_BYTES: ${{ steps.resolve_source.outputs.source_max_blob_bytes }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
+          LOCK_PACKAGE_COUNT: ${{ steps.locked_dependency_identity.outputs.lock_package_count }}
           VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
           LOCK_DIGEST: ${{ steps.locked_dependency_identity.outputs.lock_digest }}
           RUST_VERSION: ${{ steps.sandbox_preflight.outputs.rust_version }}
@@ -854,6 +864,7 @@ jobs:
             echo "candidate_source_digest=$SOURCE_DIGEST"
             echo "candidate_cargo_lock_format=v4"
             echo "candidate_cargo_lock_sha256=$CARGO_LOCK_DIGEST"
+            echo "candidate_cargo_lock_package_count=$LOCK_PACKAGE_COUNT"
             echo "vendor_digest=$VENDOR_DIGEST"
             echo "git_fetch_image=$FETCH_IMAGE"
             echo "sandbox_image=docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
