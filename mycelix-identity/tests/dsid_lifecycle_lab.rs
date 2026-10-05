@@ -637,6 +637,76 @@ async fn dsid_053_deactivated_did_rejects_mfa_enrollment() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
+async fn dsid_054_deactivated_did_rejects_recovery_anchor_mutation() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-recovery-anchor",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument =
+        decode_entry(&did_record).expect("DID record must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation recovery-anchor regression",
+        )
+        .await;
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("recovery"),
+            "add_verification_anchor",
+            serde_json::json!({
+                "did": did.id.clone(),
+                "anchor": {
+                    "EmailHash": "sha256:post-deactivation-recovery-regression"
+                }
+            }),
+        )
+        .await;
+
+    let view: Option<SelfRecoveryConfigView> = conductor
+        .call(&cell.zome("recovery"), "get_self_recovery_view", did.id.clone())
+        .await;
+    let view = view.expect("historical self-recovery config remains readable");
+    assert!(blocked.is_err(), "deactivated DID must reject recovery-anchor mutation");
+    assert!(
+        view.anchors.is_empty(),
+        "failed post-deactivation anchor enrollment must not mutate recovery state"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-054",
+        "deactivated-did-rejects-recovery-anchor-mutation",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated DID remains auditable but cannot authorize new recovery security state.",
+        format!(
+            "anchor_mutation_rejected={} historical_anchor_count={}",
+            blocked.is_err(),
+            view.anchors.len()
+        ),
+        blocked.is_err() && view.anchors.is_empty(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna = load_dna().await;
