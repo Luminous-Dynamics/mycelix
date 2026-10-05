@@ -368,6 +368,32 @@ fn validate_create_credential_schema(
 }
 
 /// Validate schema update
+fn latest_schema_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::CredentialSchema)?);
+
+    let mut latest: Option<(u32, ActionHash)> = None;
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type)
+            || !matches!(prior_action, Action::Create(_) | Action::Update(_))
+        {
+            continue;
+        }
+
+        let action_hash = hdi::hash::hash_action(prior_action.clone())?;
+        let seq = prior_action.action_seq();
+        if latest.as_ref().is_none_or(|(latest_seq, _)| seq > *latest_seq) {
+            latest = Some((seq, action_hash));
+        }
+    }
+
+    Ok(latest.map(|(_, hash)| hash))
+}
+
 fn validate_update_credential_schema(
     action: Update,
     schema: CredentialSchema,
@@ -392,6 +418,24 @@ fn validate_update_credential_schema(
     ) {
         ValidateCallbackResult::Valid => {}
         invalid => return Ok(invalid),
+    }
+
+    // A schema update is valid only when it advances the current schema state
+    // on the author's source chain. This keeps DHT link traversal and stale
+    // coordinator snapshots from selecting the authoritative revision.
+    match latest_schema_action(action.author.clone(), action.prev_action.clone())? {
+        Some(latest_hash) if latest_hash == action.original_action_address => {}
+        Some(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Schema update must target the latest schema action on the author's source chain"
+                    .into(),
+            ));
+        }
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Schema update has no prior schema action on the author's source chain".into(),
+            ));
+        }
     }
 
     // Fetch original to enforce invariants
@@ -483,6 +527,22 @@ mod tests {
 
     fn ts(micros: i64) -> Timestamp {
         Timestamp::from_micros(micros)
+    }
+
+    #[test]
+    fn latest_schema_action_selector_prefers_source_chain_sequence() {
+        let first = ActionHash::from_raw_36(vec![1u8; 36]);
+        let second = ActionHash::from_raw_36(vec![2u8; 36]);
+
+        let mut selected = Some((4u32, first.clone()));
+        let candidate = (5u32, second.clone());
+        if selected
+            .as_ref()
+            .is_none_or(|(seq, _)| candidate.0 > *seq)
+        {
+            selected = Some(candidate);
+        }
+        assert_eq!(selected.map(|(_, hash)| hash), Some(second));
     }
 
     fn valid_schema() -> CredentialSchema {
