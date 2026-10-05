@@ -706,6 +706,7 @@ expected_case_keys = {
     "validator_symbol",
     "dispatch_symbol",
     "target_variant",
+    "coordinator_primitive",
     "invariant_code",
 }
 expected_top_keys = {"schema_version", "claim_ceiling", "cases"}
@@ -787,6 +788,7 @@ for index, case in enumerate(cases, start=1):
     validator_source = case["validator_source"]
     dispatch_symbol = case["dispatch_symbol"]
     target_variant = case["target_variant"]
+    coordinator_primitive = case["coordinator_primitive"]
     if not re.fullmatch(r"SEM-[0-9]+", case_id):
         reject(f"{case_id!r} is not a stable SEM-N numeric case identifier")
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", test):
@@ -801,6 +803,8 @@ for index, case in enumerate(cases, start=1):
         reject(f"{case_id} dispatch_symbol is not a safe Rust identifier")
     if not re.fullmatch(r"(?:EntryTypes|LinkTypes)::[A-Za-z_][A-Za-z0-9_]*", target_variant):
         reject(f"{case_id} target_variant must be EntryTypes::<Name> or LinkTypes::<Name>")
+    if coordinator_primitive not in {"create_entry", "update_entry", "create_link"}:
+        reject(f"{case_id} coordinator_primitive must be create_entry, update_entry, or create_link")
     if (
         not (
             validator_source.startswith("mycelix-workspace/mycelix-hearth/")
@@ -971,7 +975,7 @@ check_semantic_case_entrypoints() {
 # from drifting away from the validator it claims to witness.
 check_semantic_case_integrity_bindings() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
-  local ids tests zomes operations invariants rejection_reasons invariant_codes surfaces results validator_sources validator_symbols dispatch_symbols target_variants
+  local ids tests zomes operations invariants rejection_reasons invariant_codes surfaces results validator_sources validator_symbols dispatch_symbols target_variants coordinator_primitives
   mapfile -t ids < <(sed -n 's/^[[:space:]]*"case_id"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
@@ -985,15 +989,16 @@ check_semantic_case_integrity_bindings() {
   mapfile -t validator_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t dispatch_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t target_variants < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
+  mapfile -t coordinator_primitives < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
 
   local count="${#ids[@]}"
-  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#rejection_reasons[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" || "$count" -ne "${#dispatch_symbols[@]}" || "$count" -ne "${#target_variants[@]}" ]]; then
+  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#rejection_reasons[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" || "$count" -ne "${#dispatch_symbols[@]}" || "$count" -ne "${#target_variants[@]}" || "$count" -ne "${#coordinator_primitives[@]}" ]]; then
     echo "FAIL: semantic manifest fields are not structurally aligned"
     fail=1
     return
   fi
 
-  local i id zome operation invariant rejection_reason invariant_code expected_result surface integrity_file validator_source validator_symbol dispatch_symbol target_variant
+  local i id zome operation invariant rejection_reason invariant_code expected_result surface integrity_file validator_source validator_symbol dispatch_symbol target_variant coordinator_primitive
   for i in "${!ids[@]}"; do
     id="${ids[$i]}"
     zome="${zomes[$i]}"
@@ -1017,6 +1022,7 @@ check_semantic_case_integrity_bindings() {
     validator_symbol="${validator_symbols[$i]}"
     dispatch_symbol="${dispatch_symbols[$i]}"
     target_variant="${target_variants[$i]}"
+    coordinator_primitive="${coordinator_primitives[$i]}"
     integrity_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/integrity/src/lib.rs"
 
     coord_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/coordinator/src/lib.rs"
@@ -1035,11 +1041,18 @@ check_semantic_case_integrity_bindings() {
     if [[ -z "$coord_block" ]]; then
       echo "FAIL: $id could not isolate coordinator operation $operation for typed target binding"
       fail=1
-    elif printf "%s\n" "$coord_block" | rg -nU --fixed-strings "$target_variant" >/dev/null 2>&1; then
-      echo "OK:   $id coordinator $operation binds concrete target $target_variant"
+    case "$coordinator_primitive" in
+      create_entry) primitive_pattern="create_entry[[:space:]]*\\([[:space:]]*&[[:space:]]*${target_variant}[[:space:]]*\\(" ;;
+      update_entry) primitive_pattern="update_entry[[:space:]]*\\([^;]{0,160}&[[:space:]]*${target_variant}[[:space:]]*\\(" ;;
+      create_link) primitive_pattern="create_link[[:space:]]*\\([^;]{0,240}LinkTypes::${target_variant#*::}" ;;
+    esac
+    if [[ -n "$coord_block" ]] && printf '%s\n' "$coord_block" | rg -nU --pcre2 "$primitive_pattern" >/dev/null 2>&1; then
+      echo "OK:   $id coordinator $operation binds $coordinator_primitive to $target_variant"
     else
-      echo "FAIL: $id coordinator $operation does not bind declared target $target_variant"
+      echo "FAIL: $id coordinator $operation does not bind $coordinator_primitive to $target_variant"
       fail=1
+    fi
+
     fi
     target_name="${target_variant#*::}"
     if [[ "$target_variant" == EntryTypes::* ]]; then
@@ -1058,6 +1071,25 @@ check_semantic_case_integrity_bindings() {
       fi
     fi
     unset target_name
+
+    case "$coordinator_primitive" in
+      create_entry)
+        surface_pattern="FlatOp::CreateEntry"
+        ;;
+      update_entry)
+        surface_pattern="FlatOp::Update\\s*\\(\\s*OpUpdate::Entry"
+        ;;
+      create_link)
+        surface_pattern="FlatOp::Link\\s*\\(\\s*OpLink::CreateLink"
+        ;;
+    esac
+    if rg -nU --pcre2 "$surface_pattern" "$integrity_file" >/dev/null 2>&1; then
+      echo "OK:   $id integrity contains the 0.7 surface required by $coordinator_primitive"
+    else
+      echo "FAIL: $id integrity lacks the 0.7 surface required by $coordinator_primitive"
+      fail=1
+    fi
+
 
 
     if [[ ! -f "$integrity_file" ]]; then
