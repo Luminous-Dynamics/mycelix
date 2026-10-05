@@ -221,6 +221,24 @@ fn debit_treasury(treasury_id: &str, amount: u64) -> ExternResult<()> {
     unreachable!()
 }
 
+/// Require a singleton index to resolve to zero or one live root.
+/// Link-return ordering is not a protocol identity rule; multiple roots are corruption
+/// or concurrent ambiguity and therefore fail closed.
+fn exact_one_index_link(
+    links: Vec<Link>,
+    index_type: &str,
+    identifier: &str,
+) -> ExternResult<Option<Link>> {
+    match links.len() {
+        0 => Ok(None),
+        1 => Ok(links.into_iter().next()),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index is ambiguous for {identifier}: {} roots",
+            links.len()
+        )))),
+    }
+}
+
 /// Internal helper: fetch a treasury Record + deserialized entry by ID via link index.
 /// Follows the update chain to return the latest version.
 fn get_treasury_record(treasury_id: &str) -> ExternResult<(Record, Treasury)> {
@@ -228,9 +246,14 @@ fn get_treasury_record(treasury_id: &str) -> ExternResult<(Record, Treasury)> {
         LinkQuery::try_new(anchor_hash(treasury_id)?, LinkTypes::TreasuryIdToTreasury)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Treasury not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "TreasuryIdToTreasury",
+        treasury_id,
+    )?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Treasury not found".into()
+        )))?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -346,9 +369,14 @@ fn get_allocation_record(allocation_id: &str) -> ExternResult<(Record, Allocatio
         )?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Allocation not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "AllocationIdToAllocation",
+        treasury_id,
+    )?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Allocation not found".into()
+        )))?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -374,9 +402,14 @@ fn get_savings_pool_record(pool_id: &str) -> ExternResult<(Record, SavingsPool)>
         LinkQuery::try_new(anchor_hash(pool_id)?, LinkTypes::PoolIdToPool)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Savings pool not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "PoolIdToPool",
+        treasury_id,
+    )?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Savings pool not found".into()
+        )))?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -402,9 +435,14 @@ fn get_commons_pool_record(pool_id: &str) -> ExternResult<(Record, CommonsPool)>
         LinkQuery::try_new(anchor_hash(pool_id)?, LinkTypes::CommonsPoolIdToPool)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Commons pool not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "CommonsPoolIdToPool",
+        treasury_id,
+    )?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Commons pool not found".into()
+        )))?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -499,12 +537,16 @@ pub fn get_treasury(treasury_id: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&treasury_id)?, LinkTypes::TreasuryIdToTreasury)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        return Ok(Some(follow_update_chain(hash)?));
-    }
-    Ok(None)
+    let Some(link) = exact_one_index_link(
+        links,
+        "TreasuryIdToTreasury",
+        &treasury_id,
+    )? else {
+        return Ok(None);
+    };
+    let hash = ActionHash::try_from(link.target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    return Ok(Some(follow_update_chain(hash)?));    Ok(None)
 }
 
 /// Approve an allocation (manager only)
@@ -832,12 +874,16 @@ pub fn get_savings_pool(pool_id: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&pool_id)?, LinkTypes::PoolIdToPool)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        return Ok(Some(follow_update_chain(hash)?));
-    }
-    Ok(None)
+    let Some(link) = exact_one_index_link(
+        links,
+        "PoolIdToPool",
+        &pool_id,
+    )? else {
+        return Ok(None);
+    };
+    let hash = ActionHash::try_from(link.target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    return Ok(Some(follow_update_chain(hash)?));    Ok(None)
 }
 
 /// Join a savings pool
@@ -1381,12 +1427,16 @@ pub fn get_commons_pool(pool_id: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&pool_id)?, LinkTypes::CommonsPoolIdToPool)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        return Ok(Some(follow_update_chain(hash)?));
-    }
-    Ok(None)
+    let Some(link) = exact_one_index_link(
+        links,
+        "CommonsPoolIdToPool",
+        &pool_id,
+    )? else {
+        return Ok(None);
+    };
+    let hash = ActionHash::try_from(link.target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    return Ok(Some(follow_update_chain(hash)?));    Ok(None)
 }
 
 /// Get the commons pool for a DAO (O(1) link-based lookup).
@@ -1397,12 +1447,16 @@ pub fn get_dao_commons_pool(dao_did: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&dao_did)?, LinkTypes::DaoToCommonsPool)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        return Ok(Some(follow_update_chain(hash)?));
-    }
-    Ok(None)
+    let Some(link) = exact_one_index_link(
+        links,
+        "DaoToCommonsPool",
+        &dao_did,
+    )? else {
+        return Ok(None);
+    };
+    let hash = ActionHash::try_from(link.target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    return Ok(Some(follow_update_chain(hash)?));    Ok(None)
 }
 
 // ---------------------------------------------------------------------------
