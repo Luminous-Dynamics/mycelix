@@ -57,62 +57,20 @@
     "claim_ceiling"
   ],
   "cases": {
-    "canonical-payload-accepted": {
-      "outcome": "accepted",
-      "zome_reached": true
-    },
-    "authorized-semantic-rejection": {
-      "outcome": "semantic-rejected",
-      "zome_reached": true
-    },
-    "wire-signature-invalid": {
-      "outcome": "authentication-failed",
-      "zome_reached": false
-    },
-    "author-grant": {
-      "outcome": "accepted",
-      "zome_reached": true
-    },
-    "valid-capability": {
-      "outcome": "accepted",
-      "zome_reached": true
-    },
-    "wrong-capability": {
-      "outcome": "authorization-failed",
-      "zome_reached": false
-    },
-    "revoked-capability": {
-      "outcome": "authorization-failed",
-      "zome_reached": false
-    },
-    "provenance-mismatch": {
-      "outcome": "authorization-failed",
-      "zome_reached": false
-    },
-    "nonce-replay": {
-      "outcome": "authorization-failed",
-      "zome_reached": false
-    },
-    "expired-invocation": {
-      "outcome": "authorization-failed",
-      "zome_reached": false
-    },
-    "wrong-zome": {
-      "outcome": "routing-failed",
-      "zome_reached": false
-    },
-    "wrong-function": {
-      "outcome": "routing-failed",
-      "zome_reached": false
-    },
-    "wrong-cell": {
-      "outcome": "routing-failed",
-      "zome_reached": false
-    },
-    "blocked-provenance": {
-      "outcome": "authorization-failed",
-      "zome_reached": false
-    }
+    "canonical-payload-accepted": {"outcome": "accepted", "zome_reached": true},
+    "authorized-semantic-rejection": {"outcome": "semantic-rejected", "zome_reached": true},
+    "wire-signature-invalid": {"outcome": "authentication-failed", "zome_reached": false},
+    "author-grant": {"outcome": "accepted", "zome_reached": true},
+    "valid-capability": {"outcome": "accepted", "zome_reached": true},
+    "wrong-capability": {"outcome": "authorization-failed", "zome_reached": false},
+    "revoked-capability": {"outcome": "authorization-failed", "zome_reached": false},
+    "provenance-mismatch": {"outcome": "authorization-failed", "zome_reached": false},
+    "nonce-replay": {"outcome": "authorization-failed", "zome_reached": false},
+    "expired-invocation": {"outcome": "authorization-failed", "zome_reached": false},
+    "wrong-zome": {"outcome": "routing-failed", "zome_reached": false},
+    "wrong-function": {"outcome": "routing-failed", "zome_reached": false},
+    "wrong-cell": {"outcome": "routing-failed", "zome_reached": false},
+    "blocked-provenance": {"outcome": "authorization-failed", "zome_reached": false}
   },
   "supplemental_substrate": {
     "future-expiry-rejection": "Future",
@@ -178,7 +136,7 @@
     "scripts/integral/verify_d6u_runtime_record.py": "3527dc4757163e8fed7edf734ecb99190e2c24ce",
     "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
     "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
-    ".github/workflows/d6s-canonical-qualification.yml": "4b97ffb7251f7a8db0406efaaa8afaf85dad6adc"
+    ".github/workflows/d6s-canonical-qualification.yml": "1178398a47e1694908a791f6546f38dc75f93d42"
   },
   "artifact_name_template": "d6u-runtime-evidence-run-{executor_run_id}-attempt-{executor_run_attempt}"
 }
