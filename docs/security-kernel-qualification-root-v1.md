@@ -75,12 +75,20 @@ and rejects symlinks or other non-regular files in the materialized candidate tr
 
 ### Pre-materialization resource ceiling
 
-Before `git archive` materializes candidate content onto the trusted runner, S1 inspects
-the exact Git tree and enforces:
+S1 first performs a blobless partial Git fetch, which transfers commit/tree objects without
+blob contents. Git's partial-clone documentation defines `--filter=blob:none` specifically
+to defer blob transfer until the blobs are needed. S1 then inspects the exact Git tree
+through GitHub's tree API and enforces the resource profile before any candidate blob
+contents are materialized onto the trusted runner. citeturn847810search0turn847810search12
+
+The pre-materialization profile enforces:
 
 - maximum 200,000 regular-file blobs;
 - maximum 64 MiB for one blob;
-- maximum 768 MiB for total blob bytes.
+- maximum 768 MiB for total blob bytes;
+- maximum 300,000 total tree entries;
+- maximum 4,096 UTF-8 bytes per path;
+- maximum 64 MiB aggregate path bytes.
 
 The live Security Kernel candidate tree measured approximately 415 MiB with a largest blob
 of approximately 49 MiB, leaving deterministic headroom under the registered total bound.
