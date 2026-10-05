@@ -342,16 +342,23 @@ fn disjunctive_socket_child() -> ! {
     let architecture =
         SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(130) });
 
+    // Each alternative is a conjunction: family + exact socket type must both
+    // match before that clause's ALLOW is reachable. The two clauses then form
+    // the explicit OR over the permitted (family, type) pairs.
     let unix = SeccompSyscallClauseV2::new(vec![
         SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64)
             .unwrap_or_else(|_| unsafe { libc::_exit(131) }),
+        SeccompArgPredicateV1::new(1, u64::MAX, libc::SOCK_STREAM as u64)
+            .unwrap_or_else(|_| unsafe { libc::_exit(132) }),
     ])
-    .unwrap_or_else(|_| unsafe { libc::_exit(132) });
+    .unwrap_or_else(|_| unsafe { libc::_exit(133) });
     let netlink = SeccompSyscallClauseV2::new(vec![
         SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64)
-            .unwrap_or_else(|_| unsafe { libc::_exit(133) }),
+            .unwrap_or_else(|_| unsafe { libc::_exit(134) }),
+        SeccompArgPredicateV1::new(1, u64::MAX, libc::SOCK_DGRAM as u64)
+            .unwrap_or_else(|_| unsafe { libc::_exit(135) }),
     ])
-    .unwrap_or_else(|_| unsafe { libc::_exit(134) });
+    .unwrap_or_else(|_| unsafe { libc::_exit(136) });
     let socket = SeccompSyscallRuleV2::new_with_clauses(
         libc::SYS_socket,
         vec![unix, netlink],
@@ -478,6 +485,24 @@ fn disjunctive_socket_child() -> ! {
         unsafe { libc::_exit(141) };
     }
 
+    // First-predicate match + second-predicate mismatch must still deny.
+    let unix_wrong_type = unsafe {
+        libc::syscall(libc::SYS_socket, libc::AF_UNIX, libc::SOCK_DGRAM, 0)
+    };
+    let unix_wrong_type_errno = unsafe { *libc::__errno_location() };
+    if unix_wrong_type != -1 || unix_wrong_type_errno != libc::EPERM {
+        unsafe { libc::_exit(142) };
+    }
+
+    // Second clause's first predicate matches, but its type predicate fails.
+    let netlink_wrong_type = unsafe {
+        libc::syscall(libc::SYS_socket, libc::AF_NETLINK, libc::SOCK_STREAM, 0)
+    };
+    let netlink_wrong_type_errno = unsafe { *libc::__errno_location() };
+    if netlink_wrong_type != -1 || netlink_wrong_type_errno != libc::EPERM {
+        unsafe { libc::_exit(143) };
+    }
+
     let denied = unsafe {
         libc::syscall(
             libc::SYS_socket,
@@ -488,10 +513,10 @@ fn disjunctive_socket_child() -> ! {
     };
     let denied_errno = unsafe { *libc::__errno_location() };
     if denied != -1 || denied_errno != libc::EPERM {
-        unsafe { libc::_exit(142) };
+        unsafe { libc::_exit(144) };
     }
 
-    disjunctive_stage(b"H-inet-denied-ok\n");
+    disjunctive_stage(b"H-invalid-pairs-denied-ok\n");
     let unlisted = unsafe { libc::syscall(libc::SYS_getpid) };
     let unlisted_errno = unsafe { *libc::__errno_location() };
     if unlisted != -1 || unlisted_errno != libc::EPERM {
