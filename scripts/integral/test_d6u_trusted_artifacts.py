@@ -159,6 +159,11 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["attestation_verification"]["subject_set_exact"] is True
     assert policy["attestation_verification"]["require_verified_timestamp"] is True
 
+    workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
+    assert workflow_text.count("TRUSTED_POLICY_VERSION:") == 1
+    assert "TRUSTED_POLICY_VERSION: \"%d\"" % policy["policy_version"] in workflow_text
+    assert "D6U_TRUSTED_POLICY_VERSION=\"%d\"" % policy["policy_version"] in workflow_text
+
     assert policy["trusted_actions"] == {
         "actions/checkout": {
             "ref": "fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
