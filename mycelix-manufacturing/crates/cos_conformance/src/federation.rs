@@ -3461,6 +3461,7 @@ mod tests {
         SameEndpointSnapshotMismatch,
         PreviousPublicationMismatch,
         PublicationChainEmpty,
+        PublicationCollectionEmpty,
         PublicationForkDetected,
         ConsistencyReceiptSchemaMismatch,
         ConsistencyReceiptProfileMismatch,
@@ -3645,6 +3646,12 @@ mod tests {
             &FederationStateMachineTraceCheckpointPublication,
         )],
     ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
+        if snapshots.is_empty() {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationCollectionEmpty
+            );
+        }
+
         for (capsule, publication) in snapshots {
             validate_state_machine_trace_checkpoint_publication(capsule, publication)?;
         }
@@ -5960,6 +5967,12 @@ mod tests {
             )
             .is_ok(),
             "qualified collection audit must validate concrete publications before fork detection"
+        );
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_set_against_snapshots(&[]),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationCollectionEmpty
+            )
         );
 
         let mut forged_collection_publication = fork_a_publication.clone();
