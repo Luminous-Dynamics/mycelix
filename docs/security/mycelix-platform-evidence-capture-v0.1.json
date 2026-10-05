@@ -486,6 +486,46 @@
       "id": "CAP-V33",
       "mutation": "ek-cert-absent",
       "expected": "INDETERMINATE"
+    },
+    {
+      "id": "CAP-V34",
+      "mutation": "activatecredential-verifier-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V35",
+      "mutation": "activatecredential-receipt-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V36",
+      "mutation": "activatecredential-ek-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V37",
+      "mutation": "activatecredential-wire-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V38",
+      "mutation": "activatecredential-ak-name-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V39",
+      "mutation": "activatecredential-secret-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V40",
+      "mutation": "activatecredential-source-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V41",
+      "mutation": "activatecredential-indeterminate",
+      "expected": "INDETERMINATE"
     }
   ],
   "execution_modes": {
@@ -528,7 +568,8 @@
     "eventlog-reconstruction.json",
     "ek-nv-index-handles.txt",
     "ek-certificate-capture-transcript.json",
-    "ek-certificate-capture.json"
+    "ek-certificate-capture.json",
+    "activatecredential-capture.json"
   ],
   "required_reconstruction_output": [
     "profile_id",
@@ -548,5 +589,36 @@
     "verifier_id",
     "verifier_source_sha256",
     "content_sha256"
+  ],
+  "restricted_artifacts": [
+    "credential-secret.bin",
+    "activated-secret.bin",
+    "ak-authorization.txt"
+  ],
+  "rules": [
+    {
+      "id": "CAP-036",
+      "rule": "ActivateCredential receipt is mandatory in the platform capture and its verifier result must bind exact AK Name, EK public/wire identity, TPM identity, command receipts and source digest."
+    },
+    {
+      "id": "CAP-037",
+      "rule": "A physical activation PASS requires exact byte equality between the restricted registrar challenge and recovered secret; only their digests enter the public capture-session manifest."
+    },
+    {
+      "id": "CAP-038",
+      "rule": "AK authorization is supplied through a protected file and the command receipt must redact the authorization value; the manifest binds only the authorization-file digest."
+    },
+    {
+      "id": "CAP-039",
+      "rule": "Activation evidence cannot be spliced across sessions, EK identities, AK Names, or public-wire observations; every such mutation is DENY."
+    },
+    {
+      "id": "CAP-040",
+      "rule": "Absence of the authorization or physical activation execution is INDETERMINATE and never becomes PASS through metadata alone."
+    },
+    {
+      "id": "CAP-041",
+      "rule": "Restricted activation secret and authorization artifacts are not qualification-summary fields and must not be published as part of the evidence manifest."
+    }
   ]
 }
