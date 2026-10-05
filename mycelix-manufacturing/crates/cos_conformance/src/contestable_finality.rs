@@ -19,6 +19,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const D6N_ASSESSMENT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-ASSESSMENT-V1\0";
 pub const D6N_ASSESSMENT_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
+pub const D6N_PROFILE_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-PROFILE-V1\\0";
+pub const D6N_PROFILE_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
 pub const CONTESTABLE_FINALITY_CLAIM_CEILING: &str =
     "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim.";
 
@@ -141,6 +143,27 @@ pub struct FinalityQualificationProfileV1 {
 }
 
 impl FinalityQualificationProfileV1 {
+    /// Recompute the D6N qualification-profile identity from every policy field.
+    ///
+    /// This is an integrity binding only. A consumer that needs to trust a
+    /// particular profile must additionally pin its expected commitment.
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.profile_commitment.clear();
+        let payload = serde_json::to_vec(&unsigned)
+            .expect("D6N qualification profile must be serializable");
+        let mut input =
+            Vec::with_capacity(D6N_PROFILE_COMMITMENT_DOMAIN.len() + payload.len());
+        input.extend_from_slice(D6N_PROFILE_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&payload);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.profile_commitment == self.recomputed_commitment()
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.profile_id)
             && non_empty(&self.semantic_environment_root)
@@ -1022,9 +1045,11 @@ mod tests {
             current_frontier_required: true,
             provider_reports_may_satisfy_independence: false,
             allow_explicit_conflict_resolution: true,
-            profile_commitment: "profile-commitment".into(),
+            profile_commitment: String::new(),
             claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
-        }
+        };
+        profile.profile_commitment = profile.recomputed_commitment();
+        profile
     }
 
     fn observer(id: &str, evidence: &str, custody: &str) -> ExternalObserverProfileV1 {
