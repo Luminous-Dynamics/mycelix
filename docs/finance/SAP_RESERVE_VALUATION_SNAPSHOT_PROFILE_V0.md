@@ -100,7 +100,7 @@ Required semantic fields:
 | `supersedes` | Optional prior snapshot reference |
 | `created_at` | Snapshot action time; must be bound to the signed Create action |
 
-The field set is illustrative until the implementation PR freezes exact serialization.
+A machine-readable schema manifest is published alongside this profile at `SAP_RESERVE_VALUATION_SNAPSHOT_PROFILE_V0.json`. The current implementation tranche freezes the structural fields and basic invariants; authority certificates and source-record revalidation remain subsequent steps.
 
 ## 5. Snapshot identity
 
