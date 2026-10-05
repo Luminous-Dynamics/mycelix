@@ -285,8 +285,8 @@ fn validate_price_report(
     report: PriceReport,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind the reporter identity to the signed Create action.
-    let author_did = match action {
-        EntryCreationAction::Create(ref create) => did_for_author(&create.author),
+    let author_did = match &action {
+        EntryCreationAction::Create(create) => did_for_author(&create.author),
     };
     if let ValidateCallbackResult::Invalid(msg) =
         require_did_is_author("PriceReport", "reporter_did", &report.reporter_did, &author_did)
