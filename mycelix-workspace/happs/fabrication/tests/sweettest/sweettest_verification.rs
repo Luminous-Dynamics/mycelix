@@ -328,8 +328,8 @@ async fn test_verification_summary_with_multiple_results() {
         )
         .await;
 
-    // Knowledge is absent from this Fabrication-only fixture, so the claim
-    // must be rejected and must not increment claims_count.
+    // Knowledge is absent from this Fabrication-only fixture. The claim
+    // remains queryable but carries no current epistemic score.
     let claim_input = SubmitClaimInput {
         design_hash: design_hash.clone(),
         claim_type: serde_json::json!({
@@ -339,14 +339,13 @@ async fn test_verification_summary_with_multiple_results() {
         supporting_evidence: vec![],
     };
 
-    let claim_result = conductor
-        .call_fallible::<_, Record>(
+    let _: Record = conductor
+        .call(
             &alice.zome("verification_coordinator"),
             "submit_safety_claim",
             claim_input,
         )
         .await;
-    assert!(claim_result.is_err());
 
     // Check summary
     let summary: VerificationSummary = conductor
@@ -360,7 +359,7 @@ async fn test_verification_summary_with_multiple_results() {
     assert_eq!(summary.total_verifications, 2);
     assert_eq!(summary.passed, 1);
     assert_eq!(summary.failed, 1);
-    assert_eq!(summary.claims_count, 0);
+    assert_eq!(summary.claims_count, 1);
     assert!(summary.average_confidence > 0.0);
 
     drop(conductor);
