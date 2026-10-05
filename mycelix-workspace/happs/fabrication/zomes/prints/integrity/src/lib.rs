@@ -265,13 +265,22 @@ fn validate_print_job_update_authorization(
             ))
         })?;
 
-    if action.author == original_job.requester || action.author == printer.owner {
+    if print_job_update_authorized(&action.author, &original_job.requester, &printer.owner) {
         Ok(ValidateCallbackResult::Valid)
     } else {
         Ok(ValidateCallbackResult::Invalid(
             "Only the PrintJob requester or printer owner can update the entry".into(),
         ))
     }
+}
+
+/// Pure authorization predicate used by the integrity-boundary update check.
+fn print_job_update_authorized(
+    author: &AgentPubKey,
+    requester: &AgentPubKey,
+    printer_owner: &AgentPubKey,
+) -> bool {
+    author == requester || author == printer_owner
 }
 
 /// Validate entry creation
@@ -606,6 +615,44 @@ mod tests {
 
     fn is_invalid(result: &ExternResult<ValidateCallbackResult>) -> bool {
         matches!(result, Ok(ValidateCallbackResult::Invalid(_)))
+    }
+
+    // =========================================================================
+    // PrintJob update authorization tests
+    // =========================================================================
+
+    #[test]
+    fn test_print_job_update_authorized_for_requester() {
+        let requester = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let printer_owner = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        assert!(print_job_update_authorized(
+            &requester,
+            &requester,
+            &printer_owner,
+        ));
+    }
+
+    #[test]
+    fn test_print_job_update_authorized_for_printer_owner() {
+        let requester = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let printer_owner = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        assert!(print_job_update_authorized(
+            &printer_owner,
+            &requester,
+            &printer_owner,
+        ));
+    }
+
+    #[test]
+    fn test_print_job_update_rejects_unrelated_author() {
+        let requester = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let printer_owner = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        let unrelated = AgentPubKey::from_raw_36(vec![3u8; 36]);
+        assert!(!print_job_update_authorized(
+            &unrelated,
+            &requester,
+            &printer_owner,
+        ));
     }
 
     // =========================================================================
