@@ -231,6 +231,7 @@ pub struct VerifyTierInput {
 pub fn verify_tier_remote(input: VerifyTierInput) -> ExternResult<ConsciousnessTier> {
     verify_issuer_active("remote tier verification")?;
     let did = format!("did:mycelix:{}", input.agent);
+    verify_did_active(&did, "remote tier target verification")?;
     let identity_score = 1.0;
     let reputation_score = get_aggregated_reputation(&did)?;
     let community_score = get_community_trust_score(&did)?;
@@ -347,6 +348,7 @@ fn get_predicted_entropy(_did: &str) -> ExternResult<f64> {
 pub fn get_agent_profile_remote(agent: AgentPubKey) -> ExternResult<ConsciousnessProfile> {
     verify_issuer_active("remote profile query")?;
     let did = format!("did:mycelix:{}", agent);
+    verify_did_active(&did, "remote profile target query")?;
     let identity_score = 1.0;
     let reputation_score = get_aggregated_reputation(&did)?;
     let community_score = get_community_trust_score(&did)?;
@@ -370,6 +372,7 @@ pub fn get_did_document_remote(agent: AgentPubKey) -> ExternResult<Option<DidDoc
     verify_issuer_active("remote DID document query")?;
 
     let did = format!("did:mycelix:{}", agent);
+    verify_did_active(&did, "remote DID document target")?;
     let response = call(
         CallTargetCell::Local,
         ZomeName::new("did_registry"),
