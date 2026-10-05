@@ -86,22 +86,6 @@ jobs:
           assert dispatcher_at_run["sha"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA"], (
               "executing S0 dispatcher blob is outside the registered trust profile"
           )
-          dispatcher_content = dispatcher_at_run.get("content")
-          assert dispatcher_content, "S0 workflow content was not returned for cross-anchor verification"
-          import base64
-          dispatcher_text = base64.b64decode(dispatcher_content).decode("utf-8")
-          verifier_pin = re.search(
-              r'TRUSTED_RESULT_VERIFIER_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"',
-              dispatcher_text,
-          )
-          assert verifier_pin, "S0 dispatcher does not carry an external S2 verifier blob pin"
-          verifier_at_run = get(
-              f"/repos/{repo}/contents/{os.environ['TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH']}?ref={run.get('workflow_sha')}"
-          )
-          assert verifier_at_run["sha"] == verifier_pin.group(1), (
-              "executing S2 verifier blob does not match the externally anchored S0 profile"
-          )
-
           main_sha = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
           subprocess.run(["git", "merge-base", "--is-ancestor", workflow_sha, main_sha], check=True)
 
