@@ -36,7 +36,8 @@
     "supersedes": "optional ActionHash",
     "created_at": "must equal signed Create action timestamp",
     "source_item": "non-empty bounded canonical source item identifier",
-    "source_action_hashes": "1..=200 unique ActionHash values in canonical sorted order"
+    "source_action_hashes": "1..=200 unique ActionHash values in canonical sorted order",
+    "publisher_policy_action_hash": "ActionHash resolving to an immutable ReserveValuationAuthorityPolicy"
   },
   "reserve_consumption": {
     "allowed_qualification_state": "Qualified",
@@ -54,7 +55,13 @@
       "threshold_attested_snapshot"
     ],
     "empty_registry_implies_authority": false,
-    "authority_bootstrap_profile": "AC-106"
+    "authority_bootstrap_profile": "AC-106",
+    "policy_record": {
+      "entry_type": "ReserveValuationAuthorityPolicy",
+      "immutable": true,
+      "publisher_binding": "snapshot publisher DID must appear in authorized_publisher_dids",
+      "root_of_trust": "deferred to AC-106"
+    }
   },
   "source_commitment": {
     "algorithm": "BLAKE2b-256",
