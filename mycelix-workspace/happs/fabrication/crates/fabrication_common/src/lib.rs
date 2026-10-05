@@ -1501,7 +1501,7 @@ pub enum SafetyClaimType {
     Custom(String),
 }
 
-/// Epistemic classification from Knowledge hApp
+/// Epistemic classification returned by an external Knowledge source.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ClaimEpistemic {
     /// Empirical verifiability (0.0-1.0)
@@ -1510,6 +1510,25 @@ pub struct ClaimEpistemic {
     pub normative: f32,
     /// Mythic/meaning dimension (0.0-1.0)
     pub mythic: f32,
+}
+
+/// Provenance of the epistemic values stored on a safety claim.
+///
+/// LegacyUnattributed is the fail-closed interpretation for records written
+/// before provenance was persisted. Such records remain queryable but must not
+/// contribute to current Knowledge-sourced epistemic scoring.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EpistemicProvenance {
+    /// Values were accepted from a validated Knowledge classification response.
+    KnowledgeClassified,
+    /// Historical record without a persisted source/provenance discriminator.
+    LegacyUnattributed,
+}
+
+impl Default for EpistemicProvenance {
+    fn default() -> Self {
+        Self::LegacyUnattributed
+    }
 }
 
 /// Status of a verification request
@@ -2833,6 +2852,28 @@ mod tests {
                 FABRICATION_ZOME_ALLOWLIST.contains(&domain.to_string().as_str()),
                 "Domain {} not in allowlist", domain
             );
+        }
+    }
+
+    // === EPISTEMIC PROVENANCE TESTS ===
+
+    #[test]
+    fn test_epistemic_provenance_defaults_legacy() {
+        assert_eq!(
+            EpistemicProvenance::default(),
+            EpistemicProvenance::LegacyUnattributed
+        );
+    }
+
+    #[test]
+    fn test_epistemic_provenance_serde_roundtrip() {
+        for provenance in [
+            EpistemicProvenance::KnowledgeClassified,
+            EpistemicProvenance::LegacyUnattributed,
+        ] {
+            let json = serde_json::to_string(&provenance).unwrap();
+            let restored: EpistemicProvenance = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored, provenance);
         }
     }
 
