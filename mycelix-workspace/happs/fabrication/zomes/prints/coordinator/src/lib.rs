@@ -873,38 +873,75 @@ pub fn start_cincinnati_monitoring(input: StartCincinnatiInput) -> ExternResult<
 /// Report an anomaly detected by Cincinnati monitoring
 #[hdk_extern]
 pub fn report_cincinnati_anomaly(input: ReportAnomalyInput) -> ExternResult<Record> {
-    // Require anomalies to be reported by the printer owner.
-    // Look up the session via SessionAnchorToSession, then trace to the job for auth.
+    // Authorization must fail closed: the session anchor must resolve to
+    // exactly one valid Cincinnati session before any anomaly is accepted.
     let session_anchor = cincinnati_session_anchor(&input.session_id)?;
     let session_links = get_links(
         LinkQuery::try_new(session_anchor.clone(), LinkTypes::SessionAnchorToSession)?,
         GetStrategy::default(),
     )?;
-    if let Some(session_link) = session_links.first() {
-        if let Some(session_hash) = session_link.target.clone().into_action_hash() {
-            if let Some(session_record) = get(session_hash, GetOptions::default())? {
-                if let Some(session_entry) = session_record
-                    .entry()
-                    .to_app_option::<CincinnatiSessionEntry>()
-                    .ok()
-                    .flatten()
-                {
-                    let job_record = get(session_entry.print_job_hash, GetOptions::default())?
-                        .ok_or(wasm_error!(WasmErrorInner::Guest(
-                            "Job not found for session".to_string()
-                        )))?;
-                    let job: PrintJob = job_record
-                        .entry()
-                        .to_app_option()
-                        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                        .ok_or(wasm_error!(WasmErrorInner::Guest(
-                            "Could not parse job".to_string()
-                        )))?;
-                    ensure_caller_is_printer_owner(&job.printer_hash)?;
-                }
-            }
-        }
+
+    if session_links.len() != 1 {
+        return Err(FabricationError::unauthorized(
+            "report_cincinnati_anomaly",
+            "Cincinnati session authorization is ambiguous or unavailable",
+        ));
     }
+
+    let session_hash = session_links[0]
+        .target
+        .clone()
+        .into_action_hash()
+        .ok_or_else(|| {
+            FabricationError::unauthorized(
+                "report_cincinnati_anomaly",
+                "Cincinnati session link target is invalid",
+            )
+        })?;
+
+    let session_record = get(session_hash, GetOptions::default())?
+        .ok_or(FabricationError::not_found(
+            "CincinnatiSession",
+            &session_links[0].target,
+        ))?;
+
+    let session_entry: CincinnatiSessionEntry = session_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or_else(|| {
+            FabricationError::unauthorized(
+                "report_cincinnati_anomaly",
+                "Cincinnati session record is malformed",
+            )
+        })?;
+
+    if session_entry.session.session_id != input.session_id {
+        return Err(FabricationError::unauthorized(
+            "report_cincinnati_anomaly",
+            "Cincinnati session identity mismatch",
+        ));
+    }
+
+    let job_record = get(session_entry.print_job_hash.clone(), GetOptions::default())?
+        .ok_or(FabricationError::not_found(
+            "PrintJob",
+            &session_entry.print_job_hash,
+        ))?;
+    let job: PrintJob = job_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or_else(|| {
+            FabricationError::unauthorized(
+                "report_cincinnati_anomaly",
+                "Cincinnati session references a malformed print job",
+            )
+        })?;
+
+    // Only the printer owner associated with the validated session may report
+    // anomalies for that session.
+    ensure_caller_is_printer_owner(&job.printer_hash)?;
 
     let anomaly_entry = CincinnatiAnomalyEntry {
         session_id: input.session_id.clone(),
@@ -920,7 +957,6 @@ pub fn report_cincinnati_anomaly(input: ReportAnomalyInput) -> ExternResult<Reco
     });
 
     // Link to session via anchor
-    let session_anchor = cincinnati_session_anchor(&input.session_id)?;
     create_link(
         session_anchor,
         anomaly_hash.clone(),
