@@ -342,6 +342,10 @@ jobs:
               "downloaded qualification receipt bytes do not match GitHub's recorded artifact digest"
           )
 
+          # Final evidence binding seals the accepted retained artifact to the exact
+          # execution binding. Unlike the pre-artifact binding above, this commitment
+          # cannot be computed until GitHub's artifact identity and the receipt bytes
+          # have independently verified successfully.
           receipt_bytes = artifact_bytes
           if zipfile.is_zipfile(io.BytesIO(artifact_bytes)):
               with zipfile.ZipFile(io.BytesIO(artifact_bytes)) as archive:
@@ -397,6 +401,37 @@ jobs:
               assert re.fullmatch(r"[0-9a-f]{64}", receipt.get(key, "")), (
                   f"qualification receipt field {key!r} is not a SHA-256 digest"
               )
+
+          evidence_binding = dict(binding)
+          evidence_binding["schema"] = "security-kernel-execution-binding-v2"
+          evidence_binding["artifact_name"] = expected_artifact_name
+          evidence_binding["artifact_id"] = int(artifact["id"])
+          evidence_binding["artifact_digest"] = artifact_digest
+          evidence_binding["receipt_content_sha256"] = receipt_content_sha256
+
+          def evidence_binding_digest(document):
+              encoded = json.dumps(
+                  document, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+              ).encode("utf-8")
+              return hashlib.sha256(encoded).hexdigest()
+
+          evidence_digest = evidence_binding_digest(evidence_binding)
+          for field, replacement in (
+              ("artifact_name", expected_artifact_name + "-mutated"),
+              ("artifact_id", evidence_binding["artifact_id"] + 1),
+              ("artifact_digest", "sha256:" + "3" * 64),
+              ("receipt_content_sha256", "4" * 64),
+          ):
+              mutated = dict(evidence_binding)
+              mutated[field] = replacement
+              assert evidence_binding_digest(mutated) != evidence_digest, (
+                  f"final evidence binding digest is invariant under mutation of {field}"
+              )
+
+          assert evidence_binding["artifact_name"] == expected_artifact_name
+          assert evidence_binding["artifact_id"] == artifact["id"]
+          assert evidence_binding["artifact_digest"] == artifact_digest
+          assert evidence_binding["receipt_content_sha256"] == receipt_content_sha256
           print(
               "PASS: downloaded qualification receipt bytes match the recorded artifact digest "
               "and bind the exact candidate/run/trust-gate identity"
@@ -417,6 +452,8 @@ jobs:
               "qualification_receipt_content_sha256": receipt_content_sha256,
               "execution_binding": binding,
               "execution_binding_sha256": binding_digest,
+              "evidence_binding": evidence_binding,
+              "evidence_binding_sha256": evidence_digest,
               "independent_qualification": "verified-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
