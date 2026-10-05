@@ -849,6 +849,48 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
     )))
 }
 
+/// Look up the exact recipient claim for a transfer ID.
+///
+/// This is observational only. It never creates, updates, or consumes monetary state.
+/// Absence means the recipient claim is not currently visible; callers must not
+/// interpret absence as transfer failure or completion.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetSapTransferClaimInput {
+    pub transfer_id: String,
+}
+
+#[hdk_extern]
+pub fn get_sap_transfer_claim(
+    input: GetSapTransferClaimInput,
+) -> ExternResult<Option<Record>> {
+    validate_id(&input.transfer_id, "transfer_id")?;
+
+    let claim_anchor = transfer_claim_anchor(&input.transfer_id)?;
+    let links = get_links(
+        LinkQuery::try_new(claim_anchor, LinkTypes::TransferIdToClaim)?,
+        GetStrategy::default(),
+    )?;
+
+    if links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple SAP transfer claims exist for {}; refusing ambiguous lookup",
+            input.transfer_id
+        ))));
+    }
+
+    let Some(link) = links.into_iter().next() else {
+        return Ok(None);
+    };
+
+    let hash = ActionHash::try_from(link.target)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Invalid SAP transfer claim target".into(),
+        )))?;
+
+    let record = get(hash, GetOptions::default())?;
+    Ok(record)
+}
+
 /// Recipient-side SAP settlement.
 ///
 /// The recipient creates exactly one immutable claim from the exact sender
@@ -976,11 +1018,11 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
 // SAP Minting (governance-authorized issuance)
 // ---------------------------------------------------------------------------
 
-/// Mint SAP from a governance proposal. Creates an immutable SapMintRecord
-/// and credits the recipient's balance.
+/// Create an immutable governance SAP mint authorization.
 ///
-/// This is the ONLY way new SAP enters circulation outside of collateral deposits.
-/// Requires governance authorization (verified via cross-zome call).
+/// This operation does not mutate the recipient balance. The recipient must call
+/// claim_sap_mint to consume the authorization and finalize the owner-authenticated
+/// balance increase.
 #[hdk_extern]
 pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResult<Record> {
     // Governance issuance creates an immutable authorization. It does not directly
