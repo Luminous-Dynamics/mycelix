@@ -545,3 +545,77 @@ fn validate_reporter_accuracy(acc: &ReporterAccuracy) -> ExternResult<ValidateCa
     }
     Ok(ValidateCallbackResult::Valid)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action_hash(fill: u8) -> ActionHash {
+        ActionHash::from_raw_36(vec![fill; 36])
+    }
+
+    #[test]
+    fn consensus_commitment_is_order_independent() {
+        let a = test_action_hash(1);
+        let b = test_action_hash(2);
+        let first = canonical_consensus_source_commitment(
+            "grain",
+            Timestamp::from_micros(100),
+            CONSENSUS_AGGREGATION_PROFILE_V1,
+            &[a.clone(), b.clone()],
+        );
+        let reversed = canonical_consensus_source_commitment(
+            "grain",
+            Timestamp::from_micros(100),
+            CONSENSUS_AGGREGATION_PROFILE_V1,
+            &[b, a],
+        );
+        assert_eq!(first, reversed);
+    }
+
+    #[test]
+    fn consensus_commitment_changes_with_context() {
+        let sources = [test_action_hash(3), test_action_hash(4)];
+        let base = canonical_consensus_source_commitment(
+            "grain",
+            Timestamp::from_micros(100),
+            CONSENSUS_AGGREGATION_PROFILE_V1,
+            &sources,
+        );
+        let different_item = canonical_consensus_source_commitment(
+            "rice",
+            Timestamp::from_micros(100),
+            CONSENSUS_AGGREGATION_PROFILE_V1,
+            &sources,
+        );
+        let different_window = canonical_consensus_source_commitment(
+            "grain",
+            Timestamp::from_micros(101),
+            CONSENSUS_AGGREGATION_PROFILE_V1,
+            &sources,
+        );
+        assert_ne!(base, different_item);
+        assert_ne!(base, different_window);
+    }
+
+    #[test]
+    fn consensus_commitment_changes_with_source_set() {
+        let a = test_action_hash(5);
+        let b = test_action_hash(6);
+        let c = test_action_hash(7);
+        let ab = canonical_consensus_source_commitment(
+            "grain",
+            Timestamp::from_micros(100),
+            CONSENSUS_AGGREGATION_PROFILE_V1,
+            &[a.clone(), b],
+        );
+        let ac = canonical_consensus_source_commitment(
+            "grain",
+            Timestamp::from_micros(100),
+            CONSENSUS_AGGREGATION_PROFILE_V1,
+            &[a, c],
+        );
+        assert_ne!(ab, ac);
+    }
+}
