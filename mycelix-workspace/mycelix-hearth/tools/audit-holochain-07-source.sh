@@ -2520,7 +2520,6 @@ PY
     echo "FAIL: qualification workflow must fail closed on dependency-closure provenance and prove the lock closure remains immutable"
     fail=1
   fi
-}
   if python3 - "$workflow" <<'PY'
 from pathlib import Path
 import sys
@@ -2544,6 +2543,7 @@ PY
   else
     fail=1
   fi
+}
 
 # Coordinator-to-integrity operation binding. A static validator can be internally
 # complete while the coordinator silently uses an operation family that the integrity
