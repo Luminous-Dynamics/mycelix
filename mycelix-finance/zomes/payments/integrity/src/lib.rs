@@ -1131,7 +1131,7 @@ fn validate_update_sap_balance(
         let delta = bal.balance - original.balance;
         let Some(justification_hash) = bal.justified_by.clone() else {
             return Ok(ValidateCallbackResult::Invalid(
-                "SAP balance increase requires an immutable transfer claim or mint record".into(),
+                "SAP balance increase requires an immutable transfer or mint claim".into(),
             ));
         };
 
@@ -1168,23 +1168,41 @@ fn validate_update_sap_balance(
                     "Mint claim has already been consumed by another balance transition".into(),
                 ));
             }
-        } else if let Some(mint) = justification
-            .entry()
-            .to_app_option::<SapMintRecord>()
-            .ok()
-            .flatten()
-        {
-            if mint.recipient_did != bal.member_did || mint.amount != delta {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "SAP balance increase does not match mint recipient/amount".into(),
-                ));
-            }
         } else {
             return Ok(ValidateCallbackResult::Invalid(
-                "SAP balance increase justification must be a valid transfer claim or mint record"
-                    .into(),
+                "SAP balance increase justification must be a transfer or mint claim".into(),
             ));
         }
+    } else if bal.balance < original.balance {
+        let delta = original.balance - bal.balance;
+        if let Some(justification_hash) = bal.justified_by.clone() {
+            let justification = must_get_valid_record(justification_hash)?;
+            if let Some(intent) = justification
+                .entry()
+                .to_app_option::<SapTransferIntent>()
+                .ok()
+                .flatten()
+            {
+                if intent.from_did != bal.member_did
+                    || intent.to_did == bal.member_did
+                    || intent.amount != delta
+                    || intent.balance_before_action_hash != action.original_action_address
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "SAP transfer debit does not exactly consume its sender authorization"
+                            .into(),
+                    ));
+                }
+            } else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "A SAP balance decrease carrying justification must reference a transfer intent"
+                        .into(),
+                ));
+            }
+        }
+        // Unjustified decreases are reserved for existing owner-authenticated
+        // debit/demurrage paths. Dedicated hearth/redeem/fee provenance remains
+        // separately tracked by AC-117/AC-118.
     }
 
     Ok(ValidateCallbackResult::Valid)
