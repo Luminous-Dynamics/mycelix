@@ -23,6 +23,7 @@ on:
 permissions:
   actions: read
   contents: read
+  pull-requests: read
 
 concurrency:
   group: security-kernel-independent-${{ inputs.candidate_repository }}-${{ inputs.candidate_pr }}-${{ inputs.candidate_sha }}
