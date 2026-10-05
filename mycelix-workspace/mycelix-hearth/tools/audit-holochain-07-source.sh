@@ -2469,7 +2469,12 @@ if min(push_start, pr_start, wd_start) < 0:
 push_block = source[push_start:pr_start]
 pr_block = source[pr_start:wd_start]
 for label, block in [("push", push_block), ("pull_request", pr_block)]:
-    for required in ['      - ".gitmodules"', '      - "mycelix-health/**"']:
+    for required in [
+        '      - ".gitmodules"',
+        '      - "mycelix-health/**"',
+        '      - ".github/workflows/hearth-07-qualification.yml"',
+        '      - ".github/workflows/hearth-07-workflow-lint.yml"',
+    ]:
         if required not in block:
             print(f"FAIL: qualification {label} trigger omits provenance-sensitive path {required}")
             raise SystemExit(2)
