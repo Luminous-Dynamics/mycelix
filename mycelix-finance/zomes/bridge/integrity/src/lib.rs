@@ -10,6 +10,7 @@
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{CrossClusterNotification, did_for_author, require_did_is_author};
+use price_oracle_integrity::PriceReport;
 
 // =============================================================================
 // STRING LENGTH LIMITS — Prevent DHT bloat attacks
@@ -126,6 +127,7 @@ pub struct ReserveValuationSnapshot {
     pub id: String,
     pub basis_id: String,
     pub asset_id: String,
+    pub source_item: String,
     pub unit: String,
     pub quote_unit: String,
     pub valuation_numerator: u64,
@@ -135,6 +137,7 @@ pub struct ReserveValuationSnapshot {
     pub effective_window_end: Timestamp,
     pub freshness_limit_micros: i64,
     pub source_commitment: String,
+    pub source_action_hashes: Vec<ActionHash>,
     pub source_count: u32,
     pub aggregation_profile_id: String,
     pub publisher_policy_id: String,
@@ -746,6 +749,16 @@ fn validate_create_finance_bridge_event(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn canonical_source_commitment(source_hashes: &[ActionHash]) -> String {
+    let mut canonical = source_hashes.to_vec();
+    canonical.sort();
+    canonical
+        .iter()
+        .map(ActionHash::to_hex)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 fn validate_create_reserve_valuation_snapshot(
     action: EntryCreationAction,
     snapshot: ReserveValuationSnapshot,
@@ -757,7 +770,35 @@ fn validate_create_reserve_valuation_snapshot(
         ),
     };
 
-    validate_reserve_valuation_snapshot_fields(&snapshot, &author_did, action_timestamp)
+    let shape =
+        validate_reserve_valuation_snapshot_fields(&snapshot, &author_did, action_timestamp)?;
+    if !matches!(shape, ValidateCallbackResult::Valid) {
+        return Ok(shape);
+    }
+
+    for source_hash in &snapshot.source_action_hashes {
+        let record = must_get_valid_record(source_hash.clone())?;
+        let report = record
+            .entry()
+            .to_app_option::<PriceReport>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode reserve source PriceReport: {e:?}"
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Reserve source dependency is not a PriceReport".into()
+                ))
+            })?;
+        if report.item != snapshot.source_item {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reserve source report item does not match snapshot source_item".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_reserve_valuation_snapshot_fields(
@@ -769,16 +810,18 @@ fn validate_reserve_valuation_snapshot_fields(
         ("snapshot id", snapshot.id.as_str(), MAX_REFERENCE_LEN),
         ("valuation basis id", snapshot.basis_id.as_str(), MAX_REFERENCE_LEN),
         ("asset id", snapshot.asset_id.as_str(), MAX_REFERENCE_LEN),
+        ("source item", snapshot.source_item.as_str(), MAX_HAPP_ID_LEN),
         ("unit", snapshot.unit.as_str(), MAX_HAPP_ID_LEN),
         ("quote unit", snapshot.quote_unit.as_str(), MAX_HAPP_ID_LEN),
-        (
-            "source commitment",
-            snapshot.source_commitment.as_str(),
-            MAX_REFERENCE_LEN,
-        ),
+        ("source commitment", snapshot.source_commitment.as_str(), MAX_REFERENCE_LEN),
         (
             "aggregation profile id",
             snapshot.aggregation_profile_id.as_str(),
+            MAX_REFERENCE_LEN,
+        ),
+        (
+            "publisher policy id",
+            snapshot.publisher_policy_id.as_str(),
             MAX_REFERENCE_LEN,
         ),
         ("publisher DID", snapshot.publisher_did.as_str(), MAX_DID_LEN),
@@ -795,14 +838,12 @@ fn validate_reserve_valuation_snapshot_fields(
         }
     }
 
-    if let ValidateCallbackResult::Invalid(msg) =
-        require_did_is_author(
-            "ReserveValuationSnapshot",
-            "publisher_did",
-            &snapshot.publisher_did,
-            author_did,
-        )
-    {
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "ReserveValuationSnapshot",
+        "publisher_did",
+        &snapshot.publisher_did,
+        author_did,
+    ) {
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
@@ -811,7 +852,6 @@ fn validate_reserve_valuation_snapshot_fields(
             "Reserve valuation snapshots consumed by SAP issuance must quote SAP".into(),
         ));
     }
-
     if snapshot.valuation_numerator == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Valuation numerator must be positive".into(),
@@ -827,6 +867,31 @@ fn validate_reserve_valuation_snapshot_fields(
             "Source count must be in 1..=200".into(),
         ));
     }
+    if snapshot.source_action_hashes.is_empty() || snapshot.source_action_hashes.len() > 200 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Source action hashes must contain 1..=200 entries".into(),
+        ));
+    }
+    if snapshot.source_action_hashes.len() as u32 != snapshot.source_count {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Source count must equal source action hash count".into(),
+        ));
+    }
+
+    let mut unique = snapshot.source_action_hashes.clone();
+    unique.sort();
+    unique.dedup();
+    if unique.len() != snapshot.source_action_hashes.len() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Duplicate source action hashes are not permitted".into(),
+        ));
+    }
+    if snapshot.source_commitment != canonical_source_commitment(&snapshot.source_action_hashes) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Source commitment does not match canonical source action hash ordering".into(),
+        ));
+    }
+
     if snapshot.freshness_limit_micros <= 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Freshness limit must be positive".into(),
@@ -2572,6 +2637,7 @@ mod tests {
             id: "valuation:test:001".into(),
             basis_id: "basis:deposit:001".into(),
             asset_id: "eth:0x001".into(),
+            source_item: "eth_sap".into(),
             unit: "ETH".into(),
             quote_unit: "SAP".into(),
             valuation_numerator: 2,
@@ -2580,7 +2646,14 @@ mod tests {
             effective_window_start: ts(1_000_000),
             effective_window_end: ts(2_000_000),
             freshness_limit_micros: 60_000_000,
-            source_commitment: "sha256:source-001".into(),
+            source_action_hashes: vec![
+                ActionHash::from_raw_36(vec![1; 36]),
+                ActionHash::from_raw_36(vec![2; 36]),
+            ],
+            source_commitment: canonical_source_commitment(&[
+                ActionHash::from_raw_36(vec![1; 36]),
+                ActionHash::from_raw_36(vec![2; 36]),
+            ]),
             source_count: 2,
             aggregation_profile_id: "sap-reserve-oracle-v0".into(),
             publisher_policy_id: "sap-reserve-publisher-v0".into(),
