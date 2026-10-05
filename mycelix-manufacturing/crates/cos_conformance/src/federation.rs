@@ -4090,7 +4090,7 @@ mod tests {
             );
         }
 
-        let mut canonical_snapshots = snapshots.iter().collect::<Vec<_>>();
+        let mut canonical_snapshots = snapshots.iter().copied().collect::<Vec<_>>();
         canonical_snapshots.sort_by_key(|(capsule, publication)| {
             serde_json::to_string((capsule, publication))
                 .expect("publication collection audit entry must be serializable")
@@ -4331,19 +4331,19 @@ mod tests {
         if witness_set
             .witnesses
             .windows(2)
-            .any(|pair| pair[0].witness_sha256 >= pair[1].witness_sha256)
+            .any(|pair| pair[0].witness_sha256 == pair[1].witness_sha256)
         {
             return Err(
-                FederationStateMachineTracePublicationEquivocationWitnessSetViolation::WitnessNotCanonical
+                FederationStateMachineTracePublicationEquivocationWitnessSetViolation::DuplicateWitness
             );
         }
         if witness_set
             .witnesses
             .windows(2)
-            .any(|pair| pair[0].witness_sha256 == pair[1].witness_sha256)
+            .any(|pair| pair[0].witness_sha256 > pair[1].witness_sha256)
         {
             return Err(
-                FederationStateMachineTracePublicationEquivocationWitnessSetViolation::DuplicateWitness
+                FederationStateMachineTracePublicationEquivocationWitnessSetViolation::WitnessNotCanonical
             );
         }
 
