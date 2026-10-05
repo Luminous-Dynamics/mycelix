@@ -139,6 +139,22 @@ fn payment_reference_key(source_happ: &str, reference: &str) -> String {
     format!("cross-happ-payment:{source_happ}:{reference}")
 }
 
+fn cross_happ_transfer_id(source_happ: &str, reference: &str) -> String {
+    let mut bytes = b"mycelix.cross-happ.sap-transfer.v1".to_vec();
+    bytes.extend_from_slice(&(source_happ.len() as u32).to_be_bytes());
+    bytes.extend_from_slice(source_happ.as_bytes());
+    bytes.extend_from_slice(&(reference.len() as u32).to_be_bytes());
+    bytes.extend_from_slice(reference.as_bytes());
+
+    let digest = holo_hash::blake2b_256(&bytes);
+    let mut hex = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut hex, "{byte:02x}");
+    }
+    format!("xfer:{hex}")
+}
+
 fn decode_cross_happ_payment(record: &Record) -> ExternResult<CrossHappPayment> {
     record
         .entry()
@@ -342,9 +358,9 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
             from_did: input.from_did.clone(),
             to_did: input.to_did.clone(),
             amount: input.amount,
-            transfer_id: Some(format!(
-                "cross-happ:{}:{}",
-                input.source_happ, input.reference
+            transfer_id: Some(cross_happ_transfer_id(
+                &input.source_happ,
+                &input.reference,
             )),
         },
     );
@@ -382,22 +398,17 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
     // AC-099 makes SAP settlement asynchronous: this successful call proves only
     // that the sender-side transfer intent/debit committed. The recipient must
     // separately claim the intent before the cross-hApp payment becomes final.
-    let awaiting_record = update_payment_status(
-        &processing_record,
-        processing,
-        PaymentStatus::Processing,
-        None,
-    )?;
+    let awaiting_record = processing_record;
 
     broadcast_finance_event(BroadcastFinanceEventInput {
-        event_type: FinanceEventType::PaymentCompleted,
+        event_type: FinanceEventType::PaymentAwaitingRecipientClaim,
         subject_did: input.from_did.clone(),
         amount: Some(input.amount),
         payload: serde_json::json!({
             "to": input.to_did,
             "currency": input.currency,
             "reference": input.reference,
-            "transfer_id": format!("cross-happ:{}:{}", input.source_happ, input.reference),
+            "transfer_id": cross_happ_transfer_id(&input.source_happ, &input.reference),
             "settlement_state": "AwaitingRecipientClaim",
         })
         .to_string(),
