@@ -363,7 +363,7 @@ jobs:
 
       - name: Download retained qualification receipt through official artifact client
         if: success()
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.1.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           artifact-ids: ${{ steps.verify_result.outputs.artifact_id }}
           path: ${{ runner.temp }}/security-kernel-official-receipt
