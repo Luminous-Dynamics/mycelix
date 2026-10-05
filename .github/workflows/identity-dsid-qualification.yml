@@ -179,6 +179,7 @@ jobs:
           cargo test --locked -p did_registry_integrity --lib
           cargo test --locked -p mfa_integrity --lib
           cargo test --locked -p recovery_integrity --lib
+          cargo test --locked -p trust_credential_integrity --lib
           cargo test --locked -p verifiable_credential_integrity --lib
           cargo test --locked -p verifiable_credential_coordinator --lib
 
