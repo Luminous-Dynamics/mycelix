@@ -188,7 +188,7 @@ lockfile and frozen/offline dependency resolution.
 
 S1 emits a non-authoritative receipt containing at least:
 
-- candidate repository/PR/SHA/tree;
+- candidate repository/repository ID/PR/SHA/tree;
 - candidate source file count and total bytes;
 - length-framed source digest;
 - Cargo.lock format and SHA-256;

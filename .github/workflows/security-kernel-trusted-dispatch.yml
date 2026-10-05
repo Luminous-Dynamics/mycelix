@@ -30,6 +30,7 @@ jobs:
       candidate_pr: ${{ steps.resolve.outputs.candidate_pr }}
       candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ steps.resolve.outputs.candidate_repository }}
+      candidate_repository_id: ${{ steps.resolve.outputs.candidate_repository_id }}
     steps:
       - name: Verify trusted dispatcher context and exact PR identity
         id: resolve
@@ -78,6 +79,7 @@ jobs:
               output.write(f"candidate_pr={pr_number}\n")
               output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
               output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
+              output.write(f"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\n")
           PY
 
   qualify:
@@ -93,5 +95,6 @@ jobs:
       candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
       candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
+      candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
       trusted_workflow_blob_sha: "708fe8bac20d2bd15aa399656e31561b2a329e87"
 

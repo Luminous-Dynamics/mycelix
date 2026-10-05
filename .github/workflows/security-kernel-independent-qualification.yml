@@ -15,6 +15,10 @@ on:
         description: "Exact source repository full name"
         required: true
         type: string
+      candidate_repository_id:
+        description: "Exact source repository numeric ID"
+        required: true
+        type: string
       trusted_workflow_blob_sha:
         description: "Registered S1 workflow blob SHA supplied by the trusted caller"
         required: true
@@ -58,6 +62,8 @@ jobs:
           CANDIDATE_PR: ${{ inputs.candidate_pr }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
+          CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}
+          HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
           TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
@@ -70,11 +76,14 @@ jobs:
           printf '%s' "$CANDIDATE_PR" | grep -Eq '^[0-9]+$'
           printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$CANDIDATE_REPOSITORY" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+          printf '%s' "$CANDIDATE_REPOSITORY_ID" | grep -Eq '^[0-9]+$'
+          printf '%s' "$HEAD_REPOSITORY_ID" | grep -Eq '^[0-9]+$'
           test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
           test "$BASE_BRANCH_EVENT" = "main"
           test "$PR_NUMBER" = "$CANDIDATE_PR"
           test "$HEAD_SHA" = "$CANDIDATE_SHA"
           test "$HEAD_REPOSITORY" = "$CANDIDATE_REPOSITORY"
+          test "$HEAD_REPOSITORY_ID" = "$CANDIDATE_REPOSITORY_ID"
           python3 - <<'PY'
           import json, os, urllib.request
           repo=os.environ["BASE_REPOSITORY"]
@@ -93,6 +102,7 @@ jobs:
           assert pr["base"]["repo"]["full_name"] == repo
           assert pr["base"]["ref"] == "main"
           assert pr["head"]["repo"]["full_name"] == os.environ["CANDIDATE_REPOSITORY"]
+          assert pr["head"]["repo"]["id"] == int(os.environ["CANDIDATE_REPOSITORY_ID"])
           assert pr["head"]["sha"] == os.environ["CANDIDATE_SHA"]
           workflow_sha=os.environ["WORKFLOW_SHA"]
           assert len(workflow_sha) == 40 and all(ch in "0123456789abcdef" for ch in workflow_sha)
@@ -839,6 +849,7 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CANDIDATE_PR: ${{ inputs.candidate_pr }}
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
+          CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}
           CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
           SOURCE_TREE_ENTRY_COUNT: ${{ steps.resolve_source.outputs.source_tree_entry_count }}
           SOURCE_FILE_COUNT: ${{ steps.resolve_source.outputs.source_file_count }}
@@ -859,6 +870,7 @@ jobs:
           {
             echo "schema=security-kernel-independent-qualification-v1"
             echo "candidate_repository=$CANDIDATE_REPOSITORY"
+            echo "candidate_repository_id=$CANDIDATE_REPOSITORY_ID"
             echo "candidate_pr=$CANDIDATE_PR"
             echo "candidate_sha=$CANDIDATE_SHA"
             echo "candidate_tree=$CANDIDATE_TREE"
