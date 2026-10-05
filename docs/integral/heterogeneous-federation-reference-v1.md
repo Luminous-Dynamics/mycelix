@@ -162,6 +162,12 @@ The capsule is intentionally a self-validating evidence/debug surface, not an au
 ## External checkpoint receipt seam
 
 ## Publication equivocation witness
+The witness layer also has a complete set form for multi-way forks. Given a qualified collection, the collector partitions publications by the full successor namespace (publication profile, hash construction, publication schema, trace profile/schema/identity, and predecessor), deduplicates exact publication replays by publication digest, and emits every unordered pair of distinct successors within each conflicting group. The resulting witness list is canonically sorted by witness digest.
+
+The witness-set artifact has its own strict schema/profile and domain-separated digest over the ordered witness digests. Validation checks every concrete witness against the supplied publication snapshots and then recomputes the complete expected witness list from the collection. Thus omission, duplication, or reordering of a conflicting pair cannot be hidden behind a re-sealed set digest. A three-way fork necessarily yields three pairwise witnesses rather than one arbitrarily selected conflict, preserving complete local fork evidence while remaining deterministic.
+
+This is intentionally stronger evidence coverage, not a stronger authenticity claim. A monitor that independently retains all observed successors can therefore preserve the complete conflict surface for later review, analogous to the monitoring role described for Certificate Transparency and verifiable transparency logs. citeturn960281search0turn960281search2
+
 
 The publication-set fork detector now has a portable witness form for a detected split view. The witness binds the publication schema/profile, hash algorithm/encoding, trace schema/profile and trace identity, the common predecessor publication digest, and the two distinct successor publication digests. Its own schema, profile, serialization, and SHA-256 digest are strict and domain-separated. The witness constructor canonicalizes the two successor digests, so exchanging their arrival order cannot change the evidence artifact.
 
