@@ -82,8 +82,7 @@ def current_run_uri(repository: str, run_id: str, run_attempt: str) -> str:
 
 def verify_report(
     path: Path,
-    subject_name: str,
-    subject_digest: str,
+    expected_subjects: list[tuple[str, str]],
     expected_run_uri: str,
     predicate_type: str,
 ) -> None:
@@ -111,13 +110,15 @@ def verify_report(
 
         subjects = statement.get("subject")
         assert isinstance(subjects, list)
-        assert any(
-            isinstance(subject, dict)
-            and subject.get("name") == subject_name
-            and isinstance(subject.get("digest"), dict)
-            and subject["digest"].get("sha256") == subject_digest
-            for subject in subjects
-        )
+        observed_subjects = []
+        for subject in subjects:
+            assert isinstance(subject, dict)
+            digest = subject.get("digest")
+            assert isinstance(digest, dict)
+            assert set(digest) == {"sha256"}
+            observed_subjects.append((subject.get("name"), digest["sha256"]))
+        assert len(observed_subjects) == len(set(observed_subjects))
+        assert sorted(observed_subjects) == sorted(expected_subjects)
         matches.append(entry)
 
     assert len(matches) == 1
@@ -152,7 +153,7 @@ def main() -> None:
         "signer_workflow", "signer_workflow_digest", "certificate_identity",
         "certificate_oidc_issuer", "run_id", "run_attempt", "run_invocation_uri",
         "cli_version", "predicate_type", "predicate_schema", "claim_ceiling",
-        "public_good_instance_required", "tlog_required", "offline_verified",
+        "public_good_instance_required", "public_good_instance", "tlog_required", "offline_verified",
         "no_public_good_rejected", "subjects", "retained_files",
     }
     assert set(transcript) == required
@@ -188,6 +189,7 @@ def main() -> None:
     assert transcript["predicate_schema"] == "d6u-trusted-runtime-evidence/v1"
     assert transcript["claim_ceiling"] == "ReferenceModelOnly"
     assert transcript["public_good_instance_required"] is True
+    assert transcript["public_good_instance"] == "sigstore-public-good"
     assert transcript["tlog_required"] is True
     assert transcript["offline_verified"] is True
     assert transcript["no_public_good_rejected"] is True
@@ -216,6 +218,10 @@ def main() -> None:
     for name in RETAINED_FILES:
         assert_hash_record(root, name, retained[name])
 
+    expected_subjects = [
+        (subject_name, by_name[subject_name]["sha256"])
+        for subject_name in SUBJECTS
+    ]
     for subject_name in SUBJECTS:
         safe = subject_name.replace(".", "_").replace("-", "_")
         bundle_name = safe + ".attestation.jsonl"
@@ -223,8 +229,7 @@ def main() -> None:
         load_jsonl(root / bundle_name)
         verify_report(
             root / report_name,
-            subject_name,
-            by_name[subject_name]["sha256"],
+            expected_subjects,
             transcript["run_invocation_uri"],
             transcript["predicate_type"],
         )
