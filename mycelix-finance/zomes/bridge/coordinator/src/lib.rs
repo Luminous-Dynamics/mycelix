@@ -331,6 +331,7 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
         from_did: String,
         to_did: String,
         amount: u64,
+        transfer_id: Option<String>,
     }
     let transfer_result = call(
         CallTargetCell::Local,
@@ -341,6 +342,10 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
             from_did: input.from_did.clone(),
             to_did: input.to_did.clone(),
             amount: input.amount,
+            transfer_id: Some(format!(
+                "cross-happ:{}:{}",
+                input.source_happ, input.reference
+            )),
         },
     );
 
@@ -374,29 +379,31 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
         }
     }
 
-    let completed_at = sys_time()?;
-    let completed_record = update_payment_status(
+    // AC-099 makes SAP settlement asynchronous: this successful call proves only
+    // that the sender-side transfer intent/debit committed. The recipient must
+    // separately claim the intent before the cross-hApp payment becomes final.
+    let awaiting_record = update_payment_status(
         &processing_record,
         processing,
-        PaymentStatus::Completed,
-        Some(completed_at),
+        PaymentStatus::Processing,
+        None,
     )?;
 
-    // Notification failure cannot roll value back. A retry returns the existing
-    // Completed record and therefore cannot transfer a second time.
     broadcast_finance_event(BroadcastFinanceEventInput {
         event_type: FinanceEventType::PaymentCompleted,
-        subject_did: input.from_did,
+        subject_did: input.from_did.clone(),
         amount: Some(input.amount),
         payload: serde_json::json!({
             "to": input.to_did,
             "currency": input.currency,
             "reference": input.reference,
+            "transfer_id": format!("cross-happ:{}:{}", input.source_happ, input.reference),
+            "settlement_state": "AwaitingRecipientClaim",
         })
         .to_string(),
     })?;
 
-    Ok(completed_record)
+    Ok(awaiting_record)
 }
 
 /// Register collateral from another hApp
