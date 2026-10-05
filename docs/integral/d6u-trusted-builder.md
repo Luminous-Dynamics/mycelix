@@ -6,7 +6,7 @@ Status: Experimental; security architecture
 
 The D6U runtime workflow executes pull-request code and therefore must be treated as an untrusted measurement environment. The default branch owns the signing authority separately.
 
-The trusted workflow in `.github/workflows/d6u-trusted-evidence-attestation.yml` is triggered by completion of the D6U runtime workflow through `workflow_run`. The trusted job checks out the exact `github.workflow_sha` for the trusted workflow execution, asserts both the commit and workflow-ref identity, and verifies the privileged workflow blob against the policy, preflights the exact artifact identity and archive size, downloads the exact GitHub artifact archive, verifies its SHA-256 digest, and safely extracts only the bounded expected members into the runner's temporary directory.
+The privileged workflow and policy root are advanced atomically: the reviewed policy revision, the privileged workflow blob, and the workflow's self-cohesion assertion are carried in the same Git commit. The trusted workflow in `.github/workflows/d6u-trusted-evidence-attestation.yml` is triggered by completion of the D6U runtime workflow through `workflow_run`. The trusted job checks out the exact `github.workflow_sha` for the trusted workflow execution, asserts both the commit and workflow-ref identity, and verifies the privileged workflow blob against the policy, preflights the exact artifact identity and archive size, downloads the exact GitHub artifact archive, verifies its SHA-256 digest, and safely extracts only the bounded expected members into the runner's temporary directory.
 
 It does not check out the pull-request head, execute files from the downloaded artifact, import pull-request Python or Rust modules, or use pull-request code as its policy root. The executor records the upstream D6S run ID/attempt, source branch/repository/SHA, trigger-workflow identity, and its own executor-workflow identity. The source-side verifier redundantly rejects the wrong qualification branch, while the trusted builder independently re-fetches the upstream D6S run, binds the executor definition to the executor run's GitHub-supplied main-branch `head_sha`, and checks the exact source tree. It also rejects fork-origin runs; the signing boundary is same-repository only.
 
@@ -69,4 +69,4 @@ The self-test has no signing permissions and is not itself an authority root.
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v13.
+Current trusted policy revision: v14.
