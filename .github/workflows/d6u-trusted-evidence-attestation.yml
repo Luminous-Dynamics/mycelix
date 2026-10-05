@@ -36,6 +36,17 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
 
+      - name: Assert trusted policy root cohesion
+        env:
+          TRUSTED_POLICY_VERSION: "14"
+        run: |
+          set -euo pipefail
+          policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
+          test "$policy_version" = "$TRUSTED_POLICY_VERSION"
+          expected_blob=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["trusted_workflow"]["blob_sha"])')
+          observed_blob=$(git hash-object .github/workflows/d6u-trusted-evidence-attestation.yml)
+          test "$observed_blob" = "$expected_blob"
+
       - name: Preflight trusted verifier
         run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py
 
