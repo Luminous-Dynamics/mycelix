@@ -1952,6 +1952,168 @@ async fn dsid_069_deactivated_did_rejects_schema_update() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_070_deactivated_did_rejects_external_substrate_grant() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-substrate-grant", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated substrate grant regression",
+        )
+        .await;
+
+    let blocked: Result<ActionHash, _> = conductor
+        .call_fallible(
+            &cell.zome("identity_bridge"),
+            "grant_external_substrate_access",
+            serde_json::json!({
+                "satellite_agent": AgentPubKey::from_raw_36(vec![7u8; 36]),
+                "cluster_name": "dsid-satellite"
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated DID must not grant new substrate capability");
+    assert!(
+        rejection.contains("DID is not active"),
+        "substrate grant rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("grantor", agent.to_string());
+    emit_evidence(
+        "DSID-070",
+        "deactivated-did-rejects-external-substrate-grant",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated bridge issuer cannot grant a new external substrate capability.",
+        format!("substrate_capability_grant_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_071_deactivated_did_rejects_consciousness_credential_issuance() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-consciousness-credential", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let did = format!("did:mycelix:{}", agent);
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated consciousness issuer regression",
+        )
+        .await;
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("identity_bridge"),
+            "issue_consciousness_credential",
+            did,
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated DID must not issue a consciousness credential");
+    assert!(
+        rejection.contains("DID is not active"),
+        "consciousness credential rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-071",
+        "deactivated-did-rejects-consciousness-credential-issuance",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated bridge issuer cannot mint a new consciousness credential.",
+        format!("consciousness_credential_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_072_deactivated_did_rejects_sovereign_credential_issuance() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-sovereign-credential", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let did = format!("did:mycelix:{}", agent);
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated sovereign issuer regression",
+        )
+        .await;
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("identity_bridge"),
+            "issue_sovereign_credential",
+            did,
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated DID must not issue a sovereign credential");
+    assert!(
+        rejection.contains("DID is not active"),
+        "sovereign credential rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-072",
+        "deactivated-did-rejects-sovereign-credential-issuance",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated bridge issuer cannot mint a new sovereign credential.",
+        format!("sovereign_credential_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
