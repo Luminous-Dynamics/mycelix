@@ -548,12 +548,13 @@ pub fn create_did() -> ExternResult<Record> {
     // This registers the primary key pair as the initial authentication factor
     auto_create_mfa_state(&did_id, &agent_pub_key)?;
 
-    // Auto-create progressive self-recovery (best-effort: don't block DID creation)
-    // This gives every user a recovery fallback from Day 0, even before they
-    // join a Hearth or add social recovery guardians.
+    // Register a progressive self-recovery scaffold on a best-effort basis.
+    // This creates configuration state for later enrollment; it is not an
+    // executable recovery mechanism until proof-of-control/controller-transfer
+    // protocols are implemented.
     if let Err(e) = auto_create_self_recovery(&did_id) {
         debug!(
-            "Self-recovery auto-creation failed (DID created without recovery): {:?}",
+            "Self-recovery scaffold registration failed (DID created without recovery configuration): {:?}",
             e
         );
     }
