@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "e1230e2e545183f3b6c597e4ec693e9e113229fc"
+    "blob_sha": "b0ae1db41d13af423db78c3187d92bceb5bf9954"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -253,7 +253,7 @@
   },
   "trusted_attestation_verifier": {
     "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-    "blob_sha": "c7f36ab104197e8deaac94a5fdcdf967a315e467"
+    "blob_sha": "3ea629986424bd8f7860119a70f900c346b78ce4"
   },
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
@@ -274,7 +274,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
-      "blob_sha": "3de0ef220b958e3887dd0e61b7c063a925531f03"
+      "blob_sha": "46453c42da8ea7c1fb5bc4ce73e2a756c9100de5"
     }
   },
   "trusted_actions": {
