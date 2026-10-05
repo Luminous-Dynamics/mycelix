@@ -122,16 +122,16 @@ A copied rate without a source snapshot permits later ambiguity over which obser
 
 The source commitment MUST be independent of link-iteration order.
 
-A preferred form is:
+The current implementation shape uses a domain-separated BLAKE2b-256 digest over the sorted fixed-length Holochain action-hash bytes, prefixed by the canonical source-set count. This keeps the commitment bounded even at the maximum 200-source set.
 
-`sorted(report_action_hashes) -> canonical serialization -> digest`
+The snapshot also carries the exact sorted action hashes. The digest is therefore a compact integrity commitment, not a substitute for the addressable source records.
 
 The snapshot then references either:
 
 1. the exact bounded set of report action hashes, or
 2. an addressable quorum certificate that itself commits to the exact source set.
 
-The source set MUST be bounded by policy. The current oracle advertises a maximum of 200 reporters per consensus window; a reserve profile MAY choose a lower ceiling for validation cost.
+The source set MUST be bounded by policy. The current oracle advertises a maximum of 200 reporters per consensus window; the implementation currently preserves that ceiling for the snapshot source list and can choose a lower reserve-specific ceiling later.
 
 No reserve verifier may infer source membership from the current contents or order of a mutable link collection.
 
