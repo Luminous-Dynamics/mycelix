@@ -2112,9 +2112,10 @@ mod tests {
             current_frontier_required: true,
             provider_reports_may_satisfy_independence: false,
             allow_explicit_conflict_resolution: false,
-            profile_commitment: "finality-profile-commitment".into(),
+            profile_commitment: String::new(),
             claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
         };
+        finality_profile.profile_commitment = finality_profile.recomputed_commitment();
         assert!(finality_profile.structurally_valid());
 
         let rejected = compose_finality_eligibility_from_authoritative_d6n_d6o(
