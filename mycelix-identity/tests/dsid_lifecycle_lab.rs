@@ -2772,6 +2772,78 @@ async fn dsid_082_deactivated_issuer_rejects_epistemic_credential_projection() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_083_duplicate_schema_creation_is_rejected() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-duplicate-schema-creation",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let author = format!("did:mycelix:{}", agent);
+
+    let _did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let schema = serde_json::json!({
+        "id": "mycelix:schema:dsid:duplicate:v1",
+        "name": "DSID Duplicate Schema",
+        "description": "Schema duplication regression",
+        "version": "1.0.0",
+        "author": author,
+        "schema": "{"type":"object"}",
+        "required_fields": ["subject"],
+        "optional_fields": [],
+        "credential_type": ["VerifiableCredential", "DsidCredential"],
+        "default_expiration": 0,
+        "revocable": true,
+        "active": true
+    });
+
+    let first: Record = conductor
+        .call(&cell.zome("credential_schema"), "create_schema", schema.clone())
+        .await;
+
+    let second: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("credential_schema"),
+            "create_schema",
+            schema,
+        )
+        .await;
+
+    let rejection = format!("{second:?}");
+    assert!(
+        second.is_err(),
+        "a schema ID must not have two independent canonical creation actions"
+    );
+    assert!(
+        rejection.contains("canonical creation"),
+        "duplicate schema rejection must come from the integrity lineage guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("author", agent.to_string());
+    emit_evidence(
+        "DSID-083",
+        "duplicate-schema-creation-is-rejected",
+        &dna,
+        agents,
+        &[&first],
+        "Credential schema creation is unique per schema ID; later state changes must use the explicit update lineage.",
+        format!("second_creation_rejected={}", second.is_err()),
+        second.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
