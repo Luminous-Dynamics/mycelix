@@ -1369,6 +1369,29 @@ fn validate_create_sap_mint_record(
             "New SAP mint authorizations require a non-empty basis_id".into(),
         ));
     }
+    if mint.basis_id.as_ref().is_some_and(|id| id.len() > MAX_ID_LEN) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP mint authorization basis_id exceeds maximum length".into(),
+        ));
+    }
+    if mint.minted_at > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP mint authorization time cannot be after the signed action timestamp".into(),
+        ));
+    }
+    if let SapMintSource::GovernanceProposal { proposal_id } = &mint.source {
+        if proposal_id.is_empty() || proposal_id.len() > MAX_ID_LEN {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Governance proposal ID is invalid".into(),
+            ));
+        }
+        let expected_basis = format!("governance:{proposal_id}");
+        if mint.basis_id.as_deref() != Some(expected_basis.as_str()) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Governance mint basis_id must match its proposal ID".into(),
+            ));
+        }
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
