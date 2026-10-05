@@ -161,6 +161,17 @@ The capsule is intentionally a self-validating evidence/debug surface, not an au
 
 ## External checkpoint receipt seam
 
+## Publication equivocation witness
+
+The publication-set fork detector now has a portable witness form for a detected split view. The witness binds the publication schema/profile, hash algorithm/encoding, trace schema/profile and trace identity, the common predecessor publication digest, and the two distinct successor publication digests. Its own schema, profile, serialization, and SHA-256 digest are strict and domain-separated. The witness constructor canonicalizes the two successor digests, so exchanging their arrival order cannot change the evidence artifact.
+
+Witness verification is deliberately snapshot-bound: both concrete publication records are revalidated against their trace capsules before the witness bindings are accepted. A caller therefore cannot manufacture an equivocation witness merely by naming two digests. Exact publication replay is not equivocation because the two successor digests must differ, while a changed predecessor or trace namespace is rejected rather than being collapsed into the same fork class.
+
+This strengthens the distinction between detection and evidence. The collection detector answers that two valid publications claim different successors of the same predecessor; the witness preserves exactly which predecessor and successors constituted that observation. It remains ReferenceModelOnly: the witness proves that the supplied artifacts are internally valid and mutually conflicting, but it does not identify an external signer or establish which view is authoritative.
+
+The design follows the useful transparency-log separation in RFC 9162: append-only consistency and split-view detection are properties auditors can verify from published log artifacts, while attribution requires independently retained or signed evidence. RFC 9942 likewise treats receipts as proofs about verifiable data structures rather than as an implicit source of authenticity.
+
+
 Schema `5` now has a separate, non-capsule checkpoint receipt used by the deterministic evidence harness. The receipt itself is checkpoint schema `1`. It binds its own stable checkpoint-profile identifier in addition to the covered trace's verification profile. It also binds a verification profile, trace identity, a half-open evidence range `[step_start, step_end)`, the trace body digest, the chain value immediately before the covered range, the terminal chain value of the covered range, a predecessor-checkpoint digest, and its own domain-separated SHA-256 digest. Checkpoints therefore provide a compact external receipt over an existing trace without adding another producer-controlled trust field to the capsule.
 
 A receipt chain is valid only when its ranges are contiguous from step `0` through the trace length, the first receipt starts from checkpoint genesis, every later receipt names the exact previous receipt digest, every later receipt's chain-start value equals the previous receipt's terminal chain value, and the final receipt covers the trace terminal step. JSON round-trip and adversarial coverage show that reordering, range gaps, and re-sealed predecessor forgery are rejected.
