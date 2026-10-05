@@ -692,15 +692,17 @@ pub struct TransferSapInput {
 /// to finalize the recipient leg.
 #[hdk_extern]
 pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
+    let transfer_id = match input.transfer_id {
+        Some(id) => id,
+        None => format!(
+            "transfer:{}:{}:{}",
+            input.from_did,
+            input.to_did,
+            sys_time()?.as_micros()
+        ),
+    };
     initiate_sap_transfer(TransferSapIntentInput {
-        transfer_id: input.transfer_id.unwrap_or_else(|| {
-            format!(
-                "transfer:{}:{}:{}",
-                input.from_did,
-                input.to_did,
-                sys_time().map(|t| t.as_micros()).unwrap_or_default()
-            )
-        }),
+        transfer_id,
         from_did: input.from_did,
         to_did: input.to_did,
         amount: input.amount,
@@ -927,9 +929,9 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
         )));
     }
 
-    let (balance_record, balance) = match get_sap_balance_inner(&intent.to_did) {
-        Ok(found) => found,
-        Err(_) => {
+    let (balance_record, balance) = match find_sap_balance_record(&intent.to_did)? {
+        Some(found) => found,
+        None => {
             let record = initialize_sap_balance(intent.to_did.clone())?;
             let balance = record
                 .entry()
