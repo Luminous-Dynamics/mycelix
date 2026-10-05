@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-tpm-properties-fixed-capture-v0.1",
+  "profile_id": "mycelix.security.tpm.properties-fixed-capture",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": ["PASS", "DENY", "INDETERMINATE"],
+  "required_properties": [
+    "TPM2_PT_MANUFACTURER",
+    "TPM2_PT_VENDOR_TPM_TYPE",
+    "TPM2_PT_VENDOR_STRING_1",
+    "TPM2_PT_VENDOR_STRING_2",
+    "TPM2_PT_VENDOR_STRING_3",
+    "TPM2_PT_VENDOR_STRING_4",
+    "TPM2_PT_FIRMWARE_VERSION_1",
+    "TPM2_PT_FIRMWARE_VERSION_2"
+  ],
+  "theorem": {
+    "statement": "Property values consumed by EK identity appraisal must originate from an exact TPM2_GetCapability properties-fixed receipt and an independently repeated deterministic parse.",
+    "scope": "Source capture and parsing only; no manufacturer, model, firmware-security, or certificate-authenticity claim."
+  },
+  "non_equivalences": [
+    ["properties_fixed_capture", "manufacturer_authenticity"],
+    ["properties_fixed_capture", "EK_certificate_identity"],
+    ["properties_fixed_capture", "firmware_security"],
+    ["properties_fixed_capture", "trusted_boot_state"],
+    ["properties_fixed_capture", "host_reported_hardware_identity"]
+  ],
+  "vectors": [
+    {"id":"TPP-V01","mutation":"canonical-capture","expected":"PASS"},
+    {"id":"TPP-V02","mutation":"manufacturer-raw-substitution","expected":"DENY"},
+    {"id":"TPP-V03","mutation":"vendor-type-raw-substitution","expected":"DENY"},
+    {"id":"TPP-V04","mutation":"firmware-v1-raw-substitution","expected":"DENY"},
+    {"id":"TPP-V05","mutation":"firmware-v2-raw-substitution","expected":"DENY"},
+    {"id":"TPP-V06","mutation":"required-property-missing","expected":"DENY"},
+    {"id":"TPP-V07","mutation":"duplicate-property","expected":"DENY"},
+    {"id":"TPP-V08","mutation":"source-digest-substitution","expected":"DENY"},
+    {"id":"TPP-V09","mutation":"parsed-result-substitution","expected":"DENY"},
+    {"id":"TPP-V10","mutation":"command-substitution","expected":"DENY"},
+    {"id":"TPP-V11","mutation":"unknown-property-allowed","expected":"PASS"},
+    {"id":"TPP-V12","mutation":"live-unintegrated","expected":"INDETERMINATE"}
+  ]
+}
