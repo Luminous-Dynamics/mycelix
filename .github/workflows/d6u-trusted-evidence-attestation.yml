@@ -108,6 +108,15 @@ jobs:
           rm -rf "$GH_CONFIG_DIR"
           mkdir -p "$GH_CONFIG_DIR"
           test -z "$(find "$GH_CONFIG_DIR" -mindepth 1 -maxdepth 1 -print -quit)"
+          gh_path="$(command -v gh)"
+          test -n "$gh_path"
+          gh_path="$(readlink -f "$gh_path")"
+          case "$gh_path" in
+            "$GITHUB_WORKSPACE"/*|"$RUNNER_TEMP"/*)
+              echo "GitHub CLI resolves under untrusted workspace/temp path: $gh_path"
+              exit 1
+              ;;
+          esac
           test "$(gh version | sed -n '1s/^gh version \([^ ]*\).*/\1/p')" = "2.101.0"
           for variable in GH_HOST GH_ENTERPRISE_TOKEN GH_REPO; do
             if [ -n "${!variable:-}" ]; then
@@ -136,7 +145,7 @@ jobs:
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
-            D6U_TRUSTED_POLICY_VERSION="27" \
+            D6U_TRUSTED_POLICY_VERSION="28" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
@@ -144,7 +153,7 @@ jobs:
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "27"
+          D6U_TRUSTED_POLICY_VERSION: "28"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"
