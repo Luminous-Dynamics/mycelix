@@ -2991,6 +2991,18 @@ mod tests {
         ];
     }
 
+    const FEDERATION_STATE_MACHINE_FAILURE_CAPSULE_SCHEMA_VERSION: u16 = 2;
+    const FEDERATION_STATE_MACHINE_FAILURE_CAPSULE_KIND: &str = "invariant-violation";
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum FederationStateMachineFailureCapsuleViolation {
+        UnsupportedSchemaVersion,
+        UnsupportedFailureKind,
+        FailedStepIndexMismatch,
+        FailedStepIdentityMismatch,
+        ObservedViolationAuditMismatch,
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineFailureCapsule {
@@ -3047,8 +3059,8 @@ mod tests {
                 .collect();
 
             Self {
-                schema_version: 2,
-                failure_kind: "invariant-violation".into(),
+                schema_version: FEDERATION_STATE_MACHINE_FAILURE_CAPSULE_SCHEMA_VERSION,
+                failure_kind: FEDERATION_STATE_MACHINE_FAILURE_CAPSULE_KIND.into(),
                 trace_index,
                 trace_prefix,
                 failed_step_index,
@@ -3072,7 +3084,47 @@ mod tests {
             }
         }
 
+        fn validate(&self) -> Result<(), FederationStateMachineFailureCapsuleViolation> {
+            if self.schema_version != FEDERATION_STATE_MACHINE_FAILURE_CAPSULE_SCHEMA_VERSION {
+                return Err(
+                    FederationStateMachineFailureCapsuleViolation::UnsupportedSchemaVersion
+                );
+            }
+            if self.failure_kind != FEDERATION_STATE_MACHINE_FAILURE_CAPSULE_KIND {
+                return Err(FederationStateMachineFailureCapsuleViolation::UnsupportedFailureKind);
+            }
+            if self.trace_prefix.len() != self.failed_step_index.saturating_add(1) {
+                return Err(
+                    FederationStateMachineFailureCapsuleViolation::FailedStepIndexMismatch
+                );
+            }
+            if self.trace_prefix.get(self.failed_step_index)
+                != Some(&(self.operation, self.token))
+            {
+                return Err(
+                    FederationStateMachineFailureCapsuleViolation::FailedStepIdentityMismatch
+                );
+            }
+            let derived_violations = self
+                .audit
+                .iter()
+                .filter_map(|entry| match entry.status {
+                    FederationInvariantAuditStatus::Passed => None,
+                    FederationInvariantAuditStatus::Violated(violation) => {
+                        Some((entry.id, violation))
+                    }
+                })
+                .collect::<Vec<_>>();
+            if derived_violations != self.observed_violations {
+                return Err(
+                    FederationStateMachineFailureCapsuleViolation::ObservedViolationAuditMismatch
+                );
+            }
+            Ok(())
+        }
+
         fn to_json(&self) -> String {
+            self.validate().expect("failure capsule must self-validate");
             serde_json::to_string_pretty(self)
                 .expect("failure capsule is serializable")
         }
@@ -6962,6 +7014,42 @@ mod tests {
             serde_json::from_str::<FederationStateMachineFailureCapsule>(&json)
                 .expect("failure capsule must deserialize");
         assert_eq!(round_trip, capsule);
+        assert_eq!(round_trip.validate(), Ok(()));
+
+        let mut unsupported_schema = capsule.clone();
+        unsupported_schema.schema_version += 1;
+        assert_eq!(
+            unsupported_schema.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::UnsupportedSchemaVersion)
+        );
+
+        let mut unsupported_kind = capsule.clone();
+        unsupported_kind.failure_kind = "future-kind".into();
+        assert_eq!(
+            unsupported_kind.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::UnsupportedFailureKind)
+        );
+
+        let mut mismatched_step = capsule.clone();
+        mismatched_step.failed_step_index -= 1;
+        assert_eq!(
+            mismatched_step.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::FailedStepIndexMismatch)
+        );
+
+        let mut mismatched_identity = capsule.clone();
+        mismatched_identity.token ^= 1;
+        assert_eq!(
+            mismatched_identity.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::FailedStepIdentityMismatch)
+        );
+
+        let mut mismatched_audit = capsule.clone();
+        mismatched_audit.observed_violations.clear();
+        assert_eq!(
+            mismatched_audit.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::ObservedViolationAuditMismatch)
+        );
 
         let mut unknown = serde_json::to_value(&capsule)
             .expect("failure capsule must serialize as a JSON value");
