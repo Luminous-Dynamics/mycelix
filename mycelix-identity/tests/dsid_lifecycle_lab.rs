@@ -1472,6 +1472,73 @@ async fn dsid_063_deactivated_issuer_rejects_proof_carrying_request_fulfillment(
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
+async fn dsid_064_deactivated_did_rejects_substrate_registration() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-substrate-registration",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument =
+        decode_entry(&did_record).expect("DID record must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation substrate-registration regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("did_registry"),
+            "register_substrate",
+            serde_json::json!({
+                "metadata": {
+                    "role": "identity-resolver",
+                    "api_version": 1,
+                    "capabilities": ["resolve_did_view"]
+                }
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(
+        blocked.is_err(),
+        "deactivated DID must reject new substrate discovery authority"
+    );
+    assert!(
+        rejection.contains("after deactivation"),
+        "substrate registration rejection must inherit the terminal DID update guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("provider", agent.to_string());
+    emit_evidence(
+        "DSID-064",
+        "deactivated-did-rejects-substrate-registration",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated DID cannot publish a new substrate/service discovery authority.",
+        format!("substrate_registration_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna = load_dna().await;
