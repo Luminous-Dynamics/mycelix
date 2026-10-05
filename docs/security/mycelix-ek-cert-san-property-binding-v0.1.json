@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-ek-cert-san-property-binding-v0.1",
+  "profile_id": "mycelix.security.tpm.ek-cert-san-property-binding",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "theorem": {
+    "statement": "The TCG EK certificate TPMManufacturer, TPMModel and TPMVersion directoryName attributes must equal values independently derived from exact TPM fixed-property evidence through an explicitly authorized manufacturer mapping registry.",
+    "oids": {
+      "TPMManufacturer": "2.23.133.2.1",
+      "TPMModel": "2.23.133.2.2",
+      "TPMVersion": "2.23.133.2.3"
+    },
+    "rule": "Manufacturer is rendered as id:<8 uppercase hex digits>. Model and version require a reviewed vendor-specific mapping; unknown mappings are INDETERMINATE."
+  },
+  "required_input": [
+    "leaf_certificate_der_base64",
+    "leaf_certificate_sha256",
+    "properties_fixed",
+    "properties_source_sha256",
+    "registry_id",
+    "registry_sha256",
+    "spki_binding_state",
+    "session_binding_sha256"
+  ],
+  "mapping_registry": {
+    "id": "mycelix.synthetic.ek-san-property-map.v0.1",
+    "sha256": "994e81d09a2bed5d2a1a569e7dded6459392676a26d18552dbb4f3599b4ff3e7",
+    "manufacturer": "4D594358",
+    "vendor_tpm_type": "00000000",
+    "firmware_version_1": "00000000",
+    "firmware_version_2": "00010002",
+    "certificate_manufacturer": "id:4D594358",
+    "certificate_model": "SyntheticEK-Model",
+    "certificate_version": "id:00010002"
+  },
+  "non_equivalences": [
+    [
+      "certificate_san_match",
+      "manufacturer_authenticity"
+    ],
+    [
+      "certificate_san_match",
+      "certificate_chain_trust"
+    ],
+    [
+      "certificate_san_match",
+      "EK_SPki_identity"
+    ],
+    [
+      "TPM2_PT_MANUFACTURER",
+      "human-readable manufacturer name"
+    ],
+    [
+      "vendor_tpm_type",
+      "portable universal model identifier"
+    ],
+    [
+      "firmware_version_1_2",
+      "TCG-independent certificate version mapping"
+    ]
+  ],
+  "vectors": [
+    [
+      "EKSAN-V01",
+      "canonical-match",
+      "PASS"
+    ],
+    [
+      "EKSAN-V02",
+      "certificate-san-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V03",
+      "manufacturer-property-substitution",
+      "INDETERMINATE"
+    ],
+    [
+      "EKSAN-V04",
+      "model-mapping-substitution",
+      "INDETERMINATE"
+    ],
+    [
+      "EKSAN-V05",
+      "firmware-property-substitution",
+      "INDETERMINATE"
+    ],
+    [
+      "EKSAN-V06",
+      "registry-id-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V07",
+      "registry-digest-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V08",
+      "property-source-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V09",
+      "certificate-digest-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V10",
+      "spki-deny",
+      "DENY"
+    ],
+    [
+      "EKSAN-V11",
+      "spki-indeterminate",
+      "INDETERMINATE"
+    ],
+    [
+      "EKSAN-V12",
+      "session-binding-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V13",
+      "key-order-permutation",
+      "PASS"
+    ]
+  ]
+}
