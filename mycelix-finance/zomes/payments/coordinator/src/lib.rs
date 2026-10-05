@@ -737,7 +737,13 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
                 source_member_did: input.from_did.clone(),
             },
         ) {
-            debug!("SAP transfer fee routing failed: {:?}", err);
+            debug!("SAP transfer fee routing failed: {:?}; queueing pending delivery", err);
+            queue_pending_compost(
+                "global-fee-pool",
+                fee,
+                &input.from_did,
+                CompostPoolTier::Global,
+            )?;
         }
     }
 
