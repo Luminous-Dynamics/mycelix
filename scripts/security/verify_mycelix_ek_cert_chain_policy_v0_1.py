@@ -201,7 +201,7 @@ def verify_chain(
     leaf: bytes,
     intermediate: bytes,
     root: bytes,
-    crl: bytes,
+    crl_bundle_pem: bytes,
     attime: int,
     work: Path,
 ) -> tuple[bool, str]:
@@ -209,16 +209,21 @@ def verify_chain(
         "leaf.der": leaf,
         "inter.der": intermediate,
         "root.der": root,
-        "crl.der": crl,
+    paths = {
+        "leaf.der": leaf,
+        "inter.der": intermediate,
+        "root.der": root,
     }
     for name, data in paths.items():
         (work / name).write_bytes(data)
+
+    crl_path = work / "crl-bundle.pem"
+    crl_path.write_bytes(crl_bundle_pem)
 
     conversions = [
         ["openssl", "x509", "-inform", "DER", "-in", str(work / "leaf.der"), "-out", str(work / "leaf.pem")],
         ["openssl", "x509", "-inform", "DER", "-in", str(work / "inter.der"), "-out", str(work / "inter.pem")],
         ["openssl", "x509", "-inform", "DER", "-in", str(work / "root.der"), "-out", str(work / "root.pem")],
-        ["openssl", "crl", "-inform", "DER", "-in", str(work / "crl.der"), "-out", str(work / "crl.pem")],
     ]
     for command in conversions:
         proc = run(command, work)
@@ -233,7 +238,7 @@ def verify_chain(
             "-x509_strict",
             "-check_ss_sig",
             "-crl_check",
-            "-CRLfile", str(work / "crl.pem"),
+            "-CRLfile", str(crl_path),
             "-attime", str(attime),
             str(work / "leaf.pem"),
         ],
@@ -344,7 +349,7 @@ def session_binding(
             "verification_time_unix": manifest["verification_time_unix"],
             "revocation_state": rev["state"],
             "revocation_method": rev.get("method"),
-            "revocation_crl_sha256": crl_sha,
+            "revocation_crl_bundle_pem_sha256": crl_sha,
             "spki_state": spki.get("state"),
             "spki_certificate_sha256": spki.get("certificate_sha256"),
             "spki_ek_public_wire_sha256": spki.get("ek_public_wire_sha256"),
@@ -393,7 +398,9 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         rev = manifest["revocation"]
         if not isinstance(rev, dict):
             return result("DENY", "revocation-object-invalid")
-        crl = unb64(rev.get("crl_der_base64", ""), "revocation.crl_der_base64")
+        if not isinstance(rev, dict):
+            return result("DENY", "revocation-object-invalid")
+        crl_bundle_pem = unb64(rev.get("crl_bundle_pem_base64", ""), "revocation.crl_bundle_pem_base64")
     except ValueError as exc:
         return result("DENY", "certificate-input-invalid", {"error": str(exc)})
 
@@ -422,10 +429,12 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "revocation-state-invalid")
     if rev.get("method") != "issuer-crl":
         return result("DENY", "revocation-method-invalid")
-    if not valid_hash(rev.get("crl_der_sha256")):
-        return result("DENY", "revocation-crl-digest-invalid")
-    if hashlib.sha256(crl).hexdigest() != rev["crl_der_sha256"]:
-        return result("DENY", "revocation-crl-digest-mismatch")
+    if rev.get("coverage") != "leaf-and-chain":
+        return result("DENY", "revocation-coverage-invalid")
+    if not valid_hash(rev.get("crl_bundle_pem_sha256")):
+        return result("DENY", "revocation-crl-bundle-digest-invalid")
+    if hashlib.sha256(crl_bundle_pem).hexdigest() != rev["crl_bundle_pem_sha256"]:
+        return result("DENY", "revocation-crl-bundle-digest-mismatch")
 
     spki = manifest["spki_binding"]
     if not isinstance(spki, dict):
@@ -639,6 +648,29 @@ def openssl_fixture(work: Path) -> dict[str, Any]:
     if p.returncode != 0:
         raise RuntimeError(p.stderr)
 
+    root_ca = work / "root-ca"
+    root_ca.mkdir()
+    (root_ca / "index.txt").write_text("", encoding="utf-8")
+    (root_ca / "serial").write_text("2000\n", encoding="utf-8")
+    (root_ca / "crlnumber").write_text("2000\n", encoding="utf-8")
+    (root_ca / "openssl.cnf").write_text(
+        "[ca]\ndefault_ca=root_ca\n"
+        "[root_ca]\n"
+        f"database={root_ca / 'index.txt'}\n"
+        f"private_key={root_key}\n"
+        f"certificate={root_pem}\n"
+        f"serial={root_ca / 'serial'}\n"
+        f"crlnumber={root_ca / 'crlnumber'}\n"
+        f"crl={root_ca / 'crl.pem'}\n"
+        "default_crl_days=30\ndefault_md=sha256\npolicy=policy_any\n"
+        "[policy_any]\ncommonName=supplied\n",
+        encoding="utf-8",
+    )
+    p = run(["openssl", "ca", "-config", str(root_ca / "openssl.cnf"), "-gencrl",
+             "-out", str(root_ca / "crl.pem"), "-batch"], work)
+    if p.returncode != 0:
+        raise RuntimeError(p.stderr)
+
     def der(path: Path) -> bytes:
         out = path.with_suffix(".der")
         cmd = ["openssl", "x509", "-in", str(path), "-outform", "DER", "-out", str(out)]
@@ -654,7 +686,10 @@ def openssl_fixture(work: Path) -> dict[str, Any]:
     leaf = der(leaf_pem)
     bad_usage = der(leaf_bad_usage_pem)
     bad_eku = der(leaf_bad_eku_pem)
-    crl = der(ca_dir / "crl.pem")
+    crl_der = der(ca_dir / "crl.pem")
+    root_crl_pem = (root_ca / "crl.pem").read_bytes()
+    inter_crl_pem = (ca_dir / "crl.pem").read_bytes()
+    crl_bundle_pem = root_crl_pem + inter_crl_pem
 
     texts = {}
     for name, data in (("leaf", leaf), ("bad-usage", bad_usage), ("bad-eku", bad_eku)):
@@ -667,7 +702,7 @@ def openssl_fixture(work: Path) -> dict[str, Any]:
         "leaf": leaf,
         "bad_usage": bad_usage,
         "bad_eku": bad_eku,
-        "crl": crl,
+        "crl_bundle_pem": crl_bundle_pem,
         "attime": start + 120,
     }
 
