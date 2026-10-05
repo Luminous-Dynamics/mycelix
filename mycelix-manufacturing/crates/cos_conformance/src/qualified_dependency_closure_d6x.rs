@@ -2458,7 +2458,7 @@ mod tests {
                 &upstream.effect,
                 &upstream.route,
                 &upstream.profile,
-            &upstream.profile.profile_commitment,
+                &upstream.profile.profile_commitment,
             &upstream.profile.profile_commitment,
                 &upstream.set,
                 &upstream.assessment,
