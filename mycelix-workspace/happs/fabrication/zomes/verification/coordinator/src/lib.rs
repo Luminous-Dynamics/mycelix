@@ -423,14 +423,13 @@ pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicSco
         if claim.epistemic_provenance != EpistemicProvenance::KnowledgeClassified {
             continue;
         }
-            let Some(epistemic) = claim.epistemic else {
-                continue;
-            };
-            e_sum += epistemic.empirical;
-            n_sum += epistemic.normative;
-            m_sum += epistemic.mythic;
-            classified_count += 1;
-        }
+        let Some(epistemic) = claim.epistemic else {
+            continue;
+        };
+        e_sum += epistemic.empirical;
+        n_sum += epistemic.normative;
+        m_sum += epistemic.mythic;
+        classified_count += 1;
     }
 
     let count_f = classified_count.max(1) as f32;
