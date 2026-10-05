@@ -22,7 +22,6 @@ jobs:
       contents: read
       id-token: write
       attestations: write
-      artifact-metadata: write
     steps:
       - name: Checkout trusted policy root
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -37,6 +36,8 @@ jobs:
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
 
       - name: Assert trusted policy root cohesion
+        env:
+          TRUSTED_POLICY_VERSION: "15"
         env:
           TRUSTED_POLICY_VERSION: "14"
         run: |
