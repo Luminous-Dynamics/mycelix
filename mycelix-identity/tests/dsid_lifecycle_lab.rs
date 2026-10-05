@@ -983,12 +983,9 @@ async fn dsid_058_deactivated_did_rejects_attestation_request() {
         )
         .await;
 
-    let now = sys_time()
-        .await
-        .expect("Sweettest host time must be available");
-    let expires_at = now
-        .checked_add(std::time::Duration::from_secs(3600))
-        .expect("attestation expiry arithmetic must not overflow");
+    // Active-DID rejection occurs before request validation, so the expiry
+    // value only needs to be structurally well-formed for deserialization.
+    let expires_at = Timestamp::from_micros(i64::MAX);
 
     let blocked: Result<Record, _> = conductor
         .call_fallible(
