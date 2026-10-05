@@ -364,6 +364,31 @@ def test_policy_pins_current_trusted_fetcher() -> None:
     assert policy["trusted_artifact_fetcher"]["blob_sha"] == observed
 
 
+def test_retention_workflow_contains_offline_controls() -> None:
+    root = Path(__file__).parents[2]
+    policy = json.loads(
+        (root / "docs/integral/d6u-trusted-builder-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    workflow = (root / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
+    required_fragments = [
+        "gh attestation trusted-root",
+        "gh attestation download",
+        "--predicate-type \"https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1\"",
+        "--bundle \"$bundle\"",
+        "--custom-trusted-root \"$retention_dir/trusted_root.jsonl\"",
+        "--no-public-good",
+        "--deny-self-hosted-runners",
+        "--format=json",
+        "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
+        "retention-days: 90",
+        "d6u-attestation-retention/v1",
+    ]
+    for fragment in required_fragments:
+        assert fragment in workflow, f"retention workflow control missing: {fragment}"
+
+
 def test_trusted_cli_policy_is_explicit() -> None:
     policy = json.loads(
         (Path(__file__).parents[2] / "docs/integral/d6u-trusted-builder-policy.json").read_text(
@@ -1344,6 +1369,7 @@ if __name__ == "__main__":
         test_custom_attestation_requires_verified_timestamp,
         test_custom_attestation_rejects_non_tlog_timestamp,
         test_custom_attestation_subject_set_is_order_independent_but_exact,
+        test_retention_workflow_contains_offline_controls,
         test_retention_packet_rejects_extra_member,
         test_custom_attestation_accepts_current_run_and_rejects_old_run,
         test_trusted_workflow_policy_shape_is_pinned,
