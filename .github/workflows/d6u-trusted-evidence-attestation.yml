@@ -276,7 +276,7 @@ jobs:
               "subjects": subjects,
               "retained_files": retained,
           }
-          out.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\\n", encoding="utf-8")
+          out.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
           PY
 
           D6U_TRUSTED_POLICY_VERSION="$D6U_TRUSTED_POLICY_VERSION" \
