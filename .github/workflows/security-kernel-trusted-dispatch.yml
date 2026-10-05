@@ -131,6 +131,20 @@ jobs:
           assert run["workflow_id"] != 0
           assert run["path"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_PATH"]
           assert run["workflow_ref"] == f"{os.environ['BASE_REPOSITORY']}/{os.environ['TRUSTED_INDEPENDENT_WORKFLOW_PATH']}@refs/heads/main"
-          assert run["workflow_sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"]
-          print(json.dumps({"dispatch":payload,"workflow_run_id":run_id,"workflow_sha":run["workflow_sha"]},sort_keys=True))
+          workflow_sha = run["workflow_sha"]
+          assert isinstance(workflow_sha, str) and len(workflow_sha) == 40
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['BASE_REPOSITORY']}/contents/{os.environ['TRUSTED_INDEPENDENT_WORKFLOW_PATH']}?ref={workflow_sha}",
+              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
+          with urllib.request.urlopen(req, timeout=20) as r:
+              executed_workflow = json.load(r)
+          assert executed_workflow["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
+              "dispatched run executed a workflow blob outside the registered immutable profile"
+          )
+          print(json.dumps({
+              "dispatch":payload,
+              "workflow_run_id":run_id,
+              "workflow_sha":workflow_sha,
+              "workflow_blob_sha":executed_workflow["sha"],
+          },sort_keys=True))
           PY
