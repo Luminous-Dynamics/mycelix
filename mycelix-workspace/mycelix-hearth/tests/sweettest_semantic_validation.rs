@@ -628,7 +628,7 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         let target_variant = case["target_variant"]
         let coordinator_primitive = case["coordinator_primitive"]
             .as_str()
-            .expect("every semantic case needs a validator_symbol");
+            .expect("every semantic case needs a coordinator_primitive");
 
         assert!(seen_ids.insert(case_id), "duplicate semantic case_id: {case_id}");
         assert!(seen_tests.insert(test), "duplicate semantic test name: {test}");
@@ -698,6 +698,7 @@ fn test_semantic_case_manifest_is_structurally_valid() {
             !surfaces.is_empty(),
             "{case_id} operation_surface must not be empty"
         );
+        let mut actual_surfaces = Vec::with_capacity(surfaces.len());
         for surface in surfaces {
             let surface = surface
                 .as_str()
@@ -706,7 +707,20 @@ fn test_semantic_case_manifest_is_structurally_valid() {
                 allowed_surfaces.contains(&surface),
                 "{case_id} contains unknown Holochain operation surface {surface:?}"
             );
+            actual_surfaces.push(surface);
         }
+        actual_surfaces.sort_unstable();
+        let mut expected_surfaces: Vec<&str> = match coordinator_primitive {
+            "create_entry" => vec!["CreateEntry", "CreateRecord"],
+            "update_entry" => vec!["CreateEntry", "CreateRecord", "Update"],
+            "create_link" => vec!["Link.CreateLink"],
+            other => panic!("{case_id} unknown coordinator primitive: {other}"),
+        };
+        expected_surfaces.sort_unstable();
+        assert_eq!(
+            actual_surfaces, expected_surfaces,
+            "{case_id} operation_surface must exactly match coordinator_primitive"
+        );
     }
 }
 
