@@ -512,3 +512,62 @@ The system should only claim a reserve-grade property at the layer for which it 
 - Holochain DHT operations: https://developer.holochain.org/build/dht-operations/
 - BIS, The next-generation monetary and financial system: https://www.bis.org/publications/aer-2025/next-generation-monetary-financial-system
 - IMF, Special Drawing Rights: https://www.imf.org/en/about/factsheets/sheets/2023/special-drawing-rights-sdr
+---
+
+## 22. Current implementation findings (2026-10-05)
+
+The repository inspection found three concrete gaps that this profile now treats as prerequisites rather than theoretical risks.
+
+### AC-092 / #4110 — raw balance credit
+
+payments::credit_sap is still a public extern that can increase an arbitrary DID balance. SapBalance.justified_by exists but is not enforced, and governance/bridge/genesis paths currently reach the balance mutation through that raw capability.
+
+This means the implementation does not yet make the issuance record and supply delta inseparable.
+
+### AC-096 / #4116 — collateral issuance before confirmation
+
+bridge::deposit_collateral creates a Pending CollateralBridgeDeposit and then immediately credits SAP. Confirmation happens later.
+
+That permits spendable SAP to exist before the collateral position reaches Confirmed status.
+
+The target ordering is:
+
+    collateral evidence
+        ↓
+    confirmed deposit
+        ↓
+    typed issuance
+        ↓
+    SAP becomes spendable
+
+### AC-097 / #4117 — redemption before SAP consumption
+
+bridge::redeem_collateral currently updates the collateral deposit to Redeemed before the corresponding payments::debit_sap call.
+
+That means a debit failure can leave the persisted collateral state looking released while the associated SAP remains outstanding.
+
+The target ordering is:
+
+    redemption request
+        ↓
+    SAP consumption
+        ↓
+    collateral release
+        ↓
+    final Redeemed state
+
+Because cross-zome effects are not globally atomic, both issuance and redemption need explicit intermediate/recovery states.
+
+These findings reinforce the core principle of this profile:
+
+    economic state transition
+        =
+    evidence + authority + conservation + serialization + recovery
+
+not merely the presence of a signed ledger entry.
+
+### Reserve qualification consequence
+
+Until AC-092, AC-095, AC-096, and AC-097 are closed with exact-head execution evidence, SAP supply should be treated as prototype monetary state rather than reserve-qualified supply.
+
+Reserve dashboards should expose unresolved issuance/redeem states instead of collapsing them into one balance total.
