@@ -1495,6 +1495,14 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     // Verify caller is the sender (prevents DID spoofing)
     verify_caller_is_did(&input.from_did)?;
 
+    if input.currency == "SAP" {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Synchronous SAP send is retired: use transfer_sap and claim_sap_transfer"
+                .into(),
+        )));
+    }
+
+
     // Validate currency before creating any entries
     if input.currency != "SAP" && input.currency != "TEND" {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -1503,13 +1511,6 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     }
 
     let now = sys_time()?;
-
-    if input.currency == "SAP" {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Synchronous SAP send is retired: use transfer_sap and claim_sap_transfer"
-                .into(),
-        )));
-    }
 
     // Per-agent rate limit: reject if this agent has exceeded the payment
     // send limit within the current 60-second window.
