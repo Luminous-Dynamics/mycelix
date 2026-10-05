@@ -261,3 +261,5 @@ Until then, queued CI or a committed workflow definition remains **unverified**,
   model is now anchored by a metadata-only PR-target S0.
 - **#4195** — explicit public-repository Actions policy for the metadata-only
   `pull_request_target` trust root.
+- **#4200** — policy-independent scheduled fallback for qualification liveness if
+  `pull_request_target` becomes unavailable.
