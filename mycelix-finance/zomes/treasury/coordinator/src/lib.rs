@@ -372,7 +372,7 @@ fn get_allocation_record(allocation_id: &str) -> ExternResult<(Record, Allocatio
     let link = exact_one_index_link(
         links,
         "AllocationIdToAllocation",
-        treasury_id,
+        allocation_id,
     )?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Allocation not found".into()
@@ -405,7 +405,7 @@ fn get_savings_pool_record(pool_id: &str) -> ExternResult<(Record, SavingsPool)>
     let link = exact_one_index_link(
         links,
         "PoolIdToPool",
-        treasury_id,
+        pool_id,
     )?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Savings pool not found".into()
@@ -438,7 +438,7 @@ fn get_commons_pool_record(pool_id: &str) -> ExternResult<(Record, CommonsPool)>
     let link = exact_one_index_link(
         links,
         "CommonsPoolIdToPool",
-        treasury_id,
+        pool_id,
     )?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Commons pool not found".into()
@@ -546,7 +546,7 @@ pub fn get_treasury(treasury_id: String) -> ExternResult<Option<Record>> {
     };
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    return Ok(Some(follow_update_chain(hash)?));    Ok(None)
+    return Ok(Some(follow_update_chain(hash)?));
 }
 
 /// Approve an allocation (manager only)
@@ -883,7 +883,7 @@ pub fn get_savings_pool(pool_id: String) -> ExternResult<Option<Record>> {
     };
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    return Ok(Some(follow_update_chain(hash)?));    Ok(None)
+    return Ok(Some(follow_update_chain(hash)?));
 }
 
 /// Join a savings pool
@@ -1436,7 +1436,7 @@ pub fn get_commons_pool(pool_id: String) -> ExternResult<Option<Record>> {
     };
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    return Ok(Some(follow_update_chain(hash)?));    Ok(None)
+    return Ok(Some(follow_update_chain(hash)?));
 }
 
 /// Get the commons pool for a DAO (O(1) link-based lookup).
@@ -1456,7 +1456,7 @@ pub fn get_dao_commons_pool(dao_did: String) -> ExternResult<Option<Record>> {
     };
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    return Ok(Some(follow_update_chain(hash)?));    Ok(None)
+    return Ok(Some(follow_update_chain(hash)?));
 }
 
 // ---------------------------------------------------------------------------
