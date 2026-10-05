@@ -100,15 +100,12 @@ await mustReject('tampered credential', () => vc.verifyCredential({
   documentLoader
 }));
 
-const wrongProofPurpose = structuredClone(fixture.credential);
-if(wrongProofPurpose.proof?.proofPurpose !== 'assertionMethod') {
-  throw new Error('fixture credential proofPurpose must be assertionMethod');
-}
-wrongProofPurpose.proof.proofPurpose = 'authentication';
 await mustReject('wrong credential proof purpose', () => vc.verifyCredential({
-  credential: wrongProofPurpose,
+  credential: fixture.credential,
   suite,
-  purpose: new jsigs.purposes.AssertionProofPurpose(),
+  purpose: new jsigs.purposes.AuthenticationProofPurpose({
+    challenge: fixture.presentationChallenge
+  }),
   documentLoader
 }));
 
@@ -133,6 +130,15 @@ await mustReject('wrong presentation domain', () => vc.verify({
     challenge: fixture.presentationChallenge,
     domain: fixture.presentationDomain + '-wrong'
   }),
+  documentLoader
+}));
+
+await mustReject('wrong presentation purpose', () => vc.verify({
+  presentation: fixture.presentation,
+  challenge: fixture.presentationChallenge,
+  domain: fixture.presentationDomain,
+  suite,
+  presentationPurpose: new jsigs.purposes.AssertionProofPurpose(),
   documentLoader
 }));
 
@@ -249,7 +255,8 @@ console.log(JSON.stringify({
   challenge_validated: true,
   domain_present: true,
   tampered_credential_rejected: true,
-  wrong_proof_purpose_rejected: true,
+  wrong_credential_purpose_rejected: true,
+  wrong_presentation_purpose_rejected: true,
   wrong_challenge_rejected: true,
   wrong_domain_rejected: true,
   tampered_presentation_rejected: true,
