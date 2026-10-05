@@ -668,6 +668,8 @@ pub struct TransferSapInput {
     pub from_did: String,
     pub to_did: String,
     pub amount: u64,
+    #[serde(default)]
+    pub transfer_id: Option<String>,
 }
 
 /// Conservation-preserving SAP transfer: debit `from`, credit `to` by the same amount.
@@ -691,12 +693,14 @@ pub struct TransferSapInput {
 #[hdk_extern]
 pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
     initiate_sap_transfer(TransferSapIntentInput {
-        transfer_id: format!(
-            "transfer:{}:{}:{}",
-            input.from_did,
-            input.to_did,
-            sys_time()?.as_micros()
-        ),
+        transfer_id: input.transfer_id.unwrap_or_else(|| {
+            format!(
+                "transfer:{}:{}:{}",
+                input.from_did,
+                input.to_did,
+                sys_time().map(|t| t.as_micros()).unwrap_or_default()
+            )
+        }),
         from_did: input.from_did,
         to_did: input.to_did,
         amount: input.amount,
@@ -747,36 +751,56 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
         )));
     }
 
+    let now = sys_time()?;
+    if input.expires_at.is_some_and(|expiry| expiry <= now) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer intent expiry must be in the future".into(),
+        )));
+    }
+
     let anchor = transfer_intent_anchor(&input.transfer_id)?;
     let existing = get_links(
         LinkQuery::try_new(anchor.clone(), LinkTypes::TransferIdToIntent)?,
         GetStrategy::default(),
     )?;
+
+    if existing.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple transfer intents exist for {}; refusing ambiguous settlement",
+            input.transfer_id
+        ))));
+    }
     if let Some(link) = existing.into_iter().next() {
         let hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid transfer intent target".into())))?;
-        return get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Existing transfer intent could not be loaded".into(),
-        )));
+        let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(
+            WasmErrorInner::Guest("Existing transfer intent could not be loaded".into())
+        ))?;
+        let existing_intent = record
+            .entry()
+            .to_app_option::<SapTransferIntent>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Existing transfer intent deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Existing transfer intent is missing",
+            )))?;
+
+        if existing_intent.from_did != input.from_did
+            || existing_intent.to_did != input.to_did
+            || existing_intent.amount != input.amount
+            || existing_intent.expires_at != input.expires_at
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Transfer id already exists with conflicting terms".into(),
+            )));
+        }
+
+        return Ok(record);
     }
-
-    let now = sys_time()?;
-    let intent = SapTransferIntent {
-        id: input.transfer_id.clone(),
-        from_did: input.from_did.clone(),
-        to_did: input.to_did.clone(),
-        amount: input.amount,
-        created_at: now,
-        expires_at: input.expires_at,
-    };
-
-    let intent_hash = create_entry(&EntryTypes::SapTransferIntent(intent))?;
-    create_link(
-        anchor.clone(),
-        intent_hash.clone(),
-        LinkTypes::TransferIdToIntent,
-        (),
-    )?;
 
     let (balance_record, balance) = get_sap_balance_inner(&input.from_did)?;
     let elapsed = elapsed_seconds(balance.last_demurrage_at, now);
@@ -800,6 +824,24 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
             effective, balance.balance, deduction, input.amount
         ))));
     }
+
+    let intent = SapTransferIntent {
+        id: input.transfer_id.clone(),
+        from_did: input.from_did.clone(),
+        to_did: input.to_did.clone(),
+        amount: input.amount,
+        balance_before_action_hash: balance_record.action_address().clone(),
+        created_at: now,
+        expires_at: input.expires_at,
+    };
+
+    let intent_hash = create_entry(&EntryTypes::SapTransferIntent(intent))?;
+    create_link(
+        anchor,
+        intent_hash.clone(),
+        LinkTypes::TransferIdToIntent,
+        (),
+    )?;
 
     let updated = SapBalance {
         balance: effective - input.amount,
@@ -831,14 +873,19 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
         LinkQuery::try_new(intent_anchor, LinkTypes::TransferIdToIntent)?,
         GetStrategy::default(),
     )?;
-    let Some(intent_link) = intent_links.into_iter().next() else {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Transfer intent not found".into(),
-        )));
-    };
-    let intent_hash = ActionHash::try_from(intent_link.target)
+    if intent_links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Transfer intent {} must resolve to exactly one intent; found {}",
+            transfer_id,
+            intent_links.len()
+        ))));
+    }
+
+    let intent_hash = ActionHash::try_from(intent_links[0].target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid transfer intent target".into())))?;
-    let intent_record = must_get_valid_record(intent_hash.clone())?;
+    let intent_record = get(intent_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Transfer intent record not found".into()))
+    )?;
     let intent = intent_record
         .entry()
         .to_app_option::<SapTransferIntent>()
@@ -854,13 +901,11 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
 
     verify_caller_is_did(&intent.to_did)?;
 
-    if let Some(expiry) = intent.expires_at {
-        let now = sys_time()?;
-        if now > expiry {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Transfer intent has expired".into(),
-            )));
-        }
+    let now = sys_time()?;
+    if intent.expires_at.is_some_and(|expiry| now > expiry) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer intent has expired".into(),
+        )));
     }
 
     let claim_anchor = transfer_claim_anchor(&transfer_id)?;
@@ -868,6 +913,12 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
         LinkQuery::try_new(claim_anchor.clone(), LinkTypes::TransferIdToClaim)?,
         GetStrategy::default(),
     )?;
+    if existing.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple claims exist for transfer {}; refusing ambiguous settlement",
+            transfer_id
+        ))));
+    }
     if let Some(link) = existing.into_iter().next() {
         let hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid transfer claim target".into())))?;
@@ -876,12 +927,37 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
         )));
     }
 
-    let now = sys_time()?;
+    let (balance_record, balance) = match get_sap_balance_inner(&intent.to_did) {
+        Ok(found) => found,
+        Err(_) => {
+            let balance_hash = initialize_sap_balance(intent.to_did.clone())?;
+            let record = get(balance_hash, GetOptions::default())?.ok_or(
+                wasm_error!(WasmErrorInner::Guest(
+                    "Recipient SAP balance could not be initialized"
+                ))
+            )?;
+            let balance = record
+                .entry()
+                .to_app_option::<SapBalance>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Recipient SAP balance deserialization error: {:?}",
+                        e
+                    )))
+                })?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recipient SAP balance entry is missing",
+                )))?;
+            (record, balance)
+        }
+    };
+
     let claim = SapTransferClaim {
         transfer_id: intent.id.clone(),
         intent_action_hash: intent_hash,
         recipient_did: intent.to_did.clone(),
         amount: intent.amount,
+        balance_before_action_hash: balance_record.action_address().clone(),
         claimed_at: now,
     };
     let claim_hash = create_entry(&EntryTypes::SapTransferClaim(claim))?;
@@ -891,30 +967,6 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
         LinkTypes::TransferIdToClaim,
         (),
     )?;
-
-    let (balance_record, balance) = match get_sap_balance_inner(&intent.to_did) {
-        Ok(found) => found,
-        Err(_) => {
-            let balance = SapBalance {
-                member_did: intent.to_did.clone(),
-                balance: 0,
-                last_demurrage_at: now,
-                exemption: None,
-                justified_by: None,
-            };
-            let hash = create_entry(&EntryTypes::SapBalance(balance.clone()))?;
-            create_link(
-                anchor_hash(&format!("sap:{}", intent.to_did))?,
-                hash.clone(),
-                LinkTypes::DidToSapBalance,
-                (),
-            )?;
-            let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(
-                WasmErrorInner::Guest("Recipient SAP balance could not be initialized".into())
-            ))?;
-            (record, balance)
-        }
-    };
 
     let updated = SapBalance {
         balance: balance.balance.checked_add(intent.amount).ok_or(wasm_error!(
@@ -933,6 +985,7 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
         "Transfer claim not found after creation".into(),
     )))
 }
+
 
 // ---------------------------------------------------------------------------
 // SAP Minting (governance-authorized issuance)
