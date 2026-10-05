@@ -2388,9 +2388,9 @@ source_contract = source.find("      - name: Capture semantic source contract be
 source_tree = source.find("      - name: Capture source tree fingerprint before runtime")
 sweettest = source.find("      - name: Run Hearth 0.7 SweetConductor qualification")
 source_verify = source.find("      - name: Verify source tree immutability after runtime qualification")
-veerify = source.find("      - name: Verify every semantic qualification case executed")
+verify = source.find("      - name: Verify every semantic qualification case executed")
 capture = source.find("      - name: Capture immutable qualification evidence")
-if not (0 <= source_contract < source_tree < sweettest < source_verify < veerify < capture):
+if not (0 <= source_contract < source_tree < sweettest < source_verify < verify < capture):
     print("FAIL: source contract/tree provenance must precede SweetConductor and all runtime receipts must precede evidence capture")
     raise SystemExit(2)
 
@@ -2516,6 +2516,7 @@ checks = [
     ('root-level source-contract verification', r'\(cd "\$\{root\}" && sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256\.txt\)'),
     ('source-tree fingerprint marker', r'unavailable_source_tree_fingerprint_not_reached'),
     ('source-tree immutability receipt', r'qualification-source-tree-immutability\.txt'),
+    ('source-contract state receipt', r'qualification-source-contract-state\.txt'),
     ('evidence status artifact', r'qualification-evidence-status\.txt'),
 ]
 for label, pattern in checks:
