@@ -64,7 +64,7 @@ def capture(out:Path,tpm_identity_digest:str)->int:
         "output_sha256":sha256_file(blob) if blob.is_file() else None,
     }
 
-    ac_cmd=["tpm2_activatecredential","-c",str(out/"ak.ctx"),"-C",str(out/"ek.ctx"),"-i",str(blob),"-o",str(recovered)]
+    ac_cmd=["tpm2_activatecredential","-c",str(out/"ak.ctx"),"-C",str(out/"ek.ctx"),"-i",str(blob),"-o",str(recovered),"-p","akpass"]
     ac=run(ac_cmd,out)
     activate_tx={
         "command":ac_cmd,
