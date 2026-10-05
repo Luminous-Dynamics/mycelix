@@ -49,19 +49,23 @@ use std::collections::HashMap;
 const CONSCIOUSNESS_CACHE_TTL_MICROS: i64 = 300_000_000; // 5 minutes
 
 thread_local! {
-    static CONSCIOUSNESS_CACHE: RefCell<HashMap<AgentPubKey, (i64, bool)>> = RefCell::new(HashMap::new());
+    static CONSCIOUSNESS_CACHE: RefCell<HashMap<(AgentPubKey, String), (i64, bool)>> = RefCell::new(HashMap::new());
 }
 
 /// Gate operations behind consciousness verification from the identity hApp.
-/// Graceful fallback: if the identity hApp is unreachable, allow the operation.
+/// Unavailable or unsuccessful Identity checks deny by default; only successful
+/// checks are cached, and the cache is scoped to the exact gated action.
 fn require_fabrication_consciousness(action_name: &str) -> ExternResult<()> {
     let agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?.as_micros() as i64;
+    let cache_key = (agent.clone(), action_name.to_string());
 
-    // Check cache first
+    // Check cache first. Future-dated entries are never accepted.
     let cached = CONSCIOUSNESS_CACHE.with(|c| {
-        c.borrow().get(&agent).and_then(|(ts, eligible)| {
-            if now - ts < CONSCIOUSNESS_CACHE_TTL_MICROS { Some(*eligible) } else { None }
+        c.borrow().get(&cache_key).and_then(|(ts, eligible)| {
+            now.checked_sub(*ts)
+                .filter(|age| *age >= 0 && *age < CONSCIOUSNESS_CACHE_TTL_MICROS)
+                .map(|_| *eligible)
         })
     });
 
@@ -75,10 +79,15 @@ fn require_fabrication_consciousness(action_name: &str) -> ExternResult<()> {
                 None,
                 action_name,
             );
-            // Pass on success OR if identity hApp is unreachable (graceful fallback)
-            let e = matches!(result, Ok(ZomeCallResponse::Ok(_)) | Err(_));
-            CONSCIOUSNESS_CACHE.with(|c| { c.borrow_mut().insert(agent, (now, e)); });
-            e
+            match result {
+                Ok(ZomeCallResponse::Ok(_)) => {
+                    CONSCIOUSNESS_CACHE.with(|c| {
+                        c.borrow_mut().insert(cache_key, (now, true));
+                    });
+                    true
+                }
+                _ => false,
+            }
         }
     };
 
@@ -900,6 +909,61 @@ mod tests {
         let wasm_err = err.to_wasm_error();
         let msg = format!("{:?}", wasm_err);
         assert!(msg.contains("RateLimited"));
+    }
+
+    fn cached_consciousness_decision(
+        now_micros: i64,
+        cached_at_micros: i64,
+        eligible: bool,
+    ) -> Option<bool> {
+        now_micros
+            .checked_sub(cached_at_micros)
+            .filter(|age| *age >= 0 && *age < CONSCIOUSNESS_CACHE_TTL_MICROS)
+            .map(|_| eligible)
+    }
+
+    #[test]
+    fn test_consciousness_cache_accepts_current_entry() {
+        assert_eq!(
+            cached_consciousness_decision(
+                1_000_000,
+                1_000_000 - (CONSCIOUSNESS_CACHE_TTL_MICROS - 1),
+                true
+            ),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn test_consciousness_cache_rejects_expired_entry() {
+        assert_eq!(
+            cached_consciousness_decision(
+                1_000_000 + CONSCIOUSNESS_CACHE_TTL_MICROS,
+                1_000_000,
+                true
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn test_consciousness_cache_rejects_future_dated_entry() {
+        assert_eq!(
+            cached_consciousness_decision(1_000_000, 1_000_001, true),
+            None
+        );
+    }
+
+    #[test]
+    fn test_consciousness_cache_identity_includes_action() {
+        let agent = test_agent_for_cache();
+        let first = (agent.clone(), "create_repair_prediction".to_string());
+        let second = (agent, "list_design_on_marketplace".to_string());
+        assert_ne!(first, second);
+    }
+
+    fn test_agent_for_cache() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![7u8; 36])
     }
 
     #[test]
