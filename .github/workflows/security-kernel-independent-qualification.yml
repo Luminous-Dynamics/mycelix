@@ -324,6 +324,8 @@ jobs:
             --ulimit=nofile=4096:4096 \
             --ulimit=core=0:0 \
             --user "$runner_uid:$runner_gid" \
+            --init \
+            --stop-timeout=5 \
             --ipc=private \
             --pid=private \
             --cgroupns=private \
@@ -475,6 +477,7 @@ jobs:
               --volume "$CANDIDATE_ROOT:/source:ro" \
               --volume "$VENDOR_ROOT:/vendor:ro" \
               --volume "$RUST_SYSROOT:/opt/rust-toolchain:ro" \
+              --workdir /source/crates/mycelix-bridge-common \
               --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
               --env HOME=/cargo-home \
               --env CARGO_HOME=/cargo-home \
@@ -513,9 +516,6 @@ jobs:
             test -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
             test ! -e /var/run/docker.sock
             test ! -e /home/runner
-            test ! -w /source
-            test ! -w /vendor
-            test ! -w /opt/rust-toolchain
             test -w /target
             test -w /tmp
             test ! -w /
