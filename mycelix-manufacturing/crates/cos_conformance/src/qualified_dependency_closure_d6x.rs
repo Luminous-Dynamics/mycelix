@@ -366,6 +366,34 @@ impl DependencyClosureCertificateV1 {
         self.resolution_evidence_status() == ResolutionEvidenceStatusV1::Complete
     }
 
+    /// Construct a verification summary only when runtime resolution evidence
+    /// independently corroborates every selected Present/Stale dependency.
+    ///
+    /// This is additive to the semantic-only constructor: consumers that need
+    /// evidence-backed resolution must opt into this stricter path explicitly.
+    pub fn from_verified_closure_with_complete_resolution_evidence(
+        verifier_id: &str,
+        verification_policy_commitment: &str,
+        projection: &QualifiedProjectionV1,
+        environment: &SemanticEnvironmentV1,
+        derivation_profile: &DerivationProfileV1,
+        closure_profile: &DependencyClosureProfileV1,
+        closure: &DependencyClosureCertificateV1,
+    ) -> Option<Self> {
+        if !closure.has_complete_resolution_evidence() {
+            return None;
+        }
+        Self::from_verified_closure(
+            verifier_id,
+            verification_policy_commitment,
+            projection,
+            environment,
+            derivation_profile,
+            closure_profile,
+            closure,
+        )
+    }
+
     fn resolution_evidence_is_consistent(
         &self,
         dependency: &SemanticDependencyReferenceV1,
@@ -698,6 +726,30 @@ impl D6XVerificationSummaryV1 {
             *expected_counts.entry(dependency.kind).or_insert(0) += 1;
         }
         self.dependency_counts == expected_counts
+    }
+
+    /// Strict verification-summary consumer path requiring complete runtime
+    /// resolution evidence in addition to all ordinary verifier/policy/source
+    /// expectation checks.
+    pub fn verifies_against_expectations_with_complete_resolution_evidence(
+        &self,
+        expected_verifier_id: &str,
+        expected_verification_policy_commitment: &str,
+        projection: &QualifiedProjectionV1,
+        environment: &SemanticEnvironmentV1,
+        derivation_profile: &DerivationProfileV1,
+        closure_profile: &DependencyClosureProfileV1,
+        closure: &DependencyClosureCertificateV1,
+    ) -> bool {
+        self.verifies_against_expectations(
+            expected_verifier_id,
+            expected_verification_policy_commitment,
+            projection,
+            environment,
+            derivation_profile,
+            closure_profile,
+            closure,
+        ) && closure.has_complete_resolution_evidence()
     }
 }
 
@@ -2659,6 +2711,78 @@ mod tests {
             )
             .is_none(),
             "unified authoritative D6X entrypoint must reject a self-consistent D6P receipt targeting the wrong composition"
+        );
+    }
+
+    #[test]
+    fn verification_summary_requires_explicit_opt_in_for_complete_resolution_evidence() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("verified closure");
+
+        let policy = canonical_sha256(
+            "test-d6x-verification-policy",
+            &serde_json::json!({"required_result": "Passed"}),
+        );
+
+        assert!(
+            D6XVerificationSummaryV1::from_verified_closure_with_complete_resolution_evidence(
+                "verifier:d6x-test",
+                &policy,
+                &projection,
+                &environment,
+                &derivation_profile,
+                &closure_profile,
+                &closure,
+            )
+            .is_none(),
+            "semantic-only closure must not be upgraded to an evidence-backed summary"
+        );
+
+        let mut complete = closure.clone();
+        for dependency in &complete.dependencies {
+            complete.resolution_evidence.insert(
+                dependency.clone(),
+                SemanticDependencyResolutionEvidenceV1 {
+                    retrieval_reference: Some(format!(
+                        "runtime://resolver/{}",
+                        dependency.identifier
+                    )),
+                    observed_commitment: dependency.commitment.clone(),
+                    qualification_context_commitment: Some("qualification-context".into()),
+                },
+            );
+        }
+        assert!(complete.has_complete_resolution_evidence());
+
+        let summary = D6XVerificationSummaryV1::from_verified_closure_with_complete_resolution_evidence(
+            "verifier:d6x-test",
+            &policy,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &complete,
+        )
+        .expect("complete evidence should permit strict summary construction");
+
+        assert!(summary.valid());
+        assert!(
+            summary.verifies_against_expectations_with_complete_resolution_evidence(
+                "verifier:d6x-test",
+                &policy,
+                &projection,
+                &environment,
+                &derivation_profile,
+                &closure_profile,
+                &complete,
+            )
         );
     }
 
