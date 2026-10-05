@@ -204,6 +204,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 link_type,
                 action.data.base_address.clone(),
                 action.data.target_address.clone(),
+                &action.data.tag,
                 action.author(),
             )
         }
@@ -219,16 +220,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 link_type,
                 action.data.base_address.clone(),
                 action.data.target_address.clone(),
+                &action.data.tag,
                 action.author(),
             )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             action,
-            original_action,
             ..
         }) => {
-            let result =
-                check_link_author_match(original_action.author(), action.author());
+            let original_record = must_get_valid_record(action.link_add_address.clone())?;
+            let original_create_link = TypedAction::<CreateLinkData>::try_from_action(original_record.action().clone())?;
+            let result = check_link_author_match(original_create_link.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -241,7 +243,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
 
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
-            let original = must_get_action(action.original_action_address.clone())?;
+            let original = must_get_valid_record(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
                 action.author(),
@@ -250,7 +252,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid)
         FlatOp::Delete(OpDelete { action }) => {
-            let original = must_get_action(action.deletes_address.clone())?;
+            let original = must_get_valid_record(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
                 action.author(),
@@ -381,12 +383,28 @@ fn agent_key_from_link(
         .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an AgentPubKey")))
 }
 
+fn load_anchor(hash: EntryHash, label: &str) -> ExternResult<Anchor> {
+    let bytes = must_get_entry(hash)?;
+    Anchor::try_from(bytes).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to deserialize {label}: {e}"
+        )))
+    })
+}
+
 fn validate_create_link(
     link_type: LinkTypes,
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
+    tag: &LinkTag,
     author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
+    if !tag.0.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty for this LinkTypes family".into(),
+        ));
+    }
+
     match link_type {
         LinkTypes::AgentToHearths => {
             let base_agent = match agent_key_from_link(base_address, "AgentToHearths base") {
@@ -500,6 +518,65 @@ fn validate_create_link(
                 ));
             }
         }
+        LinkTypes::AllHearths => {
+            let anchor_hash = EntryHash::try_from(base_address).map_err(|_| {
+                ValidateCallbackResult::Invalid("AllHearths base must be an EntryHash".into())
+            })?;
+            let anchor = load_anchor(anchor_hash, "AllHearths anchor")?;
+            if anchor.0 != "all_hearths" {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AllHearths base anchor must be 'all_hearths'".into(),
+                ));
+            }
+            let hearth_hash = action_hash_from_link(target_address, "AllHearths target")?;
+            let _ = load_original_typed_entry::<Hearth>(hearth_hash, "Hearth")?;
+        }
+        LinkTypes::HearthToBonds => {
+            let hearth_hash = action_hash_from_link(base_address, "HearthToBonds base")?;
+            let bond_hash = action_hash_from_link(target_address, "HearthToBonds target")?;
+            let (bond, _bond_author): (KinshipBond, AgentPubKey) =
+                load_original_typed_entry(bond_hash, "KinshipBond")?;
+            if bond.hearth_hash != hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToBonds target belongs to a different hearth".into(),
+                ));
+            }
+        }
+        LinkTypes::MemberToBonds => {
+            let member = agent_key_from_link(base_address, "MemberToBonds base")?;
+            let bond_hash = action_hash_from_link(target_address, "MemberToBonds target")?;
+            let (bond, _bond_author): (KinshipBond, AgentPubKey) =
+                load_original_typed_entry(bond_hash, "KinshipBond")?;
+            if bond.member_a != member && bond.member_b != member {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "MemberToBonds base is not a member of the bond".into(),
+                ));
+            }
+        }
+        LinkTypes::TypeToHearths => {
+            let anchor_hash = EntryHash::try_from(base_address).map_err(|_| {
+                ValidateCallbackResult::Invalid("TypeToHearths base must be an EntryHash".into())
+            })?;
+            let anchor = load_anchor(anchor_hash, "TypeToHearths anchor")?;
+            if !anchor.0.starts_with("hearth_type:") || anchor.0.len() <= "hearth_type:".len() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "TypeToHearths base anchor must use a non-empty hearth_type: namespace".into(),
+                ));
+            }
+            let hearth_hash = action_hash_from_link(target_address, "TypeToHearths target")?;
+            let _ = load_original_typed_entry::<Hearth>(hearth_hash, "Hearth")?;
+        }
+        LinkTypes::HearthToDigests => {
+            let hearth_hash = action_hash_from_link(base_address, "HearthToDigests base")?;
+            let digest_hash = action_hash_from_link(target_address, "HearthToDigests target")?;
+            let (digest, _digest_author): (WeeklyDigest, AgentPubKey) =
+                load_original_typed_entry(digest_hash, "WeeklyDigest")?;
+            if digest.hearth_hash != hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "WeeklyDigest belongs to a different hearth".into(),
+                ));
+            }
+        }
         LinkTypes::AgentToInvitationResponses => {
             let invitee = match agent_key_from_link(base_address, "AgentToInvitationResponses base")
             {
@@ -524,7 +601,6 @@ fn validate_create_link(
                 ));
             }
         }
-        _ => {}
     }
     Ok(ValidateCallbackResult::Valid)
 }

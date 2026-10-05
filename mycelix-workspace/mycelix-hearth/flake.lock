@@ -36,11 +36,11 @@
     },
     "nixpkgs-lib": {
       "locked": {
-        "lastModified": 1761765539,
-        "narHash": "sha256-b0yj6kfvO8ApcSE+QmA6mUfu8IYG6/uU28OFn4PaC8M=",
+        "lastModified": 1782614948,
+        "narHash": "sha256-ePjCwr1sNm9NYUqywL7QfK3JnlS015msC+eBu2zKlp8=",
         "owner": "nix-community",
         "repo": "nixpkgs.lib",
-        "rev": "719359f4562934ae99f5443f20aa06c2ffff91fc",
+        "rev": "db3f255737b94216eb71cce308e2912cf6bc2d7c",
         "type": "github"
       },
       "original": {
@@ -188,6 +188,7 @@
     "rust-overlay": {
       "inputs": {
         "nixpkgs": [
+          "holonix",
           "nixpkgs"
         ]
       },
@@ -219,11 +220,11 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1785425000,
-        "narHash": "sha256-LJWSWZHNNxLGRjlQoBgqzIfFLMt0HBF+csLKuYoktC4=",
+        "lastModified": 1785430241,
+        "narHash": "sha256-WSzIFA1vBrUAbK7CHooBddBwaJcpGCudVEUBjiIik+4=",
         "owner": "holochain",
         "repo": "holonix",
-        "rev": "84cdce7d4df17b95189324d5cecc3f1bfd5db30f",
+        "rev": "ffcc7c63b4b87dde16a69247775639b49c5778b1",
         "type": "github"
       },
       "original": {

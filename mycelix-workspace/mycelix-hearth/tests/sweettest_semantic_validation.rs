@@ -1,0 +1,808 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+
+//! Holochain 0.7 semantic validation qualification.
+//!
+//! These tests deliberately exercise normal coordinator write paths with values
+//! that violate deterministic integrity invariants. The assertions require the
+//! validator's own rejection reason to cross the zome-call boundary; a generic
+//! `Err` is not sufficient evidence because coordinator authorization could fail
+//! for unrelated reasons.
+//!
+//! Runtime claim ceiling:
+//! - each ignored test is intended to establish observed integrity rejection once
+//!   executed in the pinned Holochain 0.7 environment;
+//! - source/unit coverage alone does not substitute for these runtime cases.
+
+use holochain::prelude::*;
+use holochain::sweettest::*;
+use holochain::{
+    conductor::api::error::ConductorApiError,
+    conductor::CellError,
+    core::workflow::WorkflowError,
+    core::SourceChainError,
+};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+enum HearthType {
+    Nuclear,
+    Extended,
+    Chosen,
+    Blended,
+    Multigenerational,
+    Intentional,
+    CoPod,
+    Custom(String),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CreateHearthInput {
+    name: String,
+    description: String,
+    hearth_type: HearthType,
+    max_members: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+enum DecisionType {
+    Consensus,
+    MajorityVote,
+    ElderDecision,
+    GuardianDecision,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+enum MemberRole {
+    Founder,
+    Elder,
+    Adult,
+    Youth,
+    Child,
+    Guest,
+    Ancestor,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CreateDecisionInput {
+    hearth_hash: ActionHash,
+    title: String,
+    description: String,
+    decision_type: DecisionType,
+    eligible_roles: Vec<MemberRole>,
+    options: Vec<String>,
+    deadline: Timestamp,
+    quorum_bp: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+enum ResourceType {
+    Tool,
+    Vehicle,
+    Book,
+    Kitchen,
+    Electronics,
+    Clothing,
+    Custom(String),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct RegisterResourceInput {
+    hearth_hash: ActionHash,
+    name: String,
+    description: String,
+    resource_type: ResourceType,
+    condition: String,
+    location: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+enum StoryType {
+    Memory,
+    Tradition,
+    Recipe,
+    Wisdom,
+    Origin,
+    Migration,
+    Custom(String),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+enum HearthVisibility {
+    AllMembers,
+    AdultsOnly,
+    GuardiansOnly,
+    Specified(Vec<AgentPubKey>),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CreateStoryInput {
+    hearth_hash: ActionHash,
+    title: String,
+    content: String,
+    story_type: StoryType,
+    media_hashes: Vec<ActionHash>,
+    tags: Vec<String>,
+    visibility: HearthVisibility,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CreateCollectionInput {
+    hearth_hash: ActionHash,
+    name: String,
+    description: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct AddToCollectionInput {
+    collection_hash: ActionHash,
+    story_hash: ActionHash,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct UpdateStoryInput {
+    story_hash: ActionHash,
+    title: String,
+    content: String,
+    tags: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CrossClusterNotificationInput {
+    schema_version: u8,
+    source_cluster: String,
+    source_zome: String,
+    event_type: String,
+    target_clusters: Vec<String>,
+    target_agents: Vec<String>,
+    payload: String,
+    priority: u8,
+    created_at: Timestamp,
+    expires_at: Option<Timestamp>,
+}
+
+fn hearth_dna_path() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.pop();
+    path.push("dna");
+    path.push("mycelix_hearth.dna");
+    path
+}
+
+async fn setup_alice() -> (SweetConductor, SweetCell) {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+    (conductor, alice)
+}
+
+async fn create_test_hearth(conductor: &SweetConductor, alice: &SweetCell) -> ActionHash {
+    let record: Record = conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Semantic Validation Hearth".into(),
+                description: "Runtime integrity qualification fixture".into(),
+                hearth_type: HearthType::Nuclear,
+                max_members: Some(8),
+            },
+        )
+        .await;
+    record.action_address().clone()
+}
+
+fn expected_reason(test_name: &str) -> String {
+    let manifest: serde_json::Value = serde_json::from_str(include_str!(
+        "hearth-07-semantic-validation-cases.json"
+    ))
+    .expect("semantic-validation case manifest must be valid JSON");
+
+    manifest["cases"]
+        .as_array()
+        .and_then(|cases| {
+            cases.iter().find_map(|case| {
+                (case["test"].as_str() == Some(test_name))
+                    .then(|| case["rejection_reason"].as_str())
+                    .flatten()
+            })
+        })
+        .unwrap_or_else(|| panic!("semantic manifest has no rejection_reason for {test_name}"))
+        .to_string()
+}
+
+fn assert_integrity_rejection<T>(result: Result<T, ConductorApiError>, expected_reason: &str) {
+    let err = result.expect_err("invalid input must be rejected by the zome");
+    match err {
+        ConductorApiError::CellError(CellError::WorkflowError(wfe)) => match *wfe {
+            WorkflowError::SourceChainError(SourceChainError::InvalidCommit(reason)) => {
+                assert_eq!(
+                    reason, expected_reason,
+                    "expected exact integrity rejection reason {expected_reason:?}, got {reason:?}"
+                );
+            }
+            other => panic!("expected SourceChainError::InvalidCommit, got {other:?}"),
+        },
+        other => panic!("expected ConductorApiError::CellError(WorkflowError(SourceChainError::InvalidCommit)), got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_invalid_decision_entry_reaches_integrity_validation() {
+    let (conductor, alice) = setup_alice().await;
+    let hearth_hash = create_test_hearth(&conductor, &alice).await;
+
+    let result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_decisions"),
+            "create_decision",
+            CreateDecisionInput {
+                hearth_hash,
+                title: String::new(),
+                description: "The empty title is the boundary under test.".into(),
+                decision_type: DecisionType::MajorityVote,
+                eligible_roles: vec![MemberRole::Founder],
+                options: vec!["Yes".into(), "No".into()],
+                deadline: Timestamp::from_micros(Timestamp::now().as_micros() + 3_600_000_000),
+                quorum_bp: Some(5000),
+            },
+        )
+        .await;
+
+    assert_integrity_rejection(result, &expected_reason("test_invalid_decision_entry_reaches_integrity_validation"));
+
+    let valid_result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_decisions"),
+            "create_decision",
+            CreateDecisionInput {
+                hearth_hash,
+                title: "Valid decision".into(),
+                description: "Positive control after repairing the targeted invariant.".into(),
+                decision_type: DecisionType::MajorityVote,
+                eligible_roles: vec![MemberRole::Founder],
+                options: vec!["Yes".into(), "No".into()],
+                deadline: Timestamp::from_micros(Timestamp::now().as_micros() + 3_600_000_000),
+                quorum_bp: Some(5000),
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired decision input must be accepted by validation");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_invalid_resource_entry_reaches_integrity_validation() {
+    let (conductor, alice) = setup_alice().await;
+    let hearth_hash = create_test_hearth(&conductor, &alice).await;
+
+    let result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_resources"),
+            "register_resource",
+            RegisterResourceInput {
+                hearth_hash,
+                name: String::new(),
+                description: "The empty name is the boundary under test.".into(),
+                resource_type: ResourceType::Tool,
+                condition: "Good".into(),
+                location: "Workshop".into(),
+            },
+        )
+        .await;
+
+    assert_integrity_rejection(result, &expected_reason("test_invalid_resource_entry_reaches_integrity_validation"));
+
+    let valid_result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_resources"),
+            "register_resource",
+            RegisterResourceInput {
+                hearth_hash,
+                name: "Workshop drill".into(),
+                description: "Positive control after repairing the targeted invariant.".into(),
+                resource_type: ResourceType::Tool,
+                condition: "Good".into(),
+                location: "Workshop".into(),
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired resource input must be accepted by validation");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_invalid_story_entry_reaches_integrity_validation() {
+    let (conductor, alice) = setup_alice().await;
+    let hearth_hash = create_test_hearth(&conductor, &alice).await;
+
+    let result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash,
+                title: String::new(),
+                content: "The empty title is the boundary under test.".into(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+
+    assert_integrity_rejection(result, &expected_reason("test_invalid_story_entry_reaches_integrity_validation"));
+
+    let valid_result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash,
+                title: "Valid story".into(),
+                content: "Positive control after repairing the targeted invariant.".into(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired story input must be accepted by validation");
+}
+
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_invalid_story_update_reaches_integrity_validation() {
+    let (conductor, alice) = setup_alice().await;
+    let hearth_hash = create_test_hearth(&conductor, &alice).await;
+
+    let story: Record = conductor
+        .call(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash,
+                title: "Valid story".into(),
+                content: "Valid content before adversarial update.".into(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+
+    let result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "update_story",
+            UpdateStoryInput {
+                story_hash: story.action_address().clone(),
+                title: String::new(),
+                content: "The empty title is the boundary under test.".into(),
+                tags: vec![],
+            },
+        )
+        .await;
+
+    assert_integrity_rejection(result, &expected_reason("test_invalid_story_update_reaches_integrity_validation"));
+
+    let valid_result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "update_story",
+            UpdateStoryInput {
+                story_hash: story.action_address().clone(),
+                title: "Repaired story title".into(),
+                content: "Positive control after repairing the targeted invariant.".into(),
+                tags: vec![],
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired story update must be accepted by validation");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_invalid_bridge_notification_reaches_integrity_validation() {
+    let (conductor, alice) = setup_alice().await;
+
+    let result: Result<ActionHash, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_bridge"),
+            "receive_notification",
+            CrossClusterNotificationInput {
+                schema_version: 1,
+                source_cluster: String::new(),
+                source_zome: "test".into(),
+                event_type: "test_event".into(),
+                target_clusters: vec![],
+                target_agents: vec![],
+                payload: "{}".into(),
+                priority: 1,
+                created_at: Timestamp::from_micros(1),
+                expires_at: None,
+            },
+        )
+        .await;
+
+    assert_integrity_rejection(result, &expected_reason("test_invalid_bridge_notification_reaches_integrity_validation"));
+
+    let valid_result: Result<ActionHash, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_bridge"),
+            "receive_notification",
+            CrossClusterNotificationInput {
+                schema_version: 1,
+                source_cluster: "source-cluster".into(),
+                source_zome: "test".into(),
+                event_type: "test_event".into(),
+                target_clusters: vec![],
+                target_agents: vec![],
+                payload: "{}".into(),
+                priority: 1,
+                created_at: Timestamp::from_micros(1),
+                expires_at: None,
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired bridge notification must be accepted by validation");
+}
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_cross_hearth_collection_story_link_reaches_integrity_validation() {
+    let (conductor, alice) = setup_alice().await;
+    let hearth_a = create_test_hearth(&conductor, &alice).await;
+    let hearth_b = {
+        let record: Record = conductor
+            .call(
+                &alice.zome("hearth_kinship"),
+                "create_hearth",
+                CreateHearthInput {
+                    name: "Semantic Validation Hearth B".into(),
+                    description: "Second hearth for link isolation qualification".into(),
+                    hearth_type: HearthType::Intentional,
+                    max_members: Some(8),
+                },
+            )
+            .await;
+        record.action_address().clone()
+    };
+
+    let collection: Record = conductor
+        .call(
+            &alice.zome("hearth_stories"),
+            "create_collection",
+            CreateCollectionInput {
+                hearth_hash: hearth_a,
+                name: "Hearth A Collection".into(),
+                description: "Collection used for cross-hearth link rejection".into(),
+            },
+        )
+        .await;
+
+    let story: Record = conductor
+        .call(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash: hearth_b,
+                title: "Hearth B Story".into(),
+                content: "This story deliberately belongs to another hearth.".into(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+
+    let result = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "add_to_collection",
+            AddToCollectionInput {
+                collection_hash: collection.action_address().clone(),
+                story_hash: story.action_address().clone(),
+            },
+        )
+        .await;
+
+    assert_integrity_rejection(
+        result,
+        &expected_reason("test_cross_hearth_collection_story_link_reaches_integrity_validation"),
+    );
+
+    let same_hearth_story: Record = conductor
+        .call(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash: hearth_a,
+                title: "Hearth A Story".into(),
+                content: "Positive control using the same hearth as the collection.".into(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+
+    let valid_result = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "add_to_collection",
+            AddToCollectionInput {
+                collection_hash: collection.action_address().clone(),
+                story_hash: same_hearth_story.action_address().clone(),
+            },
+        )
+        .await;
+    assert!(
+        valid_result.is_ok(),
+        "same-hearth collection story link must be accepted by validation"
+    );
+}
+
+
+#[test]
+fn test_semantic_case_manifest_is_structurally_valid() {
+    let manifest: serde_json::Value = serde_json::from_str(include_str!(
+        "hearth-07-semantic-validation-cases.json"
+    ))
+    .expect("semantic-validation case manifest must be valid JSON");
+
+    let top_object = manifest
+        .as_object()
+        .expect("semantic manifest top level must be an object");
+    let actual_top_keys: std::collections::BTreeSet<&str> =
+        top_object.keys().map(String::as_str).collect();
+    let expected_top_keys = ["schema_version", "claim_ceiling", "cases"]
+        .into_iter()
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        actual_top_keys, expected_top_keys,
+        "semantic manifest top-level schema must be exact"
+    );
+
+    assert_eq!(
+        manifest["schema_version"],
+        "HEARTH-SEMANTIC-0.7-CASESET-1"
+    );
+    let claim_ceiling = manifest["claim_ceiling"]
+        .as_str()
+        .expect("claim ceiling must be a string");
+    assert!(
+        claim_ceiling.contains("RuntimeQualificationPending"),
+        "semantic manifest must retain the runtime-pending evidence ceiling"
+    );
+    assert!(
+        claim_ceiling.contains("do not constitute observed runtime results"),
+        "semantic manifest must explicitly deny observed runtime qualification"
+    );
+    assert!(
+        !claim_ceiling.contains("RuntimeQualificationPassed"),
+        "semantic manifest must never advertise a runtime-passed claim ceiling"
+    );
+
+    let cases = manifest["cases"]
+        .as_array()
+        .expect("semantic manifest must contain a cases array");
+    assert!(!cases.is_empty(), "semantic manifest must contain at least one case");
+
+    let allowed_surfaces = [
+        "CreateEntry",
+        "CreateRecord",
+        "Update",
+        "Delete",
+        "Link.CreateLink",
+        "Link.DeleteLink",
+    ];
+    let mut seen_ids = std::collections::BTreeSet::new();
+    let mut seen_tests = std::collections::BTreeSet::new();
+
+    let expected_case_keys = [
+        "case_id",
+        "test",
+        "zome",
+        "operation",
+        "operation_surface",
+        "invariant",
+        "rejection_reason",
+        "expected_result",
+        "boundary",
+        "validator_source",
+        "validator_symbol",
+        "dispatch_symbol",
+        "target_variant",
+        "coordinator_primitive",
+        "invariant_code",
+    ]
+    .into_iter()
+    .collect::<std::collections::BTreeSet<_>>();
+
+    let mut seen_entrypoints = std::collections::BTreeSet::new();
+
+    for case in cases {
+        let case_object = case
+            .as_object()
+            .expect("every semantic case must be a JSON object");
+        let actual_case_keys: std::collections::BTreeSet<&str> =
+            case_object.keys().map(String::as_str).collect();
+        assert_eq!(
+            actual_case_keys, expected_case_keys,
+            "semantic case schema must be exact"
+        );
+
+        let case_id = case["case_id"]
+            .as_str()
+            .expect("every semantic case needs a case_id");
+        let test = case["test"]
+            .as_str()
+            .expect("every semantic case needs a test name");
+        let zome = case["zome"]
+            .as_str()
+            .expect("every semantic case needs a zome");
+        let operation = case["operation"]
+            .as_str()
+            .expect("every semantic case needs an operation");
+        let invariant = case["invariant"]
+            .as_str()
+            .expect("every semantic case needs an invariant");
+        let rejection_reason = case["rejection_reason"]
+            .as_str()
+            .expect("every semantic case needs a rejection_reason");
+        let invariant_code = case["invariant_code"]
+            .as_str()
+            .expect("every semantic case needs invariant_code");
+        let expected_result = case["expected_result"]
+            .as_str()
+            .expect("every semantic case needs expected_result");
+        let boundary = case["boundary"]
+            .as_str()
+            .expect("every semantic case needs a boundary");
+        let validator_source = case["validator_source"]
+            .as_str()
+            .expect("every semantic case needs a validator_source");
+        let validator_symbol = case["validator_symbol"]
+            .as_str()
+            .expect("every semantic case needs a validator_symbol");
+        let dispatch_symbol = case["dispatch_symbol"]
+            .as_str()
+            .expect("every semantic case needs a dispatch_symbol");
+        let target_variant = case["target_variant"]
+            .as_str()
+            .expect("every semantic case needs a target_variant");
+        let coordinator_primitive = case["coordinator_primitive"]
+            .as_str()
+            .expect("every semantic case needs a coordinator_primitive");
+
+        assert!(seen_ids.insert(case_id), "duplicate semantic case_id: {case_id}");
+        assert!(seen_tests.insert(test), "duplicate semantic test name: {test}");
+        assert!(
+            seen_entrypoints.insert((zome, operation)),
+            "duplicate semantic zome/operation entrypoint: {zome}/{operation}"
+        );
+        assert!(
+            case_id.starts_with("SEM-"),
+            "semantic case_id must use SEM-* namespace: {case_id}"
+        );
+        assert!(!zome.is_empty(), "semantic case zome must not be empty");
+        assert!(!operation.is_empty(), "semantic case operation must not be empty");
+        assert!(!invariant.is_empty(), "semantic case invariant must not be empty");
+        assert!(
+            !rejection_reason.is_empty(),
+            "{case_id} rejection_reason must not be empty"
+        );
+        assert!(
+            !rejection_reason.contains('\n'),
+            "{case_id} rejection_reason must be a single-line validation reason"
+        );
+        assert!(
+            !invariant_code.is_empty(),
+            "{case_id} invariant_code must not be empty"
+        );
+        assert!(
+            !invariant_code.contains('\n'),
+            "{case_id} invariant_code must be a single predicate expression"
+        );
+        assert_eq!(
+            expected_result, "Invalid",
+            "{case_id} must declare the Invalid validation result"
+        );
+        assert_eq!(
+            boundary, "integrity_validation",
+            "{case_id} must target the integrity validation boundary"
+        );
+        assert!(!validator_source.is_empty(), "{case_id} validator_source must not be empty");
+        assert!(
+            validator_source.ends_with("src/lib.rs"),
+            "{case_id} validator_source must point to a Rust source file"
+        );
+        assert!(
+            validator_source.starts_with("mycelix-workspace/mycelix-hearth/")
+                || validator_source.starts_with("crates/"),
+            "{case_id} validator_source must remain inside the approved repository source boundary"
+        );
+        assert!(!validator_symbol.is_empty(), "{case_id} validator_symbol must not be empty");
+        assert!(!dispatch_symbol.is_empty(), "{case_id} dispatch_symbol must not be empty");
+        assert!(
+            matches!(coordinator_primitive, "create_entry" | "update_entry" | "create_link"),
+            "{case_id} coordinator_primitive must identify the tested write primitive"
+        );
+        let (target_kind, target_name) = target_variant
+            .split_once("::")
+            .expect("{case_id} target_variant must contain exactly one :: separator");
+        assert!(
+            target_kind == "EntryTypes" || target_kind == "LinkTypes",
+            "{case_id} target_variant must identify an EntryTypes or LinkTypes variant"
+        );
+        assert!(
+            !target_name.is_empty()
+                && target_name
+                    .chars()
+                    .enumerate()
+                    .all(|(index, ch)| {
+                        if index == 0 {
+                            ch == '_' || ch.is_ascii_alphabetic()
+                        } else {
+                            ch == '_' || ch.is_ascii_alphanumeric()
+                        }
+                    }),
+            "{case_id} target_variant must contain a Rust-style concrete variant name"
+        );
+        match coordinator_primitive {
+            "create_entry" | "update_entry" => {
+                assert_eq!(target_kind, "EntryTypes", "{case_id} entry primitive must target EntryTypes")
+            }
+            "create_link" => {
+                assert_eq!(target_kind, "LinkTypes", "{case_id} link primitive must target LinkTypes")
+            }
+            other => panic!("{case_id} unsupported coordinator primitive: {other}"),
+        }
+
+        let surfaces = case["operation_surface"]
+            .as_array()
+            .expect("every semantic case needs operation_surface");
+        assert!(
+            !surfaces.is_empty(),
+            "{case_id} operation_surface must not be empty"
+        );
+        let mut actual_surfaces = Vec::with_capacity(surfaces.len());
+        for surface in surfaces {
+            let surface = surface
+                .as_str()
+                .expect("operation_surface values must be strings");
+            assert!(
+                allowed_surfaces.contains(&surface),
+                "{case_id} contains unknown Holochain operation surface {surface:?}"
+            );
+            actual_surfaces.push(surface);
+        }
+        actual_surfaces.sort_unstable();
+        let mut expected_surfaces: Vec<&str> = match coordinator_primitive {
+            "create_entry" => vec!["CreateEntry", "CreateRecord"],
+            "update_entry" => vec!["CreateEntry", "CreateRecord", "Update"],
+            "create_link" => vec!["Link.CreateLink"],
+            other => panic!("{case_id} unknown coordinator primitive: {other}"),
+        };
+        expected_surfaces.sort_unstable();
+        assert_eq!(
+            actual_surfaces, expected_surfaces,
+            "{case_id} operation_surface must exactly match coordinator_primitive"
+        );
+    }
+}
+
