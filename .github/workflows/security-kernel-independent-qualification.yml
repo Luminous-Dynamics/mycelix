@@ -216,6 +216,17 @@ jobs:
           lockfile=root/"crates/mycelix-bridge-common/Cargo.lock"
           assert manifest.is_file(), manifest
           assert lockfile.is_file(), "Security Kernel qualification requires a committed Cargo.lock"
+          import tomllib
+          lock=tomllib.loads(lockfile.read_text(encoding="utf-8"))
+          packages=lock.get("package", [])
+          assert packages, "Cargo.lock contains no package records"
+          forbidden_sources=[]
+          allowed_registry="registry+https://github.com/rust-lang/crates.io-index"
+          for package in packages:
+              source=package.get("source")
+              if source is not None and not source.startswith(allowed_registry):
+                  forbidden_sources.append((package.get("name"), source))
+          assert not forbidden_sources, f"non-crates.io dependency sources are forbidden: {forbidden_sources}"
           forbidden_configs=(
               root/".cargo/config.toml",
               root/".cargo/config",
@@ -276,6 +287,18 @@ jobs:
           assert "deny_unknown_fields" in kernel and "deny_unknown_fields" in events
           print("PASS: independent static trust-surface profile")
           PY
+
+      - name: Snapshot locked dependency identity
+        id: locked_dependency_identity
+        shell: bash
+        env:
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+        run: |
+          set -euo pipefail
+          lock_digest="$(sha256sum "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" | awk '{print $1}')"
+          test "${#lock_digest}" -eq 64
+          printf 'lock_digest=%s\n' "$lock_digest" >> "$GITHUB_OUTPUT"
+          echo "PASS: committed Cargo.lock identity captured before candidate execution"
 
       - name: Pull and preflight pinned sandbox image
         shell: bash
@@ -548,11 +571,12 @@ jobs:
           CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
           VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
+          LOCK_DIGEST: ${{ steps.locked_dependency_identity.outputs.lock_digest }}
           RUST_VERSION: ${{ steps.rust_identity.outputs.rust_version }}
           RUST_COMMIT: ${{ steps.rust_identity.outputs.rust_commit }}
         run: |
           set -euo pipefail
-          CARGO_LOCK_DIGEST="$(sha256sum "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" | awk '{print $1}')"
+          CARGO_LOCK_DIGEST="$LOCK_DIGEST"
           {
             echo "schema=security-kernel-independent-qualification-v1"
             echo "candidate_repository=$CANDIDATE_REPOSITORY"
