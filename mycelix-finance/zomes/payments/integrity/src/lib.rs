@@ -1130,6 +1130,14 @@ fn validate_update_sap_balance(
         ));
     }
 
+    if let Some(error) = validate_sap_balance_timestamp(
+        original.last_demurrage_at,
+        bal.last_demurrage_at,
+        action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(error));
+    }
+
     if bal.balance > original.balance {
         let delta = bal.balance - original.balance;
         let Some(justification_hash) = bal.justified_by.clone() else {
@@ -1209,6 +1217,26 @@ fn validate_update_sap_balance(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_sap_balance_timestamp(
+    previous: Timestamp,
+    current: Timestamp,
+    action_timestamp: Timestamp,
+) -> Option<String> {
+    if current < previous {
+        return Some(
+            "SAP last_demurrage_at cannot move backward from the predecessor balance".into(),
+        );
+    }
+
+    if current > action_timestamp {
+        return Some(
+            "SAP last_demurrage_at cannot be later than the signed balance update action".into(),
+        );
+    }
+
+    None
 }
 
 fn validate_sap_balance_owner(
@@ -1789,6 +1817,37 @@ mod tests {
         assert!(
             matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("Receipts cannot be updated"))
         );
+    }
+
+    // ---- 18. SAP demurrage timestamp monotonicity ----
+
+    #[test]
+    fn test_sap_balance_timestamp_regression_rejected() {
+        let result = validate_sap_balance_timestamp(
+            ts(2_000_000),
+            ts(1_000_000),
+            ts(3_000_000),
+        );
+        assert!(matches!(result, Some(msg) if msg.contains("move backward")));
+    }
+
+    #[test]
+    fn test_sap_balance_future_timestamp_rejected() {
+        let result = validate_sap_balance_timestamp(
+            ts(1_000_000),
+            ts(4_000_000),
+            ts(3_000_000),
+        );
+        assert!(matches!(result, Some(msg) if msg.contains("later than the signed")));
+    }
+
+    #[test]
+    fn test_sap_balance_timestamp_monotonic_and_not_future() {
+        assert!(validate_sap_balance_timestamp(
+            ts(1_000_000),
+            ts(2_000_000),
+            ts(3_000_000),
+        ).is_none());
     }
 
     // ---- 18. Valid SapBalance ----
