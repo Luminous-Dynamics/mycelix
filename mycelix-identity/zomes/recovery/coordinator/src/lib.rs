@@ -458,6 +458,14 @@ pub fn get_recovery_config(did: String) -> ExternResult<Option<Record>> {
 /// Initiate a recovery request (trustee only)
 #[hdk_extern]
 pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
+    // A deactivated DID is a terminal authority state; do not create new
+    // recovery requests against historical identity authority.
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing recovery initiation".into()
+        )));
+    }
+
     if input.did.is_empty() || input.did.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "DID must be 1-256 characters".into()
@@ -649,6 +657,17 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Invalid recovery request record".into()
         )))?;
+
+    if !verify_did_active(&request.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery target DID is not active; refusing vote".into()
+        )));
+    }
+    if !verify_did_active(&input.trustee_did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Trustee DID is not active; refusing recovery vote".into()
+        )));
+    }
 
     if matches!(
         request.status,
@@ -1159,6 +1178,12 @@ pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
             "Invalid recovery request record".into()
         )))?;
 
+    if !verify_did_active(&request.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery target DID is not active; refusing time-lock mutation".into()
+        )));
+    }
+
     if request.status == RecoveryStatus::Approved && request.time_lock_expires.is_some() {
         if request.approval_certificate.is_some() {
             return Ok(request_record);
@@ -1305,6 +1330,12 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Invalid recovery request".into()
         )))?;
+
+    if !verify_did_active(&current_request.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery target DID is not active; refusing cancellation".into()
+        )));
+    }
 
     // The request is pinned to the exact recovery configuration that governed
     // it at creation time; cancellation must use that same immutable snapshot.
@@ -1745,6 +1776,11 @@ pub struct AddVerificationAnchorInput {
 /// - 3+ anchors: 72 hours (minimum)
 #[hdk_extern]
 pub fn add_verification_anchor(input: AddVerificationAnchorInput) -> ExternResult<Record> {
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing recovery-anchor mutation".into()
+        )));
+    }
     let did_hash = string_to_entry_hash(&input.did);
     let links = get_links(
         LinkQuery::try_new(did_hash, LinkTypes::DidToSelfRecoveryConfig)?,
@@ -1850,6 +1886,11 @@ pub fn get_self_recovery_config(did: String) -> ExternResult<Option<Record>> {
 /// Self-recovery remains available as a fallback.
 #[hdk_extern]
 pub fn mark_self_recovery_superseded(did: String) -> ExternResult<()> {
+    if !verify_did_active(&did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing recovery-state mutation".into()
+        )));
+    }
     let did_hash = string_to_entry_hash(&did);
     let links = get_links(
         LinkQuery::try_new(did_hash, LinkTypes::DidToSelfRecoveryConfig)?,
