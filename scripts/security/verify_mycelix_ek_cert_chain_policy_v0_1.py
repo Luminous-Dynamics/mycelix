@@ -538,6 +538,32 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
     return m
 
 
+def mutate_trust_anchor_state_upgrade(m: dict[str, Any]) -> None:
+    m["trust_anchor_state"] = "DENY"
+    bound = session_binding(
+        m,
+        m["leaf_certificate_sha256"],
+        m["intermediate_certificate_sha256"],
+        m["trust_anchor_root_sha256"],
+        m["revocation"]["crl_der_sha256"],
+    )
+    m["trust_anchor_state"] = "PASS"
+    m["session_binding_sha256"] = bound
+
+
+def mutate_verification_mode_upgrade(m: dict[str, Any]) -> None:
+    m["verification_mode"] = "OfflineBundle"
+    bound = session_binding(
+        m,
+        m["leaf_certificate_sha256"],
+        m["intermediate_certificate_sha256"],
+        m["trust_anchor_root_sha256"],
+        m["revocation"]["crl_der_sha256"],
+    )
+    m["verification_mode"] = "ReferenceModelOnly"
+    m["session_binding_sha256"] = bound
+
+
 def mutate_leaf(m: dict[str, Any], leaf: bytes) -> None:
     leaf_sha = hashlib.sha256(leaf).hexdigest()
     m["leaf_certificate_der_base64"] = b64(leaf)
@@ -598,7 +624,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("17 adversarial mutations plus canonical and key-order controls: PASS")
+    print("18 adversarial mutations plus canonical and key-order controls: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
