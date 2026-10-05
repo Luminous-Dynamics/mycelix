@@ -29,6 +29,8 @@ EK_CERTIFICATE_CAPTURE_SCRIPT = ROOT / "scripts/security/capture_mycelix_ek_cert
 EK_CERTIFICATE_CAPTURE_ID = "mycelix.tpm.ek-certificate-nv-capture.v0.1"
 EK_CERT_SPki_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py"
 EK_CERT_SPki_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
+EK_CERT_CHAIN_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py"
+EK_CERT_CHAIN_VERIFIER_ID = "mycelix.tpm.ek-cert-chain-policy.v0.1"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -184,6 +186,16 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "ek_cert_spki_certificate_sha256": manifest["ek_cert_spki_binding"]["certificate_sha256"] or "",
             "ek_cert_spki_certificate_source_sha256": manifest["ek_cert_spki_binding"]["certificate_source_sha256"] or "",
             "ek_cert_spki_ek_public_source_sha256": manifest["ek_cert_spki_binding"]["ek_public_source_sha256"] or "",
+            "ek_cert_chain_status": manifest["ek_cert_chain_policy"]["status"],
+            "ek_cert_chain_verifier_id": manifest["ek_cert_chain_policy"]["verifier_id"],
+            "ek_cert_chain_input_sha256": manifest["ek_cert_chain_policy"]["input_sha256"] or "",
+            "ek_cert_chain_output_sha256": manifest["ek_cert_chain_policy"]["output_sha256"] or "",
+            "ek_cert_chain_leaf_sha256": manifest["ek_cert_chain_policy"]["leaf_certificate_sha256"] or "",
+            "ek_cert_chain_intermediate_sha256": manifest["ek_cert_chain_policy"]["intermediate_certificate_sha256"] or "",
+            "ek_cert_chain_root_sha256": manifest["ek_cert_chain_policy"]["trust_anchor_root_sha256"] or "",
+            "ek_cert_chain_crl_sha256": manifest["ek_cert_chain_policy"]["crl_sha256"] or "",
+            "ek_cert_chain_source_mode": manifest["ek_cert_chain_policy"]["source_mode"],
+            "ek_cert_chain_source_sha256": manifest["ek_cert_chain_policy"]["source_sha256"] or "",
         }
     )
 
@@ -294,6 +306,19 @@ def fixture_manifest() -> dict[str, Any]:
             "ek_public_wire_sha256": "bc" * 32,
             "certificate_source_sha256": "d3" * 32,
             "ek_public_source_sha256": "bf" * 32,
+        },
+        "ek_cert_chain_policy": {
+            "status": "INDETERMINATE",
+            "verifier_id": EK_CERT_CHAIN_VERIFIER_ID,
+            "reason": "issuer-root-crl-material-not-provisioned",
+            "source_mode": "EXPLICIT_OFFLINE_INPUT",
+            "source_sha256": sha256_file(EK_CERT_CHAIN_VERIFIER_SCRIPT),
+            "input_sha256": None,
+            "output_sha256": None,
+            "leaf_certificate_sha256": None,
+            "intermediate_certificate_sha256": None,
+            "trust_anchor_root_sha256": None,
+            "crl_sha256": None,
         },
         "quote": {
             "pcr_selection": "sha256:0,2,4,7",
@@ -481,6 +506,18 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
         out["ek_cert_spki_binding"]["output_sha256"] = None
         out["ek_cert_spki_binding"]["certificate_sha256"] = None
         out["session_binding_sha256"] = session_binding(out)
+    elif name == "ek-cert-chain-network-source":
+        out["ek_cert_chain_policy"]["source_mode"] = "NETWORK"
+    elif name == "ek-cert-chain-pass-without-material":
+        out["ek_cert_chain_policy"]["status"] = "PASS"
+    elif name == "ek-cert-chain-indeterminate-with-output":
+        out["ek_cert_chain_policy"]["output_sha256"] = "12" * 32
+    elif name == "ek-cert-chain-verifier-substitution":
+        out["ek_cert_chain_policy"]["verifier_id"] = "other-verifier"
+    elif name == "ek-cert-chain-leaf-splice":
+        out["ek_cert_chain_policy"]["status"] = "PASS"
+        out["ek_cert_chain_policy"]["leaf_certificate_sha256"] = "13" * 32
+
     elif name == "deny-over-indeterminate":
         out["event_log"]["parser_status"] = "FAIL"
         out["reconstruction"]["status"] = "INDETERMINATE"
@@ -690,6 +727,38 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("ek-cert-spki-input-artifact-binding-mismatch")
     if ek_cert_spki.get("output_sha256") is not None and manifest["artifacts"].get("ek_cert_spki_output_sha256") != ek_cert_spki["output_sha256"]:
         denies.append("ek-cert-spki-output-artifact-binding-mismatch")
+
+    ek_cert_chain = manifest["ek_cert_chain_policy"]
+    for field in (
+        "status","verifier_id","reason","source_mode","input_sha256","output_sha256",
+        "leaf_certificate_sha256","intermediate_certificate_sha256","trust_anchor_root_sha256","crl_sha256","source_sha256",
+    ):
+        if field not in ek_cert_chain:
+            denies.append(f"missing-ek-cert-chain.{field}")
+    if ek_cert_chain.get("verifier_id") != EK_CERT_CHAIN_VERIFIER_ID:
+        denies.append("ek-cert-chain-verifier-id-mismatch")
+    if ek_cert_chain.get("source_sha256") != sha256_file(EK_CERT_CHAIN_VERIFIER_SCRIPT):
+        denies.append("ek-cert-chain-source-binding-mismatch")
+    if ek_cert_chain.get("source_mode") != "EXPLICIT_OFFLINE_INPUT":
+        denies.append("ek-cert-chain-source-mode-invalid")
+    if ek_cert_chain.get("status") not in {"PASS","INDETERMINATE"}:
+        denies.append("ek-cert-chain-state-invalid")
+    if ek_cert_chain.get("status") == "PASS":
+        for field in (
+            "input_sha256","output_sha256","leaf_certificate_sha256",
+            "intermediate_certificate_sha256","trust_anchor_root_sha256","crl_sha256",
+        ):
+            if not valid_hash(ek_cert_chain.get(field)):
+                denies.append(f"ek-cert-chain-{field}-invalid")
+        if ek_cert_chain.get("leaf_certificate_sha256") != ek_certificate_capture.get("rsa_certificate_sha256"):
+            denies.append("ek-cert-chain-leaf-capture-mismatch")
+        if ek_cert_chain.get("output_sha256") != manifest["artifacts"].get("ek_cert_chain_output_sha256"):
+            denies.append("ek-cert-chain-output-artifact-binding-mismatch")
+    elif any(
+        ek_cert_chain.get(field) is not None
+        for field in ("input_sha256","output_sha256","leaf_certificate_sha256","intermediate_certificate_sha256","trust_anchor_root_sha256","crl_sha256")
+    ):
+        denies.append("ek-cert-chain-indeterminate-with-material")
 
     public_name = manifest.get("public_name_coherence")
     if not isinstance(public_name, dict):
@@ -1162,6 +1231,34 @@ def run_ek_cert_spki_verifier(
     return "DENY", "ek-cert-spki-verifier-failed"
 
 
+def run_ek_cert_chain_verifier(
+    input_path: Path,
+    output_path: Path,
+    cwd: Path,
+    env: dict[str, str],
+) -> tuple[str, str]:
+    if not EK_CERT_CHAIN_VERIFIER_SCRIPT.is_file():
+        return "DENY", "ek-cert-chain-verifier-missing"
+    proc = run(
+        [
+            sys.executable,
+            str(EK_CERT_CHAIN_VERIFIER_SCRIPT),
+            "--verify",
+            str(input_path),
+            "--output",
+            str(output_path),
+        ],
+        env,
+        cwd,
+        check=False,
+    )
+    if proc.returncode == 0:
+        return "PASS", "ek-cert-chain-verifier-executed"
+    if proc.returncode == 2:
+        return "INDETERMINATE", "ek-cert-chain-verifier-indeterminate"
+    return "DENY", "ek-cert-chain-verifier-failed"
+
+
 def normalized_tpm2b_public_body(path: Path) -> bytes:
     raw = path.read_bytes()
     if len(raw) < 2:
@@ -1249,6 +1346,48 @@ def verify_bundle(args: argparse.Namespace) -> int:
         if sha256_file(path) != expected:
             print(f"PLATFORM EVIDENCE: DENY: artifact-digest-mismatch-{relative}")
             return 1
+
+    chain_policy = manifest["ek_cert_chain_policy"]
+    if chain_policy.get("status") != "PASS":
+        print(f"EK certificate chain policy: {chain_policy.get('status')} ({chain_policy.get('reason')})")
+        return 2 if chain_policy.get("status") == "INDETERMINATE" else 1
+
+    chain_input = bundle / "ek-cert-chain-policy-input.json"
+    chain_output = bundle / "ek-cert-chain-policy.json"
+    if not chain_input.is_file() or not chain_output.is_file():
+        print("PLATFORM EVIDENCE: INDETERMINATE: missing-ek-cert-chain-policy-input-or-output")
+        return 2
+    if chain_policy.get("input_sha256") != sha256_file(chain_input):
+        print("PLATFORM EVIDENCE: DENY: ek-cert-chain-input-digest-mismatch")
+        return 1
+    state, reason = run_ek_cert_chain_verifier(
+        chain_input, chain_output, bundle, os.environ.copy()
+    )
+    print(f"Independent EK certificate chain verifier: {state} ({reason})")
+    if state == "DENY":
+        return 1
+    if state == "INDETERMINATE":
+        return 2
+    chain_result = load_json(chain_output)
+    if chain_result.get("verifier_id") != EK_CERT_CHAIN_VERIFIER_ID:
+        print("PLATFORM EVIDENCE: DENY: ek-cert-chain-verifier-id-mismatch")
+        return 1
+    if chain_result.get("state") != "PASS":
+        print("PLATFORM EVIDENCE: DENY: ek-cert-chain-result-not-pass")
+        return 1
+    if chain_result.get("input_sha256") != sha256_file(chain_input):
+        print("PLATFORM EVIDENCE: DENY: ek-cert-chain-result-input-digest-mismatch")
+        return 1
+    if chain_policy.get("output_sha256") != sha256_file(chain_output):
+        print("PLATFORM EVIDENCE: DENY: ek-cert-chain-output-digest-mismatch")
+        return 1
+    details = chain_result.get("details", {})
+    if details.get("spki_ek_public_wire_sha256") != manifest["public_name_coherence"]["ek"]["wire_sha256"]:
+        print("PLATFORM EVIDENCE: DENY: ek-cert-chain-ek-wire-splice")
+        return 1
+    if details.get("spki_certificate_sha256") != manifest["ek_certificate_capture"]["rsa_certificate_sha256"]:
+        print("PLATFORM EVIDENCE: DENY: ek-cert-chain-leaf-splice")
+        return 1
 
     cert_capture = manifest["ek_certificate_capture"]
     cert_capture_result = load_json(bundle / "ek-certificate-capture.json")
