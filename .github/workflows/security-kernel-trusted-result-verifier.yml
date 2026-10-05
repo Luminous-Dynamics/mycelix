@@ -39,6 +39,7 @@ jobs:
           persist-credentials: false
 
       - name: Verify trusted dispatcher, reusable S1, and qualification gates
+        id: verify_result
         shell: bash
         env:
           TOKEN: ${{ github.token }}
@@ -323,6 +324,24 @@ jobs:
               "and bind the exact candidate/run/trust-gate identity"
           )
 
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"candidate_sha={candidate_sha}\n")
+              output.write(f"candidate_pr={candidate_pr}\n")
+              output.write(f"candidate_repository={candidate_repository}\n")
+              output.write(f"candidate_repository_id={candidate_repo_id}\n")
+              output.write(f"trusted_dispatcher_workflow_sha={workflow_sha}\n")
+              output.write(f"trusted_dispatcher_workflow_blob_sha={dispatcher_at_run['sha']}\n")
+              output.write(f"trusted_s1_workflow_blob_sha={s1_at_run['sha']}\n")
+              output.write(f"trusted_dispatch_run_id={run_id}\n")
+              output.write(f"trusted_dispatch_run_attempt={run_attempt}\n")
+              output.write(f"artifact_id={artifact['id']}\n")
+              output.write(f"artifact_name={expected_artifact_name}\n")
+              output.write(f"artifact_digest={artifact_digest}\n")
+              output.write(f"artifact_size={artifact['size_in_bytes']}\n")
+              output.write(f"verifier_workflow_sha={os.environ['GITHUB_WORKFLOW_SHA']}\n")
+              output.write(f"verifier_workflow_blob_sha={os.environ['WORKFLOW_BLOB_SHA']}\n")
+          print("PASS: trusted metadata and artifact identity are ready for independent direct-file verification")
+
           print(json.dumps({
               "candidate_sha": candidate_sha,
               "candidate_pr": candidate_pr,
@@ -336,7 +355,7 @@ jobs:
               "qualification_receipt_artifact_id": artifact["id"],
               "qualification_receipt_artifact_digest": artifact.get("digest"),
               "qualification_receipt_content_sha256": receipt_content_sha256,
-              "independent_qualification": "verified-pass",
+              "independent_qualification": "metadata-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
           PY
