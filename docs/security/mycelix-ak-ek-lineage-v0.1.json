@@ -11,7 +11,7 @@
     "statement": "An AK/EK lineage claim is admissible only when the observed EK, observed AK, AK parent Qualified Name, non-migratable AK attributes, independently bound EK credential material, and TPM credential activation evidence all agree on one session and one TPM identity.",
     "steps": [
       "The AK Qualified Name is recomputed from the observed EK Qualified Name and observed AK Name using the AK Name algorithm.",
-      "The public-name coherence verifier and AK public-attributes verifier are independent prerequisites; lineage re-executes the latter and requires its exact public-area digest and Name to agree with the AK identity."
+      "The public-name coherence verifier and AK public-attributes verifier are independent prerequisites; lineage re-executes the latter and requires its exact public-area digest and Name to agree with the AK identity.",
       "AK fixedTPM and fixedParent must both be SET; a migratable AK is not platform lineage evidence.",
       "AK public material and AK Name must be recorded from the same TPM ReadPublic context observation; this is a composition binding, not a claim that the verifier independently re-marshals the complete TPMT_PUBLIC structure.",
       "EK credential material must be independently appraised and explicitly bound to the exact observed EK public digest.",
