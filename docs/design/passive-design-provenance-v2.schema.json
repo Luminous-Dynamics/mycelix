@@ -145,7 +145,23 @@
           "type": "array",
           "items": { "type": "string" }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "eligible_for_passive_scoring": { "const": true }
+            },
+            "required": ["eligible_for_passive_scoring"]
+          },
+          "then": {
+            "required": ["eligible_for_passive_scoring"],
+            "properties": {
+              "eligible_for_passive_scoring": { "const": true }
+            }
+          }
+        }
+      ]
     },
     "limitations": {
       "type": "array",
@@ -232,7 +248,8 @@
             "SimulationDeclaration",
             "ManufacturingDeclaration",
             "VerificationRecord",
-            "MeasurementRecord"
+            "MeasurementRecord",
+            "ValidationRecord"
           ]
         },
         "evidence_digest": {
@@ -390,7 +407,7 @@
           "then": {
             "required": ["value"],
             "properties": {
-              "source_kind": { "const": "MeasurementRecord" }
+              "source_kind": { "const": "ValidationRecord" }
             }
           }
         }
