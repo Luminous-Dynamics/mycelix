@@ -16,7 +16,7 @@ It does not check out the pull-request head, execute files from the downloaded a
 
 It pins:
 
-- the D6U workflow identity;
+- the D6U workflow identity and exact main-branch executor blob;
 - the D6U manifest and harness executable surface;
 - the D6S-CANON-1 manifest, golden corpus, and independent verifier;
 - the D6S-CANON-2 manifest, authority-boundary fixture, and independent verifier;
@@ -61,3 +61,6 @@ The self-test has no signing permissions and is not itself an authority root.
 ## Workflow-run chain
 
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
+
+
+Current trusted policy revision: v7.
