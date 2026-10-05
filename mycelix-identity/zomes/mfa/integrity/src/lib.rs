@@ -1073,6 +1073,53 @@ mod tests {
         Timestamp::from_micros(1735689600_000_000)
     }
 
+    #[test]
+    fn future_last_verified_cannot_create_freshness() {
+        let now = now_timestamp();
+        let factor = EnrolledFactor {
+            factor_type: FactorType::PrimaryKeyPair,
+            factor_id: "sha256:test".into(),
+            enrolled_at: now,
+            last_verified: Timestamp::from_micros(now.as_micros() + 1_000_000),
+            metadata: "{}".into(),
+            effective_strength: 1.0,
+            active: true,
+        };
+
+        assert_eq!(
+            factor.current_strength(now),
+            1.0,
+            "future-dated verification must not underflow or produce invalid decay"
+        );
+        assert!(
+            !factor.needs_reverification(now),
+            "future-dated verification must not force a false re-verification"
+        );
+        assert!(
+            validate_factor_timestamps(&factor, now).is_err(),
+            "integrity validation must reject future-dated factor timestamps"
+        );
+    }
+
+    #[test]
+    fn factor_verification_cannot_precede_enrollment() {
+        let now = now_timestamp();
+        let factor = EnrolledFactor {
+            factor_type: FactorType::PrimaryKeyPair,
+            factor_id: "sha256:test-order".into(),
+            enrolled_at: now,
+            last_verified: Timestamp::from_micros(now.as_micros() - 1_000_000),
+            metadata: "{}".into(),
+            effective_strength: 1.0,
+            active: true,
+        };
+
+        assert!(
+            validate_factor_timestamps(&factor, now).is_err(),
+            "verification timestamp must not precede enrollment"
+        );
+    }
+
     // =========================================================================
     // Factor Category Tests
     // =========================================================================
