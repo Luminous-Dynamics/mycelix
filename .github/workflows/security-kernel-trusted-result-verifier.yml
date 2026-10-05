@@ -113,6 +113,9 @@ jobs:
           )
           main_sha = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
           subprocess.run(["git", "merge-base", "--is-ancestor", workflow_sha, main_sha], check=True)
+          assert workflow_sha == main_sha, (
+              "triggering S0 run executed from a stale default-branch workflow commit"
+          )
 
           s1_at_run = get(
               f"/repos/{repo}/contents/{os.environ['INDEPENDENT_WORKFLOW_PATH']}?ref={workflow_sha}"
