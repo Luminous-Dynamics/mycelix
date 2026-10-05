@@ -187,7 +187,39 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::CredentialSchema),
+                action,
+            } => {
+                let entry = must_get_entry(action.entry_hash.clone())?;
+                let schema: CredentialSchema = entry.try_into().map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Credential schema activity entry could not be decoded: {e}"
+                    )))
+                })?;
+                validate_schema_creation_chain_uniqueness(action, &schema)
+            }
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::SchemaEndorsement),
+                action,
+            } => {
+                let entry = must_get_entry(action.entry_hash.clone())?;
+                let endorsement: SchemaEndorsement = entry.try_into().map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Schema endorsement activity entry could not be decoded: {e}"
+                    )))
+                })?;
+                let expected_endorser = format!("did:mycelix:{}", action.author);
+                if endorsement.endorser != expected_endorser {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Schema endorsement author must equal the committing agent".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
