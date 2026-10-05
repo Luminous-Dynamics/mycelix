@@ -20,9 +20,9 @@ env:
   SOURCE_WORKFLOW_ID: "372951439"
   SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "4d0a6f2f3480d2a6e86e047ddbd98b07db59aaa7"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "6f48de904460f40c46edddf1c8c90744bfba69c5"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "4f95dc5e27fcf200db04b3cf93f605df9b4cab7c"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "502e24bc9b6d1954f7c8faf14aaed2a1f29c4242"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
