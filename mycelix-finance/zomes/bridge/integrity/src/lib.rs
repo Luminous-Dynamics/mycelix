@@ -9,7 +9,7 @@
 //! and collateral bridge deposits for SAP minting.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::CrossClusterNotification;
+use mycelix_bridge_entry_types::{CrossClusterNotification, did_for_author, require_did_is_author};
 
 // =============================================================================
 // STRING LENGTH LIMITS — Prevent DHT bloat attacks
@@ -113,6 +113,52 @@ pub enum FinanceEventType {
     EnergyCertificateCreated,
     AgriAssetRegistered,
     MultiCollateralCreated,
+}
+
+/// Immutable reserve valuation snapshot consumed by SAP issuance.
+///
+/// This is intentionally distinct from the operational PriceConsensus API.
+/// A snapshot carries a stable valuation identity, explicit arithmetic policy,
+/// bounded source commitment, freshness policy, and the signed publishing author.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ReserveValuationSnapshot {
+    pub id: String,
+    pub basis_id: String,
+    pub asset_id: String,
+    pub unit: String,
+    pub quote_unit: String,
+    pub valuation_numerator: u64,
+    pub valuation_denominator: u64,
+    pub rounding_policy: ReserveRoundingPolicy,
+    pub effective_window_start: Timestamp,
+    pub effective_window_end: Timestamp,
+    pub freshness_limit_micros: i64,
+    pub source_commitment: String,
+    pub source_count: u32,
+    pub aggregation_profile_id: String,
+    pub qualification_state: ReserveValuationState,
+    pub publisher_did: String,
+    pub supersedes: Option<ActionHash>,
+    pub created_at: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ReserveRoundingPolicy {
+    Down,
+    Up,
+    HalfUp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ReserveValuationState {
+    Qualified,
+    Degraded,
+    Unavailable,
+    Unresolved,
+    Superseded,
+    Expired,
+    Conflicted,
 }
 
 /// Collateral bridge deposit for minting SAP from external collateral
@@ -246,6 +292,7 @@ pub enum EntryTypes {
     CollateralRegistration(CollateralRegistration),
     FinanceBridgeEvent(FinanceBridgeEvent),
     CollateralBridgeDeposit(CollateralBridgeDeposit),
+    ReserveValuationSnapshot(ReserveValuationSnapshot),
     Covenant(Covenant),
     CollateralHealth(CollateralHealth),
     FiatBridgeDeposit(FiatBridgeDeposit),
@@ -307,6 +354,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         EntryCreationAction::Create(action),
                         deposit,
                     )
+                },
+                EntryTypes::ReserveValuationSnapshot(snapshot) => {
+                    validate_create_reserve_valuation_snapshot(
+                        EntryCreationAction::Create(action),
+                        snapshot,
+                    )
                 }
                 EntryTypes::Covenant(covenant) => {
                     validate_create_covenant(EntryCreationAction::Create(action), covenant)
@@ -349,7 +402,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 )),
                 EntryTypes::CollateralBridgeDeposit(deposit) => {
                     validate_update_collateral_bridge_deposit(action, deposit)
-                }
+                },
+                EntryTypes::ReserveValuationSnapshot(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reserve valuation snapshots are immutable".into(),
+                ))
                 EntryTypes::Covenant(covenant) => validate_update_covenant(action, covenant),
                 EntryTypes::CollateralHealth(_) => {
                     // Health entries are append-only snapshots; updates are always valid
@@ -686,6 +742,106 @@ fn validate_create_finance_bridge_event(
             "Source hApp required".into(),
         ));
     }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_reserve_valuation_snapshot(
+    action: EntryCreationAction,
+    snapshot: ReserveValuationSnapshot,
+) -> ExternResult<ValidateCallbackResult> {
+    let (author_did, action_timestamp) = match &action {
+        EntryCreationAction::Create(create) => (
+            did_for_author(&create.author),
+            create.timestamp,
+        ),
+    };
+
+    validate_reserve_valuation_snapshot_fields(&snapshot, &author_did, action_timestamp)
+}
+
+fn validate_reserve_valuation_snapshot_fields(
+    snapshot: &ReserveValuationSnapshot,
+    author_did: &str,
+    action_timestamp: Timestamp,
+) -> ExternResult<ValidateCallbackResult> {
+    for (name, value, max_len) in [
+        ("snapshot id", snapshot.id.as_str(), MAX_REFERENCE_LEN),
+        ("valuation basis id", snapshot.basis_id.as_str(), MAX_REFERENCE_LEN),
+        ("asset id", snapshot.asset_id.as_str(), MAX_REFERENCE_LEN),
+        ("unit", snapshot.unit.as_str(), MAX_HAPP_ID_LEN),
+        ("quote unit", snapshot.quote_unit.as_str(), MAX_HAPP_ID_LEN),
+        (
+            "source commitment",
+            snapshot.source_commitment.as_str(),
+            MAX_REFERENCE_LEN,
+        ),
+        (
+            "aggregation profile id",
+            snapshot.aggregation_profile_id.as_str(),
+            MAX_REFERENCE_LEN,
+        ),
+        ("publisher DID", snapshot.publisher_did.as_str(), MAX_DID_LEN),
+    ] {
+        if value.is_empty() {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "{name} is required"
+            )));
+        }
+        if value.len() > max_len {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "{name} exceeds maximum length"
+            )));
+        }
+    }
+
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author(
+            "ReserveValuationSnapshot",
+            "publisher_did",
+            &snapshot.publisher_did,
+            author_did,
+        )
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
+    if snapshot.quote_unit != "SAP" {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reserve valuation snapshots consumed by SAP issuance must quote SAP".into(),
+        ));
+    }
+
+    if snapshot.valuation_numerator == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Valuation numerator must be positive".into(),
+        ));
+    }
+    if snapshot.valuation_denominator == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Valuation denominator must be non-zero".into(),
+        ));
+    }
+    if snapshot.source_count == 0 || snapshot.source_count > 200 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Source count must be in 1..=200".into(),
+        ));
+    }
+    if snapshot.freshness_limit_micros <= 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Freshness limit must be positive".into(),
+        ));
+    }
+    if snapshot.effective_window_start > snapshot.effective_window_end {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Effective valuation window start cannot be after its end".into(),
+        ));
+    }
+    if snapshot.created_at != action_timestamp {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reserve valuation snapshot created_at must equal the Create action timestamp".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -2406,4 +2562,114 @@ mod tests {
         let result = validate_update_multi_collateral_position(make_update(), p).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
+    // =========================================================================
+    // ReserveValuationSnapshot — create
+    // =========================================================================
+
+    fn valid_reserve_snapshot() -> ReserveValuationSnapshot {
+        ReserveValuationSnapshot {
+            id: "valuation:test:001".into(),
+            basis_id: "basis:deposit:001".into(),
+            asset_id: "eth:0x001".into(),
+            unit: "ETH".into(),
+            quote_unit: "SAP".into(),
+            valuation_numerator: 2,
+            valuation_denominator: 1,
+            rounding_policy: ReserveRoundingPolicy::Down,
+            effective_window_start: ts(1_000_000),
+            effective_window_end: ts(2_000_000),
+            freshness_limit_micros: 60_000_000,
+            source_commitment: "sha256:source-001".into(),
+            source_count: 2,
+            aggregation_profile_id: "sap-reserve-oracle-v0".into(),
+            qualification_state: ReserveValuationState::Qualified,
+            publisher_did: "did:mycelix:alice".into(),
+            supersedes: None,
+            created_at: ts(2_000_000),
+        }
+    }
+
+    #[test]
+    fn test_reserve_snapshot_create_valid() {
+        let result = validate_create_reserve_valuation_snapshot(
+            EntryCreationAction::Create(make_create()),
+            valid_reserve_snapshot(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_reserve_snapshot_rejects_wrong_publisher() {
+        let mut s = valid_reserve_snapshot();
+        s.publisher_did = "did:mycelix:bob".into();
+        let result = validate_create_reserve_valuation_snapshot(
+            EntryCreationAction::Create(make_create()),
+            s,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_reserve_snapshot_rejects_zero_denominator() {
+        let mut s = valid_reserve_snapshot();
+        s.valuation_denominator = 0;
+        let result = validate_create_reserve_valuation_snapshot(
+            EntryCreationAction::Create(make_create()),
+            s,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_reserve_snapshot_rejects_reverse_window() {
+        let mut s = valid_reserve_snapshot();
+        s.effective_window_start = ts(3_000_000);
+        let result = validate_create_reserve_valuation_snapshot(
+            EntryCreationAction::Create(make_create()),
+            s,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_reserve_snapshot_rejects_zero_freshness() {
+        let mut s = valid_reserve_snapshot();
+        s.freshness_limit_micros = 0;
+        let result = validate_create_reserve_valuation_snapshot(
+            EntryCreationAction::Create(make_create()),
+            s,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_reserve_snapshot_rejects_action_time_mismatch() {
+        let mut s = valid_reserve_snapshot();
+        s.created_at = ts(1_000_000);
+        let result = validate_create_reserve_valuation_snapshot(
+            EntryCreationAction::Create(make_create()),
+            s,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_reserve_snapshot_rejects_non_sap_quote_unit() {
+        let mut s = valid_reserve_snapshot();
+        s.quote_unit = "USD".into();
+        let result = validate_create_reserve_valuation_snapshot(
+            EntryCreationAction::Create(make_create()),
+            s,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+
 }
