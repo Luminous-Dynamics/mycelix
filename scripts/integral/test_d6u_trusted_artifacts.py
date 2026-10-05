@@ -10,6 +10,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 from fetch_d6u_trusted_artifact import EXPECTED_FILES, extract_members, verify_zip_members
+from verify_d6u_trusted_attestation import main as verify_attestation_main
 from verify_d6u_trusted_artifacts import (
     load_record,
     verify_artifact_layout,
@@ -123,6 +124,15 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         ch in "0123456789abcdef"
         for ch in policy["trusted_artifact_fetcher"]["blob_sha"]
     )
+    assert policy["policy_version"] == 18
+    assert policy["trusted_attestation_verifier"]["path"] == (
+        "scripts/integral/verify_d6u_trusted_attestation.py"
+    )
+    assert len(policy["trusted_attestation_verifier"]["blob_sha"]) == 40
+    assert policy["attestation_verification"]["predicate_type"] == (
+        "https://slsa.dev/provenance/v1"
+    )
+
     assert policy["trusted_permissions"] == {
         "actions": "read",
         "contents": "read",
@@ -684,6 +694,102 @@ def write_valid_artifact_zip(path: Path) -> None:
         archive.writestr("Cargo.lock", "lock")
 
 
+def attestation_entry(subject_digest: str, run_id: str = "42", attempt: str = "3") -> dict:
+    repo = "Luminous-Dynamics/mycelix"
+    workflow = f"{repo}/.github/workflows/d6u-trusted-evidence-attestation.yml"
+    return {
+        "verificationResult": {
+            "signature": {
+                "certificate": {
+                    "subjectAlternativeName": f"https://github.com/{workflow}@refs/heads/main",
+                    "issuer": "https://token.actions.githubusercontent.com",
+                    "githubWorkflowRepository": repo,
+                    "githubWorkflowRef": "refs/heads/main",
+                    "sourceRepositoryURI": f"https://github.com/{repo}",
+                    "sourceRepositoryDigest": "a" * 40,
+                    "runnerEnvironment": "github-hosted",
+                    "runInvocationURI": (
+                        f"https://github.com/{repo}/actions/runs/{run_id}/attempts/{attempt}"
+                    ),
+                }
+            },
+            "statement": {
+                "predicateType": "https://slsa.dev/provenance/v1",
+                "subject": [{"name": "subject", "digest": {"sha256": subject_digest}}],
+            },
+        }
+    }
+
+
+def test_attestation_verifier_accepts_current_run() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        subject = Path(tmp) / "Cargo.lock"
+        subject.write_text("version = 3\n", encoding="utf-8")
+        digest = __import__("hashlib").sha256(subject.read_bytes()).hexdigest()
+        report = Path(tmp) / "report.json"
+        report.write_text(json.dumps([attestation_entry(digest)]), encoding="utf-8")
+        env = {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_WORKFLOW_REF": "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main",
+            "GITHUB_WORKFLOW_SHA": "b" * 40,
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_REF": "refs/heads/main",
+            "D6U_ATTESTATION_SUBJECT": str(subject),
+        }
+        old = {key: __import__("os").environ.get(key) for key in env}
+        __import__("os").environ.update(env)
+        old_argv = __import__("sys").argv
+        __import__("sys").argv = ["verify_d6u_trusted_attestation.py", str(report)]
+        try:
+            verify_attestation_main()
+        finally:
+            __import__("sys").argv = old_argv
+            for key, value in old.items():
+                if value is None:
+                    __import__("os").environ.pop(key, None)
+                else:
+                    __import__("os").environ[key] = value
+
+
+def test_attestation_verifier_rejects_old_run() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        subject = Path(tmp) / "Cargo.lock"
+        subject.write_text("version = 3\n", encoding="utf-8")
+        digest = __import__("hashlib").sha256(subject.read_bytes()).hexdigest()
+        report = Path(tmp) / "report.json"
+        report.write_text(
+            json.dumps([attestation_entry(digest, run_id="41", attempt="9")]),
+            encoding="utf-8",
+        )
+        import os
+        import sys
+        env = {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_WORKFLOW_REF": "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main",
+            "GITHUB_WORKFLOW_SHA": "b" * 40,
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_REF": "refs/heads/main",
+            "D6U_ATTESTATION_SUBJECT": str(subject),
+        }
+        old = {key: os.environ.get(key) for key in env}
+        os.environ.update(env)
+        old_argv = sys.argv
+        sys.argv = ["verify_d6u_trusted_attestation.py", str(report)]
+        try:
+            assert_rejected(verify_attestation_main, "old attestation run was accepted")
+        finally:
+            sys.argv = old_argv
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+
 def test_trusted_zip_accepts_exact_members() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         archive = Path(tmp) / "artifact.zip"
@@ -806,6 +912,8 @@ if __name__ == "__main__":
         test_harness_file_set_rejects_extra_build_script,
         test_artifact_size_limits_are_enforced,
         test_artifact_entry_limit_is_enforced,
+        test_attestation_verifier_accepts_current_run,
+        test_attestation_verifier_rejects_old_run,
         test_trusted_zip_accepts_exact_members,
         test_trusted_zip_rejects_duplicate_member,
         test_trusted_zip_rejects_symlink_member,

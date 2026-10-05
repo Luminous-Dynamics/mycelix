@@ -1,5 +1,5 @@
 {
-  "policy_version": 17,
+  "policy_version": 18,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -237,6 +237,15 @@
     "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
     "deny_self_hosted_runners": true,
     "source_digest_source": "GITHUB_SHA",
-    "source_ref_source": "GITHUB_REF"
+    "source_ref_source": "GITHUB_REF",
+    "predicate_type": "https://slsa.dev/provenance/v1",
+    "current_run_identity": {
+      "certificate_field": "runInvocationURI",
+      "template": "https://github.com/{repository}/actions/runs/{run_id}/attempts/{run_attempt}"
+    }
+  },
+  "trusted_attestation_verifier": {
+    "path": "scripts/integral/verify_d6u_trusted_attestation.py",
+    "blob_sha": "a418f10a397baa611a86aef5b65df199c2371987"
   }
 }

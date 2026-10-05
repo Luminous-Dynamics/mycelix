@@ -37,7 +37,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "17"
+          TRUSTED_POLICY_VERSION: "18"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -47,7 +47,7 @@ jobs:
           test "$observed_blob" = "$expected_blob"
 
       - name: Preflight trusted verifier
-        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py
+        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/verify_d6u_trusted_attestation.py
 
       - name: Fetch and safely extract exact D6U artifact
         env:
@@ -75,6 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           for subject in             "${{ runner.temp }}/d6u-trusted-input/d6u-runtime-evidence.txt"             "${{ runner.temp }}/d6u-trusted-input/d6u-runtime-test.log"             "${{ runner.temp }}/d6u-trusted-input/Cargo.lock"; do
+            report="$RUNNER_TEMP/d6u-attestation-$(basename "$subject").json"
             gh attestation verify "$subject" \
               --repo "$GITHUB_REPOSITORY" \
               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml" \
@@ -83,5 +84,10 @@ jobs:
               --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
               --source-digest "$GITHUB_SHA" \
               --source-ref "$GITHUB_REF" \
-              --deny-self-hosted-runners
+              --predicate-type "https://slsa.dev/provenance/v1" \
+              --deny-self-hosted-runners \
+              --format=json > "$report"
+            D6U_ATTESTATION_SUBJECT="$subject" \
+              python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
+            rm -f "$report"
           done
