@@ -51,11 +51,58 @@ pub struct CreateAcademicCredentialOutput {
     pub revocation_index: u32,
 }
 
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
 /// Create a new academic credential
 #[hdk_extern]
 pub fn create_academic_credential(
     input: CreateAcademicCredentialInput,
 ) -> ExternResult<CreateAcademicCredentialOutput> {
+    // A deactivated issuer may not establish new academic authority. The
+    // integrity zome still binds issuer DID to the committing agent; this
+    // coordinator-side liveness check closes the ordinary invocation path
+    // before spending work on credential construction.
+    verify_did_active(&input.issuer.id, "academic credential issuance")?;
+
     // Verify caller is the issuing institution
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
