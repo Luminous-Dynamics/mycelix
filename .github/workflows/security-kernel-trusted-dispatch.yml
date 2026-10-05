@@ -18,7 +18,6 @@ concurrency:
 env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
   BASE_BRANCH: "main"
-  SOURCE_WORKFLOW_ID: "372951439"
   SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "497df282ba0575e2fc153912cd9911c69a84700c"
@@ -124,8 +123,8 @@ jobs:
           assert run["id"] == int(os.environ["RUN_ID"])
           assert run["run_attempt"] == int(os.environ["RUN_ATTEMPT"])
           assert run["status"] == "completed"
-          assert run["workflow_id"] == int(os.environ["SOURCE_WORKFLOW_ID"])
           assert run["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
+          assert run["name"] == "Security Kernel Qualification"
           assert run["event"] == "pull_request"
           assert run["repository"]["full_name"] == repo
           assert run["head_sha"] == os.environ["HEAD_SHA"]
