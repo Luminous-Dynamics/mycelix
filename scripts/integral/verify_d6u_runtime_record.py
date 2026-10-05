@@ -23,6 +23,7 @@ EXPECTED_TRIGGER_WORKFLOW_NAME = "D6S Canonical Qualification"
 EXPECTED_TRIGGER_WORKFLOW_PATH = ".github/workflows/d6s-canonical-qualification.yml"
 EXPECTED_EXECUTOR_WORKFLOW_NAME = "D6U Exact-Head Runtime Executor"
 EXPECTED_EXECUTOR_WORKFLOW_PATH = ".github/workflows/d6u-exact-head-runtime-executor.yml"
+EXPECTED_SOURCE_BRANCH = "myc-int-demo-d6u-holochain-07-runtime"
 
 EXPECTED_RECORD_FIELDS = {
     "status",
@@ -108,6 +109,7 @@ def assert_identity(event: dict, record: dict[str, str], repository: str) -> Non
     assert upstream["event"] == "pull_request"
     assert upstream["conclusion"] == "success"
     assert upstream["head_repository"]["full_name"] == repository
+    assert upstream["head_branch"] == EXPECTED_SOURCE_BRANCH
     assert record["trigger_workflow_name"] == upstream["name"]
     assert record["trigger_workflow_path"] == upstream["path"]
     assert record["trigger_workflow_run_id"] == str(upstream["id"])
