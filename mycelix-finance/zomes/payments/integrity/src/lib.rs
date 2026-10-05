@@ -893,14 +893,26 @@ fn validate_create_sap_balance(
     action: EntryCreationAction,
     bal: &SapBalance,
 ) -> ExternResult<ValidateCallbackResult> {
-    validate_sap_balance_owner(action.author(), bal)
+    if let Err(msg) = validate_sap_balance_owner(action.author(), bal) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
+    if bal.balance > 0 && bal.justified_by.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Positive SAP balance state requires an immutable justification".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_update_sap_balance(
     action: Update,
     bal: &SapBalance,
 ) -> ExternResult<ValidateCallbackResult> {
-    validate_sap_balance_owner(action.author(), bal)?;
+    if let Err(msg) = validate_sap_balance_owner(action.author(), bal) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
 
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original = original_record
@@ -964,7 +976,7 @@ fn validate_update_sap_balance(
 fn validate_sap_balance_owner(
     author: &AgentPubKey,
     bal: &SapBalance,
-) -> ExternResult<ValidateCallbackResult> {
+) -> Result<(), String> {
     // SAP account state is owner-authenticated: the account's final balance
     // may only be created or updated by the agent who owns that account.
     //
@@ -972,22 +984,22 @@ fn validate_sap_balance_owner(
     // convention. Any future caller that attempts to mutate another member's
     // balance fails closed, including raw credit paths.
     if bal.member_did.len() > MAX_DID_LEN {
-        return Ok(ValidateCallbackResult::Invalid(
+        return Err(
             "DID exceeds maximum length".into(),
-        ));
+        );
     }
 
     if !bal.member_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
+        return Err(
             "Member must be a valid DID".into(),
-        ));
+        );
     }
 
     let author_did = did_for_author(author);
     if bal.member_did != author_did {
-        return Ok(ValidateCallbackResult::Invalid(
+        return Err(
             "SAP balance owner DID must match the signed action author".into(),
-        ));
+        );
     }
 
     // Amber exemption: structural anti-arbitrage gate. Deterministic checks only —
@@ -995,34 +1007,34 @@ fn validate_sap_balance_owner(
     // verified at grant time in the coordinator, since integrity cannot call out.
     if let Some(ex) = &bal.exemption {
         if ex.issuer.len() > MAX_DID_LEN || !ex.issuer.starts_with("did:") {
-            return Ok(ValidateCallbackResult::Invalid(
+            return Err(
                 "Amber exemption issuer must be a valid DID".into(),
-            ));
+            );
         }
         if ex.issuer == bal.member_did {
-            return Ok(ValidateCallbackResult::Invalid(
+            return Err(
                 "Amber exemption cannot be self-issued".into(),
-            ));
+            );
         }
         if ex.cap_micro_sap > AMBER_MAX_CAP_MICRO_SAP {
-            return Ok(ValidateCallbackResult::Invalid(
+            return Err(
                 "Amber exemption cap exceeds governance ceiling".into(),
-            ));
+            );
         }
         if ex.expires_at_secs == 0 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return Err(
                 "Amber exemption must have a nonzero expiry".into(),
-            ));
+            );
         }
     }
 
     if bal.balance > 0 && bal.justified_by.is_none() {
-        return Ok(ValidateCallbackResult::Invalid(
+        return Err(
             "Positive SAP balance state requires an immutable justification".into(),
-        ));
+        );
     }
 
-    Ok(ValidateCallbackResult::Valid)
+    Ok(())
 }
 
 fn validate_create_sap_mint_record(mint: &SapMintRecord) -> ExternResult<ValidateCallbackResult> {
