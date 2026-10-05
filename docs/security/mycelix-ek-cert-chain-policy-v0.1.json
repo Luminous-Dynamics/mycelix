@@ -218,15 +218,20 @@
     }
   ],
   "reference_fixture": {
-    "root_fixture_mode": "runtime-generated synthetic root; source authorization is bound to the exact root SHA-256",
-    "leaf_fixture_mode": "runtime-generated synthetic EK leaf",
-    "intermediate_fixture_mode": "runtime-generated synthetic issuing CA",
-    "crl_fixture_mode": "runtime-generated signed empty CRL",
-    "verification_time_policy": "deterministic within self-test fixture; wall-clock values are never authoritative",
     "root_sha256": "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab",
-    "leaf_sha256": "7448f84d763c2bee017ff33e18f1679b73f6db3f96bcfe2793c4b607b20a048b",
     "intermediate_sha256": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
+    "leaf_sha256": "7448f84d763c2bee017ff33e18f1679b73f6db3f96bcfe2793c4b607b20a048b",
+    "bad_usage_sha256": "526a43a655e5a46d7e9176281a96820c4d15d932d0a18be507300d11d8598e9f",
+    "bad_eku_sha256": "45c32aac3237eabe9cecdc38cb9d49c359e52d9d68deacf62aee8d30c44ab62c",
     "crl_bundle_pem_sha256": "6e0e1ea27ae4b5933d40e54368a8618a7aee98b45011962029a131c11b323abb",
-    "verification_time_unix": 1791158400
+    "verification_time_unix": 1791158400,
+    "fixture_paths": [
+      "docs/security/fixtures/ek-chain-policy-v0.1/root.der",
+      "docs/security/fixtures/ek-chain-policy-v0.1/intermediate.der",
+      "docs/security/fixtures/ek-chain-policy-v0.1/leaf.der",
+      "docs/security/fixtures/ek-chain-policy-v0.1/bad-usage.der",
+      "docs/security/fixtures/ek-chain-policy-v0.1/bad-eku.der",
+      "docs/security/fixtures/ek-chain-policy-v0.1/crl-bundle.pem"
+    ]
   }
 }
