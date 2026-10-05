@@ -310,6 +310,7 @@ jobs:
           ensure_marker "${hearth}/qualification-build.log" "unavailable_build_not_reached"
           ensure_marker "${hearth}/qualification-dna-pack.log" "unavailable_dna_pack_not_reached"
           ensure_marker "${hearth}/qualification-sweettest.log" "unavailable_sweettest_not_reached"
+          ensure_marker "${hearth}/qualification-semantic-execution.txt" "unavailable_case_execution_not_reached"
           ensure_marker "${hearth}/qualification-wasm-sha256.txt" "unavailable_wasm_capture"
           ensure_marker "${hearth}/qualification-dna-sha256.txt" "unavailable_dna_capture"
           ensure_marker "${hearth}/qualification-cargo-lock-sha256.txt" "unavailable_cargo_lock_capture"
@@ -468,6 +469,9 @@ PY
         run: |
           set -euo pipefail
           test -s qualification-sweettest.log
+          execution_status_file="qualification-semantic-execution.txt"
+          printf '%s\n' "status=started" > "$execution_status_file"
+          trap 'printf "%s\n" "status=failed_or_incomplete" >> "$execution_status_file"' ERR
           python3 - <<'PY'
           import json
           import re
@@ -483,9 +487,9 @@ PY
               name = case["test"]
               ok_pattern = rf"^test {re.escape(name)} \.\.\. ok$"
               if not re.search(ok_pattern, log, re.MULTILINE):
-                  if re.search(rf"^test {re.escape(name)} \.{3} ignored$", log, re.MULTILINE):
+                  if re.search(rf"^test {re.escape(name)} \.\.\. ignored$", log, re.MULTILINE):
                       raise SystemExit(f"semantic qualification case was still ignored: {name}")
-                  if re.search(rf"^test {re.escape(name)} \.{3}", log, re.MULTILINE):
+                  if re.search(rf"^test {re.escape(name)} \.\.\.", log, re.MULTILINE):
                       raise SystemExit(f"semantic qualification case did not pass: {name}")
                   raise SystemExit(f"semantic qualification case was not observed in test output: {name}")
 
@@ -508,6 +512,14 @@ PY
               f"{summary.group('passed')} passed / 0 failed / 0 ignored"
           )
           PY
+          trap - ERR
+          printf '%s\n' "status=passed" >> "$execution_status_file"
+          printf '%s\n' "manifest_case_count=$(python3 - <<'PYCOUNT'
+import json
+from pathlib import Path
+print(len(json.loads(Path("tests/hearth-07-semantic-validation-cases.json").read_text())["cases"]))
+PYCOUNT
+)" >> "$execution_status_file"
 
       - name: Capture qualification metadata
         if: ${{ !cancelled() }}
