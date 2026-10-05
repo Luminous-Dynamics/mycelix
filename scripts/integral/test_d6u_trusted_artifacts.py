@@ -191,7 +191,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "trusted_root_filename": "trusted_root.jsonl",
         "offline_verified": True,
         "require_public_good_instance": True,
-        "public_good_instance": \"sigstore-public-good\"",
+        "public_good_instance": "sigstore-public-good",
         "require_tlog": True,
         "require_no_public_good_rejection": True,
         "retention_artifact": {
