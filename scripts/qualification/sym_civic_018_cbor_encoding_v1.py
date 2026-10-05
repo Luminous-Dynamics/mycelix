@@ -203,7 +203,10 @@ def preferred_float(raw):
         half = None
     if half is not None and struct.unpack(">e", half)[0] == value:
         return b"\xf9" + half
-    single = struct.pack(">f", value)
+    try:
+        single = struct.pack(">f", value)
+    except OverflowError:
+        return raw
     if struct.unpack(">f", single)[0] == value:
         return b"\xfa" + single
     return raw
@@ -449,7 +452,10 @@ def ref_preferred_float(raw):
             half = None
         if half is not None and struct.unpack(">e", half)[0] == value:
             return b"\xf9" + half
-        single = struct.pack(">f", value)
+        try:
+            single = struct.pack(">f", value)
+        except OverflowError:
+            return raw
         if struct.unpack(">f", single)[0] == value:
             return b"\xfa" + single
         return raw
