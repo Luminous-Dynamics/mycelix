@@ -590,7 +590,7 @@ def main():
             raise RuntimeError("synthetic unexpected decoder failure")
 
     assert classify(ExplodingBytes(b"\x84"))[0] == UNRESOLVED
-    print("SYM-CIVIC-018-CBOR CASES=24")
+    print("SYM-CIVIC-018-CBOR CASES=" + str(len(cases)))
     print("SYM-CIVIC-018-CORPUS_SHA256=" + hashlib.sha256(bytes(corpus)).hexdigest())
     print("SYM-CIVIC-018-CBOR DERIVED=" + json.dumps(census, sort_keys=True, separators=(",",":")))
     print("SYM-CIVIC-018-CBOR METAMORPHIC=PASS")
