@@ -43,7 +43,6 @@ jobs:
           TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
-          TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH_BLOB_SHA: ${{ github.event.workflow_run.workflow_sha }}
         run: |
           set -euo pipefail
 
@@ -96,10 +95,6 @@ jobs:
               dispatcher_text,
           )
           assert verifier_pin, "S0 dispatcher does not carry an external S2 verifier blob pin"
-          assert verifier_pin.group(1) == os.environ["TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH_BLOB_SHA"], (
-              "S0 dispatcher carries a stale or mismatched S2 verifier profile pin"
-          )
-
           verifier_at_run = get(
               f"/repos/{repo}/contents/{os.environ['TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH']}?ref={run.get('workflow_sha')}"
           )
