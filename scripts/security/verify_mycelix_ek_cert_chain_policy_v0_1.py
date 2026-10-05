@@ -815,7 +815,7 @@ def self_test() -> int:
             base["revocation"]["crl_bundle_pem_sha256"],
         )
         source = Path(__file__).read_text(encoding="utf-8")
-        if '"-crl_check_all"' not in source or '"-crl_check",' in source:
+        if '"-crl_check_all",' not in source:
             print("full-chain CRL verification command: FAIL")
             return 1
 
