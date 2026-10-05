@@ -2,6 +2,8 @@
 """Deterministic, read-only tests for the D6U trusted verifier."""
 
 import json
+import hashlib
+import os
 import subprocess
 import stat
 import tempfile
@@ -84,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 17
+    assert policy["policy_version"] == 22
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -149,8 +151,13 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     )
     assert len(policy["trusted_attestation_verifier"]["blob_sha"]) == 40
     assert policy["attestation_verification"]["predicate_type"] == (
-        "https://slsa.dev/provenance/v1"
+        "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"
     )
+    assert policy["attestation_verification"]["predicate_schema"] == (
+        "d6u-trusted-runtime-evidence/v1"
+    )
+    assert policy["attestation_verification"]["require_current_run_identity"] is True
+    assert policy["attestation_verification"]["subject_set_exact"] is True
 
     assert policy["trusted_permissions"] == {
         "actions": "read",
@@ -177,6 +184,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_encrypted_members": True,
         "reject_symlink_members": True,
         "expected_member_count": 3,
+        "policy_revision": 22,
     }
 
 
@@ -832,6 +840,136 @@ def test_trusted_zip_rejects_unexpected_member_path() -> None:
         )
 
 
+
+def synthetic_attestation_entry(subjects: list[dict], run_id: str) -> dict:
+    repo = "Luminous-Dynamics/mycelix"
+    return {
+        "verificationResult": {
+            "signature": {
+                "certificate": {
+                    "subjectAlternativeName": (
+                        f"https://github.com/{repo}/.github/workflows/"
+                        "d6u-trusted-evidence-attestation.yml@refs/heads/main"
+                    ),
+                    "issuer": "https://token.actions.githubusercontent.com",
+                    "githubWorkflowRepository": repo,
+                    "githubWorkflowRef": "refs/heads/main",
+                    "sourceRepositoryURI": f"https://github.com/{repo}",
+                    "sourceRepositoryDigest": "a" * 40,
+                    "runnerEnvironment": "github-hosted",
+                    "runInvocationURI": (
+                        f"https://github.com/{repo}/actions/runs/{run_id}/attempts/3"
+                    ),
+                }
+            },
+            "statement": {
+                "predicateType": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+                "subject": subjects,
+                "predicate": {
+                    "schema": "d6u-trusted-runtime-evidence/v1",
+                    "attestation_kind": "verified-runtime-evidence",
+                    "claim_ceiling": "ReferenceModelOnly",
+                    "policy_version": 22,
+                    "source": {
+                        "repository": repo,
+                        "branch": "myc-int-demo-d6u-holochain-07-runtime",
+                        "commit": "b" * 40,
+                    },
+                    "trigger": {
+                        "workflow_name": "D6S Canonical Qualification",
+                        "workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
+                        "run_id": 77,
+                        "run_attempt": 2,
+                    },
+                    "executor": {
+                        "workflow_name": "D6U Exact-Head Runtime Executor",
+                        "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+                        "run_id": 42,
+                        "run_attempt": 3,
+                        "workflow_commit": "c" * 40,
+                    },
+                    "subjects": subjects,
+                    "evidence": {
+                        "case_coverage": "14-of-14",
+                        "supplemental_coverage": "4-of-4",
+                        "application_check_coverage": "1-of-1",
+                        "case_outcome_classes": [
+                            "accepted",
+                            "semantic-rejected",
+                            "authentication-failed",
+                        ],
+                        "runtime": "holochain-0.7.0",
+                        "hdk": "0.7.0",
+                        "hdi": "0.8.0",
+                        "unsupported_cases": [
+                            "wire-signature-valid",
+                            "nonce-stale",
+                            "payload-mutation",
+                        ],
+                    },
+                    "nonclaims": [
+                        "semantic-truth",
+                        "production-safety",
+                        "legal-authority",
+                        "actuation-authority",
+                    ],
+                },
+            },
+        }
+    }
+
+
+def synthetic_record() -> dict[str, str]:
+    return {
+        "claim_ceiling": "ReferenceModelOnly",
+        "source_repository": "Luminous-Dynamics/mycelix",
+        "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "source_commit": "b" * 40,
+        "trigger_workflow_name": "D6S Canonical Qualification",
+        "trigger_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
+        "trigger_workflow_run_id": "77",
+        "trigger_workflow_run_attempt": "2",
+        "executor_workflow_file_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+        "executor_run_id": "42",
+        "executor_run_attempt": "3",
+        "executor_workflow_commit_sha": "c" * 40,
+        "case_coverage": "14-of-14",
+        "supplemental_coverage": "4-of-4",
+        "application_check_coverage": "1-of-1",
+        "case_outcome_classes": "accepted,semantic-rejected,authentication-failed",
+        "runtime": "holochain-0.7.0",
+        "hdk": "0.7.0",
+        "hdi": "0.8.0",
+        "unsupported_cases": "wire-signature-valid,nonce-stale,payload-mutation",
+    }
+
+
+def test_custom_attestation_accepts_current_run_and_rejects_old_run() -> None:
+    import verify_d6u_trusted_attestation as verifier
+
+    subjects = [
+        {"name": name, "digest": {"sha256": "d" * 64}}
+        for name in ("d6u-runtime-evidence.txt", "d6u-runtime-test.log", "Cargo.lock")
+    ]
+    record = synthetic_record()
+    with patch.dict(
+        os.environ,
+        {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_WORKFLOW_SHA": "c" * 40,
+            "GITHUB_REF": "refs/heads/main",
+        },
+        clear=False,
+    ):
+        current = synthetic_attestation_entry(subjects, "42")
+        old = synthetic_attestation_entry(subjects, "41")
+        assert verifier.verify_entry(current, record, subjects) is True
+        assert verifier.verify_entry(old, record, subjects) is False
+
+
 def test_artifact_entry_limit_is_enforced() -> None:
     maximums = {"evidence.txt": 16, "runtime.log": 16, "Cargo.lock": 16}
     with tempfile.TemporaryDirectory() as tmp:
@@ -904,6 +1042,7 @@ if __name__ == "__main__":
         test_harness_file_set_rejects_extra_build_script,
         test_artifact_size_limits_are_enforced,
         test_artifact_entry_limit_is_enforced,
+        test_custom_attestation_accepts_current_run_and_rejects_old_run,
         test_attestation_verifier_accepts_current_run,
         test_attestation_verifier_rejects_old_run,
         test_trusted_zip_accepts_exact_members,
