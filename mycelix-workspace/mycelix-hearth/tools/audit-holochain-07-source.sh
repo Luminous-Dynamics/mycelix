@@ -49,6 +49,35 @@ check_present_file() {
   fi
 }
 
+# Read semantic manifest fields from canonical JSON in case order. This avoids
+# relying on JSON object key order, which is not semantically significant.
+semantic_case_field() {
+  local manifest="$1"
+  local field="$2"
+  python3 - "$manifest" "$field" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+manifest, field = sys.argv[1:]
+data = json.loads(Path(manifest).read_text())
+cases = data.get("cases")
+if not isinstance(cases, list):
+    raise SystemExit("semantic manifest cases must be an array")
+for index, case in enumerate(cases, start=1):
+    if not isinstance(case, dict) or field not in case:
+        raise SystemExit(f"semantic manifest case #{index} missing field {field!r}")
+    value = case[field]
+    if isinstance(value, list):
+        if any(not isinstance(item, str) for item in value):
+            raise SystemExit(f"semantic manifest case #{index} field {field!r} contains non-string values")
+        value = ",".join(value)
+    if not isinstance(value, str) or "\n" in value or "\r" in value:
+        raise SystemExit(f"semantic manifest case #{index} field {field!r} is not a single-line string")
+    print(value)
+PY
+}
+
 check_lock_ref() {
   local label="$1" node="$2" owner="$3" repo="$4" ref="$5"
   if python3 - "$node" "$owner" "$repo" "$ref" <<'PY'
@@ -874,9 +903,9 @@ check_semantic_case_entrypoints() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
   local rust_test="mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs"
   local tests zomes operations
-  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t tests < <(semantic_case_field "$manifest" test)
+  mapfile -t zomes < <(semantic_case_field "$manifest" zome)
+  mapfile -t operations < <(semantic_case_field "$manifest" operation)
 
   if [[ "${#tests[@]}" -eq 0 || "${#tests[@]}" -ne "${#zomes[@]}" || "${#tests[@]}" -ne "${#operations[@]}" ]]; then
     echo "FAIL: semantic manifest test/zome/operation declaration counts differ"
@@ -992,32 +1021,20 @@ check_semantic_case_entrypoints() {
 check_semantic_case_integrity_bindings() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
   local ids tests zomes operations invariants rejection_reasons invariant_codes surfaces results validator_sources validator_symbols dispatch_symbols target_variants coordinator_primitives
-  mapfile -t ids < <(sed -n 's/^[[:space:]]*"case_id"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t invariants < <(sed -n 's/^[[:space:]]*"invariant"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t rejection_reasons < <(sed -n 's/^[[:space:]]*"rejection_reason"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t invariant_codes < <(sed -n 's/^[[:space:]]*"invariant_code"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  # operation_surface is intentionally parsed as JSON because the manifest
-  # uses a multi-line array; single-line extraction would silently drop this field.
-  mapfile -t surfaces < <(python3 - "$manifest" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-data = json.loads(Path(sys.argv[1]).read_text())
-for case in data["cases"]:
-    print(",".join(case["operation_surface"]))
-PY
-  )
-  mapfile -t results < <(sed -n 's/^[[:space:]]*"expected_result"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t validator_sources < <(sed -n 's/^[[:space:]]*"validator_source"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t validator_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t dispatch_symbols < <(sed -n 's/^[[:space:]]*"dispatch_symbol"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t target_variants < <(sed -n 's/^[[:space:]]*"target_variant"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t coordinator_primitives < <(sed -n 's/^[[:space:]]*"coordinator_primitive"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-
+  mapfile -t ids < <(semantic_case_field "$manifest" case_id)
+  mapfile -t tests < <(semantic_case_field "$manifest" test)
+  mapfile -t zomes < <(semantic_case_field "$manifest" zome)
+  mapfile -t operations < <(semantic_case_field "$manifest" operation)
+  mapfile -t invariants < <(semantic_case_field "$manifest" invariant)
+  mapfile -t rejection_reasons < <(semantic_case_field "$manifest" rejection_reason)
+  mapfile -t invariant_codes < <(semantic_case_field "$manifest" invariant_code)
+  mapfile -t surfaces < <(semantic_case_field "$manifest" operation_surface)
+  mapfile -t results < <(semantic_case_field "$manifest" expected_result)
+  mapfile -t validator_sources < <(semantic_case_field "$manifest" validator_source)
+  mapfile -t validator_symbols < <(semantic_case_field "$manifest" validator_symbol)
+  mapfile -t dispatch_symbols < <(semantic_case_field "$manifest" dispatch_symbol)
+  mapfile -t target_variants < <(semantic_case_field "$manifest" target_variant)
+  mapfile -t coordinator_primitives < <(semantic_case_field "$manifest" coordinator_primitive)
   local count="${#ids[@]}"
   if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#rejection_reasons[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" || "$count" -ne "${#dispatch_symbols[@]}" || "$count" -ne "${#target_variants[@]}" || "$count" -ne "${#coordinator_primitives[@]}" ]]; then
     echo "FAIL: semantic manifest fields are not structurally aligned"
