@@ -392,6 +392,23 @@ impl DependencyClosureCertificateV1 {
             })
     }
 
+    /// Construct a deterministic commitment to the exact audit evidence
+    /// carried by this closure. This is intentionally separate from
+    /// closure_identity(): retrieval/audit evidence must not redefine the
+    /// semantic closure, but a strict verification summary must still bind to
+    /// the evidence set it summarizes.
+    pub fn resolution_evidence_commitment(&self) -> String {
+        let evidence = self
+            .resolution_evidence
+            .iter()
+            .map(|(dependency, evidence)| serde_json::json!({
+                "dependency": dependency,
+                "evidence": evidence,
+            }))
+            .collect::<Vec<_>>();
+        canonical_sha256("d6x-resolution-evidence", &evidence)
+    }
+
     /// Construct a verification summary only when runtime resolution evidence
     /// independently corroborates every selected Present/Stale dependency.
     ///
@@ -423,6 +440,12 @@ impl DependencyClosureCertificateV1 {
             closure_profile,
             closure,
         )
+        .map(|mut summary| {
+            summary.resolution_evidence_commitment =
+                Some(closure.resolution_evidence_commitment());
+            summary.commitment = summary.recompute();
+            summary
+        })
     }
 
     fn resolution_evidence_is_consistent(
@@ -641,6 +664,10 @@ pub struct D6XVerificationSummaryV1 {
     pub closure_identity_commitment: String,
     pub current_frontier_root: Option<String>,
     pub verification_result: D6XVerificationResultV1,
+    /// Hash of the exact runtime/audit resolution-evidence set used for a
+    /// strict evidence-backed summary. Semantic-only summaries leave this
+    /// unbound so closure identity remains audit-evidence-neutral.
+    pub resolution_evidence_commitment: Option<String>,
     pub dependency_counts: BTreeMap<SemanticDependencyKindV1, u32>,
     pub claim_ceiling: String,
     pub commitment: String,
@@ -686,6 +713,7 @@ impl D6XVerificationSummaryV1 {
             closure_identity_commitment: closure.closure_identity_commitment.clone(),
             current_frontier_root: environment.current_frontier_root.clone(),
             verification_result: D6XVerificationResultV1::Passed,
+            resolution_evidence_commitment: None,
             dependency_counts,
             claim_ceiling: D6X_CLAIM_CEILING.into(),
             commitment: String::new(),
@@ -711,6 +739,9 @@ impl D6XVerificationSummaryV1 {
             && is_canonical_sha256_commitment(&self.closure_profile_commitment)
             && is_canonical_sha256_commitment(&self.closure_identity_commitment)
             && self.current_frontier_root.as_deref().is_none_or(non_empty)
+            && self.resolution_evidence_commitment
+                .as_deref()
+                .map_or(true, is_canonical_sha256_commitment)
             && self.dependency_counts.values().all(|count| *count > 0)
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && is_canonical_sha256_commitment(&self.commitment)
@@ -785,6 +816,8 @@ impl D6XVerificationSummaryV1 {
             && closure.resolution_evidence_matches_context(
                 expected_resolution_qualification_context_commitment,
             )
+            && self.resolution_evidence_commitment
+                == Some(closure.resolution_evidence_commitment())
     }
 }
 
@@ -2826,6 +2859,87 @@ mod tests {
                 &closure_profile,
                 &complete,
             )
+        );
+    }
+
+    #[test]
+    fn strict_summary_binds_exact_resolution_evidence_set() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("verified closure");
+
+        let context = canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"d6x"}),
+        );
+        let policy = canonical_sha256(
+            "test-d6x-verification-policy",
+            &serde_json::json!({"required_result":"Passed"}),
+        );
+
+        let mut evidenced = closure.clone();
+        for dependency in &evidenced.dependencies {
+            evidenced.resolution_evidence.insert(
+                dependency.clone(),
+                SemanticDependencyResolutionEvidenceV1 {
+                    retrieval_reference: Some(format!(
+                        "runtime://resolver/{}",
+                        dependency.identifier
+                    )),
+                    observed_commitment: dependency.commitment.clone(),
+                    qualification_context_commitment: Some(context.clone()),
+                },
+            );
+        }
+
+        let summary =
+            D6XVerificationSummaryV1::from_verified_closure_with_complete_resolution_evidence(
+                "verifier:d6x-test",
+                &policy,
+                &context,
+                &projection,
+                &environment,
+                &derivation_profile,
+                &closure_profile,
+                &evidenced,
+            )
+            .expect("strict summary");
+
+        assert_eq!(
+            summary.resolution_evidence_commitment,
+            Some(evidenced.resolution_evidence_commitment())
+        );
+
+        let mut substituted = evidenced.clone();
+        substituted
+            .resolution_evidence
+            .iter_mut()
+            .next()
+            .expect("selected evidence")
+            .1
+            .retrieval_reference = Some("runtime://resolver/substituted".into());
+        substituted.commitment = substituted.recompute();
+
+        assert!(substituted.has_complete_resolution_evidence());
+        assert!(substituted.resolution_evidence_matches_context(&context));
+        assert!(
+            !summary.verifies_against_expectations_with_complete_resolution_evidence(
+                "verifier:d6x-test",
+                &policy,
+                &context,
+                &projection,
+                &environment,
+                &derivation_profile,
+                &closure_profile,
+                &substituted,
+            ),
+            "strict summary must bind the exact evidence set, not merely its semantic completeness"
         );
     }
 
