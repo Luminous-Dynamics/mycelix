@@ -42,9 +42,15 @@ impl ResolutionAttemptV1 {
             && match self.outcome {
                 ResolutionAttemptOutcomeV1::Retrieved =>
                     self.observed_commitment.is_some(),
-                ResolutionAttemptOutcomeV1::Unavailable |
+                ResolutionAttemptOutcomeV1::Unavailable => true,
+                // A historical resolution is still a concrete resolution. It
+                // must carry the exact observed commitment so a stale result
+                // cannot be represented as an identified object using only a
+                // retrieval address. D6X will still map it to Stale and block
+                // current qualification; this is an audit/provenance integrity
+                // fence, not a currentness upgrade.
                 ResolutionAttemptOutcomeV1::Historical =>
-                    true,
+                    self.observed_commitment.is_some(),
             }
     }
 
@@ -168,7 +174,7 @@ mod tests {
             (
                 ResolutionAddressKindV1::External,
                 ResolutionAttemptOutcomeV1::Historical,
-                None,
+                Some("historical-commitment"),
             ),
         ] {
             let attempt = ResolutionAttemptV1 {
@@ -208,7 +214,7 @@ mod tests {
             address_kind: ResolutionAddressKindV1::External,
             address: "external-address".into(),
             outcome: ResolutionAttemptOutcomeV1::Historical,
-            observed_commitment: None,
+            observed_commitment: Some("historical-commitment".into()),
             qualification_context_commitment: None,
         };
 
@@ -222,6 +228,28 @@ mod tests {
         );
         assert_eq!(
             historical.semantic_resolution(),
+            crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Stale
+        );
+    }
+
+    #[test]
+    fn historical_attempt_requires_an_observed_commitment() {
+        let attempt = ResolutionAttemptV1 {
+            address_kind: ResolutionAddressKindV1::External,
+            address: "historical-address".into(),
+            outcome: ResolutionAttemptOutcomeV1::Historical,
+            observed_commitment: None,
+            qualification_context_commitment: None,
+        };
+        assert!(!attempt.structurally_valid());
+
+        let valid = ResolutionAttemptV1 {
+            observed_commitment: Some("historical-commitment".into()),
+            ..attempt
+        };
+        assert!(valid.structurally_valid());
+        assert_eq!(
+            valid.semantic_resolution(),
             crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Stale
         );
     }
