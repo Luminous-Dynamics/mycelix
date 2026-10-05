@@ -8,7 +8,7 @@ The D6U runtime workflow executes pull-request code and therefore must be treate
 
 The trusted workflow in `.github/workflows/d6u-trusted-evidence-attestation.yml` is triggered by completion of the D6U runtime workflow through `workflow_run`. The trusted job checks out the exact `github.workflow_sha` for the trusted workflow execution, asserts that the checkout matches that SHA, downloads the completed run's artifact into the runner's temporary directory, and validates the artifact as data only.
 
-It does not check out the pull-request head, execute files from the downloaded artifact, import pull-request Python or Rust modules, or use pull-request code as its policy root. The reusable D6U workflow's `job.workflow_*` identity is recorded separately from the caller's `github.workflow_*` identity, so the evidence distinguishes the trusted workflow definition from the PR trigger. It also rejects fork-origin runs; the signing boundary is same-repository only.
+It does not check out the pull-request head, execute files from the downloaded artifact, import pull-request Python or Rust modules, or use pull-request code as its policy root. The executor records the upstream D6S run ID/attempt, source branch/repository/SHA, trigger-workflow identity, and its own executor-workflow identity. The source-side verifier redundantly rejects the wrong qualification branch, while the trusted builder independently re-fetches the upstream D6S run and checks the exact source tree. It also rejects fork-origin runs; the signing boundary is same-repository only.
 
 ## Trusted policy
 
@@ -57,3 +57,7 @@ Neither event upgrades the D6S claim ceiling beyond `ReferenceModelOnly`.
 The read-only trusted-verifier suite contains eleven deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; exact Git-blob acceptance; workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; and regular-file artifact-layout symlink rejection.
 
 The self-test has no signing permissions and is not itself an authority root.
+
+## Workflow-run chain
+
+The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
