@@ -155,6 +155,11 @@ impl ObserverLifecycleProfileV1 {
         self.structurally_valid() && self.profile_commitment == self.recomputed_commitment()
     }
 
+    /// Strict commitment check for authoritative lifecycle consumption.
+    pub fn strict_commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.generation_commitment == self.recomputed_commitment()
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.profile_id)
             && non_empty(&self.semantic_environment_root)
@@ -256,6 +261,11 @@ impl ObserverStatusTransitionV1 {
                 || self.transition_commitment == self.recomputed_commitment())
     }
 
+    /// Strict commitment check for authoritative lifecycle consumption.
+    pub fn strict_commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.transition_commitment == self.recomputed_commitment()
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.transition_id)
             && non_empty(&self.observer_id)
@@ -306,6 +316,11 @@ impl EvidenceDependencySnapshotV1 {
         self.structurally_valid()
             && (!is_canonical_sha256_commitment(&self.snapshot_commitment)
                 || self.snapshot_commitment == self.recomputed_commitment())
+    }
+
+    /// Strict commitment check for authoritative lifecycle consumption.
+    pub fn strict_commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.snapshot_commitment == self.recomputed_commitment()
     }
 
     pub fn structurally_valid(&self) -> bool {
@@ -362,6 +377,14 @@ impl ObserverRotationCertificateV1 {
         let mut unsigned = self.clone();
         unsigned.certificate_commitment.clear();
         recompute_domain_commitment(D6O_ROTATION_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn strict_continuity_root_matches(&self) -> bool {
+        self.structurally_valid() && self.continuity_root == self.recomputed_continuity_root()
+    }
+
+    pub fn strict_commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.certificate_commitment == self.recomputed_commitment()
     }
 
     pub fn commitment_matches(&self) -> bool {
@@ -512,7 +535,7 @@ impl ObserverLifecycleLedgerV1 {
         // validate both each object's commitment and the map's referential
         // integrity before any qualified consumer relies on it.
         self.generations.iter().all(|(id, generation)| {
-            id == &generation.generation_id && generation.commitment_matches()
+            id == &generation.generation_id && generation.strict_commitment_matches()
         })
             && self
                 .generations
@@ -525,7 +548,7 @@ impl ObserverLifecycleLedgerV1 {
                         .successor_generation_id
                         .as_ref()
                         .is_none_or(|successor_id| self.generations.contains_key(successor_id))
-                    && transition.commitment_matches()
+                    && transition.strict_commitment_matches()
             })
             && self.dependency_snapshots.iter().all(|(id, snapshot)| {
                 id == &snapshot.snapshot_id
