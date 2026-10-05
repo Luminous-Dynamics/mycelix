@@ -6,6 +6,8 @@ on:
 permissions:
   contents: read
 
+cache-mode: none
+
 concurrency:
   group: security-kernel-qualification-${{ github.event.pull_request.number }}
   cancel-in-progress: true
