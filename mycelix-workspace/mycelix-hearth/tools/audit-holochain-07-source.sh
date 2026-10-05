@@ -1223,7 +1223,7 @@ def balanced_end(text, opening):
 
 def function_block(symbol):
     match = re.search(
-        rf"^[[:space:]]*(?:pub[[:space:]]+)?fn[[:space:]]+{re.escape(symbol)}[[:space:]]*\(",
+        rf"^\s*(?:pub\s+)?fn\s+{re.escape(symbol)}\s*\(",
         masked,
         re.M,
     )
@@ -1245,7 +1245,7 @@ def validation_arm(dispatcher, pattern, label):
 
 def entry_arm(block, variant):
     match = re.search(
-        rf"\bEntryTypes::{re.escape(variant)}[[:space:]]*\([^)]*\)[[:space:]]*=>",
+        rf"\bEntryTypes::{re.escape(variant)}\s*\([^)]*\)\s*=>",
         block,
     )
     if not match:
@@ -1260,7 +1260,7 @@ def entry_arm(block, variant):
 
 def link_arm(block, variant):
     match = re.search(
-        rf"\bLinkTypes::{re.escape(variant)}[[:space:]]*=>",
+        rf"\bLinkTypes::{re.escape(variant)}\s*=>",
         block,
     )
     if not match:
@@ -1274,7 +1274,7 @@ def link_arm(block, variant):
     return block[start:] if comma < 0 else block[start:comma]
 
 def require_dispatch(arm, label):
-    if not re.search(rf"\b{re.escape(dispatch_symbol)}[[:space:]]*\(", arm):
+    if not re.search(rf"\b{re.escape(dispatch_symbol)}\s*\(", arm):
         raise ValueError(label + " does not invoke " + dispatch_symbol)
 
 try:
@@ -1296,30 +1296,30 @@ try:
         if primitive == "create_entry":
             patterns = [
                 (
-                    r"FlatOp::CreateEntry[[:space:]]*\([[:space:]]*"
-                    r"OpEntry::CreateEntry[[:space:]]*\{.*?\}[[:space:]]*\)"
-                    r"[[:space:]]*=>[[:space:]]*match[[:space:]]+app_entry[[:space:]]*\{",
+                    r"FlatOp::CreateEntry\s*\(\s*"
+                    r"OpEntry::CreateEntry\s*\{.*?\}\s*\)"
+                    r"\s*=>\s*match\s+app_entry\s*\{",
                     "CreateEntry/CreateEntry",
                 ),
                 (
-                    r"FlatOp::CreateRecord[[:space:]]*\([[:space:]]*"
-                    r"OpRecord::CreateEntry[[:space:]]*\{.*?\}[[:space:]]*\)"
-                    r"[[:space:]]*=>[[:space:]]*match[[:space:]]+app_entry[[:space:]]*\{",
+                    r"FlatOp::CreateRecord\s*\(\s*"
+                    r"OpRecord::CreateEntry\s*\{.*?\}\s*\)"
+                    r"\s*=>\s*match\s+app_entry\s*\{",
                     "CreateRecord/CreateEntry",
                 ),
             ]
         else:
             patterns = [
                 (
-                    r"FlatOp::CreateEntry[[:space:]]*\([[:space:]]*"
-                    r"OpEntry::UpdateEntry[[:space:]]*\{.*?\}[[:space:]]*\)"
-                    r"[[:space:]]*=>[[:space:]]*match[[:space:]]+app_entry[[:space:]]*\{",
+                    r"FlatOp::CreateEntry\s*\(\s*"
+                    r"OpEntry::UpdateEntry\s*\{.*?\}\s*\)"
+                    r"\s*=>\s*match\s+app_entry\s*\{",
                     "CreateEntry/UpdateEntry",
                 ),
                 (
-                    r"FlatOp::CreateRecord[[:space:]]*\([[:space:]]*"
-                    r"OpRecord::UpdateEntry[[:space:]]*\{.*?\}[[:space:]]*\)"
-                    r"[[:space:]]*=>[[:space:]]*match[[:space:]]+app_entry[[:space:]]*\{",
+                    r"FlatOp::CreateRecord\s*\(\s*"
+                    r"OpRecord::UpdateEntry\s*\{.*?\}\s*\)"
+                    r"\s*=>\s*match\s+app_entry\s*\{",
                     "CreateRecord/UpdateEntry",
                 ),
             ]
@@ -1347,7 +1347,7 @@ try:
         assert oracle_arm is not None
     if primitive != "create_link":
         assert not re.search(
-            rf"\b{re.escape(dispatch_symbol)}[[:space:]]*\(",
+            rf"\b{re.escape(dispatch_symbol)}\s*\(",
             oracle_arm,
         ), "entry target witness accepted sibling-arm false positive"
 
@@ -1361,7 +1361,7 @@ try:
         oracle_link_arm = link_arm(oracle_link, "__HEARTH_TARGET")
         assert oracle_link_arm is not None
         assert not re.search(
-            rf"\b{re.escape(dispatch_symbol)}[[:space:]]*\(",
+            rf"\b{re.escape(dispatch_symbol)}\s*\(",
             oracle_link_arm,
         ), "link target witness accepted sibling-arm false positive"
 
