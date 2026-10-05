@@ -749,7 +749,7 @@ fn maximum_dispatch_offset_child() -> ! {
         );
         if let Err(error) = receipt {
             eprintln!("cumulative-layer={} unexpected-error={error:?}", index);
-            unsafe { libc::_exit(165u8.saturating_add(index as u8)) };
+            unsafe { libc::_exit(i32::from(165u8.saturating_add(index as u8))) };
         }
     }
 
