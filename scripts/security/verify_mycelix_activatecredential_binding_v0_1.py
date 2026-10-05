@@ -36,6 +36,7 @@ def session_binding(m:dict[str,Any])->str:
         "makecredential_transcript_sha256":m["makecredential_transcript_sha256"],
         "activatecredential_transcript_sha256":m["activatecredential_transcript_sha256"],
         "capture_source_sha256":m["capture_source_sha256"],
+        "ak_authorization_file_sha256":m["ak_authorization_file_sha256"],
         "makecredential_returncode":m["makecredential_returncode"],
         "activatecredential_returncode":m["activatecredential_returncode"],
     })
