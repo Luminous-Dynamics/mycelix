@@ -900,10 +900,9 @@ pub fn report_cincinnati_anomaly(input: ReportAnomalyInput) -> ExternResult<Reco
         })?;
 
     let session_record = get(session_hash, GetOptions::default())?
-        .ok_or(FabricationError::not_found(
-            "CincinnatiSession",
-            &session_links[0].target,
-        ))?;
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Cincinnati session record not found".to_string(),
+        )))?;
 
     let session_entry: CincinnatiSessionEntry = session_record
         .entry()
