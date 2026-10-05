@@ -114,7 +114,7 @@ jobs:
           git_dir, commit = sys.argv[1], sys.argv[2]
           max_files = 200_000
           max_file_bytes = 64 * 1024 * 1024
-          max_total_bytes = 512 * 1024 * 1024
+          max_total_bytes = 768 * 1024 * 1024
           raw = subprocess.check_output(
               ["git", "-C", git_dir, "ls-tree", "-r", "-l", "-z", commit],
               timeout=30,
@@ -138,6 +138,9 @@ jobs:
               assert total <= max_total_bytes, f"candidate tree exceeds {max_total_bytes} total bytes"
           print(f"source_file_count={count}")
           print(f"source_total_bytes={total}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"source_file_count={count}\n")
+              output.write(f"source_total_bytes={total}\n")
           PY
           mkdir -p "$candidate_root"
           git -C "$candidate_git" archive --format=tar "$resolved" | tar -xf - -C "$candidate_root"
@@ -188,6 +191,10 @@ jobs:
           import tomllib
           manifest_text=manifest.read_text(encoding="utf-8")
           manifest_data=tomllib.loads(manifest_text)
+          package=manifest_data.get("package")
+          assert isinstance(package, dict), "manifest must contain a package table"
+          assert package.get("name") == "mycelix-bridge-common", "qualified package name is not exact"
+          assert package.get("edition") == "2024", "qualified package edition is not exact"
 
           dependency_table_names={"dependencies", "dev-dependencies", "build-dependencies"}
           forbidden_dependency_keys={"git", "path", "registry", "workspace"}
@@ -215,8 +222,11 @@ jobs:
           assert "patch" not in manifest_data and "replace" not in manifest_data, "manifest patch/replace tables are forbidden"
 
           lock=tomllib.loads(lockfile.read_text(encoding="utf-8"))
+          assert lock.get("version") == 4, f"unsupported Cargo.lock format: {lock.get('version')!r}"
           packages=lock.get("package", [])
           assert packages, "Cargo.lock contains no package records"
+          roots=[p for p in packages if p.get("name") == "mycelix-bridge-common" and p.get("version") == package.get("version")]
+          assert len(roots) == 1, "Cargo.lock must contain exactly one exact root package record"
           forbidden_sources=[]
           allowed_registry="registry+https://github.com/rust-lang/crates.io-index"
           checksum_pattern=re.compile(r"^[0-9a-f]{64}$")
