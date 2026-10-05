@@ -59,7 +59,7 @@ jobs:
 
           export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
           python3 - <<'PY'
-          import hashlib, io, json, os, re, subprocess, urllib.error, urllib.request, zipfile
+          import hashlib, io, json, os, re, subprocess, urllib.error, urllib.parse, urllib.request, zipfile
 
           base = "https://api.github.com"
           token = os.environ["TOKEN"]
@@ -293,9 +293,16 @@ jobs:
                   f"execution binding digest is invariant under mutation of {field}"
               )
 
-          artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
           expected_artifact_name = f"security-kernel-independent-qualification-{candidate_sha}-attempt-{run_attempt}.txt"
-          matching_artifacts = [a for a in artifacts if a.get("name") == expected_artifact_name]
+          encoded_artifact_name = urllib.parse.quote(expected_artifact_name, safe="")
+          artifact_response = get(
+              f"/repos/{repo}/actions/runs/{run_id}/artifacts"
+              f"?per_page=100&name={encoded_artifact_name}"
+          )
+          matching_artifacts = artifact_response.get("artifacts", [])
+          assert artifact_response.get("total_count") == len(matching_artifacts), (
+              "artifact name-filter response count does not match returned artifact records"
+          )
           assert len(matching_artifacts) == 1, (
               f"expected exactly one retained qualification receipt artifact: {len(matching_artifacts)}"
           )
