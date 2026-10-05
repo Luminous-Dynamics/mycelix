@@ -220,6 +220,12 @@ pub struct EpistemicScore {
     pub normative: f32,
     pub mythic: f32,
     pub overall_confidence: f32,
+    /// Explicitly distinguishes positive/partial evidence from absence of evidence.
+    pub evidence_status: EpistemicAggregateStatus,
+    /// Number of safety claims with validated Knowledge classifications.
+    pub classified_claims: u32,
+    /// Number of decoded safety claims considered for this aggregate.
+    pub total_claims: u32,
 }
 
 #[hdk_extern]
@@ -383,10 +389,13 @@ pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicSco
     let mut e_sum = 0.0f32;
     let mut n_sum = 0.0f32;
     let mut m_sum = 0.0f32;
-    let mut count = 0;
+    let mut classified_count = 0u32;
+    let mut total_claims = 0u32;
 
     for record in claims {
         if let Some(claim) = record.entry().to_app_option::<SafetyClaim>().ok().flatten() {
+            total_claims += 1;
+
             if claim.epistemic_provenance != EpistemicProvenance::KnowledgeClassified {
                 continue;
             }
@@ -396,16 +405,25 @@ pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicSco
             e_sum += epistemic.empirical;
             n_sum += epistemic.normative;
             m_sum += epistemic.mythic;
-            count += 1;
+            classified_count += 1;
         }
     }
 
-    let count_f = count.max(1) as f32;
+    let count_f = classified_count.max(1) as f32;
+    let evidence_status = match (classified_count, total_claims) {
+        (0, _) => EpistemicAggregateStatus::NoClassifiedEvidence,
+        (classified, total) if classified == total => EpistemicAggregateStatus::Classified,
+        _ => EpistemicAggregateStatus::PartialClassifiedEvidence,
+    };
+
     Ok(EpistemicScore {
         empirical: e_sum / count_f,
         normative: n_sum / count_f,
         mythic: m_sum / count_f,
         overall_confidence: (e_sum + n_sum) / (2.0 * count_f),
+        evidence_status,
+        classified_claims: classified_count,
+        total_claims,
     })
 }
 
