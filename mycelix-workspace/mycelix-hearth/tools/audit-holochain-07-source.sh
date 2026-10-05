@@ -457,6 +457,131 @@ check_link_type_policy() {
   done < <(printf '%s\n' "$enum_block" | grep -E '^    [A-Za-z_][A-Za-z0-9_]*,$' | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*),$/\1/')
 }
 
+
+# Token-aware dispatcher census. The line-oriented predicates above intentionally
+# remain cheap, but this independent pass masks comments, strings, raw strings,
+# and character literals before checking enum coverage. That makes copied prose
+# or examples unable to satisfy dispatcher exhaustiveness.
+check_dispatch_token_truth() {
+  local file="$1"
+  python3 - "$file" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text()
+
+token_re = re.compile(
+    r'//[^\n]*'
+    r'|/\*.*?\*/'
+    r'|(?:br|rb|r)(#{0,255})"(?:.|\n)*?"\1'
+    r'|"(?:\\.|[^"\\])*"'
+    r"|b?'(?:\\.|[^'\\\n])'(?![A-Za-z0-9_])",
+    re.S,
+)
+
+def mask(text):
+    return token_re.sub(
+        lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)),
+        text,
+    )
+
+masked = mask(source)
+
+def balanced_end(text, opening):
+    depth = 0
+    for i in range(opening, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+    raise ValueError("unbalanced braces")
+
+def function_block(symbol):
+    match = re.search(
+        rf"^[ \t]*(?:pub[ \t]+)?fn[ \t]+{re.escape(symbol)}[ \t]*\([^\n]*\)[^{\n]*\{{",
+        masked,
+        re.M,
+    )
+    if not match:
+        raise ValueError(f"missing function {symbol}")
+    opening = masked.find("{", match.start(), match.end())
+    return masked[match.start():balanced_end(masked, opening)]
+
+def enum_block(symbol):
+    match = re.search(
+        rf"^[ \t]*(?:pub[ \t]+)?enum[ \t]+{re.escape(symbol)}[ \t]*\{{",
+        masked,
+        re.M,
+    )
+    if not match:
+        raise ValueError(f"missing enum {symbol}")
+    opening = masked.find("{", match.start(), match.end())
+    return masked[match.start():balanced_end(masked, opening)]
+
+def variants(block, with_payload):
+    body = block.split("{", 1)[1].rsplit("}", 1)[0]
+    if with_payload:
+        found = re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)[ \t]*\([^)]*\)", body)
+        # Keep unit-like variants too; future enum additions must not disappear
+        # simply because their representation changes.
+        found += re.findall(r"^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*,", body, re.M)
+    else:
+        found = re.findall(r"^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*,", body, re.M)
+    return sorted(set(found))
+
+def require(pattern, haystack, label):
+    if not re.search(pattern, haystack):
+        raise ValueError("missing token-aware coverage: " + label)
+
+try:
+    validate = function_block("validate")
+    entry_enum = enum_block("EntryTypes")
+    link_enum = enum_block("LinkTypes")
+
+    for variant in variants(entry_enum, True):
+        require(
+            rf"\bEntryTypes::{re.escape(variant)}\b",
+            validate,
+            "EntryTypes::" + variant + " in validate",
+        )
+
+    try:
+        link_policy = function_block("validate_create_link")
+    except ValueError:
+        link_policy = None
+
+    if link_policy is not None:
+        for variant in variants(link_enum, False):
+            require(
+                rf"\bLinkTypes::{re.escape(variant)}[ \t]*=>",
+                link_policy,
+                "LinkTypes::" + variant + " arm in validate_create_link",
+            )
+
+    # Adversarial oracle: neither a comment nor a string literal may create a
+    # token-visible coverage witness after masking.
+    oracle = '''
+fn validate(op: Op) {
+    // EntryTypes::__HEARTH_FAKE(_) is documentation only.
+    let text = "EntryTypes::__HEARTH_FAKE";
+    // LinkTypes::__HEARTH_FAKE => is documentation only.
+}
+'''
+    oracle_masked = mask(oracle)
+    assert re.search(r"EntryTypes::__HEARTH_FAKE", oracle_masked) is None
+    assert re.search(r"LinkTypes::__HEARTH_FAKE", oracle_masked) is None
+
+except (ValueError, AssertionError) as exc:
+    print("FAIL: token-aware dispatcher census: " + str(exc), file=sys.stderr)
+    raise SystemExit(2)
+
+print("OK: token-aware dispatcher census covers declared EntryTypes and LinkTypes")
+PY
+}
+
 # Link tags are application data. Hearth coordinators use empty tags for ordinary
 # relationship/index links; only explicitly payload-bearing link types are allowed
 # to opt out. This keeps arbitrary tag data from becoming an unvalidated shadow
