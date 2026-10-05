@@ -116,6 +116,22 @@ pub enum FinanceEventType {
     MultiCollateralCreated,
 }
 
+/// Immutable reserve valuation authority policy.
+///
+/// This record gives a snapshot publisher policy an addressable identity.
+/// The policy's own root-of-trust is intentionally separate (AC-106).
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ReserveValuationAuthorityPolicy {
+    pub id: String,
+    pub version: String,
+    pub authorized_publisher_dids: Vec<String>,
+    pub min_source_count: u32,
+    pub max_source_count: u32,
+    pub max_freshness_limit_micros: i64,
+    pub created_at: Timestamp,
+}
+
 /// Immutable reserve valuation snapshot consumed by SAP issuance.
 ///
 /// This is intentionally distinct from the operational PriceConsensus API.
@@ -141,6 +157,7 @@ pub struct ReserveValuationSnapshot {
     pub source_count: u32,
     pub aggregation_profile_id: String,
     pub publisher_policy_id: String,
+    pub publisher_policy_action_hash: ActionHash,
     pub qualification_state: ReserveValuationState,
     pub publisher_did: String,
     pub supersedes: Option<ActionHash>,
@@ -296,6 +313,7 @@ pub enum EntryTypes {
     CollateralRegistration(CollateralRegistration),
     FinanceBridgeEvent(FinanceBridgeEvent),
     CollateralBridgeDeposit(CollateralBridgeDeposit),
+    ReserveValuationAuthorityPolicy(ReserveValuationAuthorityPolicy),
     ReserveValuationSnapshot(ReserveValuationSnapshot),
     Covenant(Covenant),
     CollateralHealth(CollateralHealth),
@@ -359,7 +377,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         deposit,
                     )
                 },
-                EntryTypes::ReserveValuationSnapshot(snapshot) => {
+                EntryTypes::ReserveValuationAuthorityPolicy(policy) => {
+                    validate_create_reserve_valuation_authority_policy(
+                        EntryCreationAction::Create(action),
+                        policy,
+                    )
+                }
+                                EntryTypes::ReserveValuationSnapshot(snapshot) => {
                     validate_create_reserve_valuation_snapshot(
                         EntryCreationAction::Create(action),
                         snapshot,
@@ -407,6 +431,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::CollateralBridgeDeposit(deposit) => {
                     validate_update_collateral_bridge_deposit(action, deposit)
                 },
+                EntryTypes::ReserveValuationAuthorityPolicy(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reserve valuation authority policies are immutable".into(),
+                )),
                 EntryTypes::ReserveValuationSnapshot(_) => Ok(ValidateCallbackResult::Invalid(
                     "Reserve valuation snapshots are immutable".into(),
                 ))
@@ -749,6 +776,58 @@ fn validate_create_finance_bridge_event(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_create_reserve_valuation_authority_policy(
+    action: EntryCreationAction,
+    policy: ReserveValuationAuthorityPolicy,
+) -> ExternResult<ValidateCallbackResult> {
+    let action_timestamp = match &action {
+        EntryCreationAction::Create(create) => create.timestamp,
+    };
+    if policy.id.is_empty() || policy.id.len() > MAX_REFERENCE_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reserve valuation policy ID is required and must be bounded".into(),
+        ));
+    }
+    if policy.version.is_empty() || policy.version.len() > MAX_REFERENCE_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reserve valuation policy version is required and must be bounded".into(),
+        ));
+    }
+    if policy.authorized_publisher_dids.is_empty()
+        || policy.authorized_publisher_dids.len() > 64
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reserve valuation policy must authorize 1..=64 publishers".into(),
+        ));
+    }
+    for did in &policy.authorized_publisher_dids {
+        if did.is_empty() || did.len() > MAX_DID_LEN || !did.starts_with("did:") {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reserve valuation policy contains an invalid publisher DID".into(),
+            ));
+        }
+    }
+    if policy.min_source_count == 0
+        || policy.max_source_count < policy.min_source_count
+        || policy.max_source_count > 200
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reserve valuation policy source-count bounds are invalid".into(),
+        ));
+    }
+    if policy.max_freshness_limit_micros <= 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reserve valuation policy freshness limit must be positive".into(),
+        ));
+    }
+    if policy.created_at != action_timestamp {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reserve valuation policy created_at must equal the Create action timestamp".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn canonical_source_commitment(source_hashes: &[ActionHash]) -> String {
     let mut canonical = source_hashes.to_vec();
     canonical.sort();
@@ -782,6 +861,51 @@ fn validate_create_reserve_valuation_snapshot(
         validate_reserve_valuation_snapshot_fields(&snapshot, &author_did, action_timestamp)?;
     if !matches!(shape, ValidateCallbackResult::Valid) {
         return Ok(shape);
+    }
+
+    let policy_record = must_get_valid_record(snapshot.publisher_policy_action_hash.clone())?;
+    let policy = policy_record
+        .entry()
+        .to_app_option::<ReserveValuationAuthorityPolicy>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode reserve valuation authority policy: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Reserve valuation policy dependency is not a ReserveValuationAuthorityPolicy"
+                    .into(),
+            ))
+        })?;
+
+    if policy.id != snapshot.publisher_policy_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reserve valuation snapshot publisher policy ID does not match policy dependency"
+                .into(),
+        ));
+    }
+    if !policy
+        .authorized_publisher_dids
+        .iter()
+        .any(|did| did == &snapshot.publisher_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Snapshot publisher is not authorized by the referenced reserve valuation policy"
+                .into(),
+        ));
+    }
+    if snapshot.source_count < policy.min_source_count
+        || snapshot.source_count > policy.max_source_count
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Snapshot source count is outside the referenced publisher policy bounds".into(),
+        ));
+    }
+    if snapshot.freshness_limit_micros > policy.max_freshness_limit_micros {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Snapshot freshness limit exceeds the referenced publisher policy bound".into(),
+        ));
     }
 
     for source_hash in &snapshot.source_action_hashes {
@@ -2687,6 +2811,7 @@ mod tests {
             source_count: 2,
             aggregation_profile_id: "sap-reserve-oracle-v0".into(),
             publisher_policy_id: "sap-reserve-publisher-v0".into(),
+            publisher_policy_action_hash: ActionHash::from_raw_36(vec![3; 36]),
             qualification_state: ReserveValuationState::Qualified,
             publisher_did: did_for_author(&make_create().author),
             supersedes: None,
