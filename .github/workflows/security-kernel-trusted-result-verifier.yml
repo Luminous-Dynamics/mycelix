@@ -157,6 +157,7 @@ jobs:
               "Verify candidate source immutability",
               "Emit qualification receipt",
               "Upload qualification receipt",
+              "Verify retained qualification receipt",
           )
           steps = {step["name"]: step["conclusion"] for step in (job.get("steps") or [])}
           missing = [name for name in required if name not in steps]
