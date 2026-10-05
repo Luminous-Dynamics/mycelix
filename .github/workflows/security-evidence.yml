@@ -111,7 +111,7 @@ jobs:
           assert san["profile_id"] == "mycelix.security.tpm.ek-cert-san-property-binding"
           assert san["claim_ceiling"] == "ReferenceModelOnly"
           assert san["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(san["vectors"]) == 13
+          assert len(san["vectors"]) == 19
           tpm_properties = json.loads(Path("docs/security/mycelix-tpm-properties-fixed-capture-v0.1.json").read_text())
           assert tpm_properties["profile_id"] == "mycelix.security.tpm.properties-fixed-capture"
           assert tpm_properties["claim_ceiling"] == "ReferenceModelOnly"
