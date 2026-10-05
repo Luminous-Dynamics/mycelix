@@ -366,6 +366,32 @@ impl DependencyClosureCertificateV1 {
         self.resolution_evidence_status() == ResolutionEvidenceStatusV1::Complete
     }
 
+    /// Require every selected Present/Stale resolution record to carry the
+    /// exact qualification context expected by the consuming verifier.
+    pub fn resolution_evidence_matches_context(&self, expected_context_commitment: &str) -> bool {
+        if !is_canonical_sha256_commitment(expected_context_commitment) {
+            return false;
+        }
+
+        self.dependencies
+            .iter()
+            .filter(|dependency| {
+                matches!(
+                    self.dependency_resolutions.get(*dependency),
+                    Some(
+                        SemanticDependencyResolutionV1::Present
+                            | SemanticDependencyResolutionV1::Stale
+                    )
+                )
+            })
+            .all(|dependency| {
+                self.resolution_evidence
+                    .get(dependency)
+                    .and_then(|evidence| evidence.qualification_context_commitment.as_deref())
+                    == Some(expected_context_commitment)
+            })
+    }
+
     /// Construct a verification summary only when runtime resolution evidence
     /// independently corroborates every selected Present/Stale dependency.
     ///
@@ -374,13 +400,18 @@ impl DependencyClosureCertificateV1 {
     pub fn from_verified_closure_with_complete_resolution_evidence(
         verifier_id: &str,
         verification_policy_commitment: &str,
+        expected_resolution_qualification_context_commitment: &str,
         projection: &QualifiedProjectionV1,
         environment: &SemanticEnvironmentV1,
         derivation_profile: &DerivationProfileV1,
         closure_profile: &DependencyClosureProfileV1,
         closure: &DependencyClosureCertificateV1,
     ) -> Option<Self> {
-        if !closure.has_complete_resolution_evidence() {
+        if !closure.has_complete_resolution_evidence()
+            || !closure.resolution_evidence_matches_context(
+                expected_resolution_qualification_context_commitment,
+            )
+        {
             return None;
         }
         Self::from_verified_closure(
@@ -735,6 +766,7 @@ impl D6XVerificationSummaryV1 {
         &self,
         expected_verifier_id: &str,
         expected_verification_policy_commitment: &str,
+        expected_resolution_qualification_context_commitment: &str,
         projection: &QualifiedProjectionV1,
         environment: &SemanticEnvironmentV1,
         derivation_profile: &DerivationProfileV1,
@@ -750,6 +782,9 @@ impl D6XVerificationSummaryV1 {
             closure_profile,
             closure,
         ) && closure.has_complete_resolution_evidence()
+            && closure.resolution_evidence_matches_context(
+                expected_resolution_qualification_context_commitment,
+            )
     }
 }
 
@@ -1699,7 +1734,7 @@ mod tests {
                 SemanticDependencyResolutionEvidenceV1 {
                     retrieval_reference: Some(format!("runtime://resolver/{}", dependency.identifier)),
                     observed_commitment: dependency.commitment.clone(),
-                    qualification_context_commitment: Some("qualification-context".into()),
+                    qualification_context_commitment: Some(canonical_sha256("test-d6x-resolution-context", &serde_json::json!({"scope":"d6x"}))),
                 },
             );
         }
@@ -2735,6 +2770,7 @@ mod tests {
             D6XVerificationSummaryV1::from_verified_closure_with_complete_resolution_evidence(
                 "verifier:d6x-test",
                 &policy,
+                &canonical_sha256("test-d6x-resolution-context", &serde_json::json!({"scope":"d6x"})),
                 &projection,
                 &environment,
                 &derivation_profile,
@@ -2784,6 +2820,85 @@ mod tests {
                 &complete,
             )
         );
+    }
+
+    #[test]
+    fn complete_resolution_evidence_is_bound_to_qualification_context() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("verified closure");
+
+        let context_a = canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"a"}),
+        );
+        let context_b = canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"b"}),
+        );
+
+        let mut evidenced = closure.clone();
+        for dependency in &evidenced.dependencies {
+            evidenced.resolution_evidence.insert(
+                dependency.clone(),
+                SemanticDependencyResolutionEvidenceV1 {
+                    retrieval_reference: Some(format!(
+                        "runtime://resolver/{}",
+                        dependency.identifier
+                    )),
+                    observed_commitment: dependency.commitment.clone(),
+                    qualification_context_commitment: Some(context_a.clone()),
+                },
+            );
+        }
+
+        assert!(evidenced.has_complete_resolution_evidence());
+        assert!(evidenced.resolution_evidence_matches_context(&context_a));
+        assert!(!evidenced.resolution_evidence_matches_context(&context_b));
+
+        let policy = canonical_sha256(
+            "test-d6x-verification-policy",
+            &serde_json::json!({"required_result": "Passed"}),
+        );
+        let summary = D6XVerificationSummaryV1::from_verified_closure_with_complete_resolution_evidence(
+            "verifier:d6x-test",
+            &policy,
+            &context_a,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &evidenced,
+        )
+        .expect("matching qualification context should permit strict summary construction");
+
+        assert!(summary.verifies_against_expectations_with_complete_resolution_evidence(
+            "verifier:d6x-test",
+            &policy,
+            &context_a,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &evidenced,
+        ));
+
+        assert!(!summary.verifies_against_expectations_with_complete_resolution_evidence(
+            "verifier:d6x-test",
+            &policy,
+            &context_b,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &evidenced,
+        ));
     }
 
     #[test]
