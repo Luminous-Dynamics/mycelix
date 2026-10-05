@@ -908,6 +908,8 @@ if not isinstance(claim, str) or "RuntimeQualificationPending" not in claim:
     reject("claim_ceiling must retain the RuntimeQualificationPending evidence ceiling")
 if not isinstance(claim, str) or "do not constitute observed runtime results" not in claim:
     reject("claim_ceiling must explicitly deny observed runtime qualification")
+if isinstance(claim, str) and "RuntimeQualificationPassed" in claim:
+    reject("claim_ceiling must never advertise a runtime-passed qualification")
 
 cases = data.get("cases")
 if not isinstance(cases, list) or not cases:
