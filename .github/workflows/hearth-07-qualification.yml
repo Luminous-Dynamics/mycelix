@@ -177,6 +177,7 @@ jobs:
           print("OK: holonix is pinned to the verified Holochain 0.7 lock object")
           PY
 
+      - name: Verify or generate Rust dependency closure
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -euo pipefail
