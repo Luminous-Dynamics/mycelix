@@ -124,15 +124,21 @@ pub struct PriceConsensus {
     pub computed_at: Timestamp,
 
     /// Exact PriceReport action hashes used as the publication source set.
+    /// Defaults preserve decoding of legacy consensus records; newly published
+    /// artifacts are rejected by validation when this is empty.
+    #[serde(default)]
     pub source_action_hashes: Vec<ActionHash>,
 
     /// Domain-separated commitment over item/window/profile/source set.
+    #[serde(default)]
     pub source_commitment: String,
 
     /// Exact aggregation profile used to derive the result.
+    #[serde(default)]
     pub aggregation_profile_id: String,
 
     /// Canonical DID of the authorized publisher/evaluator.
+    #[serde(default)]
     pub publisher_did: String,
 }
 
