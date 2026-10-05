@@ -5,6 +5,11 @@ import argparse, hashlib, json
 from pathlib import Path
 from typing import Any
 
+CAPTURE_SOURCE_SCRIPT = Path(__file__).with_name("capture_mycelix_activatecredential_v0_1.py")
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
 VERIFIER_ID = "mycelix.tpm.activatecredential-binding.v0.1"
 APPROVED_SOURCE_TAG = "mycelix-activatecredential-reference-v0.1"
 
@@ -55,6 +60,10 @@ def verify(m:dict[str,Any])->dict[str,Any]:
     if not isinstance(m["session_id"],str) or not m["session_id"]:return result("DENY","session-id-invalid")
     for field in ("tpm_identity_digest","ek_public_sha256","ek_public_wire_sha256","ak_name_sha256","registrar_secret_sha256","recovered_secret_sha256","makecredential_blob_sha256","makecredential_transcript_sha256","activatecredential_transcript_sha256","capture_source_sha256","session_binding_sha256"):
         if not valid_hash(m[field]):return result("DENY","digest-invalid",{"field":field})
+    if not CAPTURE_SOURCE_SCRIPT.is_file():
+        return result("DENY","activation-capture-source-missing")
+    if m["capture_source_sha256"] != sha256_file(CAPTURE_SOURCE_SCRIPT):
+        return result("DENY","activation-capture-source-mismatch")
     if m["makecredential_returncode"]!=0:return result("DENY","makecredential-failed")
     if m["activatecredential_returncode"]!=0:return result("DENY","activatecredential-failed")
     if m["secret_equality_state"]=="DENY":return result("DENY","activatecredential-secret-equality-denied")
