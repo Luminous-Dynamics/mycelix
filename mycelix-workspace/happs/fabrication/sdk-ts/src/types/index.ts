@@ -585,12 +585,19 @@ export interface SafetyClaim {
   designHash: ActionHash;
   claimType: SafetyClaimType;
   claimText: string;
-  epistemic: ClaimEpistemic;
+  epistemic?: ClaimEpistemic;
+  epistemicProvenance: EpistemicProvenance;
   supportingEvidence: string[];
   knowledgeClaimHash?: ActionHash;
   author: AgentPubKey;
   createdAt: number;
 }
+
+export type EpistemicProvenance =
+  | 'KnowledgeClassified'
+  | 'KnowledgeUnavailable'
+  | 'KnowledgeMalformed'
+  | 'LegacyUnattributed';
 
 export type SafetyClaimType =
   | { type: 'LoadCapacity'; value: string }

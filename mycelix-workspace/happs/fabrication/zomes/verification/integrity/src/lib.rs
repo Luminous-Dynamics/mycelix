@@ -49,7 +49,10 @@ pub struct SafetyClaim {
     pub design_hash: ActionHash,
     pub claim_type: SafetyClaimType,
     pub claim_text: String,
-    pub epistemic: ClaimEpistemic,
+    #[serde(default)]
+    pub epistemic: Option<ClaimEpistemic>,
+    #[serde(default)]
+    pub epistemic_provenance: EpistemicProvenance,
     pub supporting_evidence: Vec<String>,
     pub knowledge_claim_hash: Option<ActionHash>,
     pub author: AgentPubKey,
@@ -172,10 +175,47 @@ fn validate_safety_claim(c: SafetyClaim) -> ExternResult<ValidateCallbackResult>
     check!(validation::require_non_empty(&c.claim_text, "claim_text"));
     check!(validation::require_max_len(&c.claim_text, 4096, "claim_text"));
 
-    // --- epistemic scores: each in 0.0..1.0 ---
-    check!(validation::require_in_range(c.epistemic.empirical, 0.0, 1.0, "epistemic.empirical"));
-    check!(validation::require_in_range(c.epistemic.normative, 0.0, 1.0, "epistemic.normative"));
-    check!(validation::require_in_range(c.epistemic.mythic, 0.0, 1.0, "epistemic.mythic"));
+    // --- epistemic enrichment/provenance consistency ---
+    if let Some(epistemic) = &c.epistemic {
+        check!(validation::require_in_range(
+            epistemic.empirical,
+            0.0,
+            1.0,
+            "epistemic.empirical"
+        ));
+        check!(validation::require_in_range(
+            epistemic.normative,
+            0.0,
+            1.0,
+            "epistemic.normative"
+        ));
+        check!(validation::require_in_range(
+            epistemic.mythic,
+            0.0,
+            1.0,
+            "epistemic.mythic"
+        ));
+    }
+
+    match c.epistemic_provenance {
+        EpistemicProvenance::KnowledgeClassified if c.epistemic.is_none() => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "KnowledgeClassified requires an epistemic classification".to_string(),
+            ));
+        }
+        EpistemicProvenance::KnowledgeUnavailable | EpistemicProvenance::KnowledgeMalformed
+            if c.epistemic.is_some() =>
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "unavailable/malformed Knowledge provenance cannot carry an epistemic classification"
+                    .to_string(),
+            ));
+        }
+        _ => {}
+    }
+
+    // Legacy records deserialize as LegacyUnattributed and remain valid/queryable,
+    // but current scoring excludes them from Knowledge-sourced aggregates.
 
     // --- supporting_evidence: max 64 items, each max 256 chars ---
     check!(validation::require_max_vec_len(
@@ -228,11 +268,12 @@ mod tests {
             design_hash: ActionHash::from_raw_36(vec![0u8; 36]),
             claim_type: SafetyClaimType::LoadCapacity("Supports 50kg".to_string()),
             claim_text: "This bracket supports up to 50kg static load".to_string(),
-            epistemic: ClaimEpistemic {
+            epistemic: Some(ClaimEpistemic {
                 empirical: 0.8,
                 normative: 0.5,
                 mythic: 0.1,
-            },
+            }),
+            epistemic_provenance: EpistemicProvenance::KnowledgeClassified,
             supporting_evidence: vec!["FEA report v2.1".to_string()],
             knowledge_claim_hash: None,
             author: AgentPubKey::from_raw_36(vec![0u8; 36]),
@@ -296,6 +337,70 @@ mod tests {
     fn test_valid_claim_passes() {
         let result = validate_safety_claim(valid_safety_claim()).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_unavailable_claim_without_epistemic_score_passes() {
+        let mut claim = valid_safety_claim();
+        claim.epistemic = None;
+        claim.epistemic_provenance = EpistemicProvenance::KnowledgeUnavailable;
+        assert_eq!(
+            validate_safety_claim(claim).unwrap(),
+            ValidateCallbackResult::Valid
+        );
+    }
+
+    #[test]
+    fn test_unavailable_claim_serde_roundtrip_preserves_empty_score() {
+        let mut claim = valid_safety_claim();
+        claim.epistemic = None;
+        claim.epistemic_provenance = EpistemicProvenance::KnowledgeUnavailable;
+
+        let json = serde_json::to_string(&claim).unwrap();
+        let restored: SafetyClaim = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(restored.epistemic, None);
+        assert_eq!(
+            restored.epistemic_provenance,
+            EpistemicProvenance::KnowledgeUnavailable
+        );
+    }
+
+    #[test]
+    fn test_unavailable_claim_cannot_carry_epistemic_score() {
+        let mut claim = valid_safety_claim();
+        claim.epistemic_provenance = EpistemicProvenance::KnowledgeUnavailable;
+        assert!(matches!(
+            validate_safety_claim(claim).unwrap(),
+            ValidateCallbackResult::Invalid(message) if message.contains("unavailable")
+        ));
+    }
+
+    #[test]
+    fn test_knowledge_classified_claim_requires_epistemic_score() {
+        let mut claim = valid_safety_claim();
+        claim.epistemic = None;
+        assert!(matches!(
+            validate_safety_claim(claim).unwrap(),
+            ValidateCallbackResult::Invalid(message) if message.contains("KnowledgeClassified")
+        ));
+    }
+
+    #[test]
+    fn test_legacy_claim_missing_provenance_defaults_unattributed() {
+        let claim = valid_safety_claim();
+        let mut value = serde_json::to_value(&claim).unwrap();
+        value.as_object_mut().unwrap().remove("epistemic_provenance");
+
+        let restored: SafetyClaim = serde_json::from_value(value).unwrap();
+        assert_eq!(
+            restored.epistemic_provenance,
+            EpistemicProvenance::LegacyUnattributed
+        );
+        assert_eq!(
+            validate_safety_claim(restored).unwrap(),
+            ValidateCallbackResult::Valid
+        );
     }
 
     #[test]

@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 const HAPP_PATH = path.join(__dirname, '../workdir/fabrication.happ');
 
 describe('Verification Zome - Safety & Epistemic', () => {
-  it('should submit verification and safety claim for a design', async () => {
+  it('should fail closed when Knowledge classification is unavailable', async () => {
     await runScenario(async (scenario: Scenario) => {
       const [alice] = await scenario.addPlayersWithApps([
         { appBundleSource: { path: HAPP_PATH } },
@@ -63,7 +63,9 @@ describe('Verification Zome - Safety & Epistemic', () => {
 
       expect(verificationRecord).toBeDefined();
 
-      // Submit a safety claim
+      // The Fabrication hApp does not bundle the Knowledge hApp, so its
+      // epistemic dependency is unavailable. The safety claim remains
+      // queryable, but it must carry no epistemic score.
       const claimRecord: Record = await alice.cells[0].callZome({
         zome_name: 'verification',
         fn_name: 'submit_safety_claim',
@@ -77,15 +79,25 @@ describe('Verification Zome - Safety & Epistemic', () => {
 
       expect(claimRecord).toBeDefined();
 
-      // Get epistemic score
+      const claims = await alice.cells[0].callZome({
+        zome_name: 'verification',
+        fn_name: 'get_design_claims',
+        payload: { hash: designHash, pagination: null },
+      });
+
+      expect(claims.items).toHaveLength(1);
+
+      // With no Knowledge-classified claims, aggregate epistemic scoring is zero.
       const epistemicScore = await alice.cells[0].callZome({
         zome_name: 'verification',
         fn_name: 'get_epistemic_score',
         payload: designHash,
       });
 
-      expect(epistemicScore).toBeDefined();
-      expect(epistemicScore.overall_confidence).toBeGreaterThan(0);
+      expect(epistemicScore.empirical).toBe(0);
+      expect(epistemicScore.normative).toBe(0);
+      expect(epistemicScore.mythic).toBe(0);
+      expect(epistemicScore.overall_confidence).toBe(0);
     });
   });
 

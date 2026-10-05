@@ -88,13 +88,46 @@ fn rate_limit_caller() -> ExternResult<()> {
     hasher.finalize().into()
 }
 
-/// Fetch epistemic classification from Knowledge hApp with an exact-claim cache.
-/// The cache key commits to both the claim type and claim text, so one claim cannot
-/// reuse another claim's epistemic classification merely because their types match.
-/// Expired entries are ignored, and the cache is bounded to prevent unbounded growth
-/// from an attacker submitting many unique claim texts.
-fn fetch_epistemic(claim_text: &str, claim_type_key: &str) -> ClaimEpistemic {
-    let now = sys_time().map(|t| t.as_micros()).unwrap_or(0);
+/// Validate an epistemic classification returned by Knowledge.
+///
+/// Only finite scores in the closed interval [0, 1] are accepted. This is a
+/// semantic boundary in addition to wire decoding: valid serialization alone
+/// does not make an out-of-range classification trustworthy.
+fn validate_epistemic_response(ep: &ClaimEpistemic) -> ExternResult<()> {
+    for (field, value) in [
+        ("empirical", ep.empirical),
+        ("normative", ep.normative),
+        ("mythic", ep.mythic),
+    ] {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return Err(FabricationError::ValidationFailed {
+                field: format!("knowledge.{}", field),
+                reason: "classification score must be finite and in [0, 1]".to_string(),
+            }
+            .to_wasm_error());
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EpistemicFetchFailure {
+    Unavailable,
+    Malformed,
+}
+
+/// Fetch epistemic classification from Knowledge with an exact-claim cache.
+///
+/// Missing or malformed classification becomes an explicit unclassified state rather
+/// than a fabricated score. Only validated classifications are cached.
+fn fetch_epistemic(
+    claim_text: &str,
+    claim_type_key: &str,
+) -> Result<ClaimEpistemic, EpistemicFetchFailure> {
+    let now = match sys_time() {
+        Ok(time) => time.as_micros(),
+        Err(_) => return Err(EpistemicFetchFailure::Unavailable),
+    };
     let key = epistemic_cache_key(claim_text, claim_type_key);
 
     let cached = EPISTEMIC_CACHE.with(|c| {
@@ -105,21 +138,29 @@ fn fetch_epistemic(claim_text: &str, claim_type_key: &str) -> ClaimEpistemic {
         })
     });
     if let Some(ep) = cached {
-        return ep;
+        return Ok(ep);
     }
 
-    let ep = match call(
+    let response = match call(
         CallTargetCell::OtherRole("mycelix-knowledge".into()),
         ZomeName::from("epistemic"),
         FunctionName::from("classify_claim"),
         None,
         claim_text,
     ) {
-        Ok(ZomeCallResponse::Ok(bytes)) => {
-            bytes.decode().unwrap_or_else(|_| default_epistemic())
-        }
-        _ => default_epistemic(),
+        Ok(response) => response,
+        Err(_) => return Err(EpistemicFetchFailure::Unavailable),
     };
+
+    let ep = match response {
+        ZomeCallResponse::Ok(bytes) => bytes
+            .decode::<ClaimEpistemic>()
+            .map_err(|_| EpistemicFetchFailure::Malformed)?,
+        _ => return Err(EpistemicFetchFailure::Unavailable),
+    };
+
+    validate_epistemic_response(&ep)
+        .map_err(|_| EpistemicFetchFailure::Malformed)?;
 
     EPISTEMIC_CACHE.with(|c| {
         let mut cache = c.borrow_mut();
@@ -143,11 +184,7 @@ fn fetch_epistemic(claim_text: &str, claim_type_key: &str) -> ClaimEpistemic {
         cache.insert(key, (now, ep.clone()));
     });
 
-    ep
-}
-
-fn default_epistemic() -> ClaimEpistemic {
-    ClaimEpistemic { empirical: 0.5, normative: 0.3, mythic: 0.2 }
+    Ok(ep)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -280,15 +317,26 @@ pub fn submit_safety_claim(input: SubmitClaimInput) -> ExternResult<Record> {
     let author = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
-    // Fetch epistemic scores from Knowledge hApp (falls back to defaults)
+    // Preserve the safety claim itself, but never promote missing or malformed
+    // Knowledge enrichment into a positive epistemic score.
     let claim_type_key = format!("{:?}", input.claim_type);
-    let epistemic = fetch_epistemic(&input.claim_text, &claim_type_key);
+    let (epistemic, epistemic_provenance) =
+        match fetch_epistemic(&input.claim_text, &claim_type_key) {
+            Ok(ep) => (Some(ep), EpistemicProvenance::KnowledgeClassified),
+            Err(EpistemicFetchFailure::Unavailable) => {
+                (None, EpistemicProvenance::KnowledgeUnavailable)
+            }
+            Err(EpistemicFetchFailure::Malformed) => {
+                (None, EpistemicProvenance::KnowledgeMalformed)
+            }
+        };
 
     let claim = SafetyClaim {
         design_hash: input.design_hash.clone(),
         claim_type: input.claim_type,
         claim_text: input.claim_text,
         epistemic,
+        epistemic_provenance,
         supporting_evidence: input.supporting_evidence,
         knowledge_claim_hash: None,
         author,
@@ -339,9 +387,15 @@ pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicSco
 
     for record in claims {
         if let Some(claim) = record.entry().to_app_option::<SafetyClaim>().ok().flatten() {
-            e_sum += claim.epistemic.empirical;
-            n_sum += claim.epistemic.normative;
-            m_sum += claim.epistemic.mythic;
+            if claim.epistemic_provenance != EpistemicProvenance::KnowledgeClassified {
+                continue;
+            }
+            let Some(epistemic) = claim.epistemic else {
+                continue;
+            };
+            e_sum += epistemic.empirical;
+            n_sum += epistemic.normative;
+            m_sum += epistemic.mythic;
             count += 1;
         }
     }
@@ -355,12 +409,6 @@ pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicSco
     })
 }
 
-/// Return the default epistemic values applied when no Knowledge hApp score is available.
-pub fn default_epistemic_values() -> (f32, f32, f32) {
-    let ep = default_epistemic();
-    (ep.empirical, ep.normative, ep.mythic)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -369,10 +417,6 @@ mod tests {
 
     fn test_action_hash() -> ActionHash {
         ActionHash::from_raw_36(vec![0u8; 36])
-    }
-
-    fn test_agent_key() -> AgentPubKey {
-        AgentPubKey::from_raw_36(vec![0u8; 36])
     }
 
     // ── 1. SubmitVerificationInput serde roundtrip ────────────────────────────
@@ -489,56 +533,28 @@ mod tests {
         }
     }
 
-    // ── 5. default_epistemic_values matches hard-coded submit_safety_claim defaults ──
+    // ── 5. Knowledge response validation ─────────────────────────────────────
 
     #[test]
-    fn test_claim_epistemic_defaults() {
-        let (empirical, normative, mythic) = default_epistemic_values();
-
-        // Values must match the ClaimEpistemic hard-coded in submit_safety_claim.
-        assert!(
-            (empirical - 0.5).abs() < f32::EPSILON,
-            "Default empirical should be 0.5, got {}",
-            empirical
-        );
-        assert!(
-            (normative - 0.3).abs() < f32::EPSILON,
-            "Default normative should be 0.3, got {}",
-            normative
-        );
-        assert!(
-            (mythic - 0.2).abs() < f32::EPSILON,
-            "Default mythic should be 0.2, got {}",
-            mythic
-        );
-
-        // They must also be valid for ClaimEpistemic (all in 0.0..=1.0).
-        assert!(empirical >= 0.0 && empirical <= 1.0);
-        assert!(normative >= 0.0 && normative <= 1.0);
-        assert!(mythic >= 0.0 && mythic <= 1.0);
-
-        // Serde roundtrip of ClaimEpistemic using the defaults.
-        let epistemic = ClaimEpistemic { empirical, normative, mythic };
-        let json = serde_json::to_string(&epistemic)
-            .expect("ClaimEpistemic should serialize");
-        let restored: ClaimEpistemic = serde_json::from_str(&json)
-            .expect("ClaimEpistemic should deserialize");
-        assert!((restored.empirical - empirical).abs() < f32::EPSILON);
-        assert!((restored.normative - normative).abs() < f32::EPSILON);
-        assert!((restored.mythic - mythic).abs() < f32::EPSILON);
-
-        // Unused variable suppression — agent key and action hash constructors
-        // are available in coordinator tests via hdk::prelude::*.
-        let _ = test_action_hash();
-        let _ = test_agent_key();
+    fn test_knowledge_epistemic_response_validation_accepts_bounds() {
+        for ep in [
+            ClaimEpistemic { empirical: 0.0, normative: 0.5, mythic: 1.0 },
+            ClaimEpistemic { empirical: 0.5, normative: 0.5, mythic: 0.5 },
+        ] {
+            assert!(validate_epistemic_response(&ep).is_ok());
+        }
     }
 
     #[test]
-    fn test_default_epistemic_function() {
-        let ep = default_epistemic();
-        assert!((ep.empirical - 0.5).abs() < f32::EPSILON);
-        assert!((ep.normative - 0.3).abs() < f32::EPSILON);
-        assert!((ep.mythic - 0.2).abs() < f32::EPSILON);
+    fn test_knowledge_epistemic_response_validation_rejects_nonfinite_or_out_of_range() {
+        for ep in [
+            ClaimEpistemic { empirical: f32::NAN, normative: 0.5, mythic: 0.5 },
+            ClaimEpistemic { empirical: f32::INFINITY, normative: 0.5, mythic: 0.5 },
+            ClaimEpistemic { empirical: 0.5, normative: -0.01, mythic: 0.5 },
+            ClaimEpistemic { empirical: 0.5, normative: 0.5, mythic: 1.01 },
+        ] {
+            assert!(validate_epistemic_response(&ep).is_err());
+        }
     }
 
     #[test]

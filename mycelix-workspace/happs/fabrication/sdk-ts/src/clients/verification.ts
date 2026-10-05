@@ -119,8 +119,9 @@ export class VerificationClient {
   /**
    * Get epistemic score for a design
    *
-   * Returns aggregated E/N/M scores from all claims.
-   * Scores come from Knowledge hApp cross-zome call (with fallback defaults).
+   * Returns aggregated E/N/M scores from Knowledge-classified claims only.
+   * A safety claim remains queryable when Knowledge is unavailable or malformed,
+   * but it carries no epistemic score until classification succeeds.
    */
   async getEpistemicScore(designHash: ActionHash): Promise<EpistemicScore> {
     return this.client.callZome({

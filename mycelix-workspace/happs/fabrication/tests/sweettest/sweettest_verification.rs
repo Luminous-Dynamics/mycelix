@@ -161,7 +161,7 @@ async fn test_verification_submit_and_query() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_safety_claim_and_epistemic_score() {
+async fn test_safety_claim_preserves_unclassified_state() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna_file = SweetDnaFile::from_bundle(&fabrication_dna_path())
         .await
@@ -198,7 +198,8 @@ async fn test_safety_claim_and_epistemic_score() {
 
     let design_hash = design_record.action_address().clone();
 
-    // Submit a safety claim
+    // Knowledge is not installed in this Fabrication-only fixture.
+    // The safety claim must fail closed rather than persist synthetic/default scores.
     let claim_input = SubmitClaimInput {
         design_hash: design_hash.clone(),
         claim_type: serde_json::json!({
@@ -218,7 +219,22 @@ async fn test_safety_claim_and_epistemic_score() {
 
     assert_eq!(claim_record.action().author(), alice.agent_pubkey());
 
-    // Get epistemic score (should have defaults since Knowledge hApp is not present)
+    let claims: serde_json::Value = conductor
+        .call(
+            &alice.zome("verification_coordinator"),
+            "get_design_claims",
+            HashPaginationInput {
+                hash: design_hash.clone(),
+                pagination: None,
+            },
+        )
+        .await;
+    assert_eq!(
+        claims.get("items").and_then(|v| v.as_array()).map(Vec::len),
+        Some(1),
+        "unclassified claim must remain queryable"
+    );
+
     let score: EpistemicScore = conductor
         .call(
             &alice.zome("verification_coordinator"),
@@ -227,9 +243,10 @@ async fn test_safety_claim_and_epistemic_score() {
         )
         .await;
 
-    // Should have default epistemic values (0.5, 0.3, 0.2)
-    assert!(score.empirical > 0.0);
-    assert!(score.overall_confidence > 0.0);
+    assert_eq!(score.empirical, 0.0);
+    assert_eq!(score.normative, 0.0);
+    assert_eq!(score.mythic, 0.0);
+    assert_eq!(score.overall_confidence, 0.0);
 
     drop(conductor);
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
@@ -311,7 +328,8 @@ async fn test_verification_summary_with_multiple_results() {
         )
         .await;
 
-    // Submit a claim too
+    // Knowledge is absent from this Fabrication-only fixture. The claim
+    // remains queryable but carries no current epistemic score.
     let claim_input = SubmitClaimInput {
         design_hash: design_hash.clone(),
         claim_type: serde_json::json!({
