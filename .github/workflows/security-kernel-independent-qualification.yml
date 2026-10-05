@@ -223,21 +223,16 @@ jobs:
                 exit 1
               fi
               git -C /tmp/repository archive --format=tar "$resolved" |
-                tar -xf - -C /output --no-same-owner --no-same-permissions
+                tar -xf - -C /output --no-same-owner
 
-              python3 - <<'PY'
-              from pathlib import Path
-              import stat
-              root=Path("/output")
-              for path in root.rglob("*"):
-                  mode=path.lstat().st_mode
-                  if stat.S_ISLNK(mode):
-                      raise SystemExit(f"candidate source contains forbidden symlink: {path.relative_to(root)}")
-                  if path.is_dir():
-                      continue
-                  if not stat.S_ISREG(mode):
-                      raise SystemExit(f"candidate source contains forbidden non-regular file: {path.relative_to(root)}")
-              PY
+              if find /output -type l -print -quit | grep -q .; then
+                echo "candidate source contains forbidden symlink" >&2
+                exit 1
+              fi
+              if find /output ! -type f ! -type d -print -quit | grep -q .; then
+                echo "candidate source contains forbidden non-regular file" >&2
+                exit 1
+              fi
               echo "PASS: hostile Git transport, object validation, archive parsing, and source extraction executed in isolated fetch sandbox"
             '
 
@@ -806,6 +801,7 @@ jobs:
           LOCK_DIGEST: ${{ steps.locked_dependency_identity.outputs.lock_digest }}
           RUST_VERSION: ${{ steps.sandbox_preflight.outputs.rust_version }}
           RUST_COMMIT: ${{ steps.sandbox_preflight.outputs.rust_commit }}
+          FETCH_IMAGE: "docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329"
         run: |
           set -euo pipefail
           CARGO_LOCK_DIGEST="$LOCK_DIGEST"
@@ -823,6 +819,7 @@ jobs:
             echo "candidate_cargo_lock_format=v4"
             echo "candidate_cargo_lock_sha256=$CARGO_LOCK_DIGEST"
             echo "vendor_digest=$VENDOR_DIGEST"
+            echo "git_fetch_image=$FETCH_IMAGE"
             echo "sandbox_image=docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
             echo "sandbox_network=none"
             echo "sandbox_rootfs=read-only"
