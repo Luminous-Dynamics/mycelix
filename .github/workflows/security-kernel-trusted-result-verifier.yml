@@ -65,6 +65,7 @@ jobs:
           run = get(f"/repos/{repo}/actions/runs/{run_id}")
           assert run["id"] == int(run_id)
           assert run["run_attempt"] == run_attempt
+          assert run["status"] == "completed"
           assert run["event"] == "workflow_dispatch"
           assert run["path"] == os.environ["INDEPENDENT_WORKFLOW_PATH"]
           assert run["repository"]["full_name"] == repo
@@ -76,13 +77,22 @@ jobs:
           candidate_sha, candidate_pr, source_run_id, source_run_attempt = match.groups()
           source_run_attempt = int(source_run_attempt)
 
-          workflow_content = get("/repos/" + repo + "/contents/" + os.environ["INDEPENDENT_WORKFLOW_PATH"] + "?ref=main")
-          assert workflow_content["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], "trusted S1 workflow blob changed without profile update"
-          workflow_sha = run["workflow_sha"]
+          workflow_sha = run.get("workflow_sha")
+          assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected workflow_sha: {workflow_sha!r}"
+
+          workflow_at_run = get(
+              "/repos/" + repo + "/contents/" + os.environ["INDEPENDENT_WORKFLOW_PATH"]
+              + "?ref=" + workflow_sha)
+          assert workflow_at_run["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
+              "S1 workflow executed by this run does not match the registered immutable profile"
+          )
+
           main_sha = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
           subprocess.run(["git", "merge-base", "--is-ancestor", workflow_sha, main_sha], check=True)
 
           source = get(f"/repos/{repo}/actions/runs/{source_run_id}")
+          assert source["id"] == int(source_run_id)
+          assert source["status"] == "completed"
           assert source["run_attempt"] == source_run_attempt
           assert source["workflow_id"] == int(os.environ["SOURCE_WORKFLOW_ID"])
           assert source["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
@@ -90,10 +100,15 @@ jobs:
           assert source["repository"]["full_name"] == repo
           assert source["head_sha"] == candidate_sha
 
+          source_head_repository = (source.get("head_repository") or {}).get("full_name")
+          assert source_head_repository, "source run missing head repository identity"
+
           pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
           assert pr["base"]["repo"]["full_name"] == repo
           assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-          assert pr["head"]["repo"]["full_name"] == (source.get("head_repository") or {}).get("full_name")
+          assert pr["state"] == "open"
+          assert pr["head"]["repo"]["full_name"] == source_head_repository
+          assert pr["head"]["sha"] == candidate_sha
 
           jobs = get(f"/repos/{repo}/actions/runs/{run_id}/jobs?per_page=100")["jobs"]
           assert len(jobs) == 1, f"expected one independent qualification job, found {len(jobs)}"
@@ -105,11 +120,17 @@ jobs:
               "Checkout trusted qualification root",
               "Validate dispatch provenance",
               "Resolve exact candidate source",
+              "Snapshot trusted candidate source",
               "Static trust-surface audit",
+              "Assert Rust toolchain before candidate compilation",
               "Format candidate bridge crate",
+              "Assert Rust toolchain before default tests",
               "Test candidate default feature set",
+              "Assert Rust toolchain before identity tests",
               "Test candidate identity feature set",
+              "Assert Rust toolchain before default Clippy",
               "Clippy candidate default feature set",
+              "Assert Rust toolchain before identity Clippy",
               "Clippy candidate identity feature set",
               "Verify candidate source immutability",
               "Emit qualification receipt",
