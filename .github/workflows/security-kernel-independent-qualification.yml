@@ -61,6 +61,10 @@ jobs:
           test "$GITHUB_REF" = "refs/heads/main"
           test "$GITHUB_EVENT_NAME" = "pull_request_target"
           printf '%s' "$TRUSTED_WORKFLOW_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
+          printf '%s' "$CANDIDATE_PR" | grep -Eq '^[0-9]+$'
+          printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$CANDIDATE_REPOSITORY" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
           test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
           test "$BASE_BRANCH_EVENT" = "main"
           test "$PR_NUMBER" = "$CANDIDATE_PR"
@@ -161,6 +165,8 @@ jobs:
                   raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
               relative = rel.as_posix().encode()
               content = path.read_bytes()
+              mode_bits = stat.S_IMODE(mode)
+              digest.update(mode_bits.to_bytes(4, "big"))
               digest.update(len(relative).to_bytes(8, "big"))
               digest.update(relative)
               digest.update(len(content).to_bytes(8, "big"))
@@ -329,6 +335,8 @@ jobs:
                   raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
               relative = rel.as_posix().encode()
               content = path.read_bytes()
+              mode_bits = stat.S_IMODE(mode)
+              digest.update(mode_bits.to_bytes(4, "big"))
               digest.update(len(relative).to_bytes(8, "big"))
               digest.update(relative)
               digest.update(len(content).to_bytes(8, "big"))
@@ -504,6 +512,8 @@ jobs:
                   raise SystemExit(f"vendored dependency contains forbidden non-regular file: {rel}")
               relative = rel.as_posix().encode()
               content = path.read_bytes()
+              mode_bits = stat.S_IMODE(mode)
+              digest.update(mode_bits.to_bytes(4, "big"))
               digest.update(len(relative).to_bytes(8, "big"))
               digest.update(relative)
               digest.update(len(content).to_bytes(8, "big"))
@@ -658,6 +668,8 @@ jobs:
                   raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
               relative = rel.as_posix().encode()
               content = path.read_bytes()
+              mode_bits = stat.S_IMODE(mode)
+              digest.update(mode_bits.to_bytes(4, "big"))
               digest.update(len(relative).to_bytes(8, "big"))
               digest.update(relative)
               digest.update(len(content).to_bytes(8, "big"))
