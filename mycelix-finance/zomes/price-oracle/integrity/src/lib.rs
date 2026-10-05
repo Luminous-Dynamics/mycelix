@@ -269,9 +269,11 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::PriceReport(report) => validate_price_report(&report),
-                EntryTypes::PriceConsensus(consensus) => validate_consensus(&consensus),
+                EntryTypes::PriceConsensus(consensus) => {
+                    validate_consensus(EntryCreationAction::Create(action), &consensus)
+                },
                 EntryTypes::BasketDefinition(basket) => validate_basket(&basket),
                 EntryTypes::VolatilityAlert(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::ReporterAccuracy(acc) => validate_reporter_accuracy(&acc),
@@ -331,7 +333,10 @@ fn validate_price_report(report: &PriceReport) -> ExternResult<ValidateCallbackR
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_consensus(consensus: &PriceConsensus) -> ExternResult<ValidateCallbackResult> {
+fn validate_consensus(
+    action: EntryCreationAction,
+    consensus: &PriceConsensus,
+) -> ExternResult<ValidateCallbackResult> {
     if consensus.item.is_empty() || consensus.item.len() > MAX_ITEM_NAME_LEN {
         return Ok(ValidateCallbackResult::Invalid(
             "Item name is invalid".into(),
@@ -385,6 +390,13 @@ fn validate_consensus(consensus: &PriceConsensus) -> ExternResult<ValidateCallba
     {
         return Ok(ValidateCallbackResult::Invalid(
             "Consensus publisher DID is invalid".into(),
+        ));
+    }
+
+    let author_did = format!("did:mycelix:{}", action.author());
+    if consensus.publisher_did != author_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Consensus publisher DID must match the signed entry author".into(),
         ));
     }
     if consensus.window_start > consensus.computed_at {
