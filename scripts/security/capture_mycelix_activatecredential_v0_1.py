@@ -30,7 +30,7 @@ def self_test()->int:
     if '"file:<redacted>"' not in source:
         print("redacted authorization transcript: FAIL")
         return 1
-    if '"-p","akpass"' in source or '"-p", "akpass"' in source:
+    if re.search(r'tpm2_activatecredential.*(?:["\x27])akpass(?:["\x27])', source):
         print("plaintext AK password in command path: FAIL")
         return 1
     if '"capture_source_sha256"' not in source:
