@@ -552,14 +552,14 @@ impl ObserverLifecycleLedgerV1 {
             })
             && self.dependency_snapshots.iter().all(|(id, snapshot)| {
                 id == &snapshot.snapshot_id
-                    && snapshot.commitment_matches()
+                    && snapshot.strict_commitment_matches()
                     && self.dependency_chain_complete(&snapshot.snapshot_id)
                     && self.generations.contains_key(&snapshot.observer_generation_id)
             })
             && self.rotations.iter().all(|(id, rotation)| {
                 id == &rotation.certificate_id
-                    && rotation.commitment_matches()
-                    && rotation.continuity_root_matches()
+                    && rotation.strict_commitment_matches()
+                    && rotation.strict_continuity_root_matches()
                     && self.generations.contains_key(&rotation.predecessor_generation_id)
                     && self.generations.contains_key(&rotation.successor_generation_id)
                     && self.transitions.contains_key(&rotation.predecessor_transition_id)
