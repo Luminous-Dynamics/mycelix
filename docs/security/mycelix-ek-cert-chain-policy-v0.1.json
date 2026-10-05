@@ -63,11 +63,12 @@
     {"id":"EKC-V15","mutation":"verification-time-binding-substitution","expected":"DENY"},
     {"id":"EKC-V16","mutation":"revocation-state-binding-substitution","expected":"DENY"},
     {"id":"EKC-V17","mutation":"verification-mode-substitution","expected":"DENY"},
-    {"id":"EKC-V18","mutation":"session-binding-substitution","expected":"DENY"},
-    {"id":"EKC-V19","mutation":"crl-expired-at-verification-time","expected":"DENY"},
-    {"id":"EKC-V20","mutation":"crl-not-yet-valid-at-verification-time","expected":"DENY"},
-    {"id":"EKC-V21","mutation":"revocation-method-substitution","expected":"DENY"},
-    {"id":"EKC-V22","mutation":"key-order-permutation","expected":"PASS"}
+    {"id":"EKC-V18","mutation":"verification-mode-substitution","expected":"DENY"},
+    {"id":"EKC-V19","mutation":"session-binding-substitution","expected":"DENY"},
+    {"id":"EKC-V20","mutation":"crl-expired-at-verification-time","expected":"DENY"},
+    {"id":"EKC-V21","mutation":"crl-not-yet-valid-at-verification-time","expected":"DENY"},
+    {"id":"EKC-V22","mutation":"revocation-method-substitution","expected":"DENY"},
+    {"id":"EKC-V23","mutation":"key-order-permutation","expected":"PASS"}
   ],
   "reference_fixture": {
     "root_sha256": "bf027c125d7641b37bb1e8e71eab5f480cc3b925eb33660b818b251faf5fa6bc",
