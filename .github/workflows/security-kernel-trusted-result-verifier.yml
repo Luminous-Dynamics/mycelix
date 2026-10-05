@@ -94,6 +94,8 @@ jobs:
           assert run["repository"]["full_name"] == repo
           assert run["repository"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
           assert run["workflow_ref"] == f"{repo}/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}@refs/heads/main"
+          assert run.get("run_attempt") == run_attempt
+          assert isinstance(run.get("run_number"), int) and run["run_number"] >= 1
 
           workflow_sha = run.get("workflow_sha")
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected dispatcher workflow_sha: {workflow_sha!r}"
@@ -157,7 +159,10 @@ jobs:
 
           resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact pull request subject"]
           assert len(resolver_jobs) == 1, f"expected one S0 resolver job, found {len(resolver_jobs)}"
-          assert resolver_jobs[0]["conclusion"] == "success"
+          resolver_job = resolver_jobs[0]
+          assert resolver_job["conclusion"] == "success"
+          assert resolver_job["id"] > 0
+          assert resolver_job["name"] == "Resolve exact pull request subject"
 
           matching = [
               job for job in jobs
@@ -169,6 +174,13 @@ jobs:
           assert job["status"] == "completed"
           assert job["conclusion"] == "success"
           assert job["run_id"] == int(run_id)
+          assert job["id"] > 0
+          assert job["name"] == os.environ["EXPECTED_JOB_NAME"] or job["name"].endswith(" / " + os.environ["EXPECTED_JOB_NAME"])
+
+          raw_steps = job.get("steps") or []
+          step_names = [step.get("name") for step in raw_steps]
+          assert all(isinstance(name, str) and name for name in step_names), "S1 job contains unnamed step records"
+          assert len(step_names) == len(set(step_names)), "S1 job contains duplicate step names; closed-world census is ambiguous"
 
           # The reusable job inherits the caller workflow context. S2 binds the called
           # workflow independently by resolving its file at the exact S0 workflow commit
@@ -191,11 +203,95 @@ jobs:
               "Upload qualification receipt",
               "Verify retained qualification receipt",
           )
-          steps = {step["name"]: step["conclusion"] for step in (job.get("steps") or [])}
+          step_counts = {name: step_names.count(name) for name in required}
+          duplicate_required = {name: count for name, count in step_counts.items() if count != 1}
+          assert not duplicate_required, f"required qualification step multiplicity is not exactly one: {duplicate_required}"
+          steps = {step["name"]: step["conclusion"] for step in raw_steps}
           missing = [name for name in required if name not in steps]
           assert not missing, f"required qualification steps missing: {missing}"
           failed = {name: steps[name] for name in required if steps[name] != "success"}
           assert not failed, f"independent qualification gate failed: {failed}"
+
+          def execution_binding_document(
+              *,
+              repository_id, repository, candidate_repository_id, candidate_repository,
+              candidate_pr, candidate_sha, dispatcher_workflow_path, dispatcher_workflow_sha,
+              s1_workflow_path, s1_workflow_blob_sha, run_id, run_attempt, run_number,
+              resolver_job_id, s1_job_id,
+          ):
+              return {
+                  "schema": "security-kernel-execution-binding-v1",
+                  "repository_id": int(repository_id),
+                  "repository": str(repository),
+                  "candidate_repository_id": int(candidate_repository_id),
+                  "candidate_repository": str(candidate_repository),
+                  "candidate_pr": int(candidate_pr),
+                  "candidate_sha": str(candidate_sha),
+                  "dispatcher_workflow_path": str(dispatcher_workflow_path),
+                  "dispatcher_workflow_sha": str(dispatcher_workflow_sha),
+                  "s1_workflow_path": str(s1_workflow_path),
+                  "s1_workflow_blob_sha": str(s1_workflow_blob_sha),
+                  "run_id": int(run_id),
+                  "run_attempt": int(run_attempt),
+                  "run_number": int(run_number),
+                  "resolver_job_id": int(resolver_job_id),
+                  "s1_job_id": int(s1_job_id),
+              }
+
+          def execution_binding_digest(binding):
+              encoded = json.dumps(
+                  binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+              ).encode("utf-8")
+              return hashlib.sha256(encoded).hexdigest()
+
+          binding = execution_binding_document(
+              repository_id=repository_obj["id"],
+              repository=repository_obj["full_name"],
+              candidate_repository_id=candidate_repo_id,
+              candidate_repository=candidate_repository,
+              candidate_pr=candidate_pr,
+              candidate_sha=candidate_sha,
+              dispatcher_workflow_path=os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"],
+              dispatcher_workflow_sha=workflow_sha,
+              s1_workflow_path=os.environ["INDEPENDENT_WORKFLOW_PATH"],
+              s1_workflow_blob_sha=s1_at_run["sha"],
+              run_id=run_id,
+              run_attempt=run_attempt,
+              run_number=run["run_number"],
+              resolver_job_id=resolver_job["id"],
+              s1_job_id=job["id"],
+          )
+          assert binding["repository_id"] == int(os.environ["BASE_REPOSITORY_ID"])
+          assert binding["candidate_repository_id"] == candidate_repo_id
+          assert binding["candidate_pr"] == candidate_pr
+          assert binding["candidate_sha"] == candidate_sha
+          assert binding["dispatcher_workflow_sha"] == workflow_sha
+          assert binding["s1_workflow_blob_sha"] == s1_at_run["sha"]
+          assert binding["run_id"] == int(run_id)
+          assert binding["run_attempt"] == run_attempt
+          assert binding["resolver_job_id"] == resolver_job["id"]
+          assert binding["s1_job_id"] == job["id"]
+          binding_digest = execution_binding_digest(binding)
+
+          # Metamorphic self-test: every identity-bearing field must affect the sealed
+          # digest. This executes before artifact parsing so the binding primitive cannot
+          # silently collapse two distinct executions into one identity.
+          for field, replacement in (
+              ("candidate_sha", "0" * 40),
+              ("candidate_pr", binding["candidate_pr"] + 1),
+              ("run_id", binding["run_id"] + 1),
+              ("run_attempt", binding["run_attempt"] + 1),
+              ("run_number", binding["run_number"] + 1),
+              ("resolver_job_id", binding["resolver_job_id"] + 1),
+              ("s1_job_id", binding["s1_job_id"] + 1),
+              ("dispatcher_workflow_sha", "1" * 40),
+              ("s1_workflow_blob_sha", "2" * 40),
+          ):
+              mutated = dict(binding)
+              mutated[field] = replacement
+              assert execution_binding_digest(mutated) != binding_digest, (
+                  f"execution binding digest is invariant under mutation of {field}"
+              )
 
           artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
           expected_artifact_name = f"security-kernel-independent-qualification-{candidate_sha}-attempt-{run_attempt}.txt"
@@ -319,6 +415,8 @@ jobs:
               "qualification_receipt_artifact_id": artifact["id"],
               "qualification_receipt_artifact_digest": artifact.get("digest"),
               "qualification_receipt_content_sha256": receipt_content_sha256,
+              "execution_binding": binding,
+              "execution_binding_sha256": binding_digest,
               "independent_qualification": "verified-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
