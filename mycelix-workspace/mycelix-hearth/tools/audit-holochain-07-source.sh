@@ -2679,6 +2679,10 @@ run_audit_check check_semantic_case_entrypoints check_semantic_case_entrypoints
 run_audit_check check_semantic_case_integrity_bindings check_semantic_case_integrity_bindings
 
 for file in "${integrity_files[@]}"; do
+  run_audit_check "check_dispatch_token_truth:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_dispatch_token_truth "$file"
+done
+
+for file in "${integrity_files[@]}"; do
   run_audit_check "check_create_record_coverage:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_record_coverage "$file"
 done
 
