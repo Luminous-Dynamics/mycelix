@@ -399,6 +399,11 @@ fn validate_consensus(
             "Consensus publisher DID must match the signed entry author".into(),
         ));
     }
+    if consensus.computed_at != action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Consensus computed_at must match the signed entry timestamp".into(),
+        ));
+    }
     if consensus.window_start > consensus.computed_at {
         return Ok(ValidateCallbackResult::Invalid(
             "Consensus window cannot start after computation time".into(),
