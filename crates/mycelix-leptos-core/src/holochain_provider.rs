@@ -179,18 +179,18 @@ impl HolochainCtx {
 
     /// Call a zome function using the default role.
     ///
-    /// # Panics
-    /// Panics if no `default_role` was configured.
+    /// Returns an error if no `default_role` was configured.
     pub async fn call_zome_default<I: Serialize, O: DeserializeOwned>(
         &self,
         zome: &str,
         fn_name: &str,
         input: &I,
     ) -> Result<O, String> {
-        let role = self
-            .default_role
-            .as_deref()
-            .expect("call_zome_default requires a default_role in HolochainProviderConfig");
+        let Some(role) = self.default_role.as_deref() else {
+            return Err(
+                "call_zome_default requires a default_role in HolochainProviderConfig".into(),
+            );
+        };
         self.call_zome(role, zome, fn_name, input).await
     }
 
