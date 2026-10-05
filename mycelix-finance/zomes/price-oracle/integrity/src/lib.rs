@@ -284,12 +284,24 @@ fn validate_price_report(
     action: EntryCreationAction,
     report: PriceReport,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Bind the reporter identity to the signed Create action.
-    let author_did = match &action {
-        EntryCreationAction::Create(create) => did_for_author(&create.author),
+    let (author_did, action_timestamp) = match &action {
+        EntryCreationAction::Create(create) => (
+            did_for_author(&create.author),
+            create.timestamp,
+        ),
     };
+
+    validate_price_report_fields(&report, &author_did, action_timestamp)
+}
+
+fn validate_price_report_fields(
+    report: &PriceReport,
+    author_did: &str,
+    action_timestamp: Timestamp,
+) -> ExternResult<ValidateCallbackResult> {
+    // Bind the reporter identity to the signed Create action.
     if let ValidateCallbackResult::Invalid(msg) =
-        require_did_is_author("PriceReport", "reporter_did", &report.reporter_did, &author_did)
+        require_did_is_author("PriceReport", "reporter_did", &report.reporter_did, author_did)
     {
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
@@ -297,12 +309,10 @@ fn validate_price_report(
     // The coordinator sets reported_at to the source-chain action timestamp.
     // Enforce that relationship and prevent observations from being declared
     // after their reporting action.
-    if let EntryCreationAction::Create(ref create) = action {
-        if report.reported_at != create.timestamp {
-            return Ok(ValidateCallbackResult::Invalid(
-                "PriceReport reported_at must equal the Create action timestamp".into(),
-            ));
-        }
+    if report.reported_at != action_timestamp {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PriceReport reported_at must equal the Create action timestamp".into(),
+        ));
     }
     if report.observed_at > report.reported_at {
         return Ok(ValidateCallbackResult::Invalid(
@@ -331,6 +341,69 @@ fn validate_price_report(
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn base_report() -> PriceReport {
+        let timestamp = Timestamp::from_micros(1_000_000);
+        PriceReport {
+            item: "bread_750g".into(),
+            price_tend: 0.15,
+            evidence: "market observation".into(),
+            reporter_did: "did:mycelix:alice".into(),
+            observed_at: timestamp,
+            reported_at: timestamp,
+        }
+    }
+
+    #[test]
+    fn price_report_accepts_matching_author_and_timestamps() {
+        let report = base_report();
+        let result = validate_price_report_fields(
+            &report,
+            "did:mycelix:alice",
+            Timestamp::from_micros(1_000_000),
+        );
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn price_report_rejects_forged_reporter_did() {
+        let report = base_report();
+        let result = validate_price_report_fields(
+            &report,
+            "did:mycelix:bob",
+            Timestamp::from_micros(1_000_000),
+        );
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn price_report_rejects_reported_at_mismatch() {
+        let mut report = base_report();
+        report.reported_at = Timestamp::from_micros(2_000_000);
+        let result = validate_price_report_fields(
+            &report,
+            "did:mycelix:alice",
+            Timestamp::from_micros(1_000_000),
+        );
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn price_report_rejects_future_observation_time() {
+        let mut report = base_report();
+        report.observed_at = Timestamp::from_micros(2_000_000);
+        let result = validate_price_report_fields(
+            &report,
+            "did:mycelix:alice",
+            Timestamp::from_micros(1_000_000),
+        );
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Invalid(_)));
+    }
 }
 
 fn validate_consensus(consensus: &PriceConsensus) -> ExternResult<ValidateCallbackResult> {
