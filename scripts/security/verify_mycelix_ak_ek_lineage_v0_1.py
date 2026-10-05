@@ -58,6 +58,30 @@ def expected_qname(parent_qname: bytes, object_name: bytes) -> bytes:
     return SHA256_ALG_ID + hashlib.sha256(parent_qname + object_name).digest()
 
 
+def activation_context_hash(
+    activation: dict[str, Any],
+    ek_name: bytes,
+    ek_qname: bytes,
+    ak_name: bytes,
+    tpm_identity_digest: str,
+    session_id: str,
+) -> str:
+    return canonical_hash(
+        {
+            "protocol": activation["protocol"],
+            "session_id": session_id,
+            "tpm_identity_digest": tpm_identity_digest,
+            "challenge_origin": activation["challenge_origin"],
+            "challenge_sha256": activation["challenge_sha256"],
+            "credential_blob_sha256": activation["credential_blob_sha256"],
+            "ek_public_sha256": activation["ek_public_sha256"],
+            "ek_name_hex": ek_name.hex(),
+            "ek_qualified_name_hex": ek_qname.hex(),
+            "ak_name_hex": ak_name.hex(),
+        }
+    )
+
+
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -313,6 +337,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "credential_blob_sha256",
         "ek_public_sha256",
         "ak_name_hex",
+        "activation_context_sha256",
     }
     missing_activation = sorted(activation_required - set(activation))
     if missing_activation:
@@ -343,6 +368,17 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         )
     if activation_name != ak_name:
         return result("DENY", "credential-activation-ak-name-mismatch")
+
+    expected_activation_context = activation_context_hash(
+        activation,
+        ek_name,
+        ek_qname,
+        ak_name,
+        manifest["tpm_identity_digest"],
+        manifest["session_id"],
+    )
+    if activation["activation_context_sha256"] != expected_activation_context:
+        return result("DENY", "credential-activation-context-binding-mismatch")
 
     for field in ("challenge_sha256", "credential_blob_sha256"):
         if not valid_hash(activation[field]):
@@ -408,6 +444,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         {
             "ek_name_sha256": hashlib.sha256(ek_name).hexdigest(),
             "ak_name_sha256": hashlib.sha256(ak_name).hexdigest(),
+            "activation_context_sha256": activation["activation_context_sha256"],
             "ak_qualified_name_hex": ak_qname.hex(),
             "parent_qualified_name_hex": parent_qname.hex(),
         },
@@ -505,10 +542,25 @@ def fixture() -> dict[str, Any]:
             "credential_blob_sha256": "aa" * 32,
             "ek_public_sha256": ek_public,
             "ak_name_hex": ak_name.hex(),
+            "activation_context_sha256": "",
             "expected_secret_sha256": secret,
             "activated_secret_sha256": secret,
         },
     }
+
+
+def refresh_activation_context(value: dict[str, Any]) -> None:
+    activation = value["credential_activation"]
+    ek = value["ek"]
+    ak = value["ak"]
+    activation["activation_context_sha256"] = activation_context_hash(
+        activation,
+        bytes.fromhex(ek["name_hex"]),
+        bytes.fromhex(ek["qualified_name_hex"]),
+        bytes.fromhex(ak["name_hex"]),
+        value["tpm_identity_digest"],
+        value["session_id"],
+    )
 
 
 def mutate_attribute_input(value: dict[str, Any], attrs: int) -> None:
@@ -543,6 +595,7 @@ def mutate_attribute_wire_tail(value: dict[str, Any]) -> None:
 
 def self_test() -> int:
     base = fixture()
+    refresh_activation_context(base)
     cases: list[tuple[str, str, Any]] = [
         ("canonical-valid", "PASS", lambda x: x),
         ("ak-qualified-name-substitution", "DENY", lambda x: x["ak"].update({"qualified_name_hex": "000b" + "ff" * 32})),
@@ -571,6 +624,10 @@ def self_test() -> int:
         ("attributes-source-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"source_sha256": "12" * 32})),
         ("public-area-cross-object-splice", "DENY", mutate_attribute_wire_tail),
         ("activation-secret-substitution", "DENY", lambda x: x["credential_activation"].update({"activated_secret_sha256": "01" * 32})),
+        ("activation-context-substitution", "DENY", lambda x: x["credential_activation"].update({"activation_context_sha256": "12" * 32})),
+        ("activation-ek-name-substitution", "DENY", lambda x: x["credential_activation"].update({"activation_context_sha256": "13" * 32})),
+        ("activation-challenge-substitution", "DENY", lambda x: x["credential_activation"].update({"challenge_sha256": "14" * 32})),
+        ("activation-credential-blob-substitution", "DENY", lambda x: x["credential_activation"].update({"credential_blob_sha256": "15" * 32})),
     ]
 
     for name, expected_state, mutate in cases:

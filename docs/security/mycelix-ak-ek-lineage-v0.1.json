@@ -33,7 +33,7 @@
     "public_name_binding": ["state", "method", "verifier_id", "public_sha256", "name_sha256", "public_area_sha256"],
     "public_attributes_binding": ["state", "verifier_id", "public_area_sha256", "derived_fixedTPM", "derived_fixedParent", "source_sha256", "verifier_input"],
     "ek_credential": ["state", "mode", "material_sha256", "bound_ek_public_sha256"],
-    "credential_activation": ["protocol", "state", "scope", "session_id", "tpm_identity_digest", "challenge_origin", "challenge_sha256", "credential_blob_sha256", "ek_public_sha256", "ak_name_hex"]
+    "credential_activation": ["protocol", "state", "scope", "session_id", "tpm_identity_digest", "challenge_origin", "challenge_sha256", "credential_blob_sha256", "ek_public_sha256", "ak_name_hex", "activation_context_sha256"]
   },
   "activation_scopes": {
     "ReferenceModelOnly": "Deterministic semantic model; may compare expected_secret_sha256 with activated_secret_sha256 and is bounded by the ReferenceModelOnly ceiling.",
@@ -75,7 +75,11 @@
     {"id":"AKQ-V25","mutation":"public-area-cross-object-splice","expected":"DENY"},
     {"id":"AKQ-V26","mutation":"public-name-area-substitution","expected":"DENY"},
     {"id":"AKQ-V27","mutation":"public-name-verifier-substitution","expected":"DENY"},
-    {"id":"AKQ-V28","mutation":"key-order-permutation","expected":"PASS"}
+    {"id":"AKQ-V28","mutation":"activation-context-substitution","expected":"DENY"},
+    {"id":"AKQ-V29","mutation":"activation-ek-name-substitution","expected":"DENY"},
+    {"id":"AKQ-V30","mutation":"activation-challenge-substitution","expected":"DENY"},
+    {"id":"AKQ-V31","mutation":"activation-credential-blob-substitution","expected":"DENY"},
+    {"id":"AKQ-V32","mutation":"key-order-permutation","expected":"PASS"}
   ],
   "future_live_capture_requirements": [
     "capture EK public, EK Name, and EK Qualified Name from the same TPM context",
