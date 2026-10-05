@@ -8,6 +8,7 @@ from verify_d6u_trusted_artifacts import (
     load_record,
     verify_artifact_layout,
     verify_cases,
+    verify_executor_run_record,
     verify_executor_workflow_record,
     verify_lock,
     verify_required_tracked_blobs,
@@ -111,6 +112,46 @@ def test_executor_workflow_identity_tampering_is_rejected() -> None:
         "non-default executor ref was accepted",
     )
 
+
+def test_executor_run_live_identity_is_rejected() -> None:
+    policy = {
+        "executor_workflow": {
+            "name": "D6U Exact-Head Runtime Executor",
+            "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+        },
+    }
+    record = {
+        "executor_run_id": "42",
+        "executor_run_attempt": "3",
+    }
+    valid = {
+        "id": 42,
+        "run_attempt": 3,
+        "name": "D6U Exact-Head Runtime Executor",
+        "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+        "event": "workflow_run",
+        "conclusion": "success",
+        "repository": {"full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"full_name": "Luminous-Dynamics/mycelix"},
+        "head_branch": "main",
+    }
+    verify_executor_run_record(valid, record, policy, "Luminous-Dynamics/mycelix")
+
+    for field, value, message in [
+        ("repository", {"full_name": "attacker/repo"}, "executor repository"),
+        ("head_repository", {"full_name": "attacker/repo"}, "executor head repository"),
+        ("head_branch", "attacker-branch", "executor non-main branch"),
+        ("id", 43, "executor run ID"),
+        ("run_attempt", 4, "executor run attempt"),
+        ("conclusion", "failure", "executor conclusion"),
+    ]:
+        tampered = {**valid, field: value}
+        assert_rejected(
+            lambda tampered=tampered: verify_executor_run_record(
+                tampered, record, policy, "Luminous-Dynamics/mycelix"
+            ),
+            f"{message} was accepted",
+        )
 
 def test_trigger_run_identity_tampering_is_rejected() -> None:
     policy = {
@@ -320,6 +361,7 @@ if __name__ == "__main__":
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
         test_executor_workflow_identity_tampering_is_rejected,
+        test_executor_run_live_identity_is_rejected,
         test_lock_provenance_is_rejected_when_tampered,
         test_duplicate_record_key_is_rejected,
         test_trigger_run_identity_tampering_is_rejected,
