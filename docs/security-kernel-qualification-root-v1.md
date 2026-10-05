@@ -36,8 +36,9 @@ S0 is deliberately metadata-only. Its trusted run name carries the PR head repos
 - `actions: read`, `contents: read`, and `pull-requests: read`;
 - no workflow-dispatch API call;
 - current PR identity is taken from the event and then re-read from the GitHub PR API;
-- the candidate repository, exact head SHA, base repository, and base branch are bound before
+- the candidate repository, exact head SHA, base repository, base repository ID, and base branch are bound before
   invoking S1;
+- the execution ref is required to report `github.ref_protected=true`;
 - S1 is invoked as a same-repository local reusable workflow:
   `./.github/workflows/security-kernel-independent-qualification.yml`;
 - the reusable call explicitly sets `cache-mode: none`;
@@ -71,6 +72,7 @@ S1 first proves:
 - `github.workflow_ref` is exactly the trusted S0 workflow on `refs/heads/main`;
 - `github.workflow_sha` is a valid commit SHA for the S0 caller;
 - the S1 job has only `actions: read`, `contents: read`, and `pull-requests: read` permissions;
+- the execution ref is required to report `github.ref_protected=true`;
 - the trusted base repository name and numeric repository ID agree with the live Actions context and PR API object;
 - the effective Actions cache mode is observed as `none` inside the reusable job;
 - the executing S1 workflow blob at that caller commit independently matches the registered S1 profile supplied by S0;
@@ -221,6 +223,7 @@ S2 independently verifies:
 
 - the triggering run is the exact S0 `workflow_run` event and completed successfully;
 - the base repository object, the S0 run, and the current PR all resolve to the registered numeric base repository ID `1176351975`;
+- the triggering S0 run is on `refs/heads/main` and reports the protected-ref predicate;
 - the S0 workflow reference is exactly the default-branch trusted dispatcher;
 - the S0 workflow blob executed by that run matches the registered S0 profile;
 - the same-commit S1 workflow blob matches the registered S1 profile;
