@@ -3638,12 +3638,16 @@ mod tests {
         publications: &[FederationStateMachineTraceCheckpointPublication],
     ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
         let mut successors =
-            BTreeMap::<(&str, &str, usize, &str), &str>::new();
+            BTreeMap::<(&str, &str, u16, &str, u16, &str, &str, &str), &str>::new();
 
         for publication in publications {
             let key = (
                 publication.publication_profile.as_str(),
+                publication.hash_algorithm.as_str(),
+                publication.schema_version,
                 publication.trace_verification_profile.as_str(),
+                publication.trace_schema_version,
+                publication.hash_encoding.as_str(),
                 publication.trace_index,
                 publication.previous_publication_sha256.as_str(),
             );
@@ -5844,6 +5848,30 @@ mod tests {
         assert!(
             validate_state_machine_trace_checkpoint_publication_set(&duplicate_set).is_ok(),
             "exact publication replay is not a fork"
+        );
+
+        let mut future_publication_schema = fork_a_publication.clone();
+        future_publication_schema.schema_version += 1;
+        reseal_trace_checkpoint_publication_for_test(&mut future_publication_schema);
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_set(&[
+                fork_a_publication.clone(),
+                future_publication_schema,
+            ])
+            .is_ok(),
+            "publication records from distinct schema namespaces must not be conflated as a fork"
+        );
+
+        let mut future_trace_schema = fork_a_publication.clone();
+        future_trace_schema.trace_schema_version += 1;
+        reseal_trace_checkpoint_publication_for_test(&mut future_trace_schema);
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_set(&[
+                fork_a_publication.clone(),
+                future_trace_schema,
+            ])
+            .is_ok(),
+            "trace records from distinct schema namespaces must not be conflated as a fork"
         );
 
         let other_trace = state_machine_trace_capsule(33, 12);
