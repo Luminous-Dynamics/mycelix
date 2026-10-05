@@ -1,7 +1,6 @@
 # Passive Provenance v2.1 Hardening Notes
 
-The next schema hardening step is to make completeness machine-enforceable rather than
-documentary.
+The schema hardening step is now implemented for the machine-readable v2 contract: completeness is enforced structurally rather than documentary.
 
 ## Required constraints
 
@@ -16,13 +15,20 @@ The provenance validator should require exactly one claim for each of:
 An array-length check alone is insufficient because five duplicate claims could otherwise
 look complete.
 
-JSON Schema Draft 2020-12 can express this with per-field `contains` constraints plus
-`minContains: 1` and `maxContains: 1`. The runtime implementation should apply the same
-rule so schema validation and application validation cannot disagree.
+JSON Schema Draft 2020-12 expresses this with per-field `contains` constraints plus
+`minContains: 1` and `maxContains: 1`; the v2 schema now carries those constraints.
+The runtime implementation should apply the same rule so schema validation and
+application validation cannot disagree.
 
-Field values should also be type-checked by field: component/joint/actuator counts are
-non-negative integers, active power is a non-negative number, and control/state flags are
-booleans.
+Field values are also type-checked by field in the v2 schema: component/joint/actuator
+counts are non-negative integers, active power is a non-negative number, and control/state
+flags are booleans. The type constraints are conditional on the semantic `field` value.
+
+## Runtime parity remains required
+
+The schema is now fail-closed for duplicate required claims and incompatible value types.
+A runtime validator must implement the same invariants before accepting or promoting a
+record; schema validation alone is not evidence that every application path enforces them.
 
 ## Integration invariant
 
