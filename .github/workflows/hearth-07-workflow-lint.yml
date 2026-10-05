@@ -36,6 +36,7 @@ jobs:
           persist-credentials: false
 
       - name: Fetch and verify official actionlint
+        shell: bash
         run: |
           set -euo pipefail
           version="1.7.12"
@@ -50,6 +51,7 @@ jobs:
           echo "OK: official actionlint v${version} matches pinned SHA-256"
 
       - name: Lint Hearth 0.7 qualification workflow
+        shell: bash
         run: |
           set -euo pipefail
-          /tmp/actionlint/actionlint -oneline -pyflakes '' -shellcheck ''             .github/workflows/hearth-07-qualification.yml
+          /tmp/actionlint/actionlint -oneline -pyflakes             '' .github/workflows/hearth-07-qualification.yml
