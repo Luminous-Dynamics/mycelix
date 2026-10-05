@@ -564,16 +564,33 @@ fn test_semantic_case_manifest_is_structurally_valid() {
     ))
     .expect("semantic-validation case manifest must be valid JSON");
 
+    let top_object = manifest
+        .as_object()
+        .expect("semantic manifest top level must be an object");
+    let actual_top_keys: std::collections::BTreeSet<&str> =
+        top_object.keys().map(String::as_str).collect();
+    let expected_top_keys = ["schema_version", "claim_ceiling", "cases"]
+        .into_iter()
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        actual_top_keys, expected_top_keys,
+        "semantic manifest top-level schema must be exact"
+    );
+
     assert_eq!(
         manifest["schema_version"],
         "HEARTH-SEMANTIC-0.7-CASESET-1"
     );
+    let claim_ceiling = manifest["claim_ceiling"]
+        .as_str()
+        .expect("claim ceiling must be a string");
     assert!(
-        manifest["claim_ceiling"]
-            .as_str()
-            .expect("claim ceiling must be a string")
-            .contains("RuntimeQualificationPending"),
+        claim_ceiling.contains("RuntimeQualificationPending"),
         "semantic manifest must retain the runtime-pending evidence ceiling"
+    );
+    assert!(
+        claim_ceiling.contains("do not constitute observed runtime results"),
+        "semantic manifest must explicitly deny observed runtime qualification"
     );
 
     let cases = manifest["cases"]
@@ -592,7 +609,39 @@ fn test_semantic_case_manifest_is_structurally_valid() {
     let mut seen_ids = std::collections::BTreeSet::new();
     let mut seen_tests = std::collections::BTreeSet::new();
 
+    let expected_case_keys = [
+        "case_id",
+        "test",
+        "zome",
+        "operation",
+        "operation_surface",
+        "invariant",
+        "rejection_reason",
+        "expected_result",
+        "boundary",
+        "validator_source",
+        "validator_symbol",
+        "dispatch_symbol",
+        "target_variant",
+        "coordinator_primitive",
+        "invariant_code",
+    ]
+    .into_iter()
+    .collect::<std::collections::BTreeSet<_>>();
+
+    let mut seen_entrypoints = std::collections::BTreeSet::new();
+
     for case in cases {
+        let case_object = case
+            .as_object()
+            .expect("every semantic case must be a JSON object");
+        let actual_case_keys: std::collections::BTreeSet<&str> =
+            case_object.keys().map(String::as_str).collect();
+        assert_eq!(
+            actual_case_keys, expected_case_keys,
+            "semantic case schema must be exact"
+        );
+
         let case_id = case["case_id"]
             .as_str()
             .expect("every semantic case needs a case_id");
@@ -638,6 +687,10 @@ fn test_semantic_case_manifest_is_structurally_valid() {
 
         assert!(seen_ids.insert(case_id), "duplicate semantic case_id: {case_id}");
         assert!(seen_tests.insert(test), "duplicate semantic test name: {test}");
+        assert!(
+            seen_entrypoints.insert((zome, operation)),
+            "duplicate semantic zome/operation entrypoint: {zome}/{operation}"
+        );
         assert!(
             case_id.starts_with("SEM-"),
             "semantic case_id must use SEM-* namespace: {case_id}"
@@ -685,17 +738,36 @@ fn test_semantic_case_manifest_is_structurally_valid() {
             matches!(coordinator_primitive, "create_entry" | "update_entry" | "create_link"),
             "{case_id} coordinator_primitive must identify the tested write primitive"
         );
+        let (target_kind, target_name) = target_variant
+            .split_once("::")
+            .expect("{case_id} target_variant must contain exactly one :: separator");
         assert!(
-            target_variant.starts_with("EntryTypes::") || target_variant.starts_with("LinkTypes::"),
+            target_kind == "EntryTypes" || target_kind == "LinkTypes",
             "{case_id} target_variant must identify an EntryTypes or LinkTypes variant"
         );
         assert!(
-            target_variant
-                .split_once("::")
-                .map(|(_, name)| !name.is_empty())
-                .unwrap_or(false),
-            "{case_id} target_variant must include a concrete variant name"
+            !target_name.is_empty()
+                && target_name
+                    .chars()
+                    .enumerate()
+                    .all(|(index, ch)| {
+                        if index == 0 {
+                            ch == '_' || ch.is_ascii_alphabetic()
+                        } else {
+                            ch == '_' || ch.is_ascii_alphanumeric()
+                        }
+                    }),
+            "{case_id} target_variant must contain a Rust-style concrete variant name"
         );
+        match coordinator_primitive {
+            "create_entry" | "update_entry" => {
+                assert_eq!(target_kind, "EntryTypes", "{case_id} entry primitive must target EntryTypes")
+            }
+            "create_link" => {
+                assert_eq!(target_kind, "LinkTypes", "{case_id} link primitive must target LinkTypes")
+            }
+            other => panic!("{case_id} unsupported coordinator primitive: {other}"),
+        }
 
         let surfaces = case["operation_surface"]
             .as_array()
