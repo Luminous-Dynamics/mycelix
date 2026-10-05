@@ -1181,6 +1181,202 @@ PY
     fi
     unset target_name
 
+    # Bind the manifest target to the declared dispatch symbol in the same
+    # authoritative validation arm. A file-wide dispatcher hit is too weak:
+    # a sibling target could invoke the declared helper while this target routes
+    # elsewhere.
+    if python3 - "$integrity_file" "$coordinator_primitive" "$target_variant" "$dispatch_symbol" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text()
+primitive, target, dispatch_symbol = sys.argv[2:]
+
+token_re = re.compile(
+    r'//[^\n]*'
+    r'|/\*.*?\*/'
+    r'|(?:br|rb|r)(#{0,255})"(?:.|\n)*?"\1'
+    r'|"(?:\\.|[^"\\])*"'
+    r"|b?'(?:\\.|[^'\\\n])'(?![A-Za-z0-9_])",
+    re.S,
+)
+
+def mask(text):
+    return token_re.sub(
+        lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)),
+        text,
+    )
+
+masked = mask(source)
+
+def balanced_end(text, opening):
+    depth = 0
+    for i in range(opening, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+    raise ValueError("unbalanced braces")
+
+def function_block(symbol):
+    match = re.search(
+        rf"^[[:space:]]*(?:pub[[:space:]]+)?fn[[:space:]]+{re.escape(symbol)}[[:space:]]*\(",
+        masked,
+        re.M,
+    )
+    if not match:
+        raise ValueError("missing function " + symbol)
+    opening = masked.find("{", match.end())
+    if opening < 0:
+        raise ValueError("function has no body: " + symbol)
+    return masked[match.start():balanced_end(masked, opening)]
+
+def validation_arm(dispatcher, pattern, label):
+    match = re.search(pattern, dispatcher, re.S)
+    if not match:
+        raise ValueError("missing validation arm: " + label)
+    opening = match.end() - 1
+    if dispatcher[opening] != "{":
+        raise ValueError("validation arm match-body opening not found: " + label)
+    return dispatcher[match.start():balanced_end(dispatcher, opening)]
+
+def entry_arm(block, variant):
+    match = re.search(
+        rf"\bEntryTypes::{re.escape(variant)}[[:space:]]*\([^)]*\)[[:space:]]*=>",
+        block,
+    )
+    if not match:
+        return None
+    start = match.end()
+    while start < len(block) and block[start].isspace():
+        start += 1
+    if start < len(block) and block[start] == "{":
+        return block[start:balanced_end(block, start)]
+    comma = block.find(",", start)
+    return block[start:] if comma < 0 else block[start:comma]
+
+def link_arm(block, variant):
+    match = re.search(
+        rf"\bLinkTypes::{re.escape(variant)}[[:space:]]*=>",
+        block,
+    )
+    if not match:
+        return None
+    start = match.end()
+    while start < len(block) and block[start].isspace():
+        start += 1
+    if start < len(block) and block[start] == "{":
+        return block[start:balanced_end(block, start)]
+    comma = block.find(",", start)
+    return block[start:] if comma < 0 else block[start:comma]
+
+def require_dispatch(arm, label):
+    if not re.search(rf"\b{re.escape(dispatch_symbol)}[[:space:]]*\(", arm):
+        raise ValueError(label + " does not invoke " + dispatch_symbol)
+
+try:
+    target_name = target.split("::", 1)[1]
+
+    if primitive == "create_link":
+        policy = function_block(dispatch_symbol)
+        target_arm = link_arm(policy, target_name)
+        if target_arm is None:
+            raise ValueError(
+                "LinkTypes::" + target_name +
+                " is not an explicit arm of " + dispatch_symbol
+            )
+
+    elif primitive in {"create_entry", "update_entry"}:
+        if not target.startswith("EntryTypes::"):
+            raise ValueError("entry primitive requires EntryTypes target")
+        dispatcher = function_block("validate")
+        if primitive == "create_entry":
+            patterns = [
+                (
+                    r"FlatOp::CreateEntry[[:space:]]*\([[:space:]]*"
+                    r"OpEntry::CreateEntry[[:space:]]*\{.*?\}[[:space:]]*\)"
+                    r"[[:space:]]*=>[[:space:]]*match[[:space:]]+app_entry[[:space:]]*\{",
+                    "CreateEntry/CreateEntry",
+                ),
+                (
+                    r"FlatOp::CreateRecord[[:space:]]*\([[:space:]]*"
+                    r"OpRecord::CreateEntry[[:space:]]*\{.*?\}[[:space:]]*\)"
+                    r"[[:space:]]*=>[[:space:]]*match[[:space:]]+app_entry[[:space:]]*\{",
+                    "CreateRecord/CreateEntry",
+                ),
+            ]
+        else:
+            patterns = [
+                (
+                    r"FlatOp::CreateEntry[[:space:]]*\([[:space:]]*"
+                    r"OpEntry::UpdateEntry[[:space:]]*\{.*?\}[[:space:]]*\)"
+                    r"[[:space:]]*=>[[:space:]]*match[[:space:]]+app_entry[[:space:]]*\{",
+                    "CreateEntry/UpdateEntry",
+                ),
+                (
+                    r"FlatOp::CreateRecord[[:space:]]*\([[:space:]]*"
+                    r"OpRecord::UpdateEntry[[:space:]]*\{.*?\}[[:space:]]*\)"
+                    r"[[:space:]]*=>[[:space:]]*match[[:space:]]+app_entry[[:space:]]*\{",
+                    "CreateRecord/UpdateEntry",
+                ),
+            ]
+
+        for pattern, label in patterns:
+            block = validation_arm(dispatcher, pattern, label)
+            arm = entry_arm(block, target_name)
+            if arm is None:
+                raise ValueError(label + " has no EntryTypes::" + target_name + " arm")
+            require_dispatch(arm, label + " EntryTypes::" + target_name)
+
+    else:
+        raise ValueError("unsupported coordinator primitive " + primitive)
+
+    # Adversarial oracle: the same dispatch symbol under a sibling target must
+    # not satisfy the declared target witness.
+    oracle = mask(
+        "match app_entry {\\n"
+        "  EntryTypes::__HEARTH_TARGET(_) => wrong_dispatch(),\\n"
+        "  EntryTypes::Sibling(_) => " + dispatch_symbol + "(),\\n"
+        "}"
+    )
+    oracle_arm = entry_arm(oracle, "__HEARTH_TARGET")
+    if primitive != "create_link":
+        assert oracle_arm is not None
+    if primitive != "create_link":
+        assert not re.search(
+            rf"\b{re.escape(dispatch_symbol)}[[:space:]]*\(",
+            oracle_arm,
+        ), "entry target witness accepted sibling-arm false positive"
+
+    if primitive == "create_link":
+        oracle_link = mask(
+            "match link_type {\\n"
+            "  LinkTypes::__HEARTH_TARGET => wrong_dispatch(),\\n"
+            "  LinkTypes::Sibling => " + dispatch_symbol + "(),\\n"
+            "}"
+        )
+        oracle_link_arm = link_arm(oracle_link, "__HEARTH_TARGET")
+        assert oracle_link_arm is not None
+        assert not re.search(
+            rf"\b{re.escape(dispatch_symbol)}[[:space:]]*\(",
+            oracle_link_arm,
+        ), "link target witness accepted sibling-arm false positive"
+
+except (ValueError, AssertionError) as exc:
+    print("FAIL: semantic target/dispatch binding: " + str(exc), file=sys.stderr)
+    raise SystemExit(2)
+
+print(
+    "OK: semantic target "
+    + target
+    + " binds to dispatch "
+    + dispatch_symbol
+    + " within the authoritative validation arm(s)"
+)
+PY
 
     case "$coordinator_primitive" in
       create_entry)
