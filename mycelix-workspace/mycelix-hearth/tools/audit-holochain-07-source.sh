@@ -945,7 +945,8 @@ assert not re.search(pattern, oracle_masked, re.S), (
 )
 
 print(f"OK:   coordinator {primitive} is token-aware and binds concrete target {target}")
-PYhen
+PY
+      then
         echo "OK:   $id coordinator $operation binds $coordinator_primitive to $target_variant with token-aware matching"
       else
         echo "FAIL: $id coordinator $operation does not bind $coordinator_primitive to $target_variant with token-aware matching"
