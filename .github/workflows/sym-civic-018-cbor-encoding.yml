@@ -1,9 +1,9 @@
-name: SYM-CIVIC-018 CBOR Encoding v1
+name: SYM-CIVIC-018 CBOR Encoding v3 — repaired float/depth lineage
 
 on:
   push:
     branches:
-      - 'staging/sym-civic-018-cbor-encoding-work'
+      - 'staging/sym-civic-018-cbor-fp-depth'
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -14,11 +14,13 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   qualify:
     name: CBOR encoding boundary
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     env:
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
@@ -28,11 +30,35 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Parent qualification gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          QUALIFIED_PARENT='ec2eb36f58ea9dede58e4071228d3fa5d42ffffc'
+          response="$(gh api -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${QUALIFIED_PARENT}&per_page=100")"
+          python3 - <<'PY' "$response" "$QUALIFIED_PARENT"
+          import json, sys
+          data = json.loads(sys.argv[1])
+          parent = sys.argv[2]
+          candidates = [
+              run for run in data.get("workflow_runs", [])
+              if run.get("head_sha") == parent
+              and run.get("path") == ".github/workflows/sym-civic-018-cbor-encoding.yml"
+              and run.get("conclusion") == "success"
+          ]
+          if not candidates:
+              raise SystemExit("qualified parent exact-head run not found; child qualification remains fenced")
+          print("parent qualification gate: PASS")
+          print("qualified parent run:", max(candidates, key=lambda r: r.get("run_number", 0)).get("id"))
+
       - name: Exact head geometry
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_PARENT='c0ff69b37b2ba768894b55178370ce0bff7adeb0'
+          EXPECTED_PARENT='ec2eb36f58ea9dede58e4071228d3fa5d42ffffc'
           test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
           test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
           test "$(git rev-list --parents -n 1 HEAD | awk '{print NF-1}')" = "1"
@@ -43,7 +69,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_PARENT='c0ff69b37b2ba768894b55178370ce0bff7adeb0'
+          EXPECTED_PARENT='ec2eb36f58ea9dede58e4071228d3fa5d42ffffc'
           expected="$(printf '%s\n' \
             'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_CBOR_ENCODING_V1.md' \
             'mycelix-workspace/docs/civic-resilience/sym_civic_018_cbor_encoding_v1.json' \
@@ -60,7 +86,7 @@ jobs:
           python3 - <<'PY'
           import ast
           from pathlib import Path
-          allowed = {"__future__", "hashlib", "json", "pathlib"}
+          allowed = {"__future__", "hashlib", "json", "pathlib", "math", "struct"}
           path = Path("scripts/qualification/sym_civic_018_cbor_encoding_v1.py")
           text = path.read_text(encoding="utf-8")
           text.encode("utf-8").decode("utf-8")
@@ -80,6 +106,12 @@ jobs:
 
       - name: Execute exact CBOR encoding corpus
         run: python3 scripts/qualification/sym_civic_018_cbor_encoding_v1.py
+
+      - name: Report immutable qualification capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'HEAD=%s\nPARENT=%s\n' "$(git rev-parse HEAD)" "ec2eb36f58ea9dede58e4071228d3fa5d42ffffc"
 
       - name: Immutable checkout
         run: test -z "$(git status --short)"

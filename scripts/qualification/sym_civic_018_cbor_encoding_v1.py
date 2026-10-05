@@ -3,13 +3,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "mycelix-workspace/docs/civic-resilience/sym_civic_018_cbor_encoding_v1.json"
-SCHEMA = "mycelix.sym-civic.cbor-encoding-preflight.v1"
-PROGRAM = "SYM-CIVIC-018-CBOR"
-PARENT_SUBJECT = "c0ff69b37b2ba768894b55178370ce0bff7adeb0"
+SCHEMA = "mycelix.sym-civic.cbor-encoding-preflight.v3"
+PROGRAM = "SYM-CIVIC-018-CBOR-FP-DEPTH"
+PARENT_SUBJECT = "ec2eb36f58ea9dede58e4071228d3fa5d42ffffc"
 
 SUFFICIENT = "CBOR_ENCODING_SUFFICIENT"
 MESSAGE_REJECT = "CBOR_MESSAGE_REJECT"
@@ -24,6 +26,13 @@ class Fault(Exception):
 
 class InvalidText(Fault):
     pass
+
+
+class DepthExceeded(Fault):
+    pass
+
+
+MAX_DEPTH = 32
 
 
 def head(major, value):
@@ -52,7 +61,9 @@ def read_arg(data, pos, ai):
     return value, pos + width, value >= minimum
 
 
-def parse(data, pos=0):
+def parse(data, pos=0, depth=0):
+    if depth > MAX_DEPTH:
+        raise DepthExceeded("maximum parser depth exceeded")
     start = pos
     if pos >= len(data):
         raise Fault("missing initial byte")
@@ -78,13 +89,13 @@ def parse(data, pos=0):
                 if data[pos] == 255:
                     pos += 1
                     break
-                child, pos = parse(data, pos)
+                child, pos = parse(data, pos, depth + 1)
                 if child[0] != ("b" if major == 2 else "t") or child[4]:
                     raise Fault("bad string chunk")
                 chunks.append(child[1] if major == 2 else child[1].encode("utf-8"))
             raw = data[start:pos]
             if major == 2:
-                return ("b", b"".join(chunks), False, raw, True), pos
+                return ("b", b"".join(chunks), False, raw, True, depth), pos
             try:
                 return ("t", b"".join(chunks).decode("utf-8"), False, raw, True), pos
             except UnicodeDecodeError as exc:
@@ -94,7 +105,7 @@ def parse(data, pos=0):
             raise Fault("short string")
         raw = data[start:end]
         if major == 2:
-            return ("b", data[pos:end], preferred, raw, False), end
+            return ("b", data[pos:end], preferred, raw, False, depth), end
         try:
             return ("t", data[pos:end].decode("utf-8"), preferred, raw, False), end
         except UnicodeDecodeError as exc:
@@ -110,11 +121,11 @@ def parse(data, pos=0):
                 if data[pos] == 255:
                     pos += 1
                     break
-                item, pos = parse(data, pos)
+                item, pos = parse(data, pos, depth + 1)
                 items.append(item)
             return ("a", items, False, data[start:pos], True), pos
         for _ in range(length):
-            item, pos = parse(data, pos)
+            item, pos = parse(data, pos, depth + 1)
             items.append(item)
         return ("a", items, preferred, data[start:pos], False), pos
 
@@ -128,13 +139,13 @@ def parse(data, pos=0):
                 if data[pos] == 255:
                     pos += 1
                     break
-                key, pos = parse(data, pos)
-                value, pos = parse(data, pos)
+                key, pos = parse(data, pos, depth + 1)
+                value, pos = parse(data, pos, depth + 1)
                 pairs.append((key, value))
             return ("m", pairs, False, data[start:pos], True), pos
         for _ in range(length):
-            key, pos = parse(data, pos)
-            value, pos = parse(data, pos)
+            key, pos = parse(data, pos, depth + 1)
+            value, pos = parse(data, pos, depth + 1)
             pairs.append((key, value))
         return ("m", pairs, preferred, data[start:pos], False), pos
 
@@ -142,7 +153,7 @@ def parse(data, pos=0):
         tag, pos, preferred = read_arg(data, pos, ai)
         if tag is None:
             raise Fault("indefinite tag")
-        child, pos = parse(data, pos)
+        child, pos = parse(data, pos, depth + 1)
         return ("g", (tag, child), preferred, data[start:pos], False), pos
 
     if major == 7:
@@ -176,8 +187,51 @@ def parse(data, pos=0):
     raise Fault("unsupported major type")
 
 
+
+def _exact_float_representation(fmt, value):
+    try:
+        packed = struct.pack(fmt, value)
+        decoded = struct.unpack(fmt, packed)[0]
+    except (OverflowError, struct.error):
+        return False
+    if decoded != value:
+        return False
+    if value == 0.0:
+        return math.copysign(1.0, decoded) == math.copysign(1.0, value)
+    return True
+
+
+def float_deterministic(raw):
+    if not raw:
+        return False
+    ai = raw[0] & 31
+    width_fmt = {
+        25: (2, ">e"),
+        26: (4, ">f"),
+        27: (8, ">d"),
+    }.get(ai)
+    if width_fmt is None or len(raw) != width_fmt[0] + 1:
+        return False
+    try:
+        value = struct.unpack(width_fmt[1], raw[1:])[0]
+    except struct.error:
+        return False
+    if math.isnan(value):
+        return False
+    width = width_fmt[0]
+    if width == 2:
+        return True
+    if _exact_float_representation(">e", value):
+        return False
+    if width == 4:
+        return True
+    if _exact_float_representation(">f", value):
+        return False
+    return True
+
+
 def canonical(node):
-    kind, value, preferred, raw, indefinite = node
+    kind, value, preferred, raw, indefinite = node[:5]
     if indefinite or not preferred:
         raise Fault("non-deterministic")
     if kind == "i":
@@ -202,6 +256,8 @@ def canonical(node):
             return bytes([0xE0 | value])
         return b"\xF8" + bytes([value])
     if kind == "f":
+        if not float_deterministic(raw):
+            raise Fault("non-deterministic float")
         return raw
     raise Fault("unknown kind")
 
@@ -236,7 +292,9 @@ def dup(pairs):
 def protected_map(node):
     if node[0] != "b":
         raise Fault("protected not bytes")
-    inner, end = parse(node[1])
+    if len(node) != 6:
+        raise Fault("protected depth metadata missing")
+    inner, end = parse(node[1], depth=node[5] + 1)
     if end != len(node[1]) or inner[0] != "m":
         raise Fault("protected bytes not one map")
     return inner
@@ -285,7 +343,9 @@ def read_arg_ref(data, pos, ai):
     return value, pos+width, value >= minimum
 
 
-def scan(data, pos=0):
+def scan(data, pos=0, depth=0):
+    if depth > MAX_DEPTH:
+        raise DepthExceeded("ref maximum parser depth exceeded")
     start = pos
     if pos >= len(data):
         raise Fault("ref missing byte")
@@ -308,18 +368,24 @@ def scan(data, pos=0):
                     if data[pos] == 255:
                         pos += 1
                         break
-                    child, pos = scan(data, pos)
+                    child, pos = scan(data, pos, depth + 1)
                     if child["m"] != major or child.get("i"):
                         raise Fault("ref bad string chunk")
                     chunks.append(data[child["s"]:child["e"]])
                 raw = data[start:pos]
-                return {"m":major,"v":b"".join(chunks),"p":False,"r":raw,"i":True,"s":start,"e":pos}, pos
+                result = {"m":major,"v":b"".join(chunks),"p":False,"r":raw,"i":True,"s":start,"e":pos}
+                if major == 2:
+                    result["d"] = depth
+                return result, pos
             end = pos + arg
             if end > len(data):
                 raise Fault("ref short string")
             if major == 3:
                 data[pos:end].decode("utf-8")
-            return {"m":major,"v":data[pos:end],"p":preferred,"r":data[start:end],"s":start,"e":end}, end
+            result = {"m":major,"v":data[pos:end],"p":preferred,"r":data[start:end],"s":start,"e":end}
+            if major == 2:
+                result["d"] = depth
+            return result, end
         if major == 4:
             items = []
             if arg is None:
@@ -329,11 +395,11 @@ def scan(data, pos=0):
                     if data[pos] == 255:
                         pos += 1
                         break
-                    child, pos = scan(data, pos)
+                    child, pos = scan(data, pos, depth + 1)
                     items.append(child)
                 return {"m":4,"items":items,"p":False,"i":True,"r":data[start:pos],"s":start,"e":pos}, pos
             for _ in range(arg):
-                child, pos = scan(data, pos)
+                child, pos = scan(data, pos, depth + 1)
                 items.append(child)
             return {"m":4,"items":items,"p":preferred,"r":data[start:pos],"s":start,"e":pos}, pos
         if major == 5:
@@ -345,18 +411,18 @@ def scan(data, pos=0):
                     if data[pos] == 255:
                         pos += 1
                         break
-                    key, pos = scan(data, pos)
-                    value, pos = scan(data, pos)
+                    key, pos = scan(data, pos, depth + 1)
+                    value, pos = scan(data, pos, depth + 1)
                     pairs.append((key, value))
                 return {"m":5,"pairs":pairs,"p":False,"i":True,"r":data[start:pos],"s":start,"e":pos}, pos
             for _ in range(arg):
-                key, pos = scan(data, pos)
-                value, pos = scan(data, pos)
+                key, pos = scan(data, pos, depth + 1)
+                value, pos = scan(data, pos, depth + 1)
                 pairs.append((key, value))
             return {"m":5,"pairs":pairs,"p":preferred,"r":data[start:pos],"s":start,"e":pos}, pos
         if arg is None:
             raise Fault("ref indefinite tag")
-        child, pos = scan(data, pos)
+        child, pos = scan(data, pos, depth + 1)
         return {"m":6,"v":(arg,child),"p":preferred,"r":data[start:pos],"s":start,"e":pos}, pos
     if major == 7:
         if ai in (28,29,30,31):
@@ -391,10 +457,47 @@ def ref_key(node):
     return ("raw", node["r"])
 
 
+
+def ref_float_deterministic(raw):
+    ai = raw[0] & 31
+    widths = {25: (2, ">e"), 26: (4, ">f"), 27: (8, ">d")}
+    width_fmt = widths.get(ai)
+    if width_fmt is None or len(raw) != width_fmt[0] + 1:
+        return False
+    try:
+        value = struct.unpack(width_fmt[1], raw[1:])[0]
+    except struct.error:
+        return False
+    if math.isnan(value):
+        return False
+    if width_fmt[0] == 2:
+        return True
+    try:
+        half = struct.unpack(">e", struct.pack(">e", value))[0]
+    except (OverflowError, struct.error):
+        half = None
+    if half == value and (value != 0.0 or math.copysign(1.0, half) == math.copysign(1.0, value)):
+        return False
+    if width_fmt[0] == 4:
+        return True
+    try:
+        single = struct.unpack(">f", struct.pack(">f", value))[0]
+    except (OverflowError, struct.error):
+        single = None
+    if single == value and (value != 0.0 or math.copysign(1.0, single) == math.copysign(1.0, value)):
+        return False
+    return True
+
+
 def ref_deterministic(node):
     if node.get("i") or not node["p"]:
         return False
-    if node["m"] in (0,1,2,3,7):
+    if node["m"] in (0,1,2,3):
+        return True
+    if node["m"] == 7:
+        ai = node["r"][0] & 31
+        if ai in (25, 26, 27):
+            return ref_float_deterministic(node["r"])
         return True
     if node["m"] == 4:
         return all(ref_deterministic(child) for child in node["items"])
@@ -411,10 +514,55 @@ def ref_deterministic(node):
 def ref_protected(node):
     if node["m"] != 2 or node.get("i"):
         raise Fault("ref protected")
-    inner, end = scan(node["v"])
+    depth = node.get("d")
+    if depth is None:
+        raise Fault("ref protected depth metadata missing")
+    inner, end = scan(node["v"], depth=depth + 1)
     if end != len(node["v"]) or inner["m"] != 5:
         raise Fault("ref protected map")
     return inner
+
+
+DEPTH_PROBE_WITHIN_LIMIT = "DEPTH_PROBE_WITHIN_LIMIT"
+DEPTH_PROBE_EXCEEDED = "DEPTH_PROBE_EXCEEDED"
+
+
+def _find_unary_bstr_primary(node):
+    while node[0] == "a" and len(node[1]) == 1:
+        node = node[1][0]
+    if node[0] != "b":
+        raise Fault("depth probe did not terminate at bstr")
+    return node
+
+
+def _find_unary_bstr_reference(node):
+    while node["m"] == 4 and len(node["items"]) == 1:
+        node = node["items"][0]
+    if node["m"] != 2:
+        raise Fault("ref depth probe did not terminate at bstr")
+    return node
+
+
+def depth_probe_primary(data):
+    root, end = parse(data)
+    if end != len(data):
+        raise Fault("depth probe trailing bytes")
+    protected_map(_find_unary_bstr_primary(root))
+
+
+def depth_probe_reference(data):
+    root, end = scan(data)
+    if end != len(data):
+        raise Fault("ref depth probe trailing bytes")
+    ref_protected(_find_unary_bstr_reference(root))
+
+
+def run_depth_probe(fn, data):
+    try:
+        fn(data)
+    except DepthExceeded:
+        return DEPTH_PROBE_EXCEEDED
+    return DEPTH_PROBE_WITHIN_LIMIT
 
 
 def reference(data):
@@ -473,12 +621,21 @@ def main():
     assert doc["analysis_role"] == "research_only"
     assert doc["parent_subject"] == PARENT_SUBJECT
     cases = doc["cases"]
-    assert [c["id"] for c in cases] == [f"C-{i:02d}" for i in range(1,25)]
+    depth_vectors = doc["depth_vectors"]
+    assert [c["id"] for c in cases] == [f"C-{i:02d}" for i in range(1,38)]
+    assert [v["id"] for v in depth_vectors] == ["D-01", "D-02"]
     for case in cases:
         assert set(case) == {"id","family","hex"}
         raw = bytes.fromhex(case["hex"])
         assert raw
         lowered = json.dumps(case, sort_keys=True).lower()
+        assert "expected_verdict" not in lowered
+        assert "oracle_verdict" not in lowered
+    for vector in depth_vectors:
+        assert set(vector) == {"id","family","hex"}
+        raw = bytes.fromhex(vector["hex"])
+        assert raw
+        lowered = json.dumps(vector, sort_keys=True).lower()
         assert "expected_verdict" not in lowered
         assert "oracle_verdict" not in lowered
 
@@ -496,10 +653,10 @@ def main():
 
     assert not disagreements, disagreements
     assert census == {
-        SUFFICIENT: 2,
+        SUFFICIENT: 8,
         MESSAGE_REJECT: 8,
-        ENCODING_REJECT: 10,
-        PARSE_ERROR: 4,
+        ENCODING_REJECT: 16,
+        PARSE_ERROR: 5,
         UNRESOLVED: 0,
     }, census
 
@@ -508,8 +665,40 @@ def main():
             raise RuntimeError("synthetic unexpected decoder failure")
 
     assert classify(ExplodingBytes(b"\x84"))[0] == UNRESOLVED
-    print("SYM-CIVIC-018-CBOR CASES=24")
+
+    canonical_float = bytes.fromhex(cases[24]["hex"])
+    nonminimal_single = bytes.fromhex(cases[25]["hex"])
+    nonminimal_double = bytes.fromhex(cases[26]["hex"])
+    canonical_single = bytes.fromhex(cases[35]["hex"])
+    canonical_double = bytes.fromhex(cases[36]["hex"])
+    assert classify(canonical_float)[0] == SUFFICIENT
+    assert classify(nonminimal_single)[0] == ENCODING_REJECT
+    assert classify(nonminimal_double)[0] == ENCODING_REJECT
+    assert classify(canonical_single)[0] == SUFFICIENT
+    assert classify(canonical_double)[0] == SUFFICIENT
+    assert classify(bytes.fromhex(cases[34]["hex"]))[0] == PARSE_ERROR
+
+    probe_results = {}
+    for vector in depth_vectors:
+        raw = bytes.fromhex(vector["hex"])
+        primary_probe = run_depth_probe(depth_probe_primary, raw)
+        reference_probe = run_depth_probe(depth_probe_reference, raw)
+        assert primary_probe == reference_probe, (vector["id"], primary_probe, reference_probe)
+        probe_results[vector["id"]] = primary_probe
+    assert probe_results == {
+        "D-01": DEPTH_PROBE_EXCEEDED,
+        "D-02": DEPTH_PROBE_WITHIN_LIMIT,
+    }, probe_results
+
+    depth_corpus = bytearray()
+    for vector in depth_vectors:
+        depth_corpus.extend(vector["id"].encode("ascii"))
+        depth_corpus.extend(bytes.fromhex(vector["hex"]))
+
+    print(f"SYM-CIVIC-018-CBOR CASES={len(cases)}")
     print("SYM-CIVIC-018-CORPUS_SHA256=" + hashlib.sha256(bytes(corpus)).hexdigest())
+    print("SYM-CIVIC-018-CBOR DEPTH_VECTORS=" + json.dumps(probe_results, sort_keys=True, separators=(",",":")))
+    print("SYM-CIVIC-018-DEPTH_CORPUS_SHA256=" + hashlib.sha256(bytes(depth_corpus)).hexdigest())
     print("SYM-CIVIC-018-CBOR DERIVED=" + json.dumps(census, sort_keys=True, separators=(",",":")))
     print("SYM-CIVIC-018-CBOR METAMORPHIC=PASS")
     print("SYM-CIVIC-018-CBOR PASS")

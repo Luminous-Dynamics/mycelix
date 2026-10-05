@@ -1,8 +1,8 @@
-# SYM-CIVIC-018 — exact CBOR duplicate-map / encoding boundary
+# SYM-CIVIC-018 — exact CBOR floating-point / parser-resource boundary
 
 Status: research/qualification boundary; not production-qualified.
 
-Parent subject: c0ff69b37b2ba768894b55178370ce0bff7adeb0.
+Parent subject: ec2eb36f58ea9dede58e4071228d3fa5d42ffffc.
 
 ## Purpose
 
@@ -14,14 +14,14 @@ RFC 8949 requires a CBOR-based protocol to define duplicate-map-key handling, di
 
 ## Boundary
 
-The fixture contains 24 exact byte strings:
+The fixture contains 37 exact message byte strings plus 2 exact deferred-depth composition vectors:
 
-- 2 canonical positive controls;
+- 8 sufficient controls, including canonical finite/infinite/negative-zero values plus canonical binary32 and binary64 values that cannot be represented exactly by shorter formats;
 - 8 COSE/ARP message-policy rejects, including duplicate labels and protected-header requirements;
-- 10 deterministic-CBOR encoding rejects, including preferred-serialization, map ordering, and indefinite-length deviations;
-- 4 parse/validity failures, including truncation, trailing bytes under the one-item framing contract, invalid UTF-8, and reserved simple-value encoding.
+- 16 deterministic-CBOR encoding rejects, including preferred-serialization, map ordering, indefinite-length deviations, non-shortest floating-point encodings, and the synthetic NaN exclusion;
+- 5 parse/validity/resource failures, including truncation, trailing bytes under the one-item framing contract, invalid UTF-8, reserved simple-value encoding, and an explicit recursion-depth ceiling.
 
-The manifest stores only case identity, family, and exact hexadecimal bytes. It contains no expected-verdict or oracle-verdict fields.
+The manifest stores only case identity, family, and exact hexadecimal bytes. It contains no expected-verdict or oracle-verdict fields. The separate depth-vector list is also exact-byte-only and is not assigned a COSE message verdict.
 
 The qualifier computes a SHA-256 corpus digest over the ordered case identifiers and exact bytes at runtime. It also runs two separately structured byte interpreters: a primary parsed-node implementation and a reference wire scanner. Any parser exception or primary/reference disagreement becomes CBOR_ENCODING_UNRESOLVED.
 
@@ -31,9 +31,9 @@ Duplicate labels inside either the protected or unprotected COSE header map are 
 
 ## Determinism policy
 
-For this research seam, an accepted message must be representable in the RFC 8949 core deterministic form. Non-preferred integer/length encodings, indefinite-length items, and incorrect map-key ordering therefore receive CBOR_ENCODING_REJECT rather than being silently normalized.
+For this research seam, an accepted message must be representable in the RFC 8949 core deterministic form. Non-preferred integer/length encodings, indefinite-length items, incorrect map-key ordering, and non-shortest floating-point encodings therefore receive CBOR_ENCODING_REJECT rather than being silently normalized. Finite values and infinities use the shortest representation that preserves the value; negative zero is retained with its sign; NaN is outside this synthetic accepted profile and is rejected as an encoding-policy violation. An explicit parser recursion ceiling of 32 nested levels converts deeper hostile structure into CBOR_PARSE_ERROR rather than allowing unbounded recursion. Protected-header reparsing inherits the containing protected-bstr depth instead of restarting at zero.
 
-The qualifier does not claim to implement every CBOR semantic type or every production COSE validation rule. Its purpose is the exact-byte failure boundary immediately in front of the 018 trust-chain verifier.
+The qualifier does not claim to implement every CBOR semantic type or every production COSE validation rule. Its purpose is the exact-byte failure boundary immediately in front of the 018 trust-chain verifier, including deterministic floating-point representation and bounded parser depth.
 
 ## Failure precedence
 
@@ -52,3 +52,18 @@ No one category is silently collapsed into another.
 This is a synthetic research qualifier. It does not establish a production CBOR library, COSE implementation, cryptographic signature verification, HTTP transport, Web-PKI, SCITT Receipt verification, or deployment behavior.
 
 019 remains behind this entire 018 encoding fence.
+## Deferred protected-header depth regression
+
+The two depth vectors are a dedicated resource-composition probe, not additional COSE message cases.
+
+D-01 wraps the protected bstr in 30 unary CBOR array levels. Its protected map then contains a nested array. Parsing the protected bstr must continue with the bstr's inherited depth, so the nested child crosses MAX_DEPTH=32 and the probe must report "exceeded".
+
+D-02 contains the same protected map without the outer wrapper and must report "within limit". The pair therefore distinguishes additive parser depth from a reset-to-zero deferred parse.
+
+Both primary and reference implementations must agree on D-01 = exceeded and D-02 = within limit.
+
+## Repair notes
+
+The floating-point helper now consumes the complete CBOR float item, including its initial byte. Consequently binary16, binary32, and binary64 are 3, 5, and 9 bytes at the node boundary. This aligns the primary implementation with the wire-item representation already used by the reference implementation.
+
+Only byte-string nodes carry deferred-depth metadata because byte strings are the only nodes that trigger a second CBOR parse in this qualifier. Protected-map parsing starts at containing-bstr-depth + 1 in both implementations.

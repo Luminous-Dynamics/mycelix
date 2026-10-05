@@ -1,7 +1,7 @@
 {
-  "schema": "mycelix.sym-civic.cbor-encoding-preflight.v1",
-  "program": "SYM-CIVIC-018-CBOR",
-  "parent_subject": "c0ff69b37b2ba768894b55178370ce0bff7adeb0",
+  "schema": "mycelix.sym-civic.cbor-encoding-preflight.v3",
+  "program": "SYM-CIVIC-018-CBOR-FP-DEPTH",
+  "parent_subject": "ec2eb36f58ea9dede58e4071228d3fa5d42ffffc",
   "analysis_role": "research_only",
   "cases": [
     {"id":"C-01","family":"canonical_sign1","hex":"8446a20126044101a0f64100"},
@@ -27,6 +27,23 @@
     {"id":"C-21","family":"truncated_item","hex":"8446a2012604"},
     {"id":"C-22","family":"trailing_bytes","hex":"8446a20126044101a0f6410000"},
     {"id":"C-23","family":"invalid_utf8_text_key","hex":"8446a20126044101a163c32878f4f64100"},
-    {"id":"C-24","family":"reserved_simple_value","hex":"8446a20126044101a0f8014100"}
+    {"id":"C-24","family":"reserved_simple_value","hex":"8446a20126044101a0f8014100"},
+    {"id":"C-25","family":"canonical_float_half","hex":"8446a20126044101a105f93e00f64100"},
+    {"id":"C-26","family":"nonminimal_float_single","hex":"8446a20126044101a105fa3fc00000f64100"},
+    {"id":"C-27","family":"nonminimal_float_double","hex":"8446a20126044101a105fb3ff8000000000000f64100"},
+    {"id":"C-28","family":"canonical_positive_infinity_half","hex":"8446a20126044101a105f97c00f64100"},
+    {"id":"C-29","family":"nonminimal_positive_infinity_single","hex":"8446a20126044101a105fa7f800000f64100"},
+    {"id":"C-30","family":"canonical_negative_infinity_half","hex":"8446a20126044101a105f9fc00f64100"},
+    {"id":"C-31","family":"nonminimal_negative_infinity_double","hex":"8446a20126044101a105fbfff0000000000000f64100"},
+    {"id":"C-32","family":"canonical_negative_zero_half","hex":"8446a20126044101a105f98000f64100"},
+    {"id":"C-33","family":"nonminimal_negative_zero_single","hex":"8446a20126044101a105fa80000000f64100"},
+    {"id":"C-34","family":"nan_excluded_by_profile","hex":"8446a20126044101a105f97e00f64100"},
+    {"id":"C-35","family":"recursion_depth_exceeded","hex":"8446a20126044101a1058181818181818181818181818181818181818181818181818181818181818181818181818181818100f64100"},
+    {"id":"C-36","family":"canonical_float_single","hex":"8446a20126044101a105fa49742408f64100"},
+    {"id":"C-37","family":"canonical_float_double","hex":"8446a20126044101a105fb3ff199999999999af64100"}
+  ],
+  "depth_vectors": [
+    {"id":"D-01","family":"combined_protected_depth_exceeded","hex":"8181818181818181818181818181818181818181818181818181818181818149a30126044101058180"},
+    {"id":"D-02","family":"protected_depth_within_limit","hex":"49a30126044101058180"}
   ]
 }
