@@ -587,7 +587,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             "trust_anchor_source_sha256": manifest["trust_anchor_source_sha256"],
             "verification_time_unix": manifest["verification_time_unix"],
             "revocation_state": rev["state"],
-            "revocation_crl_sha256": rev["crl_der_sha256"],
+            "revocation_crl_bundle_pem_sha256": rev["crl_bundle_pem_sha256"],
             "spki_certificate_sha256": spki["certificate_sha256"],
             "spki_ek_public_wire_sha256": spki["ek_public_wire_sha256"],
         },
