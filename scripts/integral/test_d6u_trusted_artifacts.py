@@ -103,6 +103,25 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "Cargo.lock": 4194304,
     }
     assert policy["artifact_max_total_bytes"] == 12582912
+    assert policy["artifact_max_entries"] == 32
+    assert policy["trusted_artifact_fetcher"]["path"] == (
+        "scripts/integral/fetch_d6u_trusted_artifact.py"
+    )
+    assert len(policy["trusted_artifact_fetcher"]["blob_sha"]) == 40
+    assert all(
+        ch in "0123456789abcdef"
+        for ch in policy["trusted_artifact_fetcher"]["blob_sha"]
+    )
+    assert policy["artifact_integrity"] == {
+        "algorithm": "sha256",
+        "source": "github-artifact-api",
+        "require_match_after_download": True,
+        "archive_format": "zip",
+        "extraction_mode": "bounded-members",
+        "reject_encrypted_members": True,
+        "reject_symlink_members": True,
+        "expected_member_count": 3,
+    }
 
 
 def record_metadata_policy() -> dict:
