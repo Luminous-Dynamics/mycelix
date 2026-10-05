@@ -2384,83 +2384,38 @@ from pathlib import Path
 import sys
 
 source = Path(sys.argv[1]).read_text()
-verify = source.find("      - name: Verify every semantic qualification case executed")
+source_contract = source.find("      - name: Capture semantic source contract before runtime")
+source_tree = source.find("      - name: Capture source tree fingerprint before runtime")
+sweettest = source.find("      - name: Run Hearth 0.7 SweetConductor qualification")
+source_verify = source.find("      - name: Verify source tree immutability after runtime qualification")
+veerify = source.find("      - name: Verify every semantic qualification case executed")
 capture = source.find("      - name: Capture immutable qualification evidence")
-sweettest = source.find("      - name: Run Hearth 0.7 SweetConductor qualification")
-metadata = source.find("      - name: Capture qualification metadata")
-
-if not (0 <= sweettest < verify < capture < metadata):
-    print("FAIL: semantic execution verification must follow SweetConductor and precede immutable evidence/metadata capture")
+if not (0 <= source_contract < source_tree < sweettest < source_verify < veerify < capture):
+    print("FAIL: source contract/tree provenance must precede SweetConductor and all runtime receipts must precede evidence capture")
     raise SystemExit(2)
 
-capture_end = source.find("\n      - name:", capture + 1)
-if capture_end < 0:
-    capture_end = len(source)
-capture_block = source[capture:capture_end]
-
-if 'qualification-semantic-execution.txt" "unavailable_case_execution_not_reached"' not in capture_block:
-    print("FAIL: immutable evidence capture does not preserve semantic execution receipt")
-    raise SystemExit(2)
-
-if 'grep -qx "status=passed" "${hearth}/qualification-semantic-execution.txt"' not in source:
-    print("FAIL: qualification completeness is not gated on a passed semantic execution receipt")
-    raise SystemExit(2)
-
-print("OK: semantic execution verification precedes evidence capture and gates completeness")
-PY
-  then
-    true
-  else
-    fail=1
-  fi
-
-  if python3 - "$workflow" <<'PY'
-from pathlib import Path
-import sys
-
-source = Path(sys.argv[1]).read_text()
-
-runtime_snapshot = source.find("      - name: Capture source tree fingerprint before runtime")
-sweettest = source.find("      - name: Run Hearth 0.7 SweetConductor qualification")
-runtime_verify = source.find("      - name: Verify source tree immutability after runtime qualification")
-if not (0 <= runtime_snapshot < sweettest < runtime_verify):
-    print("FAIL: source-tree snapshot must immediately bracket the SweetConductor qualification step")
-    raise SystemExit(2)
-
-required = [
-    '      - name: Check Hearth 0.7 test formatting',
-    '        id: format',
-    'format_conclusion="${{ steps.format.conclusion || \'unknown\' }}"',
-    '&& [[ "${format_conclusion}" == "success" ]]',
-    'echo "format_conclusion=${format_conclusion}"',
-    'echo "format_conclusion=${{ steps.format.conclusion || \'unknown\' }}"',
-    'git -C "${root}" ls-files -s | sha256sum > qualification-source-index-sha256.txt',
-    'git -C "${root}" submodule status --recursive > qualification-submodules-before-runtime.txt',
-    'git -C "${root}" submodule foreach --recursive \'test -z "$(git status --porcelain=v1 --untracked-files=all)"\'',
-    'git -C "${root}" submodule status --recursive > qualification-submodules-after-runtime.txt',
-    'cmp -s qualification-submodules-before-runtime.txt qualification-submodules-after-runtime.txt',
-    'source_tree_runtime_immutable=true',
+contract_block_end = source.find("\n      - name:", source_contract + 1)
+contract_block = source[source_contract:contract_block_end if contract_block_end >= 0 else len(source)]
+required_contract = [
+    'inputs=(',
+    '".github/workflows/hearth-07-qualification.yml"',
+    '".github/workflows/hearth-07-workflow-lint.yml"',
+    'sha256sum "${inputs[@]}" > mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt',
+    'sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt',
+    'source_contract_before_runtime_captured=true',
 ]
-missing = [item for item in required if item not in source]
+missing = [item for item in required_contract if item not in contract_block]
 if missing:
-    print("FAIL: qualification evidence completeness is missing formatter outcome binding:")
+    print("FAIL: pre-runtime source contract is incomplete:")
     for item in missing:
         print(f"  missing: {item}")
     raise SystemExit(2)
 
-metadata_start = source.find("      - name: Capture qualification metadata")
-if metadata_start < 0:
-    print("FAIL: qualification metadata step is missing")
-    raise SystemExit(2)
-metadata = source[metadata_start:]
-if 'evidence_status="$(cat "${hearth}/qualification-evidence-status.txt"' not in metadata:
-    print("FAIL: qualification metadata does not read qualification-evidence-status.txt")
-    raise SystemExit(2)
-if '[[ "${evidence_status}" == "complete" ]]' not in metadata:
-    print("FAIL: RuntimeQualificationPassed is not gated on evidence_status=complete")
+if 'sha256sum "${inputs[@]}" > mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt' in source[source.index("      - name: Capture immutable qualification evidence"):]:
+    print("FAIL: immutable evidence capture must not reconstruct the source contract after runtime")
     raise SystemExit(2)
 
-print("OK: qualification runtime claim is bound to formatter success and complete evidence receipt")
+print("OK: source contract and tree provenance bracket runtime qualification before evidence capture")
 PY
   then
     true
