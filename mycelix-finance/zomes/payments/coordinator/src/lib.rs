@@ -664,8 +664,8 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
         )));
     }
 
-    let now = sys_time()?;
-    if input.expires_at.is_some_and(|expiry| expiry <= now) {
+    let validation_now = sys_time()?;
+    if input.expires_at.is_some_and(|expiry| expiry <= validation_now) {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Transfer intent expiry must be in the future".into(),
         )));
@@ -715,10 +715,36 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
         return Ok(record);
     }
 
-    // Charge the SAP transfer fee only when creating a new intent. If a
-    // prior invocation already committed the intent, idempotent retries return it
-    // without charging the sender again.
+    // Compute the fee before mutating the sender account. A failed transfer must
+    // not leave behind a fee debit when the principal transfer is unaffordable.
     let fee = compute_sap_fee(&input.from_did, input.amount)?;
+    let required = input.amount.checked_add(fee).ok_or(wasm_error!(
+        WasmErrorInner::Guest("Transfer amount plus fee overflows u64".into())
+    ))?;
+
+    let (_, pre_fee_balance) = get_sap_balance_inner(&input.from_did)?;
+    let pre_fee_now = sys_time()?;
+    let pre_fee_elapsed = elapsed_seconds(pre_fee_balance.last_demurrage_at, pre_fee_now);
+    let pre_fee_now_secs = (pre_fee_now.as_micros() / 1_000_000).max(0) as u64;
+    let pre_fee_deduction = if pre_fee_elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+        compute_demurrage_with_exemption(
+            pre_fee_balance.balance,
+            pre_fee_balance.exemption.as_ref(),
+            pre_fee_now_secs,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            pre_fee_elapsed,
+        )
+    } else {
+        0
+    };
+    let pre_fee_effective = pre_fee_balance.balance.saturating_sub(pre_fee_deduction);
+    if required > pre_fee_effective {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Insufficient SAP balance for transfer plus fee: effective {}, required {}",
+            pre_fee_effective, required
+        ))));
+    }
     if fee > 0 {
         debit_sap(DebitSapInput {
             member_did: input.from_did.clone(),
@@ -747,7 +773,11 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
         }
     }
 
+    // The fee debit above may advance last_demurrage_at. Re-read the balance and
+    // capture a fresh timestamp so the transfer update can never move that timestamp
+    // backward on the owner's source chain.
     let (balance_record, balance) = get_sap_balance_inner(&input.from_did)?;
+    let now = sys_time()?;
     let elapsed = elapsed_seconds(balance.last_demurrage_at, now);
     let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
     let deduction = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
