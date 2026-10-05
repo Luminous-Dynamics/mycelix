@@ -99,23 +99,36 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
           TOKEN: ${{ github.token }}
+          FETCH_IMAGE: "docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329"
         run: |
           set -euo pipefail
-          candidate_git="$RUNNER_TEMP/security-kernel-candidate-git"
           candidate_root="$RUNNER_TEMP/security-kernel-candidate-src"
-          rm -rf "$candidate_git" "$candidate_root"
-          git init -q "$candidate_git"
-          git -C "$candidate_git" remote add origin "https://github.com/$CANDIDATE_REPOSITORY.git"
-          git -C "$candidate_git" fetch --no-tags --depth=1 --filter=blob:none origin "$CANDIDATE_SHA"
-          test "$(git -C "$candidate_git" config --get remote.origin.promisor)" = "true"
-          test "$(git -C "$candidate_git" config --get remote.origin.partialclonefilter)" = "blob:none"
-          resolved="$(git -C "$candidate_git" rev-parse FETCH_HEAD)"
-          test "$resolved" = "$CANDIDATE_SHA"
-          if git -C "$candidate_git" ls-tree -r "$resolved" | grep -q "^160000 "; then
-            echo "candidate source contains a gitlink/submodule; qualification requires a self-contained source tree" >&2
-            exit 1
-          fi
-          candidate_tree="$(git -C "$candidate_git" rev-parse FETCH_HEAD^{tree})"
+          rm -rf "$candidate_root"
+          mkdir -p "$candidate_root"
+
+          python3 - "$CANDIDATE_REPOSITORY" "$CANDIDATE_SHA" <<'PY' > "$RUNNER_TEMP/security-kernel-candidate-tree.env"
+          import json, os, sys, urllib.parse, urllib.request
+          repository, commit_sha = sys.argv[1], sys.argv[2]
+          req = urllib.request.Request(
+              "https://api.github.com/repos/"
+              + urllib.parse.quote(repository, safe="/")
+              + "/commits/" + commit_sha,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(req, timeout=30) as response:
+              commit = json.load(response)
+          assert commit.get("sha") == commit_sha, "GitHub commit API returned the wrong candidate commit"
+          tree_sha = ((commit.get("commit") or {}).get("tree") or {}).get("sha")
+          assert isinstance(tree_sha, str) and len(tree_sha) == 40
+          print(tree_sha)
+          PY
+          candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
+          printf '%s' "$candidate_tree" | grep -Eq '^[0-9a-f]{40}$'
+
           python3 - "$CANDIDATE_REPOSITORY" "$candidate_tree" <<'PY'
           import json, os, sys, urllib.parse, urllib.request
           repository, tree_sha = sys.argv[1], sys.argv[2]
@@ -152,7 +165,6 @@ jobs:
           count = 0
           total_path_bytes = 0
           max_blob = 0
-
           for entry in entries:
               entry_type = entry.get("type")
               mode = entry.get("mode")
@@ -177,21 +189,59 @@ jobs:
               assert size <= max_file_bytes, f"candidate file exceeds {max_file_bytes} bytes: {path!r}"
               assert total <= max_total_bytes, f"candidate tree exceeds {max_total_bytes} total bytes"
 
-          print(f"source_tree_entry_count={len(entries)}")
-          print(f"source_file_count={count}")
-          print(f"source_total_path_bytes={total_path_bytes}")
-          print(f"source_total_bytes={total}")
-          print(f"source_max_blob_bytes={max_blob}")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+          with open(os.environ["RUNNER_TEMP"] + "/security-kernel-source-tree-stats.txt", "w", encoding="utf-8") as output:
               output.write(f"source_tree_entry_count={len(entries)}\n")
               output.write(f"source_file_count={count}\n")
               output.write(f"source_total_path_bytes={total_path_bytes}\n")
               output.write(f"source_total_bytes={total}\n")
               output.write(f"source_max_blob_bytes={max_blob}\n")
           PY
-          mkdir -p "$candidate_root"
-          git -C "$candidate_git" archive --format=tar "$resolved" | tar -xf - -C "$candidate_root"
-          printf 'candidate_tree=%s\n' "$candidate_tree" >> "$GITHUB_OUTPUT"
+
+          docker pull --quiet "$FETCH_IMAGE"
+          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$FETCH_IMAGE" |
+            grep -Fx "$FETCH_IMAGE"
+
+          runner_uid="$(id -u)"
+          runner_gid="$(id -g)"
+          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --volume "$candidate_root:/output:rw"             "$FETCH_IMAGE" /bin/bash -euc '
+              set -euo pipefail
+              export XDG_CONFIG_HOME=/tmp/config
+              mkdir -p /tmp/config /tmp/repository
+              git config --global core.hooksPath /dev/null
+              git config --global protocol.file.allow never
+              git config --global protocol.ext.allow never
+              git -C /tmp/repository init -q
+              git -C /tmp/repository remote add origin "https://github.com/$CANDIDATE_REPOSITORY.git"
+              git -C /tmp/repository -c fetch.fsckObjects=true -c protocol.version=2 fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
+              resolved="$(git -C /tmp/repository rev-parse FETCH_HEAD)"
+              test "$resolved" = "$CANDIDATE_SHA"
+              timeout --signal=TERM --kill-after=10s 3m git -C /tmp/repository fsck --full --strict "$resolved"
+              if git -C /tmp/repository ls-tree -r "$resolved" | grep -q "^160000 "; then
+                echo "candidate source contains a gitlink/submodule; qualification requires a self-contained source tree" >&2
+                exit 1
+              fi
+              git -C /tmp/repository archive --format=tar "$resolved" |
+                tar -xf - -C /output --no-same-owner --no-same-permissions
+
+              python3 - <<'PY'
+              from pathlib import Path
+              import stat
+              root=Path("/output")
+              for path in root.rglob("*"):
+                  mode=path.lstat().st_mode
+                  if stat.S_ISLNK(mode):
+                      raise SystemExit(f"candidate source contains forbidden symlink: {path.relative_to(root)}")
+                  if path.is_dir():
+                      continue
+                  if not stat.S_ISREG(mode):
+                      raise SystemExit(f"candidate source contains forbidden non-regular file: {path.relative_to(root)}")
+              PY
+              echo "PASS: hostile Git transport, object validation, archive parsing, and source extraction executed in isolated fetch sandbox"
+            '
+
+          candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
+          test "${#candidate_tree}" -eq 40
+          printf 'candidate_tree=%s\nfetch_image=%s\n' "$candidate_tree" "$FETCH_IMAGE" >> "$GITHUB_OUTPUT"
 
           python3 - "$candidate_root" <<'PY'
           import hashlib, pathlib, stat, sys
