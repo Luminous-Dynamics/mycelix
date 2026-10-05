@@ -1430,10 +1430,17 @@ fn find_mint_cap_counter_record() -> ExternResult<Option<(Record, SapMintCapCoun
         )?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.last() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        let record = follow_update_chain(hash)?;
+    if links.is_empty() {
+        return Ok(None);
+    }
+    let link = exact_one_index_link(
+        links,
+        "MintCapCounterAnchor",
+        MINT_CAP_COUNTER_ANCHOR,
+    )?;
+    let hash = ActionHash::try_from(link.target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    let record = follow_update_chain(hash)?;
         let entry = record
             .entry()
             .to_app_option::<SapMintCapCounterEntry>()
