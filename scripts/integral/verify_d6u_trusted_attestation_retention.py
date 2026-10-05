@@ -23,10 +23,10 @@ SUBJECTS = (
 FILES = (
     "d6u-runtime-evidence.attestation.jsonl",
     "d6u-runtime-test.attestation.jsonl",
-    "Cargo.lock.attestation.jsonl",
+    "Cargo_lock.attestation.jsonl",
     "d6u-runtime-evidence.offline.json",
     "d6u-runtime-test.offline.json",
-    "Cargo.lock.offline.json",
+    "Cargo_lock.offline.json",
     "trusted_root.jsonl",
     "retention-transcript.json",
 )
@@ -34,6 +34,7 @@ MAX_FILE_BYTES = 4 * 1024 * 1024
 MAX_ROOT_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 18 * 1024 * 1024
 MAX_JSONL_LINES = 64
+RETAINED_FILES = tuple(name for name in FILES if name != "retention-transcript.json")
 
 
 def sha256(path: Path) -> str:
@@ -210,13 +211,13 @@ def main() -> None:
 
     retained = transcript["retained_files"]
     assert isinstance(retained, dict)
-    assert set(retained) == set(FILES)
+    assert set(retained) == set(RETAINED_FILES)
 
-    for name in FILES:
+    for name in RETAINED_FILES:
         assert_hash_record(root, name, retained[name])
 
     for subject_name in SUBJECTS:
-        safe = Path(subject_name).stem
+        safe = subject_name.replace(".", "_").replace("-", "_")
         bundle_name = safe + ".attestation.jsonl"
         report_name = safe + ".offline.json"
         load_jsonl(root / bundle_name)
