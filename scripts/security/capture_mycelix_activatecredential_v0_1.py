@@ -23,7 +23,21 @@ def result(state:str,reason:str,details:dict[str,Any]|None=None)->dict[str,Any]:
     return out
 
 def self_test()->int:
+    source = Path(__file__).read_text(encoding="utf-8")
+    if "MYCELIX_AK_AUTH" not in source:
+        print("protected AK auth environment source: FAIL")
+        return 1
+    if '"file:<redacted>"' not in source:
+        print("redacted authorization transcript: FAIL")
+        return 1
+    if '"-p","akpass"' in source or '"-p", "akpass"' in source:
+        print("plaintext AK password in command path: FAIL")
+        return 1
+    if '"capture_source_sha256"' not in source:
+        print("capture source digest field: FAIL")
+        return 1
     print("ActivateCredential capture helper semantic source policy: PASS")
+    print("AK authorization redaction policy: PASS")
     print("physical execution is required for a live PASS")
     return 0
 
