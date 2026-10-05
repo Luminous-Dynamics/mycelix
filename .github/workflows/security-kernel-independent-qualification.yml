@@ -51,6 +51,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+
+      - name: Assert Rust identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
+          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+
       - name: Validate dispatch provenance
         shell: bash
         env:
