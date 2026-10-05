@@ -2,7 +2,7 @@ name: Security Kernel Qualification — Trusted Result Verifier
 
 on:
   workflow_run:
-    workflows: ["Security Kernel Independent Qualification"]
+    workflows: ["Security Kernel Qualification — Trusted Dispatcher"]
     types: [completed]
 
 permissions:
@@ -19,8 +19,10 @@ env:
   BASE_BRANCH: "main"
   SOURCE_WORKFLOW_ID: "372951439"
   SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
+  TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "7907ef0e1453b6ff6414b744ee0133f5eb9891a4"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "662b6b332521e89ce056d2e899558309ef12bf4a"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "e0267f2780e0662d053f656e5756d49f576e97eb"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -36,7 +38,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify qualification provenance and gates
+      - name: Verify trusted dispatcher, reusable S1, and qualification gates
         shell: bash
         env:
           TOKEN: ${{ github.token }}
@@ -55,10 +57,14 @@ jobs:
           run_attempt = int(os.environ["RUN_ATTEMPT"])
 
           def get(path):
-              req = urllib.request.Request(base + path, headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {token}",
-                  "X-GitHub-Api-Version": "2022-11-28"})
+              req = urllib.request.Request(
+                  base + path,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
               with urllib.request.urlopen(req, timeout=20) as response:
                   return json.load(response)
 
@@ -66,29 +72,37 @@ jobs:
           assert run["id"] == int(run_id)
           assert run["run_attempt"] == run_attempt
           assert run["status"] == "completed"
-          assert run["event"] == "workflow_dispatch"
-          assert run["path"] == os.environ["INDEPENDENT_WORKFLOW_PATH"]
+          assert run["conclusion"] == "success"
+          assert run["event"] == "workflow_run"
+          assert run["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
           assert run["repository"]["full_name"] == repo
-          assert run["workflow_ref"] == f"{repo}/{os.environ['INDEPENDENT_WORKFLOW_PATH']}@refs/heads/main"
-
-          title = run.get("display_title", "")
-          match = re.fullmatch(r"SEC-KERNEL-INDEP candidate=([0-9a-f]{40}) pr=([0-9]+) source=([0-9]+)\.([0-9]+)", title)
-          assert match, f"unexpected independent qualification run name: {title!r}"
-          candidate_sha, candidate_pr, source_run_id, source_run_attempt = match.groups()
-          source_run_attempt = int(source_run_attempt)
+          assert run["workflow_ref"] == f"{repo}/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}@refs/heads/main"
 
           workflow_sha = run.get("workflow_sha")
-          assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected workflow_sha: {workflow_sha!r}"
+          assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected dispatcher workflow_sha: {workflow_sha!r}"
 
-          workflow_at_run = get(
-              "/repos/" + repo + "/contents/" + os.environ["INDEPENDENT_WORKFLOW_PATH"]
-              + "?ref=" + workflow_sha)
-          assert workflow_at_run["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
-              "S1 workflow executed by this run does not match the registered immutable profile"
+          dispatcher_at_run = get(
+              f"/repos/{repo}/contents/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}?ref={workflow_sha}"
+          )
+          assert dispatcher_at_run["sha"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA"], (
+              "executing S0 dispatcher blob is outside the registered trust profile"
           )
 
-          main_sha = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
-          subprocess.run(["git", "merge-base", "--is-ancestor", workflow_sha, main_sha], check=True)
+          s1_at_run = get(
+              f"/repos/{repo}/contents/{os.environ['INDEPENDENT_WORKFLOW_PATH']}?ref={workflow_sha}"
+          )
+          assert s1_at_run["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
+              "same-commit S1 reusable workflow blob is outside the registered trust profile"
+          )
+
+          title = run.get("display_title", "")
+          match = re.fullmatch(
+              r"SEC-KERNEL-DISPATCH source=([0-9]+)\.([0-9]+) candidate=([0-9a-f]{40})",
+              title,
+          )
+          assert match, f"unexpected trusted-dispatch run name: {title!r}"
+          source_run_id, source_run_attempt, candidate_sha = match.groups()
+          source_run_attempt = int(source_run_attempt)
 
           source = get(f"/repos/{repo}/actions/runs/{source_run_id}")
           assert source["id"] == int(source_run_id)
@@ -101,30 +115,36 @@ jobs:
           assert source["head_sha"] == candidate_sha
 
           source_head_repository = (source.get("head_repository") or {}).get("full_name")
-          assert source_head_repository, "source run missing head repository identity"
+          assert source_head_repository, "source qualification run is missing head repository identity"
 
-          pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
-          assert pr["base"]["repo"]["full_name"] == repo
-          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-          assert pr["state"] == "open"
-          assert pr["head"]["repo"]["full_name"] == source_head_repository
-          assert pr["head"]["sha"] == candidate_sha
+          pulls = get(f"/repos/{repo}/commits/{candidate_sha}/pulls?per_page=100")
+          matches = [
+              pr for pr in pulls
+              if pr["base"]["repo"]["full_name"] == repo
+              and pr["base"]["ref"] == os.environ["BASE_BRANCH"]
+              and pr["head"]["repo"]["full_name"] == source_head_repository
+              and pr["head"]["sha"] == candidate_sha
+              and pr["state"] == "open"
+          ]
+          assert len(matches) == 1, f"expected one exact open candidate PR, found {len(matches)}"
+          candidate_pr = matches[0]["number"]
 
           jobs = get(f"/repos/{repo}/actions/runs/{run_id}/jobs?per_page=100")["jobs"]
-          assert len(jobs) == 1, f"expected one independent qualification job, found {len(jobs)}"
-          job = jobs[0]
-          assert job["name"] == os.environ["EXPECTED_JOB_NAME"]
+          matching = [job for job in jobs if job["name"] == os.environ["EXPECTED_JOB_NAME"]]
+          assert len(matching) == 1, f"expected one reusable S1 job, found {len(matching)}"
+          job = matching[0]
+          assert job["conclusion"] == "success"
           assert job["run_id"] == int(run_id)
 
           required = (
               "Checkout trusted qualification root",
-              "Verify default-branch workflow invocation context",
-              "Validate dispatch provenance",
+              "Verify same-commit reusable-workflow invocation context",
+              "Validate source qualification provenance",
               "Resolve exact candidate source",
               "Static trust-surface audit",
               "Snapshot exact candidate source identity",
-              "Pull and preflight pinned sandbox image",
               "Snapshot locked dependency identity",
+              "Pull and preflight pinned sandbox image",
               "Prepare locked dependency subject",
               "Vendor locked dependency closure in fetch sandbox",
               "Execute candidate qualification in disposable networkless sandbox",
@@ -133,18 +153,19 @@ jobs:
           )
           steps = {step["name"]: step["conclusion"] for step in (job.get("steps") or [])}
           missing = [name for name in required if name not in steps]
-          assert not missing, f"required qualification steps missing: {missing}"
+          assert not missing, f"required S1 steps missing: {missing}"
           failed = {name: steps[name] for name in required if steps[name] != "success"}
           assert not failed, f"independent qualification gate failed: {failed}"
-          assert job["conclusion"] == "success"
 
           print(json.dumps({
               "candidate_sha": candidate_sha,
-              "candidate_pr": int(candidate_pr),
+              "candidate_pr": candidate_pr,
+              "candidate_repository": source_head_repository,
               "source_run_id": int(source_run_id),
               "source_run_attempt": source_run_attempt,
-              "trusted_workflow_sha": workflow_sha,
-              "trusted_workflow_ref": run["workflow_ref"],
+              "trusted_dispatcher_workflow_sha": workflow_sha,
+              "trusted_dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
+              "trusted_s1_workflow_blob_sha": s1_at_run["sha"],
               "independent_qualification": "verified-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
