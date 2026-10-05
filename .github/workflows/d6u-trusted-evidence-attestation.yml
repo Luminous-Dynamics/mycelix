@@ -31,7 +31,10 @@ jobs:
           persist-credentials: false
 
       - name: Assert trusted workflow root
-        run: test "$(git rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
+          test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
 
       - name: Preflight trusted verifier
         run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py
