@@ -14,11 +14,11 @@ RFC 8949 requires a CBOR-based protocol to define duplicate-map-key handling, di
 
 ## Boundary
 
-The fixture contains 30 exact byte strings:
+The fixture contains 33 exact byte strings:
 
 - 4 canonical positive controls;
 - 8 COSE/ARP message-policy rejects, including duplicate labels and protected-header requirements;
-- 14 deterministic-CBOR encoding rejects, including preferred-serialization, map ordering, indefinite-length deviations, and non-shortest floating-point encodings;
+- 17 deterministic-CBOR encoding rejects, including preferred-serialization, map ordering, indefinite-length deviations, non-shortest floating-point encodings, and the explicit synthetic NaN exclusion;
 - 4 parse/validity failures, including truncation, trailing bytes under the one-item framing contract, invalid UTF-8, and reserved simple-value encoding.
 
 The manifest stores only case identity, family, and exact hexadecimal bytes. It contains no expected-verdict or oracle-verdict fields.
