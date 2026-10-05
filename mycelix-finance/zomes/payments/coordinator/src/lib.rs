@@ -444,111 +444,10 @@ const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 /// route all issuance through authorized mints (`mint_sap_from_governance` already
 /// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
 #[hdk_extern]
-pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
-    // Owner-authenticated balance model: direct credit may no longer mutate
-    // another member's final account state. Cross-account value movement must
-    // use the typed transfer/claim protocol instead.
-    verify_caller_is_did(&input.member_did)?;
-
-    // Opportunistically drain any pending compost deliveries
-    if let Err(e) = drain_pending_compost_inner() {
-        debug!(
-            "credit_sap: pending compost drain failed (non-fatal): {:?}",
-            e
-        );
-    }
-
-    // Check if this member has no balance — if so, auto-initialize (no race concern for create)
-    if find_sap_balance_record(&input.member_did)?.is_none() {
-        let now = sys_time()?;
-        let balance = SapBalance {
-            member_did: input.member_did.clone(),
-            balance: input.amount,
-            last_demurrage_at: now,
-            exemption: None,
-            justified_by: None,
-        };
-        let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
-        create_link(
-            anchor_hash(&format!("sap:{}", input.member_did))?,
-            action_hash.clone(),
-            LinkTypes::DidToSapBalance,
-            (),
-        )?;
-        return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-            format!(
-                "SAP balance record not found after credit_sap initialization for member {}",
-                input.member_did
-            )
-        )));
-    }
-
-    // Existing balance: optimistic-locking retry loop
-    for attempt in 0..MAX_SAP_RETRIES {
-        let (record, bal) = get_sap_balance_inner(&input.member_did)?;
-        let now = sys_time()?;
-
-        // Apply pending demurrage first, then credit.
-        // If elapsed time is very small (< 60s), a concurrent writer likely already
-        // applied demurrage and updated last_demurrage_at. Skip recomputation to
-        // avoid double-application against a stale balance.
-        let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
-        let post_demurrage = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
-            let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
-            let deduction = compute_demurrage_with_exemption(
-                bal.balance,
-                bal.exemption.as_ref(),
-                now_secs,
-                DEMURRAGE_EXEMPT_FLOOR,
-                DEMURRAGE_RATE,
-                elapsed,
-            );
-            bal.balance.saturating_sub(deduction)
-        } else {
-            bal.balance
-        };
-
-        let expected_balance = post_demurrage + input.amount;
-        let updated = SapBalance {
-            balance: expected_balance,
-            last_demurrage_at: now,
-            ..bal
-        };
-        let action_hash = update_entry(
-            record.action_address().clone(),
-            &EntryTypes::SapBalance(updated),
-        )?;
-
-        // Verify our update won: re-read from the anchor
-        let verify = find_sap_balance_record(&input.member_did)?;
-        if let Some((_, actual)) = verify {
-            if actual.balance == expected_balance {
-                return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
-                    WasmErrorInner::Guest(format!(
-                        "SAP balance record not found after credit for member {}",
-                        input.member_did
-                    ))
-                ));
-            }
-        }
-
-        // Concurrent update detected
-        if attempt == MAX_SAP_RETRIES - 1 {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "credit_sap for {} failed after {} retries due to concurrent modifications",
-                input.member_did, MAX_SAP_RETRIES
-            ))));
-        }
-        debug!(
-            "credit_sap: concurrent update detected for {}, retry {}/{}",
-            input.member_did,
-            attempt + 1,
-            MAX_SAP_RETRIES
-        );
-    }
-
+pub fn credit_sap(_input: CreditSapInput) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
-        "credit_sap: retry loop exited unexpectedly".into()
+        "credit_sap is retired: use claim_sap_transfer or claim_sap_mint for owner-authenticated balance increases"
+            .into(),
     )))
 }
 
@@ -557,103 +456,6 @@ pub struct CreditSapInput {
     pub member_did: String,
     pub amount: u64,
     pub reason: String,
-}
-
-/// Debit SAP from a member's balance (enforces demurrage + sufficient balance).
-///
-/// Uses optimistic locking with retry: after updating, re-reads to verify
-/// our update won. If a concurrent update created a fork, retries.
-///
-/// AUTHORIZATION: only the balance owner may debit their own balance. Every
-/// legitimate caller (`send_payment`, bridge `process_payment`, `redeem_collateral`)
-/// already verifies caller == the debited member before reaching here, and each
-/// runs in that member's agent context, so this guard is transparent to them —
-/// it closes the previously-open "drain any DID's balance" hole for direct callers.
-#[hdk_extern]
-pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
-    verify_caller_is_did(&input.member_did)?;
-
-    // Opportunistically drain any pending compost deliveries
-    if let Err(e) = drain_pending_compost_inner() {
-        debug!(
-            "debit_sap: pending compost drain failed (non-fatal): {:?}",
-            e
-        );
-    }
-
-    for attempt in 0..MAX_SAP_RETRIES {
-        let (record, bal) = get_sap_balance_inner(&input.member_did)?;
-        let now = sys_time()?;
-
-        // Apply pending demurrage first.
-        // Skip if elapsed < 60s — a concurrent writer likely already applied demurrage
-        // and updated last_demurrage_at (avoids double-application on retry).
-        let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
-        let effective = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
-            let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
-            let deduction = compute_demurrage_with_exemption(
-                bal.balance,
-                bal.exemption.as_ref(),
-                now_secs,
-                DEMURRAGE_EXEMPT_FLOOR,
-                DEMURRAGE_RATE,
-                elapsed,
-            );
-            bal.balance.saturating_sub(deduction)
-        } else {
-            bal.balance
-        };
-
-        if input.amount > effective {
-            let demurrage_applied = bal.balance.saturating_sub(effective);
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Insufficient SAP balance: effective {} (raw {} - demurrage {}), need {}",
-                effective, bal.balance, demurrage_applied, input.amount
-            ))));
-        }
-
-        let expected_balance = effective - input.amount;
-        let updated = SapBalance {
-            balance: expected_balance,
-            last_demurrage_at: now,
-            ..bal
-        };
-        let action_hash = update_entry(
-            record.action_address().clone(),
-            &EntryTypes::SapBalance(updated),
-        )?;
-
-        // Verify our update won: re-read from the anchor
-        let verify = find_sap_balance_record(&input.member_did)?;
-        if let Some((_, actual)) = verify {
-            if actual.balance == expected_balance {
-                return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
-                    WasmErrorInner::Guest(format!(
-                        "SAP balance record not found after debit for member {}",
-                        input.member_did
-                    ))
-                ));
-            }
-        }
-
-        // Concurrent update detected
-        if attempt == MAX_SAP_RETRIES - 1 {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "debit_sap for {} failed after {} retries due to concurrent modifications",
-                input.member_did, MAX_SAP_RETRIES
-            ))));
-        }
-        debug!(
-            "debit_sap: concurrent update detected for {}, retry {}/{}",
-            input.member_did,
-            attempt + 1,
-            MAX_SAP_RETRIES
-        );
-    }
-
-    Err(wasm_error!(WasmErrorInner::Guest(
-        "debit_sap: retry loop exited unexpectedly".into()
-    )))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -680,15 +482,59 @@ pub struct TransferSapInput {
 /// to finalize the recipient leg.
 #[hdk_extern]
 pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
-    let transfer_id = match input.transfer_id {
-        Some(id) => id,
-        None => format!(
+    verify_caller_is_did(&input.from_did)?;
+
+    if input.to_did.is_empty() || !input.to_did.starts_with("did:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer recipient DID is invalid".into(),
+        )));
+    }
+    if input.from_did == input.to_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot transfer SAP to yourself".into(),
+        )));
+    }
+    if input.amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer amount must be positive".into(),
+        )));
+    }
+
+    // Preserve the existing SAP fee economics. The sender-side fee debit and
+    // transfer intent/debit occur in this same zome invocation, so the source
+    // chain commits the local transition atomically.
+    let fee = compute_sap_fee(&input.from_did, input.amount)?;
+    if fee > 0 {
+        debit_sap(DebitSapInput {
+            member_did: input.from_did.clone(),
+            amount: fee,
+            reason: format!("SAP transfer fee to global commons ({})", fee),
+        })?;
+
+        if let Err(err) = call(
+            CallTargetCell::Local,
+            ZomeName::from("treasury"),
+            FunctionName::from("receive_compost"),
+            None,
+            ReceiveCompostPayload {
+                commons_pool_id: "global-fee-pool".to_string(),
+                amount: fee,
+                source_member_did: input.from_did.clone(),
+            },
+        ) {
+            debug!("SAP transfer fee routing failed: {:?}", err);
+        }
+    }
+
+    let transfer_id = input.transfer_id.unwrap_or_else(|| {
+        format!(
             "transfer:{}:{}:{}",
             input.from_did,
             input.to_did,
-            sys_time()?.as_micros()
-        ),
-    };
+            sys_time().map(|time| time.as_micros()).unwrap_or_default()
+        )
+    });
+
     initiate_sap_transfer(TransferSapIntentInput {
         transfer_id,
         from_did: input.from_did,
@@ -697,6 +543,7 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
         expires_at: None,
     })
 }
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TransferSapIntentInput {
@@ -1665,49 +1512,14 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         )?;
     }
 
-    // If sending SAP, enforce on-chain balance with demurrage + progressive fee
-    let (memo, fee_amount) = if input.currency == "SAP" {
-        // input.amount is already in micro-SAP (u64)
-        // Compute progressive fee based on sender's MYCEL score
-        let fee = compute_sap_fee(&input.from_did, input.amount)?;
-        let total_debit = input.amount + fee;
+    if input.currency == "SAP" {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Synchronous SAP send is retired: use transfer_sap and claim_sap_transfer"
+                .into(),
+        )));
+    }
 
-        // Debit sender's SAP balance (amount + fee, applies demurrage)
-        debit_sap(DebitSapInput {
-            member_did: input.from_did.clone(),
-            amount: total_debit,
-            reason: format!("Payment to {} (includes fee {})", input.to_did, fee),
-        })?;
-
-        // Credit receiver's SAP balance (amount only, fee goes to commons)
-        credit_sap(CreditSapInput {
-            member_did: input.to_did.clone(),
-            amount: input.amount,
-            reason: format!("Payment from {}", input.from_did),
-        })?;
-
-        // Route fee to commons via treasury (if fee > 0)
-        if fee > 0 {
-            if let Err(e) = call(
-                CallTargetCell::Local,
-                ZomeName::from("treasury"),
-                FunctionName::from("receive_compost"),
-                None,
-                ReceiveCompostPayload {
-                    commons_pool_id: "global-fee-pool".to_string(),
-                    amount: fee,
-                    source_member_did: input.from_did.clone(),
-                },
-            ) {
-                debug!("Fee routing to global-fee-pool failed: {:?}", e);
-            }
-        }
-
-        (input.memo.clone(), fee)
-    } else {
-        (input.memo.clone(), 0)
-    };
-
+    let (memo, fee_amount) = (input.memo.clone(), 0);
     let payment = Payment {
         id: format!("payment:{}:{}", input.from_did, now.as_micros()),
         from_did: input.from_did.clone(),
