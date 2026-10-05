@@ -2588,6 +2588,70 @@ async fn dsid_080_deactivated_did_rejects_ruleset_publication() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_081_deactivated_did_rejects_domain_reputation_report() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-domain-reputation-report",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated reputation reporter regression",
+        )
+        .await;
+
+    let blocked: Result<ActionHash, _> = conductor
+        .call_fallible(
+            &cell.zome("reputation_aggregator"),
+            "report_domain_score",
+            serde_json::json!({
+                "agent_pubkey_b64": agent.to_string(),
+                "cluster": "identity",
+                "score": 0.75
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(
+        blocked.is_err(),
+        "deactivated reporter must not publish a new domain reputation claim"
+    );
+    assert!(
+        rejection.contains("DID is not active"),
+        "domain reputation rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("reporter", agent.to_string());
+    emit_evidence(
+        "DSID-081",
+        "deactivated-did-rejects-domain-reputation-report",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated DID cannot publish a new cross-cluster domain reputation claim.",
+        format!("domain_reputation_report_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
