@@ -2750,6 +2750,7 @@ mod tests {
             &fixture.effect,
             &fixture.route,
             &fixture.profile,
+            &fixture.profile.profile_commitment,
             &fixture.set,
             &fixture.assessment,
             &fixture.evidence,
@@ -2791,6 +2792,7 @@ mod tests {
                 &forged_d6m.effect,
                 &forged_d6m.route,
                 &forged_d6m.profile,
+                &forged_d6m.profile.profile_commitment,
                 &forged_d6m.set,
                 &forged_d6m.assessment,
                 &forged_d6m.evidence,
@@ -2818,6 +2820,7 @@ mod tests {
                 &forged_d6n.effect,
                 &forged_d6n.route,
                 &forged_d6n.profile,
+                &forged_d6n.profile.profile_commitment,
                 &forged_d6n.set,
                 &forged_d6n.assessment,
                 &forged_d6n.evidence,
@@ -2838,11 +2841,38 @@ mod tests {
         forged_d6o.eligibility_receipt.eligibility_commitment =
             forged_d6o.eligibility_receipt.recomputed_commitment();
         assert!(forged_d6o.eligibility_receipt.commitment_matches());
+        let mut forged_profile = baseline.clone();
+        forged_profile.profile.allow_explicit_conflict_resolution =
+            !forged_profile.profile.allow_explicit_conflict_resolution;
+        forged_profile.profile.profile_commitment =
+            forged_profile.profile.recomputed_commitment();
+        assert!(forged_profile.profile.commitment_matches());
+        assert!(
+            compose_finality_eligibility_from_authoritative_d6n_d6o(
+                &forged_profile.effect,
+                &forged_profile.route,
+                &forged_profile.profile,
+                &baseline.profile.profile_commitment,
+                &forged_profile.set,
+                &forged_profile.assessment,
+                &forged_profile.evidence,
+                std::slice::from_ref(&forged_profile.eligibility_receipt),
+                &forged_profile.lifecycle_profile,
+                &forged_profile.d6o_ledger,
+                &forged_profile.current_frontier_root,
+                &forged_profile.live_generation_id,
+                forged_profile.required_independent_observations,
+            )
+            .is_none(),
+            "self-consistent D6N policy substitution must be rejected by the pinned profile expectation"
+        );
+
         assert!(
             compose_finality_eligibility_from_authoritative_d6n_d6o(
                 &forged_d6o.effect,
                 &forged_d6o.route,
                 &forged_d6o.profile,
+                &forged_d6o.profile.profile_commitment,
                 &forged_d6o.set,
                 &forged_d6o.assessment,
                 &forged_d6o.evidence,
