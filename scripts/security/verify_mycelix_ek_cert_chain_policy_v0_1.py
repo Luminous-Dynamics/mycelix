@@ -484,7 +484,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         work = Path(td)
         try:
             chain_ok, chain_detail = verify_chain(
-                leaf, intermediate, root, crl, manifest["verification_time_unix"], work
+                leaf, intermediate, root, crl_bundle_pem, manifest["verification_time_unix"], work
             )
             leaf_text = x509_text(leaf, work, "leaf-profile")
             intermediate_text = x509_text(intermediate, work, "intermediate-profile")
