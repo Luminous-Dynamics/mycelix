@@ -592,6 +592,10 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         claim_ceiling.contains("do not constitute observed runtime results"),
         "semantic manifest must explicitly deny observed runtime qualification"
     );
+    assert!(
+        !claim_ceiling.contains("RuntimeQualificationPassed"),
+        "semantic manifest must never advertise a runtime-passed claim ceiling"
+    );
 
     let cases = manifest["cases"]
         .as_array()
