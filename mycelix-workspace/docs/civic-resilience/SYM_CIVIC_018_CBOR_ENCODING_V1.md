@@ -14,11 +14,11 @@ RFC 8949 requires a CBOR-based protocol to define duplicate-map-key handling, di
 
 ## Boundary
 
-The fixture contains 24 exact byte strings:
+The fixture contains 30 exact byte strings:
 
-- 2 canonical positive controls;
+- 4 canonical positive controls;
 - 8 COSE/ARP message-policy rejects, including duplicate labels and protected-header requirements;
-- 10 deterministic-CBOR encoding rejects, including preferred-serialization, map ordering, and indefinite-length deviations;
+- 14 deterministic-CBOR encoding rejects, including preferred-serialization, map ordering, indefinite-length deviations, and non-shortest floating-point encodings;
 - 4 parse/validity failures, including truncation, trailing bytes under the one-item framing contract, invalid UTF-8, and reserved simple-value encoding.
 
 The manifest stores only case identity, family, and exact hexadecimal bytes. It contains no expected-verdict or oracle-verdict fields.
@@ -31,7 +31,7 @@ Duplicate labels inside either the protected or unprotected COSE header map are 
 
 ## Determinism policy
 
-For this research seam, an accepted message must be representable in the RFC 8949 core deterministic form. Non-preferred integer/length encodings, indefinite-length items, and incorrect map-key ordering therefore receive CBOR_ENCODING_REJECT rather than being silently normalized.
+For this research seam, an accepted message must be representable in the RFC 8949 core deterministic form. Non-preferred integer/length encodings, non-shortest finite/infinity floating-point encodings, indefinite-length items, and incorrect map-key ordering therefore receive CBOR_ENCODING_REJECT rather than being silently normalized. NaN encodings are outside this synthetic accepted profile and are rejected rather than assigned a guessed canonical payload.
 
 The qualifier does not claim to implement every CBOR semantic type or every production COSE validation rule. Its purpose is the exact-byte failure boundary immediately in front of the 018 trust-chain verifier.
 
