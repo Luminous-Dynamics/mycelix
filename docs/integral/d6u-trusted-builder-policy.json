@@ -1,5 +1,5 @@
 {
-  "policy_version": 25,
+  "policy_version": 26,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "c92c2126bd6d59862d690e5b0e2e69c44e1fc99d"
+    "blob_sha": "8cbd00a0f7555f03e5c825c8128b994c275f6f58"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -218,7 +218,7 @@
     "reject_encrypted_members": true,
     "reject_symlink_members": true,
     "expected_member_count": 3,
-    "policy_revision": 25
+    "policy_revision": 26
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
@@ -281,5 +281,16 @@
       "ref": "1e69f48acb82d1966a394da916b4c169aa569d6",
       "version": "v4.2.2"
     }
+  },
+  "trusted_cli": {
+    "name": "gh",
+    "version": "2.101.0",
+    "configuration_directory": "${{ runner.temp }}/d6u-gh-config",
+    "required_fresh_configuration": true,
+    "forbidden_environment_overrides": [
+      "GH_HOST",
+      "GH_ENTERPRISE_TOKEN",
+      "GH_REPO"
+    ]
   }
 }
