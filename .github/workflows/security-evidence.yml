@@ -62,6 +62,7 @@ jobs:
           lineage = json.loads(Path("docs/security/mycelix-ak-ek-lineage-v0.1.json").read_text())
           creation = json.loads(Path("docs/security/mycelix-ak-creation-provenance-v0.1.json").read_text())
           public_name = json.loads(Path("docs/security/mycelix-tpm-public-name-coherence-v0.1.json").read_text())
+          ak_attributes = json.loads(Path("docs/security/mycelix-ak-public-attributes-coherence-v0.1.json").read_text())
           ek_template = json.loads(Path("docs/security/mycelix-ek-template-appraisal-v0.1.json").read_text())
           assert platform["profile_id"] == "mycelix.security.platform.evidence.capture"
           assert recon["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"
@@ -87,7 +88,11 @@ jobs:
           assert public_name["profile_id"] == "mycelix.security.tpm.public-name-coherence"
           assert public_name["claim_ceiling"] == "ReferenceModelOnly"
           assert public_name["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(public_name["vectors"]) == 14
+          assert len(public_name["vectors"]) == 13
+          assert ak_attributes["profile_id"] == "mycelix.security.tpm.ak-public-attributes"
+          assert ak_attributes["claim_ceiling"] == "ReferenceModelOnly"
+          assert ak_attributes["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
+          assert len(ak_attributes["vectors"]) == 16
           assert ek_template["profile_id"] == "mycelix.security.tpm.ek-template-appraisal"
           assert ek_template["claim_ceiling"] == "ReferenceModelOnly"
           assert ek_template["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
@@ -135,6 +140,9 @@ jobs:
 
       - name: Run TPM public-name coherence semantic corpus
         run: python3 scripts/security/verify_mycelix_tpm_public_name_coherence_v0_1.py --self-test
+
+      - name: Run AK public attributes semantic corpus
+        run: python3 scripts/security/verify_mycelix_ak_public_attributes_v0_1.py --self-test
 
       - name: Run EK template appraisal semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py --self-test

@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-ak-public-attributes-coherence-v0.1",
+  "profile_id": "mycelix.security.tpm.ak-public-attributes",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "theorem": {
+    "statement": "For an AK whose Name is derived from an exact TPMT_PUBLIC byte string, fixedTPM and fixedParent are authoritative only when derived from the TPMA_OBJECT field in those same bytes.",
+    "field_layout": "TPMT_PUBLIC: type(2) || nameAlg(2) || objectAttributes(4) || authPolicy...",
+    "bits": {
+      "fixedTPM": 1,
+      "fixedParent": 4,
+      "sensitiveDataOrigin": 5
+    },
+    "invariant": "fixedTPM=SET and fixedParent=SET; reserved TPMA_OBJECT bits must be CLEAR."
+  },
+  "required_input": {
+    "verification_mode": [
+      "ReferenceModelOnly",
+      "OfflineBundle",
+      "LiveVerifierSession"
+    ],
+    "claim_ceiling": "ReferenceModelOnly",
+    "object_role": "AK",
+    "public_format": [
+      "TPMT_PUBLIC",
+      "TPM2B_PUBLIC"
+    ],
+    "public_wire_hex": "exact public-area bytes",
+    "public_wire_sha256": "SHA-256 of exact public wire bytes",
+    "name_hex": "TPM-provided object Name",
+    "readpublic_state": [
+      "PASS",
+      "DENY",
+      "INDETERMINATE"
+    ],
+    "readpublic_source_sha256": "exact ReadPublic provenance digest"
+  },
+  "outputs": [
+    "object_attributes_hex",
+    "fixedTPM",
+    "fixedParent",
+    "sensitiveDataOrigin",
+    "public_area_sha256",
+    "name_hex"
+  ],
+  "non_equivalences": [
+    [
+      "claimed_fixedTPM",
+      "derived_fixedTPM"
+    ],
+    [
+      "claimed_fixedParent",
+      "derived_fixedParent"
+    ],
+    [
+      "attribute_coherence",
+      "AK_EK_lineage"
+    ],
+    [
+      "fixedTPM_and_fixedParent",
+      "manufacturer_authenticity"
+    ],
+    [
+      "attribute_coherence",
+      "live_TPM_residency"
+    ]
+  ],
+  "vectors": [
+    [
+      "APA-V01",
+      "canonical-fixed-ak",
+      "PASS"
+    ],
+    [
+      "APA-V02",
+      "fixedTPM-cleared-in-wire",
+      "DENY"
+    ],
+    [
+      "APA-V03",
+      "fixedParent-cleared-in-wire",
+      "DENY"
+    ],
+    [
+      "APA-V04",
+      "both-fixed-cleared-in-wire",
+      "DENY"
+    ],
+    [
+      "APA-V05",
+      "sensitive-origin-cleared-with-recomputed-name",
+      "PASS"
+    ],
+    [
+      "APA-V06",
+      "reserved-bit-set",
+      "DENY"
+    ],
+    [
+      "APA-V07",
+      "public-wire-digest-substitution",
+      "DENY"
+    ],
+    [
+      "APA-V08",
+      "public-wire-substitution",
+      "DENY"
+    ],
+    [
+      "APA-V09",
+      "name-substitution",
+      "DENY"
+    ],
+    [
+      "APA-V10",
+      "name-alg-substitution",
+      "DENY"
+    ],
+    [
+      "APA-V11",
+      "format-mismatch",
+      "DENY"
+    ],
+    [
+      "APA-V12",
+      "readpublic-deny",
+      "DENY"
+    ],
+    [
+      "APA-V13",
+      "readpublic-indeterminate",
+      "INDETERMINATE"
+    ],
+    [
+      "APA-V14",
+      "reference-source-substitution",
+      "DENY"
+    ],
+    [
+      "APA-V15",
+      "live-source-unreviewed",
+      "INDETERMINATE"
+    ],
+    [
+      "APA-V16",
+      "key-order-permutation",
+      "PASS"
+    ]
+  ],
+  "future_live_capture_requirements": [
+    "consume the exact TPMT_PUBLIC bytes captured by tpm2_readpublic",
+    "derive TPMA_OBJECT and its fixedTPM/fixedParent bits from those bytes",
+    "bind the attribute result to the same public-area digest and Name proof already used for the AK",
+    "feed only the derived booleans into AK/EK lineage; never accept caller-supplied copies of the bits",
+    "retain ReadPublic source provenance and keep live origin explicit"
+  ]
+}
