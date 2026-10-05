@@ -613,11 +613,19 @@ export interface ClaimEpistemic {
   mythic: number;
 }
 
+export type EpistemicAggregateStatus =
+  | 'Classified'
+  | 'PartialClassifiedEvidence'
+  | 'NoClassifiedEvidence';
+
 export interface EpistemicScore {
   empirical: number;
   normative: number;
   mythic: number;
   overallConfidence: number;
+  evidenceStatus: EpistemicAggregateStatus;
+  classifiedClaims: number;
+  totalClaims: number;
 }
 
 export interface VerificationSummary {
