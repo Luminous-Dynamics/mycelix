@@ -6405,14 +6405,22 @@ mod tests {
             )
         );
 
-        let duplicate = state_machine_trace_publication_equivocation_witness(
-            &fork_a_publication,
-            &fork_b_publication,
+        let mut not_distinct_witness = witness.clone();
+        not_distinct_witness.second_publication_sha256 =
+            not_distinct_witness.first_publication_sha256.clone();
+        assert_eq!(
+            validate_state_machine_trace_publication_equivocation_witness(
+                &fork_a,
+                &fork_a_publication,
+                &fork_a,
+                &fork_a_publication,
+                &not_distinct_witness,
+            ),
+            Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::PublicationsNotDistinct
+            )
         );
-        let same = serde_json::from_str::<FederationStateMachineTracePublicationEquivocationWitness>(
-            &serde_json::to_string(&duplicate).expect("witness must serialize"),
-        )
-        .expect("witness round-trip must deserialize");
+
         let mut same_publication = fork_b_publication.clone();
         same_publication.publication_sha256 = fork_a_publication.publication_sha256.clone();
         assert_eq!(
@@ -6421,7 +6429,7 @@ mod tests {
                 &fork_a_publication,
                 &fork_b,
                 &same_publication,
-                &same,
+                &witness,
             ),
             Err(
                 FederationStateMachineTracePublicationEquivocationWitnessViolation::SecondPublicationInvalid(
