@@ -23,8 +23,8 @@ v3 records deterministic evidence for the selected patch:
 - maximum aperture-radial residual in micrometers;
 - boundary patch digest derived from interface identity, exact mesh identity, selection, perimeter, and residuals;
 - `evidence_level=AdapterAttested` for ordinary adapter binding;
-- `solver_entity_fingerprint` and `solver_entity_mapping_digest` when the binding is promoted to `SolverEntityAttested` after concrete solver-side entity introspection.
-- `solver_entity_observation_digest`, the digest of the adapter-owned canonical introspection observation from which that fingerprint was derived.
+- `solver_entity_fingerprint`, `solver_entity_mapping_digest`, and the canonical observation receipts when the binding is promoted to `SolverInputEntityAttested` or `SolverEntityAttested`.
+- `solver_entity_observation_digest`, the digest of the adapter-owned canonical input/entity observation from which that fingerprint was derived.
 - `solver_entity_observation_kind` and `solver_entity_observation_source_digest`, preserving the semantic kind and source-artifact lineage of that observation.
 - `SolverInputEntityAttested` is intentionally intermediate: it records a concrete solver-input entity such as an OpenFOAM boundary patch, while remaining below live `SolverEntityAttested` evidence.
 - the solver-entity mapping digest is adapter-specific, preventing an attestation receipt from being transplanted between adapter implementations.
@@ -68,11 +68,11 @@ adapter owns the vendor-specific entity extraction.
 
 `solver_binding_verified=true` means the sealed construction path established a checked binding. With `evidence_level=AdapterAttested`, the adapter's mapping draft was accepted after checking the typed interface, exact candidate mesh, and complete candidate-surface interface rim.
 
-With `evidence_level=SolverEntityAttested`, the binding additionally carries a solver-entity fingerprint, an observation digest, and a mapping digest tied to those exact identities. This is stronger provenance, not independent solver truth: the neutral core cannot inspect a vendor-specific solver's live state itself.
+With `evidence_level=SolverInputEntityAttested`, the binding additionally carries a canonical entity fingerprint, observation receipts, and a mapping digest tied to the exact rendered input artifact. With `evidence_level=SolverEntityAttested`, the same receipt structure represents additional live-capable solver-side inspection. Neither is independent solver truth: the neutral core cannot inspect vendor-specific solver state itself.
 
 The observation digest is an adapter-owned receipt for a canonical introspection record. The neutral core records and cryptographically binds it, but does not interpret vendor-specific contents.
 
-Neither evidence level means the solver accepted or executed the boundary.
+Neither stronger evidence level means the solver accepted, loaded, executed, or numerically validated the boundary.
 
 `physical_transport_unproven=true` remains mandatory. The artifact does not establish solver convergence, numerical correctness, physical transport, manufacturing fidelity, or experimental agreement.
 
