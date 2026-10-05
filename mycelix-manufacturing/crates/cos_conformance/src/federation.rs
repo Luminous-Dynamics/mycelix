@@ -3463,6 +3463,10 @@ mod tests {
         PublicationChainEmpty,
         PublicationCollectionEmpty,
         PublicationForkDetected,
+        PublicationLineageNoRoot,
+        PublicationLineageMultipleRoots,
+        PublicationLineageDisconnected,
+        PublicationLineageCycle,
         ConsistencyReceiptSchemaMismatch,
         ConsistencyReceiptProfileMismatch,
         ConsistencyReceiptProofTypeMismatch,
@@ -3695,6 +3699,79 @@ mod tests {
                     );
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    /// Validates a complete, anchored publication lineage. Unlike the
+    /// order-independent fork detector, this requires exactly one publication
+    /// rooted at the dedicated genesis and requires every unique publication
+    /// to be reachable from that root. This closes the disconnected-suffix case:
+    /// individually valid publications are not sufficient to establish a complete
+    /// lineage if some records are not connected to the declared root.
+    fn validate_state_machine_trace_checkpoint_publication_lineage(
+        snapshots: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+    ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
+        validate_state_machine_trace_checkpoint_publication_set_against_snapshots(snapshots)?;
+
+        let mut publications = BTreeMap::<
+            &str,
+            &FederationStateMachineTraceCheckpointPublication,
+        >::new();
+        for (_, publication) in snapshots {
+            publications
+                .entry(publication.publication_sha256.as_str())
+                .or_insert(publication);
+        }
+
+        let roots = publications
+            .values()
+            .filter(|publication| {
+                publication.previous_publication_sha256
+                    == FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS
+            })
+            .collect::<Vec<_>>();
+        if roots.is_empty() {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageNoRoot
+            );
+        }
+        if roots.len() > 1 {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageMultipleRoots
+            );
+        }
+
+        let mut successor_by_predecessor = BTreeMap::<&str, &str>::new();
+        for publication in publications.values() {
+            successor_by_predecessor.insert(
+                publication.previous_publication_sha256.as_str(),
+                publication.publication_sha256.as_str(),
+            );
+        }
+
+        let mut reachable = BTreeSet::new();
+        let mut current = roots[0].publication_sha256.as_str();
+        loop {
+            if !reachable.insert(current) {
+                return Err(
+                    FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageCycle
+                );
+            }
+            let Some(successor) = successor_by_predecessor.get(current) else {
+                break;
+            };
+            current = successor;
+        }
+
+        if reachable.len() != publications.len() {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageDisconnected
+            );
         }
 
         Ok(())
@@ -6007,6 +6084,36 @@ mod tests {
                 &malformed_b_first
             ),
             "qualified collection diagnostics must be permutation-invariant"
+        );
+
+        let complete_lineage = vec![(&base, &base_publication), (&fork_a, &fork_a_publication)];
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_lineage(&complete_lineage)
+                .is_ok(),
+            "complete publication lineage must be rooted and fully reachable"
+        );
+
+        let mut disconnected_suffix = fork_a_publication.clone();
+        disconnected_suffix.previous_publication_sha256 =
+            "sha256:uncollected-predecessor".into();
+        reseal_trace_checkpoint_publication_for_test(&mut disconnected_suffix);
+        let disconnected_collection =
+            vec![(&base, &base_publication), (&fork_a, &disconnected_suffix)];
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_lineage(
+                &disconnected_collection
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageDisconnected
+            )
+        );
+
+        let suffix_only = vec![(&fork_a, &fork_a_publication)];
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_lineage(&suffix_only),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageNoRoot
+            )
         );
     }
 
