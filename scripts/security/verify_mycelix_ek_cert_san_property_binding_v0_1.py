@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bind TCG EK certificate SAN identity fields to exact TPM fixed properties."""
 from __future__ import annotations
-import argparse,base64,copy,hashlib,json,re,shutil,subprocess,tempfile
+import argparse,base64,copy,hashlib,json,re,shutil,subprocess,tempfile,sys
 from pathlib import Path
 from typing import Any
 
@@ -208,6 +208,37 @@ def fixture()->dict[str,Any]:
  m={"profile_id":"mycelix.security.tpm.ek-cert-san-property-binding","profile_version":"0.1.0","verification_mode":"ReferenceModelOnly","claim_ceiling":"ReferenceModelOnly","leaf_certificate_der_base64":base64.b64encode(cert).decode(),"leaf_certificate_sha256":hashlib.sha256(cert).hexdigest(),"properties_binding":{"state":"PASS","verifier_id":PROPERTIES_VERIFIER_ID,"source_output":source,"source_output_sha256":hashlib.sha256(source.encode("utf-8")).hexdigest(),"parsed_properties":props,"verifier_source_sha256":hashlib.sha256(PROPERTIES_VERIFIER_SCRIPT.read_bytes()).hexdigest(),"verifier_input_sha256":input_sha,"verifier_output_sha256":output_sha,"verifier_input":properties_input},"registry_id":MAPPING_ID,"registry_sha256":MAPPING_SHA256,"spki_binding_state":"PASS","session_binding_sha256":""}
  m["session_binding_sha256"]=session_binding(m,props);return m
 
+def refresh_properties_binding(candidate:dict[str,Any])->None:
+ pb=candidate["properties_binding"]
+ vi=pb["verifier_input"]
+ with tempfile.TemporaryDirectory(prefix="san-property-refresh-") as td:
+  work=Path(td)
+  ip=work/"properties-input.json"
+  op=work/"properties-output.json"
+  ip.write_text(json.dumps(vi,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+  proc=subprocess.run([sys.executable,str(PROPERTIES_VERIFIER_SCRIPT),"--verify",str(ip),"--output",str(op)],cwd=work,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False)
+  if proc.returncode not in (0,1,2) or not op.is_file():
+   raise RuntimeError("property verifier refresh failed")
+  output=json.loads(op.read_text(encoding="utf-8"))
+  pb["verifier_input_sha256"]=hashlib.sha256(ip.read_bytes()).hexdigest()
+  pb["verifier_output_sha256"]=hashlib.sha256(op.read_bytes()).hexdigest()
+  pb["parsed_properties"]=output.get("details",{}).get("parsed_properties",{})
+
+def mutate_property_raw(candidate:dict[str,Any],field:str,new_raw:str)->None:
+ pb=candidate["properties_binding"]
+ vi=pb["verifier_input"]
+ source=vi["source_output"]
+ parsed=copy.deepcopy(vi["parsed_properties"])
+ old=parsed[field]["raw_hex"]
+ source=source.replace("0x"+old,"0x"+new_raw,1)
+ parsed[field]["raw_hex"]=new_raw
+ vi["source_output"]=source
+ vi["source_output_sha256"]=hashlib.sha256(source.encode("utf-8")).hexdigest()
+ vi["parsed_properties"]=parsed
+ pb["source_output"]=source
+ pb["source_output_sha256"]=vi["source_output_sha256"]
+ refresh_properties_binding(candidate)
+
 def self_test()->int:
  base=fixture()
  cases=[
@@ -219,9 +250,9 @@ def self_test()->int:
   ("properties-input-digest-substitution","DENY",lambda x:x["properties_binding"].update({"verifier_input_sha256":"14"*32})),
   ("properties-output-digest-substitution","DENY",lambda x:x["properties_binding"].update({"verifier_output_sha256":"15"*32})),
   ("certificate-san-substitution","DENY",lambda x:x.update({"leaf_certificate_der_base64":base64.b64encode(FIXTURE_BAD_CERT_DER).decode(),"leaf_certificate_sha256":hashlib.sha256(FIXTURE_BAD_CERT_DER).hexdigest()})),
-  ("manufacturer-property-substitution","INDETERMINATE",lambda x:x["properties_fixed"].update({"manufacturer_hex":"4D594359"})),
-  ("model-mapping-substitution","INDETERMINATE",lambda x:x["properties_fixed"].update({"vendor_tpm_type_hex":"00000001"})),
-  ("firmware-property-substitution","INDETERMINATE",lambda x:x["properties_fixed"].update({"firmware_version_2_hex":"00010003"})),
+  ("manufacturer-property-substitution","INDETERMINATE",lambda x:mutate_property_raw(x,"TPM2_PT_MANUFACTURER","4D594359")),
+  ("model-mapping-substitution","INDETERMINATE",lambda x:mutate_property_raw(x,"TPM2_PT_VENDOR_TPM_TYPE","00000001")),
+  ("firmware-property-substitution","INDETERMINATE",lambda x:mutate_property_raw(x,"TPM2_PT_FIRMWARE_VERSION_2","00010003")),
   ("registry-id-substitution","DENY",lambda x:x.update({"registry_id":"other"})),
   ("registry-digest-substitution","DENY",lambda x:x.update({"registry_sha256":"77"*32})),
   ("property-source-substitution","DENY",lambda x:x.update({"properties_source_sha256":"88"*32})),
