@@ -72,7 +72,7 @@ jobs:
           assert run["run_attempt"] == run_attempt
           assert run["status"] == "completed"
           assert run["conclusion"] == "success"
-          assert run["event"] == "workflow_run"
+          assert run["event"] == "pull_request_target"
           assert run["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
           assert run["repository"]["full_name"] == repo
           assert run["workflow_ref"] == f"{repo}/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}@refs/heads/main"
@@ -99,36 +99,26 @@ jobs:
 
           title = run.get("display_title", "")
           match = re.fullmatch(
-              r"SEC-KERNEL-DISPATCH source=([0-9]+)\.([0-9]+) candidate=([0-9a-f]{40})",
+              r"SEC-KERNEL-DISPATCH pr=([0-9]+) candidate=([0-9a-f]{40})",
               title,
           )
           assert match, f"unexpected trusted-dispatch run name: {title!r}"
-          source_run_id, source_run_attempt, candidate_sha = match.groups()
-          source_run_attempt = int(source_run_attempt)
+          candidate_pr, candidate_sha = match.groups()
+          candidate_pr = int(candidate_pr)
 
-          source = get(f"/repos/{repo}/actions/runs/{source_run_id}")
-          assert source["id"] == int(source_run_id)
-          assert source["status"] == "completed"
-          assert source["run_attempt"] == source_run_attempt
-          assert source["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
-          assert source["name"] == "Security Kernel Qualification"
-          assert source["event"] == "pull_request"
-          assert source["repository"]["full_name"] == repo
-          assert source["head_sha"] == candidate_sha
+          run_prs = run.get("pull_requests") or []
+          assert len(run_prs) == 1, f"S0 run must identify exactly one PR: {len(run_prs)}"
+          assert run_prs[0]["number"] == candidate_pr
 
-          source_head_repository = (source.get("head_repository") or {}).get("full_name")
-          assert source_head_repository, "source qualification run is missing head repository identity"
-
-          source_prs = source.get("pull_requests") or []
-          assert len(source_prs) == 1, f"source qualification run must identify exactly one PR: {len(source_prs)}"
-          candidate_pr = source_prs[0]["number"]
           pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
           assert pr["number"] == candidate_pr
+          assert pr["state"] == "open"
           assert pr["base"]["repo"]["full_name"] == repo
           assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-          assert pr["state"] == "open"
-          assert pr["head"]["repo"]["full_name"] == source_head_repository
           assert pr["head"]["sha"] == candidate_sha
+
+          candidate_repository = (pr.get("head", {}).get("repo") or {}).get("full_name")
+          assert candidate_repository, "candidate PR is missing head repository identity"
 
           jobs = get(
               f"/repos/{repo}/actions/runs/{run_id}/attempts/{run_attempt}/jobs?per_page=100"
@@ -136,9 +126,11 @@ jobs:
           assert len(jobs) == 2, f"trusted dispatcher must have exactly two jobs: {len(jobs)}"
           assert all(job["run_id"] == int(run_id) for job in jobs)
           assert all(job["status"] == "completed" for job in jobs)
-          resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact PR subject and source provenance"]
+
+          resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact pull request subject"]
           assert len(resolver_jobs) == 1, f"expected one S0 resolver job, found {len(resolver_jobs)}"
           assert resolver_jobs[0]["conclusion"] == "success"
+
           matching = [
               job for job in jobs
               if job["name"] == os.environ["EXPECTED_JOB_NAME"]
@@ -152,8 +144,7 @@ jobs:
 
           required = (
               "Checkout trusted qualification root",
-              "Verify same-commit reusable-workflow invocation context",
-              "Validate source qualification provenance",
+              "Verify trusted pull-request-target invocation",
               "Resolve exact candidate source",
               "Static trust-surface audit",
               "Snapshot exact candidate source identity",
@@ -167,16 +158,14 @@ jobs:
           )
           steps = {step["name"]: step["conclusion"] for step in (job.get("steps") or [])}
           missing = [name for name in required if name not in steps]
-          assert not missing, f"required S1 steps missing: {missing}"
+          assert not missing, f"required qualification steps missing: {missing}"
           failed = {name: steps[name] for name in required if steps[name] != "success"}
           assert not failed, f"independent qualification gate failed: {failed}"
 
           print(json.dumps({
               "candidate_sha": candidate_sha,
               "candidate_pr": candidate_pr,
-              "candidate_repository": source_head_repository,
-              "source_run_id": int(source_run_id),
-              "source_run_attempt": source_run_attempt,
+              "candidate_repository": candidate_repository,
               "trusted_dispatcher_workflow_sha": workflow_sha,
               "trusted_dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
               "trusted_s1_workflow_blob_sha": s1_at_run["sha"],
