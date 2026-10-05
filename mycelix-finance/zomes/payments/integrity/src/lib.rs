@@ -584,7 +584,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             "TransferIdToClaim base does not match the transfer id".into(),
                         ));
                     }
-                    Ok(())
+                    Ok(ValidateCallbackResult::Valid)
                 }
                 LinkTypes::MintIdToClaim => {
                     if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
@@ -617,7 +617,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             "MintIdToClaim base does not match the mint id".into(),
                         ));
                     }
-                    Ok(())
+                    Ok(ValidateCallbackResult::Valid)
                 }
                 LinkTypes::MemberToExitRecord => {
                     if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
