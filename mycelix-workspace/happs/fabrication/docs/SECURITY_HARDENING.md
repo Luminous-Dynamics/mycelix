@@ -45,7 +45,8 @@ The stored SafetyClaim carries an explicit provenance state:
 
 Only KnowledgeClassified claims with an attached classification contribute to current
 epistemic aggregates. The other states remain queryable but contribute zero. The aggregate
-also exposes an explicit evidence_status plus classified_claims/total_claims counts.
+also exposes an explicit evidence_status plus classified_claims/total_claims and
+uninterpretable_records counts.
 Consumers MUST NOT interpret a numeric zero as negative epistemic evidence when
 evidence_status is NoClassifiedEvidence; it means there was no Knowledge classification
 available to contribute. PartialClassifiedEvidence similarly means the aggregate is
