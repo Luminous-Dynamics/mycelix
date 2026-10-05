@@ -31,10 +31,10 @@ jobs:
     cache-mode: none
     timeout-minutes: 15
     steps:
-      - name: Checkout trusted result verifier root
+      - name: Checkout exact verifier workflow commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.workflow_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -46,8 +46,16 @@ jobs:
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
         run: |
           set -euo pipefail
+          test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-result-verifier.yml@refs/heads/main"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_REPOSITORY" = "$BASE_REPOSITORY"
+          test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
           test "$GITHUB_REF_PROTECTED" = "true"
           test "${ACTIONS_CACHE_MODE:-}" = "none"
+          workflow_blob_sha="$(git hash-object ".github/workflows/security-kernel-trusted-result-verifier.yml")"
+          test "$workflow_blob_sha" = "$GITHUB_WORKFLOW_SHA"
+          git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
+          git merge-base --is-ancestor "$GITHUB_WORKFLOW_SHA" "refs/remotes/origin/main"
 
           python3 - <<'PY'
           import json, os, re, subprocess, urllib.request
@@ -76,6 +84,8 @@ jobs:
 
           run = get(f"/repos/{repo}/actions/runs/{run_id}")
           assert run["id"] == int(run_id)
+          assert run["workflow_ref"] == f"{repo}/.github/workflows/security-kernel-trusted-result-verifier.yml@refs/heads/main"
+          assert run["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
           assert run["run_attempt"] == run_attempt
           assert run["status"] == "completed"
           assert run["conclusion"] == "success"
