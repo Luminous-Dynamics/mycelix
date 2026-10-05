@@ -1946,7 +1946,7 @@ mod tests {
     }
 
     fn set(ids: &[&str]) -> ExternalObservationSetV1 {
-        ExternalObservationSetV1 {
+        let mut set = ExternalObservationSetV1 {
             set_id: "set-1".into(),
             effect_id: "effect-1".into(),
             effect_lineage_id: "lineage-1".into(),
@@ -1962,7 +1962,9 @@ mod tests {
             target_state: crate::effect_finality::ExternalFinalityStateV1::Applied,
             set_commitment: "set-commitment".into(),
             claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
-        }
+        };
+        set.set_commitment = set.recomputed_commitment();
+        set
     }
 
     fn d6n_assessment(
