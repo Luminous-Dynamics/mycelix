@@ -597,4 +597,17 @@ mod tests {
         assert_eq!(EPISTEMIC_CACHE_MAX_ENTRIES, 128);
     }
 
+    #[test]
+    fn test_epistemic_aggregate_status_serde_roundtrip() {
+        for status in [
+            EpistemicAggregateStatus::Classified,
+            EpistemicAggregateStatus::PartialClassifiedEvidence,
+            EpistemicAggregateStatus::NoClassifiedEvidence,
+        ] {
+            let encoded = serde_json::to_string(&status).unwrap();
+            let decoded: EpistemicAggregateStatus = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(decoded, status);
+        }
+    }
+
 }
