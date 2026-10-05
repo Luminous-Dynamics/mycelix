@@ -359,3 +359,52 @@ jobs:
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
           PY
+
+
+      - name: Download retained qualification receipt through official artifact client
+        if: success()
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.1.0
+        with:
+          artifact-ids: ${{ steps.verify_result.outputs.artifact_id }}
+          path: ${{ runner.temp }}/security-kernel-official-receipt
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}
+
+      - name: Verify official receipt transport and publish verified result
+        if: success()
+        shell: bash
+        env:
+          RECEIPT_ROOT: ${{ runner.temp }}/security-kernel-official-receipt
+          EXPECTED_ARTIFACT_NAME: ${{ steps.verify_result.outputs.artifact_name }}
+          EXPECTED_ARTIFACT_DIGEST: ${{ steps.verify_result.outputs.artifact_digest }}
+          EXPECTED_ARTIFACT_SIZE: ${{ steps.verify_result.outputs.artifact_size }}
+          CANDIDATE_SHA: ${{ steps.verify_result.outputs.candidate_sha }}
+          CANDIDATE_PR: ${{ steps.verify_result.outputs.candidate_pr }}
+          CANDIDATE_REPOSITORY: ${{ steps.verify_result.outputs.candidate_repository }}
+          CANDIDATE_REPOSITORY_ID: ${{ steps.verify_result.outputs.candidate_repository_id }}
+          TRUSTED_WORKFLOW_SHA: ${{ steps.verify_result.outputs.trusted_dispatcher_workflow_sha }}
+          S0_BLOB_SHA: ${{ steps.verify_result.outputs.trusted_dispatcher_workflow_blob_sha }}
+          S1_BLOB_SHA: ${{ steps.verify_result.outputs.trusted_s1_workflow_blob_sha }}
+          VERIFIER_WORKFLOW_SHA: ${{ steps.verify_result.outputs.verifier_workflow_sha }}
+          VERIFIER_BLOB_SHA: ${{ steps.verify_result.outputs.verifier_workflow_blob_sha }}
+          ARTIFACT_ID: ${{ steps.verify_result.outputs.artifact_id }}
+        run: |
+          set -euo pipefail
+          test -d "$RECEIPT_ROOT"
+          mapfile -t receipt_files < <(find "$RECEIPT_ROOT" -type f -print)
+          test "${#receipt_files[@]}" -eq 1
+          receipt_path="${receipt_files[0]}"
+          test "$(basename "$receipt_path")" = "$EXPECTED_ARTIFACT_NAME"
+          test "$(stat -c %s "$receipt_path")" = "$EXPECTED_ARTIFACT_SIZE"
+          actual_digest="$(sha256sum "$receipt_path" | awk '{print $1}')"
+          test "sha256:$actual_digest" = "$EXPECTED_ARTIFACT_DIGEST"
+          test "$ARTIFACT_ID" -gt 0
+          printf '%s\n' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "$TRUSTED_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "$S0_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "$S1_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "$VERIFIER_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "$VERIFIER_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          echo "PASS: official artifact client returned exactly one direct-file receipt with exact filename, size, and SHA-256"
+          printf 'candidate_sha=%s\ncandidate_pr=%s\ncandidate_repository=%s\ncandidate_repository_id=%s\ntrusted_dispatcher_workflow_sha=%s\ntrusted_dispatcher_workflow_blob_sha=%s\ntrusted_s1_workflow_blob_sha=%s\nverifier_workflow_sha=%s\nverifier_workflow_blob_sha=%s\nqualification_receipt_artifact_id=%s\nqualification_receipt_artifact_digest=%s\nqualification_receipt_content_sha256=%s\nindependent_qualification=verified-pass\nstatus_publication=deliberately-deferred-to-protected-status-plane\n' "$CANDIDATE_SHA" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$TRUSTED_WORKFLOW_SHA" "$S0_BLOB_SHA" "$S1_BLOB_SHA" "$VERIFIER_WORKFLOW_SHA" "$VERIFIER_BLOB_SHA" "$ARTIFACT_ID" "$EXPECTED_ARTIFACT_DIGEST" "$actual_digest"
