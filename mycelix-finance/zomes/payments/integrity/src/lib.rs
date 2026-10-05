@@ -301,7 +301,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::ExitRecord(exit) => {
                     validate_create_exit_record(EntryCreationAction::Create(action), exit)
                 }
-                EntryTypes::SapBalance(bal) => validate_sap_balance(&bal),
+                EntryTypes::SapBalance(bal) => validate_sap_balance(
+                    EntryCreationAction::Create(action),
+                    &bal,
+                ),
                 EntryTypes::SapMintRecord(mint) => validate_create_sap_mint_record(&mint),
                 EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
                 EntryTypes::SapMintCapCounterEntry(counter) => {
@@ -322,7 +325,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::ExitRecord(_) => Ok(ValidateCallbackResult::Invalid(
                         "Exit records cannot be updated".into(),
                     )),
-                    EntryTypes::SapBalance(bal) => validate_sap_balance(&bal),
+                    EntryTypes::SapBalance(bal) => validate_sap_balance(action, &bal),
                     EntryTypes::SapMintRecord(_) => {
                         // Mint records are immutable
                         Ok(ValidateCallbackResult::Invalid(
@@ -701,8 +704,16 @@ fn validate_create_receipt(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_sap_balance(bal: &SapBalance) -> ExternResult<ValidateCallbackResult> {
-    // String length checks — prevent DHT bloat
+fn validate_sap_balance(
+    action: EntryCreationAction,
+    bal: &SapBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    // SAP account state is owner-authenticated: the account's final balance
+    // may only be created or updated by the agent who owns that account.
+    //
+    // This is intentionally an integrity invariant rather than a coordinator
+    // convention. Any future caller that attempts to mutate another member's
+    // balance fails closed, including raw credit paths.
     if bal.member_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
             "DID exceeds maximum length".into(),
@@ -715,6 +726,13 @@ fn validate_sap_balance(bal: &SapBalance) -> ExternResult<ValidateCallbackResult
         ));
     }
 
+    let author_did = did_for_author(action.author());
+    if bal.member_did != author_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP balance owner DID must match the signed action author".into(),
+        ));
+    }
+
     // Amber exemption: structural anti-arbitrage gate. Deterministic checks only —
     // issuer *authenticity* (a real child/elder credential / governance approval) is
     // verified at grant time in the coordinator, since integrity cannot call out.
@@ -724,19 +742,16 @@ fn validate_sap_balance(bal: &SapBalance) -> ExternResult<ValidateCallbackResult
                 "Amber exemption issuer must be a valid DID".into(),
             ));
         }
-        // No self-issue: a holder can never grant themselves demurrage exemption.
         if ex.issuer == bal.member_did {
             return Ok(ValidateCallbackResult::Invalid(
                 "Amber exemption cannot be self-issued".into(),
             ));
         }
-        // Cap bounded by the governance ceiling (whale-loophole guard).
         if ex.cap_micro_sap > AMBER_MAX_CAP_MICRO_SAP {
             return Ok(ValidateCallbackResult::Invalid(
                 "Amber exemption cap exceeds governance ceiling".into(),
             ));
         }
-        // Must expire — no permanent, uncapped shelters.
         if ex.expires_at_secs == 0 {
             return Ok(ValidateCallbackResult::Invalid(
                 "Amber exemption must have a nonzero expiry".into(),
