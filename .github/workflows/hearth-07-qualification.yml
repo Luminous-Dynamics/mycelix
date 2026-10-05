@@ -177,19 +177,23 @@ jobs:
           print("OK: holonix is pinned to the verified Holochain 0.7 lock object")
           PY
 
-      - name: Classify Rust dependency closure provenance,        working-directory: mycelix-workspace/mycelix-hearth,        run: |,          set -euo pipefail,          closure_status="unfrozen",          if git ls-files --error-unmatch Cargo.lock tests/Cargo.lock >/dev/null 2>&1 \,            && [[ -s Cargo.lock ]] \,            && [[ -s tests/Cargo.lock ]]; then,            closure_status="source_controlled",          fi,          {,            echo "dependency_closure_status=${closure_status}",            echo "hearth_lock_tracked=$(git ls-files --error-unmatch Cargo.lock >/dev/null 2>&1 && echo true || echo false)",            echo "tests_lock_tracked=$(git ls-files --error-unmatch tests/Cargo.lock >/dev/null 2>&1 && echo true || echo false)",          } > qualification-dependency-closure.txt,          cat qualification-dependency-closure.txt,,      - name: Generate exact Rust dependency locks,        working-directory: mycelix-workspace/mycelix-hearth,        run: |,          set -euo pipefail,          nix develop .#ci --command cargo generate-lockfile
-          nix develop .#ci --command bash -c 'cd tests && cargo generate-lockfile'
-          test -s Cargo.lock
-          test -s tests/Cargo.lock
-          if git ls-files --error-unmatch Cargo.lock tests/Cargo.lock >/dev/null 2>&1; then
-            if git diff --quiet -- Cargo.lock tests/Cargo.lock; then
-              printf "%s\n" "dependency_closure_status=source_controlled_and_stable" > qualification-dependency-closure.txt
-            else
-              printf "%s\n" "dependency_closure_status=source_controlled_but_re_resolved" > qualification-dependency-closure.txt
-            fi
+      - name: Classify Rust dependency closure provenance,        working-directory: mycelix-workspace/mycelix-hearth,        run: |,          set -euo pipefail,          closure_status="unfrozen",          if git ls-files --error-unmatch Cargo.lock tests/Cargo.lock >/dev/null 2>&1 \,            && [[ -s Cargo.lock ]] \,            && [[ -s tests/Cargo.lock ]]; then,            closure_status="source_controlled",          fi,          {,            echo "dependency_closure_status=${closure_status}",            echo "hearth_lock_tracked=$(git ls-files --error-unmatch Cargo.lock >/dev/null 2>&1 && echo true || echo false)",            echo "tests_lock_tracked=$(git ls-files --error-unmatch tests/Cargo.lock >/dev/null 2>&1 && echo true || echo false)",          } > qualification-dependency-closure.txt,          cat qualification-dependency-closure.txt,,      - name: Verify or generate Rust dependency closure
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          if git ls-files --error-unmatch Cargo.lock tests/Cargo.lock >/dev/null 2>&1 \
+            && [[ -s Cargo.lock ]] \
+            && [[ -s tests/Cargo.lock ]]; then
+            nix develop .#ci --command cargo metadata --locked --format-version 1 > /tmp/hearth-cargo-metadata.json
+            nix develop .#ci --command bash -c 'cd tests && cargo metadata --locked --format-version 1' > /tmp/hearth-tests-cargo-metadata.json
+            printf "%s\n" "dependency_closure_status=source_controlled_and_stable" > qualification-dependency-closure.txt
           else
+            nix develop .#ci --command cargo generate-lockfile
+            nix develop .#ci --command bash -c 'cd tests && cargo generate-lockfile'
             printf "%s\n" "dependency_closure_status=generated_at_runtime" > qualification-dependency-closure.txt
           fi
+          test -s Cargo.lock
+          test -s tests/Cargo.lock
           {
             echo "hearth_lock_tracked=$(git ls-files --error-unmatch Cargo.lock >/dev/null 2>&1 && echo true || echo false)"
             echo "tests_lock_tracked=$(git ls-files --error-unmatch tests/Cargo.lock >/dev/null 2>&1 && echo true || echo false)"
@@ -202,7 +206,6 @@ jobs:
           } > qualification-cargo-lock-summary.txt
           nix develop .#ci --command cargo metadata --locked --format-version 1 > qualification-cargo-metadata.json
           nix develop .#ci --command bash -c 'cd tests && cargo metadata --locked --format-version 1' > tests/qualification-cargo-metadata.json
-
       - name: Syntax-check Hearth 0.7 audit
         working-directory: mycelix-workspace/mycelix-hearth
         run: bash -n tools/audit-holochain-07-source.sh
