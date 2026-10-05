@@ -763,6 +763,36 @@ fn validate_did_update_targets_latest(action: &Update) -> ExternResult<ValidateC
 }
 
 /// Validate DID document update
+fn is_did_deactivated_on_chain(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+) -> ExternResult<bool> {
+    let expected_did = format!("did:mycelix:{}", author);
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::DidDeactivation)?);
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type) {
+            continue;
+        }
+        let Action::Create(create) = prior_action else {
+            continue;
+        };
+        let prior_entry = must_get_entry(create.entry_hash.clone())?;
+        let deactivation: DidDeactivation = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "DID deactivation history entry could not be decoded: {e}"
+            )))
+        })?;
+        if deactivation.did == expected_did {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
 fn validate_update_did_document(
     action: Update,
     did_doc: DidDocument,
@@ -771,6 +801,15 @@ fn validate_update_did_document(
     if did_doc.controller != action.author {
         return Ok(ValidateCallbackResult::Invalid(
             "Only controller can update DID".into(),
+        ));
+    }
+
+    // Deactivation is an irreversible authority transition. Once its signed
+    // artifact is on this controller's source chain, no later DID mutation may
+    // reopen key/service authority through a generic update path.
+    if is_did_deactivated_on_chain(action.author.clone(), action.prev_action.clone())? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DID document cannot be updated after deactivation".into(),
         ));
     }
 
