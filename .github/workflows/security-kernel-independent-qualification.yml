@@ -259,7 +259,23 @@ jobs:
 
           candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
           test "${#candidate_tree}" -eq 40
-          printf 'candidate_tree=%s\nfetch_image=%s\n' "$candidate_tree" "$FETCH_IMAGE" >> "$GITHUB_OUTPUT"
+          stats_file="$RUNNER_TEMP/security-kernel-source-tree-stats.txt"
+          test -s "$stats_file"
+          source_tree_entry_count="$(sed -n "s/^source_tree_entry_count=//p" "$stats_file")"
+          source_file_count="$(sed -n "s/^source_file_count=//p" "$stats_file")"
+          source_total_path_bytes="$(sed -n "s/^source_total_path_bytes=//p" "$stats_file")"
+          source_total_bytes="$(sed -n "s/^source_total_bytes=//p" "$stats_file")"
+          source_max_blob_bytes="$(sed -n "s/^source_max_blob_bytes=//p" "$stats_file")"
+          for value in "$source_tree_entry_count" "$source_file_count" "$source_total_path_bytes" "$source_total_bytes" "$source_max_blob_bytes"; do
+            printf "%s" "$value" | grep -Eq "^[0-9]+$"
+          done
+          test "$source_tree_entry_count" -le 300000
+          test "$source_file_count" -le 200000
+          test "$source_total_path_bytes" -le $((64 * 1024 * 1024))
+          test "$source_total_bytes" -le $((768 * 1024 * 1024))
+          test "$source_max_blob_bytes" -le $((64 * 1024 * 1024))
+          printf 'candidate_tree=%s\nsource_tree_entry_count=%s\nsource_file_count=%s\nsource_total_path_bytes=%s\nsource_total_bytes=%s\nsource_max_blob_bytes=%s\nfetch_image=%s\n' \
+            "$candidate_tree" "$source_tree_entry_count" "$source_file_count" "$source_total_path_bytes" "$source_total_bytes" "$source_max_blob_bytes" "$FETCH_IMAGE" >> "$GITHUB_OUTPUT"
 
           python3 - "$candidate_root" <<'PY'
           import hashlib, pathlib, stat, sys
