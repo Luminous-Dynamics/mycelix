@@ -463,6 +463,52 @@ PY
           echo "sweettest_conclusion=${sweettest_conclusion}"
           echo "evidence_capture_status=${evidence_status}"
 
+      - name: Verify every semantic qualification case executed
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          test -s qualification-sweettest.log
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path("tests/hearth-07-semantic-validation-cases.json").read_text())
+          log = Path("qualification-sweettest.log").read_text()
+          cases = manifest["cases"]
+          if not cases:
+              raise SystemExit("semantic manifest contains no qualification cases")
+
+          for case in cases:
+              name = case["test"]
+              ok_pattern = rf"^test {re.escape(name)} \.{3} ok$"
+              if not re.search(ok_pattern, log, re.MULTILINE):
+                  if re.search(rf"^test {re.escape(name)} \.{3} ignored$", log, re.MULTILINE):
+                      raise SystemExit(f"semantic qualification case was still ignored: {name}")
+                  if re.search(rf"^test {re.escape(name)} \.{3}", log, re.MULTILINE):
+                      raise SystemExit(f"semantic qualification case did not pass: {name}")
+                  raise SystemExit(f"semantic qualification case was not observed in test output: {name}")
+
+          summary = re.search(
+              r"^test result: ok\. (?P<passed>\\d+) passed; (?P<failed>\\d+) failed; "
+              r"(?P<ignored>\\d+) ignored;",
+              log,
+              re.MULTILINE,
+          )
+          if not summary:
+              raise SystemExit("could not locate authoritative cargo test summary")
+          if int(summary.group("failed")) != 0:
+              raise SystemExit("cargo test summary reports failed tests")
+          if int(summary.group("ignored")) != 0:
+              raise SystemExit("cargo test summary reports ignored tests despite --include-ignored")
+
+          print(f"OK: observed all {len(cases)} manifest semantic cases as passing tests")
+          print(
+              "OK: cargo test summary reports "
+              f"{summary.group('passed')} passed / 0 failed / 0 ignored"
+          )
+          PY
+
       - name: Capture qualification metadata
         if: ${{ !cancelled() }}
         run: |
