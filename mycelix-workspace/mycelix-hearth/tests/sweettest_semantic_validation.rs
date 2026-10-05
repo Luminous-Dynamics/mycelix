@@ -626,6 +626,7 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         let validator_symbol = case["validator_symbol"]
         let dispatch_symbol = case["dispatch_symbol"]
         let target_variant = case["target_variant"]
+        let coordinator_primitive = case["coordinator_primitive"]
             .as_str()
             .expect("every semantic case needs a validator_symbol");
 
@@ -674,6 +675,10 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         );
         assert!(!validator_symbol.is_empty(), "{case_id} validator_symbol must not be empty");
         assert!(!dispatch_symbol.is_empty(), "{case_id} dispatch_symbol must not be empty");
+        assert!(
+            matches!(coordinator_primitive, "create_entry" | "update_entry" | "create_link"),
+            "{case_id} coordinator_primitive must identify the tested write primitive"
+        );
         assert!(
             target_variant.starts_with("EntryTypes::") || target_variant.starts_with("LinkTypes::"),
             "{case_id} target_variant must identify an EntryTypes or LinkTypes variant"
