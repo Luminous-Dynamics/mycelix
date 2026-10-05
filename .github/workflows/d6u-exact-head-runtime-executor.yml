@@ -62,6 +62,29 @@ jobs:
           rm -rf "$CARGO_HOME"
           mkdir -p "$CARGO_HOME"
 
+      - name: Assert isolated Cargo and Rust execution environment
+        run: |
+          set -euo pipefail
+          test -d "$CARGO_HOME"
+          test -z "$(find "$CARGO_HOME" -mindepth 1 -maxdepth 1 -print -quit)"
+          for variable in \
+            RUSTC \
+            RUSTDOC \
+            RUSTFLAGS \
+            CARGO_ENCODED_RUSTFLAGS \
+            CARGO_BUILD_RUSTFLAGS \
+            RUSTC_WRAPPER \
+            CARGO_BUILD_RUSTC_WRAPPER \
+            CARGO_BUILD_RUSTC \
+            CARGO_BUILD_RUSTDOC \
+            CARGO_BUILD_TARGET \
+            CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER; do
+            if [ -n "${!variable:-}" ]; then
+              echo "unexpected ambient toolchain override: $variable"
+              exit 1
+            fi
+          done
+
       - name: Preflight evidence verifiers
         run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_lock.py scripts/integral/verify_d6u_runtime_record.py
 
