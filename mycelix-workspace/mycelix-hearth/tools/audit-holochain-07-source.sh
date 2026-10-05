@@ -1489,7 +1489,7 @@ check_semantic_case_integrity_bindings() {
   mapfile -t coordinator_primitives < <(sed -n 's/^[[:space:]]*"coordinator_primitive"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
 
   local count="${#ids[@]}"
-  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#rejection_reasons[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" || "$count" -ne "${#dispatch_symbols[@]}" || "$count" -ne "${#target_variants[@]}" ]]; then
+  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#rejection_reasons[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" || "$count" -ne "${#dispatch_symbols[@]}" || "$count" -ne "${#target_variants[@]}" || "$count" -ne "${#coordinator_primitives[@]}" ]]; then
     echo "FAIL: semantic manifest fields are not structurally aligned"
     fail=1
     return
