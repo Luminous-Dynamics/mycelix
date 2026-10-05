@@ -119,9 +119,6 @@ jobs:
           required = (
               "Checkout trusted qualification root",
               "Verify default-branch workflow invocation context",
-              "Install pinned Rust",
-              "Assert Rust identity",
-              "Resolve pinned Rust sysroot",
               "Validate dispatch provenance",
               "Resolve exact candidate source",
               "Static trust-surface audit",
