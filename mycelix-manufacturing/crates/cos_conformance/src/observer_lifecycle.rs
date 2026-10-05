@@ -155,11 +155,6 @@ impl ObserverLifecycleProfileV1 {
         self.structurally_valid() && self.profile_commitment == self.recomputed_commitment()
     }
 
-    /// Strict commitment check for authoritative lifecycle consumption.
-    pub fn strict_commitment_matches(&self) -> bool {
-        self.structurally_valid() && self.generation_commitment == self.recomputed_commitment()
-    }
-
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.profile_id)
             && non_empty(&self.semantic_environment_root)
@@ -203,6 +198,11 @@ impl ObserverGenerationV1 {
         self.structurally_valid()
             && (!is_canonical_sha256_commitment(&self.generation_commitment)
                 || self.generation_commitment == self.recomputed_commitment())
+    }
+
+    /// Strict commitment check for authoritative lifecycle consumption.
+    pub fn strict_commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.generation_commitment == self.recomputed_commitment()
     }
 
     pub fn structurally_valid(&self) -> bool {
