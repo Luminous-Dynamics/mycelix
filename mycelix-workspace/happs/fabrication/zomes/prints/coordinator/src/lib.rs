@@ -211,12 +211,10 @@ fn enforce_safety_class(design_hash: &ActionHash) -> ExternResult<()> {
                 format!("Failed to decode verification response: {}", e)
             )))?,
         ZomeCallResponse::NetworkError(_) => {
-            // Network error → allow job (best-effort)
-            return Ok(());
+            return Err(FabricationError::cross_happ("verification"));
         }
         _ => {
-            // Other responses → allow job
-            return Ok(());
+            return Err(FabricationError::cross_happ("verification"));
         }
     };
 
@@ -301,23 +299,8 @@ fn rate_limit_caller() -> ExternResult<()> {
 #[hdk_extern]
 pub fn create_print_job(input: CreatePrintJobInput) -> ExternResult<Record> {
     rate_limit_caller()?;
-    // Enforce safety class verification for Class3+ designs
-    // Best-effort: if verification zome is unavailable, allow the job
-    match enforce_safety_class(&input.design_hash) {
-        Ok(()) => {},
-        Err(e) => {
-            let msg = format!("{}", e);
-            if msg.contains("requires at least one passing verification") {
-                return Err(e);
-            }
-            // Other errors (zome unavailable, parse error) → allow job with warning signal
-            let _ = emit_signal(&TypedFabricationSignal {
-                domain: FabricationDomain::Print,
-                event_type: FabricationEventType::SafetyCheckSkipped,
-                payload: format!(r#"{{"reason":"{}"}}"#, msg.replace('"', "'")),
-            });
-        }
-    }
+    // Fail closed for Class3+ designs: verification must be available and passing.
+    enforce_safety_class(&input.design_hash)?;
 
     let requester = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
