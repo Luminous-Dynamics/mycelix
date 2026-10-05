@@ -311,6 +311,105 @@ fn validate_create_schema_link(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_schema_creation_chain_uniqueness(
+    action: &Create,
+    schema: &CredentialSchema,
+) -> ExternResult<ValidateCallbackResult> {
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::CredentialSchema)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_schema: CredentialSchema = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential schema history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior_schema.id == schema.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A credential schema ID may only have one canonical creation; publish later changes through Update".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn latest_schema_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+    schema_id: &str,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::CredentialSchema)?);
+    let mut latest: Option<(u32, ActionHash)> = None;
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type)
+            || !matches!(prior_action, Action::Create(_) | Action::Update(_))
+        {
+            continue;
+        }
+
+        let Some(entry_hash) = prior_action.entry_hash().cloned() else {
+            continue;
+        };
+        let entry = must_get_entry(entry_hash)?;
+        let schema: CredentialSchema = entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential schema history entry could not be decoded: {e}"
+            )))
+        })?;
+        if schema.id != schema_id {
+            continue;
+        }
+
+        let action_hash = hdi::hash::hash_action(prior_action.clone())?;
+        if latest
+            .as_ref()
+            .is_none_or(|(seq, _)| prior_action.action_seq() > *seq)
+        {
+            latest = Some((prior_action.action_seq(), action_hash));
+        }
+    }
+
+    Ok(latest.map(|(_, hash)| hash))
+}
+
+fn validate_schema_update_targets_latest(
+    action: &Update,
+    schema_id: &str,
+) -> ExternResult<ValidateCallbackResult> {
+    match latest_schema_action(
+        action.author.clone(),
+        action.prev_action.clone(),
+        schema_id,
+    )? {
+        Some(latest_hash) if latest_hash == action.original_action_address => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        Some(_) => Ok(ValidateCallbackResult::Invalid(
+            "Credential schema update must target the latest schema state on the author's source chain".into(),
+        )),
+        None => Ok(ValidateCallbackResult::Invalid(
+            "Credential schema update has no prior schema state".into(),
+        )),
+    }
+}
+
 /// Validate schema creation
 fn validate_create_credential_schema(
     action: EntryCreationAction,
@@ -325,6 +424,13 @@ fn validate_create_credential_schema(
         return Ok(ValidateCallbackResult::Invalid(
             "Schema author must be the committing agent (forgery)".to_string(),
         ));
+    }
+
+    if let EntryCreationAction::Create(create) = &action {
+        match validate_schema_creation_chain_uniqueness(create, &schema)? {
+            ValidateCallbackResult::Valid => {}
+            invalid => return Ok(invalid),
+        }
     }
 
     // Validate schema ID format
@@ -399,6 +505,11 @@ fn validate_update_credential_schema(
     schema: CredentialSchema,
     _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
+    match validate_schema_update_targets_latest(&action, &schema.id)? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
     if !schema.id.starts_with("mycelix:schema:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Schema ID must start with 'mycelix:schema:'".into(),
