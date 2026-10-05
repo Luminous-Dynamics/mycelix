@@ -27,3 +27,24 @@ Mycelix CI path filters did not select this nested Holochain workspace.
 The fabrication workspace currently targets Holochain 0.6. Changes to its admission
 or provenance semantics should therefore be qualified by this dedicated workflow
 before being treated as executable evidence.
+
+
+## Epistemic availability and provenance boundary
+
+Safety-claim admission is fail-closed with respect to the Knowledge epistemic dependency.
+An unavailable, unauthorized, or malformed Knowledge response is an error and must not
+be converted into a synthetic classification or inserted into the cache.
+
+The stored SafetyClaim now carries an explicit epistemic provenance state:
+
+- KnowledgeClassified — the coordinator accepted a finite, bounded classification response.
+- LegacyUnattributed — a historical record lacked persisted provenance.
+
+LegacyUnattributed records remain queryable, but they are excluded from current
+Knowledge-sourced epistemic aggregates. This prevents historical fallback or otherwise
+unattributed scores from silently becoming current evidence.
+
+This distinction is source provenance, not an attestation that the external Knowledge
+system itself is correct. The actual inter-hApp transport remains a separate architectural
+boundary and is tracked in issue #4227; the current Fabrication-only hApp must not claim
+that it has a working direct Knowledge-hApp call.
