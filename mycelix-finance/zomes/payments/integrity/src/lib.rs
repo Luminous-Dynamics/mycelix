@@ -176,6 +176,8 @@ pub struct SapTransferIntent {
     pub to_did: String,
     /// Exact amount in micro-SAP.
     pub amount: u64,
+    /// Exact sender balance action immediately before this transfer.
+    pub balance_before_action_hash: ActionHash,
     /// Source-chain publication time.
     pub created_at: Timestamp,
     /// Optional claim deadline.
@@ -196,6 +198,8 @@ pub struct SapTransferClaim {
     pub recipient_did: String,
     /// Exact amount claimed in micro-SAP.
     pub amount: u64,
+    /// Exact recipient balance action immediately before this claim.
+    pub balance_before_action_hash: ActionHash,
     /// Source-chain publication time.
     pub claimed_at: Timestamp,
 }
@@ -807,6 +811,22 @@ fn validate_create_sap_transfer_intent(
         ));
     }
 
+    let balance_record = must_get_valid_record(intent.balance_before_action_hash.clone())?;
+    let balance = balance_record
+        .entry()
+        .to_app_option::<SapBalance>()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Transfer intent balance dependency could not be decoded as SapBalance".into()
+        )))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Transfer intent balance dependency is missing SapBalance entry".into()
+        )))?;
+    if balance.member_did != intent.from_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer intent must bind to the sender's balance".into(),
+        ));
+    }
+
     let author_did = did_for_author(action.author());
     if intent.from_did != author_did {
         return Ok(ValidateCallbackResult::Invalid(
@@ -851,6 +871,22 @@ fn validate_create_sap_transfer_claim(
     if claim.recipient_did != author_did {
         return Ok(ValidateCallbackResult::Invalid(
             "Transfer claim recipient DID must match the signed action author".into(),
+        ));
+    }
+
+    let balance_record = must_get_valid_record(claim.balance_before_action_hash.clone())?;
+    let balance = balance_record
+        .entry()
+        .to_app_option::<SapBalance>()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Transfer claim balance dependency could not be decoded as SapBalance".into()
+        )))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Transfer claim balance dependency is missing SapBalance entry".into()
+        )))?;
+    if balance.member_did != claim.recipient_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer claim must bind to the recipient's balance".into(),
         ));
     }
 
@@ -949,6 +985,11 @@ fn validate_update_sap_balance(
             if claim.recipient_did != bal.member_did || claim.amount != delta {
                 return Ok(ValidateCallbackResult::Invalid(
                     "SAP balance increase does not match transfer claim recipient/amount".into(),
+                ));
+            }
+            if claim.balance_before_action_hash != action.original_action_address {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Transfer claim has already been consumed by another balance transition".into(),
                 ));
             }
         } else if let Some(mint) = justification
