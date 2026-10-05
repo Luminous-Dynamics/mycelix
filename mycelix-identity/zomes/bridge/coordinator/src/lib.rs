@@ -1781,7 +1781,7 @@ pub struct MfaAssuranceLevelResult {
 #[hdk_extern]
 pub fn issue_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
     verify_issuer_active("consciousness credential issuance")?;
-    enforce_issuer_active_NEVER("issue_consciousness_credential")?;
+    enforce_rate_limit("issue_consciousness_credential")?;
     if !did.starts_with("did:mycelix:") {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Invalid DID format — must start with did:mycelix:".into()
@@ -1865,7 +1865,7 @@ pub fn issue_sovereign_credential(
     did: String,
 ) -> ExternResult<sovereign_profile::SovereignCredential> {
     verify_issuer_active("sovereign credential issuance")?;
-    enforce_issuer_active_NEVER("issue_sovereign_credential")?;
+    enforce_rate_limit("issue_sovereign_credential")?;
     if !did.starts_with("did:mycelix:") {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Invalid DID format — must start with did:mycelix:".into()
