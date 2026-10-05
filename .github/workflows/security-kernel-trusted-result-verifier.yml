@@ -265,13 +265,18 @@ jobs:
               s1_job_id=job["id"],
           )
           assert binding["repository_id"] == int(os.environ["BASE_REPOSITORY_ID"])
+          assert binding["repository"] == repository_obj["full_name"]
+          assert binding["candidate_repository"] == candidate_repository
           assert binding["candidate_repository_id"] == candidate_repo_id
           assert binding["candidate_pr"] == candidate_pr
           assert binding["candidate_sha"] == candidate_sha
           assert binding["dispatcher_workflow_sha"] == workflow_sha
+          assert binding["dispatcher_workflow_path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
           assert binding["s1_workflow_blob_sha"] == s1_at_run["sha"]
+          assert binding["s1_workflow_path"] == os.environ["INDEPENDENT_WORKFLOW_PATH"]
           assert binding["run_id"] == int(run_id)
           assert binding["run_attempt"] == run_attempt
+          assert binding["run_number"] == run["run_number"]
           assert binding["resolver_job_id"] == resolver_job["id"]
           assert binding["s1_job_id"] == job["id"]
           binding_digest = execution_binding_digest(binding)
@@ -279,17 +284,24 @@ jobs:
           # Metamorphic self-test: every identity-bearing field must affect the sealed
           # digest. This executes before artifact parsing so the binding primitive cannot
           # silently collapse two distinct executions into one identity.
-          for field, replacement in (
-              ("candidate_sha", "0" * 40),
-              ("candidate_pr", binding["candidate_pr"] + 1),
-              ("run_id", binding["run_id"] + 1),
-              ("run_attempt", binding["run_attempt"] + 1),
-              ("run_number", binding["run_number"] + 1),
-              ("resolver_job_id", binding["resolver_job_id"] + 1),
-              ("s1_job_id", binding["s1_job_id"] + 1),
-              ("dispatcher_workflow_sha", "1" * 40),
-              ("s1_workflow_blob_sha", "2" * 40),
-          ):
+          mutations = {
+              "repository_id": binding["repository_id"] + 1,
+              "repository": binding["repository"] + "-mutated",
+              "candidate_repository_id": binding["candidate_repository_id"] + 1,
+              "candidate_repository": binding["candidate_repository"] + "-mutated",
+              "candidate_pr": binding["candidate_pr"] + 1,
+              "candidate_sha": "0" * 40,
+              "dispatcher_workflow_path": binding["dispatcher_workflow_path"] + ".mutated",
+              "dispatcher_workflow_sha": "1" * 40,
+              "s1_workflow_path": binding["s1_workflow_path"] + ".mutated",
+              "s1_workflow_blob_sha": "2" * 40,
+              "run_id": binding["run_id"] + 1,
+              "run_attempt": binding["run_attempt"] + 1,
+              "run_number": binding["run_number"] + 1,
+              "resolver_job_id": binding["resolver_job_id"] + 1,
+              "s1_job_id": binding["s1_job_id"] + 1,
+          }
+          for field, replacement in mutations.items():
               mutated = dict(binding)
               mutated[field] = replacement
               assert execution_binding_digest(mutated) != binding_digest, (
