@@ -97,6 +97,67 @@ jobs:
           )
           PY
 
+      - name: Verify exact artifact archive digest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import urllib.request
+
+          event = json.load(open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8"))
+          run_id = event["workflow_run"]["id"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          expected_name = (
+              f"d6u-runtime-evidence-run-{run_id}-attempt-"
+              f"{event['workflow_run']['run_attempt']}"
+          )
+          request = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/artifacts",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "X-GitHub-Api-Version": "2026-03-10",
+                  "User-Agent": "mycelix-d6u-trusted-attestation",
+              },
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              artifacts = json.load(response)["artifacts"]
+          matches = [a for a in artifacts if a["name"] == expected_name]
+          assert len(matches) == 1, f"expected one exact artifact, observed {len(matches)}"
+          artifact = matches[0]
+          digest = artifact.get("digest", "")
+          assert digest.startswith("sha256:") and len(digest) == 71, (
+              f"missing or malformed GitHub artifact digest: {digest!r}"
+          )
+          download = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact['id']}/zip",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "X-GitHub-Api-Version": "2026-03-10",
+                  "User-Agent": "mycelix-d6u-trusted-attestation",
+              },
+          )
+          observed = hashlib.sha256()
+          with urllib.request.urlopen(download, timeout=120) as response:
+              while chunk := response.read(1024 * 1024):
+                  observed.update(chunk)
+          observed_digest = "sha256:" + observed.hexdigest()
+          assert observed_digest == digest, (
+              f"artifact archive digest mismatch: expected={digest}, observed={observed_digest}"
+          )
+          pathlib.Path("${{ runner.temp }}/d6u-artifact-digest.txt").write_text(
+              f"artifact_id={artifact['id']}\nartifact_digest={digest}\n",
+              encoding="utf-8",
+          )
+          print(f"verified exact artifact archive digest: {digest}")
+          PY
+
       - name: Download exact D6U run artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
