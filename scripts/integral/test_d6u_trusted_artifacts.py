@@ -127,6 +127,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "subject_set_exact": True,
         "require_signed_predicate_subject_binding": True,
         "require_verified_timestamp": True,
+        "require_verified_tlog": True,
     }
     assert policy["artifact_max_entries"] == 32
     assert policy["trusted_artifact_fetcher"]["path"] == (
@@ -142,6 +143,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "scripts/integral/fetch_d6u_trusted_artifact.py",
         "scripts/integral/verify_d6u_trusted_attestation.py",
         "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
+        "scripts/integral/verify_d6u_trusted_attestation_retention.py",
     }
     for path, descriptor in policy["trusted_programs"].items():
         assert descriptor["path"] == path
@@ -222,7 +224,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_encrypted_members": True,
         "reject_symlink_members": True,
         "expected_member_count": 3,
-        "policy_revision": 26,
+        "policy_revision": 27,
     }
 
 
@@ -1119,6 +1121,34 @@ def test_custom_attestation_requires_verified_timestamp() -> None:
         assert verifier.verify_entry(entry, record, subjects) is False
 
 
+def test_custom_attestation_rejects_non_tlog_timestamp() -> None:
+    import verify_d6u_trusted_attestation as verifier
+
+    subjects = [
+        {"name": "d6u-runtime-evidence.txt", "digest": {"sha256": "a" * 64}},
+        {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
+        {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
+    ]
+    record = synthetic_record()
+    entry = synthetic_attestation_entry(subjects, "42")
+    entry["verificationResult"]["verifiedTimestamps"] = [
+        {"type": "RFC3161", "uri": "https://tsa.invalid/example"}
+    ]
+    with patch.dict(
+        os.environ,
+        {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_WORKFLOW_SHA": "c" * 40,
+            "GITHUB_REF": "refs/heads/main",
+        },
+        clear=False,
+    ):
+        assert verifier.verify_entry(entry, record, subjects) is False
+
+
 def test_custom_attestation_subject_set_is_order_independent_but_exact() -> None:
     import verify_d6u_trusted_attestation as verifier
 
@@ -1274,6 +1304,7 @@ if __name__ == "__main__":
         test_attestation_verifier_accepts_current_run,
         test_attestation_verifier_rejects_old_run,
         test_custom_attestation_requires_verified_timestamp,
+        test_custom_attestation_rejects_non_tlog_timestamp,
         test_custom_attestation_subject_set_is_order_independent_but_exact,
         test_custom_attestation_accepts_current_run_and_rejects_old_run,
         test_trusted_workflow_policy_shape_is_pinned,
