@@ -730,10 +730,10 @@ fn maximum_dispatch_offset_child() -> ! {
         unsafe { libc::_exit(164) };
     }
 
-    // Seven near-maximum filters remain below MAX_INSNS_PER_PATH. The eighth
-    // candidate is intentionally different: it denies getppid(), so an
+    // Eight near-maximum filters remain below MAX_INSNS_PER_PATH. The
+    // ninth candidate is intentionally different: it denies getppid(), so an
     // incorrect partial attachment is distinguishable from an ENOMEM refusal.
-    for index in 0..7u32 {
+    for index in 0..8u32 {
         let receipt = install_v2(
             RendererProcessAssignmentId::new(20 + index).unwrap(),
             cumulative_profile.clone(),
