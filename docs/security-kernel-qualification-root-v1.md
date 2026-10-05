@@ -75,6 +75,8 @@ S1 first proves:
 - the execution ref is required to report `github.ref_protected=true`;
 - the trusted base repository name and numeric repository ID agree with the live Actions context and PR API object;
 - the effective Actions cache mode is observed as `none` inside the reusable job;
+- a trusted negative-control matrix actively attempts rootfs/source/vendor/config mutation, network access, token visibility, privileged-device assumptions, and trusted-state mutation, and requires each violation to fail;
+- a postflight dependency-substrate verifier recomputes the vendored closure digest and exact vendor configuration after candidate execution;
 - the executing S1 workflow blob at that caller commit independently matches the registered S1 profile supplied by S0;
 - the candidate PR number/repository/head SHA passed by S0 exactly match the current PR.
 
@@ -180,6 +182,7 @@ The current registered sandbox controls include:
 - private PID/IPC/cgroup namespaces;
 - writable state limited to bounded tmpfs locations;
 - candidate source and vendored dependencies mounted read-only;
+- active negative controls exercise the read-only and no-network boundary before candidate gates;
 - no Docker socket;
 - no GitHub token, OIDC request token, or Actions runtime token;
 - build target isolated in its own tmpfs.

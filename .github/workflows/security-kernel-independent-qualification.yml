@@ -767,6 +767,7 @@ jobs:
               grep -Eq "^Seccomp_filters:[[:space:]]+[1-9][0-9]*$" /proc/self/status
               test -z "${GITHUB_TOKEN:-}"
               test -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+              test -z "${ACTIONS_RUNTIME_TOKEN:-}"
               test ! -e /var/run/docker.sock
               test ! -e /dev/kvm
               test ! -e /dev/mem
@@ -792,7 +793,7 @@ jobs:
               echo "PASS: active negative controls rejected writable-root, source/vendor/config mutation, token visibility, device exposure, network access, and untrusted background-process assumptions"
             '
           cat "$RUNNER_TEMP/security-kernel-negative-controls.log" 2>/dev/null || true
-          test ! -e "$container_name"
+          test -z "$(docker ps -aq --filter "name=^/${container_name}$")"
           test "$(sha256sum "$sentinel" | awk '{print $1}')" = "$sentinel_digest"
           rm -f "$sentinel"
           printf 'negative_controls=passed\nsentinel_digest=%s\n' "$sentinel_digest" >> "$GITHUB_OUTPUT"
@@ -958,6 +959,7 @@ jobs:
           PY
 
       - name: Verify dependency substrate immutability
+        id: dependency_postflight
         shell: bash
         env:
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
@@ -1000,6 +1002,7 @@ jobs:
           assert after == expected, f"vendored dependency substrate mutated: {expected} != {after}"
           print("PASS: vendored dependency substrate and trusted config remained immutable")
           PY
+          printf 'dependency_substrate=passed\n' >> "$GITHUB_OUTPUT"
       - name: Emit qualification receipt
         shell: bash
         env:
@@ -1020,6 +1023,7 @@ jobs:
           LOCK_DEPENDENCY_EDGES: ${{ steps.locked_dependency_identity.outputs.lock_dependency_edges }}
           VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
           NEGATIVE_CONTROLS: ${{ steps.sandbox_negative_controls.outputs.negative_controls }}
+          DEPENDENCY_POSTFLIGHT: ${{ steps.dependency_postflight.outputs.dependency_substrate }}
           LOCK_DIGEST: ${{ steps.locked_dependency_identity.outputs.lock_digest }}
           RUST_VERSION: ${{ steps.sandbox_preflight.outputs.rust_version }}
           RUST_COMMIT: ${{ steps.sandbox_preflight.outputs.rust_commit }}
@@ -1046,6 +1050,7 @@ jobs:
             echo "candidate_cargo_lock_dependency_edges=$LOCK_DEPENDENCY_EDGES"
             echo "vendor_digest=$VENDOR_DIGEST"
             echo "sandbox_negative_controls=$NEGATIVE_CONTROLS"
+            echo "dependency_substrate_postflight=$DEPENDENCY_POSTFLIGHT"
             echo "git_fetch_image=$FETCH_IMAGE"
             echo "sandbox_image=docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
             echo "sandbox_network=none"
