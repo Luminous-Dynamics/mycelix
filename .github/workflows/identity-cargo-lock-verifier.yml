@@ -63,7 +63,7 @@ jobs:
           # authoritative conservative artifact. Fail closed if Cargo reports
           # a resolution change while the candidate remains byte-identical.
           if cmp -s Cargo.lock.committed Cargo.lock.workspace &&
-             grep -Eq '^[[:space:]]*(Adding|Updating|Removing|Downgrading)[[:space:]]'                "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-update.txt"; then
+             grep -Eq '^[[:space:]]*(Adding|Updating|Removing|Downgrading)[[:space:]]+[^[:space:]]+[[:space:]]+v[0-9]'                "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-update.txt"; then
             echo "ERROR: Cargo reported resolver changes but conservative lock candidate is unchanged."
             exit 1
           fi
