@@ -218,6 +218,14 @@ def fixture() -> dict[str, Any]:
     }
 
 
+def as_tpm2b_public(manifest: dict[str, Any], bad_size: int | None = None) -> None:
+    raw = hex_bytes(manifest["public_wire_hex"], "public_wire_hex")
+    size = len(raw) if bad_size is None else bad_size
+    wrapped = size.to_bytes(2, "big") + raw
+    manifest["public_format"] = "TPM2B_PUBLIC"
+    manifest["public_wire_hex"] = wrapped.hex()
+
+
 def self_test() -> int:
     base=fixture()
     cases=[
@@ -234,7 +242,7 @@ def self_test() -> int:
         ("exponent-substitution","DENY",lambda x:x.update({"public_wire_hex":x["public_wire_hex"][:104]+"00000001"+x["public_wire_hex"][112:]})),
         ("unique-size-substitution","DENY",lambda x:x.update({"public_wire_hex":x["public_wire_hex"][:112]+"0080"+x["public_wire_hex"][116:]})),
         ("trailing-bytes","DENY",lambda x:x.update({"public_wire_hex":x["public_wire_hex"]+"00"})),
-        ("tpm2b-size-substitution","DENY",lambda x:(x.update(fixture("TPM2B_PUBLIC")),x.update({"public_wire_hex":"ffff"+x["public_wire_hex"][4:]}))),
+        ("tpm2b-size-substitution","DENY",lambda x:as_tpm2b_public(x, bad_size=0xffff)),
         ("name-substitution","DENY",lambda x:x.update({"name_hex":"000b"+"ff"*32})),
         ("public-wire-digest-substitution","DENY",lambda x:x.update({"public_wire_sha256":"ab"*32})),
         ("creation-hierarchy-substitution","DENY",lambda x:x["creation_provenance"].update({"hierarchy":"TPM_RH_OWNER"})),

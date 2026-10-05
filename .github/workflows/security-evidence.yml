@@ -121,7 +121,8 @@ jobs:
             scripts/security/verify_mycelix_tpm_public_name_coherence_v0_1.py \
             scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py \
             scripts/security/verify_mycelix_ak_public_attributes_v0_1.py \
-            scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py
+            scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py \
+            scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py
 
       - name: Run platform Evidence semantic corpus
         run: python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --self-test
@@ -152,6 +153,9 @@ jobs:
 
       - name: Run EK certificate SPKI binding semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py --self-test
+
+      - name: Run EK NV-only certificate capture semantic corpus
+        run: python3 scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py --self-test
 
       - name: Run EK template appraisal semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py --self-test
