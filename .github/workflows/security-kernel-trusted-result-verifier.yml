@@ -20,7 +20,7 @@ env:
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
   TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "9e2a8b7f6feffdb022d047123e3b84ce3a0973ff"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "b47e081c50a167526a5102e7535a532519ecddd0"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "9f7780b4273baa68727cdb1f8c796962b2190624"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:

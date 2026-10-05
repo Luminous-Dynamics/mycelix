@@ -64,6 +64,8 @@ jobs:
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
           CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}
           HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
+          CALLED_WORKFLOW_REF: ${{ job.workflow_ref }}
+          CALLED_WORKFLOW_SHA: ${{ job.workflow_sha }}
           TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
@@ -71,6 +73,8 @@ jobs:
           test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
           test "$GITHUB_REF" = "refs/heads/main"
           test "$GITHUB_EVENT_NAME" = "pull_request_target"
+          test "$CALLED_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-independent-qualification.yml@refs/heads/main"
+          printf '%s' "$CALLED_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$TRUSTED_WORKFLOW_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
           printf '%s' "$CANDIDATE_PR" | grep -Eq '^[0-9]+$'
@@ -84,6 +88,7 @@ jobs:
           test "$HEAD_SHA" = "$CANDIDATE_SHA"
           test "$HEAD_REPOSITORY" = "$CANDIDATE_REPOSITORY"
           test "$HEAD_REPOSITORY_ID" = "$CANDIDATE_REPOSITORY_ID"
+          test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"
           python3 - <<'PY'
           import json, os, urllib.request
           repo=os.environ["BASE_REPOSITORY"]
@@ -105,7 +110,9 @@ jobs:
           assert pr["head"]["repo"]["id"] == int(os.environ["CANDIDATE_REPOSITORY_ID"])
           assert pr["head"]["sha"] == os.environ["CANDIDATE_SHA"]
           workflow_sha=os.environ["WORKFLOW_SHA"]
+          called_workflow_sha=os.environ["CALLED_WORKFLOW_SHA"]
           assert len(workflow_sha) == 40 and all(ch in "0123456789abcdef" for ch in workflow_sha)
+          assert called_workflow_sha == workflow_sha
           workflow_path=".github/workflows/security-kernel-independent-qualification.yml"
           workflow_req=urllib.request.Request(
               f"https://api.github.com/repos/{repo}/contents/{workflow_path}?ref={workflow_sha}",
@@ -119,6 +126,8 @@ jobs:
           assert workflow.get("sha") == os.environ["TRUSTED_WORKFLOW_BLOB_SHA"], (
               "executing S1 workflow blob is outside the registered trust profile"
           )
+          assert os.environ["CALLED_WORKFLOW_REF"] == "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-independent-qualification.yml@refs/heads/main"
+          print("PASS: reusable-job workflow identity resolves to the trusted S1 file at the same commit as S0")
           print("PASS: executing S1 workflow blob matches the registered trust identity at the caller workflow commit")
           print("PASS: trusted default-branch S0 bound the exact current PR repository/SHA")
           PY
@@ -850,6 +859,8 @@ jobs:
           CANDIDATE_PR: ${{ inputs.candidate_pr }}
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
           CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}
+          CALLED_WORKFLOW_REF: ${{ job.workflow_ref }}
+          CALLED_WORKFLOW_SHA: ${{ job.workflow_sha }}
           CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
           SOURCE_TREE_ENTRY_COUNT: ${{ steps.resolve_source.outputs.source_tree_entry_count }}
           SOURCE_FILE_COUNT: ${{ steps.resolve_source.outputs.source_file_count }}
@@ -898,6 +909,8 @@ jobs:
             echo "trusted_workflow_sha=$GITHUB_WORKFLOW_SHA"
             echo "trusted_workflow_name=$GITHUB_WORKFLOW"
             echo "registered_s1_workflow_blob_sha=$TRUSTED_WORKFLOW_BLOB_SHA"
+            echo "called_workflow_ref=$CALLED_WORKFLOW_REF"
+            echo "called_workflow_sha=$CALLED_WORKFLOW_SHA"
             echo "s1_run_id=$GITHUB_RUN_ID"
             echo "s1_run_attempt=$GITHUB_RUN_ATTEMPT"
             echo "rust_version=$RUST_VERSION"
