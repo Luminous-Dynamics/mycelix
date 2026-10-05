@@ -303,6 +303,12 @@ fn validate_substrate_role_link(
         ));
     }
 
+    if is_did_deactivated_on_chain(action.author.clone(), action.prev_action.clone())? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent link cannot be created after DID deactivation".into(),
+        ));
+    }
+
     let base = base_address.clone().into_entry_hash().ok_or_else(|| {
         wasm_error!(WasmErrorInner::Guest(
             "SubstrateRoleToAgent base must be an EntryHash role anchor".into(),
