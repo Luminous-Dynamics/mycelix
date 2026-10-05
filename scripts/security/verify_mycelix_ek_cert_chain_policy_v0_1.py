@@ -6,18 +6,28 @@ import argparse
 import copy
 import hashlib
 import json
-import os
 import shutil
 import sys
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 from typing import Any
 
 VERIFIER_ID = "mycelix.tpm.ek-cert-chain-policy.v0.1"
 SPKI_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
 TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
+ROOT = Path(__file__).resolve().parents[2]
+FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
+REFERENCE_ROOT_SOURCE_TAG = "synthetic-ek-root-fixture-v0.2-frozen"
+REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
+FIXTURE_HASHES = {
+    "root.der": REFERENCE_ROOT_SHA256,
+    "intermediate.der": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
+    "leaf.der": "7448f84d763c2bee017ff33e18f1679b73f6db3f96bcfe2793c4b607b20a048b",
+    "bad-usage.der": "526a43a655e5a46d7e9176281a96820c4d15d932d0a18be507300d11d8598e9f",
+    "bad-eku.der": "45c32aac3237eabe9cecdc38cb9d49c359e52d9d68deacf62aee8d30c44ab62c",
+    "crl-bundle.pem": "6e0e1ea27ae4b5933d40e54368a8618a7aee98b45011962029a131c11b323abb",
+}
 TEMPLATE_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_template_appraisal_v0_1.py")
 EK_CERT_EKU_OID = "2.23.133.8.1"
 REFERENCE_ROOT_SOURCE_TAG = "synthetic-ek-root-fixture-v0.1"
@@ -584,169 +594,28 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def openssl_fixture(work: Path) -> dict[str, Any]:
-    root_key = work / "root.key"
-    inter_key = work / "inter.key"
-    leaf_key = work / "leaf.key"
-    root_pem = work / "root.pem"
-    inter_pem = work / "inter.pem"
-    leaf_pem = work / "leaf.pem"
-    leaf_bad_usage_pem = work / "leaf-bad-usage.pem"
-    leaf_bad_eku_pem = work / "leaf-bad-eku.pem"
-
-    run(["openssl", "genrsa", "-traditional", "-out", str(root_key), "2048"], work)
-    p = run([
-        "openssl", "req", "-new", "-x509", "-sha256", "-days", "3650",
-        "-key", str(root_key), "-subj", "/CN=Mycelix Synthetic EK Root CA",
-        "-addext", "basicConstraints=critical,CA:true,pathlen:1",
-        "-addext", "keyUsage=critical,keyCertSign,cRLSign",
-        "-addext", "subjectKeyIdentifier=hash",
-        "-out", str(root_pem),
-    ], work)
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr)
-
-    run(["openssl", "genrsa", "-traditional", "-out", str(inter_key), "2048"], work)
-    p = run(["openssl", "req", "-new", "-sha256", "-key", str(inter_key),
-             "-subj", "/CN=Mycelix Synthetic EK Issuing CA", "-out", str(work / "inter.csr")], work)
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr)
-    (work / "inter.ext").write_text(
-        "basicConstraints=critical,CA:true,pathlen:0\n"
-        "keyUsage=critical,keyCertSign,cRLSign\n"
-        "subjectKeyIdentifier=hash\n"
-        "authorityKeyIdentifier=keyid,issuer\n",
-        encoding="utf-8",
-    )
-    p = run(["openssl", "x509", "-req", "-sha256", "-days", "2555",
-             "-in", str(work / "inter.csr"), "-CA", str(root_pem), "-CAkey", str(root_key),
-             "-CAcreateserial", "-extfile", str(work / "inter.ext"), "-out", str(inter_pem)], work)
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr)
-
-    run(["openssl", "genrsa", "-traditional", "-out", str(leaf_key), "2048"], work)
-    p = run(["openssl", "req", "-new", "-sha256", "-key", str(leaf_key),
-             "-subj", "/CN=Mycelix Synthetic EK/O=Mycelix Reference Lab/OU=EK",
-             "-out", str(work / "leaf.csr")], work)
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr)
-    (work / "leaf.ext").write_text(
-        "basicConstraints=critical,CA:false\n"
-        "keyUsage=critical,keyEncipherment\n"
-        f"extendedKeyUsage=OID.{EK_CERT_EKU_OID}\n"
-        "subjectKeyIdentifier=hash\n"
-        "authorityKeyIdentifier=keyid,issuer\n",
-        encoding="utf-8",
-    )
-    (work / "bad-usage.ext").write_text(
-        "basicConstraints=critical,CA:false\n"
-        "keyUsage=critical,digitalSignature\n"
-        f"extendedKeyUsage=OID.{EK_CERT_EKU_OID}\n"
-        "subjectKeyIdentifier=hash\n"
-        "authorityKeyIdentifier=keyid,issuer\n",
-        encoding="utf-8",
-    )
-    (work / "bad-eku.ext").write_text(
-        "basicConstraints=critical,CA:false\n"
-        "keyUsage=critical,keyEncipherment\n"
-        "extendedKeyUsage=clientAuth\n"
-        "subjectKeyIdentifier=hash\n"
-        "authorityKeyIdentifier=keyid,issuer\n",
-        encoding="utf-8",
-    )
-    for ext_path, out_path in (
-        ("leaf.ext", leaf_pem),
-        ("bad-usage.ext", leaf_bad_usage_pem),
-        ("bad-eku.ext", leaf_bad_eku_pem),
-    ):
-        p = run([
-            "openssl", "x509", "-req", "-sha256", "-days", "3650",
-            "-in", str(work / "leaf.csr"), "-CA", str(inter_pem), "-CAkey", str(inter_key),
-            "-CAcreateserial", "-extfile", str(work / ext_path), "-out", str(out_path),
-        ], work)
-        if p.returncode != 0:
-            raise RuntimeError(p.stderr)
-
-    ca_dir = work / "ca"
-    ca_dir.mkdir()
-    (ca_dir / "index.txt").write_text("", encoding="utf-8")
-    (ca_dir / "serial").write_text("1000\n", encoding="utf-8")
-    (ca_dir / "crlnumber").write_text("1000\n", encoding="utf-8")
-    (ca_dir / "openssl.cnf").write_text(
-        "[ca]\ndefault_ca=ca_default\n"
-        "[ca_default]\n"
-        f"database={ca_dir / 'index.txt'}\n"
-        f"private_key={inter_key}\n"
-        f"certificate={inter_pem}\n"
-        f"serial={ca_dir / 'serial'}\n"
-        f"crlnumber={ca_dir / 'crlnumber'}\n"
-        f"crl={ca_dir / 'crl.pem'}\n"
-        "default_crl_days=30\ndefault_md=sha256\npolicy=policy_any\n"
-        "[policy_any]\ncommonName=supplied\n",
-        encoding="utf-8",
-    )
-    p = run(["openssl", "ca", "-config", str(ca_dir / "openssl.cnf"), "-gencrl",
-             "-out", str(ca_dir / "crl.pem"), "-batch"], work)
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr)
-
-    root_ca = work / "root-ca"
-    root_ca.mkdir()
-    (root_ca / "index.txt").write_text("", encoding="utf-8")
-    (root_ca / "serial").write_text("2000\n", encoding="utf-8")
-    (root_ca / "crlnumber").write_text("2000\n", encoding="utf-8")
-    (root_ca / "openssl.cnf").write_text(
-        "[ca]\ndefault_ca=root_ca\n"
-        "[root_ca]\n"
-        f"database={root_ca / 'index.txt'}\n"
-        f"private_key={root_key}\n"
-        f"certificate={root_pem}\n"
-        f"serial={root_ca / 'serial'}\n"
-        f"crlnumber={root_ca / 'crlnumber'}\n"
-        f"crl={root_ca / 'crl.pem'}\n"
-        "default_crl_days=30\ndefault_md=sha256\npolicy=policy_any\n"
-        "[policy_any]\ncommonName=supplied\n",
-        encoding="utf-8",
-    )
-    p = run(["openssl", "ca", "-config", str(root_ca / "openssl.cnf"), "-gencrl",
-             "-out", str(root_ca / "crl.pem"), "-batch"], work)
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr)
-
-    def der(path: Path) -> bytes:
-        out = path.with_suffix(".der")
-        cmd = ["openssl", "x509", "-in", str(path), "-outform", "DER", "-out", str(out)]
-        if path.name == "crl.pem":
-            cmd = ["openssl", "crl", "-in", str(path), "-outform", "DER", "-out", str(out)]
-        p = run(cmd, work)
-        if p.returncode != 0:
-            raise RuntimeError(p.stderr)
-        return out.read_bytes()
-
-    root = der(root_pem)
-    intermediate = der(inter_pem)
-    leaf = der(leaf_pem)
-    bad_usage = der(leaf_bad_usage_pem)
-    bad_eku = der(leaf_bad_eku_pem)
-    crl_der = der(ca_dir / "crl.pem")
-    root_crl_pem = (root_ca / "crl.pem").read_bytes()
-    inter_crl_pem = (ca_dir / "crl.pem").read_bytes()
-    crl_bundle_pem = root_crl_pem + inter_crl_pem
-
-    texts = {}
-    for name, data in (("leaf", leaf), ("bad-usage", bad_usage), ("bad-eku", bad_eku)):
-        texts[name] = x509_text(data, work, f"fixture-{name}")
-
-    start = int(time.time()) - 60
+def load_fixture() -> dict[str, Any]:
+    if not FIXTURE_DIR.is_dir():
+        raise RuntimeError(f"missing frozen EK certificate fixture directory: {FIXTURE_DIR}")
+    for name, expected in FIXTURE_HASHES.items():
+        path = FIXTURE_DIR / name
+        if not path.is_file():
+            raise RuntimeError(f"missing frozen EK certificate fixture: {path}")
+        observed = sha256_file(path)
+        if observed != expected:
+            raise RuntimeError(
+                f"frozen EK fixture digest mismatch for {name}: expected {expected} got {observed}"
+            )
     return {
-        "root": root,
-        "intermediate": intermediate,
-        "leaf": leaf,
-        "bad_usage": bad_usage,
-        "bad_eku": bad_eku,
-        "crl_bundle_pem": crl_bundle_pem,
-        "attime": start + 120,
+        "root": (FIXTURE_DIR / "root.der").read_bytes(),
+        "intermediate": (FIXTURE_DIR / "intermediate.der").read_bytes(),
+        "leaf": (FIXTURE_DIR / "leaf.der").read_bytes(),
+        "bad_usage": (FIXTURE_DIR / "bad-usage.der").read_bytes(),
+        "bad_eku": (FIXTURE_DIR / "bad-eku.der").read_bytes(),
+        "crl_bundle_pem": (FIXTURE_DIR / "crl-bundle.pem").read_bytes(),
+        "attime": REFERENCE_TIME_UNIX,
     }
+
 
 
 def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
@@ -935,7 +804,7 @@ def mutate_leaf(m: dict[str, Any], leaf: bytes) -> None:
 
 def self_test() -> int:
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-chain-fixture-") as td:
-        fx = openssl_fixture(Path(td))
+        fx = load_fixture()
         base = make_manifest(fx)
         refresh_template_binding(base)
         base["session_binding_sha256"] = session_binding(
@@ -961,7 +830,7 @@ def self_test() -> int:
                 "intermediate_certificate_sha256": x["trust_anchor_root_sha256"],
             })),
             ("leaf-byte-substitution", "DENY", lambda x: mutate_leaf(x, fx["leaf"][:-1] + bytes([fx["leaf"][-1] ^ 1]))),
-            ("expired-reference-time", "DENY", lambda x: x.update({"verification_time_unix": int(time.time()) + 20 * 365 * 24 * 3600})),
+            ("expired-reference-time", "DENY", lambda x: x.update({"verification_time_unix": EXPIRED_TIME_UNIX})),
             ("not-yet-valid-reference-time", "DENY", lambda x: x.update({"verification_time_unix": 0})),
             ("key-usage-profile-mismatch", "DENY", lambda x: mutate_leaf(x, fx["bad_usage"])),
             ("eku-profile-mismatch", "DENY", lambda x: mutate_leaf(x, fx["bad_eku"])),
@@ -1003,7 +872,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("22 adversarial mutations plus canonical and key-order controls: PASS")
+    print("24 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
