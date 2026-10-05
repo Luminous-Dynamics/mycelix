@@ -54,7 +54,7 @@ The D6U main-owned runtime executor has `contents: read` only and explicitly def
 - `attestations: write`;
 - `artifact-metadata: write`.
 
-The trusted workflow signs the exact evidence files only after independent verification, using the dedicated `d6u-trusted-runtime-evidence/v1` evidence predicate. This is an evidence attestation, not a claim that the trusted workflow built the evidence. Attestation verification additionally pins the exact GitHub Actions OIDC issuer and certificate SAN for this workflow, alongside the signer workflow path and signer workflow commit digest. It also requires the certificate `runInvocationURI` to identify the current trusted workflow run/attempt and requires the signed predicate to match the independently verified evidence record. It also requires the attestation certificate's `runInvocationURI` to identify the current trusted workflow run/attempt and requires the attested subject digest to equal the local subject bytes.
+The trusted workflow signs the exact evidence files only after independent verification, using the dedicated `d6u-trusted-runtime-evidence/v1` evidence predicate. This is an evidence attestation, not a claim that the trusted workflow built the evidence. Attestation verification additionally pins the exact GitHub Actions OIDC issuer and certificate SAN for this workflow, alongside the signer workflow path and signer workflow commit digest. It also requires the certificate `runInvocationURI` to identify the current trusted workflow run/attempt and requires the signed predicate to match the independently verified evidence record. The subject binding is an exact set of three `(name, sha256)` identities, so statement ordering is irrelevant while duplicates, extra algorithms, altered names, or altered digests fail closed.
 
 A successful D6U pull-request run therefore means runtime evidence was produced and uploaded. A trusted signed attestation means the default-branch verifier accepted that evidence against its independently reviewed policy and signed the exact resulting bytes.
 
@@ -71,4 +71,4 @@ The self-test has no signing permissions and is not itself an authority root.
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v22.
+Current trusted policy revision: v23.
