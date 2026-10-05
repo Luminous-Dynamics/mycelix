@@ -203,25 +203,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterUpdate(op_update) => {
-            match op_update {
-                // PrintJob supports multi-party updates (requester + printer operator)
-                OpUpdate::Entry { app_entry: EntryTypes::PrintJob(_), .. } => {
-                    Ok(ValidateCallbackResult::Valid)
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            OpUpdate::Entry {
+                action,
+                app_entry: EntryTypes::PrintJob(_),
+            } => validate_print_job_update_authorization(action),
+            OpUpdate::Entry { action, .. }
+            | OpUpdate::PrivateEntry { action, .. }
+            | OpUpdate::Agent { action, .. }
+            | OpUpdate::CapClaim { action, .. }
+            | OpUpdate::CapGrant { action, .. } => {
+                let original = must_get_action(action.original_action_address.clone())?;
+                if action.author != *original.hashed.author() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original author can update this entry".into(),
+                    ));
                 }
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => {
-                    let original = must_get_action(action.original_action_address.clone())?;
-                    if action.author != *original.hashed.author() {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Only the original author can update this entry".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
+                Ok(ValidateCallbackResult::Valid)
             }
         }
         FlatOp::RegisterDelete(op_delete) => {
@@ -234,6 +232,45 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
         _ => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+/// Authorize a PrintJob update at the integrity boundary.
+///
+/// Print jobs intentionally support two-party updates: the requester and the
+/// printer owner. This authorization must be derivable from DHT state that is
+/// valid and deterministic, rather than trusting a coordinator call path.
+fn validate_print_job_update_authorization(
+    action: Update,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original_job: PrintJob = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "PrintJob update references a non-PrintJob entry".to_string(),
+            ))
+        })?;
+
+    let printer_record = must_get_valid_record(original_job.printer_hash.clone())?;
+    let printer: PrinterInfo = printer_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "PrintJob references a non-Printer entry".to_string(),
+            ))
+        })?;
+
+    if action.author == original_job.requester || action.author == printer.owner {
+        Ok(ValidateCallbackResult::Valid)
+    } else {
+        Ok(ValidateCallbackResult::Invalid(
+            "Only the PrintJob requester or printer owner can update the entry".into(),
+        ))
     }
 }
 
