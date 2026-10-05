@@ -128,6 +128,8 @@ def run_template_verifier(binding: dict[str, Any]) -> dict[str, Any]:
         expected_input_sha = sha256_file(input_path)
         if output.get("input_sha256") != expected_input_sha:
             return result("DENY", "ek-template-verifier-input-digest-mismatch")
+        if binding.get("input_sha256") != expected_input_sha:
+            return result("DENY", "ek-template-binding-input-digest-mismatch")
         expected_output_sha = sha256_file(output_path)
         if binding.get("output_sha256") != expected_output_sha:
             return result("DENY", "ek-template-verifier-output-digest-mismatch")
@@ -850,6 +852,7 @@ def self_test() -> int:
             ("trust-anchor-source-substitution", "DENY", lambda x: mutate_trust_anchor_source(x)),
             ("template-verifier-substitution", "DENY", lambda x: x["ek_template_binding"].update({"verifier_id": "other-verifier"})),
             ("template-source-substitution", "DENY", lambda x: x["ek_template_binding"].update({"source_sha256": "12" * 32})),
+            ("template-input-substitution", "DENY", lambda x: x["ek_template_binding"].update({"input_sha256": "14" * 32})),
             ("template-wire-substitution", "DENY", lambda x: x["ek_template_binding"].update({"public_wire_sha256": "13" * 32})),
             ("template-indeterminate", "INDETERMINATE", lambda x: x["ek_template_binding"].update({"state": "INDETERMINATE"})),
             ("trust-anchor-state-substitution", "DENY", lambda x: x.update({"trust_anchor_state": "DENY"})),
