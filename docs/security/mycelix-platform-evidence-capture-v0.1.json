@@ -526,6 +526,11 @@
       "id": "CAP-V41",
       "mutation": "activatecredential-indeterminate",
       "expected": "INDETERMINATE"
+    },
+    {
+      "id": "CAP-V42",
+      "mutation": "quote-ak-public-area-substitution",
+      "expected": "DENY"
     }
   ],
   "execution_modes": {
@@ -619,6 +624,10 @@
     {
       "id": "CAP-041",
       "rule": "Restricted activation secret and authorization artifacts are not qualification-summary fields and must not be published as part of the evidence manifest."
+    },
+    {
+      "id": "CAP-042",
+      "rule": "The AK public artifact used for TPM Quote signature verification must normalize to the exact TPMT_PUBLIC bytes returned by independent tpm2_readpublic; a cross-object AK public splice is DENY."
     }
   ]
 }

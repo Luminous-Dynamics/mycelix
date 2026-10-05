@@ -315,6 +315,7 @@ def fixture_manifest() -> dict[str, Any]:
             "pcr_selection": "sha256:0,2,4,7",
             "nonce_sha256": "d" * 64,
             "attestation_key_sha256": "e" * 64,
+            "attestation_key_public_area_sha256": "ac" * 32,
         },
         "challenge": {"sha256": "d" * 64, "origin": "external-verifier-supplied"},
         "toolchain": {
@@ -436,6 +437,8 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
         out["quote"]["nonce_sha256"] = "2" * 64
     elif name == "attestation-key-substitution":
         out["quote"]["attestation_key_sha256"] = "3" * 64
+    elif name == "quote-ak-public-area-substitution":
+        out["artifacts"]["attestation_key_public_area_sha256"] = "ce" * 32
     elif name == "toolchain-substitution":
         out["toolchain"]["tpm2_tools_version"] = "0.0.0-attacker"
     elif name == "reference-version-rollback":
@@ -808,6 +811,8 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("non-authoritative-challenge-origin")
     if manifest["quote"]["attestation_key_sha256"] != manifest["artifacts"]["attestation_key_sha256"]:
         denies.append("attestation-key-artifact-binding-mismatch")
+    if manifest["artifacts"].get("attestation_key_public_area_sha256") != manifest["public_name_coherence"]["ak"]["wire_sha256"]:
+        denies.append("quote-ak-public-area-binding-mismatch")
     if manifest["tpm"]["ek_public_sha256"] != manifest["artifacts"]["ek_public_sha256"]:
         denies.append("ek-artifact-binding-mismatch")
     if manifest["live_observation"]["pcr_values_file_sha256"] != manifest["artifacts"]["observed_pcr_values_file_sha256"]:
@@ -1543,6 +1548,19 @@ def verify_bundle(args: argparse.Namespace) -> int:
         print("PLATFORM EVIDENCE: DENY: payload-coherence-manifest-state-mismatch")
         return 1
 
+    try:
+        normalized_ak_public = normalized_tpm2b_public_body(bundle / "ak.pub")
+    except (OSError, ValueError) as exc:
+        print(f"PLATFORM EVIDENCE: DENY: AK public normalization failed: {exc}")
+        return 1
+    normalized_ak_public_sha256 = sha256_bytes(normalized_ak_public)
+    if normalized_ak_public_sha256 != manifest["public_name_coherence"]["ak"]["wire_sha256"]:
+        print("PLATFORM EVIDENCE: DENY: AK public used for Quote does not match ReadPublic TPMT_PUBLIC")
+        return 1
+    if manifest["artifacts"]["attestation_key_public_area_sha256"] != normalized_ak_public_sha256:
+        print("PLATFORM EVIDENCE: DENY: Quote AK public-area digest binding mismatch")
+        return 1
+
     quote_state, quote_reason = run_quote_check(bundle)
     print(f"TPM Quote verification: {quote_state} ({quote_reason})")
     if quote_state != "PASS":
@@ -2173,6 +2191,7 @@ def capture(args: argparse.Namespace) -> int:
             "pcr_selection": args.pcr_selection,
             "nonce_sha256": sha256_file(out / "nonce.bin"),
             "attestation_key_sha256": sha256_file(out / "ak.pub"),
+            "attestation_key_public_area_sha256": sha256_bytes(normalized_tpm2b_public_body(out / "ak.pub")),
         },
         "challenge": {
             "sha256": sha256_file(out / "nonce.bin"),
