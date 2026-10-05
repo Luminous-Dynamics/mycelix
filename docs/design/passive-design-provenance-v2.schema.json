@@ -451,7 +451,7 @@
           "minLength": 1
         },
         "value": {
-          "oneOf": [
+          "anyOf": [
             {
               "type": "integer",
               "minimum": 0
