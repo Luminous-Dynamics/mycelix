@@ -475,11 +475,33 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--self-test", action="store_true")
     group.add_argument("--capture", action="store_true")
+    group.add_argument("--verify", metavar="MANIFEST")
     parser.add_argument("--output")
     args = parser.parse_args()
 
     if args.self_test:
         return self_test()
+
+    if args.verify:
+        input_path = Path(args.verify).resolve()
+        manifest = json.loads(input_path.read_text(encoding="utf-8"))
+        verified = verify(manifest)
+        output = {
+            "profile_id": "mycelix.security.tpm.properties-fixed-capture",
+            "profile_version": "0.1.0",
+            "verifier_id": VERIFIER_ID,
+            "input_sha256": hashlib.sha256(input_path.read_bytes()).hexdigest(),
+            **verified,
+        }
+        output["content_sha256"] = canonical_hash(
+            {key: value for key, value in output.items() if key != "content_sha256"}
+        )
+        rendered = json.dumps(output, indent=2, sort_keys=True) + "\n"
+        if args.output:
+            Path(args.output).write_text(rendered, encoding="utf-8")
+        else:
+            print(rendered, end="")
+        return {"PASS": 0, "DENY": 1, "INDETERMINATE": 2}[verified["state"]]
 
     if not args.output:
         parser.error("--output is required with --capture")
