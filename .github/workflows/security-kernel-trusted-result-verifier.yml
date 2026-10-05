@@ -214,6 +214,100 @@ jobs:
               f"unexpected qualification receipt artifact digest: {artifact_digest!r}"
           )
 
+          archive_url = artifact.get("archive_download_url")
+          assert isinstance(archive_url, str) and archive_url, "qualification receipt artifact has no download URL"
+          request = urllib.request.Request(
+              archive_url,
+              headers={
+                  "Accept": "application/octet-stream",
+                  "Authorization": f"Bearer {token}",
+                  "X-GitHub-Api-Version": "2026-03-10",
+              },
+          )
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+
+          try:
+              with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
+                  raise AssertionError(f"artifact download returned unexpected HTTP {response.status} without redirect")
+          except urllib.error.HTTPError as error:
+              if error.code not in (301, 302, 303, 307, 308):
+                  raise
+              download_url = error.headers.get("Location")
+              assert isinstance(download_url, str) and download_url, "artifact download redirect did not provide a Location"
+
+          with urllib.request.urlopen(download_url, timeout=30) as response:
+              artifact_bytes = response.read(1024 * 1024 + 1)
+          assert artifact_bytes, "qualification receipt artifact download is empty"
+          assert len(artifact_bytes) <= 1024 * 1024, "qualification receipt artifact exceeds 1 MiB verifier bound"
+          assert "sha256:" + __import__("hashlib").sha256(artifact_bytes).hexdigest() == artifact_digest, (
+              "downloaded qualification receipt bytes do not match GitHub's recorded artifact digest"
+          )
+
+          import io, zipfile
+          receipt_bytes = artifact_bytes
+          if zipfile.is_zipfile(io.BytesIO(artifact_bytes)):
+              with zipfile.ZipFile(io.BytesIO(artifact_bytes)) as archive:
+                  files = [info for info in archive.infolist() if not info.is_dir()]
+                  assert len(files) == 1, f"qualification receipt archive contains {len(files)} files, expected exactly one"
+                  receipt_member = files[0].filename
+                  assert receipt_member.rsplit("/", 1)[-1] == expected_artifact_name, (
+                      f"qualification receipt member name mismatch: {receipt_member!r}"
+                  )
+                  receipt_bytes = archive.read(files[0])
+
+          receipt_text = receipt_bytes.decode("utf-8")
+          receipt = {}
+          for line in receipt_text.splitlines():
+              assert "=" in line, f"qualification receipt contains malformed line: {line!r}"
+              key, value = line.split("=", 1)
+              assert re.fullmatch(r"[a-z0-9_]+", key), f"qualification receipt contains invalid key: {key!r}"
+              assert key not in receipt, f"qualification receipt contains duplicate key: {key!r}"
+              receipt[key] = value
+
+          exact_receipt = {
+              "schema": "security-kernel-independent-qualification-v1",
+              "candidate_repository": candidate_repository,
+              "candidate_repository_id": str(candidate_repo_id),
+              "candidate_pr": str(candidate_pr),
+              "candidate_sha": candidate_sha,
+              "source_event": "pull_request_target",
+              "trusted_workflow_sha": workflow_sha,
+              "registered_s1_workflow_blob_sha": s1_at_run["sha"],
+              "called_workflow_ref": f"{repo}/{os.environ['INDEPENDENT_WORKFLOW_PATH']}@refs/heads/main",
+              "called_workflow_sha": workflow_sha,
+              "trusted_ref_protected": "true",
+              "cache_mode": "none",
+              "s1_run_id": run_id,
+              "s1_run_attempt": str(run_attempt),
+              "sandbox_network": "none",
+              "sandbox_rootfs": "read-only",
+              "sandbox_user": "non-root",
+              "sandbox_capabilities": "all-dropped",
+              "sandbox_no_new_privileges": "true",
+              "sandbox_negative_controls": "passed",
+              "dependency_substrate_postflight": "passed",
+              "qualification_pass": "true",
+          }
+          for key, expected_value in exact_receipt.items():
+              assert receipt.get(key) == expected_value, (
+                  f"qualification receipt field {key!r} mismatch: "
+                  f"{receipt.get(key)!r} != {expected_value!r}"
+              )
+          for key in ("candidate_cargo_lock_sha256", "candidate_source_digest", "vendor_digest"):
+              assert re.fullmatch(r"[0-9a-f]{64}", receipt.get(key, "")), (
+                  f"qualification receipt field {key!r} is not a SHA-256 digest"
+              )
+          print(
+              "PASS: downloaded qualification receipt bytes match the recorded artifact digest "
+              "and bind the exact candidate/run/trust-gate identity"
+          )
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest or ""), (
+              f"unexpected qualification receipt artifact digest: {artifact_digest!r}"
+          )
+
           print(json.dumps({
               "candidate_sha": candidate_sha,
               "candidate_pr": candidate_pr,
