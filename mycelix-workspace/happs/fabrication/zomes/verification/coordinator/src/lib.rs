@@ -658,6 +658,10 @@ mod tests {
             epistemic_aggregate_status(1, 1, 1),
             EpistemicAggregateStatus::IncompleteEvidence
         );
+        assert_eq!(
+            epistemic_aggregate_status(0, 1, 1),
+            EpistemicAggregateStatus::IncompleteEvidence
+        );
     }
 
 }
