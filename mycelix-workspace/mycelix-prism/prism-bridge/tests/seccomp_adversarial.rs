@@ -908,7 +908,10 @@ fn thread_sync_divergent_filter_child() -> ! {
 #[cfg(target_os = "linux")]
 fn thread_sync_strict_mode_child() -> ! {
     use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
-    use prism_bridge::seccomp::{install, SeccompArchitecture, SeccompError, SeccompSyscallPolicyV1};
+    use prism_bridge::seccomp::{
+        install, install_v2, SeccompArchitecture, SeccompArgPredicateV1, SeccompError,
+        SeccompSyscallPolicyV1, SeccompSyscallPolicyV2, SeccompSyscallRuleV2,
+    };
 
     const SECCOMP_SET_MODE_STRICT: libc::c_uint = 0;
 
@@ -1030,6 +1033,33 @@ fn thread_sync_strict_mode_child() -> ! {
         Err(SeccompError::InstallationFailed(errno)) if errno == libc::ESRCH
     ) {
         unsafe { libc::_exit(208) };
+    }
+
+    // Exercise the same strict-mode TSYNC refusal through the parameter-aware
+    // V2 installation path. The sibling remains in SECCOMP_MODE_STRICT, so the
+    // kernel must reject synchronization before attaching either new filter.
+    let v2_rule = SeccompSyscallRuleV2::new(
+        libc::SYS_getpid,
+        vec![SeccompArgPredicateV1::new(0, 1, 0)
+            .unwrap_or_else(|_| unsafe { libc::_exit(211) })],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(212) });
+    let v2_policy = SeccompSyscallPolicyV2::new(architecture, vec![v2_rule])
+        .unwrap_or_else(|_| unsafe { libc::_exit(213) });
+    let v2_profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(v2_policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(214) });
+
+    let v2_result = install_v2(
+        RendererProcessAssignmentId::new(10).unwrap(),
+        v2_profile,
+        &v2_policy,
+    );
+    if !matches!(
+        v2_result,
+        Err(SeccompError::InstallationFailed(errno)) if errno == libc::ESRCH
+    ) {
+        unsafe { libc::_exit(215) };
     }
 
     // A failed TSYNC must not attach or replace any seccomp filter on
