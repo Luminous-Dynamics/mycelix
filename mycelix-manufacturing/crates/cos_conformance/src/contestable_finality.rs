@@ -20,6 +20,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const D6N_ASSESSMENT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-ASSESSMENT-V1\0";
 pub const D6N_ASSESSMENT_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
 pub const D6N_PROFILE_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-PROFILE-V1\0";
+pub const D6N_SET_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-OBSERVATION-SET-V1\0";
 pub const D6N_PROFILE_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
 pub const CONTESTABLE_FINALITY_CLAIM_CEILING: &str =
     "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim.";
@@ -210,6 +211,22 @@ pub struct ExternalObservationSetV1 {
 }
 
 impl ExternalObservationSetV1 {
+    /// Recompute the D6N observation-set identity from all set fields.
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.set_commitment.clear();
+        let payload = serde_json::to_vec(&unsigned)
+            .expect("D6N observation set must be serializable");
+        let mut hasher = Sha256::new();
+        hasher.update(D6N_SET_COMMITMENT_DOMAIN);
+        hasher.update(payload);
+        format!("{:x}", hasher.finalize())
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.set_commitment == self.recomputed_commitment()
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.set_id)
             && non_empty(&self.effect_id)
@@ -591,6 +608,7 @@ pub fn verify_observation_set_provenance(
         || !effect.structurally_valid()
         || !route.structurally_valid()
         || !profile.commitment_matches()
+        || !set.commitment_matches()
         || !effect_matches(effect, set)
         || !route_matches(route, set)
         || set.qualification_profile_id != profile.profile_id
@@ -1104,7 +1122,7 @@ mod tests {
     }
 
     fn set(ids: &[&str]) -> ExternalObservationSetV1 {
-        ExternalObservationSetV1 {
+        let mut set = ExternalObservationSetV1 {
             set_id: "set-1".into(),
             effect_id: "effect-1".into(),
             effect_lineage_id: "lineage-1".into(),
@@ -1120,7 +1138,9 @@ mod tests {
             target_state: ExternalFinalityStateV1::Applied,
             set_commitment: "set-commitment".into(),
             claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
-        }
+        };
+        set.set_commitment = set.recomputed_commitment();
+        set
     }
 
     fn receipt(disposition: FinalityResolutionDispositionV1) -> FinalityResolutionReceiptV1 {
@@ -1146,6 +1166,19 @@ mod tests {
             resolution_commitment: "resolution-commitment".into(),
             claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
         }
+    }
+
+    #[test]
+    fn observation_set_commitment_binds_set_fields() {
+        let set = set(&["obs-1"]);
+        assert!(set.commitment_matches());
+
+        let mut forged = set.clone();
+        forged.target_state = ExternalFinalityStateV1::NotApplied;
+        assert!(!forged.commitment_matches());
+
+        forged.set_commitment = forged.recomputed_commitment();
+        assert!(forged.commitment_matches());
     }
 
     #[test]
