@@ -2658,7 +2658,7 @@ mod tests {
             aggregation_profile_id: "sap-reserve-oracle-v0".into(),
             publisher_policy_id: "sap-reserve-publisher-v0".into(),
             qualification_state: ReserveValuationState::Qualified,
-            publisher_did: "did:mycelix:alice".into(),
+            publisher_did: did_for_author(&make_create().author),
             supersedes: None,
             created_at: ts(1_000_000),
         }
@@ -2741,6 +2741,47 @@ mod tests {
         let result = validate_create_reserve_valuation_snapshot(
             EntryCreationAction::Create(make_create()),
             s,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+
+    #[test]
+    fn test_reserve_snapshot_rejects_duplicate_source_hash() {
+        let mut s = valid_reserve_snapshot();
+        s.source_action_hashes[1] = s.source_action_hashes[0].clone();
+        s.source_count = 2;
+        let result = validate_reserve_valuation_snapshot_fields(
+            &s,
+            &did_for_author(&make_create().author),
+            ts(1_000_000),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_reserve_snapshot_rejects_stale_source_commitment() {
+        let mut s = valid_reserve_snapshot();
+        s.source_commitment = "tampered".into();
+        let result = validate_reserve_valuation_snapshot_fields(
+            &s,
+            &did_for_author(&make_create().author),
+            ts(1_000_000),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_reserve_snapshot_rejects_source_count_mismatch() {
+        let mut s = valid_reserve_snapshot();
+        s.source_count = 3;
+        let result = validate_reserve_valuation_snapshot_fields(
+            &s,
+            &did_for_author(&make_create().author),
+            ts(1_000_000),
         )
         .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
