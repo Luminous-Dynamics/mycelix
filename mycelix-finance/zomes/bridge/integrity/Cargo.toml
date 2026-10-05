@@ -16,3 +16,4 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 mycelix_finance_types = { path = "../../../types" }
 mycelix-bridge-entry-types = { path = "../../../../crates/mycelix-bridge-entry-types" }
+price_oracle_integrity = { path = "../../price-oracle/integrity" }
