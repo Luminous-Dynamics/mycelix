@@ -34,7 +34,7 @@ def verify(m:dict[str,Any])->dict[str,Any]:
     tpm=m["tpm_identity"]
     for field in ("source_sha256","manufacturer_source_sha256","model_source_sha256","part_number_source_sha256","issuance_firmware_source_sha256"):
         if not valid_hash(tpm.get(field)):return result("DENY","tpm-source-digest-invalid",{"field":field})
-    for field in ("manufacturer_name","model","model_state","part_number_state","issuance_firmware_state"):
+    for field in ("manufacturer_name","model","model_state","part_number","part_number_state","issuance_firmware_state"):
         if field not in tpm:return result("DENY","tpm-identity-field-missing",{"field":field})
     if m["session_binding_sha256"]!=session_binding(m):return result("DENY","session-binding-mismatch")
     d={"manufacturer_certificate":san["details"].get("manufacturer"),"manufacturer_observed":tpm.get("manufacturer_name"),"model_certificate":san["details"].get("model"),"model_observed":tpm.get("model"),"firmware_certificate_at_issuance":san["details"].get("version"),"firmware_observed_at_issuance":tpm.get("issuance_firmware"),"current_firmware":tpm.get("current_firmware")}
@@ -42,6 +42,7 @@ def verify(m:dict[str,Any])->dict[str,Any]:
     if tpm["model_state"]!="PASS":return result("INDETERMINATE","model-source-indeterminate",d)
     if d["model_certificate"]!=d["model_observed"]:return result("DENY","model-mismatch",d)
     if tpm["part_number_state"]!="PASS":return result("INDETERMINATE","part-number-source-indeterminate",d)
+    if d["part_number_certificate"]!=d["part_number_observed"]:return result("DENY","part-number-mismatch",d)
     if tpm["issuance_firmware_state"]=="DENY":return result("DENY","issuance-firmware-source-denied",d)
     if tpm["issuance_firmware_state"]=="INDETERMINATE":return result("INDETERMINATE","issuance-firmware-source-indeterminate",d)
     if d["firmware_certificate_at_issuance"]!=d["firmware_observed_at_issuance"]:return result("DENY","issuance-firmware-mismatch",d)
@@ -54,7 +55,7 @@ def fixture()->dict[str,Any]:
     m["san_extraction_sha256"]=canonical_hash(san);m["session_binding_sha256"]=session_binding(m);return m
 def self_test()->int:
     base=fixture()
-    cases=[("canonical-valid","PASS",lambda x:x),("manufacturer-mismatch","DENY",lambda x:x["tpm_identity"].update({"manufacturer_name":"OTHER"})),("model-mismatch","DENY",lambda x:x["tpm_identity"].update({"model":"OTHER"})),("model-indeterminate","INDETERMINATE",lambda x:x["tpm_identity"].update({"model_state":"INDETERMINATE"})),("part-number-indeterminate","INDETERMINATE",lambda x:x["tpm_identity"].update({"part_number_state":"INDETERMINATE"})),("firmware-indeterminate","INDETERMINATE",lambda x:x["tpm_identity"].update({"issuance_firmware_state":"INDETERMINATE"})),("firmware-mismatch","DENY",lambda x:x["tpm_identity"].update({"issuance_firmware":"FW-9.0"})),("san-certificate-splice","DENY",lambda x:x.update({"certificate_der_sha256":"33"*32})),("san-receipt-splice","DENY",lambda x:x.update({"san_extraction_sha256":"44"*32})),("extractor-substitution","DENY",lambda x:x["san_extraction"].update({"verifier_id":"other"})),("source-splice","DENY",lambda x:x["tpm_identity"].update({"source_sha256":"55"*32})),("session-splice","DENY",lambda x:x.update({"session_id":"attacker"})),("offline-origin","INDETERMINATE",lambda x:x.update({"verification_mode":"OfflineBundle"})),("live-origin","INDETERMINATE",lambda x:x.update({"verification_mode":"LiveVerifierSession"}))]
+    cases=[("canonical-valid","PASS",lambda x:x),("manufacturer-mismatch","DENY",lambda x:x["tpm_identity"].update({"manufacturer_name":"OTHER"})),("model-mismatch","DENY",lambda x:x["tpm_identity"].update({"model":"OTHER"})),("part-number-mismatch","DENY",lambda x:x["tpm_identity"].update({"part_number":"OTHER"})),("model-indeterminate","INDETERMINATE",lambda x:x["tpm_identity"].update({"model_state":"INDETERMINATE"})),("part-number-indeterminate","INDETERMINATE",lambda x:x["tpm_identity"].update({"part_number_state":"INDETERMINATE"})),("firmware-indeterminate","INDETERMINATE",lambda x:x["tpm_identity"].update({"issuance_firmware_state":"INDETERMINATE"})),("firmware-mismatch","DENY",lambda x:x["tpm_identity"].update({"issuance_firmware":"FW-9.0"})),("san-certificate-splice","DENY",lambda x:x.update({"certificate_der_sha256":"33"*32})),("san-receipt-splice","DENY",lambda x:x.update({"san_extraction_sha256":"44"*32})),("extractor-substitution","DENY",lambda x:x["san_extraction"].update({"verifier_id":"other"})),("source-splice","DENY",lambda x:x["tpm_identity"].update({"source_sha256":"55"*32})),("session-splice","DENY",lambda x:x.update({"session_id":"attacker"})),("offline-origin","INDETERMINATE",lambda x:x.update({"verification_mode":"OfflineBundle"})),("live-origin","INDETERMINATE",lambda x:x.update({"verification_mode":"LiveVerifierSession"}))]
     for name,expected,mut in cases:
         c=copy.deepcopy(base);mut(c);o=verify(c)
         if o["state"]!=expected:print(f"{name}: FAIL expected={expected} got={o['state']} reason={o['reason']}");return 1
