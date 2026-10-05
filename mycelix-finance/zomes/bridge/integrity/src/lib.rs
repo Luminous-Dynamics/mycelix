@@ -1070,6 +1070,11 @@ fn validate_reserve_valuation_snapshot_fields(
             "Effective valuation window start cannot be after its end".into(),
         ));
     }
+    if snapshot.effective_window_end > action_timestamp {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Effective valuation window cannot extend beyond snapshot creation time".into(),
+        ));
+    }
     if snapshot.created_at != action_timestamp {
         return Ok(ValidateCallbackResult::Invalid(
             "Reserve valuation snapshot created_at must equal the Create action timestamp".into(),
@@ -3032,6 +3037,17 @@ mod tests {
         let commitment = canonical_source_commitment(&hashes);
         assert!(commitment.len() < MAX_REFERENCE_LEN);
         assert!(commitment.starts_with("blake2b256:"));
+    }
+
+
+    #[test]
+    fn test_reserve_snapshot_rejects_future_effective_window() {
+        let mut s = valid_reserve_snapshot();
+        s.effective_window_end = ts(2_000_000);
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
 
