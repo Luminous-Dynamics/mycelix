@@ -32,6 +32,44 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     Ok(EntryHash::from_raw_32(hash.to_vec()))
 }
 
+/// Require the issuer DID to be active before creating new trust authority.
+fn verify_issuer_did_active(did: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(io) => {
+            let active: bool = io
+                .decode()
+                .map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(
+                    "Issuer DID is not active; refusing trust-credential issuance".into(),
+                )))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            "Issuer DID active-state authorization failed".into(),
+        ))),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Issuer DID active-state verification failed (network error: {err})"
+        )))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("Issuer DID active-state verification failed (countersigning: {err})")
+        ))),
+        ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            "Issuer DID active-state verification failed (authentication)".into(),
+        ))),
+    }
+}
+
 /// Issue a new trust credential
 ///
 /// Creates a trust credential with K-Vector commitment and ZKP proof.
@@ -67,6 +105,8 @@ pub fn issue_trust_credential(input: IssueTrustCredentialInput) -> ExternResult<
             "Only the issuer can issue trust credentials".into()
         )));
     }
+
+    verify_issuer_did_active(&input.issuer_did)?;
 
     // Sybil resistance: rate limit credential issuance per issuer.
     // An issuer can create at most one credential per subject per hour.
