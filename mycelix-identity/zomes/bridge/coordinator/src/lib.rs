@@ -229,6 +229,7 @@ pub struct VerifyTierInput {
 /// Targeted by satellite hApps via call_remote.
 #[hdk_extern]
 pub fn verify_tier_remote(input: VerifyTierInput) -> ExternResult<ConsciousnessTier> {
+    verify_issuer_active("remote tier verification")?;
     let did = format!("did:mycelix:{}", input.agent);
     let identity_score = 1.0;
     let reputation_score = get_aggregated_reputation(&did)?;
@@ -344,6 +345,7 @@ fn get_predicted_entropy(_did: &str) -> ExternResult<f64> {
 /// Remote-callable wrapper to fetch an agent's full profile.
 #[hdk_extern]
 pub fn get_agent_profile_remote(agent: AgentPubKey) -> ExternResult<ConsciousnessProfile> {
+    verify_issuer_active("remote profile query")?;
     let did = format!("did:mycelix:{}", agent);
     let identity_score = 1.0;
     let reputation_score = get_aggregated_reputation(&did)?;
