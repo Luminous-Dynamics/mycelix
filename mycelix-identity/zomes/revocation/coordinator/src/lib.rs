@@ -225,9 +225,11 @@ fn latest_revocation_state(
             .then_with(|| ha.cmp(hb))
     });
 
-    let (action_hash, _, entry) = candidates
-        .last()
-        .expect("candidates was checked non-empty");
+    let Some((action_hash, _, entry)) = candidates.last() else {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Revocation candidate set unexpectedly became empty after canonicalization".into()
+        )));
+    };
     Ok(Some((action_hash.clone(), entry.clone())))
 }
 
@@ -539,9 +541,11 @@ fn latest_revocation_list(
             .cmp(&rb.action().action_seq())
             .then_with(|| ha.cmp(hb))
     });
-    let (hash, _, list) = candidates
-        .last()
-        .expect("candidates was checked non-empty");
+    let Some((hash, _, list)) = candidates.last() else {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Revocation-list candidate set unexpectedly became empty after canonicalization".into()
+        )));
+    };
     Ok(Some((hash.clone(), list.clone())))
 }
 
