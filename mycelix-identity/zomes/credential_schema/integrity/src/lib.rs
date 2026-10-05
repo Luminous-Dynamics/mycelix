@@ -8,6 +8,19 @@
 
 use hdi::prelude::*;
 
+fn validate_timestamp_not_future(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> ValidateCallbackResult {
+    if value > action_timestamp {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 /// Credential Schema definition
 /// Follows W3C Verifiable Credentials Data Model with Mycelix extensions
 #[hdk_entry_helper]
@@ -226,6 +239,15 @@ fn validate_create_credential_schema(
         ));
     }
 
+    match validate_timestamp_not_future(
+        "Schema created timestamp",
+        schema.created,
+        *action.timestamp(),
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
     // Validate at least one credential type
     if schema.credential_type.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -252,6 +274,15 @@ fn validate_update_credential_schema(
         return Ok(ValidateCallbackResult::Invalid(
             "Schema must be valid JSON".into(),
         ));
+    }
+
+    match validate_timestamp_not_future(
+        "Schema updated timestamp",
+        schema.updated,
+        action.timestamp,
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
 
     // Fetch original to enforce invariants
@@ -309,6 +340,15 @@ fn validate_create_schema_endorsement(
         return Ok(ValidateCallbackResult::Invalid(
             "Schema endorser must be the committing agent (forgery)".to_string(),
         ));
+    }
+
+    match validate_timestamp_not_future(
+        "Schema endorsement timestamp",
+        endorsement.endorsed_at,
+        *action.timestamp(),
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
 
     // Validate trust level range
