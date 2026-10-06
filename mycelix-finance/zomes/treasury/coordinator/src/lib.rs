@@ -7,6 +7,7 @@ use hdk::prelude::*;
 use mycelix_finance_shared::{
     GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, links_to_records, validate_id,
     verify_caller_is_did, verify_citizen_tier, verify_governance_or_bootstrap_from_links,
+    verify_governance_registration_from_links,
 };
 use treasury_integrity::*;
 
@@ -27,11 +28,22 @@ fn verify_governance_or_bootstrap() -> ExternResult<()> {
     verify_governance_or_bootstrap_from_links(gov_links)
 }
 
+fn verify_governance_registration_authority() -> ExternResult<()> {
+    let gov_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::GovernanceAgents,
+        )?,
+        GetStrategy::default(),
+    )?;
+    verify_governance_registration_from_links(gov_links)
+}
+
 /// Register a governance agent authorized for commons-pool allocations. Only an
 /// existing governance agent may register new ones (any agent during bootstrap).
 #[hdk_extern]
 pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
-    verify_governance_or_bootstrap()?;
+    verify_governance_registration_authority()?;
     create_link(
         anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
         agent,
