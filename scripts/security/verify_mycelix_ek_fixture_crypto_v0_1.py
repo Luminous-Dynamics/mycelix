@@ -733,9 +733,33 @@ def self_test() -> int:
             print("tampered leaf rejection: FAIL")
             return 1
 
-        selection_cases = [
+        observed_crls = {}
+        leaf_info = signed_object(base64.b64decode(m["leaf_certificate_der_base64"]), "certificate")
+        intermediate_info = signed_object(base64.b64decode(m["intermediate_certificate_der_base64"]), "certificate")
+        root_info = signed_object(base64.b64decode(m["trust_anchor_root_der_base64"]), "certificate")
+        for _pem, der in crl_blocks(base64.b64decode(m["crl_bundle_pem_base64"])):
+            parsed = signed_object(der, "crl")
+            label = "root" if parsed["issuer"] == root_info["subject"] else "intermediate" if parsed["issuer"] == intermediate_info["subject"] else None
+            if label is None:
+                print("CRL observed extension fixture issuer mapping: FAIL")
+                return 1
+            observed_crls[label] = parsed
+        observed_extension_cases = [
             ("observed-delta-crl-indicator-extension", lambda x: x["root"]["crl_extensions"].update({"2.5.29.27": {"critical": True}})),
             ("observed-issuing-distribution-point-extension", lambda x: x["root"]["crl_extensions"].update({"2.5.29.28": {"critical": True}})),
+        ]
+        for label, mutate in observed_extension_cases:
+            candidate = json.loads(json.dumps(observed_crls))
+            mutate(candidate)
+            try:
+                expected_crl_semantics_check(candidate, {"root": root_info, "intermediate": intermediate_info, "leaf": leaf_info}, m["expected_crl_semantics"], m["verification_time_unix"])
+            except (ValueError, KeyError):
+                pass
+            else:
+                print(f"{label} mutation acceptance: FAIL")
+                return 1
+
+        selection_cases = [
             ("authoritative CRL object", lambda x: x["root"]["selection"].update({"crl_der_sha256": "92" * 32})),
             ("authoritative issuer certificate", lambda x: x["root"]["selection"].update({"issuer_certificate_sha256": "93" * 32})),
             ("complete direct-issuer scope", lambda x: x["root"]["selection"].update({"scope": "limited-reason-scope"})),
