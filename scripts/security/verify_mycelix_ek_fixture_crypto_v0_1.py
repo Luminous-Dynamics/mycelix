@@ -425,8 +425,13 @@ def crl_blocks(bundle: bytes) -> list[bytes]:
         if finish < 0:
             raise ValueError("CRL END marker missing")
         finish += len(end)
+        if bundle[finish:finish + 2] == b"\r\n":
+            finish += 2
+        elif bundle[finish:finish + 1] == b"\n":
+            finish += 1
         block = bundle[start:finish]
-        encoded = b"".join(block[len(begin):-len(end)].split())
+        stripped = block.strip()
+        encoded = b"".join(stripped[len(begin):-len(end)].split())
         der = base64.b64decode(encoded, validate=True)
         # Preserve exact PEM identity while parsing exact DER payload.
         result_blocks.append((block, der))
@@ -561,8 +566,11 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         verify_signature(l["tbs"], l["signature"], i["n"], i["e"])
         verify_signature(i["tbs"], i["signature"], r["n"], r["e"])
         verify_signature(r["tbs"], r["signature"], r["n"], r["e"])
+        blocks = crl_blocks(crl_bundle)
+        if b"".join(block for block, _der in blocks) != crl_bundle:
+            return result("DENY", "crl-pem-block-segmentation-mismatch")
         crls = []
-        for pem, der in crl_blocks(crl_bundle):
+        for pem, der in blocks:
             parsed = signed_object(der, "crl")
             crls.append((pem, parsed))
         crl_map: dict[str, dict[str, Any]] = {}
