@@ -3665,6 +3665,14 @@ mod tests {
         "sha-256";
     const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING: &str =
         "serde-json-struct-order-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM: &str =
+        "sha-256";
+    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ENCODING: &str =
+        "sha256-lowercase-hex-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM: &str =
+        "sha-256";
+    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING: &str =
+        "sha256-lowercase-hex-v1";
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     enum FederationStateMachineTracePublicationCollectionRelationship {
@@ -3705,9 +3713,13 @@ mod tests {
         reference_profile: String,
         hash_algorithm: String,
         hash_encoding: String,
+        subject_hash_algorithm: String,
+        subject_hash_encoding: String,
         subject_schema_version: u16,
         subject_profile: String,
         subject_sha256: String,
+        witness_hash_algorithm: String,
+        witness_hash_encoding: String,
         witness_kind: FederationStateMachineTraceExternalWitnessKind,
         witness_profile: String,
         witness_sha256: String,
@@ -3722,9 +3734,13 @@ mod tests {
         reference_profile: String,
         hash_algorithm: String,
         hash_encoding: String,
+        subject_hash_algorithm: String,
+        subject_hash_encoding: String,
         subject_schema_version: u16,
         subject_profile: String,
         subject_sha256: String,
+        witness_hash_algorithm: String,
+        witness_hash_encoding: String,
         witness_kind: FederationStateMachineTraceExternalWitnessKind,
         witness_profile: String,
         witness_sha256: String,
@@ -4598,9 +4614,13 @@ mod tests {
             reference_profile: reference.reference_profile.clone(),
             hash_algorithm: reference.hash_algorithm.clone(),
             hash_encoding: reference.hash_encoding.clone(),
+            subject_hash_algorithm: reference.subject_hash_algorithm.clone(),
+            subject_hash_encoding: reference.subject_hash_encoding.clone(),
             subject_schema_version: reference.subject_schema_version,
             subject_profile: reference.subject_profile.clone(),
             subject_sha256: reference.subject_sha256.clone(),
+            witness_hash_algorithm: reference.witness_hash_algorithm.clone(),
+            witness_hash_encoding: reference.witness_hash_encoding.clone(),
             witness_kind: reference.witness_kind,
             witness_profile: reference.witness_profile.clone(),
             witness_sha256: reference.witness_sha256.clone(),
@@ -5178,9 +5198,17 @@ mod tests {
                 FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM.into(),
             hash_encoding:
                 FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING.into(),
+            subject_hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM.into(),
+            subject_hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ENCODING.into(),
             subject_schema_version,
             subject_profile: subject_profile.into(),
             subject_sha256: subject_sha256.into(),
+            witness_hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM.into(),
+            witness_hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING.into(),
             witness_kind,
             witness_profile: witness_profile.into(),
             witness_sha256: state_machine_trace_external_witness_artifact_sha256(witness_artifact),
