@@ -119,7 +119,7 @@ jobs:
               "EKC-S13", "EKC-S14", "EKC-S15", "EKC-S16", "EKC-S17", "EKC-S18", "EKC-S19", "EKC-S20",
           ]
           assert all(entry["expected"] == "DENY" for entry in cert_chain["parser_structural_controls"])
-          assert cert_chain["cryptographic_binding_composition"]["verifier_id"] == "mycelix.tpm.ek-fixture-signatures.v0.1"
+          assert cert_chain["cryptographic_binding_composition"]["verifier_id"] == "mycelix.tpm.ek-fixture-crypto.v0.1"
           assert cert_chain["cryptographic_binding_composition"]["required_fields"] == ["cryptographic_binding_sha256"]
           rf = cert_chain["reference_fixture"]
           assert rf["generation_mode"] == "deterministic-generated-synthetic"
