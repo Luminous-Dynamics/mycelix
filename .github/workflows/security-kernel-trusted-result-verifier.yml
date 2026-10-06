@@ -531,6 +531,8 @@ jobs:
               output.write(f"artifact_size={artifact['size_in_bytes']}\n")
               output.write(f"verifier_workflow_sha={os.environ['GITHUB_WORKFLOW_SHA']}\n")
               output.write(f"verifier_workflow_blob_sha={os.environ['WORKFLOW_BLOB_SHA']}\n")
+              output.write(f"execution_binding_sha256={binding_digest}\n")
+              output.write(f"evidence_binding_sha256={evidence_binding_digest}\n")
           print("PASS: trusted metadata and artifact identity are ready for independent direct-file verification")
 
           print(json.dumps({
