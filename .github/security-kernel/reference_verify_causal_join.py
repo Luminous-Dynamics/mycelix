@@ -5,6 +5,7 @@ No network access and no repository-local imports. The verifier reconstructs the
 candidate/run/job/artifact/receipt relationships from raw GitHub API snapshots
 rather than consuming S2's derived identity variables.
 """
+import base64
 import hashlib
 import json
 import re
@@ -20,6 +21,9 @@ S0_PATH = ".github/workflows/security-kernel-trusted-dispatch.yml"
 S0_BLOB = "ac91d40e653b1ed2ddeb4b7d7111954d0fa4f4bb"
 S1_PATH = ".github/workflows/security-kernel-independent-qualification.yml"
 S1_BLOB = "42b9bfe548a90475ce1a4dc531c76991facd2111"
+S2_PATH = ".github/workflows/security-kernel-trusted-result-verifier.yml"
+BINDING_PATH = ".github/security-kernel/reference_verify_execution_binding.py"
+CAUSAL_PATH = ".github/security-kernel/reference_verify_causal_join.py"
 EXPECTED_JOB_NAME = "Independent Security Kernel"
 
 REQUIRED_S1_STEPS = (
@@ -158,6 +162,7 @@ def verify(snapshot: object) -> dict:
         "main_sha",
         "dispatcher_workflow_blob_sha",
         "s1_workflow_blob_sha",
+        "workflow_file_snapshots",
     }
     if set(snapshot) != expected_top:
         fail(
@@ -205,6 +210,33 @@ def verify(snapshot: object) -> dict:
 
     assert snapshot["dispatcher_workflow_blob_sha"] == S0_BLOB
     assert snapshot["s1_workflow_blob_sha"] == S1_BLOB
+
+    workflow_snapshots = snapshot["workflow_file_snapshots"]
+    expected_snapshot_keys = {"s0", "s1", "s2", "binding", "causal"}
+    assert set(workflow_snapshots) == expected_snapshot_keys
+
+    def verify_file_snapshot(name: str, expected_path: str, expected_ref: str, expected_sha: str | None = None):
+        record = workflow_snapshots[name]
+        assert set(record) == {"path", "ref", "sha", "encoding", "content"}
+        assert record["path"] == expected_path
+        assert record["ref"] == expected_ref
+        assert record["encoding"] == "base64"
+        assert re.fullmatch(r"[0-9a-f]{40}", record["sha"])
+        if expected_sha is not None:
+            assert record["sha"] == expected_sha
+        encoded = record["content"].replace("\n", "")
+        raw = base64.b64decode(encoded, validate=True)
+        assert raw, f"{name} workflow snapshot is empty"
+        git_header = f"blob {len(raw)}\0".encode("ascii")
+        computed = hashlib.sha1(git_header + raw).hexdigest()
+        assert computed == record["sha"], f"{name} content does not hash to its advertised Git blob SHA"
+        return raw
+
+    verify_file_snapshot("s0", S0_PATH, run["workflow_sha"], S0_BLOB)
+    verify_file_snapshot("s1", S1_PATH, run["workflow_sha"], S1_BLOB)
+    verify_file_snapshot("s2", S2_PATH, snapshot["event"]["verifier_workflow_sha"])
+    verify_file_snapshot("binding", BINDING_PATH, snapshot["event"]["verifier_workflow_sha"])
+    verify_file_snapshot("causal", CAUSAL_PATH, snapshot["event"]["verifier_workflow_sha"])
 
     title = run.get("display_title", "")
     match = re.fullmatch(
@@ -335,6 +367,9 @@ def verify(snapshot: object) -> dict:
     result = {
         "schema": SCHEMA,
         "snapshot_sha256": snapshot_sha256,
+        "workflow_file_snapshot_sha256": hashlib.sha256(
+            json.dumps(snapshot["workflow_file_snapshots"], sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        ).hexdigest(),
         "candidate_repository": pr_head_repo["full_name"],
         "candidate_repository_id": candidate_repository_id,
         "candidate_pr": candidate_pr,
