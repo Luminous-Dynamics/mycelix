@@ -3374,6 +3374,78 @@ mod tests {
     const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_HASH_ENCODING: &str =
         "serde-json-struct-order-v1";
 
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION: u16 = 1;
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE: &str =
+        "integral-federation-trace-publication-collection-reconciliation-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_DOMAIN: &str =
+        "integral-federation-trace-publication-collection-reconciliation-sha256-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_ALGORITHM: &str =
+        "sha-256";
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_ENCODING: &str =
+        "serde-json-struct-order-v1";
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTracePublicationCollectionRelationship {
+        ExactMatch,
+        LeftStrictSubset,
+        RightStrictSubset,
+        OverlappingDivergence,
+        Disjoint,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct FederationStateMachineTracePublicationCollectionReconciliationReceipt {
+        schema_version: u16,
+        reconciliation_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
+        left_collection_schema_version: u16,
+        left_collection_profile: String,
+        left_collection_hash_algorithm: String,
+        left_collection_hash_encoding: String,
+        left_collection_size: usize,
+        left_collection_sha256: String,
+        right_collection_schema_version: u16,
+        right_collection_profile: String,
+        right_collection_hash_algorithm: String,
+        right_collection_hash_encoding: String,
+        right_collection_size: usize,
+        right_collection_sha256: String,
+        relationship: FederationStateMachineTracePublicationCollectionRelationship,
+        shared_publication_sha256s: Vec<String>,
+        left_only_publication_sha256s: Vec<String>,
+        right_only_publication_sha256s: Vec<String>,
+        equivocation_witness_sha256s: Vec<String>,
+        reconciliation_sha256: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+    struct FederationStateMachineTracePublicationCollectionReconciliationHashView {
+        hash_domain: String,
+        schema_version: u16,
+        reconciliation_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
+        left_collection_schema_version: u16,
+        left_collection_profile: String,
+        left_collection_hash_algorithm: String,
+        left_collection_hash_encoding: String,
+        left_collection_size: usize,
+        left_collection_sha256: String,
+        right_collection_schema_version: u16,
+        right_collection_profile: String,
+        right_collection_hash_algorithm: String,
+        right_collection_hash_encoding: String,
+        right_collection_size: usize,
+        right_collection_sha256: String,
+        relationship: FederationStateMachineTracePublicationCollectionRelationship,
+        shared_publication_sha256s: Vec<String>,
+        left_only_publication_sha256s: Vec<String>,
+        right_only_publication_sha256s: Vec<String>,
+        equivocation_witness_sha256s: Vec<String>,
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceCheckpointConsistencyReceipt {
@@ -3920,12 +3992,12 @@ mod tests {
         Ok(())
     }
 
-    fn state_machine_trace_publication_collection_commitment(
+    fn state_machine_trace_publication_collection_digest_list(
         snapshots: &[(
             &FederationStateMachineTraceCapsule,
             &FederationStateMachineTraceCheckpointPublication,
         )],
-    ) -> Result<(usize, String), FederationStateMachineTraceCheckpointPublicationViolation> {
+    ) -> Result<Vec<String>, FederationStateMachineTraceCheckpointPublicationViolation> {
         if snapshots.is_empty() {
             return Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::PublicationCollectionEmpty
@@ -3939,6 +4011,17 @@ mod tests {
         }
         publication_sha256s.sort();
         publication_sha256s.dedup();
+        Ok(publication_sha256s)
+    }
+
+    fn state_machine_trace_publication_collection_commitment(
+        snapshots: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+    ) -> Result<(usize, String), FederationStateMachineTraceCheckpointPublicationViolation> {
+        let publication_sha256s =
+            state_machine_trace_publication_collection_digest_list(snapshots)?;
 
         let view = FederationStateMachineTracePublicationCollectionHashView {
             hash_domain:
@@ -3960,6 +4043,81 @@ mod tests {
                 &bytes,
             ),
         ))
+    }
+
+    fn state_machine_trace_publication_collection_relationship(
+        left: &[String],
+        right: &[String],
+    ) -> (
+        FederationStateMachineTracePublicationCollectionRelationship,
+        Vec<String>,
+        Vec<String>,
+        Vec<String>,
+    ) {
+        let left_set = left.iter().cloned().collect::<BTreeSet<_>>();
+        let right_set = right.iter().cloned().collect::<BTreeSet<_>>();
+        let shared = left_set
+            .intersection(&right_set)
+            .cloned()
+            .collect::<Vec<_>>();
+        let left_only = left_set
+            .difference(&right_set)
+            .cloned()
+            .collect::<Vec<_>>();
+        let right_only = right_set
+            .difference(&left_set)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let relationship = if left_set == right_set {
+            FederationStateMachineTracePublicationCollectionRelationship::ExactMatch
+        } else if left_set.is_subset(&right_set) {
+            FederationStateMachineTracePublicationCollectionRelationship::LeftStrictSubset
+        } else if right_set.is_subset(&left_set) {
+            FederationStateMachineTracePublicationCollectionRelationship::RightStrictSubset
+        } else if shared.is_empty() {
+            FederationStateMachineTracePublicationCollectionRelationship::Disjoint
+        } else {
+            FederationStateMachineTracePublicationCollectionRelationship::OverlappingDivergence
+        };
+
+        (relationship, shared, left_only, right_only)
+    }
+
+    fn state_machine_trace_publication_collection_reconciliation_sha256(
+        receipt: &FederationStateMachineTracePublicationCollectionReconciliationReceipt,
+    ) -> String {
+        let view = FederationStateMachineTracePublicationCollectionReconciliationHashView {
+            hash_domain:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_DOMAIN.into(),
+            schema_version: receipt.schema_version,
+            reconciliation_profile: receipt.reconciliation_profile.clone(),
+            hash_algorithm: receipt.hash_algorithm.clone(),
+            hash_encoding: receipt.hash_encoding.clone(),
+            left_collection_schema_version: receipt.left_collection_schema_version,
+            left_collection_profile: receipt.left_collection_profile.clone(),
+            left_collection_hash_algorithm: receipt.left_collection_hash_algorithm.clone(),
+            left_collection_hash_encoding: receipt.left_collection_hash_encoding.clone(),
+            left_collection_size: receipt.left_collection_size,
+            left_collection_sha256: receipt.left_collection_sha256.clone(),
+            right_collection_schema_version: receipt.right_collection_schema_version,
+            right_collection_profile: receipt.right_collection_profile.clone(),
+            right_collection_hash_algorithm: receipt.right_collection_hash_algorithm.clone(),
+            right_collection_hash_encoding: receipt.right_collection_hash_encoding.clone(),
+            right_collection_size: receipt.right_collection_size,
+            right_collection_sha256: receipt.right_collection_sha256.clone(),
+            relationship: receipt.relationship,
+            shared_publication_sha256s: receipt.shared_publication_sha256s.clone(),
+            left_only_publication_sha256s: receipt.left_only_publication_sha256s.clone(),
+            right_only_publication_sha256s: receipt.right_only_publication_sha256s.clone(),
+            equivocation_witness_sha256s: receipt.equivocation_witness_sha256s.clone(),
+        };
+        let bytes = serde_json::to_vec(&view)
+            .expect("publication collection reconciliation hash view must be serializable");
+        state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_DOMAIN,
+            &bytes,
+        )
     }
 
     fn state_machine_trace_publication_equivocation_witness_set_sha256(
@@ -4372,6 +4530,99 @@ mod tests {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTracePublicationCollectionReconciliationBuildViolation {
+        LeftCollectionInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
+        RightCollectionInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
+    }
+
+    fn state_machine_trace_publication_collection_reconciliation(
+        left: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+        right: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+    ) -> Result<
+        FederationStateMachineTracePublicationCollectionReconciliationReceipt,
+        FederationStateMachineTracePublicationCollectionReconciliationBuildViolation,
+    > {
+        let left_digests =
+            state_machine_trace_publication_collection_digest_list(left).map_err(
+                FederationStateMachineTracePublicationCollectionReconciliationBuildViolation::LeftCollectionInvalid,
+            )?;
+        let right_digests =
+            state_machine_trace_publication_collection_digest_list(right).map_err(
+                FederationStateMachineTracePublicationCollectionReconciliationBuildViolation::RightCollectionInvalid,
+            )?;
+
+        let (left_size, left_collection_sha256) =
+            state_machine_trace_publication_collection_commitment(left).map_err(
+                FederationStateMachineTracePublicationCollectionReconciliationBuildViolation::LeftCollectionInvalid,
+            )?;
+        let (right_size, right_collection_sha256) =
+            state_machine_trace_publication_collection_commitment(right).map_err(
+                FederationStateMachineTracePublicationCollectionReconciliationBuildViolation::RightCollectionInvalid,
+            )?;
+
+        let (relationship, shared, left_only, right_only) =
+            state_machine_trace_publication_collection_relationship(&left_digests, &right_digests);
+
+        let mut union = Vec::with_capacity(left.len() + right.len());
+        union.extend(left.iter().copied());
+        union.extend(right.iter().copied());
+        let equivocation_witness_sha256s =
+            collect_state_machine_trace_publication_equivocation_witnesses(&union)
+                .map_err(
+                    FederationStateMachineTracePublicationCollectionReconciliationBuildViolation::LeftCollectionInvalid,
+                )?
+                .into_iter()
+                .map(|witness| witness.witness_sha256)
+                .collect::<Vec<_>>();
+
+        let mut receipt = FederationStateMachineTracePublicationCollectionReconciliationReceipt {
+            schema_version:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            reconciliation_profile:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE.into(),
+            hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_ALGORITHM.into(),
+            hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_ENCODING.into(),
+            left_collection_schema_version:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_SCHEMA_VERSION,
+            left_collection_profile:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_PROFILE.into(),
+            left_collection_hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_HASH_ALGORITHM.into(),
+            left_collection_hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_HASH_ENCODING.into(),
+            left_collection_size: left_size,
+            left_collection_sha256: left_collection_sha256,
+            right_collection_schema_version:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_SCHEMA_VERSION,
+            right_collection_profile:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_PROFILE.into(),
+            right_collection_hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_HASH_ALGORITHM.into(),
+            right_collection_hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_HASH_ENCODING.into(),
+            right_collection_size: right_size,
+            right_collection_sha256: right_collection_sha256,
+            relationship,
+            shared_publication_sha256s: shared,
+            left_only_publication_sha256s: left_only,
+            right_only_publication_sha256s: right_only,
+            equivocation_witness_sha256s,
+            reconciliation_sha256: String::new(),
+        };
+        receipt.reconciliation_sha256 =
+            state_machine_trace_publication_collection_reconciliation_sha256(&receipt);
+        Ok(receipt)
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     enum FederationStateMachineTracePublicationEquivocationWitnessSetViolation {
         UnsupportedSchemaVersion,
         UnsupportedSetProfile,
@@ -4558,6 +4809,233 @@ mod tests {
         {
             return Err(
                 FederationStateMachineTracePublicationEquivocationWitnessSetViolation::SetDigestMismatch
+            );
+        }
+
+        Ok(())
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTracePublicationCollectionReconciliationViolation {
+        UnsupportedSchemaVersion,
+        UnsupportedReconciliationProfile,
+        UnsupportedHashAlgorithm,
+        UnsupportedHashEncoding,
+        LeftCollectionEmpty,
+        RightCollectionEmpty,
+        LeftCollectionInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
+        RightCollectionInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
+        UnsupportedLeftCollectionSchemaVersion,
+        UnsupportedLeftCollectionProfile,
+        UnsupportedLeftCollectionHashAlgorithm,
+        UnsupportedLeftCollectionHashEncoding,
+        UnsupportedRightCollectionSchemaVersion,
+        UnsupportedRightCollectionProfile,
+        UnsupportedRightCollectionHashAlgorithm,
+        UnsupportedRightCollectionHashEncoding,
+        LeftCollectionSizeMismatch,
+        LeftCollectionDigestMismatch,
+        RightCollectionSizeMismatch,
+        RightCollectionDigestMismatch,
+        RelationshipMismatch,
+        SharedPublicationSetMismatch,
+        LeftOnlyPublicationSetMismatch,
+        RightOnlyPublicationSetMismatch,
+        EquivocationWitnessCoverageMismatch,
+        ReconciliationDigestMismatch,
+    }
+
+    fn validate_state_machine_trace_publication_collection_reconciliation(
+        left: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+        right: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+        receipt: &FederationStateMachineTracePublicationCollectionReconciliationReceipt,
+    ) -> Result<(), FederationStateMachineTracePublicationCollectionReconciliationViolation> {
+        if left.is_empty() {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionEmpty
+            );
+        }
+        if right.is_empty() {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::RightCollectionEmpty
+            );
+        }
+        if receipt.schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedSchemaVersion
+            );
+        }
+        if receipt.reconciliation_profile
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedReconciliationProfile
+            );
+        }
+        if receipt.hash_algorithm
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_ALGORITHM
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedHashAlgorithm
+            );
+        }
+        if receipt.hash_encoding
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_ENCODING
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedHashEncoding
+            );
+        }
+
+        if receipt.left_collection_schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedLeftCollectionSchemaVersion
+            );
+        }
+        if receipt.left_collection_profile
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_PROFILE
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedLeftCollectionProfile
+            );
+        }
+        if receipt.left_collection_hash_algorithm
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_HASH_ALGORITHM
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedLeftCollectionHashAlgorithm
+            );
+        }
+        if receipt.left_collection_hash_encoding
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_HASH_ENCODING
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedLeftCollectionHashEncoding
+            );
+        }
+        if receipt.right_collection_schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedRightCollectionSchemaVersion
+            );
+        }
+        if receipt.right_collection_profile
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_PROFILE
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedRightCollectionProfile
+            );
+        }
+        if receipt.right_collection_hash_algorithm
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_HASH_ALGORITHM
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedRightCollectionHashAlgorithm
+            );
+        }
+        if receipt.right_collection_hash_encoding
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_HASH_ENCODING
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::UnsupportedRightCollectionHashEncoding
+            );
+        }
+
+        let left_digests =
+            state_machine_trace_publication_collection_digest_list(left).map_err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionInvalid,
+            )?;
+        let right_digests =
+            state_machine_trace_publication_collection_digest_list(right).map_err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::RightCollectionInvalid,
+            )?;
+
+        let (left_size, left_sha256) =
+            state_machine_trace_publication_collection_commitment(left).map_err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionInvalid,
+            )?;
+        let (right_size, right_sha256) =
+            state_machine_trace_publication_collection_commitment(right).map_err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::RightCollectionInvalid,
+            )?;
+
+        if receipt.left_collection_size != left_size {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionSizeMismatch
+            );
+        }
+        if receipt.left_collection_sha256 != left_sha256 {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionDigestMismatch
+            );
+        }
+        if receipt.right_collection_size != right_size {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::RightCollectionSizeMismatch
+            );
+        }
+        if receipt.right_collection_sha256 != right_sha256 {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::RightCollectionDigestMismatch
+            );
+        }
+
+        let (relationship, shared, left_only, right_only) =
+            state_machine_trace_publication_collection_relationship(&left_digests, &right_digests);
+        if receipt.relationship != relationship {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::RelationshipMismatch
+            );
+        }
+        if receipt.shared_publication_sha256s != shared {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::SharedPublicationSetMismatch
+            );
+        }
+        if receipt.left_only_publication_sha256s != left_only {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftOnlyPublicationSetMismatch
+            );
+        }
+        if receipt.right_only_publication_sha256s != right_only {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::RightOnlyPublicationSetMismatch
+            );
+        }
+
+        let mut union = Vec::with_capacity(left.len() + right.len());
+        union.extend(left.iter().copied());
+        union.extend(right.iter().copied());
+        let expected_witnesses =
+            collect_state_machine_trace_publication_equivocation_witnesses(&union)
+                .map_err(
+                    FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionInvalid,
+                )?
+                .into_iter()
+                .map(|witness| witness.witness_sha256)
+                .collect::<Vec<_>>();
+        if receipt.equivocation_witness_sha256s != expected_witnesses {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::EquivocationWitnessCoverageMismatch
+            );
+        }
+
+        if receipt.reconciliation_sha256
+            != state_machine_trace_publication_collection_reconciliation_sha256(receipt)
+        {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::ReconciliationDigestMismatch
             );
         }
 
@@ -7208,6 +7686,146 @@ mod tests {
             Err(
                 FederationStateMachineTracePublicationEquivocationWitnessSetBuildViolation::NoEquivocationDetected
             )
+        );
+    }
+
+    #[test]
+    fn publication_collection_reconciliation_is_permutation_invariant_and_detects_cross_view_equivocation() {
+        let base =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(
+                &state_machine_trace_capsule(53, 8),
+            )
+            .expect("base capsule must deserialize");
+        let fork_a =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(
+                &state_machine_trace_capsule(53, 12),
+            )
+            .expect("fork-a capsule must deserialize");
+        let mut fork_b =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(
+                &state_machine_trace_capsule(53, 12),
+            )
+            .expect("fork-b capsule must deserialize");
+        fork_b.evidence[10].token ^= 1;
+        reseal_state_machine_trace_for_test(&mut fork_b);
+
+        let base_publication = state_machine_trace_checkpoint_publication(
+            &base,
+            8,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let fork_a_publication = state_machine_trace_checkpoint_publication(
+            &fork_a,
+            12,
+            &base_publication.publication_sha256,
+        );
+        let fork_b_publication = state_machine_trace_checkpoint_publication(
+            &fork_b,
+            12,
+            &base_publication.publication_sha256,
+        );
+
+        let left = vec![(&base, &base_publication), (&fork_a, &fork_a_publication)];
+        let right = vec![(&base, &base_publication), (&fork_b, &fork_b_publication)];
+
+        let receipt =
+            state_machine_trace_publication_collection_reconciliation(&left, &right)
+                .expect("cross-view reconciliation must build");
+
+        assert_eq!(
+            receipt.relationship,
+            FederationStateMachineTracePublicationCollectionRelationship::OverlappingDivergence
+        );
+        assert_eq!(
+            receipt.shared_publication_sha256s,
+            vec![base_publication.publication_sha256.clone()]
+        );
+        assert_eq!(
+            receipt.left_only_publication_sha256s,
+            vec![fork_a_publication.publication_sha256.clone()]
+        );
+        assert_eq!(
+            receipt.right_only_publication_sha256s,
+            vec![fork_b_publication.publication_sha256.clone()]
+        );
+        assert_eq!(receipt.equivocation_witness_sha256s.len(), 1);
+        assert_eq!(
+            validate_state_machine_trace_publication_collection_reconciliation(
+                &left, &right, &receipt
+            ),
+            Ok(())
+        );
+
+        let mut reversed_left = left.clone();
+        reversed_left.reverse();
+        let mut reversed_right = right.clone();
+        reversed_right.reverse();
+        let reordered =
+            state_machine_trace_publication_collection_reconciliation(
+                &reversed_left,
+                &reversed_right,
+            )
+            .expect("reordered views must reconcile identically");
+        assert_eq!(reordered, receipt);
+
+        let same =
+            state_machine_trace_publication_collection_reconciliation(&left, &left)
+                .expect("identical views must reconcile");
+        assert_eq!(
+            same.relationship,
+            FederationStateMachineTracePublicationCollectionRelationship::ExactMatch
+        );
+        assert!(same.equivocation_witness_sha256s.is_empty());
+
+        let subset =
+            state_machine_trace_publication_collection_reconciliation(
+                &[(&base, &base_publication)],
+                &left,
+            )
+            .expect("subset views must reconcile");
+        assert_eq!(
+            subset.relationship,
+            FederationStateMachineTracePublicationCollectionRelationship::LeftStrictSubset
+        );
+
+        let mut bad = receipt.clone();
+        bad.relationship =
+            FederationStateMachineTracePublicationCollectionRelationship::ExactMatch;
+        bad.reconciliation_sha256 =
+            state_machine_trace_publication_collection_reconciliation_sha256(&bad);
+        assert_eq!(
+            validate_state_machine_trace_publication_collection_reconciliation(
+                &left, &right, &bad
+            ),
+            Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::RelationshipMismatch
+            )
+        );
+
+        let mut bad_witnesses = receipt.clone();
+        bad_witnesses.equivocation_witness_sha256s.clear();
+        bad_witnesses.reconciliation_sha256 =
+            state_machine_trace_publication_collection_reconciliation_sha256(&bad_witnesses);
+        assert_eq!(
+            validate_state_machine_trace_publication_collection_reconciliation(
+                &left, &right, &bad_witnesses
+            ),
+            Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::EquivocationWitnessCoverageMismatch
+            )
+        );
+
+        let mut unknown = serde_json::to_value(&receipt)
+            .expect("reconciliation receipt must serialize");
+        unknown
+            .as_object_mut()
+            .expect("reconciliation receipt must be an object")
+            .insert("unexpected_reconciliation_field".into(), serde_json::Value::Bool(true));
+        assert!(
+            serde_json::from_value::<
+                FederationStateMachineTracePublicationCollectionReconciliationReceipt,
+            >(unknown)
+            .is_err()
         );
     }
 
