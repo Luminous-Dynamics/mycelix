@@ -82,6 +82,7 @@ pub enum ProvenanceQualificationReason {
     LineageCycle,
     SharedAcquisitionRoot,
     SharedAncestry,
+    CrossParticipantDerivation,
     TooManyLineageNodes,
     TooManyParentEdges,
     InvalidNodeId,
@@ -202,10 +203,20 @@ pub fn qualify_provenance(
 
     for left in 0..participant_nodes.len() {
         for right in (left + 1)..participant_nodes.len() {
-            let a = lineage_ancestors(&participant_nodes[left], &by_node_id, &by_digest, &mut BTreeSet::new());
-            let b = lineage_ancestors(&participant_nodes[right], &by_node_id, &by_digest, &mut BTreeSet::new());
+            let a_node = &participant_nodes[left];
+            let b_node = &participant_nodes[right];
+            let a = lineage_ancestors(a_node, &by_node_id, &by_digest, &mut BTreeSet::new());
+            let b = lineage_ancestors(b_node, &by_node_id, &by_digest, &mut BTreeSet::new());
+
             if a.intersection(&b).next().is_some() {
                 reasons.insert(ProvenanceQualificationReason::SharedAncestry);
+            }
+
+            // A participant derived directly from another participant is also
+            // non-disjoint even when their roots are distinct and no common
+            // ancestor exists.
+            if a.contains(b_node) || b.contains(a_node) {
+                reasons.insert(ProvenanceQualificationReason::CrossParticipantDerivation);
             }
         }
     }
@@ -558,6 +569,19 @@ mod tests {
             qualify_provenance(&input).status,
             ProvenanceQualificationStatus::ConflictingProvenance
         );
+    }
+
+    #[test]
+    fn cross_participant_derivation_is_conflicting() {
+        let mut input = qualified_input();
+        input.lineage[0].parent_node_ids = vec![input.lineage[1].node_id.clone()];
+        assert_eq!(
+            qualify_provenance(&input).status,
+            ProvenanceQualificationStatus::ConflictingProvenance
+        );
+        assert!(qualify_provenance(&input)
+            .reasons
+            .contains(&ProvenanceQualificationReason::CrossParticipantDerivation));
     }
 
     #[test]
