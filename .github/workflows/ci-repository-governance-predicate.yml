@@ -1,0 +1,63 @@
+name: Repository Governance Predicate
+
+on:
+  push:
+    paths:
+      - "docs/ci/repository_governance_policy_v1.json"
+      - "scripts/validate_repository_governance_observation_v1.py"
+      - ".github/workflows/ci-repository-governance-predicate.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/ci/repository_governance_policy_v1.json"
+      - "scripts/validate_repository_governance_observation_v1.py"
+      - ".github/workflows/ci-repository-governance-predicate.yml"
+
+permissions: {}
+
+jobs:
+  self-test:
+    name: Governance predicate self-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+
+      - name: Validate immutable action pins
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path(".github/workflows/ci-repository-governance-predicate.yml").read_text()
+          refs = {}
+          pattern = re.compile(
+              r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
+          )
+          for line in text.splitlines():
+              stripped = line.lstrip()
+              if not (stripped.startswith("- uses:") or stripped.startswith("uses:")):
+                  continue
+              match = pattern.fullmatch(line)
+              assert match, f"workflow action is not pinned to a full SHA: {line!r}"
+              action, ref = match.groups()
+              if action in refs:
+                  assert refs[action] == ref
+              refs[action] = ref
+          assert refs == {
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+          }
+          assert "permissions: {}" in text
+          assert "persist-credentials: false" in text
+          PY
+
+      - name: Validate governance policy JSON
+        run: python -m json.tool docs/ci/repository_governance_policy_v1.json >/dev/null
+
+      - name: Run fail-closed evaluator self-tests
+        run: python scripts/validate_repository_governance_observation_v1.py --self-test
