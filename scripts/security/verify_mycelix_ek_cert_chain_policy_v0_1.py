@@ -2219,6 +2219,8 @@ def load_fixture(output_dir: Path) -> dict[str, Any]:
 
 
 def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
+    recipe = json.loads(FIXTURE_RECIPE_FILE.read_text(encoding="utf-8"))
+    crl_semantics = recipe["crl_semantics"]
     leaf_sha = hashlib.sha256(fx["leaf"]).hexdigest()
     inter_sha = hashlib.sha256(fx["intermediate"]).hexdigest()
     root_sha = hashlib.sha256(fx["root"]).hexdigest()
@@ -2251,6 +2253,8 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_state": "PASS",
         "trust_anchor_source_sha256": "3bad61140bfe271c6495e6b7e58dfc5ae45cf4fff339bd891a9e04881b63a3ea",
         "verification_time_unix": fx["attime"],
+        "crl_semantics": crl_semantics,
+        "crl_semantics_sha256": canonical_hash(crl_semantics),
         "cryptographic_binding_sha256": "",
         "cryptographic_binding_source_sha256": "",
         "cryptographic_binding_input_sha256": "",
@@ -2513,7 +2517,7 @@ def refresh_cryptographic_binding(m: dict[str, Any]) -> None:
         unb64(m["trust_anchor_root_der_base64"], "trust_anchor_root_der_base64")
     )
     crl_bundle = unb64(m["revocation"]["crl_bundle_pem_base64"], "revocation.crl_bundle_pem_base64")
-    receipt = cryptographic_binding_receipt(leaf, intermediate, root, crl_bundle)
+    receipt = cryptographic_binding_receipt(leaf, intermediate, root, crl_bundle, m["crl_semantics"], m["verification_time_unix"])
     m["cryptographic_binding_sha256"] = canonical_hash(receipt)
     external = run_crypto_verifier(m)
     if external.get("state") != "PASS":
@@ -2629,6 +2633,9 @@ def self_test() -> int:
         refresh_path_validation(base)
         refresh_template_binding(base)
         refresh_cryptographic_binding(base)
+        if base["crl_semantics_sha256"] != canonical_hash(base["crl_semantics"]):
+            print("CRL semantics recipe digest: FAIL")
+            return 1
         base["session_binding_sha256"] = session_binding(
             base,
             base["leaf_certificate_sha256"],
