@@ -93,7 +93,10 @@ def oid(content: bytes) -> str:
     arcs = []
     value = 0
     first = True
+    first_subidentifier = True
     for b in content:
+        if first_subidentifier and b == 0x80:
+            raise ValueError("OID has non-canonical leading zero subidentifier")
         value = (value << 7) | (b & 0x7f)
         if not (b & 0x80):
             if first:
@@ -103,6 +106,7 @@ def oid(content: bytes) -> str:
                     arcs = [1, value - 40]
                 else:
                     arcs = [2, value - 80]
+                first_subidentifier = False
                 first = False
             else:
                 arcs.append(value)
