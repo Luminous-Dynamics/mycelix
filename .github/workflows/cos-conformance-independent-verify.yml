@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: ["COS Conformance Evidence"]
     types: [completed]
-    branches: [main, myc-int-demo-d6w-layered-commitments]
   workflow_dispatch:
     inputs:
       pr_number:
