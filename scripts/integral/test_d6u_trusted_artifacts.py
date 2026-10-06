@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 31
+    assert policy["policy_version"] == 32
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -203,6 +203,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "negative_control_schema": "d6u-no-public-good-control/v1",
         "retain_online_verification": True,
         "retain_negative_control": True,
+        "max_attestations_per_verify": 8,
     }
 
     workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
@@ -392,6 +393,7 @@ def test_retention_workflow_contains_offline_controls() -> None:
         "--no-public-good",
         "--deny-self-hosted-runners",
         "--format=json",
+        "--limit 8",
         "d6u-runtime-evidence.online.json",
         "d6u-runtime-evidence.no-public-good.json",
         "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
