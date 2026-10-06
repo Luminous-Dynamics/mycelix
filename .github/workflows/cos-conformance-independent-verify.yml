@@ -44,6 +44,9 @@ jobs:
       expected_head_sha: ${{ steps.target_binding.outputs.expected_head_sha }}
       head_repository: ${{ steps.target_binding.outputs.head_repository }}
       trigger_run_id: ${{ steps.target_binding.outputs.trigger_run_id }}
+      trigger_workflow_id: ${{ steps.target_binding.outputs.trigger_workflow_id }}
+      trigger_workflow_path: ${{ steps.target_binding.outputs.trigger_workflow_path }}
+      trigger_repository: ${{ steps.target_binding.outputs.trigger_repository }}
       trigger_event: ${{ steps.target_binding.outputs.trigger_event }}
       trigger_conclusion: ${{ steps.target_binding.outputs.trigger_conclusion }}
       trusted_workflow_sha: ${{ steps.trusted_identity.outputs.trusted_workflow_sha }}
@@ -228,6 +231,9 @@ jobs:
             printf 'expected_head_sha=%s\n' "${EXPECTED_HEAD_SHA}"
             printf 'head_repository=%s\n' "${head_repository}"
             printf 'trigger_run_id=%s\n' "${TRIGGER_RUN_ID}"
+            printf 'trigger_workflow_id=%s\n' "${TRIGGER_WORKFLOW_ID}"
+            printf 'trigger_workflow_path=%s\n' "${TRIGGER_WORKFLOW_PATH}"
+            printf 'trigger_repository=%s\n' "${TRIGGER_REPOSITORY}"
             printf 'trigger_event=%s\n' "${TRIGGER_EVENT}"
             printf 'trigger_conclusion=%s\n' "${TRIGGER_CONCLUSION}"
           } >> "${GITHUB_OUTPUT}"
@@ -448,6 +454,9 @@ jobs:
             "trusted_workflow_file_blob_sha": "${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}",
             "tested_lock_sha256": "${tested_lock_sha256}",
             "trigger_run_id": ${{ needs.prepare.outputs.trigger_run_id }},
+            "trigger_workflow_id": ${{ needs.prepare.outputs.trigger_workflow_id }},
+            "trigger_workflow_path": "${{ needs.prepare.outputs.trigger_workflow_path }}",
+            "trigger_repository": "${{ needs.prepare.outputs.trigger_repository }}",
             "trigger_event": "${{ needs.prepare.outputs.trigger_event }}",
             "trigger_conclusion": "${{ needs.prepare.outputs.trigger_conclusion }}",
             "executor_job_result": "${{ needs.execute.result }}",
@@ -494,6 +503,17 @@ jobs:
           assert sha64.fullmatch(envelope["raw_execution_artifact_digest"])
           assert envelope["pr_number"].isdigit()
           assert envelope["head_repository"] == envelope["repository"]
+          assert isinstance(envelope["trigger_workflow_id"], int) and envelope["trigger_workflow_id"] >= 0
+          assert envelope["trigger_workflow_path"]
+          assert envelope["trigger_repository"] == envelope["repository"]
+          if envelope["trigger_event"] == "pull_request":
+              assert envelope["trigger_workflow_id"] == 374065836
+              assert envelope["trigger_workflow_path"] == ".github/workflows/cos-conformance-evidence.yml"
+              assert envelope["trigger_run_id"] > 0
+          else:
+              assert envelope["trigger_workflow_id"] == 0
+              assert envelope["trigger_workflow_path"] == "manual"
+              assert envelope["trigger_run_id"] == 0
           assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
           assert envelope["trigger_event"] in {"pull_request", "workflow_dispatch"}
           assert envelope["trigger_conclusion"]
