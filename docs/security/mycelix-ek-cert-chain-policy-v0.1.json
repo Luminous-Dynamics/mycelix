@@ -12,7 +12,7 @@
     "INDETERMINATE"
   ],
   "theorem": {
-    "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
+    "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, the exact certificate and issuer signatures and both issuer CRL signatures verify from the exact DER/TBS bytes, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
     "scope": "The reference trust anchor is synthetic. This theorem is a deterministic policy model and does not assert real manufacturer authenticity."
   },
   "required_input": {
@@ -73,7 +73,7 @@
       "template_id",
       "verifier_input"
     ],
-    "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, and SPKI certificate/public-key identity",
+    "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, independent cryptographic witness source/input/output/receipt, and SPKI certificate/public-key identity",
     "path_validation": [
       "state",
       "verifier_id",
@@ -83,7 +83,11 @@
       "output_content_sha256",
       "execution_binding_sha256",
       "verifier_input"
-    ]
+    ],
+    "cryptographic_binding_sha256": "canonical hash of the in-process exact certificate/CRL cryptographic receipt",
+    "cryptographic_binding_source_sha256": "SHA-256 of the independently executed cryptographic witness source",
+    "cryptographic_binding_input_sha256": "SHA-256 of the exact cryptographic witness input projection",
+    "cryptographic_binding_output_sha256": "SHA-256 of the independently executed cryptographic witness output"
   },
   "profile_rules": {
     "version": 3,
@@ -96,14 +100,18 @@
     "certificate_extension_uniqueness": "a given X.509 extension OID may occur at most once",
     "authority_information_access": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
     "crl_distribution": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
-    "subject_directory_attributes": "if present, MUST be non-critical"
+    "subject_directory_attributes": "if present, MUST be non-critical",
+    "subject_alt_name": "MUST be present; exact DER GeneralNames must include a directoryName containing exactly one TCG manufacturer, model/part-number, and firmware-version attribute; manufacturer and firmware attributes use the TCG id: form; SAN criticality is critical iff the Subject is empty",
+    "subject_key_identifier": "if present, MUST be non-critical",
+    "der_canonicality": "certificate outer structure, unique-ID/Extensions wrapper cardinality, INTEGER encodings, OID base-128 encodings, BIT STRING padding, and extension critical BOOLEAN encodings are validated from exact DER",
+    "certificate_policies": "if present, MUST be non-critical and contain at least one PolicyIdentifier; policy qualifiers are outside this reference profile"
   },
   "forbidden_inputs": [
     "profile_override",
     "caller-supplied certificate criticality overrides"
   ],
   "authorization_rules": {
-    "trust_anchor_source": "trust_anchor_source_sha256 must equal SHA-256(canonical JSON {source_tag: synthetic-ek-root-fixture-v0.1, root_sha256: trust_anchor_root_sha256}) for the reference fixture",
+    "trust_anchor_source": "trust_anchor_source_sha256 must equal the SHA-256 digest of the exact synthetic trust-anchor authorization receipt; receipt_root_sha256 must equal the receipt's root_certificate_sha256 and the exact supplied root DER digest",
     "root_authority": "the synthetic root is authorized only inside ReferenceModelOnly; a physical deployment must replace this with independently authorized real-root provenance"
   },
   "non_equivalences": [
@@ -353,24 +361,41 @@
       "id": "EKC-V45",
       "mutation": "path-verifier-execution-binding-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V46",
+      "mutation": "forbidden-profile-override-on-valid-input",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V47",
+      "mutation": "cryptographic-binding-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V48",
+      "mutation": "tpm-identity-digest-substitution",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
-    "root_sha256": "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab",
-    "intermediate_sha256": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
-    "leaf_sha256": "7448f84d763c2bee017ff33e18f1679b73f6db3f96bcfe2793c4b607b20a048b",
-    "bad_usage_sha256": "526a43a655e5a46d7e9176281a96820c4d15d932d0a18be507300d11d8598e9f",
-    "bad_eku_sha256": "45c32aac3237eabe9cecdc38cb9d49c359e52d9d68deacf62aee8d30c44ab62c",
-    "crl_bundle_pem_sha256": "6e0e1ea27ae4b5933d40e54368a8618a7aee98b45011962029a131c11b323abb",
+    "root_sha256": "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556",
+    "intermediate_sha256": "9c92d8c6362a2fbe24a324c36f525bec0c0619cb7527e68456d72189ac6fdfb8",
+    "leaf_sha256": "688094a4c40bc27deccb9932a18e417889fe56854fb91d31655de43f947d157b",
+    "bad_usage_sha256": "deb8f4f3f7dfd6ebb05fc6a68cca96a1ba8892e9f61f5c411180658e19d3b159",
+    "bad_eku_sha256": "cbfb90ff5a855dbd999364178eb06989cc82daebba20c2dc31af7c02c3c0986b",
+    "crl_bundle_pem_sha256": "a5e4ab922a3d434f4c61e8f17fee24d53fb24f00c9ebc4132a8d6d88bf4a75ab",
     "verification_time_unix": 1791158400,
     "fixture_paths": [
-      "docs/security/fixtures/ek-chain-policy-v0.1/root.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/intermediate.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/leaf.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/bad-usage.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/bad-eku.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/crl-bundle.pem"
-    ]
+      "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json",
+      "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py"
+    ],
+    "generation_mode": "deterministic-generated-synthetic",
+    "recipe_path": "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json",
+    "generator_path": "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py",
+    "recipe_sha256": "9cb907f524e35e71be005f9fdbfad450e218ec1d2423bb5e79f052d8753c4d47",
+    "previous_frozen_fixture_status": "not-recoverable-from-Git-history; not fabricated",
+    "generator_contract": "generator --recipe fixture-recipe-v0.1.json --output-dir <temp> --check"
   },
   "required_input_trust_anchor_appraisal": [
     "state",
@@ -439,10 +464,129 @@
       "Authority Key Identifier mandatory and non-critical",
       "AIA and CRL Distribution non-critical when present",
       "Subject Directory Attributes non-critical when present",
+      "SubjectAltName present with structurally parsed TCG manufacturer/model/firmware directory attributes",
+      "Subject Key Identifier non-critical when present",
       "exact RSA-2048 TPMT_PUBLIC modulus structure for L-1",
-      "exact RSA certificate SPKI rsaEncryption AlgorithmIdentifier parameters"
+      "exact RSA certificate SPKI rsaEncryption AlgorithmIdentifier parameters",
+      "canonical DER certificate structure including unique Extensions wrapper and primitive canonicality checks",
+      "Certificate Policies non-critical and structurally validated when present",
+      "exact certificate/CRL cryptographic signature binding to issuer public keys and exact TBS bytes"
     ],
     "conditional_pqc_requirements": "EKCredentialAlgorithmList and TPMPQCVersion are intentionally outside this v0.1 reference theorem because their correctness depends on issuer-issued PQC credentials and firmware-at-manufacturing/current-firmware evidence not present in this synthetic reference fixture.",
     "claim_ceiling": "ReferenceModelOnly"
-  }
+  },
+  "parser_structural_controls": [
+    {
+      "id": "EKC-S01",
+      "control": "duplicate-extension-oid",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S02",
+      "control": "duplicate-extensions-wrapper",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S03",
+      "control": "explicit-false-extension-critical-boolean",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S04",
+      "control": "non-canonical-oid-encoding",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S05",
+      "control": "non-canonical-integer-encoding",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S06",
+      "control": "tcg-san-missing-or-structurally-incomplete",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S07",
+      "control": "empty-extensions-wrapper",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S08",
+      "control": "malformed-authority-information-access",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S09",
+      "control": "malformed-crl-distribution-points",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S10",
+      "control": "malformed-subject-directory-attributes",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S11",
+      "control": "leaf-basic-constraints-ca-true",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S12",
+      "control": "ca-false-path-len-constraint",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S13",
+      "control": "non-canonical-key-usage-trailing-zero",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S14",
+      "control": "critical-authority-information-access",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S15",
+      "control": "critical-crl-distribution-points",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S16",
+      "control": "critical-subject-directory-attributes",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S17",
+      "control": "unsupported-aia-access-method",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S18",
+      "control": "critical-certificate-policies",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S19",
+      "control": "malformed-certificate-policies",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S20",
+      "control": "san-criticality-mismatch-with-subject",
+      "expected": "DENY"
+    }
+  ],
+  "parser_structural_control_count": 20,
+  "cryptographic_binding_composition": {
+    "verifier_id": "mycelix.tpm.ek-fixture-crypto.v0.1",
+    "required_fields": [
+      "cryptographic_binding_sha256",
+      "cryptographic_binding_source_sha256",
+      "cryptographic_binding_input_sha256",
+      "cryptographic_binding_output_sha256"
+    ],
+    "rule": "The chain verifier computes an in-process exact-signature receipt and separately re-executes the independent cryptographic witness over the same exact DER/CRL projection. Both receipts must identify the same leaf/intermediate/root/CRL byte digests; the witness source, input file, and output file are separately hash-bound. The chain verifier then compares those identities with the OpenSSL path verifier's exact input object digests before profile acceptance."
+  },
+  "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, cryptographic binding receipt, and SPKI certificate/public-key identity"
 }

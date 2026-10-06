@@ -15,6 +15,9 @@ from typing import Any
 VERIFIER_ID = "mycelix.tpm.ek-cert-chain-policy.v0.1"
 SPKI_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
 PATH_VERIFIER_ID = "mycelix.tpm.ek-cert-path-validation.v0.1"
+CRYPTO_BINDING_ID = "mycelix.tpm.ek-fixture-signatures.v0.1"
+SHA256_WITH_RSA_OID = "1.2.840.113549.1.1.11"
+RSA_ENCRYPTION_OID = "1.2.840.113549.1.1.1"
 TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
 ROOT = Path(__file__).resolve().parents[2]
 TRUST_ANCHOR_APPRAISAL_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
@@ -22,20 +25,14 @@ TRUST_ANCHOR_APPRAISAL_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_trus
 TRUST_ANCHOR_REGISTRY_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-registry-v0.1.json"
 TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-authorization-receipt-v0.1.json"
 SPKI_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_cert_spki_binding_v0_1.py")
-FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
+FIXTURE_RECIPE_FILE = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
+FIXTURE_GENERATOR_SCRIPT = ROOT / "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py"
+CRYPTO_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_ek_fixture_crypto_v0_1.py"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
-REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
+REFERENCE_ROOT_SHA256 = "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
 REFERENCE_TIME_UNIX = 1791158400
-REFERENCE_EK_RSA_MODULUS = bytes.fromhex("d019fb7bdf2679af2d0bf1d5438dae19f73cad698d171a5e3292506bcd05d8b85b7753f35b9c174105fab4613ccc54a67f43fa97c6ef9330a101897b39c3d0f730ee8001b0b53511846de96731104c242781a1fedee583b72c1205a8ace27bcea878ca22c3be355abd7989a3b8e0f9a384a0b6f3e3a8d8bfc35048d93fc07cf45957a52083ed2a49ce01016dcbbb66d4a39569de30285318f4f5a9ff364a80858cf16e84ee4182de3a282c972b6545ee7aa62d48202043cd006e2a5c84c575499b750226ad19c0a3faea19eb0b813a5e31907fb541ea11e3d3a05a39b120ba3b944dd87da4cb89c3e548d0a05e7b538b5e97c1ecd34290d0b0d2e413e369e657")
+REFERENCE_EK_RSA_MODULUS = bytes.fromhex("6f24c46cf921615f74a3c7a6a01b73b3b06e7ae9b51d575cbac358ec03593f47d4b54110aff2589c1d9ac57e6c5b34bcdaa563550d294b06c8dd308cc466b4204901dad45fc012ec169a1224101108abe2da72b33c8e77c32f198b1fa9b95f26b85ee36a202a7102571ee51efd71e7618b94b931dcb05cfda6768d546f0a2256ce37707ef644da096a422caebf0e5c6698de39b2145fbdcaef529a6f53f6d2a81d151b63f1714d0f3e4c6702bb00051f33b2451302c18513b3620dca718927b2555c358fd40dad3d2f32e1fd8ca631955b9e5a569e6fb4b813d6da39cbe41e8d0458fbb865e646f0e5a81a4208c90917492bfda3befcab8eadaee1b20163e5b7")
 EXPIRED_TIME_UNIX = 4102444800
-FIXTURE_HASHES = {
-    "root.der": REFERENCE_ROOT_SHA256,
-    "intermediate.der": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
-    "leaf.der": "7448f84d763c2bee017ff33e18f1679b73f6db3f96bcfe2793c4b607b20a048b",
-    "bad-usage.der": "526a43a655e5a46d7e9176281a96820c4d15d932d0a18be507300d11d8598e9f",
-    "bad-eku.der": "45c32aac3237eabe9cecdc38cb9d49c359e52d9d68deacf62aee8d30c44ab62c",
-    "crl-bundle.pem": "6e0e1ea27ae4b5933d40e54368a8618a7aee98b45011962029a131c11b323abb",
-}
 TEMPLATE_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_template_appraisal_v0_1.py")
 PATH_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_cert_path_validation_v0_1.py")
 EK_CERT_EKU_OID = "2.23.133.8.1"
@@ -189,6 +186,13 @@ def result(state: str, reason: str, details: dict[str, Any] | None = None) -> di
     return out
 
 
+def der_encode_tlv(tag: int, value: bytes) -> bytes:
+    if len(value) < 128:
+        return bytes([tag, len(value)]) + value
+    raw_length = len(value).to_bytes((len(value).bit_length() + 7) // 8, "big")
+    return bytes([tag, 0x80 | len(raw_length)]) + raw_length + value
+
+
 def der_tlv(data: bytes, offset: int) -> tuple[int, bytes, bytes, int]:
     if offset >= len(data):
         raise ValueError("DER truncated at tag")
@@ -231,24 +235,60 @@ def der_children(sequence_content: bytes) -> list[tuple[int, bytes, bytes]]:
     return children
 
 
+def der_integer_value(content: bytes, field: str, *, positive: bool = False) -> int:
+    if not content:
+        raise ValueError(f"{field} INTEGER empty")
+    if content[0] & 0x80:
+        raise ValueError(f"{field} INTEGER negative")
+    if len(content) > 1 and content[0] == 0 and not (content[1] & 0x80):
+        raise ValueError(f"{field} INTEGER non-canonical leading zero")
+    value = int.from_bytes(content, "big")
+    if positive and value == 0:
+        raise ValueError(f"{field} INTEGER must be positive")
+    return value
+
+
+def oid_base128_value(content: bytes, offset: int, field: str) -> tuple[int, int]:
+    if offset >= len(content):
+        raise ValueError(f"{field} OID truncated")
+    value = 0
+    first = True
+    while True:
+        if offset >= len(content):
+            raise ValueError(f"{field} OID unterminated")
+        byte = content[offset]
+        offset += 1
+        if first and byte & 0x80 and (byte & 0x7F) == 0:
+            raise ValueError(f"{field} OID non-canonical base-128")
+        value = (value << 7) | (byte & 0x7F)
+        first = False
+        if byte & 0x80 == 0:
+            return value, offset
+
+
+def algorithm_identifier_oid(raw: bytes, field: str) -> str:
+    tag, content, _raw, end = der_tlv(raw, 0)
+    if tag != 0x30 or end != len(raw):
+        raise ValueError(f"{field} AlgorithmIdentifier malformed")
+    children = der_children(content)
+    if len(children) != 2 or children[0][0] != 0x06 or children[1][0] != 0x05 or children[1][1] != b"":
+        raise ValueError(f"{field} AlgorithmIdentifier must contain OID and explicit NULL parameters")
+    return oid_string(children[0][1])
+
+
 def oid_string(content: bytes) -> str:
     if not content:
         raise ValueError("DER OID empty")
-    first = content[0]
-    first_arc = min(first // 40, 2)
-    second_arc = first - (40 * first_arc)
-    arcs = [first_arc, second_arc]
-    value = 0
-    have = False
-    for byte in content[1:]:
-        have = True
-        value = (value << 7) | (byte & 0x7F)
-        if byte & 0x80 == 0:
-            arcs.append(value)
-            value = 0
-            have = False
-    if have:
-        raise ValueError("DER OID unterminated")
+    first_subidentifier, offset = oid_base128_value(content, 0, "first")
+    if first_subidentifier < 40:
+        arcs = [0, first_subidentifier]
+    elif first_subidentifier < 80:
+        arcs = [1, first_subidentifier - 40]
+    else:
+        arcs = [2, first_subidentifier - 80]
+    while offset < len(content):
+        value, offset = oid_base128_value(content, offset, "arc")
+        arcs.append(value)
     return ".".join(str(x) for x in arcs)
 
 
@@ -259,17 +299,43 @@ def bit_string_has(bit_string_content: bytes, bit_number: int) -> bool:
     payload = bit_string_content[1:]
     if unused > 7:
         raise ValueError("DER BIT STRING invalid unused-bit count")
+    if not payload:
+        if unused != 0:
+            raise ValueError("DER BIT STRING empty payload has unused bits")
+        return False
+    if unused and payload[-1] & ((1 << unused) - 1):
+        raise ValueError("DER BIT STRING has non-zero padding bits")
     byte_index = bit_number // 8
     bit_mask = 0x80 >> (bit_number % 8)
     return byte_index < len(payload) and bool(payload[byte_index] & bit_mask)
+
+
+def validate_named_bit_string(bit_string_content: bytes, field: str) -> None:
+    if not bit_string_content:
+        raise ValueError(f"{field} BIT STRING empty")
+    unused = bit_string_content[0]
+    payload = bit_string_content[1:]
+    if unused > 7:
+        raise ValueError(f"{field} BIT STRING invalid unused-bit count")
+    if not payload:
+        if unused != 0:
+            raise ValueError(f"{field} BIT STRING empty payload has unused bits")
+        return
+    if unused and payload[-1] & ((1 << unused) - 1):
+        raise ValueError(f"{field} BIT STRING has non-zero padding bits")
+    if payload[-1] == 0:
+        raise ValueError(f"{field} BIT STRING has non-canonical trailing zero byte")
 
 
 def parse_extensions(extension_wrapper: bytes) -> dict[str, dict[str, Any]]:
     tag, content, _raw, end = der_tlv(extension_wrapper, 0)
     if tag != 0x30 or end != len(extension_wrapper):
         raise ValueError("X.509 Extensions must be a SEQUENCE")
+    extension_children = der_children(content)
+    if not extension_children:
+        raise ValueError("X.509 Extensions must contain at least one Extension")
     extensions: dict[str, dict[str, Any]] = {}
-    for ext_tag, ext_content, _ext_raw in der_children(content):
+    for ext_tag, ext_content, _ext_raw in extension_children:
         if ext_tag != 0x30:
             raise ValueError("X.509 Extension is not a SEQUENCE")
         offset = 0
@@ -279,9 +345,9 @@ def parse_extensions(extension_wrapper: bytes) -> dict[str, dict[str, Any]]:
         critical = False
         next_tag, next_content, _next_raw, next_offset = der_tlv(ext_content, offset)
         if next_tag == 0x01:
-            if len(next_content) != 1 or next_content not in (b"\x00", b"\xff"):
-                raise ValueError("X.509 Extension critical BOOLEAN invalid")
-            critical = next_content != b"\x00"
+            if next_content != b"\xff":
+                raise ValueError("X.509 Extension critical BOOLEAN must encode TRUE")
+            critical = True
             next_tag, next_content, _next_raw, next_offset = der_tlv(ext_content, next_offset)
         if next_tag != 0x04 or next_offset != len(ext_content):
             raise ValueError("X.509 Extension missing extnValue")
@@ -299,48 +365,105 @@ def parse_certificate_der(der: bytes) -> dict[str, Any]:
     tag, cert_content, _cert_raw, cert_end = der_tlv(der, 0)
     if tag != 0x30 or cert_end != len(der):
         raise ValueError("X.509 Certificate is not a single DER SEQUENCE")
-    tag, tbs_content, _tbs_raw, tbs_end = der_tlv(cert_content, 0)
+
+    tag, tbs_content, _tbs_raw, cert_cursor = der_tlv(cert_content, 0)
     if tag != 0x30:
         raise ValueError("X.509 TBSCertificate is not a SEQUENCE")
+    sig_alg_tag, sig_alg_content, sig_alg_raw, cert_cursor = der_tlv(cert_content, cert_cursor)
+    if sig_alg_tag != 0x30:
+        raise ValueError("X.509 certificate signatureAlgorithm is not a SEQUENCE")
+    sig_value_tag, sig_value_content, _sig_value_raw, cert_end = der_tlv(cert_content, cert_cursor)
+    if sig_value_tag != 0x03 or cert_end != len(cert_content):
+        raise ValueError("X.509 certificate signatureValue is malformed")
+    if sig_value_content[:1] != b"\x00":
+        raise ValueError("X.509 certificate signatureValue must have zero unused bits")
+    bit_string_has(sig_value_content, 0)
+    signature_algorithm_oid = algorithm_identifier_oid(sig_alg_raw, "X.509.signatureAlgorithm")
+
     cursor = 0
     version = 1
-    tag, content, raw, next_cursor = der_tlv(tbs_content, cursor)
+    tag, content, _raw, next_cursor = der_tlv(tbs_content, cursor)
     if tag == 0xA0:
         inner_tag, inner_content, _inner_raw, inner_end = der_tlv(content, 0)
         if inner_tag != 0x02 or inner_end != len(content):
             raise ValueError("X.509 version field invalid")
-        version = int.from_bytes(inner_content, "big") + 1
+        version_value = der_integer_value(inner_content, "X.509.version")
+        if version_value > 2:
+            raise ValueError("X.509 version value invalid")
+        version = version_value + 1
         cursor = next_cursor
-    else:
-        cursor = 0
+
     tag, serial_content, _serial_raw, cursor = der_tlv(tbs_content, cursor)
-    if tag != 0x02 or not serial_content:
-        raise ValueError("X.509 serial invalid")
-    serial = int.from_bytes(serial_content, "big")
-    _tag, _sig_content, _sig_raw, cursor = der_tlv(tbs_content, cursor)
-    issuer_tag, issuer_content, issuer_raw, cursor = der_tlv(tbs_content, cursor)
-    if issuer_tag not in (0x30, 0xA0, 0xA1, 0xA2, 0xA3):
+    if tag != 0x02:
+        raise ValueError("X.509 serial is not INTEGER")
+    serial = der_integer_value(serial_content, "X.509.serial", positive=True)
+
+    sig_tag, _sig_content, sig_raw, cursor = der_tlv(tbs_content, cursor)
+    if sig_tag != 0x30:
+        raise ValueError("X.509 TBSCertificate signature is not a SEQUENCE")
+    tbs_signature_algorithm_oid = algorithm_identifier_oid(
+        sig_raw, "X.509.TBSCertificate.signature"
+    )
+    if sig_raw != sig_alg_raw:
+        raise ValueError("X.509 outer and TBSCertificate signatureAlgorithm encodings differ")
+    if tbs_signature_algorithm_oid != SHA256_WITH_RSA_OID or signature_algorithm_oid != SHA256_WITH_RSA_OID:
+        raise ValueError("synthetic EK certificate signature algorithm must be SHA256withRSA")
+
+    issuer_tag, _issuer_content, issuer_raw, cursor = der_tlv(tbs_content, cursor)
+    if issuer_tag != 0x30:
         raise ValueError("X.509 issuer Name invalid")
-    _tag, _validity_content, _validity_raw, cursor = der_tlv(tbs_content, cursor)
-    subject_tag, _subject_content, subject_raw, cursor = der_tlv(tbs_content, cursor)
-    if subject_tag not in (0x30, 0xA0, 0xA1, 0xA2, 0xA3):
+
+    validity_tag, validity_content, _validity_raw, cursor = der_tlv(tbs_content, cursor)
+    if validity_tag != 0x30:
+        raise ValueError("X.509 validity is not a SEQUENCE")
+    validity = der_children(validity_content)
+    if len(validity) != 2 or any(tag not in (0x17, 0x18) or not content or content[-1] != 0x5A for tag, content, _ in validity):
+        raise ValueError("X.509 validity time structure invalid")
+
+    subject_tag, subject_content, subject_raw, cursor = der_tlv(tbs_content, cursor)
+    if subject_tag != 0x30:
         raise ValueError("X.509 subject Name invalid")
-    _tag, _spki_content, spki_raw, cursor = der_tlv(tbs_content, cursor)
+
+    spki_tag, _spki_content, spki_raw, cursor = der_tlv(tbs_content, cursor)
+    if spki_tag != 0x30:
+        raise ValueError("X.509 SubjectPublicKeyInfo invalid")
 
     extensions: dict[str, dict[str, Any]] = {}
+    saw_issuer_unique_id = False
+    saw_subject_unique_id = False
+    saw_extensions = False
     while cursor < len(tbs_content):
-        tag, content, raw, cursor = der_tlv(tbs_content, cursor)
+        tag, content, _raw, cursor = der_tlv(tbs_content, cursor)
+        if tag == 0xA1:
+            if version != 3 or saw_issuer_unique_id or saw_subject_unique_id or saw_extensions:
+                raise ValueError("X.509 issuerUniqueID is duplicated or out of order")
+            saw_issuer_unique_id = True
+            continue
+        if tag == 0xA2:
+            if version != 3 or saw_subject_unique_id or saw_extensions:
+                raise ValueError("X.509 subjectUniqueID is duplicated or out of order")
+            saw_subject_unique_id = True
+            continue
         if tag == 0xA3:
+            if saw_extensions or version != 3:
+                raise ValueError("X.509 Extensions wrapper duplicated or outside v3")
             extensions = parse_extensions(content)
-    if cursor != len(tbs_content):
-        raise ValueError("X.509 TBSCertificate trailing bytes")
+            saw_extensions = True
+            continue
+        raise ValueError("X.509 TBSCertificate contains unexpected trailing field")
+
     return {
         "version": version,
         "serial": serial,
         "issuer_der": issuer_raw,
         "subject_der": subject_raw,
         "spki_der": spki_raw,
+        "subject_empty": subject_content == b"",
         "extensions": extensions,
+        "tbs_der": tbs_raw,
+        "signature_der": sig_value_content[1:],
+        "signature_algorithm_der": sig_alg_raw,
+        "signature_algorithm_oid": signature_algorithm_oid,
     }
 
 
@@ -361,25 +484,25 @@ def basic_constraints(info: dict[str, Any]) -> tuple[bool, bool]:
     children = der_children(content)
     if not children:
         return critical, True
-    if children[0][0] != 0x01 or len(children[0][1]) != 1:
-        raise ValueError("BasicConstraints missing cA BOOLEAN")
-    ca_false = children[0][1] == b"\x00"
-    if len(children) > 1:
-        # RFC 5280 forbids pathLenConstraint when cA is FALSE.
-        if ca_false:
-            raise ValueError("BasicConstraints pathLenConstraint present with CA=false")
+    if children[0][0] != 0x01 or children[0][1] != b"\xff":
+        raise ValueError("BasicConstraints cA BOOLEAN must encode TRUE when present")
+    if len(children) > 2:
+        raise ValueError("BasicConstraints contains unexpected fields")
+    if len(children) == 2:
         if children[1][0] != 0x02:
             raise ValueError("BasicConstraints pathLenConstraint malformed")
-    return critical, ca_false
+        der_integer_value(children[1][1], "BasicConstraints.pathLenConstraint")
+    return critical, False
 
 
 def key_usage_bits(info: dict[str, Any]) -> tuple[bool, bool, bool, bool]:
     critical, value = extension_value(info, "2.5.29.15")
     if value is None:
-        return critical, False, False
+        return critical, False, False, False
     tag, content, _raw, end = der_tlv(value, 0)
     if tag != 0x03 or end != len(value):
         raise ValueError("KeyUsage extension malformed")
+    validate_named_bit_string(content, "KeyUsage")
     return critical, bit_string_has(content, 2), bit_string_has(content, 6), bit_string_has(content, 5)
 
 
@@ -405,24 +528,40 @@ def authority_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
     tag, content, _raw, end = der_tlv(value, 0)
     if tag != 0x30 or end != len(value):
         raise ValueError("AuthorityKeyIdentifier extension malformed")
-    seen = set()
+    seen: set[int] = set()
     key_identifier: bytes | None = None
     for child_tag, child_content, _raw in der_children(content):
         if child_tag in seen:
             raise ValueError("AuthorityKeyIdentifier field duplicated")
         seen.add(child_tag)
         if child_tag == 0x80:
+            if not child_content:
+                raise ValueError("AuthorityKeyIdentifier keyIdentifier is empty")
             key_identifier = child_content
         elif child_tag == 0xA1:
-            # authorityCertIssuer is GeneralNames.
-            gn_tag, _gn_content, _gn_raw, gn_end = der_tlv(child_content, 0)
-            if gn_tag != 0x30 or gn_end != len(child_content):
-                raise ValueError("AuthorityKeyIdentifier authorityCertIssuer malformed")
+            # authorityCertIssuer is GeneralNames encoded by IMPLICIT context tag [1].
+            names = der_children(child_content)
+            if not names:
+                raise ValueError("AuthorityKeyIdentifier authorityCertIssuer is empty")
+            allowed = {0xA0, 0x81, 0x82, 0x83, 0xA4, 0xA5, 0x86, 0x87, 0x88}
+            for general_name_tag, general_name_content, _general_name_raw in names:
+                if general_name_tag not in allowed:
+                    raise ValueError("AuthorityKeyIdentifier authorityCertIssuer GeneralName invalid")
+                if general_name_tag == 0xA4:
+                    name_tag, _name_content, _name_raw, name_end = der_tlv(general_name_content, 0)
+                    if name_tag != 0x30 or name_end != len(general_name_content):
+                        raise ValueError("AuthorityKeyIdentifier directoryName malformed")
+                elif general_name_tag == 0xA0:
+                    other_tag, _other_content, _other_raw, other_end = der_tlv(general_name_content, 0)
+                    if other_tag != 0x30 or other_end != len(general_name_content):
+                        raise ValueError("AuthorityKeyIdentifier otherName malformed")
+                elif general_name_tag == 0x87 and len(general_name_content) not in (4, 16):
+                    raise ValueError("AuthorityKeyIdentifier iPAddress structure invalid")
+                elif general_name_tag == 0x88:
+                    oid_string(general_name_content)
         elif child_tag == 0x82:
-            # authorityCertSerialNumber is INTEGER.
-            serial_tag, serial_content, _serial_raw, serial_end = der_tlv(child_content, 0)
-            if serial_tag != 0x02 or not serial_content or serial_end != len(child_content):
-                raise ValueError("AuthorityKeyIdentifier authorityCertSerialNumber malformed")
+            # authorityCertSerialNumber is CertificateSerialNumber, encoded IMPLICIT INTEGER.
+            der_integer_value(child_content, "AuthorityKeyIdentifier.authorityCertSerialNumber", positive=True)
         else:
             raise ValueError("AuthorityKeyIdentifier contains unknown field")
     return critical, key_identifier
@@ -438,11 +577,201 @@ def subject_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
     return critical, content
 
 
-def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+
+def _extension_sequence_content(info: dict[str, Any], oid: str, label: str) -> tuple[bool, bytes | None]:
+    critical, value = extension_value(info, oid)
+    if value is None:
+        return critical, None
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x30 or end != len(value):
+        raise ValueError(f"{label} extension value must be a SEQUENCE")
+    return critical, content
+
+
+def validate_aia(info: dict[str, Any]) -> bool:
+    critical, content = _extension_sequence_content(
+        info, "1.3.6.1.5.5.7.1.1", "AuthorityInformationAccess"
+    )
+    if content is None:
+        return True
+    if critical:
+        raise ValueError("AuthorityInformationAccess MUST be non-critical")
+    descriptions = der_children(content)
+    if not descriptions:
+        raise ValueError("AuthorityInformationAccess must contain AccessDescription")
+    for tag, description, _raw in descriptions:
+        if tag != 0x30:
+            raise ValueError("AuthorityInformationAccess AccessDescription malformed")
+        children = der_children(description)
+        if len(children) != 2 or children[0][0] != 0x06:
+            raise ValueError("AuthorityInformationAccess AccessDescription structure invalid")
+        access_method = oid_string(children[0][1])
+        if access_method not in {"1.3.6.1.5.5.7.48.1", "1.3.6.1.5.5.7.48.2"}:
+            raise ValueError("AuthorityInformationAccess accessMethod is not id-ad-ocsp or id-ad-caIssuers")
+        if children[1][0] not in {0xA0, 0x81, 0x82, 0xA4, 0xA5, 0x86, 0x87, 0x88}:
+            raise ValueError("AuthorityInformationAccess accessLocation GeneralName invalid")
+    return True
+
+
+def validate_certificate_policies(info: dict[str, Any]) -> bool:
+    critical, value = extension_value(info, "2.5.29.32")
+    if value is None:
+        return True
+    if critical:
+        raise ValueError("CertificatePolicies MUST be non-critical")
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x30 or end != len(value):
+        raise ValueError("CertificatePolicies extension must be a SEQUENCE")
+    policies = der_children(content)
+    if not policies:
+        raise ValueError("CertificatePolicies must contain PolicyInformation")
+    for policy_tag, policy_content, _policy_raw in policies:
+        if policy_tag != 0x30:
+            raise ValueError("CertificatePolicies PolicyInformation malformed")
+        children = der_children(policy_content)
+        if not children or children[0][0] != 0x06:
+            raise ValueError("CertificatePolicies PolicyInformation missing policyIdentifier")
+        oid_string(children[0][1])
+        if len(children) > 2:
+            raise ValueError("CertificatePolicies PolicyInformation has unexpected fields")
+        if len(children) == 2:
+            if children[1][0] != 0x30:
+                raise ValueError("CertificatePolicies policyQualifiers malformed")
+            # TCG v2.7's EK certificate table defines the value as PolicyIdentifier;
+            # qualifiers are therefore outside this reference profile.
+            if der_children(children[1][1]):
+                raise ValueError("CertificatePolicies policyQualifiers are outside reference profile")
+    return True
+
+
+def validate_cdp(info: dict[str, Any]) -> bool:
+    critical, content = _extension_sequence_content(
+        info, "2.5.29.31", "CRLDistributionPoints"
+    )
+    if content is None:
+        return True
+    if critical:
+        raise ValueError("CRLDistributionPoints MUST be non-critical")
+    points = der_children(content)
+    if not points:
+        raise ValueError("CRLDistributionPoints must contain DistributionPoint")
+    for tag, point, _raw in points:
+        if tag != 0x30:
+            raise ValueError("CRLDistributionPoints DistributionPoint malformed")
+        children = der_children(point)
+        if not children:
+            raise ValueError("CRLDistributionPoints DistributionPoint empty")
+        for child_tag, child_content, _child_raw in children:
+            if child_tag == 0xA0:
+                inner_tag, inner_content, _inner_raw, inner_end = der_tlv(child_content, 0)
+                if inner_tag not in {0xA0, 0xA1} or inner_end != len(child_content):
+                    raise ValueError("CRLDistributionPoints DistributionPointName malformed")
+                if inner_tag == 0xA0 and not der_children(inner_content):
+                    raise ValueError("CRLDistributionPoints fullName is empty")
+            elif child_tag == 0x81:
+                bit_string_has(child_content, 0)
+            elif child_tag == 0xA2:
+                names = der_children(child_content)
+                if not names:
+                    raise ValueError("CRLDistributionPoints cRLIssuer is empty")
+            else:
+                raise ValueError("CRLDistributionPoints DistributionPoint field invalid")
+    return True
+
+
+def validate_subject_directory_attributes(info: dict[str, Any]) -> bool:
+    critical, content = _extension_sequence_content(
+        info, "2.5.29.9", "SubjectDirectoryAttributes"
+    )
+    if content is None:
+        return True
+    if critical:
+        raise ValueError("SubjectDirectoryAttributes MUST be non-critical")
+    attributes = der_children(content)
+    if not attributes:
+        raise ValueError("SubjectDirectoryAttributes must contain Attribute")
+    for tag, attribute, _raw in attributes:
+        if tag != 0x30:
+            raise ValueError("SubjectDirectoryAttributes Attribute malformed")
+        children = der_children(attribute)
+        if len(children) != 2 or children[0][0] != 0x06 or children[1][0] != 0x31:
+            raise ValueError("SubjectDirectoryAttributes Attribute structure invalid")
+        oid_string(children[0][1])
+        if not der_children(children[1][1]):
+            raise ValueError("SubjectDirectoryAttributes Attribute value SET empty")
+    return True
+
+
+def reference_tpm_values() -> dict[str, Any]:
+    recipe = json.loads(FIXTURE_RECIPE_FILE.read_text(encoding="utf-8"))
+    tpm = recipe.get("tpm")
+    if not isinstance(tpm, dict) or not {"manufacturer", "model", "version"} <= set(tpm):
+        raise ValueError("fixture recipe TPM metadata incomplete")
+    return tpm
+
+
+def subject_alt_name(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+    critical, value = extension_value(info, "2.5.29.17")
+    if value is None:
+        return critical, {"present": False, "directory_name_count": 0, "attributes": {}}
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x30 or end != len(value):
+        raise ValueError("SubjectAltName extension malformed")
+    general_names = der_children(content)
+    if not general_names:
+        raise ValueError("SubjectAltName must contain at least one GeneralName")
+    directory_names = 0
+    attributes: dict[str, list[str]] = {}
+    for gn_tag, gn_content, _gn_raw in general_names:
+        if gn_tag != 0xA4:
+            continue
+        directory_names += 1
+        name_tag, name_content, _name_raw, name_end = der_tlv(gn_content, 0)
+        if name_tag != 0x30 or name_end != len(gn_content):
+            raise ValueError("SubjectAltName directoryName is not a Name")
+        for rdn_tag, rdn_content, _rdn_raw in der_children(name_content):
+            if rdn_tag != 0x31:
+                raise ValueError("SubjectAltName RDN is not a SET")
+            attrs = der_children(rdn_content)
+            for attr_tag, attr_content, _attr_raw in attrs:
+                if attr_tag != 0x30:
+                    raise ValueError("SubjectAltName Attribute is not a SEQUENCE")
+                at_offset = 0
+                oid_tag, oid_content, _oid_raw, at_offset = der_tlv(attr_content, at_offset)
+                if oid_tag != 0x06:
+                    raise ValueError("SubjectAltName Attribute missing OID")
+                value_tag, value_content, _value_raw, value_end = der_tlv(attr_content, at_offset)
+                if value_tag != 0x31 or value_end != len(attr_content):
+                    raise ValueError("SubjectAltName Attribute value is not a SET")
+                values = der_children(value_content)
+                if len(values) != 1 or values[0][0] != 0x0C:
+                    raise ValueError("SubjectAltName TCG directory attribute must contain one UTF8String")
+                text_value = values[0][1].decode("utf-8")
+                if not text_value:
+                    raise ValueError("SubjectAltName TCG directory attribute is empty")
+                oid = oid_string(oid_content)
+                attributes.setdefault(oid, []).append(text_value)
+    return critical, {
+        "present": True,
+        "directory_name_count": directory_names,
+        "attributes": attributes,
+    }
+
+
+
+
+def leaf_profile_ok(info: dict[str, Any], expected_tpm: dict[str, Any] | None = None) -> tuple[bool, dict[str, Any]]:
+    expected_tpm = reference_tpm_values() if expected_tpm is None else expected_tpm
     bc_critical, ca_false = basic_constraints(info)
     ku_critical, key_encipherment, _crl_sign, key_cert_sign = key_usage_bits(info)
     eku_critical, eku = eku_oids(info)
     aki_critical, aki = authority_key_id(info)
+    san_critical, san = subject_alt_name(info)
+    ski_critical, ski_value = subject_key_id(info)
+    validate_aia(info)
+    validate_certificate_policies(info)
+    validate_cdp(info)
+    validate_subject_directory_attributes(info)
     profile = {
         "version_3": info["version"] == 3,
         "serial_positive": info["serial"] > 0,
@@ -455,10 +784,47 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         "extended_key_usage_critical": eku_critical,
         "authority_key_identifier_present": aki is not None,
         "authority_key_identifier_critical": aki_critical,
+        "subject_alt_name_present": san["present"],
+        "subject_alt_name_directory_name_count": san["directory_name_count"],
+        "subject_alt_name_tcg_attributes": san["attributes"],
+        "subject_alt_name_critical": san_critical,
+        "reference_tpm_manufacturer": expected_tpm["manufacturer"],
+        "reference_tpm_model": expected_tpm["model"],
+        "reference_tpm_version": expected_tpm["version"],
+        "subject_alt_name_criticality_ok": (
+            (info["subject_empty"] and san_critical)
+            or (not info["subject_empty"] and not san_critical)
+        ),
+        "certificate_policies_present": "2.5.29.32" in info["extensions"],
+        "subject_name_empty": info["subject_empty"],
+        "subject_key_identifier_present": ski_value is not None,
+        "subject_key_identifier_critical": ski_critical,
     }
     eku_ok = not eku or EK_CERT_EKU_OID in eku
     eku_critical_ok = not eku_critical
     aki_critical_ok = not aki_critical
+    tcg_san_oids = {"2.23.133.2.1", "2.23.133.2.2", "2.23.133.2.3"}
+    san_attrs = san["attributes"]
+    expected_san_values = {
+        "2.23.133.2.1": "id:" + format(expected_tpm["manufacturer"], "08X"),
+        "2.23.133.2.2": expected_tpm["model"],
+        "2.23.133.2.3": "id:" + expected_tpm["version"],
+    }
+    san_values_ok = all(
+        san_attrs.get(oid, []) == [value] for oid, value in expected_san_values.items()
+    )
+    san_ok = (
+        san["present"]
+        and san["directory_name_count"] >= 1
+        and all(len(san_attrs.get(oid, [])) == 1 for oid in tcg_san_oids)
+        and san_attrs["2.23.133.2.1"][0].startswith("id:")
+        and san_attrs["2.23.133.2.3"][0].startswith("id:")
+        and san_values_ok
+        and (
+            (info["subject_empty"] and san_critical)
+            or (not info["subject_empty"] and not san_critical)
+        )
+    )
     ok = (
         profile["version_3"]
         and profile["serial_positive"]
@@ -471,6 +837,8 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         and eku_critical_ok
         and aki_critical_ok
         and aki is not None
+        and san_ok
+        and not ski_critical
     )
     return ok, profile
 
@@ -493,6 +861,200 @@ def crl_pem_to_der(block: bytes) -> bytes:
         return base64.b64decode(encoded, validate=True)
     except Exception as exc:
         raise ValueError(f"invalid X509 CRL PEM encoding: {exc}") from exc
+
+
+def rsa_public_key_from_spki(spki_der: bytes) -> tuple[int, int]:
+    tag, content, _raw, end = der_tlv(spki_der, 0)
+    if tag != 0x30 or end != len(spki_der):
+        raise ValueError("SubjectPublicKeyInfo must be one SEQUENCE")
+    children = der_children(content)
+    if len(children) != 2 or children[0][0] != 0x30 or children[1][0] != 0x03:
+        raise ValueError("SubjectPublicKeyInfo structure invalid")
+    if algorithm_identifier_oid(children[0][2], "SubjectPublicKeyInfo") != RSA_ENCRYPTION_OID:
+        raise ValueError("SubjectPublicKeyInfo algorithm is not rsaEncryption")
+    # Reference corpus keys are RSA-2048; reject weaker issuer keys in the
+    # independent cryptographic witness rather than leaving this only to OpenSSL.
+    key_bits = children[1][1]
+    if not key_bits or key_bits[0] != 0:
+        raise ValueError("SubjectPublicKeyInfo RSA BIT STRING must have zero unused bits")
+    rsa_der = key_bits[1:]
+    rsa_tag, rsa_content, _rsa_raw, rsa_end = der_tlv(rsa_der, 0)
+    if rsa_tag != 0x30 or rsa_end != len(rsa_der):
+        raise ValueError("RSA public key is not one SEQUENCE")
+    rsa_children = der_children(rsa_content)
+    if len(rsa_children) != 2 or any(child[0] != 0x02 for child in rsa_children):
+        raise ValueError("RSA public key must contain modulus and exponent")
+    modulus = der_integer_value(rsa_children[0][1], "RSA.modulus", positive=True)
+    exponent = der_integer_value(rsa_children[1][1], "RSA.exponent", positive=True)
+    if modulus.bit_length() != 2048 or modulus % 2 != 1:
+        raise ValueError("reference issuer RSA modulus must be odd RSA-2048")
+    if exponent < 3 or exponent % 2 == 0:
+        raise ValueError("reference issuer RSA exponent is invalid")
+    return modulus, exponent
+
+
+def rsa_sha256_verify(tbs_der: bytes, signature: bytes, spki_der: bytes) -> dict[str, str]:
+    modulus, exponent = rsa_public_key_from_spki(spki_der)
+    width = (modulus.bit_length() + 7) // 8
+    if len(signature) != width:
+        raise ValueError("RSA signature width does not match issuer modulus")
+    signature_integer = int.from_bytes(signature, "big")
+    if signature_integer >= modulus:
+        raise ValueError("RSA signature integer is not below issuer modulus")
+    encoded = pow(signature_integer, exponent, modulus).to_bytes(width, "big")
+    digest_info = bytes.fromhex("3031300d060960864801650304020105000420") + hashlib.sha256(tbs_der).digest()
+    if not encoded.startswith(b"\x00\x01"):
+        raise ValueError("RSA PKCS#1 v1.5 signature header invalid")
+    separator = encoded.find(b"\x00", 2)
+    if separator < 10 or any(byte != 0xFF for byte in encoded[2:separator]):
+        raise ValueError("RSA PKCS#1 v1.5 padding invalid")
+    if encoded[separator + 1:] != digest_info:
+        raise ValueError("RSA SHA-256 signature does not match exact TBS bytes")
+    return {
+        "modulus_sha256": hashlib.sha256(
+            modulus.to_bytes((modulus.bit_length() + 7) // 8, "big")
+        ).hexdigest(),
+        "signature_sha256": hashlib.sha256(signature).hexdigest(),
+        "tbs_sha256": hashlib.sha256(tbs_der).hexdigest(),
+    }
+
+
+def parse_crl_der_for_crypto(der: bytes) -> dict[str, Any]:
+    tag, content, _raw, end = der_tlv(der, 0)
+    if tag != 0x30 or end != len(der):
+        raise ValueError("CRL is not one DER SEQUENCE")
+    outer = der_children(content)
+    if len(outer) != 3 or outer[0][0] != 0x30 or outer[1][0] != 0x30 or outer[2][0] != 0x03:
+        raise ValueError("CRL outer structure invalid")
+    tbs_raw = outer[0][2]
+    outer_alg_raw = outer[1][2]
+    signature_content = outer[2][1]
+    if signature_content[:1] != b"\x00":
+        raise ValueError("CRL signatureValue must have zero unused bits")
+    signature = signature_content[1:]
+    tbs_tag, tbs_content, _tbs_raw, tbs_end = der_tlv(tbs_raw, 0)
+    if tbs_tag != 0x30 or tbs_end != len(tbs_raw):
+        raise ValueError("TBSCertList malformed")
+    fields = der_children(tbs_content)
+    cursor = 0
+    if fields and fields[0][0] == 0x02:
+        if der_integer_value(fields[0][1], "TBSCertList.version") != 1:
+            raise ValueError("synthetic CRL must be v2")
+        cursor += 1
+    if len(fields) <= cursor or fields[cursor][0] != 0x30:
+        raise ValueError("TBSCertList signature AlgorithmIdentifier malformed")
+    inner_alg_raw = fields[cursor][2]
+    inner_oid = algorithm_identifier_oid(inner_alg_raw, "TBSCertList.signature")
+    outer_oid = algorithm_identifier_oid(outer_alg_raw, "CRL.signatureAlgorithm")
+    if inner_alg_raw != outer_alg_raw or inner_oid != SHA256_WITH_RSA_OID or outer_oid != SHA256_WITH_RSA_OID:
+        raise ValueError("CRL signature AlgorithmIdentifiers are not identical SHA256withRSA")
+    cursor += 1
+    if cursor >= len(fields) or fields[cursor][0] != 0x30:
+        raise ValueError("TBSCertList issuer Name malformed")
+    issuer_der = fields[cursor][2]
+    return {
+        "object_der": der,
+        "object_sha256": hashlib.sha256(der).hexdigest(),
+        "tbs_der": tbs_raw,
+        "tbs_sha256": hashlib.sha256(tbs_raw).hexdigest(),
+        "signature_der": signature,
+        "signature_sha256": hashlib.sha256(signature).hexdigest(),
+        "signature_algorithm_oid": outer_oid,
+        "issuer_der": issuer_der,
+    }
+
+
+def cryptographic_binding_receipt(
+    leaf: dict[str, Any],
+    intermediate: dict[str, Any],
+    root: dict[str, Any],
+    crl_bundle: bytes,
+) -> dict[str, Any]:
+    if leaf["issuer_der"] != intermediate["subject_der"]:
+        raise ValueError("leaf issuer does not exactly match intermediate subject")
+    if intermediate["issuer_der"] != root["subject_der"]:
+        raise ValueError("intermediate issuer does not exactly match root subject")
+    if root["issuer_der"] != root["subject_der"]:
+        raise ValueError("root is not self-issued")
+
+    certificate_signatures = {}
+    for label, cert, issuer, self_signed in (
+        ("leaf", leaf, intermediate, False),
+        ("intermediate", intermediate, root, False),
+        ("root", root, root, True),
+    ):
+        check = rsa_sha256_verify(cert["tbs_der"], cert["signature_der"], issuer["spki_der"])
+        certificate_signatures[label] = {
+            "object_sha256": cert["object_sha256"],
+            "tbs_sha256": check["tbs_sha256"],
+            "signature_sha256": check["signature_sha256"],
+            "signature_algorithm_oid": cert["signature_algorithm_oid"],
+            "issuer_name_sha256": hashlib.sha256(cert["issuer_der"]).hexdigest(),
+            "subject_name_sha256": hashlib.sha256(cert["subject_der"]).hexdigest(),
+            "issuer_object_sha256": issuer["object_sha256"],
+            "issuer_spki_sha256": hashlib.sha256(issuer["spki_der"]).hexdigest(),
+            "issuer_modulus_sha256": check["modulus_sha256"],
+            "signature_verification": "PASS",
+            "issuer_name_exact_match": True,
+            "self_signed": self_signed,
+        }
+
+    crl_signatures: dict[str, dict[str, Any]] = {}
+    seen_crl: set[str] = set()
+    blocks = split_pem_crls(crl_bundle)
+    for block in blocks:
+        der = crl_pem_to_der(block)
+        entry = parse_crl_der_for_crypto(der)
+        if entry["object_sha256"] in seen_crl:
+            raise ValueError("duplicate CRL object")
+        seen_crl.add(entry["object_sha256"])
+        matches = []
+        if entry["issuer_der"] == root["subject_der"]:
+            matches.append(("root", root))
+        if entry["issuer_der"] == intermediate["subject_der"]:
+            matches.append(("intermediate", intermediate))
+        if len(matches) != 1:
+            raise ValueError("CRL issuer does not exactly match one chain issuer subject")
+        label, issuer = matches[0]
+        check = rsa_sha256_verify(entry["tbs_der"], entry["signature_der"], issuer["spki_der"])
+        if label in crl_signatures:
+            raise ValueError(f"duplicate CRL issuer: {label}")
+        crl_signatures[label] = {
+            "object_sha256": entry["object_sha256"],
+            "pem_block_sha256": hashlib.sha256(block).hexdigest(),
+            "tbs_sha256": check["tbs_sha256"],
+            "signature_sha256": check["signature_sha256"],
+            "signature_algorithm_oid": entry["signature_algorithm_oid"],
+            "issuer_name_sha256": hashlib.sha256(entry["issuer_der"]).hexdigest(),
+            "issuer_object_sha256": issuer["object_sha256"],
+            "issuer_spki_sha256": hashlib.sha256(issuer["spki_der"]).hexdigest(),
+            "issuer_modulus_sha256": check["modulus_sha256"],
+            "signature_verification": "PASS",
+            "issuer_name_exact_match": True,
+        }
+    if set(crl_signatures) != {"root", "intermediate"}:
+        raise ValueError("CRL bundle must contain exactly one CRL for root and intermediate")
+
+    return {
+        "verifier_id": CRYPTO_BINDING_ID,
+        "verifier_source_sha256": sha256_file(Path(__file__)),
+        "state": "PASS",
+        "certificate_signatures": certificate_signatures,
+        "crl_signatures": crl_signatures,
+        "exact_relationships": {
+            "leaf_to_intermediate_subject_exact": True,
+            "intermediate_to_root_subject_exact": True,
+            "root_self_issued_exact": True,
+            "root_crl_issuer_exact": True,
+            "intermediate_crl_issuer_exact": True,
+        },
+        "exact_input_objects": {
+            "leaf_certificate_sha256": leaf["object_sha256"],
+            "intermediate_certificate_sha256": intermediate["object_sha256"],
+            "trust_anchor_root_sha256": root["object_sha256"],
+            "crl_bundle_pem_sha256": hashlib.sha256(crl_bundle).hexdigest(),
+        },
+    }
 
 
 def crl_issuer_names_from_pem_bundle(bundle: bytes) -> list[bytes]:
@@ -545,6 +1107,8 @@ def run_trust_anchor_appraiser(
     receipt_sha = hashlib.sha256(TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE.read_bytes()).hexdigest()
     if appraisal.get("registry_source_sha256") != receipt_sha:
         return result("DENY", "trust-anchor-authorization-receipt-digest-mismatch")
+    if appraisal.get("receipt_root_sha256") != receipt.get("root_certificate_sha256"):
+        return result("DENY", "trust-anchor-appraisal-receipt-root-mismatch")
     if receipt.get("registry_file_sha256") != hashlib.sha256(TRUST_ANCHOR_REGISTRY_FILE.read_bytes()).hexdigest():
         return result("DENY", "trust-anchor-receipt-registry-file-mismatch")
     if receipt.get("root_certificate_sha256") != hashlib.sha256(root_der).hexdigest():
@@ -732,6 +1296,72 @@ def run_spki_verifier(
         return output
 
 
+def run_crypto_verifier(manifest: dict[str, Any]) -> dict[str, Any]:
+    if not CRYPTO_VERIFIER_SCRIPT.is_file():
+        return result("DENY", "cryptographic-verifier-missing")
+    verifier_input = {
+        "leaf_certificate_der_base64": manifest["leaf_certificate_der_base64"],
+        "leaf_certificate_sha256": manifest["leaf_certificate_sha256"],
+        "intermediate_certificate_der_base64": manifest["intermediate_certificate_der_base64"],
+        "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
+        "trust_anchor_root_der_base64": manifest["trust_anchor_root_der_base64"],
+        "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
+        "crl_bundle_pem_base64": manifest["revocation"]["crl_bundle_pem_base64"],
+        "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
+    }
+    expected_source_sha = sha256_file(CRYPTO_VERIFIER_SCRIPT)
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-crypto-compose-") as td:
+        work = Path(td)
+        ip = work / "crypto-input.json"
+        op = work / "crypto-output.json"
+        ip.write_text(json.dumps(verifier_input, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(CRYPTO_VERIFIER_SCRIPT), "--verify", str(ip), "--output", str(op)],
+            cwd=work, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        if proc.returncode not in (0, 1, 2):
+            return result("DENY", "cryptographic-verifier-execution-error", {"stderr": proc.stderr})
+        if not op.is_file():
+            return result("DENY", "cryptographic-verifier-produced-no-output")
+        try:
+            output = json.loads(op.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            return result("DENY", "cryptographic-verifier-output-invalid", {"error": str(exc)})
+        if output.get("verifier_id") != "mycelix.tpm.ek-fixture-crypto.v0.1":
+            return result("DENY", "cryptographic-verifier-id-mismatch")
+        if output.get("state") != "PASS":
+            return result("DENY", "cryptographic-verifier-not-pass")
+        if output.get("input_sha256") != hashlib.sha256(ip.read_bytes()).hexdigest():
+            return result("DENY", "cryptographic-verifier-input-digest-mismatch")
+        output_sha = hashlib.sha256(op.read_bytes()).hexdigest()
+        if not valid_hash(output.get("content_sha256")):
+            return result("DENY", "cryptographic-verifier-content-digest-invalid")
+        if output["content_sha256"] != canonical_hash(
+            {key: value for key, value in output.items() if key != "content_sha256"}
+        ):
+            return result("DENY", "cryptographic-verifier-output-content-invalid")
+        details = output.get("details")
+        if not isinstance(details, dict):
+            return result("DENY", "cryptographic-verifier-details-missing")
+        expected_exact = {
+            "leaf_certificate_sha256": manifest["leaf_certificate_sha256"],
+            "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
+            "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
+            "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
+        }
+        if details.get("exact_input_objects") != expected_exact:
+            return result("DENY", "cryptographic-verifier-object-binding-mismatch")
+        return {
+            "state": "PASS",
+            "verifier_id": output["verifier_id"],
+            "source_sha256": expected_source_sha,
+            "input_sha256": output["input_sha256"],
+            "output_sha256": output_sha,
+            "output_content_sha256": output["content_sha256"],
+            "details": details,
+        }
+
+
 def run_path_verifier(
     manifest: dict[str, Any],
     binding: dict[str, Any],
@@ -769,7 +1399,7 @@ def run_path_verifier(
         "crl_bundle_pem_sha256": expected_input["crl_bundle_pem_sha256"],
         "verification_time_unix": expected_input["verification_time_unix"],
         "policy_argv": [
-            "openssl", "verify", "-CAfile", "root.pem",
+            "openssl", "verify", "-x509_strict", "-check_ss_sig", "-CAfile", "root.pem",
             "-untrusted", "intermediate.pem", "-CRLfile", "crl-bundle.pem",
             "-crl_check_all", "-attime", str(expected_input["verification_time_unix"]),
             "leaf.pem",
@@ -907,6 +1537,7 @@ def session_binding(
             "leaf_certificate_sha256": leaf_sha,
             "intermediate_certificate_sha256": intermediate_sha,
             "trust_anchor_root_sha256": root_sha,
+        "fixture_recipe_sha256": fx["fixture_recipe_sha256"],
             "trust_anchor_source_sha256": manifest["trust_anchor_source_sha256"],
             "trust_anchor_state": manifest["trust_anchor_state"],
             "trust_anchor_appraisal_state": manifest["trust_anchor_appraisal"].get("state"),
@@ -930,6 +1561,11 @@ def session_binding(
             "path_output_sha256": manifest["path_validation"].get("output_sha256"),
             "path_output_content_sha256": manifest["path_validation"].get("output_content_sha256"),
             "path_execution_binding_sha256": manifest["path_validation"].get("execution_binding_sha256"),
+            "cryptographic_binding_sha256": manifest.get("cryptographic_binding_sha256"),
+            "cryptographic_binding_source_sha256": manifest.get("cryptographic_binding_source_sha256"),
+            "cryptographic_binding_input_sha256": manifest.get("cryptographic_binding_input_sha256"),
+            "cryptographic_binding_output_sha256": manifest.get("cryptographic_binding_output_sha256"),
+            "fixture_recipe_sha256": manifest.get("fixture_recipe_sha256"),
             "spki_state": spki.get("state"),
             "spki_certificate_sha256": spki.get("certificate_sha256"),
             "spki_ek_public_wire_sha256": spki.get("ek_public_wire_sha256"),
@@ -956,7 +1592,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_der_base64", "trust_anchor_root_sha256",
         "trust_anchor_state", "trust_anchor_source_sha256", "trust_anchor_appraisal",
         "verification_time_unix", "revocation", "path_validation", "spki_binding", "ek_template_binding",
-        "session_binding_sha256",
+        "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "fixture_recipe_sha256", "session_binding_sha256",
     }
     missing = sorted(required - set(manifest))
     if missing:
@@ -969,10 +1605,16 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "verification-mode-invalid")
     if manifest["claim_ceiling"] != "ReferenceModelOnly":
         return result("DENY", "claim-ceiling-mismatch")
+    if manifest["fixture_recipe_sha256"] != sha256_file(FIXTURE_RECIPE_FILE):
+        return result("DENY", "fixture-recipe-source-mismatch")
+    forbidden_inputs = {"profile_override", "caller_supplied_certificate_criticality_overrides"}
+    supplied_forbidden = sorted(forbidden_inputs & set(manifest))
+    if supplied_forbidden:
+        return result("DENY", "forbidden-inputs-present", {"fields": supplied_forbidden})
     if not isinstance(manifest["session_id"], str) or not manifest["session_id"]:
         return result("DENY", "session-id-invalid")
     for field in ("tpm_identity_digest", "ek_public_wire_sha256", "leaf_certificate_sha256", "intermediate_certificate_sha256",
-                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "session_binding_sha256"):
+                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "fixture_recipe_sha256", "session_binding_sha256"):
         if not valid_hash(manifest[field]):
             return result("DENY", "digest-invalid", {"field": field})
 
@@ -1119,14 +1761,98 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     path_details = generated_path.get("details")
     if not isinstance(path_details, dict):
         return result("DENY", "path-validation-result-details-missing")
+    expected_cross_witness = {
+        "leaf_certificate_sha256": manifest["leaf_certificate_sha256"],
+        "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
+        "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
+        "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
+    }
+    crypto_exact = external_crypto["details"].get("exact_input_objects")
+    path_exact = {
+        "leaf_certificate_sha256": path_details.get("leaf_certificate_sha256"),
+        "intermediate_certificate_sha256": path_details.get("intermediate_certificate_sha256"),
+        "trust_anchor_root_sha256": path_details.get("trust_anchor_root_sha256"),
+        "crl_bundle_pem_sha256": path_details.get("crl_bundle_pem_sha256"),
+    }
+    if crypto_exact != expected_cross_witness:
+        return result("DENY", "independent-crypto-exact-object-binding-mismatch")
+    if path_exact != expected_cross_witness:
+        return result("DENY", "openssl-path-exact-object-binding-mismatch")
+
+    independent_details = external_crypto["details"]
+    independent_certs = independent_details.get("certificate_signatures")
+    independent_crls = independent_details.get("crl_signatures")
+    if not isinstance(independent_certs, dict) or not isinstance(independent_crls, dict):
+        return result("DENY", "independent-crypto-signature-details-missing")
+    for label, embedded in (
+        ("leaf", crypto_receipt["certificate_signatures"]["leaf"]),
+        ("intermediate", crypto_receipt["certificate_signatures"]["intermediate"]),
+        ("root", crypto_receipt["certificate_signatures"]["root"]),
+    ):
+        observed = independent_certs.get(label)
+        if not isinstance(observed, dict):
+            return result("DENY", "independent-certificate-signature-missing", {"label": label})
+        for field in ("object_sha256", "tbs_sha256", "signature_sha256", "issuer_object_sha256"):
+            if observed.get(field) != embedded.get(field):
+                return result(
+                    "DENY",
+                    "independent-certificate-signature-binding-mismatch",
+                    {"label": label, "field": field},
+                )
+    for label, embedded in (
+        ("root", crypto_receipt["crl_signatures"]["root"]),
+        ("intermediate", crypto_receipt["crl_signatures"]["intermediate"]),
+    ):
+        observed = independent_crls.get(label)
+        if not isinstance(observed, dict):
+            return result("DENY", "independent-crl-signature-missing", {"label": label})
+        for field in ("object_sha256", "tbs_sha256", "signature_sha256", "issuer_object_sha256"):
+            if observed.get(field) != embedded.get(field):
+                return result(
+                    "DENY",
+                    "independent-crl-signature-binding-mismatch",
+                    {"label": label, "field": field},
+                )
+
+    cross_witness = canonical_hash({
+        "exact_input_objects": expected_cross_witness,
+        "independent_crypto_verifier_source_sha256": external_crypto["source_sha256"],
+        "independent_crypto_output_sha256": external_crypto["output_sha256"],
+        "openssl_path_verifier_source_sha256": path_validation["source_sha256"],
+        "openssl_path_output_sha256": path_validation["output_sha256"],
+        "openssl_policy_argv": path_details.get("policy_argv"),
+    })
 
     try:
         leaf_info = parse_certificate_der(leaf)
         intermediate_info = parse_certificate_der(intermediate)
         root_info = parse_certificate_der(root)
         crl_issuers = crl_issuer_names_from_pem_bundle(crl_bundle_pem)
+        crypto_receipt = cryptographic_binding_receipt(
+            leaf_info, intermediate_info, root_info, crl_bundle_pem
+        )
+        expected_crypto_binding_sha256 = canonical_hash(crypto_receipt)
     except (ValueError, OSError) as exc:
         return result("DENY", "certificate-parse-error", {"error": str(exc)})
+    external_crypto = run_crypto_verifier(manifest)
+    if external_crypto.get("state") != "PASS":
+        return external_crypto
+    if external_crypto["source_sha256"] != manifest["cryptographic_binding_source_sha256"]:
+        return result("DENY", "cryptographic-verifier-source-binding-mismatch")
+    if external_crypto["input_sha256"] != manifest["cryptographic_binding_input_sha256"]:
+        return result("DENY", "cryptographic-verifier-input-binding-mismatch")
+    if external_crypto["output_sha256"] != manifest["cryptographic_binding_output_sha256"]:
+        return result("DENY", "cryptographic-verifier-output-binding-mismatch")
+    expected_external_content = external_crypto["output_content_sha256"]
+    if manifest["cryptographic_binding_sha256"] != expected_crypto_binding_sha256:
+        return result(
+            "DENY",
+            "cryptographic-binding-receipt-mismatch",
+            {
+                "expected_sha256": expected_crypto_binding_sha256,
+                "supplied_sha256": manifest["cryptographic_binding_sha256"],
+            },
+        )
 
     profile_ok, profile = leaf_profile_ok(leaf_info)
     profile["leaf_issuer_name_sha256"] = hashlib.sha256(leaf_info["issuer_der"]).hexdigest()
@@ -1194,32 +1920,66 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             "revocation_crl_bundle_pem_sha256": rev["crl_bundle_pem_sha256"],
             "spki_certificate_sha256": spki["certificate_sha256"],
             "spki_ek_public_wire_sha256": spki["ek_public_wire_sha256"],
+            "cryptographic_binding_sha256": manifest["cryptographic_binding_sha256"],
+            "cryptographic_binding": crypto_receipt,
+            "cross_witness_sha256": cross_witness,
         },
     )
 
 
-def load_fixture() -> dict[str, Any]:
-    if not FIXTURE_DIR.is_dir():
-        raise RuntimeError(f"missing frozen EK certificate fixture directory: {FIXTURE_DIR}")
-    for name, expected in FIXTURE_HASHES.items():
-        path = FIXTURE_DIR / name
-        if not path.is_file():
-            raise RuntimeError(f"missing frozen EK certificate fixture: {path}")
-        observed = sha256_file(path)
-        if observed != expected:
-            raise RuntimeError(
-                f"frozen EK fixture digest mismatch for {name}: expected {expected} got {observed}"
-            )
-    return {
-        "root": (FIXTURE_DIR / "root.der").read_bytes(),
-        "intermediate": (FIXTURE_DIR / "intermediate.der").read_bytes(),
-        "leaf": (FIXTURE_DIR / "leaf.der").read_bytes(),
-        "bad_usage": (FIXTURE_DIR / "bad-usage.der").read_bytes(),
-        "bad_eku": (FIXTURE_DIR / "bad-eku.der").read_bytes(),
-        "crl_bundle_pem": (FIXTURE_DIR / "crl-bundle.pem").read_bytes(),
-        "attime": REFERENCE_TIME_UNIX,
+def load_fixture(output_dir: Path) -> dict[str, Any]:
+    if not FIXTURE_RECIPE_FILE.is_file():
+        raise RuntimeError(f"missing EK fixture recipe: {FIXTURE_RECIPE_FILE}")
+    if not FIXTURE_GENERATOR_SCRIPT.is_file():
+        raise RuntimeError(f"missing EK fixture generator: {FIXTURE_GENERATOR_SCRIPT}")
+    recipe = json.loads(FIXTURE_RECIPE_FILE.read_text(encoding="utf-8"))
+    expected = recipe.get("expected_outputs")
+    required_outputs = {
+        "root.der", "intermediate.der", "leaf.der",
+        "bad-usage.der", "bad-eku.der", "crl-bundle.pem",
     }
-
+    if not isinstance(expected, dict) or set(expected) != required_outputs:
+        raise RuntimeError("EK fixture recipe expected_outputs are incomplete")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(FIXTURE_GENERATOR_SCRIPT),
+            "--recipe",
+            str(FIXTURE_RECIPE_FILE),
+            "--output-dir",
+            str(output_dir),
+            "--check",
+        ],
+        cwd=output_dir,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"EK fixture generation/check failed: {proc.stdout}\n{proc.stderr}")
+    values: dict[str, bytes] = {}
+    for name, expected_sha in expected.items():
+        path = output_dir / name
+        if not path.is_file():
+            raise RuntimeError(f"generator omitted expected fixture: {path}")
+        observed = sha256_file(path)
+        if observed != expected_sha:
+            raise RuntimeError(
+                f"generated EK fixture digest mismatch for {name}: expected {expected_sha} got {observed}"
+            )
+        values[name] = path.read_bytes()
+    return {
+        "root": values["root.der"],
+        "intermediate": values["intermediate.der"],
+        "leaf": values["leaf.der"],
+        "bad_usage": values["bad-usage.der"],
+        "bad_eku": values["bad-eku.der"],
+        "crl_bundle_pem": values["crl-bundle.pem"],
+        "attime": REFERENCE_TIME_UNIX,
+        "fixture_recipe_sha256": hashlib.sha256(FIXTURE_RECIPE_FILE.read_bytes()).hexdigest(),
+    }
 
 
 def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
@@ -1253,8 +2013,12 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_der_base64": b64(fx["root"]),
         "trust_anchor_root_sha256": root_sha,
         "trust_anchor_state": "PASS",
-        "trust_anchor_source_sha256": "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591",
+        "trust_anchor_source_sha256": "3bad61140bfe271c6495e6b7e58dfc5ae45cf4fff339bd891a9e04881b63a3ea",
         "verification_time_unix": fx["attime"],
+        "cryptographic_binding_sha256": "",
+        "cryptographic_binding_source_sha256": "",
+        "cryptographic_binding_input_sha256": "",
+        "cryptographic_binding_output_sha256": "",
         "path_validation": {
             "state": "PASS",
             "verifier_id": PATH_VERIFIER_ID,
@@ -1278,7 +2042,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             "anchor_id": "mycelix.synthetic-ek-root.v0.1",
             "authorization_state": "PASS",
             "registry_sha256": "",
-            "registry_source_sha256": "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591",
+            "registry_source_sha256": "3bad61140bfe271c6495e6b7e58dfc5ae45cf4fff339bd891a9e04881b63a3ea",
             "receipt_root_sha256": REFERENCE_ROOT_SHA256,
             "input_sha256": "",
             "output_sha256": "",
@@ -1337,10 +2101,6 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
                     "transcript_sha256": "ee" * 32
                 }
             }
-        },
-        "profile_override": {
-            "authority_key_identifier_critical": False,
-            "extended_key_usage_critical": False
         },
         "spki_binding": {
             "state": "PASS",
@@ -1481,7 +2241,7 @@ def refresh_path_validation(m: dict[str, Any]) -> None:
         "crl_bundle_pem_sha256": verifier_input["crl_bundle_pem_sha256"],
         "verification_time_unix": verifier_input["verification_time_unix"],
         "policy_argv": [
-            "openssl", "verify", "-CAfile", "root.pem",
+            "openssl", "verify", "-x509_strict", "-check_ss_sig", "-CAfile", "root.pem",
             "-untrusted", "intermediate.pem", "-CRLfile", "crl-bundle.pem",
             "-crl_check_all", "-attime", str(verifier_input["verification_time_unix"]),
             "leaf.pem",
@@ -1506,6 +2266,25 @@ def refresh_path_validation(m: dict[str, Any]) -> None:
         binding["input_sha256"] = hashlib.sha256(ip.read_bytes()).hexdigest()
         binding["output_sha256"] = hashlib.sha256(op.read_bytes()).hexdigest()
         binding["output_content_sha256"] = output["content_sha256"]
+
+
+def refresh_cryptographic_binding(m: dict[str, Any]) -> None:
+    leaf = parse_certificate_der(unb64(m["leaf_certificate_der_base64"], "leaf_certificate_der_base64"))
+    intermediate = parse_certificate_der(
+        unb64(m["intermediate_certificate_der_base64"], "intermediate_certificate_der_base64")
+    )
+    root = parse_certificate_der(
+        unb64(m["trust_anchor_root_der_base64"], "trust_anchor_root_der_base64")
+    )
+    crl_bundle = unb64(m["revocation"]["crl_bundle_pem_base64"], "revocation.crl_bundle_pem_base64")
+    receipt = cryptographic_binding_receipt(leaf, intermediate, root, crl_bundle)
+    m["cryptographic_binding_sha256"] = canonical_hash(receipt)
+    external = run_crypto_verifier(m)
+    if external.get("state") != "PASS":
+        raise RuntimeError(f"independent crypto verifier failed: {external}")
+    m["cryptographic_binding_source_sha256"] = external["source_sha256"]
+    m["cryptographic_binding_input_sha256"] = external["input_sha256"]
+    m["cryptographic_binding_output_sha256"] = external["output_sha256"]
 
 
 def refresh_template_binding(m: dict[str, Any]) -> None:
@@ -1607,12 +2386,13 @@ def mutate_leaf(m: dict[str, Any], leaf: bytes) -> None:
 
 def self_test() -> int:
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-chain-fixture-") as td:
-        fx = load_fixture()
+        fx = load_fixture(Path(td) / "generated")
         base = make_manifest(fx)
         refresh_trust_anchor_appraisal(base)
         refresh_spki_binding(base)
         refresh_path_validation(base)
         refresh_template_binding(base)
+        refresh_cryptographic_binding(base)
         base["session_binding_sha256"] = session_binding(
             base,
             base["leaf_certificate_sha256"],
@@ -1620,6 +2400,69 @@ def self_test() -> int:
             base["trust_anchor_root_sha256"],
             base["revocation"]["crl_bundle_pem_sha256"],
         )
+        def tamper_signed_der(der: bytes) -> bytes:
+            tag, content, _raw, end = der_tlv(der, 0)
+            if tag != 0x30 or end != len(der):
+                raise ValueError("signed object malformed")
+            children = der_children(content)
+            if len(children) != 3 or children[2][0] != 0x03:
+                raise ValueError("signatureValue malformed")
+            signature_content = bytearray(children[2][1])
+            if len(signature_content) < 2:
+                raise ValueError("signatureValue too short")
+            signature_content[-1] ^= 0x01
+            return der_encode_tlv(
+                0x30,
+                children[0][2]
+                + children[1][2]
+                + der_encode_tlv(0x03, bytes(signature_content)),
+            )
+
+        inter_for_crypto = parse_certificate_der(fx["intermediate"])
+        root_for_crypto = parse_certificate_der(fx["root"])
+        leaf_for_crypto = parse_certificate_der(fx["leaf"])
+
+        tampered_leaf_info = parse_certificate_der(tamper_signed_der(fx["leaf"]))
+        try:
+            rsa_sha256_verify(
+                tampered_leaf_info["tbs_der"],
+                tampered_leaf_info["signature_der"],
+                inter_for_crypto["spki_der"],
+            )
+        except ValueError:
+            pass
+        else:
+            print("tampered leaf certificate signature acceptance: FAIL")
+            return 1
+
+        tampered_root_info = parse_certificate_der(tamper_signed_der(fx["root"]))
+        try:
+            rsa_sha256_verify(
+                tampered_root_info["tbs_der"],
+                tampered_root_info["signature_der"],
+                root_for_crypto["spki_der"],
+            )
+        except ValueError:
+            pass
+        else:
+            print("tampered root self-signature acceptance: FAIL")
+            return 1
+
+        crl_blocks_for_crypto = split_pem_crls(fx["crl_bundle_pem"])
+        root_crl_der = crl_pem_to_der(crl_blocks_for_crypto[0])
+        tampered_crl_info = parse_crl_der_for_crypto(tamper_signed_der(root_crl_der))
+        try:
+            rsa_sha256_verify(
+                tampered_crl_info["tbs_der"],
+                tampered_crl_info["signature_der"],
+                root_for_crypto["spki_der"],
+            )
+        except ValueError:
+            pass
+        else:
+            print("tampered CRL signature acceptance: FAIL")
+            return 1
+
         source = Path(__file__).read_text(encoding="utf-8")
         implementation_source = source.split("def self_test()", 1)[0]
         if 'manifest.get("profile_override")' in implementation_source or 'override = manifest.get("profile_override")' in implementation_source:
@@ -1630,6 +2473,12 @@ def self_test() -> int:
             return 1
         if '"-crl_check_all",' not in source or "PATH_VERIFIER_ID" not in source:
             print("full-chain CRL path verifier composition: FAIL")
+            return 1
+        if "def run_crypto_verifier" not in implementation_source or "CRYPTO_VERIFIER_SCRIPT" not in implementation_source:
+            print("independent cryptographic witness composition: FAIL")
+            return 1
+        if "openssl" not in implementation_source or "-check_ss_sig" not in implementation_source:
+            print("strict OpenSSL path composition: FAIL")
             return 1
         if "def parse_certificate_der" not in implementation_source or "leaf_profile_ok(leaf_info)" not in implementation_source:
             print("binary DER certificate semantics: FAIL")
@@ -1656,9 +2505,236 @@ def self_test() -> int:
             print("duplicate X.509 extension acceptance: FAIL")
             return 1
 
+        explicit_false_extension = der_tlv(
+            0x30,
+            der_tlv(0x06, bytes.fromhex("551d13"))
+            + der_tlv(0x01, b"\x00")
+            + der_tlv(0x04, der_tlv(0x30, b"")),
+        )
+        try:
+            parse_extensions(der_tlv(0x30, explicit_false_extension))
+        except ValueError:
+            pass
+        else:
+            print("explicit FALSE extension critical BOOLEAN acceptance: FAIL")
+            return 1
+
+        try:
+            oid_string(bytes.fromhex("2a800100"))
+        except ValueError:
+            pass
+        else:
+            print("non-canonical OID encoding acceptance: FAIL")
+            return 1
+
+        try:
+            der_integer_value(b"\x00\x01", "test")
+        except ValueError:
+            pass
+        else:
+            print("non-canonical INTEGER encoding acceptance: FAIL")
+            return 1
+
+        version = der_tlv(0xA0, der_tlv(0x02, b"\x02"))
+        serial = der_tlv(0x02, b"\x01")
+        algorithm = der_tlv(0x30, b"")
+        issuer = der_tlv(0x30, b"")
+        validity = der_tlv(
+            0x30,
+            der_tlv(0x17, b"260101000000Z") + der_tlv(0x17, b"270101000000Z"),
+        )
+        subject = der_tlv(0x30, b"")
+        spki = der_tlv(0x30, b"")
+        extensions = der_tlv(0xA3, der_tlv(0x30, b""))
+        synthetic_cert = der_tlv(
+            0x30,
+            der_tlv(0x30, version + serial + algorithm + issuer + validity + subject + spki + extensions + extensions)
+            + algorithm
+            + der_tlv(0x03, b"\x00"),
+        )
+        try:
+            parse_certificate_der(synthetic_cert)
+        except ValueError:
+            pass
+        else:
+            print("duplicate X.509 Extensions wrapper acceptance: FAIL")
+            return 1
+
+        missing_san = copy.deepcopy(leaf_info)
+        missing_san["extensions"].pop("2.5.29.17", None)
+        san_ok, _san_profile = leaf_profile_ok(missing_san)
+        if san_ok:
+            print("TCG SubjectAltName omission acceptance: FAIL")
+            return 1
+
+        ca_true = copy.deepcopy(leaf_info)
+        ca_true["extensions"]["2.5.29.19"]["extn_value"] = der_tlv(
+            0x30, der_tlv(0x01, b"\xff")
+        )
+        ok_ca_true, _ = leaf_profile_ok(ca_true)
+        if ok_ca_true:
+            print("leaf CA=true BasicConstraints acceptance: FAIL")
+            return 1
+
+        ca_false_pathlen = copy.deepcopy(leaf_info)
+        ca_false_pathlen["extensions"]["2.5.29.19"]["extn_value"] = der_tlv(
+            0x30, der_tlv(0x01, b"\x00") + der_tlv(0x02, b"\x00")
+        )
+        try:
+            leaf_profile_ok(ca_false_pathlen)
+        except ValueError:
+            pass
+        else:
+            print("CA=false pathLenConstraint acceptance: FAIL")
+            return 1
+
+        key_usage_trailing_zero = copy.deepcopy(leaf_info)
+        key_usage_trailing_zero["extensions"]["2.5.29.15"]["extn_value"] = der_tlv(
+            0x03, b"\x00\x20\x00"
+        )
+        try:
+            leaf_profile_ok(key_usage_trailing_zero)
+        except ValueError:
+            pass
+        else:
+            print("non-canonical KeyUsage trailing zero acceptance: FAIL")
+            return 1
+
+        empty_extensions = der_tlv(0x30, b"")
+        try:
+            parse_extensions(empty_extensions)
+        except ValueError:
+            pass
+        else:
+            print("empty X.509 Extensions acceptance: FAIL")
+            return 1
+
+        for oid, label in (
+            ("1.3.6.1.5.5.7.1.1", "AuthorityInformationAccess"),
+            ("2.5.29.31", "CRLDistributionPoints"),
+        ):
+            malformed = copy.deepcopy(leaf_info)
+            malformed["extensions"][oid]["extn_value"] = der_tlv(0x04, b"malformed")
+            try:
+                leaf_profile_ok(malformed)
+            except ValueError:
+                pass
+            else:
+                print(f"malformed {label} acceptance: FAIL")
+                return 1
+
+        for oid, label in (
+            ("1.3.6.1.5.5.7.1.1", "AuthorityInformationAccess"),
+            ("2.5.29.31", "CRLDistributionPoints"),
+            ("2.5.29.9", "SubjectDirectoryAttributes"),
+        ):
+            criticalized = copy.deepcopy(leaf_info)
+            criticalized["extensions"][oid]["critical"] = True
+            try:
+                leaf_profile_ok(criticalized)
+            except ValueError:
+                pass
+            else:
+                print(f"critical {label} acceptance: FAIL")
+                return 1
+
+        nonempty_subject_critical_san = copy.deepcopy(leaf_info)
+        nonempty_subject_critical_san["extensions"]["2.5.29.17"]["critical"] = True
+        ok_san_critical, _ = leaf_profile_ok(nonempty_subject_critical_san)
+        if ok_san_critical:
+            print("non-empty-subject critical SAN acceptance: FAIL")
+            return 1
+
+        critical_policies = copy.deepcopy(leaf_info)
+        critical_policies["extensions"]["2.5.29.32"] = {
+            "critical": True,
+            "extn_value": der_tlv(
+                0x30,
+                der_tlv(0x30, der_tlv(0x06, bytes.fromhex("2b06010505070301"))),
+            ),
+        }
+        try:
+            leaf_profile_ok(critical_policies)
+        except ValueError:
+            pass
+        else:
+            print("critical CertificatePolicies acceptance: FAIL")
+            return 1
+
+        malformed_policies = copy.deepcopy(leaf_info)
+        malformed_policies["extensions"]["2.5.29.32"] = {
+            "critical": False,
+            "extn_value": der_tlv(0x04, b"malformed"),
+        }
+        try:
+            leaf_profile_ok(malformed_policies)
+        except ValueError:
+            pass
+        else:
+            print("malformed CertificatePolicies acceptance: FAIL")
+            return 1
+
+        unknown_aia = copy.deepcopy(leaf_info)
+        unknown_aia["extensions"]["1.3.6.1.5.5.7.1.1"]["extn_value"] = der_tlv(
+            0x30,
+            der_tlv(
+                0x30,
+                der_tlv(0x06, bytes.fromhex("2b060104018237")) + der_tlv(0x86, b"https://example.invalid/unknown"),
+            ),
+        )
+        try:
+            leaf_profile_ok(unknown_aia)
+        except ValueError:
+            pass
+        else:
+            print("unknown AIA accessMethod acceptance: FAIL")
+            return 1
+        san_value_mismatch = copy.deepcopy(leaf_info)
+        san_value_mismatch["extensions"]["2.5.29.17"] = copy.deepcopy(
+            leaf_info["extensions"]["2.5.29.17"]
+        )
+        san_critical, san_value = subject_alt_name(san_value_mismatch)
+        san_value["attributes"]["2.23.133.2.2"] = ["Attacker TPM Model"]
+        san_value_mismatch["_san_override_for_test"] = san_value
+        original_san_parser = subject_alt_name
+
+        def patched_subject_alt_name(_info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+            return san_critical, san_value
+
+        globals()["subject_alt_name"] = patched_subject_alt_name
+        try:
+            san_profile_ok, _ = leaf_profile_ok(san_value_mismatch)
+        finally:
+            globals()["subject_alt_name"] = original_san_parser
+        if san_profile_ok:
+            print("TCG SAN value substitution acceptance: FAIL")
+            return 1
+
+        malformed_sda = copy.deepcopy(leaf_info)
+        malformed_sda["extensions"]["2.5.29.9"] = {
+            "critical": False,
+            "extn_value": der_tlv(0x30, b""),
+        }
+        try:
+            leaf_profile_ok(malformed_sda)
+        except ValueError:
+            pass
+        else:
+            print("malformed SubjectDirectoryAttributes acceptance: FAIL")
+            return 1
+
 
         cases = [
             ("canonical-valid", "PASS", lambda x: None),
+            ("forbidden-profile-override-on-valid-input", "DENY", lambda x: x.update({
+                "profile_override": {"authority_key_identifier_critical": False}
+            })),
+            ("cryptographic-binding-substitution", "DENY", lambda x: x.update({
+                "cryptographic_binding_sha256": "99" * 32
+            })),
+            ("tpm-identity-digest-substitution", "DENY", lambda x: x.update({
+                "tpm_identity_digest": "ab" * 32
+            })),
             ("root-substitution", "DENY", lambda x: (
                 x.update({
                     "trust_anchor_root_der_base64": x["intermediate_certificate_der_base64"],
@@ -1738,7 +2814,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("43 adversarial mutations plus canonical and key-order control: PASS")
+    print("48 contract vectors plus 20 structural parser controls: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 

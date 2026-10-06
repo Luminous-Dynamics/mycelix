@@ -7,13 +7,16 @@ import base64
 import copy
 import hashlib
 import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 VERIFIER_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
 REFERENCE_ANCHOR_ID = "mycelix.synthetic-ek-root.v0.1"
-REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
-REFERENCE_REGISTRY_SOURCE_SHA256 = "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591"
+REFERENCE_ROOT_SHA256 = "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
+REFERENCE_REGISTRY_SOURCE_SHA256 = "3bad61140bfe271c6495e6b7e58dfc5ae45cf4fff339bd891a9e04881b63a3ea"
 REFERENCE_AUTHORIZATION_RECEIPT_FILE = Path(__file__).resolve().parents[2] / "docs/security/mycelix-ek-trust-anchor-authorization-receipt-v0.1.json"
 REFERENCE_REGISTRY = {
     "registry_id": "mycelix.ek-trust-anchor-registry",
@@ -58,8 +61,7 @@ def result(state: str, reason: str, details: dict[str, Any] | None = None) -> di
 
 def registry_digest(registry: dict[str, Any]) -> str:
     return hashlib.sha256(
-        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "
-").encode()
+        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
     ).hexdigest()
 
 def verify(manifest: dict[str, Any]) -> dict[str, Any]:
@@ -97,8 +99,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     if registry.get("claim_ceiling") != "ReferenceModelOnly":
         return result("DENY", "registry-claim-ceiling-mismatch")
     if hashlib.sha256(
-        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "
-").encode()
+        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
     ).hexdigest() != manifest["registry_sha256"]:
         return result("DENY", "registry-digest-mismatch")
     if manifest["registry_sha256"] != registry_digest(REFERENCE_REGISTRY):
@@ -142,9 +143,21 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
 def fixture() -> dict[str, Any]:
-    root = bytes.fromhex("3003020101")
-    registry_text = json.dumps(REFERENCE_REGISTRY, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "
-"
+    generator = Path(__file__).resolve().parent / "generate_mycelix_ek_chain_fixtures_v0_1.py"
+    recipe = Path(__file__).resolve().parents[2] / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-trust-anchor-fixture-") as td:
+        output_dir = Path(td)
+        proc = subprocess.run(
+            [sys.executable, str(generator), "--recipe", str(recipe), "--output-dir", str(output_dir), "--check"],
+            cwd=output_dir, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"deterministic EK fixture generation failed: {proc.stderr or proc.stdout}")
+        root = (output_dir / "root.der").read_bytes()
+        root_sha = hashlib.sha256(root).hexdigest()
+        if root_sha != REFERENCE_ROOT_SHA256:
+            raise RuntimeError(f"reference root digest mismatch: {root_sha}")
+    registry_text = json.dumps(REFERENCE_REGISTRY, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
     rs = hashlib.sha256(root).hexdigest()
     return {
         "profile_id": "mycelix.security.tpm.ek-trust-anchor-appraisal",
@@ -171,7 +184,7 @@ def self_test() -> int:
         ("unknown-anchor","INDETERMINATE",lambda x:x.update({"anchor_id":"unknown-anchor"})),
         ("registry-source-substitution","DENY",lambda x:x.update({"registry_source_sha256":"33"*32})),
     ]
-    # The reference fixture root is deliberately tiny; it is only a deterministic policy vector.
+    # The reference fixture root is generated from the committed deterministic corpus recipe.
     for name, expected, mutate in cases:
         candidate = copy.deepcopy(base)
         mutate(candidate)
@@ -201,8 +214,7 @@ def main() -> int:
     verified = verify(manifest)
     output = {"profile_id":"mycelix.security.tpm.ek-trust-anchor-appraisal","profile_version":"0.1.0","verifier_id":VERIFIER_ID,"input_sha256":hashlib.sha256(path.read_bytes()).hexdigest(),**verified}
     output["content_sha256"] = canonical_hash({k:v for k,v in output.items() if k!="content_sha256"})
-    rendered = json.dumps(output, indent=2, sort_keys=True) + "
-"
+    rendered = json.dumps(output, indent=2, sort_keys=True) + "\n"
     if args.output:
         Path(args.output).write_text(rendered, encoding="utf-8")
     else:
