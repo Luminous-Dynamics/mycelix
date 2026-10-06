@@ -142,6 +142,7 @@ pub struct FpmSourceAttestationAnchor {
     pub schema_version: String,
     pub challenge_action: ActionHash,
     pub claim: FpmSourceAttestationClaim,
+    pub claim_digest: String,
 }
 
 #[hdk_entry_helper]
@@ -150,6 +151,7 @@ pub struct FpmAttestationChallengeUse {
     pub schema_version: String,
     pub challenge_action: ActionHash,
     pub attestation_action: ActionHash,
+    pub author: AgentPubKey,
 }
 
 #[hdk_extern]
@@ -436,6 +438,23 @@ fn validate_fpm_source_attestation_anchor(
             "unsupported FPM source attestation anchor schema".into(),
         ));
     }
+    let qualification = qualify_source_attestation(&FpmAttestationQualificationInput {
+        expected_subject_id: anchor.claim.subject_id.clone(),
+        expected_acquisition_root_digest: anchor.claim.acquisition_root_digest.clone(),
+        expected_challenge_nonce_digest: anchor.claim.challenge_nonce_digest.clone(),
+        expected_appraisal_policy_digest: anchor.claim.appraisal_policy_digest.clone(),
+        claim: anchor.claim.clone(),
+    });
+    if qualification.status == FpmAttestationQualificationStatus::InvalidEvidence {
+        return Ok(ValidateCallbackResult::Invalid(
+            "invalid FPM source attestation claim".into(),
+        ));
+    }
+    if anchor.claim_digest != anchor.claim.digest() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM source attestation claim digest mismatch".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -453,24 +472,28 @@ fn validate_fpm_attestation_challenge_use(
             "attestation challenge-use must reference a Create action".into(),
         ));
     }
+    let attestation = must_get_action(use_entry.attestation_action.clone())?;
+    if attestation.action_type() != ActionType::Create {
+        return Ok(ValidateCallbackResult::Invalid(
+            "attestation challenge-use must reference a Create attestation action".into(),
+        ));
+    }
     if use_entry.attestation_action == use_entry.challenge_action {
         return Ok(ValidateCallbackResult::Invalid(
             "attestation challenge-use cannot self-reference challenge".into(),
         ));
     }
-    if *challenge.author() != use_entry_author_placeholder(&use_entry) {
+    if *challenge.author() != use_entry.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "attestation challenge-use author mismatch".into(),
+            "attestation challenge-use author does not match challenge verifier".into(),
+        ));
+    }
+    if *attestation.author() != use_entry.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "attestation challenge-use author does not match attestation author".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
-}
-
-fn use_entry_author_placeholder(_use_entry: &FpmAttestationChallengeUse) -> AgentPubKey {
-    // Placeholder replaced by coordinator-side same-agent single-use enforcement.
-    // Integrity remains conservative but does not need to encode caller identity
-    // into the app entry itself.
-    AgentPubKey::from_raw_36(vec![0u8; 36])
 }
 
 /// Validate an FPM provenance anchor entry.
