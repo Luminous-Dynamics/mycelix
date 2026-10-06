@@ -32,6 +32,15 @@ VENDOR_VOLUME_CREATE = "docker volume create --driver local --opt type=tmpfs --o
 VENDOR_VOLUME_RW = '--volume "$vendor_volume_name:/vendor:rw"'
 VENDOR_VOLUME_RO = '--volume "$VENDOR_VOLUME_NAME:/vendor:ro"'
 VENDOR_VOLUME_INSPECT = "vendor_volume_spec=\"$(docker volume inspect --format '{{.Driver}}|{{index .Options \"type\"}}|{{index .Options \"device\"}}|{{index .Options \"o\"}}' \"$vendor_volume_name\")\""
+SOURCE_RESOURCE_PROFILE = "v1"
+SOURCE_MAX_BYTES = "1073741824"
+SOURCE_MAX_INODES = "300000"
+SOURCE_TMPFS_SIZE = "1024m"
+SOURCE_TMPFS_NR_INODES = "300000"
+SOURCE_VOLUME_CREATE = "docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
+SOURCE_VOLUME_RW = '--volume "$candidate_volume_name:/output:rw"'
+SOURCE_VOLUME_RO = '--volume "$candidate_volume_name:/source:ro"'
+SOURCE_VOLUME_INSPECT = "candidate_volume_spec=\"$(docker volume inspect --format '{{.Driver}}|{{index .Options \"type\"}}|{{index .Options \"device\"}}|{{index .Options \"o\"}}' \"$candidate_volume_name\")\""
 
 S1_STEPS = (
     "Checkout trusted qualification root",
@@ -443,6 +452,28 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
     joined = "\n".join(l)
+    for key, expected in (("SOURCE_RESOURCE_PROFILE", SOURCE_RESOURCE_PROFILE), ("SOURCE_MAX_BYTES", SOURCE_MAX_BYTES), ("SOURCE_MAX_INODES", SOURCE_MAX_INODES), ("SOURCE_TMPFS_SIZE", SOURCE_TMPFS_SIZE), ("SOURCE_TMPFS_NR_INODES", SOURCE_TMPFS_NR_INODES)):
+        if exact_count(l, f'  {key}: "{expected}"') != 1:
+            fail(f"S1 source resource profile mismatch: {key}")
+    if exact_count(l, SOURCE_VOLUME_CREATE) != 1:
+        fail("S1 candidate source volume create profile mismatch")
+    if exact_count(l, SOURCE_VOLUME_RW) != 1:
+        fail("S1 candidate source acquisition must use one bounded Docker volume for writes")
+    if exact_count(l, SOURCE_VOLUME_RO) != 1:
+        fail("S1 candidate source staging must use exactly one read-only bounded source-volume mount")
+    if exact_count(l, SOURCE_VOLUME_INSPECT) != 1:
+        fail("S1 candidate source volume instantiation must be independently inspected")
+    if 'test "$candidate_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"' not in joined:
+        fail("S1 candidate source volume instantiated options mismatch")
+    if 'set -o pipefail' not in joined or 'tar -C "$candidate_root" -xf - --no-same-owner' not in joined:
+        fail("S1 bounded candidate-source staging pipeline must fail closed")
+    for required in ("source_volume_name=", "source_volume_spec=", "source_copy_bytes=", "source_copy_files=", "source_copy_inodes="):
+        if required not in joined:
+            fail(f"S1 source resource receipt field missing: {required!r}")
+    if 'test "$source_copy_bytes" -le "$SOURCE_MAX_BYTES"' not in joined or 'test "$source_copy_files" -le 200000' not in joined or 'test "$source_copy_inodes" -le "$SOURCE_MAX_INODES"' not in joined:
+        fail("S1 bounded source staging copy must enforce declared resource ceilings")
+    if "source_volume_cleanup_on_failure" not in joined or "trap source_volume_cleanup_on_failure EXIT" not in joined:
+        fail("S1 candidate source volume cleanup must be fail-closed")
     if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
         fail("S1 vendor resource volume create profile mismatch")
     if exact_count(l, VENDOR_VOLUME_RW) != 1:
