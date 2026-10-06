@@ -2285,7 +2285,15 @@ def test_bounded_artifact_download_rejects_stream_overflow() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         destination = Path(tmp) / "artifact.zip"
-        with patch.object(fetcher.urllib.request, "urlopen", return_value=OversizeResponse()):
+        class OversizeOpener:
+            def open(self, request, timeout):
+                return OversizeResponse()
+
+        with patch.object(
+            fetcher.urllib.request,
+            "build_opener",
+            return_value=OversizeOpener(),
+        ):
             assert_rejected(
                 lambda: download_archive(
                     "Luminous-Dynamics/mycelix",
@@ -2296,6 +2304,25 @@ def test_bounded_artifact_download_rejects_stream_overflow() -> None:
                 ),
                 "oversized streamed artifact archive was accepted",
             )
+
+
+def test_artifact_redirect_strips_authorization_header() -> None:
+    import fetch_d6u_trusted_artifact as fetcher
+
+    request = fetcher.urllib.request.Request(
+        "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/artifacts/9001/zip",
+        headers={"Authorization": "Bearer secret"},
+    )
+    redirected = fetcher.NoAuthorizationRedirectHandler().redirect_request(
+        request,
+        None,
+        302,
+        "Found",
+        {},
+        "https://objects.githubusercontent.com/example/archive.zip",
+    )
+    assert redirected is not None
+    assert redirected.headers.get("Authorization") is None
 
 
 def test_trusted_zip_entry_count_is_preflighted_before_zip_parsing() -> None:
@@ -2388,6 +2415,7 @@ if __name__ == "__main__":
         test_current_run_handoff_artifact_accepts_exact_identity,
         test_current_run_handoff_artifact_rejects_oversized_archive_metadata,
         test_bounded_artifact_download_rejects_stream_overflow,
+        test_artifact_redirect_strips_authorization_header,
         test_trusted_zip_entry_count_is_preflighted_before_zip_parsing,
         test_trusted_zip_rejects_non_zlib_compression,
         test_trusted_zip_rejects_zip64_eocd,
