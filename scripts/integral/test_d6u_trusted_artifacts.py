@@ -368,6 +368,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_symlink_members": True,
         "expected_member_count": 3,
         "policy_revision": 30,
+        "allowed_compression_methods": ["stored", "deflate"],
     }
     assert policy["artifact_run_binding"] == {
         "require_exact_run_attempt": True,
