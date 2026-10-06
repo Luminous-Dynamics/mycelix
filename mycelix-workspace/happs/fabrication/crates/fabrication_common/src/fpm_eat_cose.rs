@@ -10,7 +10,7 @@
 //! establish physical sensor truth. Trust-root/key provisioning remains an
 //! external verifier-policy responsibility.
 
-use coset::{iana, CborSerializable, CoseSign1, ContentType, Header};
+use coset::{iana, CborSerializable, CoseSign1, ContentType};
 use p256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -18,7 +18,6 @@ use std::collections::BTreeSet;
 
 const SHA256_HEX_LEN: usize = 64;
 const MAX_EAT_TOKEN_BYTES: usize = 64 * 1024;
-const ES256_SIGNATURE_BYTES: usize = 64;
 const P256_SEC1_UNCOMPRESSED_BYTES: usize = 65;
 const CLAIM_SUB: i64 = 2;
 const CLAIM_AUD: i64 = 3;
@@ -76,6 +75,7 @@ pub enum FpmEatCoseVerificationReason {
     EatProfileMismatch,
     ContentTypeMismatch,
     EvidenceDigestMismatch,
+    VerificationKeyDigestMismatch,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
