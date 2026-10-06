@@ -88,6 +88,24 @@ def top_level_keys_after(lines_: list[str], heading: str) -> tuple[str, ...]:
     return tuple(found)
 
 
+def top_level_keys(lines_: list[str]) -> tuple[str, ...]:
+    return tuple(
+        match.group(1)
+        for line in lines_
+        if (match := re.fullmatch(r"([A-Za-z0-9_-]+):\s*", line))
+    )
+
+
+def require_exact_top_level_keys(
+    lines_: list[str],
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    actual = top_level_keys(lines_)
+    if actual != expected:
+        fail(f"{description}: top-level key census mismatch: expected {expected!r}, found {actual!r}")
+
+
 def job_keys(lines_: list[str]) -> tuple[str, ...]:
     try:
         start = next(i for i, line in enumerate(lines_) if line.strip() == "jobs:")
@@ -397,6 +415,11 @@ def require_exact_actions(actual: tuple[str, ...], expected: tuple[str, ...], de
 
 def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     l = lines(raw)
+    require_exact_top_level_keys(
+        l,
+        ("name", "run-name", "on", "permissions", "concurrency", "env", "jobs"),
+        S0,
+    )
     if exact_count(l, "name: Security Kernel Qualification — Trusted Dispatcher") != 1:
         fail("S0 name mismatch")
     if top_level_keys_after(l, "on:") != ("pull_request_target",):
@@ -445,6 +468,11 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
 
 def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     l = lines(raw)
+    require_exact_top_level_keys(
+        l,
+        ("name", "on", "permissions", "cache-mode", "concurrency", "env", "jobs"),
+        S1,
+    )
     if exact_count(l, "name: Security Kernel Independent Qualification") != 1:
         fail("S1 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_call",):
@@ -531,6 +559,11 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
 
 def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_execution_sha: str, expected_policy_sha: str) -> None:
     l = lines(raw)
+    require_exact_top_level_keys(
+        l,
+        ("name", "on", "permissions", "concurrency", "env", "jobs"),
+        S2,
+    )
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
         fail("S2 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_run",):
@@ -816,6 +849,41 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 unapproved step conditional",
+    )
+
+    def inject_unregistered_top_level_key(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"top-level-key regression fixture marker missing: {marker!r}")
+        return raw.replace(
+            marker,
+            b"defaults:\n  run:\n    shell: bash\n" + marker,
+            1,
+        )
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unregistered_top_level_key(raw["s0"], b"jobs:\n"),
+            s1_sha,
+        ),
+        "S0 unregistered top-level defaults",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unregistered_top_level_key(raw["s1"], b"jobs:\n"),
+            s1_sha,
+        ),
+        "S1 unregistered top-level defaults",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unregistered_top_level_key(raw["s2"], b"jobs:\n"),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unregistered top-level defaults",
     )
 
     print(json.dumps({
