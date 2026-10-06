@@ -1078,6 +1078,37 @@ def main() -> None:
         "S2 unapproved step property",
     )
 
+    def inject_unregistered_job_key(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"job-key regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, marker + b"    if: false\n", 1)
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unregistered_job_key(raw["s0"], b"  resolve:\n"),
+            s1_sha,
+        ),
+        "S0 unregistered job key",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unregistered_job_key(raw["s1"], b"  qualify:\n"),
+            s1_sha,
+        ),
+        "S1 unregistered job key",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unregistered_job_key(raw["s2"], b"  verify:\n"),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unregistered job key",
+    )
+
     print(json.dumps({
         "schema": SCHEMA,
         "policy_result": "verified",
