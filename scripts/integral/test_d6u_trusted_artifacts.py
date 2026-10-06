@@ -316,7 +316,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert "contents: write" not in workflow_text
     assert "artifact-metadata: write" not in workflow_text
     assert "uses: actions/download-artifact@" not in workflow_text
-    assert "fetch_d6u_trusted_artifact.py \" in workflow_text
+    assert "python3 scripts/integral/fetch_d6u_trusted_artifact.py" in workflow_text
     assert "--current-run-handoff" in workflow_text
     assert "d6u-trusted-auditor-handoff" in workflow_text
     assert "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2" in workflow_text
