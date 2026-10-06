@@ -39,7 +39,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "27"
+          TRUSTED_POLICY_VERSION: "29"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -145,7 +145,7 @@ jobs:
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
-            D6U_TRUSTED_POLICY_VERSION="28" \
+            D6U_TRUSTED_POLICY_VERSION="29" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
@@ -153,7 +153,7 @@ jobs:
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "28"
+          D6U_TRUSTED_POLICY_VERSION: "29"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"
