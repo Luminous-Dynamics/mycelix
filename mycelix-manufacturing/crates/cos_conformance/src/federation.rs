@@ -1901,7 +1901,7 @@ pub fn run_scenario(
             )
             .expect("verification statement must build");
 
-        assert_eq!(
+        let result =
             validate_state_machine_trace_external_evidence_verification_statement_chain(
                 subject_schema_version,
                 subject_profile,
@@ -1910,9 +1910,33 @@ pub fn run_scenario(
                 &anchor_reference,
                 verifier_report,
                 &statement,
-            ),
-            Ok(())
+            )
+            .expect("validated external evidence should yield a typed result");
+
+        assert_eq!(
+            result.anchor_reference_sha256(),
+            anchor_reference.anchor_reference_sha256
         );
+        assert_eq!(
+            result.anchor_reference_schema_version(),
+            anchor_reference.schema_version
+        );
+        assert_eq!(
+            result.anchor_reference_profile(),
+            anchor_reference.reference_profile
+        );
+        assert_eq!(result.verifier_schema_version(), 1);
+        assert_eq!(result.verifier_profile(), "archive-verifier-v1");
+        assert_eq!(
+            result.claim(),
+            FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified
+        );
+        assert_eq!(
+            result.verifier_report_sha256(),
+            state_machine_trace_external_witness_artifact_sha256(verifier_report)
+        );
+        assert_eq!(result.claimed_verified_at_unix_seconds(), 1_791_000_601);
+        assert_eq!(result.statement_sha256(), statement.statement_sha256);
 
         assert_eq!(
             validate_state_machine_trace_external_evidence_verification_statement_chain(
@@ -1944,6 +1968,83 @@ pub fn run_scenario(
             Err(
                 FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportDigestMismatch
             )
+        );
+    }
+
+    #[test]
+    fn external_verification_result_tracks_resealed_external_claim_without_self_authenticating() {
+        let subject_schema_version =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION;
+        let subject_profile =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE;
+        let subject_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let witness_artifact = b"external-anchor";
+        let anchor_reference = state_machine_trace_external_evidence_anchor_reference(
+            subject_schema_version,
+            subject_profile,
+            subject_sha256,
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            witness_artifact,
+            1_791_001_000,
+        )
+        .expect("anchor reference must build");
+
+        let verifier_report = b"verifier-report";
+        let mut statement = state_machine_trace_external_evidence_verification_statement(
+            &anchor_reference.anchor_reference_sha256,
+            1,
+            "rfc3161-verifier-v1",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            verifier_report,
+            1_791_001_001,
+        )
+        .expect("verification statement must build");
+
+        let first =
+            validate_state_machine_trace_external_evidence_verification_statement_chain(
+                subject_schema_version,
+                subject_profile,
+                subject_sha256,
+                witness_artifact,
+                &anchor_reference,
+                verifier_report,
+                &statement,
+            )
+            .expect("initial statement should bind");
+
+        assert_eq!(
+            first.claim(),
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified
+        );
+
+        statement.verification_claim =
+            FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified;
+        statement.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+
+        let resealed =
+            validate_state_machine_trace_external_evidence_verification_statement_chain(
+                subject_schema_version,
+                subject_profile,
+                subject_sha256,
+                witness_artifact,
+                &anchor_reference,
+                verifier_report,
+                &statement,
+            )
+            .expect("re-sealed external claim remains a structurally valid assertion");
+
+        assert_eq!(
+            resealed.claim(),
+            FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified
+        );
+        assert_ne!(first.claim(), resealed.claim());
+        assert_eq!(
+            resealed.anchor_reference_sha256(),
+            first.anchor_reference_sha256()
         );
     }
 
@@ -4191,6 +4292,86 @@ mod tests {
         statement_sha256: String,
     }
 
+    /// Typed read-only projection produced only after the external-evidence binding chain validates.
+    ///
+    /// This is an externally asserted verification result, not a locally verified proof or authority.
+    /// It intentionally omits `Deserialize`, private-key/trust-root fields, and authority fields.
+    ///
+    /// It is constructed only by the validated statement/anchor chain.
+    ///
+    /// ```compile_fail
+    /// use serde_json::from_str;
+    /// # use cos_conformance::federation::FederationStateMachineTraceExternalEvidenceVerificationResult;
+    /// let _: FederationStateMachineTraceExternalEvidenceVerificationResult = from_str("{}").unwrap();
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use cos_conformance::federation::{
+    /// #     FederationStateMachineTraceExternalEvidenceVerificationResult,
+    /// #     FederationStateMachineTraceExternalVerificationClaim,
+    /// # };
+    /// let _ = FederationStateMachineTraceExternalEvidenceVerificationResult {
+    ///     anchor_reference_sha256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+    ///     anchor_reference_schema_version: 1,
+    ///     anchor_reference_profile: "anchor-v1".into(),
+    ///     verifier_schema_version: 1,
+    ///     verifier_profile: "verifier-v1".into(),
+    ///     claim: FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+    ///     verifier_report_sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+    ///     claimed_verified_at_unix_seconds: 1,
+    ///     statement_sha256: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
+    /// };
+    /// ```
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+    pub struct FederationStateMachineTraceExternalEvidenceVerificationResult {
+        anchor_reference_sha256: String,
+        anchor_reference_schema_version: u16,
+        anchor_reference_profile: String,
+        verifier_schema_version: u16,
+        verifier_profile: String,
+        claim: FederationStateMachineTraceExternalVerificationClaim,
+        verifier_report_sha256: String,
+        claimed_verified_at_unix_seconds: u64,
+        statement_sha256: String,
+    }
+
+    impl FederationStateMachineTraceExternalEvidenceVerificationResult {
+        pub fn anchor_reference_sha256(&self) -> &str {
+            &self.anchor_reference_sha256
+        }
+
+        pub fn anchor_reference_schema_version(&self) -> u16 {
+            self.anchor_reference_schema_version
+        }
+
+        pub fn anchor_reference_profile(&self) -> &str {
+            &self.anchor_reference_profile
+        }
+
+        pub fn verifier_schema_version(&self) -> u16 {
+            self.verifier_schema_version
+        }
+
+        pub fn verifier_profile(&self) -> &str {
+            &self.verifier_profile
+        }
+
+        pub fn claim(&self) -> FederationStateMachineTraceExternalVerificationClaim {
+            self.claim
+        }
+
+        pub fn verifier_report_sha256(&self) -> &str {
+            &self.verifier_report_sha256
+        }
+
+        pub fn claimed_verified_at_unix_seconds(&self) -> u64 {
+            self.claimed_verified_at_unix_seconds
+        }
+
+        pub fn statement_sha256(&self) -> &str {
+            &self.statement_sha256
+        }
+    }
     #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
     struct FederationStateMachineTraceExternalEvidenceVerificationStatementHashView {
         hash_domain: String,
@@ -5889,7 +6070,7 @@ mod tests {
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     enum FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation {
-build violations remove        EmptyVerifierProfile,
+        EmptyVerifierProfile,
         EmptyVerifierReport,
     }
 
@@ -5904,7 +6085,7 @@ build violations remove        EmptyVerifierProfile,
         FederationStateMachineTraceExternalEvidenceVerificationStatement,
         FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation,
     > {
-builder gates remove        if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
+        if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
             return Err(
                 FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceDigest
             );
@@ -6105,7 +6286,7 @@ builder gates remove        if !state_machine_trace_is_sha256_digest(anchor_refe
         verifier_report: &[u8],
         statement: &FederationStateMachineTraceExternalEvidenceVerificationStatement,
     ) -> Result<
-        (),
+        FederationStateMachineTraceExternalEvidenceVerificationResult,
         FederationStateMachineTraceExternalEvidenceVerificationStatementViolation,
     > {
         validate_state_machine_trace_external_evidence_anchor_reference(
@@ -6122,7 +6303,19 @@ builder gates remove        if !state_machine_trace_is_sha256_digest(anchor_refe
             &anchor_reference.anchor_reference_sha256,
             verifier_report,
             statement,
-        )
+        )?;
+
+        Ok(FederationStateMachineTraceExternalEvidenceVerificationResult {
+            anchor_reference_sha256: statement.anchor_reference_sha256.clone(),
+            anchor_reference_schema_version: statement.anchor_reference_schema_version,
+            anchor_reference_profile: statement.anchor_reference_profile.clone(),
+            verifier_schema_version: statement.verifier_schema_version,
+            verifier_profile: statement.verifier_profile.clone(),
+            claim: statement.verification_claim,
+            verifier_report_sha256: statement.verifier_report_sha256.clone(),
+            claimed_verified_at_unix_seconds: statement.claimed_verified_at_unix_seconds,
+            statement_sha256: statement.statement_sha256.clone(),
+        })
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
