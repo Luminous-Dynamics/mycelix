@@ -2095,6 +2095,78 @@ mod linux {
         }
 
         #[test]
+        fn v2_policy_digest_commits_predicate_operator_semantics() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let equal = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u64::MAX, 0x1122).unwrap()],
+            )
+            .unwrap();
+            let not_equal = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x1122,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+
+            let equal_policy = SeccompSyscallPolicyV2::new(arch, vec![equal]).unwrap();
+            let not_equal_policy =
+                SeccompSyscallPolicyV2::new(arch, vec![not_equal]).unwrap();
+            assert_ne!(equal_policy.digest(), not_equal_policy.digest());
+
+            let equal_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x1122).unwrap(),
+            ])
+            .unwrap();
+            let not_equal_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x1122,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+
+            let equal_disjunctive = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![equal_clause.clone(), equal_clause.clone()],
+            );
+            assert!(matches!(
+                equal_disjunctive,
+                Err(SeccompError::DuplicateArgumentClause)
+            ));
+
+            let equal_disjunctive =
+                SeccompSyscallRuleV2::new_with_clauses(libc::SYS_socket, vec![equal_clause, SeccompSyscallClauseV2::new(vec![
+                    SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                ]).unwrap()]).unwrap();
+            let not_equal_disjunctive = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![not_equal_clause, SeccompSyscallClauseV2::new(vec![
+                    SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                ]).unwrap()],
+            )
+            .unwrap();
+
+            let equal_disjunctive_policy =
+                SeccompSyscallPolicyV2::new(arch, vec![equal_disjunctive]).unwrap();
+            let not_equal_disjunctive_policy =
+                SeccompSyscallPolicyV2::new(arch, vec![not_equal_disjunctive]).unwrap();
+            assert_ne!(
+                equal_disjunctive_policy.digest(),
+                not_equal_disjunctive_policy.digest()
+            );
+        }
+
+        #[test]
         fn v2_policy_digest_commits_endian_domain() {
             let arch = SeccompArchitecture::current().unwrap();
             let rule = SeccompSyscallRuleV2::new(
