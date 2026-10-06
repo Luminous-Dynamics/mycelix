@@ -70,7 +70,7 @@ pub struct RegistrationEnvelope {
     pub alignment_method: Option<AlignmentMethod>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegistrationState {
     /// Supplied registration metadata is internally consistent. This is not
     /// independent verification of the underlying sources or clocks.
