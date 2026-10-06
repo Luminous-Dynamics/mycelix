@@ -378,7 +378,7 @@ jobs:
           printf 'candidate_tree=%s\nsource_tree_entry_count=%s\nsource_file_count=%s\nsource_total_path_bytes=%s\nsource_total_bytes=%s\nsource_max_blob_bytes=%s\nfetch_image=%s\n' \
             "$candidate_tree" "$source_tree_entry_count" "$source_file_count" "$source_total_path_bytes" "$source_total_bytes" "$source_max_blob_bytes" "$FETCH_IMAGE" >> "$GITHUB_OUTPUT"
 
-          python3 - "$candidate_volume_name" <<'PY'
+          python3 - "$CANDIDATE_ROOT" <<'PY'
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           digest=hashlib.sha256()
@@ -556,7 +556,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$CANDIDATE_VOLUME_NAME" <<'PY' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"
+          python3 - "$CANDIDATE_ROOT" <<'PY' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           digest=hashlib.sha256()
