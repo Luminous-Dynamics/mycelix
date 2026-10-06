@@ -473,7 +473,6 @@ EOF
           done
 
       - name: Retain and offline-verify trusted attestations
-      - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
           D6U_TRUSTED_POLICY_VERSION: "37"
@@ -647,6 +646,7 @@ EOF
                   "offline_report_filename": safe + ".offline.json",
                   "offline_report_sha256": retained[safe + ".offline.json"]["sha256"],
                   "predicate_sha256": predicate_sha256(root / (safe + ".online.json")),
+                  "canonical_predicate_sha256": retained["d6u-trusted-evidence-predicate.json"]["sha256"],
                   "negative_control_filename": safe + ".no-public-good.json",
                   "negative_control_sha256": retained[safe + ".no-public-good.json"]["sha256"],
                   "trusted_root_sha256": retained["trusted_root.jsonl"]["sha256"],
@@ -667,7 +667,9 @@ EOF
               "run_invocation_uri": "https://github.com/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + os.environ["GITHUB_RUN_ID"] + "/attempts/" + os.environ["GITHUB_RUN_ATTEMPT"],
               "cli_version": "2.101.0",
               "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
-              "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+              "predicate_schema": "d6u-trusted-runtime-evidence-attestation/v2",
+              "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
+              "canonical_predicate_sha256": retained["d6u-trusted-evidence-predicate.json"]["sha256"],
               "claim_ceiling": "ReferenceModelOnly",
               "public_good_instance_required": True,
               "public_good_instance": "sigstore-public-good",
