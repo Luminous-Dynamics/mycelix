@@ -1,0 +1,38 @@
+name: Finance Qualification Request
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# This workflow is deliberately untrusted and side-effect-free.
+# It never checks out or executes candidate PR content.
+permissions: {}
+
+jobs:
+  request:
+    name: Capture exact Finance qualification subject
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Emit immutable qualification request identity
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          printf "%s\n" "${PR_NUMBER}" | grep -Eq "^[0-9]+$"
+          printf "%s\n" "${HEAD_SHA}" | grep -Eq "^[0-9a-f]{40}$"
+          test "${HEAD_REPOSITORY}" = "${GITHUB_REPOSITORY}"
+          test "${BASE_REPOSITORY}" = "${GITHUB_REPOSITORY}"
+          test "${BASE_REF}" = "main"
+          echo "FINANCE_QUALIFICATION_REQUEST"
+          echo "pr_number=${PR_NUMBER}"
+          echo "head_sha=${HEAD_SHA}"
+          echo "base_sha=${BASE_SHA}"
+          echo "head_repository=${HEAD_REPOSITORY}"
+          echo "base_ref=${BASE_REF}"
