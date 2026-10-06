@@ -182,6 +182,13 @@ class NoAuthorizationRedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, hdrs, newurl):
         redirected = super().redirect_request(req, fp, code, msg, hdrs, newurl)
         if redirected is not None:
+            parsed = urllib.parse.urlsplit(newurl)
+            assert parsed.scheme == "https", (
+                "trusted artifact redirect must remain on HTTPS"
+            )
+            assert parsed.username is None and parsed.password is None, (
+                "trusted artifact redirect must not introduce URL credentials"
+            )
             redirected.remove_header("Authorization")
         return redirected
 
