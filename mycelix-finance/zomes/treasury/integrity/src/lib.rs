@@ -206,6 +206,52 @@ fn decode_governance_registration(record: &Record) -> ExternResult<GovernanceAge
     Ok(registration)
 }
 
+/// Prove that the configured bootstrap authority can create at most one
+/// immutable bootstrap root on its contiguous source chain.
+fn validate_create_governance_bootstrap_root(
+    action: Create,
+    registration: GovernanceAgentRegistration,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(e) = registration.validate_shape() {
+        return Ok(ValidateCallbackResult::Invalid(e.into()));
+    }
+
+    if registration.predecessor_registration.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Bootstrap root witness must not contain a predecessor".into(),
+        ));
+    }
+
+    let authority = governance_bootstrap_authority()?;
+    if action.author != authority {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Root governance registration must be authored by the configured DNA bootstrap authority"
+                .into(),
+        ));
+    }
+
+    // The current root action is excluded by starting at its predecessor.
+    // must_get_agent_activity is deterministic and fails closed if the
+    // authority's chain segment cannot be established.
+    let root_entry_type =
+        EntryType::App(UnitEntryTypes::GovernanceBootstrapRoot.try_into()?);
+    let prior_activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    if prior_activity
+        .iter()
+        .any(|activity| activity.action.hashed.content.entry_type() == Some(&root_entry_type))
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "A governance bootstrap root already exists on the configured authority chain"
+                .into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Prove governance membership structurally at the integrity boundary.
 ///
 /// A root witness is authorized only by the immutable DNA bootstrap authority.
