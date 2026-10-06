@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 39
+    assert policy["policy_version"] == 40
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -211,6 +211,14 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     }
 
     assert policy["workflow_default_permissions"] == {}
+    assert policy["attestation_trigger"]["workflow_name"] == "D6U Exact-Head Runtime Executor"
+    assert policy["attestation_trigger"]["event"] == "workflow_run"
+    assert policy["attestation_trigger"]["types"] == ["completed"]
+    assert policy["attestation_trigger"]["conclusion"] == "success"
+    assert policy["attestation_trigger"]["repository"] == "Luminous-Dynamics/mycelix"
+    assert policy["attestation_trigger"]["head_branch"] == "myc-int-demo-d6u-holochain-07-runtime"
+    assert policy["attestation_trigger"]["require_record_source_binding"] is True
+    assert policy["attestation_trigger"]["require_record_executor_run_binding"] is True
     workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
     assert workflow_text.count("TRUSTED_POLICY_VERSION:") == 1
     assert "TRUSTED_POLICY_VERSION: \"%d\"" % policy["policy_version"] in workflow_text
