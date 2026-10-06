@@ -272,7 +272,7 @@ mod tests {
 
         let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.related[0].clock_domain = "local-clock-2".into();
-        assert_eq!(envelope.assess(), RegistrationState::Registered);
+        assert_eq!(envelope.assess(), RegistrationState::Consistent);
     }
 
     #[test]
