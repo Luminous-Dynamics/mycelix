@@ -564,62 +564,90 @@ pub mod economics {
     pub use mycelix_finance_types::*;
 }
 
-/// Governance authorization helpers
+/// Governance authorization helpers.
 ///
-/// Shared logic for checking if the calling agent is an authorized governance
-/// agent. Each coordinator zome fetches its own `LinkTypes::GovernanceAgents`
-/// links and passes them to `verify_governance_or_bootstrap_from_links()`.
-///
-/// This eliminates duplicated authorization logic across recognition, staking,
-/// and tend coordinators while keeping link type resolution local to each zome.
+/// Governance-only mutations are never authorized by an empty registry. The only
+/// bootstrap exception is `register_governance_agent`, and it is restricted to the
+/// deployment-scoped authority declared in immutable DNA properties.
 pub mod governance {
     use super::*;
 
     /// Standard anchor name for governance agent registration links.
-    /// All zomes MUST use this same anchor string to share a single governance
-    /// agent registry within the DNA.
     pub const GOVERNANCE_AGENTS_ANCHOR: &str = "governance_agents";
 
-    /// Check if the calling agent is in the provided governance agent links.
+    /// Deployment-scoped authority allowed to create the first governance agent.
     ///
-    /// **Bootstrap rule**: if the links list is empty (no governance agents
-    /// registered yet), any agent is allowed. This enables initial setup.
-    ///
-    /// # Usage
-    /// ```rust,ignore
-    /// use mycelix_finance_shared::governance::*;
-    ///
-    /// fn verify_governance_or_bootstrap() -> ExternResult<()> {
-    ///     let gov_links = get_links(
-    ///         LinkQuery::try_new(
-    ///             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-    ///             LinkTypes::GovernanceAgents,
-    ///         )?,
-    ///         GetStrategy::default(),
-    ///     )?;
-    ///     verify_governance_or_bootstrap_from_links(gov_links)
-    /// }
-    /// ```
-    pub fn verify_governance_or_bootstrap_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
+    /// DNA properties are immutable for a running cell and are part of the DNA
+    /// identity, so this authority cannot be silently changed after installation.
+    #[dna_properties]
+    pub struct FinanceDnaProperties {
+        #[serde(default)]
+        pub governance_bootstrap_authority: Option<AgentPubKey>,
+    }
+
+    fn bootstrap_authority() -> ExternResult<AgentPubKey> {
+        FinanceDnaProperties::try_from_dna_properties()?
+            .governance_bootstrap_authority
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Governance bootstrap authority is not configured in DNA properties"
+                    .into(),
+            )))
+    }
+
+    /// Require the caller to already be present in the governance registry.
+    /// An empty registry is an unambiguous denial state for governance-only actions.
+    pub fn verify_governance_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
         if gov_links.is_empty() {
-            return Ok(());
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Governance registry is empty; explicit bootstrap registration is required"
+                    .into(),
+            )));
         }
 
         let caller = agent_info()?.agent_initial_pubkey;
-        for link in gov_links {
-            if let Ok(agent) = AgentPubKey::try_from(link.target) {
-                if agent == caller {
-                    return Ok(());
-                }
+        if gov_links.into_iter().any(|link| {
+            AgentPubKey::try_from(link.target)
+                .map(|agent| agent == caller)
+                .unwrap_or(false)
+        }) {
+            Ok(())
+        } else {
+            Err(wasm_error!(WasmErrorInner::Guest(
+                "Caller is not an authorized governance agent".into(),
+            )))
+        }
+    }
+
+    /// Transitional compatibility wrapper retained for existing call sites.
+    /// Semantics are intentionally strict: an empty governance registry is NOT
+    /// authorization. New registration paths must use the explicit bootstrap helper.
+    pub fn verify_governance_or_bootstrap_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
+        verify_governance_from_links(gov_links)
+    }
+
+    /// Authorize the governance-agent registration lifecycle.
+    ///
+    /// Before the first registration, only the DNA-configured bootstrap authority
+    /// may register the first governance agent. Once any governance link exists,
+    /// registration is governed by the existing-agent rule above.
+    pub fn verify_governance_registration_from_links(
+        gov_links: Vec<Link>,
+    ) -> ExternResult<()> {
+        if gov_links.is_empty() {
+            let caller = agent_info()?.agent_initial_pubkey;
+            let authority = bootstrap_authority()?;
+            if caller == authority {
+                return Ok(());
             }
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Only the configured DNA bootstrap authority may register the first governance agent"
+                    .into(),
+            )));
         }
 
-        Err(wasm_error!(WasmErrorInner::Guest(
-            "Caller is not an authorized governance agent".into()
-        )))
+        verify_governance_from_links(gov_links)
     }
 }
-
 /// Agent identity helpers
 pub mod identity {
     use super::*;
