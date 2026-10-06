@@ -491,8 +491,17 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "attestations: write" not in verifier
     assert "uses: actions/attest@" not in verifier
     assert "gh attestation verify" not in verifier
+    for trigger_key in (
+        "D6U_TRIGGER_REPOSITORY:",
+        "D6U_TRIGGER_HEAD_BRANCH:",
+        "D6U_TRIGGER_HEAD_SHA:",
+        "D6U_TRIGGER_RUN_ID:",
+        "D6U_TRIGGER_RUN_ATTEMPT:",
+    ):
+        assert verifier.count(trigger_key) == 1
 
     assert "id-token: write" in signer
+    assert "actions: read" not in signer
     assert "uses: actions/download-artifact@" not in signer
     assert "subject-checksums: ${{ steps.subject_manifest.outputs.manifest }}" in signer
     assert "predicate-path: ${{ steps.commitment_predicate.outputs.predicate }}" in signer
