@@ -699,11 +699,13 @@ jobs:
                   "candidate_sha", "run_id", "run_attempt", "run_number", "resolver_job_id",
                   "s1_job_id", "artifact_id", "artifact_name", "artifact_digest",
                   "receipt_content_sha256", "reference_result", "snapshot_sha256",
+                  "workflow_file_snapshot_sha256",
               }
               assert set(result) == expected_keys, "causal reference verifier result schema drift"
               assert result["schema"] == "security-kernel-causal-join-reference-v1"
               assert result["reference_result"] == "verified"
               assert re.fullmatch(r"[0-9a-f]{64}", result["snapshot_sha256"])
+              assert re.fullmatch(r"[0-9a-f]{64}", result["workflow_file_snapshot_sha256"])
               assert result["candidate_repository"] == candidate_repository
               assert result["candidate_repository_id"] == candidate_repo_id
               assert result["candidate_pr"] == candidate_pr
@@ -805,6 +807,7 @@ jobs:
               "evidence_binding_reference_sha256": reference_evidence_binding_digest,
               "causal_reference_result": causal_reference_result,
               "causal_reference_snapshot_sha256": causal_reference_snapshot_sha256,
+              "causal_reference_workflow_file_snapshot_sha256": causal_reference_result["workflow_file_snapshot_sha256"],
               "independent_qualification": "verified-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
