@@ -5,7 +5,9 @@
 //! Payments Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
+use mycelix_bridge_entry_types::{
+    did_for_author, require_did_is_author, SapRedemptionAuthorization,
+};
 pub use mycelix_finance_types::{
     compute_demurrage_with_exemption, AMBER_MAX_CAP_MICRO_SAP, AmberExemption,
     SapMintCapCounter, SapMintSource, SuccessionPreference, DEMURRAGE_EXEMPT_FLOOR,
@@ -240,9 +242,8 @@ pub enum SapDebitSource {
     },
     /// Explicit redemption/burn classes reserved for typed settlement adapters.
     Redemption {
-        redemption_id: String,
-        /// Exact bridge redemption action that triggered this sink debit.
-        redemption_action_hash: ActionHash,
+        /// Exact immutable bridge authorization witness.
+        authorization_action_hash: ActionHash,
     },
     Burn {
         burn_id: String,
@@ -396,6 +397,8 @@ pub enum LinkTypes {
     ChannelIdToChannel,
     PendingCompostQueue,
     MintCapCounterAnchor,
+    /// Immutable bridge redemption authorization → the SAP debit it consumed.
+    RedemptionAuthorizationToDebit,
 }
 
 /// Genesis self-check
@@ -722,6 +725,55 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         ));
                     }
                     Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::RedemptionAuthorizationToDebit => {
+                    let auth_hash = ActionHash::try_from(base_address.clone()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "RedemptionAuthorizationToDebit base must be an action hash".into(),
+                        ))
+                    })?;
+                    let debit_hash = ActionHash::try_from(target_address.clone()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "RedemptionAuthorizationToDebit target must be an action hash".into(),
+                        ))
+                    })?;
+                    let auth_record = must_get_valid_record(auth_hash.clone())?;
+                    let auth = auth_record
+                        .entry()
+                        .to_app_option::<SapRedemptionAuthorization>()
+                        .map_err(|_| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "RedemptionAuthorizationToDebit base is not an authorization".into(),
+                            ))
+                        })?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "RedemptionAuthorizationToDebit base authorization is missing".into(),
+                        )))?;
+                    let debit_record = must_get_valid_record(debit_hash)?;
+                    let debit = debit_record
+                        .entry()
+                        .to_app_option::<SapDebitRecord>()
+                        .map_err(|_| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "RedemptionAuthorizationToDebit target is not a debit".into(),
+                            ))
+                        })?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "RedemptionAuthorizationToDebit target debit is missing".into(),
+                        )))?;
+                    match debit.source {
+                        SapDebitSource::Redemption { authorization_action_hash }
+                            if authorization_action_hash == auth_hash
+                                && debit.member_did == auth.member_did
+                                && debit.amount == auth.sap_amount =>
+                        {
+                            Ok(ValidateCallbackResult::Valid)
+                        }
+                        _ => Ok(ValidateCallbackResult::Invalid(
+                            "RedemptionAuthorizationToDebit link does not bind an exact redemption debit"
+                                .into(),
+                        )),
+                    }
                 }
             }
         }
@@ -1295,18 +1347,30 @@ fn validate_create_sap_debit_record(
             }
         }
         SapDebitSource::Redemption {
-            redemption_id,
-            redemption_action_hash,
+            authorization_action_hash,
         } => {
-            if redemption_id.is_empty() || redemption_id.len() > MAX_ID_LEN {
+            let auth_record = must_get_valid_record(authorization_action_hash.clone())?;
+            let auth = auth_record
+                .entry()
+                .to_app_option::<SapRedemptionAuthorization>()
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                    "SAP redemption authorization could not be decoded".into(),
+                )))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SAP redemption authorization witness is missing".into(),
+                )))?;
+
+            if auth.member_did != debit.member_did
+                || auth.sap_amount != debit.amount
+                || auth.redemption_id.is_empty()
+            {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "SAP redemption debit id must be 1-256 characters".into(),
+                    "SAP redemption debit does not exactly consume its bridge authorization".into(),
                 ));
             }
-            let redemption_record = must_get_valid_record(redemption_action_hash.clone())?;
-            if did_for_author(redemption_record.action().author()) != debit.member_did {
+            if did_for_author(auth_record.action().author()) != debit.member_did {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "SAP redemption debit must bind to a redemption action authored by the account owner".into(),
+                    "SAP redemption debit must bind to an owner-authored bridge authorization".into(),
                 ));
             }
         }
