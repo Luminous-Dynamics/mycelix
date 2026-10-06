@@ -3403,7 +3403,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("63 contract vectors plus 20 structural parser controls plus 15 CRL semantic controls: PASS")
+    print("71 contract vectors plus 20 structural parser controls plus 22 CRL semantic controls: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
