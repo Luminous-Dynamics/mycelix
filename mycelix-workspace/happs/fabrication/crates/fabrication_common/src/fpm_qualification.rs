@@ -330,10 +330,15 @@ pub fn qualify_registration(
     }
 
     let evidence_manifest_digest = evidence_manifest_digest(&input.artifacts);
+    let registration_anchor_digest = input
+        .registration_anchor
+        .as_ref()
+        .map(RegistrationAnchorEvidence::digest);
     let qualification_basis_digest = qualification_basis_digest(
         &input.registration_envelope_digest,
         &evidence_manifest_digest,
         &profile.digest(),
+        registration_anchor_digest.as_deref(),
     );
 
     let status = if reasons.is_empty() {
@@ -346,7 +351,6 @@ pub fn qualify_registration(
                 | RegistrationQualificationReason::InvalidVerifierImplementationDigest
                 | RegistrationQualificationReason::NonCanonicalDigestEncoding
                 | RegistrationQualificationReason::EnvelopeDigestMismatch
-                | RegistrationQualificationReason::MissingRegistrationAnchor
                 | RegistrationQualificationReason::RegistrationAnchorMismatch
                 | RegistrationQualificationReason::ArtifactDigestMismatch
                 | RegistrationQualificationReason::ArtifactBindingMismatch
@@ -367,7 +371,7 @@ pub fn qualify_registration(
         registration_envelope_digest: input.registration_envelope_digest.clone(),
         evidence_manifest_digest,
         qualification_basis_digest,
-        registration_anchor_digest: input.registration_anchor.as_ref().map(RegistrationAnchorEvidence::digest),
+        registration_anchor_digest,
         verifier_id: verifier.verifier_id.clone(),
         verifier_version: verifier.verifier_version.clone(),
         verifier_implementation_digest: verifier.verifier_implementation_digest.clone(),
@@ -427,12 +431,20 @@ fn qualification_basis_digest(
     registration_envelope_digest: &str,
     evidence_manifest_digest: &str,
     profile_digest: &str,
+    registration_anchor_digest: Option<&str>,
 ) -> String {
     let mut bytes = Vec::new();
     append_field(&mut bytes, b"fpm.registration-qualification-basis.v1");
     append_field(&mut bytes, registration_envelope_digest.as_bytes());
     append_field(&mut bytes, evidence_manifest_digest.as_bytes());
     append_field(&mut bytes, profile_digest.as_bytes());
+    match registration_anchor_digest {
+        Some(digest) => {
+            append_field(&mut bytes, b"some");
+            append_field(&mut bytes, digest.as_bytes());
+        }
+        None => append_field(&mut bytes, b"none"),
+    }
     hex_digest(&bytes)
 }
 
@@ -768,6 +780,67 @@ mod tests {
     }
 
     #[test]
+    fn anchored_profile_requires_an_external_anchor_binding() {
+        let input = input_with_exact_artifacts();
+        let verifier = verifier();
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_ANCHORED_V1, &verifier, &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InsufficientEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::MissingRegistrationAnchor));
+    }
+
+    #[test]
+    fn anchored_profile_accepts_exact_anchor_binding() {
+        let mut input = input_with_exact_artifacts();
+        input.registration_anchor = Some(RegistrationAnchorEvidence {
+            anchor_reference: "holochain-action:example".into(),
+            anchor_kind: RegistrationAnchorKind::HolochainAction,
+            registration_envelope_digest: input.registration_envelope_digest.clone(),
+        });
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_ANCHORED_V1, &verifier(), &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::QualifiedForProfile
+        );
+        assert!(qualification.registration_anchor_digest.is_some());
+    }
+
+    #[test]
+    fn anchored_profile_rejects_replayed_envelope_against_old_anchor() {
+        let mut input = input_with_exact_artifacts();
+        input.registration_anchor = Some(RegistrationAnchorEvidence {
+            anchor_reference: "holochain-action:original".into(),
+            anchor_kind: RegistrationAnchorKind::HolochainAction,
+            registration_envelope_digest: input.registration_envelope_digest.clone(),
+        });
+
+        input.envelope.related[0].correlation_id = "frame-replay".into();
+        input.registration_envelope_digest =
+            input.envelope.digest().expect("replayed envelope digest");
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_ANCHORED_V1, &verifier(), &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InvalidEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::RegistrationAnchorMismatch));
+    }
+
+    #[test]
     fn evidence_manifest_digest_is_order_independent() {
         let input = input_with_exact_artifacts();
         let mut reversed = input.artifacts.clone();
@@ -893,6 +966,7 @@ mod tests {
                 &qualification.registration_envelope_digest,
                 &qualification.evidence_manifest_digest,
                 &qualification.profile_digest,
+                qualification.registration_anchor_digest.as_deref(),
             )
         );
     }
