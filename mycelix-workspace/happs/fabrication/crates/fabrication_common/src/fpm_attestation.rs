@@ -146,8 +146,6 @@ pub fn qualify_source_attestation(
         &input.claim.subject_id,
         &input.expected_audience,
         &input.claim.audience,
-        &input.expected_verification_key_digest,
-        &input.claim.verification_key_digest,
         &input.expected_attestation_format,
     ] {
         if !valid_label(value) {
@@ -158,11 +156,13 @@ pub fn qualify_source_attestation(
     for value in [
         &input.expected_acquisition_root_digest,
         &input.expected_challenge_nonce_digest,
+        &input.expected_verification_key_digest,
         &input.expected_verifier_profile_digest,
         &input.expected_appraisal_policy_digest,
         &input.expected_reference_values_digest,
         &input.expected_endorsement_digest,
         &input.claim.acquisition_root_digest,
+        &input.claim.verification_key_digest,
         &input.claim.challenge_nonce_digest,
         &input.claim.evidence_digest,
         &input.claim.verifier_profile_digest,
