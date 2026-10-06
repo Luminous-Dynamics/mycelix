@@ -348,7 +348,7 @@ def signed_object(der: bytes, kind: str) -> dict[str, Any]:
 
     revoked_entries = []
     if cursor < len(fields) and fields[cursor][0] == 0x30:
-        for entry_tag, entry_content, _entry_raw in children(fields[cursor][1]):
+        for entry_tag, entry_content, entry_raw in children(fields[cursor][1]):
             if entry_tag != 0x30:
                 raise ValueError("CRL entry malformed")
             entry_fields = children(entry_content)
@@ -362,6 +362,7 @@ def signed_object(der: bytes, kind: str) -> dict[str, Any]:
                     raise ValueError("CRL entry extensions malformed")
                 entry_extensions = parse_extensions(entry_fields[2][1])
             revoked_entries.append({
+                "entry_identity_sha256": hashlib.sha256(entry_raw).hexdigest(),
                 "serial": serial,
                 "revocation_date": rev_time,
                 "extensions": entry_extensions,
