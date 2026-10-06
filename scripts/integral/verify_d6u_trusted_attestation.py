@@ -70,6 +70,16 @@ def verify_canonical_predicate(
     expected_policy_version: int,
 ) -> bool:
     assert isinstance(predicate, dict)
+    event_repository = os.environ["D6U_TRIGGER_REPOSITORY"]
+    event_branch = os.environ["D6U_TRIGGER_HEAD_BRANCH"]
+    event_head_sha = os.environ["D6U_TRIGGER_HEAD_SHA"]
+    event_run_id = int(os.environ["D6U_TRIGGER_RUN_ID"])
+    event_run_attempt = int(os.environ["D6U_TRIGGER_RUN_ATTEMPT"])
+    assert record["source_repository"] == event_repository
+    assert record["source_branch"] == event_branch
+    assert record["source_commit"] == event_head_sha
+    assert int(record["executor_run_id"]) == event_run_id
+    assert int(record["executor_run_attempt"]) == event_run_attempt
     assert set(predicate) == {
         "attestation_kind", "claim_ceiling", "evidence", "executor", "nonclaims",
         "policy_version", "schema", "source", "subjects", "trigger",
