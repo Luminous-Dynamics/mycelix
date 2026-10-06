@@ -24,11 +24,12 @@ env:
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
-  REFERENCE_VERIFIER_BLOB_SHA: "a4b9946e88c56718f94748af706b430c1d3a4e46"
+  REFERENCE_VERIFIER_BLOB_SHA: "24b5ea20e3a5946b106c22ece9fedcdb85e9c7db"
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
   CAUSAL_JOIN_VERIFIER_BLOB_SHA: "2c9d4d48dab41255944e48300893a62c668b5d4a"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
   SOURCE_POLICY_VERIFIER_BLOB_SHA: "09e993ccd99e9e6399e6ae797a0e6c4aad9e63e0"
+  TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-result-verifier.yml"
 
 jobs:
   verify:
@@ -269,6 +270,7 @@ jobs:
               resolver_job_id, s1_job_id, reference_verifier_path, reference_verifier_blob_sha,
               causal_join_verifier_path, causal_join_verifier_blob_sha,
               source_policy_verifier_path, source_policy_verifier_blob_sha,
+              verifier_workflow_path, verifier_workflow_sha, verifier_workflow_blob_sha,
           ):
               return {
                   "schema": "security-kernel-execution-binding-v1",
@@ -293,6 +295,9 @@ jobs:
                   "causal_join_verifier_blob_sha": str(causal_join_verifier_blob_sha),
                   "source_policy_verifier_path": str(source_policy_verifier_path),
                   "source_policy_verifier_blob_sha": str(source_policy_verifier_blob_sha),
+                  "verifier_workflow_path": str(verifier_workflow_path),
+                  "verifier_workflow_sha": str(verifier_workflow_sha),
+                  "verifier_workflow_blob_sha": str(verifier_workflow_blob_sha),
               }
 
           def execution_binding_digest(binding):
@@ -323,6 +328,9 @@ jobs:
               causal_join_verifier_blob_sha=os.environ["CAUSAL_JOIN_VERIFIER_BLOB_SHA"],
               source_policy_verifier_path=os.environ["SOURCE_POLICY_VERIFIER_PATH"],
               source_policy_verifier_blob_sha=os.environ["SOURCE_POLICY_VERIFIER_BLOB_SHA"],
+              verifier_workflow_path=os.environ["TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH"],
+              verifier_workflow_sha=os.environ["GITHUB_WORKFLOW_SHA"],
+              verifier_workflow_blob_sha=workflow_blob_sha,
           )
           expected_execution_binding_keys = {
               "schema", "repository_id", "repository", "candidate_repository_id",
@@ -333,6 +341,7 @@ jobs:
               "reference_verifier_path", "reference_verifier_blob_sha",
               "causal_join_verifier_path", "causal_join_verifier_blob_sha",
               "source_policy_verifier_path", "source_policy_verifier_blob_sha",
+               "verifier_workflow_path", "verifier_workflow_sha", "verifier_workflow_blob_sha",
           }
           assert set(binding) == expected_execution_binding_keys, "execution binding schema drift"
           assert binding["repository_id"] == int(os.environ["BASE_REPOSITORY_ID"])
@@ -345,6 +354,9 @@ jobs:
           assert binding["dispatcher_workflow_path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
           assert binding["s1_workflow_blob_sha"] == s1_at_run["sha"]
           assert binding["s1_workflow_path"] == os.environ["INDEPENDENT_WORKFLOW_PATH"]
+           assert binding["verifier_workflow_path"] == os.environ["TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH"]
+           assert binding["verifier_workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
+           assert binding["verifier_workflow_blob_sha"] == workflow_blob_sha
           assert binding["run_id"] == int(run_id)
           assert binding["run_attempt"] == run_attempt
           assert binding["run_number"] == run["run_number"]
@@ -372,6 +384,9 @@ jobs:
               "causal_join_verifier_blob_sha": "6" * 40,
               "source_policy_verifier_path": binding["source_policy_verifier_path"] + ".mutated",
               "source_policy_verifier_blob_sha": "8" * 40,
+               "verifier_workflow_path": binding["verifier_workflow_path"] + ".mutated",
+               "verifier_workflow_sha": "9" * 40,
+               "verifier_workflow_blob_sha": "a" * 40,
               "run_id": binding["run_id"] + 1,
               "run_attempt": binding["run_attempt"] + 1,
               "run_number": binding["run_number"] + 1,
@@ -715,6 +730,10 @@ jobs:
               return result
 
           source_policy_reference_result = run_reference_source_policy()
+           source_policy_reference_result_sha256 = hashlib.sha256(
+               json.dumps(source_policy_reference_result, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+           ).hexdigest()
+           assert re.fullmatch(r"[0-9a-f]{64}", source_policy_reference_result_sha256)
 
           def run_reference_causal_join():
               workspace = os.environ["GITHUB_WORKSPACE"]
@@ -837,9 +856,11 @@ jobs:
           evidence_binding["artifact_digest"] = artifact_digest
           evidence_binding["receipt_content_sha256"] = receipt_content_sha256
           evidence_binding["causal_reference_snapshot_sha256"] = causal_reference_snapshot_sha256
+           evidence_binding["source_policy_reference_result_sha256"] = source_policy_reference_result_sha256
           expected_evidence_binding_keys = expected_execution_binding_keys | {
               "artifact_name", "artifact_id", "artifact_digest", "receipt_content_sha256",
               "causal_reference_snapshot_sha256",
+               "source_policy_reference_result_sha256",
           }
           assert set(evidence_binding) == expected_evidence_binding_keys, "final evidence binding schema drift"
 
@@ -857,6 +878,10 @@ jobs:
               ("artifact_digest", "sha256:" + "3" * 64),
               ("receipt_content_sha256", "4" * 64),
               ("causal_reference_snapshot_sha256", "7" * 64),
+               ("source_policy_reference_result_sha256", "8" * 64),
+               ("verifier_workflow_sha", "9" * 40),
+               ("verifier_workflow_blob_sha", "a" * 40),
+               ("verifier_workflow_path", evidence_binding["verifier_workflow_path"] + "-mutated"),
           ):
               mutated = dict(evidence_binding)
               mutated[field] = replacement
@@ -868,6 +893,10 @@ jobs:
           assert evidence_binding["artifact_id"] == artifact["id"]
           assert evidence_binding["artifact_digest"] == artifact_digest
           assert evidence_binding["receipt_content_sha256"] == receipt_content_sha256
+           assert evidence_binding["source_policy_reference_result_sha256"] == source_policy_reference_result_sha256
+           assert evidence_binding["verifier_workflow_path"] == os.environ["TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH"]
+           assert evidence_binding["verifier_workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
+           assert evidence_binding["verifier_workflow_blob_sha"] == workflow_blob_sha
           for key in (
               "candidate_source_tree_entry_count",
               "candidate_source_file_count",
@@ -916,6 +945,7 @@ jobs:
               "evidence_binding_reference_sha256": reference_evidence_binding_digest,
               "causal_reference_result": causal_reference_result,
               "causal_reference_snapshot_sha256": causal_reference_snapshot_sha256,
+               "source_policy_reference_result_sha256": source_policy_reference_result_sha256,
               "source_policy_reference_result": source_policy_reference_result,
               "causal_reference_workflow_file_snapshot_sha256": causal_reference_result["workflow_file_snapshot_sha256"],
               "causal_reference_metamorphic_mutations_verified": causal_reference_result["metamorphic_mutations_verified"],
