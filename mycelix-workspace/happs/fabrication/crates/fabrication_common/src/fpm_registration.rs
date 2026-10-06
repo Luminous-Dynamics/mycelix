@@ -113,8 +113,27 @@ impl RegistrationEnvelope {
         }
 
         let participants = std::iter::once(&self.reference).chain(self.related.iter());
+        let participants: Vec<&ModalityObservationRef> = participants.collect();
 
-        let same_context = participants.clone().all(|item| {
+        for left in 0..participants.len() {
+            for right in (left + 1)..participants.len() {
+                let a = participants[left];
+                let b = participants[right];
+                if a.source_id == b.source_id && a.modality == b.modality {
+                    return RegistrationState::Invalid;
+                }
+            }
+        }
+
+        let distinct_modalities = participants
+            .iter()
+            .map(|item| item.modality.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        if distinct_modalities.len() < 2 {
+            return RegistrationState::Unregistered;
+        }
+
+        let same_context = participants.iter().all(|item| {
             item.process_context_digest == self.reference.process_context_digest
         });
         let same_calibration = participants.clone().all(|item| {
