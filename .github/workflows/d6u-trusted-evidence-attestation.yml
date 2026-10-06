@@ -121,7 +121,7 @@ jobs:
           printf 'runtime_test_sha256=%s\n' "$runtime_test_sha256" >> "$GITHUB_OUTPUT"
           printf 'cargo_lock_sha256=%s\n' "$cargo_lock_sha256" >> "$GITHUB_OUTPUT"
           printf 'canonical_predicate_sha256=%s\n' "$canonical_predicate_sha256" >> "$GITHUB_OUTPUT"
-      - name: Prepare inert trusted signer handoff
+      - name: Prepare exact auditor handoff
         env:
           D6U_TRUSTED_POLICY_VERSION: "37"
         run: |
@@ -158,7 +158,7 @@ EOF
           test "$(wc -l < "$handoff_dir/d6u-auditor-handoff.manifest.sha256")" -eq 5
           test "$(find "$handoff_dir" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 6
 
-      - name: Upload inert trusted signer handoff
+      - name: Upload exact auditor handoff
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: d6u-trusted-auditor-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
@@ -328,13 +328,13 @@ EOF
 
 
 
-      - name: Download inert trusted signer handoff
+      - name: Download exact auditor handoff
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: d6u-trusted-auditor-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/d6u-auditor-handoff
 
-      - name: Assert inert trusted signer handoff
+      - name: Assert exact auditor handoff
         env:
           D6U_TRUSTED_POLICY_VERSION: "37"
         run: |
@@ -382,46 +382,6 @@ EOF
           cmp -s "$expected_context" "$handoff_dir/d6u-auditor-context.txt"
           rm -f "$expected_context"
           test "$(sha256sum "$handoff_dir/d6u-runtime-evidence.txt" | awk '{print $1}')" = "$(sha256sum "$RUNNER_TEMP/d6u-auditor-handoff/d6u-runtime-evidence.txt" | awk '{print $1}')"
-
-      - name: Assert trusted signer context and inert handoff
-        run: |
-          set -euo pipefail
-          test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
-          test -n "$GITHUB_WORKFLOW_SHA"
-          handoff_dir="$RUNNER_TEMP/d6u-auditor-handoff"
-          test -d "$handoff_dir" && test ! -L "$handoff_dir"
-          expected_files=(
-            Cargo.lock
-            d6u-runtime-evidence.txt
-            d6u-runtime-test.log
-            d6u-auditor-context.txt
-            d6u-auditor-handoff.manifest.sha256
-            d6u-trusted-evidence-predicate.json
-          )
-          mapfile -t actual_files < <(find "$handoff_dir" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
-          mapfile -t expected_sorted < <(printf '%s\n' "${expected_files[@]}" | sort)
-          test "${actual_files[*]}" = "${expected_sorted[*]}"
-          for name in "${expected_files[@]}"; do
-            test -f "$handoff_dir/$name"
-            test ! -L "$handoff_dir/$name"
-          done
-          (
-            cd "$handoff_dir"
-            sha256sum -c d6u-auditor-handoff.manifest.sha256
-          )
-          expected_context="$RUNNER_TEMP/expected-d6u-auditor-context.txt"
-          cat > "$expected_context" <<EOF
-schema=d6u-trusted-auditor-handoff/v1
-repository=$GITHUB_REPOSITORY
-source_digest=$GITHUB_SHA
-trusted_workflow_digest=$GITHUB_WORKFLOW_SHA
-run_id=$GITHUB_RUN_ID
-run_attempt=$GITHUB_RUN_ATTEMPT
-verifier_job=verifier
-claim_ceiling=ReferenceModelOnly
-EOF
-          cmp -s "$expected_context" "$handoff_dir/d6u-auditor-context.txt"
-          rm -f "$expected_context"
 
       - name: Assert GitHub CLI verification environment
         run: |
