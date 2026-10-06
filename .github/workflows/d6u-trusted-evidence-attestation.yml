@@ -145,7 +145,7 @@ jobs:
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
-            D6U_TRUSTED_POLICY_VERSION="30" \
+            D6U_TRUSTED_POLICY_VERSION="31" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
@@ -153,7 +153,7 @@ jobs:
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "30"
+          D6U_TRUSTED_POLICY_VERSION: "31"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"
@@ -296,6 +296,18 @@ jobs:
                   "bytes": path.stat().st_size,
               }
 
+          def predicate_sha256(report_path: Path) -> str:
+              report = json.loads(report_path.read_text(encoding="utf-8"))
+              assert isinstance(report, list) and len(report) == 1
+              result = report[0].get("verificationResult")
+              assert isinstance(result, dict)
+              statement = result.get("statement")
+              assert isinstance(statement, dict)
+              predicate = statement.get("predicate")
+              assert isinstance(predicate, dict)
+              encoded = json.dumps(predicate, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+              return hashlib.sha256(encoded).hexdigest()
+
           bindings = []
           for name in subject_names:
               safe = name.replace(".", "_").replace("-", "_")
@@ -308,6 +320,7 @@ jobs:
                   "online_report_sha256": retained[safe + ".online.json"]["sha256"],
                   "offline_report_filename": safe + ".offline.json",
                   "offline_report_sha256": retained[safe + ".offline.json"]["sha256"],
+                  "predicate_sha256": predicate_sha256(root / (safe + ".online.json")),
                   "negative_control_filename": safe + ".no-public-good.json",
                   "negative_control_sha256": retained[safe + ".no-public-good.json"]["sha256"],
                   "trusted_root_sha256": retained["trusted_root.jsonl"]["sha256"],
