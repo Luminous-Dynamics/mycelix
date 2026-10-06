@@ -26,7 +26,7 @@ env:
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   REFERENCE_VERIFIER_BLOB_SHA: "8cecbae7c8be8082598340ac7340743640bf50b2"
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
-  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "2d058012d9c95ce5aac3c236e3bde8a262bacb22"
+  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "a33da9c9fa004af42fd9493868c99b50cd67f507"
 
 jobs:
   verify:
@@ -125,6 +125,9 @@ jobs:
           assert dispatcher_at_run["sha"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA"], (
               "executing S0 dispatcher blob is outside the registered trust profile"
           )
+          assert dispatcher_at_run["type"] == "file"
+          assert dispatcher_at_run["encoding"] == "base64"
+          assert isinstance(dispatcher_at_run.get("content"), str) and dispatcher_at_run["content"]
           main_sha = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
           subprocess.run(["git", "merge-base", "--is-ancestor", workflow_sha, main_sha], check=True)
           assert workflow_sha == main_sha, (
@@ -137,6 +140,25 @@ jobs:
           assert s1_at_run["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
               "same-commit S1 reusable workflow blob is outside the registered trust profile"
           )
+          assert s1_at_run["type"] == "file"
+          assert s1_at_run["encoding"] == "base64"
+          assert isinstance(s1_at_run.get("content"), str) and s1_at_run["content"]
+          binding_file = get(
+              f"/repos/{repo}/contents/{os.environ['REFERENCE_VERIFIER_PATH']}?ref={os.environ['GITHUB_WORKFLOW_SHA']}"
+          )
+          assert binding_file["type"] == "file"
+          assert binding_file["path"] == os.environ["REFERENCE_VERIFIER_PATH"]
+          assert binding_file["encoding"] == "base64"
+          assert binding_file["sha"] == os.environ["REFERENCE_VERIFIER_BLOB_SHA"]
+          assert isinstance(binding_file.get("content"), str) and binding_file["content"]
+          causal_file = get(
+              f"/repos/{repo}/contents/{os.environ['CAUSAL_JOIN_VERIFIER_PATH']}?ref={os.environ['GITHUB_WORKFLOW_SHA']}"
+          )
+          assert causal_file["type"] == "file"
+          assert causal_file["path"] == os.environ["CAUSAL_JOIN_VERIFIER_PATH"]
+          assert causal_file["encoding"] == "base64"
+          assert causal_file["sha"] == os.environ["CAUSAL_JOIN_VERIFIER_BLOB_SHA"]
+          assert isinstance(causal_file.get("content"), str) and causal_file["content"]
 
           title = run.get("display_title", "")
           match = re.fullmatch(
@@ -600,7 +622,14 @@ jobs:
               verifier_path = os.path.join(workspace, os.environ["CAUSAL_JOIN_VERIFIER_PATH"])
               snapshot = {
                   "schema": "security-kernel-causal-join-reference-v1",
-                  "event": {"run_id": int(run_id), "run_attempt": run_attempt},
+                  "event": {
+                      "run_id": int(run_id),
+                      "run_attempt": run_attempt,
+                      "verifier_workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+                      "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
+                      "reference_verifier_blob_sha": os.environ["REFERENCE_VERIFIER_BLOB_SHA"],
+                      "causal_join_verifier_blob_sha": os.environ["CAUSAL_JOIN_VERIFIER_BLOB_SHA"],
+                  },
                   "repository": repository_obj,
                   "run": run,
                   "pull_request": pr,
@@ -612,6 +641,43 @@ jobs:
                   "main_sha": main_sha,
                   "dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
                   "s1_workflow_blob_sha": s1_at_run["sha"],
+                  "workflow_file_snapshots": {
+                      "s0": {
+                          "path": dispatcher_at_run["path"],
+                          "ref": workflow_sha,
+                          "sha": dispatcher_at_run["sha"],
+                          "encoding": dispatcher_at_run["encoding"],
+                          "content": dispatcher_at_run["content"],
+                      },
+                      "s1": {
+                          "path": s1_at_run["path"],
+                          "ref": workflow_sha,
+                          "sha": s1_at_run["sha"],
+                          "encoding": s1_at_run["encoding"],
+                          "content": s1_at_run["content"],
+                      },
+                      "s2": {
+                          "path": verifier_file["path"],
+                          "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                          "sha": verifier_file["sha"],
+                          "encoding": verifier_file.get("encoding", "base64"),
+                          "content": verifier_file["content"],
+                      },
+                      "binding": {
+                          "path": binding_file["path"],
+                          "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                          "sha": binding_file["sha"],
+                          "encoding": binding_file["encoding"],
+                          "content": binding_file["content"],
+                      },
+                      "causal": {
+                          "path": causal_file["path"],
+                          "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                          "sha": causal_file["sha"],
+                          "encoding": causal_file["encoding"],
+                          "content": causal_file["content"],
+                      },
+                  },
               }
               with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
                   json.dump(snapshot, handle, sort_keys=True, separators=(",", ":"))
