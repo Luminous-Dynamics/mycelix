@@ -327,7 +327,7 @@ jobs:
               echo "PASS: hostile Git transport, object validation, archive parsing, and source extraction executed in isolated fetch sandbox"
             '
 
-          candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")
+          candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
           test "${#candidate_tree}" -eq 40
           candidate_root="$CANDIDATE_ROOT"
           test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"
