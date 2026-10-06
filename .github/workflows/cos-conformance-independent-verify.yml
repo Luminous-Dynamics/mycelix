@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: ["COS Conformance Evidence"]
     types: [completed]
+    branches: [main, myc-int-demo-d6w-layered-commitments]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -70,7 +71,6 @@ jobs:
           expected = {
               "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
               "dtolnay/rust-toolchain": "7e38f4b43b4db5c8dd498af069a4f6196df1d067",
-              "Swatinem/rust-cache": "6323deb102c322ba6fcbdcafc7e3dddab59af2b6",
               "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
           }
           refs = {}
@@ -164,11 +164,6 @@ jobs:
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # pinned action commit
         with:
           toolchain: 1.99.0
-
-      - name: Restore Rust build cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: mycelix-manufacturing
 
       - name: Capture tested dependency lock
         if: steps.target_checkout.outcome == 'success'
