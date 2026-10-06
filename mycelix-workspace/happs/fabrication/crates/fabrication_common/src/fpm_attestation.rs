@@ -341,6 +341,20 @@ mod tests {
     }
 
     #[test]
+    fn audience_substitution_conflicts() {
+        let mut input = input();
+        input.claim.audience = "other.fpm.consumer".into();
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::AudienceMismatch));
+    }
+
+    #[test]
     fn verifier_profile_substitution_conflicts() {
         let mut input = input();
         input.claim.verifier_profile_digest = digest('9');
