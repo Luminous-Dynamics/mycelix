@@ -69,6 +69,11 @@ def verify_canonical_predicate(
     subjects: list[dict],
     expected_policy_version: int,
 ) -> bool:
+    assert isinstance(predicate, dict)
+    assert set(predicate) == {
+        "attestation_kind", "claim_ceiling", "evidence", "executor", "nonclaims",
+        "policy_version", "schema", "source", "subjects", "trigger",
+    }
     return (
         predicate.get("schema") == CANONICAL_PREDICATE_SCHEMA
         and predicate.get("attestation_kind") == "verified-runtime-evidence"
@@ -152,73 +157,6 @@ def verify_commitment_entry(
     assert any(isinstance(timestamp, dict) and timestamp.get("type") == "Tlog" for timestamp in verified_timestamps)
     assert canonical_subjects(statement_subjects) == canonical_subjects(subjects)
     return True
-
-def verify_entry(entry: dict, record: dict[str, str], subjects: list[dict]) -> bool:
-    repo = os.environ["GITHUB_REPOSITORY"]
-    run_id = os.environ["GITHUB_RUN_ID"]
-    run_attempt = os.environ["GITHUB_RUN_ATTEMPT"]
-    source_sha = os.environ["GITHUB_SHA"]
-    expected_san = "https://github.com/" + repo + "/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
-    expected_run_uri = "https://github.com/" + repo + "/actions/runs/" + run_id + "/attempts/" + run_attempt
-    result = entry.get("verificationResult", {})
-    certificate = result.get("signature", {}).get("certificate", {})
-    statement = result.get("statement", {})
-    predicate = statement.get("predicate", {})
-    statement_subjects = statement.get("subject", [])
-    verified_timestamps = result.get("verifiedTimestamps", [])
-    certificate_ok = (
-        certificate.get("subjectAlternativeName") == expected_san
-        and certificate.get("issuer") == "https://token.actions.githubusercontent.com"
-        and certificate.get("githubWorkflowRepository") == repo
-        and certificate.get("githubWorkflowRef") == "refs/heads/main"
-        and certificate.get("sourceRepositoryURI") == "https://github.com/" + repo
-        and certificate.get("sourceRepositoryDigest") == source_sha
-        and certificate.get("runnerEnvironment") == "github-hosted"
-        and certificate.get("runInvocationURI") == expected_run_uri
-    )
-    predicate_ok = (
-        statement.get("predicateType") == PREDICATE_TYPE
-        and predicate.get("schema") == CANONICAL_PREDICATE_SCHEMA
-        and predicate.get("attestation_kind") == "verified-runtime-evidence"
-        and predicate.get("claim_ceiling") == record["claim_ceiling"]
-        and predicate.get("policy_version") == int(os.environ["D6U_TRUSTED_POLICY_VERSION"])
-        and predicate.get("source") == {
-            "repository": record["source_repository"],
-            "branch": record["source_branch"],
-            "commit": record["source_commit"],
-        }
-        and predicate.get("trigger") == {
-            "workflow_name": record["trigger_workflow_name"],
-            "workflow_path": record["trigger_workflow_path"],
-            "run_id": int(record["trigger_workflow_run_id"]),
-            "run_attempt": int(record["trigger_workflow_run_attempt"]),
-        }
-        and predicate.get("executor") == {
-            "workflow_name": "D6U Exact-Head Runtime Executor",
-            "workflow_path": record["executor_workflow_file_path"],
-            "run_id": int(record["executor_run_id"]),
-            "run_attempt": int(record["executor_run_attempt"]),
-            "workflow_commit": record["executor_workflow_commit_sha"],
-        }
-        and canonical_subjects(predicate.get("subjects", [])) == canonical_subjects(subjects)
-        and predicate.get("evidence") == {
-            "case_coverage": record["case_coverage"],
-            "supplemental_coverage": record["supplemental_coverage"],
-            "application_check_coverage": record["application_check_coverage"],
-            "case_outcome_classes": record["case_outcome_classes"].split(","),
-            "runtime": record["runtime"],
-            "hdk": record["hdk"],
-            "hdi": record["hdi"],
-            "unsupported_cases": record["unsupported_cases"].split(","),
-        }
-        and predicate.get("nonclaims") == NONCLAIMS
-    )
-    return (
-        certificate_ok
-        and any(isinstance(timestamp, dict) and timestamp.get("type") == "Tlog" for timestamp in verified_timestamps)
-        and predicate_ok
-        and canonical_subjects(statement_subjects) == canonical_subjects(subjects)
-    )
 
 def main() -> None:
     if len(sys.argv) != 2:
