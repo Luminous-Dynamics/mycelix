@@ -1019,62 +1019,37 @@ pub fn confirm_exchange(exchange_id: String) -> ExternResult<ExchangeRecord> {
     let exchange_action_hash = find_exchange_action_hash_by_id(&exchange_id)?;
 
     // RC-19: the confirmation guard is a concurrency lock, not authority.
-    // A pre-existing guard no longer permits a false-green "Confirmed" result.
+    // Every caller must evaluate the complete visible guard set so an existing
+    // guard cannot be mistaken for proof that settlement already completed.
     let confirm_anchor_hash = anchor_hash(&format!("tend-confirm:{}", exchange_id))?;
-    let pre_existing = get_links(
+    let mut confirm_links = get_links(
         LinkQuery::try_new(confirm_anchor_hash.clone(), LinkTypes::AnchorLinks)?,
         GetStrategy::default(),
     )?;
 
-    if pre_existing.is_empty() {
-        let our_link_hash = create_link(
+    if confirm_links.is_empty() {
+        create_link(
             confirm_anchor_hash.clone(),
             AnyLinkableHash::from(caller.clone()),
             LinkTypes::AnchorLinks,
             (),
         )?;
-
-        let all_confirm_links = get_links(
+        confirm_links = get_links(
             LinkQuery::try_new(confirm_anchor_hash, LinkTypes::AnchorLinks)?,
             GetStrategy::default(),
         )?;
+    }
 
-        if all_confirm_links.len() > 1 {
-            let winner = pick_race_winner(&all_confirm_links)?;
-            if winner.create_link_hash != our_link_hash {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Another confirmation attempt won the settlement race; retry".into()
-                )));
-            }
-            for link in &all_confirm_links {
-                if link.create_link_hash != our_link_hash {
-                    let _ = delete_link(link.create_link_hash.clone(), GetOptions::default());
-                }
-            }
+    let winner = pick_race_winner(&confirm_links)?;
+    if winner.target != AnyLinkableHash::from(caller.clone()) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Confirmation guard is not owned by the exchange receiver".into()
+        )));
+    }
+    for link in &confirm_links {
+        if link.create_link_hash != winner.create_link_hash {
+            let _ = delete_link(link.create_link_hash.clone(), GetOptions::default());
         }
-    }
-
-    let provider_limit = get_effective_limit_for_member(&exchange.provider_did)?;
-    let receiver_limit = get_effective_limit_for_member(&exchange.receiver_did)?;
-
-    let provider_balance =
-        get_or_create_balance(exchange.provider_did.clone(), exchange.dao_did.clone())?;
-    let new_provider_balance = provider_balance.balance + (exchange.hours.round() as i32);
-    if new_provider_balance > provider_limit {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot confirm: provider would exceed credit limit of +{}. Current balance: {}",
-            provider_limit, provider_balance.balance
-        ))));
-    }
-
-    let receiver_balance =
-        get_or_create_balance(exchange.receiver_did.clone(), exchange.dao_did.clone())?;
-    let new_receiver_balance = receiver_balance.balance - (exchange.hours.round() as i32);
-    if new_receiver_balance < -receiver_limit {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot confirm: receiver would exceed debt limit of -{}. Current balance: {}",
-            receiver_limit, receiver_balance.balance
-        ))));
     }
 
     // Reuse an orphaned claim from a previous interrupted confirmation before
@@ -1130,6 +1105,35 @@ pub fn confirm_exchange(exchange_id: String) -> ExternResult<ExchangeRecord> {
             (claim_hash, claim, record.action_address().clone())
         };
 
+    let provider_limit = get_effective_limit_for_member(&exchange.provider_did)?;
+    let receiver_limit = get_effective_limit_for_member(&exchange.receiver_did)?;
+
+    if !adj.provider_completed {
+        let provider_balance =
+            get_or_create_balance(exchange.provider_did.clone(), exchange.dao_did.clone())?;
+        let new_provider_balance =
+            provider_balance.balance + (exchange.hours.round() as i32);
+        if new_provider_balance > provider_limit {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Cannot confirm: provider would exceed credit limit of +{}. Current balance: {}",
+                provider_limit, provider_balance.balance
+            ))));
+        }
+    }
+
+    if !adj.receiver_completed {
+        let receiver_balance =
+            get_or_create_balance(exchange.receiver_did.clone(), exchange.dao_did.clone())?;
+        let new_receiver_balance =
+            receiver_balance.balance - (exchange.hours.round() as i32);
+        if new_receiver_balance < -receiver_limit {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Cannot confirm: receiver would exceed debt limit of -{}. Current balance: {}",
+                receiver_limit, receiver_balance.balance
+            ))));
+        }
+    }
+
     if !adj.provider_completed {
         update_balance_after_exchange(
             &adj.provider_did,
@@ -1179,7 +1183,7 @@ pub fn confirm_exchange(exchange_id: String) -> ExternResult<ExchangeRecord> {
         )?;
 
         adj.receiver_completed = true;
-        current_action = update_entry(
+        update_entry(
             current_action,
             &EntryTypes::PendingBalanceAdjustment(adj.clone()),
         )?;
@@ -2623,7 +2627,7 @@ fn validate_pending_claim_runtime(
     exchange_action_hash: &ActionHash,
     caller_did: &str,
 ) -> ExternResult<()> {
-    if claim.exchange_action_hash != *exchange_action_hash {
+    if claim.exchange_action_hash != exchange_action_hash.clone() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Settlement claim is bound to a different exchange".into()
         )));
@@ -2698,17 +2702,15 @@ fn find_exchange_by_id(exchange_id: &str) -> ExternResult<Option<TendExchange>> 
     hashes.sort();
     hashes.dedup();
 
-    let Some(action_hash) = match hashes.len() {
-        0 => None,
-        1 => hashes.into_iter().next(),
+    let action_hash = match hashes.len() {
+        0 => return Ok(None),
+        1 => hashes.into_iter().next().expect("len checked"),
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
                 "Conflicting exchange ActionHashes exist for exchange ID: {}",
                 exchange_id
             ))));
         }
-    } else {
-        return Ok(None);
     };
 
     let record = follow_update_chain(action_hash)?;
@@ -3457,6 +3459,99 @@ mod tests {
                 "did:mycelix:dao-c".to_string(),
             ]
         );
+    }
+
+    fn settlement_test_exchange(hash: ActionHash) -> TendExchange {
+        let _ = hash;
+        TendExchange {
+            id: "exchange-1".into(),
+            provider_did: "did:mycelix:provider".into(),
+            receiver_did: "did:mycelix:receiver".into(),
+            hours: 2.0,
+            service_description: "exchange".into(),
+            service_category: ServiceCategory::GeneralAssistance,
+            cultural_alias: None,
+            dao_did: "did:mycelix:dao".into(),
+            timestamp: ts(),
+            status: ExchangeStatus::Proposed,
+            service_date: None,
+        }
+    }
+
+    fn settlement_test_claim(hash: ActionHash) -> PendingBalanceAdjustment {
+        PendingBalanceAdjustment {
+            exchange_id: "exchange-1".into(),
+            exchange_action_hash: hash,
+            provider_did: "did:mycelix:provider".into(),
+            receiver_did: "did:mycelix:receiver".into(),
+            hours: 2.0,
+            currency_id: "did:mycelix:dao".into(),
+            provider_completed: false,
+            receiver_completed: false,
+            created_at: ts(),
+        }
+    }
+
+    #[test]
+    fn settlement_claim_runtime_binding_accepts_exact_terms() {
+        let hash = ActionHash::from_raw_36(vec![7; 36]);
+        let exchange = settlement_test_exchange(hash.clone());
+        let claim = settlement_test_claim(hash.clone());
+
+        assert!(validate_pending_claim_runtime(
+            &claim,
+            &exchange,
+            &hash,
+            "did:mycelix:receiver",
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn settlement_claim_runtime_binding_rejects_wrong_exchange_hash() {
+        let hash = ActionHash::from_raw_36(vec![7; 36]);
+        let other = ActionHash::from_raw_36(vec![8; 36]);
+        let exchange = settlement_test_exchange(hash.clone());
+        let claim = settlement_test_claim(hash);
+
+        assert!(validate_pending_claim_runtime(
+            &claim,
+            &exchange,
+            &other,
+            "did:mycelix:receiver",
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn settlement_claim_runtime_binding_rejects_wrong_receiver() {
+        let hash = ActionHash::from_raw_36(vec![7; 36]);
+        let exchange = settlement_test_exchange(hash.clone());
+        let claim = settlement_test_claim(hash.clone());
+
+        assert!(validate_pending_claim_runtime(
+            &claim,
+            &exchange,
+            &hash,
+            "did:mycelix:attacker",
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn settlement_claim_runtime_binding_rejects_mismatched_terms() {
+        let hash = ActionHash::from_raw_36(vec![7; 36]);
+        let mut claim = settlement_test_claim(hash.clone());
+        let exchange = settlement_test_exchange(hash.clone());
+        claim.hours = 3.0;
+
+        assert!(validate_pending_claim_runtime(
+            &claim,
+            &exchange,
+            &hash,
+            "did:mycelix:receiver",
+        )
+        .is_err());
     }
 
     #[test]
