@@ -722,7 +722,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::BilateralSettlement(settlement) => {
                         validate_update_bilateral_settlement(action, settlement)
                     }
-                    EntryTypes::HearthTendBalance(bal) => validate_update_hearth_balance(bal),
+                    EntryTypes::HearthTendBalance(bal) => validate_update_hearth_balance(action, bal),
                     EntryTypes::CurrencyAliasEntry(_) => {
                         // Aliases can be updated (e.g., change display name)
                         Ok(ValidateCallbackResult::Valid)
@@ -1529,14 +1529,76 @@ fn validate_create_hearth_balance(bal: HearthTendBalance) -> ExternResult<Valida
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_hearth_balance(bal: HearthTendBalance) -> ExternResult<ValidateCallbackResult> {
-    if bal.balance.abs() > HEARTH_TEND_CREDIT_LIMIT {
-        return Ok(ValidateCallbackResult::Invalid(format!(
+fn validate_update_hearth_balance(
+    action: Update,
+    bal: HearthTendBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address)?;
+    let original = original_record
+        .entry()
+        .to_app_option::<HearthTendBalance>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "HearthTendBalance predecessor deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "HearthTendBalance update predecessor is not a HearthTendBalance".into()
+            ))
+        })?;
+
+    Ok(validate_hearth_balance_state_transition(&original, &bal))
+}
+
+fn validate_hearth_balance_state_transition(
+    original: &HearthTendBalance,
+    updated: &HearthTendBalance,
+) -> ValidateCallbackResult {
+    if original.member_did != updated.member_did {
+        return ValidateCallbackResult::Invalid(
+            "HearthTendBalance member_did is immutable across updates".into(),
+        );
+    }
+    if original.hearth_did != updated.hearth_did {
+        return ValidateCallbackResult::Invalid(
+            "HearthTendBalance hearth_did is immutable across updates".into(),
+        );
+    }
+    if updated.total_provided < original.total_provided {
+        return ValidateCallbackResult::Invalid(
+            "HearthTendBalance total_provided cannot decrease".into(),
+        );
+    }
+    if updated.total_received < original.total_received {
+        return ValidateCallbackResult::Invalid(
+            "HearthTendBalance total_received cannot decrease".into(),
+        );
+    }
+    if updated.exchange_count < original.exchange_count {
+        return ValidateCallbackResult::Invalid(
+            "HearthTendBalance exchange_count cannot decrease".into(),
+        );
+    }
+    if updated.last_activity < original.last_activity {
+        return ValidateCallbackResult::Invalid(
+            "HearthTendBalance last_activity cannot move backwards".into(),
+        );
+    }
+    if updated.balance.abs() > HEARTH_TEND_CREDIT_LIMIT {
+        return ValidateCallbackResult::Invalid(format!(
             "Hearth TEND balance would exceed limit of ±{}",
             HEARTH_TEND_CREDIT_LIMIT
-        )));
+        ));
     }
-    Ok(ValidateCallbackResult::Valid)
+    if !updated.total_provided.is_finite() || !updated.total_received.is_finite() {
+        return ValidateCallbackResult::Invalid(
+            "HearthTendBalance totals must be finite numbers".into(),
+        );
+    }
+
+    ValidateCallbackResult::Valid
 }
 
 fn validate_create_currency_alias(
@@ -2081,6 +2143,74 @@ mod tests {
             exchange_count: 2,
             last_activity: ts(1_000_000),
         }
+    }
+
+    #[test]
+    fn hearth_balance_transition_accepts_identity_and_monotonic_history() {
+        let original = valid_hearth_balance();
+        let mut updated = original.clone();
+        updated.balance = 7;
+        updated.total_provided = 12.0;
+        updated.total_received = 5.0;
+        updated.exchange_count = 3;
+        updated.last_activity = ts(2_000_000);
+
+        assert!(matches!(
+            validate_hearth_balance_state_transition(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn hearth_balance_transition_rejects_identity_swaps() {
+        let original = valid_hearth_balance();
+
+        let mut member_swap = original.clone();
+        member_swap.member_did = "did:mycelix:attacker".into();
+        assert!(matches!(
+            validate_hearth_balance_state_transition(&original, &member_swap),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut hearth_swap = original.clone();
+        hearth_swap.hearth_did = "did:mycelix:other-hearth".into();
+        assert!(matches!(
+            validate_hearth_balance_state_transition(&original, &hearth_swap),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn hearth_balance_transition_rejects_history_regression() {
+        let original = valid_hearth_balance();
+
+        let mut provided = original.clone();
+        provided.total_provided = 9.0;
+        assert!(matches!(
+            validate_hearth_balance_state_transition(&original, &provided),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut received = original.clone();
+        received.total_received = 4.0;
+        assert!(matches!(
+            validate_hearth_balance_state_transition(&original, &received),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut count = original.clone();
+        count.exchange_count = 1;
+        assert!(matches!(
+            validate_hearth_balance_state_transition(&original, &count),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut time = original.clone();
+        time.last_activity = ts(500_000);
+        assert!(matches!(
+            validate_hearth_balance_state_transition(&original, &time),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     fn valid_settlement() -> BilateralSettlement {
