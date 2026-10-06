@@ -35,7 +35,22 @@ def normalized_lines(raw: bytes) -> list[str]:
     return text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 
 def active_uses(lines: list[str]) -> list[str]:
-    return [line.strip() for line in lines if re.match(r"\s+uses:\s+", line) and not line.lstrip().startswith("#")]
+    return [
+        line.strip()
+        for line in lines
+        if re.match(r"\s+uses:\s+", line)
+        and not line.lstrip().startswith("#")
+        and not re.match(r"\s+uses:\s+\./", line)
+    ]
+
+
+def active_local_uses(lines: list[str]) -> list[str]:
+    return [
+        line.strip()
+        for line in lines
+        if re.match(r"\s+uses:\s+\./", line)
+        and not line.lstrip().startswith("#")
+    ]
 
 def exact_count(lines: list[str], pattern: str) -> int:
     return sum(1 for line in lines if re.fullmatch(pattern, line.strip()))
@@ -85,6 +100,17 @@ def require_exact_action_set(lines: list[str], expected_actions: tuple[str, ...]
     if tuple(actual) != tuple(expected_actions):
         fail(f"{description}: expected exact action set {expected_actions!r}, found {tuple(actual)!r}")
 
+def require_exact_local_workflow_set(lines: list[str], expected_workflows: tuple[str, ...], description: str) -> None:
+    actual = []
+    for use in active_local_uses(lines):
+        match = re.fullmatch(r"uses:\s+(.+)", use)
+        if not match:
+            fail(f"{description}: malformed local reusable workflow reference: {use!r}")
+        actual.append(match.group(1))
+    if tuple(actual) != tuple(expected_workflows):
+        fail(f"{description}: expected exact local workflow set {expected_workflows!r}, found {tuple(actual)!r}")
+
+
 def verify_s0(raw: bytes) -> None:
     lines = normalized_lines(raw)
     require_exact(lines, "name: Security Kernel Qualification — Trusted Dispatcher", "S0 name")
@@ -102,6 +128,11 @@ def verify_s0(raw: bytes) -> None:
     forbid(lines, ("actions/checkout@", "git checkout ", "git fetch ", "actions: write", "contents: write", "pull-requests: write", "id-token:", "secrets:"), "S0 trust boundary")
     verify_action_pins(lines, {"actions/checkout": CHECKOUT_SHA, "actions/upload-artifact": UPLOAD_SHA})
     require_exact_action_set(lines, (), "S0 actions")
+    require_exact_local_workflow_set(
+        lines,
+        ("./.github/workflows/security-kernel-independent-qualification.yml",),
+        "S0 local reusable workflows",
+    )
 
 def verify_s1(raw: bytes) -> None:
     lines = normalized_lines(raw)
@@ -131,6 +162,7 @@ def verify_s1(raw: bytes) -> None:
         (f"actions/checkout@{CHECKOUT_SHA}", f"actions/upload-artifact@{UPLOAD_SHA}"),
         "S1 actions",
     )
+    require_exact_local_workflow_set(lines, (), "S1 local reusable workflows")
 
 def verify_s2(raw: bytes, expected_policy_blob_sha: str) -> None:
     lines = normalized_lines(raw)
@@ -158,6 +190,7 @@ def verify_s2(raw: bytes, expected_policy_blob_sha: str) -> None:
     forbid(lines, ("actions: write", "contents: write", "pull-requests: write", "id-token:", "actions/upload-artifact@", "docker run ", "docker exec "), "S2 read-only verifier boundary")
     verify_action_pins(lines, {"actions/checkout": CHECKOUT_SHA})
     require_exact_action_set(lines, (f"actions/checkout@{CHECKOUT_SHA}",), "S2 actions")
+    require_exact_local_workflow_set(lines, (), "S2 local reusable workflows")
 
 def verify_file_identity(record: dict) -> bytes:
     if set(record) != {"path", "ref", "sha", "encoding", "content"}:
