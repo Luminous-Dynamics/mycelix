@@ -2,7 +2,7 @@
 """Independent reference verifier for Security Kernel execution/evidence bindings.
 
 No network access and no repository-local imports. The verifier validates the exact
-execution-binding v2 schema currently emitted by S2, then computes a distinct
+execution-binding v3 schema currently emitted by S2, then computes a distinct
 length-framed commitment and verifies that every non-schema field affects it.
 """
 
@@ -12,7 +12,7 @@ import struct
 import sys
 from pathlib import Path
 
-SCHEMA = "security-kernel-execution-binding-v2"
+SCHEMA = "security-kernel-execution-binding-v3"
 
 V1_KEYS = frozenset(
     {
@@ -45,6 +45,14 @@ V2_KEYS = V1_KEYS | frozenset(
     }
 )
 
+V3_KEYS = V2_KEYS | frozenset(
+    {
+        "verifier_workflow_path",
+        "verifier_workflow_sha",
+        "verifier_workflow_blob_sha",
+    }
+)
+
 INT_KEYS = frozenset(
     {
         "repository_id",
@@ -65,6 +73,8 @@ HEX40_KEYS = frozenset(
         "candidate_sha",
         "dispatcher_workflow_sha",
         "s1_workflow_blob_sha",
+        "verifier_workflow_sha",
+        "verifier_workflow_blob_sha",
     }
 )
 
@@ -79,11 +89,11 @@ def fail(message: str) -> None:
 def validate(binding: object) -> dict:
     if not isinstance(binding, dict):
         fail("binding must be a JSON object")
-    if set(binding) != V2_KEYS:
+    if set(binding) != V3_KEYS:
         fail(
             "closed-world schema mismatch: "
-            f"missing={sorted(V2_KEYS - set(binding))!r} "
-            f"extra={sorted(set(binding) - V2_KEYS)!r}"
+            f"missing={sorted(V3_KEYS - set(binding))!r} "
+            f"extra={sorted(set(binding) - V3_KEYS)!r}"
         )
     if binding["schema"] != SCHEMA:
         fail(f"unexpected schema: {binding['schema']!r}")
@@ -121,9 +131,13 @@ def validate(binding: object) -> dict:
         "dispatcher_workflow_path",
         "s1_workflow_path",
         "artifact_name",
+        "verifier_workflow_path",
     ):
         if not isinstance(binding[key], str) or not binding[key]:
             fail(f"{key} must be a non-empty string")
+
+    if binding["verifier_workflow_path"] != ".github/workflows/security-kernel-trusted-result-verifier.yml":
+        fail("verifier_workflow_path is not the registered S2 verifier path")
 
     if not isinstance(binding["artifact_digest"], str):
         fail("artifact_digest must be a string")
@@ -150,7 +164,7 @@ def scalar(value: object) -> bytes:
 
 
 def reference_digest(binding: dict) -> str:
-    pieces = [frame(b"security-kernel-execution-reference-v2")]
+    pieces = [frame(b"security-kernel-execution-reference-v3")]
     for key in sorted(binding):
         pieces.append(frame(key.encode("utf-8")))
         pieces.append(frame(scalar(binding[key])))
@@ -176,7 +190,7 @@ def main() -> None:
     binding = validate(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")))
     digest = reference_digest(binding)
     mutations_verified = 0
-    for key in sorted(V2_KEYS - {"schema"}):
+    for key in sorted(V3_KEYS - {"schema"}):
         mutated = dict(binding)
         mutated[key] = mutate(binding[key])
         if reference_digest(mutated) == digest:
