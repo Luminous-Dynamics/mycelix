@@ -40,4 +40,4 @@ The profile ceiling remains ReferenceModelOnly. No hardware qualification is int
 
 The deterministic corpus contains one canonical PASS, twenty-six adversarial mutations, and a key-order permutation check. DENY outranks INDETERMINATE, which outranks PASS.
 
-The public-name prerequisite is source/input/output bound: a serialized PASS, substituted verifier source, or alternate public-area input cannot satisfy lineage without re-execution of the exact public-name verifier.
+The public-name prerequisite is source/input/output bound: a serialized PASS, substituted verifier source, alternate public-area input, or substituted verifier output cannot satisfy lineage without re-execution of the exact public-name verifier.
