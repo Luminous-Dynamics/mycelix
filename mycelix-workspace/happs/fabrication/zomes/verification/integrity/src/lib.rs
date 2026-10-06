@@ -23,10 +23,19 @@ pub enum EntryTypes {
     FpmRegistrationAnchor(FpmRegistrationAnchor),
     #[entry_type(visibility = "public")]
     FpmProvenanceAnchor(FpmProvenanceAnchor),
+    #[entry_type(visibility = "public")]
+    FpmAcquisitionRootAnchor(FpmAcquisitionRootAnchor),
+    #[entry_type(visibility = "public")]
+    FpmAttestationChallenge(FpmAttestationChallenge),
+    #[entry_type(visibility = "public")]
+    FpmSourceAttestationAnchor(FpmSourceAttestationAnchor),
+    #[entry_type(visibility = "public")]
+    FpmAttestationChallengeUse(FpmAttestationChallengeUse),
 }
 
 #[hdk_link_types]
 pub enum LinkTypes {
+    FpmChallengeToUses,
     DesignToVerifications,
     DesignToClaims,
     VerifierToVerifications,
@@ -96,6 +105,55 @@ pub struct FpmProvenanceAnchor {
     pub witness_digest: String,
 }
 
+pub const FPM_ACQUISITION_ROOT_ANCHOR_SCHEMA_VERSION: &str =
+    "fpm.acquisition-root.anchor.v1";
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FpmAcquisitionRootAnchor {
+    pub schema_version: String,
+    pub source_system_id: String,
+    pub capture_reference: String,
+    pub artifact_digest: String,
+    pub root_digest: String,
+}
+
+pub const FPM_ATTESTATION_CHALLENGE_SCHEMA_VERSION: &str =
+    "fpm.attestation.challenge.v1";
+pub const FPM_SOURCE_ATTESTATION_ANCHOR_SCHEMA_VERSION: &str =
+    "fpm.attestation.result-anchor.v1";
+pub const FPM_ATTESTATION_CHALLENGE_USE_SCHEMA_VERSION: &str =
+    "fpm.attestation.challenge-use.v1";
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FpmAttestationChallenge {
+    pub schema_version: String,
+    pub subject_id: String,
+    pub acquisition_root_digest: String,
+    pub verifier_agent: AgentPubKey,
+    pub appraisal_policy_digest: String,
+    pub nonce: Vec<u8>,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FpmSourceAttestationAnchor {
+    pub schema_version: String,
+    pub challenge_action: ActionHash,
+    pub claim: FpmSourceAttestationClaim,
+    pub claim_digest: String,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FpmAttestationChallengeUse {
+    pub schema_version: String,
+    pub challenge_action: ActionHash,
+    pub attestation_action: ActionHash,
+    pub author: AgentPubKey,
+}
+
 #[hdk_extern]
 pub fn genesis_self_check(_: GenesisSelfCheckData) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
@@ -113,6 +171,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::VerificationRequest(r) => validate_verification_request(r),
             EntryTypes::FpmRegistrationAnchor(a) => validate_fpm_registration_anchor(a),
             EntryTypes::FpmProvenanceAnchor(a) => validate_fpm_provenance_anchor(a),
+            EntryTypes::FpmAcquisitionRootAnchor(a) => validate_fpm_acquisition_root_anchor(a),
+            EntryTypes::FpmAttestationChallenge(a) => validate_fpm_attestation_challenge(a),
+            EntryTypes::FpmSourceAttestationAnchor(a) => validate_fpm_source_attestation_anchor(a),
+            EntryTypes::FpmAttestationChallengeUse(a) => validate_fpm_attestation_challenge_use(a),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterCreateLink { link_type, tag, .. } => {
@@ -277,6 +339,158 @@ fn validate_fpm_registration_anchor(
     if computed_digest != anchor.envelope_digest {
         return Ok(ValidateCallbackResult::Invalid(
             "FPM registration anchor envelope digest mismatch".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate an FPM acquisition-root anchor entry.
+fn validate_fpm_acquisition_root_anchor(
+    anchor: FpmAcquisitionRootAnchor,
+) -> ExternResult<ValidateCallbackResult> {
+    if anchor.schema_version != FPM_ACQUISITION_ROOT_ANCHOR_SCHEMA_VERSION {
+        return Ok(ValidateCallbackResult::Invalid(
+            "unsupported FPM acquisition-root anchor schema".into(),
+        ));
+    }
+    for (name, value, max_len) in [
+        ("source_system_id", &anchor.source_system_id, 128usize),
+        ("capture_reference", &anchor.capture_reference, 256usize),
+    ] {
+        if value.is_empty()
+            || value != value.trim()
+            || value.len() > max_len
+            || value.chars().any(char::is_control)
+        {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "invalid FPM acquisition-root {name}"
+            )));
+        }
+    }
+    for (name, value) in [
+        ("artifact_digest", &anchor.artifact_digest),
+        ("root_digest", &anchor.root_digest),
+    ] {
+        if value.len() != 64
+            || !value.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "{name} must be canonical lowercase SHA-256"
+            )));
+        }
+    }
+    if acquisition_root_binding_digest(
+        &anchor.source_system_id,
+        &anchor.capture_reference,
+        &anchor.artifact_digest,
+    ) != anchor.root_digest {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM acquisition-root digest mismatch".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+
+fn canonical_attestation_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn valid_attestation_identifier(value: &str, max_len: usize) -> bool {
+    !value.trim().is_empty()
+        && value == value.trim()
+        && value.len() <= max_len
+        && !value.chars().any(char::is_control)
+}
+
+fn validate_fpm_attestation_challenge(
+    challenge: FpmAttestationChallenge,
+) -> ExternResult<ValidateCallbackResult> {
+    if challenge.schema_version != FPM_ATTESTATION_CHALLENGE_SCHEMA_VERSION {
+        return Ok(ValidateCallbackResult::Invalid(
+            "unsupported FPM attestation challenge schema".into(),
+        ));
+    }
+    if !valid_attestation_identifier(&challenge.subject_id, 128)
+        || !canonical_attestation_digest(&challenge.acquisition_root_digest)
+        || !canonical_attestation_digest(&challenge.appraisal_policy_digest)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "malformed FPM attestation challenge binding".into(),
+        ));
+    }
+    if challenge.nonce.len() < 8 || challenge.nonce.len() > 64 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM attestation challenge nonce must contain 8..64 bytes".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_fpm_source_attestation_anchor(
+    anchor: FpmSourceAttestationAnchor,
+) -> ExternResult<ValidateCallbackResult> {
+    if anchor.schema_version != FPM_SOURCE_ATTESTATION_ANCHOR_SCHEMA_VERSION {
+        return Ok(ValidateCallbackResult::Invalid(
+            "unsupported FPM source attestation anchor schema".into(),
+        ));
+    }
+    let qualification = qualify_source_attestation(&FpmAttestationQualificationInput {
+        expected_subject_id: anchor.claim.subject_id.clone(),
+        expected_acquisition_root_digest: anchor.claim.acquisition_root_digest.clone(),
+        expected_challenge_nonce_digest: anchor.claim.challenge_nonce_digest.clone(),
+        expected_appraisal_policy_digest: anchor.claim.appraisal_policy_digest.clone(),
+        claim: anchor.claim.clone(),
+    });
+    if qualification.status == FpmAttestationQualificationStatus::InvalidEvidence {
+        return Ok(ValidateCallbackResult::Invalid(
+            "invalid FPM source attestation claim".into(),
+        ));
+    }
+    if anchor.claim_digest != anchor.claim.digest() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM source attestation claim digest mismatch".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_fpm_attestation_challenge_use(
+    use_entry: FpmAttestationChallengeUse,
+) -> ExternResult<ValidateCallbackResult> {
+    if use_entry.schema_version != FPM_ATTESTATION_CHALLENGE_USE_SCHEMA_VERSION {
+        return Ok(ValidateCallbackResult::Invalid(
+            "unsupported FPM attestation challenge-use schema".into(),
+        ));
+    }
+    let challenge = must_get_action(use_entry.challenge_action.clone())?;
+    if challenge.action_type() != ActionType::Create {
+        return Ok(ValidateCallbackResult::Invalid(
+            "attestation challenge-use must reference a Create action".into(),
+        ));
+    }
+    let attestation = must_get_action(use_entry.attestation_action.clone())?;
+    if attestation.action_type() != ActionType::Create {
+        return Ok(ValidateCallbackResult::Invalid(
+            "attestation challenge-use must reference a Create attestation action".into(),
+        ));
+    }
+    if use_entry.attestation_action == use_entry.challenge_action {
+        return Ok(ValidateCallbackResult::Invalid(
+            "attestation challenge-use cannot self-reference challenge".into(),
+        ));
+    }
+    if *challenge.author() != use_entry.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "attestation challenge-use author does not match challenge verifier".into(),
+        ));
+    }
+    if *attestation.author() != use_entry.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "attestation challenge-use author does not match attestation author".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)

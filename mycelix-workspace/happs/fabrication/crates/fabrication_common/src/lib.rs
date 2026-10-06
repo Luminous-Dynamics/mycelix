@@ -23,6 +23,7 @@ pub mod fpm_context;
 pub mod fpm_registration;
 pub mod fpm_qualification;
 pub mod fpm_provenance;
+pub mod fpm_attestation;
 
 pub mod validation {
     use hdi::prelude::{ValidateCallbackResult, LinkTag};

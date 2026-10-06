@@ -69,6 +69,34 @@ pub struct ResolvedFpmRegistrationAnchor {
     pub envelope: RegistrationEnvelope,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateFpmAcquisitionRootAnchorInput {
+    pub source_system_id: String,
+    pub capture_reference: String,
+    pub artifact_digest: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolveFpmAcquisitionRootActionAnchorInput {
+    pub action_hash: ActionHash,
+    pub expected_root_digest: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolvedFpmAcquisitionRootAnchor {
+    pub action_hash: ActionHash,
+    pub entry_hash: EntryHash,
+    pub root_digest: String,
+    pub source_system_id: String,
+    pub capture_reference: String,
+    pub artifact_digest: String,
+    pub author: AgentPubKey,
+    pub signer: AgentPubKey,
+    pub timestamp: Timestamp,
+    pub action_seq: u32,
+    pub prev_action: Option<ActionHash>,
+}
+
 fn valid_fpm_digest(value: &str) -> bool {
     value.len() == 64
         && value.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
@@ -331,6 +359,137 @@ fn validate_provenance_witness_against_envelope(
     Ok(())
 }
 
+fn valid_acquisition_root_label(value: &str, max_len: usize) -> bool {
+    !value.is_empty()
+        && value == value.trim()
+        && value.len() <= max_len
+        && !value.chars().any(char::is_control)
+}
+
+fn fpm_root_anchor_error(reason: impl Into<String>) -> WasmError {
+    FabricationError::ValidationFailed {
+        field: "fpm_acquisition_root_anchor".into(),
+        reason: reason.into(),
+    }
+    .to_wasm_error()
+}
+
+fn resolve_acquisition_root_action_anchor(
+    input: ResolveFpmAcquisitionRootActionAnchorInput,
+) -> ExternResult<ResolvedFpmAcquisitionRootAnchor> {
+    let details = get_details(input.action_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| FabricationError::not_found(
+            "FpmAcquisitionRootAnchor",
+            &input.action_hash,
+        ))?;
+
+    let Details::Record(record_details) = details else {
+        return Err(fpm_root_anchor_error(
+            "acquisition-root ActionHash did not resolve to record details",
+        ));
+    };
+
+    if record_details.validation_status != ValidationStatus::Valid {
+        return Err(fpm_root_anchor_error("acquisition-root record is not valid"));
+    }
+    if !record_details.updates.is_empty() {
+        return Err(fpm_root_anchor_error("acquisition-root record has updates"));
+    }
+    if !record_details.deletes.is_empty() {
+        return Err(fpm_root_anchor_error("acquisition-root record has deletes"));
+    }
+
+    let record = record_details.record;
+    if record.action().action_type() != ActionType::Create {
+        return Err(fpm_root_anchor_error(
+            "acquisition-root ActionHash must resolve to the original Create action",
+        ));
+    }
+
+    let expected_entry_type = EntryType::App(
+        UnitEntryTypes::FpmAcquisitionRootAnchor
+            .try_into()
+            .map_err(|_| {
+                fpm_root_anchor_error(
+                    "could not construct FPM acquisition-root entry type",
+                )
+            })?,
+    );
+    if record.action().entry_type() != Some(&expected_entry_type) {
+        return Err(fpm_root_anchor_error(
+            "ActionHash does not reference the FPM acquisition-root entry type",
+        ));
+    }
+
+    let anchor: FpmAcquisitionRootAnchor = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            fpm_root_anchor_error(format!(
+                "could not decode FPM acquisition-root anchor: {e}"
+            ))
+        })?
+        .ok_or_else(|| {
+            fpm_root_anchor_error(
+                "record is not an FPM acquisition-root anchor entry",
+            )
+        })?;
+
+    if anchor.schema_version != FPM_ACQUISITION_ROOT_ANCHOR_SCHEMA_VERSION {
+        return Err(fpm_root_anchor_error(
+            "unsupported FPM acquisition-root anchor schema",
+        ));
+    }
+    if !valid_acquisition_root_label(&anchor.source_system_id, 128)
+        || !valid_acquisition_root_label(&anchor.capture_reference, 256)
+        || !valid_fpm_digest(&anchor.artifact_digest)
+        || !valid_fpm_digest(&anchor.root_digest)
+    {
+        return Err(fpm_root_anchor_error(
+            "acquisition-root declaration is malformed",
+        ));
+    }
+    if acquisition_root_binding_digest(
+        &anchor.source_system_id,
+        &anchor.capture_reference,
+        &anchor.artifact_digest,
+    ) != anchor.root_digest
+    {
+        return Err(fpm_root_anchor_error(
+            "acquisition-root commitment does not match declaration",
+        ));
+    }
+    if let Some(expected) = input.expected_root_digest.as_ref() {
+        if expected != &anchor.root_digest {
+            return Err(fpm_root_anchor_error(
+                "acquisition-root digest does not match expected witness root",
+            ));
+        }
+    }
+
+    let entry_hash = record
+        .action()
+        .entry_hash()
+        .ok_or_else(|| fpm_root_anchor_error(
+            "acquisition-root action has no entry hash",
+        ))?
+        .clone();
+
+    Ok(ResolvedFpmAcquisitionRootAnchor {
+        action_hash: input.action_hash,
+        entry_hash,
+        root_digest: anchor.root_digest,
+        source_system_id: anchor.source_system_id,
+        capture_reference: anchor.capture_reference,
+        artifact_digest: anchor.artifact_digest,
+        author: *record.action().author(),
+        signer: *record.action().signer(),
+        timestamp: record.action().timestamp(),
+        action_seq: record.action().action_seq(),
+        prev_action: record.action().prev_action().cloned(),
+    })
+}
+
 fn valid_provenance_identifier(value: &str) -> bool {
     !value.is_empty()
         && value == value.trim()
@@ -471,6 +630,34 @@ fn resolve_provenance_action_anchor(
     })
 }
 
+fn authenticated_acquisition_root_manifest_digest(
+    roots: &[ResolvedFpmAcquisitionRootAnchor],
+) -> String {
+    let mut entries = roots
+        .iter()
+        .map(|root| {
+            (
+                root.action_hash.to_string(),
+                root.root_digest.clone(),
+                root.artifact_digest.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    entries.sort_unstable();
+
+    let mut bytes = Vec::new();
+    append_length_prefixed(
+        &mut bytes,
+        b"fpm.authenticated-acquisition-root-manifest.v1",
+    );
+    for (action_hash, root_digest, artifact_digest) in entries {
+        append_length_prefixed(&mut bytes, action_hash.as_bytes());
+        append_length_prefixed(&mut bytes, root_digest.as_bytes());
+        append_length_prefixed(&mut bytes, artifact_digest.as_bytes());
+    }
+    hex_digest_bytes(&bytes)
+}
+
 fn authenticated_provenance_manifest_digest(
     witnesses: &[ResolvedFpmProvenanceAnchor],
 ) -> String {
@@ -508,6 +695,51 @@ fn hex_digest_bytes(bytes: &[u8]) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+
+#[hdk_extern]
+pub fn create_fpm_acquisition_root_anchor(
+    input: CreateFpmAcquisitionRootAnchorInput,
+) -> ExternResult<Record> {
+    rate_limit_caller()?;
+
+    if !valid_acquisition_root_label(&input.source_system_id, 128)
+        || !valid_acquisition_root_label(&input.capture_reference, 256)
+        || !valid_fpm_digest(&input.artifact_digest)
+    {
+        return Err(fpm_root_anchor_error(
+            "invalid acquisition-root declaration",
+        ));
+    }
+
+    let root_digest = acquisition_root_binding_digest(
+        &input.source_system_id,
+        &input.capture_reference,
+        &input.artifact_digest,
+    );
+    let anchor = FpmAcquisitionRootAnchor {
+        schema_version: FPM_ACQUISITION_ROOT_ANCHOR_SCHEMA_VERSION.into(),
+        source_system_id: input.source_system_id,
+        capture_reference: input.capture_reference,
+        artifact_digest: input.artifact_digest,
+        root_digest,
+    };
+
+    let action_hash = create_entry(EntryTypes::FpmAcquisitionRootAnchor(anchor))?;
+    get(action_hash, GetOptions::default())?.ok_or_else(|| {
+        FabricationError::not_found(
+            "FpmAcquisitionRootAnchor",
+            &"newly-created action",
+        )
+    })
+}
+
+#[hdk_extern]
+pub fn resolve_fpm_acquisition_root_action_anchor(
+    input: ResolveFpmAcquisitionRootActionAnchorInput,
+) -> ExternResult<ResolvedFpmAcquisitionRootAnchor> {
+    rate_limit_caller()?;
+    resolve_acquisition_root_action_anchor(input)
 }
 
 #[hdk_extern]
@@ -590,6 +822,53 @@ pub fn qualify_authenticated_fpm_provenance(
         )?);
     }
 
+    let mut root_action_hashes = input.acquisition_root_action_hashes.clone();
+    root_action_hashes.sort_by_key(|hash| hash.to_string());
+    if root_action_hashes.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(fpm_root_anchor_error(
+            "duplicate authenticated acquisition-root ActionHash",
+        ));
+    }
+    if root_action_hashes.is_empty() || root_action_hashes.len() > MAX_PROVENANCE_ANCHORS {
+        return Err(fpm_root_anchor_error(
+            "authenticated acquisition-root anchor count is outside supported bounds",
+        ));
+    }
+
+    let mut roots = Vec::with_capacity(root_action_hashes.len());
+    for action_hash in &root_action_hashes {
+        roots.push(resolve_acquisition_root_action_anchor(
+            ResolveFpmAcquisitionRootActionAnchorInput {
+                action_hash: action_hash.clone(),
+                expected_root_digest: None,
+            },
+        )?);
+    }
+
+    let witness_root_digests = resolved
+        .iter()
+        .map(|item| item.witness.acquisition_root_digest.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut resolved_root_digest_list = roots
+        .iter()
+        .map(|root| root.root_digest.clone())
+        .collect::<Vec<_>>();
+    resolved_root_digest_list.sort_unstable();
+    if resolved_root_digest_list.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(fpm_root_anchor_error(
+            "duplicate authenticated acquisition-root commitment",
+        ));
+    }
+    let resolved_root_digests = resolved_root_digest_list
+        .into_iter()
+        .collect::<std::collections::BTreeSet<_>>();
+
+    if witness_root_digests != resolved_root_digests {
+        return Err(fpm_root_anchor_error(
+            "authenticated acquisition-root coverage does not exactly match witness roots",
+        ));
+    }
+
     let lineage = resolved
         .iter()
         .map(|item| item.witness.clone())
@@ -603,14 +882,18 @@ pub fn qualify_authenticated_fpm_provenance(
 
     let provenance_anchor_manifest_digest =
         authenticated_provenance_manifest_digest(&resolved);
+    let acquisition_root_anchor_manifest_digest =
+        authenticated_acquisition_root_manifest_digest(&roots);
 
     Ok(AuthenticatedFpmProvenanceQualification {
         schema_version: FPM_AUTHENTICATED_PROVENANCE_SCHEMA_VERSION.into(),
         registration_anchor_action: input.registration_anchor_action,
         registration_envelope_digest: registration.registration_envelope_digest,
         provenance_anchor_manifest_digest,
+        acquisition_root_anchor_manifest_digest,
         structural_qualification,
         witnesses: resolved,
+        roots,
     })
 }
 
@@ -618,6 +901,7 @@ pub fn qualify_authenticated_fpm_provenance(
 pub struct QualifyAuthenticatedFpmProvenanceInput {
     pub registration_anchor_action: ActionHash,
     pub provenance_action_hashes: Vec<ActionHash>,
+    pub acquisition_root_action_hashes: Vec<ActionHash>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -626,8 +910,10 @@ pub struct AuthenticatedFpmProvenanceQualification {
     pub registration_anchor_action: ActionHash,
     pub registration_envelope_digest: String,
     pub provenance_anchor_manifest_digest: String,
+    pub acquisition_root_anchor_manifest_digest: String,
     pub structural_qualification: ProvenanceQualification,
     pub witnesses: Vec<ResolvedFpmProvenanceAnchor>,
+    pub roots: Vec<ResolvedFpmAcquisitionRootAnchor>,
 }
 
 pub const FPM_AUTHENTICATED_PROVENANCE_SCHEMA_VERSION: &str =
@@ -1450,6 +1736,41 @@ mod tests {
     }
 
     #[test]
+    fn authenticated_root_manifest_is_order_independent_and_scope_bound() {
+        fn root(byte: u8) -> ResolvedFpmAcquisitionRootAnchor {
+            ResolvedFpmAcquisitionRootAnchor {
+                action_hash: ActionHash::from_raw_36(vec![byte; 36]),
+                entry_hash: EntryHash::from_raw_36(vec![byte; 36]),
+                root_digest: format!("{byte:064x}"),
+                source_system_id: format!("system-{byte}"),
+                capture_reference: format!("capture-{byte}"),
+                artifact_digest: format!("{:064x}", byte as u64),
+                author: AgentPubKey::from_raw_36(vec![1u8; 36]),
+                signer: AgentPubKey::from_raw_36(vec![2u8; 36]),
+                timestamp: Timestamp::from_micros(1_000),
+                action_seq: byte as u32,
+                prev_action: None,
+            }
+        }
+
+        let a = root(1);
+        let b = root(2);
+        let ordered = authenticated_acquisition_root_manifest_digest(&[a.clone(), b.clone()]);
+        assert_eq!(
+            ordered,
+            authenticated_acquisition_root_manifest_digest(&[b.clone(), a.clone()]),
+        );
+
+        let mut scoped = b;
+        scoped.root_digest = format!("{:064x}", 3u8 as u64);
+        assert_ne!(
+            ordered,
+            authenticated_acquisition_root_manifest_digest(&[a, scoped]),
+            "root manifest must commit the root declaration identity",
+        );
+    }
+
+    #[test]
     fn authenticated_provenance_qualification_digest_is_deterministic() {
         let structural = ProvenanceQualification {
             schema_version: FPM_PROVENANCE_QUALIFICATION_SCHEMA_VERSION.into(),
@@ -1466,8 +1787,10 @@ mod tests {
             registration_anchor_action: ActionHash::from_raw_36(vec![7u8; 36]),
             registration_envelope_digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             provenance_anchor_manifest_digest: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".into(),
+            acquisition_root_anchor_manifest_digest: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".into(),
             structural_qualification: structural,
             witnesses: vec![],
+            roots: vec![],
         };
 
         assert_eq!(qualification.digest(), qualification.digest());
