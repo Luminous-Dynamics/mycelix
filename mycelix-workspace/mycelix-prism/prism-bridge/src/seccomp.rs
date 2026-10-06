@@ -1,0 +1,4747 @@
+//! Linux seccomp-BPF renderer syscall enforcement.
+//!
+//! This adapter intentionally accepts an explicit, architecture-qualified
+//! syscall allowlist. It does not invent a permissive "default renderer"
+//! allowlist: a real renderer policy must be derived from qualified runtime
+//! evidence and then committed by its digest.
+//!
+//! Security invariants:
+//! - architecture is checked before syscall number;
+//! - empty/oversized/duplicate lists fail closed;
+//! - the filter defaults to EPERM;
+//! - ptrace-style tracing is never introduced by this adapter;
+//! - no_new_privs is required before unprivileged filter installation;
+//! - a successful receipt proves only the Syscall layer, not a complete sandbox.
+
+use crate::process::{
+    SandboxAdapterKind, SandboxEnforcementLayer, SandboxEnforcementReceipt,
+    SandboxInstallationId, SandboxProfileV1, RendererProcessAssignmentId,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u32)]
+pub enum SeccompArchitecture {
+    X86_64 = 0xc000003e,
+    Aarch64 = 0xc00000b7,
+    Riscv64 = 0xc00000f3,
+}
+
+impl SeccompArchitecture {
+    pub const fn current() -> Option<Self> {
+        #[cfg(target_arch = "x86_64")]
+        { Some(Self::X86_64) }
+        #[cfg(target_arch = "aarch64")]
+        { Some(Self::Aarch64) }
+        #[cfg(target_arch = "riscv64")]
+        { Some(Self::Riscv64) }
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "riscv64")))]
+        { None }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeccompSyscallPolicyV1 {
+    architecture: SeccompArchitecture,
+    allowed_syscalls: Vec<i64>,
+}
+
+impl SeccompSyscallPolicyV1 {
+    pub fn new(
+        architecture: SeccompArchitecture,
+        mut allowed_syscalls: Vec<i64>,
+    ) -> Result<Self, SeccompError> {
+        const MAX_SYSCALLS: usize = 256;
+        const X32_SYSCALL_BIT: i64 = 0x4000_0000;
+        if allowed_syscalls.is_empty() || allowed_syscalls.len() > MAX_SYSCALLS {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        // seccomp_data.nr is a signed 32-bit syscall number. Values outside
+        // that representable domain are not meaningful policy inputs and
+        // should never reach BPF generation.
+        if allowed_syscalls.iter().any(|n| *n < 0 || *n > i32::MAX as i64) {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        // x86-64 and x32 share AUDIT_ARCH_X86_64. Do not permit a policy to
+        // explicitly allow an x32-tagged syscall number, because the
+        // architecture field alone cannot distinguish the two ABIs.
+        if architecture == SeccompArchitecture::X86_64
+            && allowed_syscalls
+                .iter()
+                .any(|n| (*n & X32_SYSCALL_BIT) != 0)
+        {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        allowed_syscalls.sort_unstable();
+        if allowed_syscalls.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(SeccompError::DuplicateSyscall);
+        }
+        Ok(Self { architecture, allowed_syscalls })
+    }
+
+    pub const fn architecture(&self) -> SeccompArchitecture {
+        self.architecture
+    }
+
+    pub fn allowed_syscalls(&self) -> &[i64] {
+        &self.allowed_syscalls
+    }
+
+    pub fn digest(&self) -> [u8; 32] {
+        // Version and length-prefix the canonical serialization so future
+        // policy-format changes cannot silently reuse an older commitment
+        // domain, and the framing remains mechanically unambiguous.
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V1");
+        hasher.update(&(self.architecture as u32).to_le_bytes());
+        hasher.update(&(self.allowed_syscalls.len() as u32).to_le_bytes());
+        for syscall in &self.allowed_syscalls {
+            hasher.update(&(*syscall as u32).to_le_bytes());
+        }
+        *hasher.finalize().as_bytes()
+    }
+
+    pub fn allows(&self, syscall: i64) -> bool {
+        self.allowed_syscalls.binary_search(&syscall).is_ok()
+    }
+
+    /// Validate the stricter policy boundary required before this renderer
+    /// adapter can install a policy. Generic policy construction remains
+    /// flexible, but renderer qualification never admits direct tracing,
+    /// cross-process memory, process creation/image replacement, or namespace
+    /// mutation primitives.
+    #[cfg(target_os = "linux")]
+    pub fn validate_renderer_policy(&self) -> Result<(), SeccompError> {
+        for syscall in FORBIDDEN_RENDERER_SYSCALLS {
+            if self.allows(*syscall) {
+                return Err(SeccompError::ForbiddenRendererSyscall(*syscall));
+            }
+        }
+        #[cfg(target_arch = "x86_64")]
+        for syscall in FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS {
+            if self.allows(*syscall) {
+                return Err(SeccompError::ForbiddenRendererSyscall(*syscall));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum SeccompArgPredicateOpV1 {
+    MaskedEqual,
+    MaskedNotEqual,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct SeccompArgPredicateV1 {
+    arg_index: u8,
+    mask: u64,
+    value: u64,
+    op: SeccompArgPredicateOpV1,
+}
+
+impl SeccompArgPredicateV1 {
+    pub fn new(arg_index: u8, mask: u64, value: u64) -> Result<Self, SeccompError> {
+        Self::new_with_op(arg_index, mask, value, SeccompArgPredicateOpV1::MaskedEqual)
+    }
+
+    pub fn new_with_op(
+        arg_index: u8,
+        mask: u64,
+        value: u64,
+        op: SeccompArgPredicateOpV1,
+    ) -> Result<Self, SeccompError> {
+        const MAX_ARGS: u8 = 6;
+        if arg_index >= MAX_ARGS || mask == 0 || value & !mask != 0 {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        Ok(Self { arg_index, mask, value, op })
+    }
+
+    pub const fn arg_index(&self) -> u8 { self.arg_index }
+    pub const fn mask(&self) -> u64 { self.mask }
+    pub const fn value(&self) -> u64 { self.value }
+    pub const fn op(&self) -> SeccompArgPredicateOpV1 { self.op }
+
+    pub const fn matches(&self, argument: u64) -> bool {
+        match self.op {
+            SeccompArgPredicateOpV1::MaskedEqual => argument & self.mask == self.value,
+            SeccompArgPredicateOpV1::MaskedNotEqual => argument & self.mask != self.value,
+        }
+    }
+}
+
+/// One bounded V2 argument clause. All predicates in a clause must match.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SeccompSyscallClauseV2 {
+    predicates: Vec<SeccompArgPredicateV1>,
+}
+
+impl SeccompSyscallClauseV2 {
+    pub fn new(mut predicates: Vec<SeccompArgPredicateV1>) -> Result<Self, SeccompError> {
+        const MAX_PREDICATES: usize = 4;
+        if predicates.len() > MAX_PREDICATES {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        predicates.sort_unstable_by_key(|predicate| {
+            (predicate.arg_index, predicate.mask, predicate.value, predicate.op)
+        });
+        if predicates.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(SeccompError::DuplicateArgumentPredicate);
+        }
+        Ok(Self { predicates })
+    }
+
+    pub fn predicates(&self) -> &[SeccompArgPredicateV1] {
+        &self.predicates
+    }
+
+    pub fn matches(&self, arguments: &[u64; 6]) -> bool {
+        self.predicates.iter().all(|predicate| {
+            predicate.matches(arguments[predicate.arg_index as usize])
+        })
+    }
+}
+
+/// One V2 syscall rule. A legacy single clause is equivalent to the original
+/// conjunction. A bounded multi-clause rule is an explicit OR over clauses.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeccompSyscallRuleV2 {
+    syscall: i64,
+    clauses: Vec<SeccompSyscallClauseV2>,
+}
+
+impl SeccompSyscallRuleV2 {
+    pub fn new(
+        syscall: i64,
+        predicates: Vec<SeccompArgPredicateV1>,
+    ) -> Result<Self, SeccompError> {
+        Self::new_with_clauses(syscall, vec![SeccompSyscallClauseV2::new(predicates)?])
+    }
+
+    pub fn new_with_clauses(
+        syscall: i64,
+        mut clauses: Vec<SeccompSyscallClauseV2>,
+    ) -> Result<Self, SeccompError> {
+        const MAX_CLAUSES: usize = 4;
+        if syscall < 0 || syscall > i32::MAX as i64 {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        if clauses.is_empty() || clauses.len() > MAX_CLAUSES {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        // An empty clause is an unconditional syscall allow. Permit it only
+        // as the sole clause; otherwise it would make every alternative after
+        // it unreachable and silently widen the syscall boundary.
+        if clauses.len() > 1 && clauses.iter().any(|clause| clause.predicates.is_empty()) {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        clauses.sort_unstable();
+        if clauses.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(SeccompError::DuplicateArgumentClause);
+        }
+        Ok(Self { syscall, clauses })
+    }
+
+    pub const fn syscall(&self) -> i64 { self.syscall }
+
+    /// Compatibility accessor for the legacy single-clause representation.
+    /// For disjunctive rules, use the clauses() accessor to inspect every clause.
+    pub fn predicates(&self) -> &[SeccompArgPredicateV1] {
+        self.clauses[0].predicates()
+    }
+
+    pub fn clauses(&self) -> &[SeccompSyscallClauseV2] {
+        &self.clauses
+    }
+
+    pub const fn is_disjunctive(&self) -> bool {
+        self.clauses.len() > 1
+    }
+
+    pub fn matches(&self, syscall: i64, arguments: &[u64; 6]) -> bool {
+        self.syscall == syscall
+            && self.clauses.iter().any(|clause| clause.matches(arguments))
+    }
+}
+
+
+/// Parameter-aware seccomp policy. V1 remains the syscall-number-only format;
+/// V2 adds explicit argument predicates without silently widening V1.
+#[cfg(target_os = "linux")]
+const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
+    // Cross-process inspection/control and process creation.
+    libc::SYS_ptrace,
+    libc::SYS_process_vm_readv,
+    libc::SYS_process_vm_writev,
+    libc::SYS_process_madvise,
+    libc::SYS_pidfd_getfd,
+    libc::SYS_pidfd_open,
+    libc::SYS_pidfd_send_signal,
+    libc::SYS_kcmp,
+    libc::SYS_clone,
+    libc::SYS_clone3,
+    libc::SYS_execve,
+    libc::SYS_execveat,
+
+    // Namespace and modern mount-management interfaces.
+    libc::SYS_unshare,
+    libc::SYS_setns,
+    libc::SYS_mount,
+    libc::SYS_umount2,
+    libc::SYS_pivot_root,
+    libc::SYS_chroot,
+    libc::SYS_open_tree,
+    libc::SYS_move_mount,
+    libc::SYS_fsopen,
+    libc::SYS_fsconfig,
+    libc::SYS_fsmount,
+    libc::SYS_fspick,
+    libc::SYS_mount_setattr,
+
+    // High-risk kernel control / asynchronous-kernel interfaces.
+    libc::SYS_bpf,
+    libc::SYS_userfaultfd,
+    libc::SYS_perf_event_open,
+    libc::SYS_keyctl,
+    libc::SYS_add_key,
+    libc::SYS_request_key,
+    libc::SYS_io_uring_setup,
+    libc::SYS_io_uring_enter,
+    libc::SYS_io_uring_register,
+    libc::SYS_name_to_handle_at,
+    libc::SYS_open_by_handle_at,
+    libc::SYS_process_mrelease,
+
+    // Credential/capability mutation and system-wide administrative control.
+    libc::SYS_capset,
+    libc::SYS_setuid,
+    libc::SYS_setgid,
+    libc::SYS_setreuid,
+    libc::SYS_setregid,
+    libc::SYS_setresuid,
+    libc::SYS_setresgid,
+    libc::SYS_setgroups,
+    libc::SYS_setfsuid,
+    libc::SYS_setfsgid,
+    libc::SYS_kexec_load,
+    KEXEC_FILE_LOAD_SYSCALL,
+    libc::SYS_init_module,
+    libc::SYS_finit_module,
+    libc::SYS_delete_module,
+    libc::SYS_swapon,
+    libc::SYS_swapoff,
+    libc::SYS_acct,
+    libc::SYS_reboot,
+    libc::SYS_sethostname,
+    libc::SYS_setdomainname,
+    libc::SYS_syslog,
+];
+// Linux assigns kexec_file_load the generic syscall number 294 on
+// AArch64 and RISC-V, while x86_64 uses its arch-specific 320. The libc
+// crate does not currently expose SYS_kexec_file_load on RISC-V, so keep
+// the seccomp ABI mapping explicit and portable instead of making the
+// renderer deny contract depend on a libc symbol that is absent on one
+// supported target.
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const KEXEC_FILE_LOAD_SYSCALL: i64 = 320;
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "aarch64", target_arch = "riscv64")
+))]
+const KEXEC_FILE_LOAD_SYSCALL: i64 = 294;
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS: &[i64] = &[
+    libc::SYS_fork,
+    libc::SYS_vfork,
+    libc::SYS_ioperm,
+    libc::SYS_iopl,
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeccompSyscallPolicyV2 {
+    architecture: SeccompArchitecture,
+    rules: Vec<SeccompSyscallRuleV2>,
+}
+
+impl SeccompSyscallPolicyV2 {
+    pub fn new(
+        architecture: SeccompArchitecture,
+        mut rules: Vec<SeccompSyscallRuleV2>,
+    ) -> Result<Self, SeccompError> {
+        const MAX_RULES: usize = 64;
+        const X32_SYSCALL_BIT: i64 = 0x4000_0000;
+        if rules.is_empty() || rules.len() > MAX_RULES {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        if architecture == SeccompArchitecture::X86_64
+            && rules.iter().any(|rule| (rule.syscall & X32_SYSCALL_BIT) != 0)
+        {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        rules.sort_unstable_by_key(|rule| rule.syscall);
+        if rules.windows(2).any(|pair| pair[0].syscall == pair[1].syscall) {
+            return Err(SeccompError::DuplicateSyscall);
+        }
+        Ok(Self { architecture, rules })
+    }
+
+    pub const fn architecture(&self) -> SeccompArchitecture {
+        self.architecture
+    }
+
+    pub fn rules(&self) -> &[SeccompSyscallRuleV2] {
+        &self.rules
+    }
+
+    pub fn allows(&self, syscall: i64, arguments: &[u64; 6]) -> bool {
+        self.rules.iter().any(|rule| rule.matches(syscall, arguments))
+    }
+
+    pub fn digest(&self) -> [u8; 32] {
+        let mut hasher = blake3::Hasher::new();
+        let disjunctive = self.rules.iter().any(SeccompSyscallRuleV2::is_disjunctive);
+        if disjunctive {
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V2-CLAUSES-V1");
+        } else {
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V2");
+        }
+        if cfg!(target_endian = "little") {
+            hasher.update(b"PRISM-SECCOMP-ENDIAN-LITTLE-V1");
+        } else {
+            hasher.update(b"PRISM-SECCOMP-ENDIAN-BIG-V1");
+        }
+        hasher.update(&(self.architecture as u32).to_le_bytes());
+        hasher.update(&(self.rules.len() as u32).to_le_bytes());
+        for rule in &self.rules {
+            hasher.update(&(rule.syscall as u32).to_le_bytes());
+            if disjunctive {
+                hasher.update(&(rule.clauses.len() as u32).to_le_bytes());
+                for clause in &rule.clauses {
+                    hasher.update(&(clause.predicates.len() as u32).to_le_bytes());
+                    for predicate in &clause.predicates {
+                        hasher.update(&(predicate.arg_index as u32).to_le_bytes());
+                        hasher.update(&predicate.mask.to_le_bytes());
+                        hasher.update(&predicate.value.to_le_bytes());
+                        hasher.update(&[match predicate.op {
+                            SeccompArgPredicateOpV1::MaskedEqual => 0,
+                            SeccompArgPredicateOpV1::MaskedNotEqual => 1,
+                        }]);
+                    }
+                }
+            } else {
+                hasher.update(&(rule.predicates().len() as u32).to_le_bytes());
+                for predicate in rule.predicates() {
+                    hasher.update(&(predicate.arg_index as u32).to_le_bytes());
+                    hasher.update(&predicate.mask.to_le_bytes());
+                    hasher.update(&predicate.value.to_le_bytes());
+                    hasher.update(&[match predicate.op {
+                        SeccompArgPredicateOpV1::MaskedEqual => 0,
+                        SeccompArgPredicateOpV1::MaskedNotEqual => 1,
+                    }]);
+                }
+            }
+        }
+        *hasher.finalize().as_bytes()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SeccompError {
+    UnsupportedPlatform,
+    ArchitectureMismatch,
+    InvalidPolicy,
+    DuplicateSyscall,
+    DuplicateArgumentPredicate,
+    DuplicateArgumentClause,
+    FilterTooLarge,
+    /// The compiler's emitted instruction stream violated its own structural invariants.
+    /// This is deliberately distinct from caller-supplied policy errors so any
+    /// compiler/accounting drift fails closed rather than producing a receipt.
+    CompilerInvariantViolation,
+    InstallationFailed(i32),
+    IdentityGenerationFailed,
+    PolicyCommitmentMismatch,
+    InvalidAssignmentId,
+    UnsupportedEndianness,
+    ForbiddenRendererSyscall(i64),
+}
+
+impl core::fmt::Display for SeccompError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::UnsupportedPlatform => f.write_str("seccomp unsupported on this platform"),
+            Self::ArchitectureMismatch => f.write_str("seccomp policy architecture does not match the running architecture"),
+            Self::InvalidPolicy => f.write_str("invalid seccomp syscall policy"),
+            Self::DuplicateSyscall => f.write_str("seccomp syscall policy contains a duplicate"),
+            Self::DuplicateArgumentPredicate => f.write_str("seccomp argument predicate contains a duplicate"),
+            Self::DuplicateArgumentClause => f.write_str("seccomp argument clause contains a duplicate"),
+            Self::FilterTooLarge => f.write_str("seccomp BPF filter exceeds the bounded instruction budget"),
+            Self::CompilerInvariantViolation => f.write_str("seccomp compiler emitted an internally inconsistent BPF program"),
+            Self::InstallationFailed(errno) => write!(f, "seccomp installation failed: errno {errno}"),
+            Self::IdentityGenerationFailed => f.write_str("seccomp installation identity generation failed"),
+            Self::PolicyCommitmentMismatch => f.write_str("seccomp policy does not match the renderer profile commitment"),
+            Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
+            Self::UnsupportedEndianness => f.write_str("parameter-aware seccomp policy requires little-endian execution"),
+            Self::ForbiddenRendererSyscall(syscall) => write!(f, "renderer seccomp policy forbids syscall {syscall}"),
+        }
+    }
+}
+
+impl std::error::Error for SeccompError {}
+
+#[cfg(target_os = "linux")]
+mod linux {
+    use super::*;
+
+    #[repr(C)]
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    struct SockFilter {
+        code: u16,
+        jt: u8,
+        jf: u8,
+        k: u32,
+    }
+
+    #[repr(C)]
+    struct SockFprog {
+        len: u16,
+        filter: *const SockFilter,
+    }
+
+    const BPF_LD: u16 = 0x00;
+    const BPF_W: u16 = 0x00;
+    const BPF_ABS: u16 = 0x20;
+    const BPF_JMP: u16 = 0x05;
+    const BPF_JEQ: u16 = 0x10;
+    const BPF_JGE: u16 = 0x30;
+    const BPF_K: u16 = 0x00;
+    const BPF_RET: u16 = 0x06;
+    const BPF_ALU: u16 = 0x04;
+    const BPF_AND: u16 = 0x50;
+
+    const SECCOMP_SET_MODE_FILTER: libc::c_uint = 1;
+    const SECCOMP_FILTER_FLAG_TSYNC: libc::c_uint = 1 << 0;
+    const SECCOMP_FILTER_FLAG_TSYNC_ESRCH: libc::c_uint = 1 << 4;
+    const SECCOMP_RET_KILL_PROCESS: u32 = 0x8000_0000;
+    const SECCOMP_RET_ERRNO: u32 = 0x0005_0000;
+    const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
+
+    const SECCOMP_DATA_NR_OFFSET: u32 = 0;
+    const SECCOMP_DATA_ARCH_OFFSET: u32 = 4;
+    const COMPILED_BYTECODE_STRUCTURAL_VALIDATION_DOMAIN: &[u8] =
+        b"PRISM-SECCOMP-COMPILED-BYTECODE-STRUCTURAL-VALIDATION-V1";
+    const COMPILED_BYTECODE_SEMANTIC_VALIDATION_DOMAIN: &[u8] =
+        b"PRISM-SECCOMP-COMPILED-BYTECODE-SEMANTIC-VALIDATION-V1";
+
+    fn stmt(code: u16, k: u32) -> SockFilter {
+        SockFilter { code, jt: 0, jf: 0, k }
+    }
+
+    fn jump_eq(k: u32, jt: u8, jf: u8) -> SockFilter {
+        SockFilter { code: BPF_JMP | BPF_JEQ | BPF_K, jt, jf, k }
+    }
+
+    fn jump_ge(k: u32, jt: u8, jf: u8) -> SockFilter {
+        SockFilter { code: BPF_JMP | BPF_JGE | BPF_K, jt, jf, k }
+    }
+
+    /// Validate the actual emitted cBPF stream, not merely the forecast used
+    /// for allocation/budgeting. This is the backstop for compiler/accounting
+    /// drift: every conditional edge must land on a real instruction, all
+    /// non-branch records must have zero jump metadata, and the program must
+    /// retain its global fail-closed terminator.
+    fn validate_compiled_filter(filter: &[SockFilter]) -> Result<(), SeccompError> {
+        const MAX_FILTER_INSTRUCTIONS: usize = 4096;
+        if filter.len() < 5
+            || filter.len() > MAX_FILTER_INSTRUCTIONS
+            || filter.len() > u16::MAX as usize
+        {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        // Canonical safety prefix:
+        //   load arch -> check exact arch -> KILL on mismatch -> load nr
+        //   -> [x86-64 only] x32 guard -> KILL on x32
+        if filter[0].code != BPF_LD | BPF_W | BPF_ABS
+            || filter[0].k != SECCOMP_DATA_ARCH_OFFSET
+            || filter[1].code != BPF_JMP | BPF_JEQ | BPF_K
+            || filter[1].k != SeccompArchitecture::current().ok_or(SeccompError::CompilerInvariantViolation)? as u32
+            || filter[1].jt != 1
+            || filter[1].jf != 0
+            || filter[2].code != BPF_RET | BPF_K
+            || filter[2].k != SECCOMP_RET_KILL_PROCESS
+            || filter[3].code != BPF_LD | BPF_W | BPF_ABS
+            || filter[3].k != SECCOMP_DATA_NR_OFFSET
+        {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        let first_rule_index = if SeccompArchitecture::current()
+            == Some(SeccompArchitecture::X86_64)
+        {
+            if filter.len() < 7
+                || filter[4].code != BPF_JMP | BPF_JGE | BPF_K
+                || filter[4].k != 0x4000_0000
+                || filter[4].jt != 0
+                || filter[4].jf != 1
+                || filter[5].code != BPF_RET | BPF_K
+                || filter[5].k != SECCOMP_RET_KILL_PROCESS
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            6
+        } else {
+            4
+        };
+
+        if filter[first_rule_index].code != BPF_JMP | BPF_JEQ | BPF_K
+            || filter[first_rule_index].jt != 0
+            || filter[first_rule_index].jf == 0
+        {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        let default_deny_index = filter
+            .len()
+            .checked_sub(1)
+            .ok_or(SeccompError::CompilerInvariantViolation)?;
+
+        // The syscall dispatch chain has one canonical shape: a matching
+        // dispatch enters its rule body at the immediately following
+        // instruction, while a mismatch jumps directly to the next dispatch
+        // (or the final default-deny terminator). Do not merely require
+        // in-bounds jumps; otherwise a forged dispatch could jump over argument
+        // predicates into an ALLOW that happens to remain reachable elsewhere.
+        let mut dispatch_index = first_rule_index;
+        let mut dispatch_indices = Vec::new();
+        loop {
+            dispatch_indices.push(dispatch_index);
+            let dispatch = &filter[dispatch_index];
+            let after_dispatch = dispatch_index
+                .checked_add(1)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            let next = after_dispatch
+                .checked_add(usize::from(dispatch.jf))
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if dispatch.jt != 0 || next <= after_dispatch {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+
+            if next >= filter.len() {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            if next == default_deny_index {
+                break;
+            }
+
+            let next_dispatch = filter
+                .get(next)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if next_dispatch.code != BPF_JMP | BPF_JEQ | BPF_K
+                || next_dispatch.jt != 0
+                || next_dispatch.jf == 0
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            dispatch_index = next;
+        }
+
+        // Every emitted rule body ends at exactly one final ALLOW boundary.
+        // Multi-clause bodies additionally place an ALLOW between each pair of
+        // non-empty clauses; each intermediate ALLOW must be followed by the
+        // next clause's first argument load. A single unconditional clause is
+        // the one intentional exception: its entire body is a lone ALLOW.
+        // Without this invariant, a forged extra ALLOW inside a single clause
+        // could manufacture the "after ALLOW" topology used for legitimate OR
+        // edges.
+        for (rule_index, &dispatch) in dispatch_indices.iter().enumerate() {
+            let body_end = dispatch_indices
+                .get(rule_index + 1)
+                .copied()
+                .unwrap_or(default_deny_index);
+            let body_start = dispatch
+                .checked_add(1)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if body_start >= body_end {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+
+            let is_argument_load = |pc: usize| {
+                filter.get(pc).is_some_and(|instruction| {
+                    instruction.code == BPF_LD | BPF_W | BPF_ABS
+                        && (16..=60).contains(&instruction.k)
+                        && (instruction.k - 16) % 4 == 0
+                })
+            };
+
+            // A sole ALLOW is the canonical encoding of an unconditional
+            // single-clause rule. Multi-clause rules cannot contain empty
+            // clauses by policy construction, so every other rule body must
+            // begin with an argument predicate.
+            let starts_with_unconditional_allow = filter
+                .get(body_start)
+                .is_some_and(|instruction| {
+                    instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW
+                });
+            let is_sole_unconditional_allow = body_start
+                .checked_add(1)
+                .is_some_and(|next| next == body_end);
+            if !is_argument_load(body_start)
+                && (!starts_with_unconditional_allow || !is_sole_unconditional_allow)
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+
+            let allow_indices: Vec<usize> = (body_start..body_end)
+                .filter(|&pc| {
+                    filter.get(pc).is_some_and(|instruction| {
+                        instruction.code == BPF_RET | BPF_K
+                            && instruction.k == SECCOMP_RET_ALLOW
+                    })
+                })
+                .collect();
+            if allow_indices.is_empty()
+                || allow_indices.last().copied() != body_end.checked_sub(1)
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            for pair in allow_indices.windows(2) {
+                if pair[0]
+                    .checked_add(1)
+                    .filter(|&pc| pc < body_end)
+                    .map_or(true, |pc| !is_argument_load(pc))
+                {
+                    return Err(SeccompError::CompilerInvariantViolation);
+                }
+            }
+        }
+
+        for (index, instruction) in filter.iter().enumerate() {
+            match instruction.code {
+                code if code == BPF_LD | BPF_W | BPF_ABS => {
+                    if instruction.jt != 0 || instruction.jf != 0 {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                    let valid_offset = instruction.k == SECCOMP_DATA_ARCH_OFFSET
+                        || instruction.k == SECCOMP_DATA_NR_OFFSET
+                        || (16..=60).contains(&instruction.k)
+                            && (instruction.k - 16) % 4 == 0;
+                    if !valid_offset {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+
+                    // Architecture and syscall-number loads are confined to
+                    // the fixed safety prefix. Rule bodies only load arguments.
+                    if index >= first_rule_index
+                        && (instruction.k == SECCOMP_DATA_ARCH_OFFSET
+                            || instruction.k == SECCOMP_DATA_NR_OFFSET)
+                    {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+
+                    if (16..=60).contains(&instruction.k)
+                        && (instruction.k - 16) % 4 == 0
+                    {
+                        let and_index = index
+                            .checked_add(1)
+                            .ok_or(SeccompError::CompilerInvariantViolation)?;
+                        let branch_index = and_index
+                            .checked_add(1)
+                            .ok_or(SeccompError::CompilerInvariantViolation)?;
+                        if filter.get(and_index).map(|i| i.code)
+                            != Some(BPF_ALU | BPF_AND | BPF_K)
+                            || filter.get(branch_index).map(|i| i.code)
+                                != Some(BPF_JMP | BPF_JEQ | BPF_K)
+                        {
+                            return Err(SeccompError::CompilerInvariantViolation);
+                        }
+                    }
+                }
+                code if code == BPF_ALU | BPF_AND | BPF_K => {
+                    if instruction.jt != 0 || instruction.jf != 0 {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+
+                    // Every AND is compiler-owned predicate state. Do not
+                    // permit an orphan AND to rewrite the accumulator between
+                    // unrelated loads/branches: an attacker who can influence
+                    // emitted bytecode must not be able to satisfy the shape
+                    // validator with an accumulator transformation that is not
+                    // bound to a seccomp_data argument.
+                    let preceding = index
+                        .checked_sub(1)
+                        .and_then(|pc| filter.get(pc))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    let valid_argument_load = preceding.code == BPF_LD | BPF_W | BPF_ABS
+                        && (16..=60).contains(&preceding.k)
+                        && (preceding.k - 16) % 4 == 0;
+                    let following_index = index
+                        .checked_add(1)
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    let following = filter
+                        .get(following_index)
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    if !valid_argument_load
+                        || following.code != BPF_JMP | BPF_JEQ | BPF_K
+                        || following.k & !instruction.k != 0
+                        || instruction.k == 0
+                    {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                }
+                code if code == BPF_JMP | BPF_JEQ | BPF_K => {
+                    for offset in [instruction.jt, instruction.jf] {
+                        let target = index
+                            .checked_add(1)
+                            .and_then(|pc| pc.checked_add(usize::from(offset)))
+                            .ok_or(SeccompError::CompilerInvariantViolation)?;
+                        if target >= filter.len() {
+                            return Err(SeccompError::CompilerInvariantViolation);
+                        }
+                    }
+
+                    // Dispatches have their own canonical topology above.
+                    // Predicate branches are deliberately much more local:
+                    // they may fall through, skip one local EPERM, skip the
+                    // high-half body of a full-width MaskedNotEqual low half,
+                    // or fall through to the next clause/rule immediately
+                    // after an ALLOW. Anything else could bypass checks while
+                    // remaining inside the program.
+                    // Instruction 1 is the canonical architecture-check
+                    // JEQ and is validated by the fixed safety-prefix checks
+                    // above, not by predicate topology.
+                    if index != 1 && !dispatch_indices.contains(&index) {
+                        for offset in [instruction.jt, instruction.jf] {
+                            let target = index
+                                .checked_add(1)
+                                .and_then(|pc| pc.checked_add(usize::from(offset)))
+                                .ok_or(SeccompError::CompilerInvariantViolation)?;
+                            let local_epem = index
+                                .checked_add(2)
+                                .is_some_and(|local_target| target == local_target)
+                                && index
+                                    .checked_add(1)
+                                    .and_then(|pc| filter.get(pc))
+                                    .is_some_and(|instruction| {
+                                        instruction.code == BPF_RET | BPF_K
+                                            && instruction.k
+                                                == SECCOMP_RET_ERRNO | libc::EPERM as u32
+                                    });
+                            let full_width_not_equal_shortcut = index >= 2
+                                && target == index + 4
+                                && filter.get(index - 2).is_some_and(|i| i.code == BPF_LD | BPF_W | BPF_ABS)
+                                && filter.get(index + 1).is_some_and(|i| {
+                                    i.code == BPF_LD | BPF_W | BPF_ABS
+                                        && i.k == filter[index - 2].k.saturating_add(4)
+                                })
+                                && filter.get(index + 2).is_some_and(|i| i.code == BPF_ALU | BPF_AND | BPF_K)
+                                && filter.get(index + 3).is_some_and(|i| i.code == BPF_JMP | BPF_JEQ | BPF_K);
+                            let single_clause_full_width_not_equal = index >= 2
+                                && target == index + 5
+                                && filter.get(index - 2).is_some_and(|i| i.code == BPF_LD | BPF_W | BPF_ABS)
+                                && filter.get(index + 1).is_some_and(|i| {
+                                    i.code == BPF_LD | BPF_W | BPF_ABS
+                                        && i.k == filter[index - 2].k.saturating_add(4)
+                                })
+                                && filter.get(index + 2).is_some_and(|i| i.code == BPF_ALU | BPF_AND | BPF_K)
+                                && filter.get(index + 3).is_some_and(|i| i.code == BPF_JMP | BPF_JEQ | BPF_K)
+                                && filter.get(index + 4).is_some_and(|i| {
+                                    i.code == BPF_RET | BPF_K
+                                        && i.k == SECCOMP_RET_ERRNO | libc::EPERM as u32
+                                });
+                            let next_allow = filter
+                                .iter()
+                                .enumerate()
+                                .skip(index + 1)
+                                .find(|(_, instruction)| {
+                                    instruction.code == BPF_RET | BPF_K
+                                        && instruction.k == SECCOMP_RET_ALLOW
+                                })
+                                .map(|(allow_index, _)| allow_index);
+
+                            // The "after ALLOW" edge belongs only to a
+                            // disjunctive clause: its ALLOW is the clause
+                            // boundary and the next instruction is the next
+                            // alternative/rule dispatch. A single-clause rule
+                            // must fail through its local EPERM path instead;
+                            // otherwise a forged predicate edge could turn a
+                            // single-clause denial into a fall-through allow.
+                            let containing_dispatch = dispatch_indices
+                                .iter()
+                                .rev()
+                                .find(|&&dispatch| dispatch < index)
+                                .copied();
+                            let next_dispatch = containing_dispatch
+                                .and_then(|dispatch| {
+                                    dispatch_indices
+                                        .iter()
+                                        .copied()
+                                        .find(|&candidate| candidate > dispatch)
+                                });
+                            let allow_count_before_next_dispatch = next_allow.map_or(0, |_| {
+                                filter
+                                    .iter()
+                                    .take(next_dispatch.unwrap_or(filter.len()))
+                                    .enumerate()
+                                    .skip(containing_dispatch.unwrap_or(0) + 1)
+                                    .filter(|(_, instruction)| {
+                                        instruction.code == BPF_RET | BPF_K
+                                            && instruction.k == SECCOMP_RET_ALLOW
+                                    })
+                                    .count()
+                            });
+                            let after_immediate_allow = allow_count_before_next_dispatch > 1
+                                && next_allow
+                                    .and_then(|allow_index| allow_index.checked_add(1))
+                                    == Some(target);
+
+                            if offset != 0
+                                && !local_epem
+                                && !full_width_not_equal_shortcut
+                                && !single_clause_full_width_not_equal
+                                && !after_immediate_allow
+                            {
+                                return Err(SeccompError::CompilerInvariantViolation);
+                            }
+                        }
+                    }
+                }
+                code if code == BPF_JMP | BPF_JGE | BPF_K => {
+                    // The only JGE emitted by this compiler is the canonical
+                    // x86-64 x32 ABI guard at instruction 4. Reject the same
+                    // opcode/operand shape anywhere else so validator success
+                    // cannot be obtained by relocating the guard into a rule
+                    // body.
+                    if SeccompArchitecture::current() != Some(SeccompArchitecture::X86_64)
+                        || index != 4
+                        || instruction.k != 0x4000_0000
+                        || instruction.jt != 0
+                        || instruction.jf != 1
+                    {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                    let target = index
+                        .checked_add(2)
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    if target >= filter.len() {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                }
+                code if code == BPF_RET | BPF_K => {
+                    if instruction.jt != 0 || instruction.jf != 0 {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                    let is_expected_action = instruction.k == SECCOMP_RET_ALLOW
+                        || instruction.k == SECCOMP_RET_ERRNO | libc::EPERM as u32
+                        || instruction.k == SECCOMP_RET_KILL_PROCESS;
+                    if !is_expected_action {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                    // KILL_PROCESS is reserved for the validated architecture
+                    // guards above; ordinary rule bodies may only ALLOW or
+                    // return EPERM.
+                    if instruction.k == SECCOMP_RET_KILL_PROCESS
+                        && index != 2
+                        && !(SeccompArchitecture::current() == Some(SeccompArchitecture::X86_64)
+                            && index == 5)
+                    {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                }
+                _ => {
+                    return Err(SeccompError::CompilerInvariantViolation);
+                }
+            }
+        }
+
+        let default_deny = SECCOMP_RET_ERRNO | libc::EPERM as u32;
+        let last = filter.last().ok_or(SeccompError::CompilerInvariantViolation)?;
+        if last.code != BPF_RET | BPF_K || last.k != default_deny {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        // Every emitted instruction must participate in the control-flow graph.
+        // A destination that is merely in-bounds can still skip an entire rule
+        // and leave dead instructions behind. Reject such dead regions before
+        // the filter reaches the kernel.
+        let mut reachable = vec![false; filter.len()];
+        let mut work = vec![0usize];
+        while let Some(index) = work.pop() {
+            if reachable[index] {
+                continue;
+            }
+            reachable[index] = true;
+            let instruction = &filter[index];
+            match instruction.code {
+                code if code == BPF_JMP | BPF_JEQ | BPF_K => {
+                    let true_target = index
+                        .checked_add(1)
+                        .and_then(|pc| pc.checked_add(usize::from(instruction.jt)))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    let false_target = index
+                        .checked_add(1)
+                        .and_then(|pc| pc.checked_add(usize::from(instruction.jf)))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    work.push(true_target);
+                    work.push(false_target);
+                }
+                code if code == BPF_JMP | BPF_JGE | BPF_K => {
+                    let true_target = index
+                        .checked_add(1)
+                        .and_then(|pc| pc.checked_add(usize::from(instruction.jt)))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    let false_target = index
+                        .checked_add(1)
+                        .and_then(|pc| pc.checked_add(usize::from(instruction.jf)))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    work.push(true_target);
+                    work.push(false_target);
+                }
+                code if code == BPF_RET | BPF_K => {}
+                _ => {
+                    let next = index
+                        .checked_add(1)
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    if next >= filter.len() {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                    work.push(next);
+                }
+            }
+        }
+        if reachable.iter().any(|seen| !seen) {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        Ok(())
+    }
+
+    fn predicate_instruction_count(predicate: &SeccompArgPredicateV1) -> usize {
+        let low = predicate.mask as u32 != 0;
+        let high = (predicate.mask >> 32) as u32 != 0;
+        match predicate.op {
+            // MaskedEqual emits load + AND + branch + EPERM for each
+            // populated half of the 64-bit argument.
+            SeccompArgPredicateOpV1::MaskedEqual => {
+                usize::from(low) * 4 + usize::from(high) * 4
+            }
+            // MaskedNotEqual emits three instructions for the low half
+            // when both halves are populated (its successful low-half
+            // mismatch skips the high-half body), then four for the high
+            // half. A single populated half emits four instructions.
+            SeccompArgPredicateOpV1::MaskedNotEqual => {
+                if low && high { 7 } else { 4 }
+            }
+        }
+    }
+
+    /// A disjunctive clause has no local deny action. Predicate failure
+    /// means "try the next clause", while success continues within the
+    /// current clause. Full-width predicates therefore need only the two
+    /// loads, two ANDs, and two conditional branches.
+    fn disjunctive_predicate_instruction_count(predicate: &SeccompArgPredicateV1) -> usize {
+        let low = predicate.mask as u32 != 0;
+        let high = (predicate.mask >> 32) as u32 != 0;
+        if low && high { 6 } else { 3 }
+    }
+
+    fn clause_instruction_count(clause: &SeccompSyscallClauseV2) -> usize {
+        1 + clause
+            .predicates
+            .iter()
+            .map(disjunctive_predicate_instruction_count)
+            .sum::<usize>()
+    }
+
+    fn rule_body_instruction_count(rule: &SeccompSyscallRuleV2) -> usize {
+        if rule.is_disjunctive() {
+            rule.clauses
+                .iter()
+                .map(clause_instruction_count)
+                .sum::<usize>()
+        } else {
+            1 + rule
+                .predicates()
+                .iter()
+                .map(predicate_instruction_count)
+                .sum::<usize>()
+        }
+    }
+
+    fn compile_filter_v2(policy: &SeccompSyscallPolicyV2) -> Result<Vec<SockFilter>, SeccompError> {
+        #[cfg(target_endian = "big")]
+        return Err(SeccompError::UnsupportedEndianness);
+
+        if SeccompArchitecture::current() != Some(policy.architecture) {
+            return Err(SeccompError::ArchitectureMismatch);
+        }
+
+        const ARG_BASE: u32 = 16;
+        let mut instruction_count = 5usize
+            .checked_add(if policy.architecture == SeccompArchitecture::X86_64 { 2 } else { 0 })
+            .ok_or(SeccompError::FilterTooLarge)?;
+
+        for rule in &policy.rules {
+            instruction_count = instruction_count
+                .checked_add(1)
+                .ok_or(SeccompError::FilterTooLarge)?;
+            instruction_count = instruction_count
+                .checked_add(rule_body_instruction_count(rule))
+                .ok_or(SeccompError::FilterTooLarge)?;
+        }
+        if instruction_count > 4096 || instruction_count > u16::MAX as usize {
+            return Err(SeccompError::FilterTooLarge);
+        }
+        let mut filter = Vec::with_capacity(instruction_count);
+        filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_ARCH_OFFSET));
+        filter.push(jump_eq(policy.architecture as u32, 1, 0));
+        filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS));
+        filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_NR_OFFSET));
+
+        if policy.architecture == SeccompArchitecture::X86_64 {
+            const X32_SYSCALL_BIT: u32 = 0x4000_0000;
+            filter.push(jump_ge(X32_SYSCALL_BIT, 0, 1));
+            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS));
+        }
+
+        for rule in &policy.rules {
+            // The forecast is retained for budgeting, but the security-critical
+            // dispatch offset is derived from the bytes actually emitted. This
+            // prevents an instruction-accounting drift from redirecting control
+            // flow even if a future emitter change forgets to update the forecast.
+            let body_len = rule_body_instruction_count(rule);
+            let dispatch_index = filter.len();
+            filter.push(jump_eq(rule.syscall as u32, 0, 0));
+            let body_start = filter.len();
+
+            if !rule.is_disjunctive() {
+                for predicate in rule.predicates() {
+                    let base = ARG_BASE + u32::from(predicate.arg_index) * 8;
+                    let low_mask = predicate.mask as u32;
+                    let low_value = predicate.value as u32;
+                    let high_mask = (predicate.mask >> 32) as u32;
+                    let high_value = (predicate.value >> 32) as u32;
+
+                    match predicate.op {
+                        SeccompArgPredicateOpV1::MaskedEqual => {
+                            if low_mask != 0 {
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                                filter.push(jump_eq(low_value, 1, 0));
+                                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                            }
+                            if high_mask != 0 {
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                                filter.push(jump_eq(high_value, 1, 0));
+                                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                            }
+                        }
+                        SeccompArgPredicateOpV1::MaskedNotEqual => {
+                            if low_mask != 0 && high_mask != 0 {
+                                let high_body_len = usize::from(high_mask != 0) * 4;
+                                let low_mismatch_skip = u8::try_from(high_body_len)
+                                    .map_err(|_| SeccompError::FilterTooLarge)?;
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                                filter.push(jump_eq(low_value, 0, low_mismatch_skip));
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                                filter.push(jump_eq(high_value, 0, 1));
+                                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                            } else {
+                                let (base, mask, value) = if low_mask != 0 {
+                                    (base, low_mask, low_value)
+                                } else {
+                                    (base + 4, high_mask, high_value)
+                                };
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, mask));
+                                filter.push(jump_eq(value, 0, 1));
+                                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                            }
+                        }
+                    }
+                }
+
+                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
+            } else {
+                for clause in &rule.clauses {
+                    for (predicate_index, predicate) in clause.predicates.iter().enumerate() {
+                        let later_in_predicates = clause
+                            .predicates
+                            .iter()
+                            .skip(predicate_index + 1)
+                            .map(disjunctive_predicate_instruction_count)
+                            .sum::<usize>();
+                        // Predicate failure means this clause does not match.
+                        // Skip the remaining instructions in this clause,
+                        // including its ALLOW, and try the next alternative.
+                        let clause_mismatch_skip = u8::try_from(
+                            later_in_predicates
+                                .checked_add(1)
+                                .ok_or(SeccompError::FilterTooLarge)?,
+                        )
+                        .map_err(|_| SeccompError::FilterTooLarge)?;
+
+                        let base = ARG_BASE + u32::from(predicate.arg_index) * 8;
+                        let low_mask = predicate.mask as u32;
+                        let low_value = predicate.value as u32;
+                        let high_mask = (predicate.mask >> 32) as u32;
+                        let high_value = (predicate.value >> 32) as u32;
+
+                        match predicate.op {
+                            SeccompArgPredicateOpV1::MaskedEqual => {
+                                if low_mask != 0 {
+                                    let high_tail: usize = if high_mask != 0 { 3 } else { 0 };
+                                    let mismatch_skip = u8::try_from(
+                                        high_tail
+                                            .checked_add(later_in_predicates)
+                                            .and_then(|n| n.checked_add(1))
+                                            .ok_or(SeccompError::FilterTooLarge)?,
+                                    )
+                                    .map_err(|_| SeccompError::FilterTooLarge)?;
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                                    // Equality succeeds and continues into the high
+                                    // half (or next predicate); mismatch skips the clause.
+                                    filter.push(jump_eq(low_value, 0, mismatch_skip));
+                                }
+                                if high_mask != 0 {
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                                    // Equality succeeds; mismatch tries the next clause.
+                                    filter.push(jump_eq(high_value, 0, clause_mismatch_skip));
+                                }
+                            }
+                            SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                if low_mask != 0 && high_mask != 0 {
+                                    // A low-half mismatch already proves the
+                                    // whole 64-bit NotEqual predicate. Skip only
+                                    // the high-half comparison; later predicates in
+                                    // this clause still need to run.
+                                    let high_body_len = 3usize;
+                                    let low_mismatch_skip = u8::try_from(high_body_len)
+                                        .map_err(|_| SeccompError::FilterTooLarge)?;
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                                    filter.push(jump_eq(low_value, 0, low_mismatch_skip));
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                                    // High-half equality means both halves matched,
+                                    // so this NotEqual predicate fails and the whole
+                                    // clause must fall through to the next alternative.
+                                    filter.push(jump_eq(high_value, clause_mismatch_skip, 0));
+                                } else {
+                                    let (base, mask, value) = if low_mask != 0 {
+                                        (base, low_mask, low_value)
+                                    } else {
+                                        (base + 4, high_mask, high_value)
+                                    };
+                                    // Equality fails the NotEqual predicate; inequality
+                                    // continues with the next predicate.
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, mask));
+                                    filter.push(jump_eq(value, clause_mismatch_skip, 0));
+                                }
+                            }
+                        }
+                    }
+
+                    // Every predicate in the clause matched.
+                    filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
+                }
+            }
+
+            let actual_body_len = filter
+                .len()
+                .checked_sub(body_start)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if actual_body_len != body_len {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            let body_jump = u8::try_from(actual_body_len)
+                .map_err(|_| SeccompError::FilterTooLarge)?;
+            filter[dispatch_index].jf = body_jump;
+        }
+        filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+        if filter.len() != instruction_count {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+        validate_v2_compiled_semantics(policy, &filter)?;
+        Ok(filter)
+    }
+
+    fn compile_filter(policy: &SeccompSyscallPolicyV1) -> Result<Vec<SockFilter>, SeccompError> {
+        if SeccompArchitecture::current() != Some(policy.architecture) {
+            return Err(SeccompError::ArchitectureMismatch);
+        }
+
+        // Architecture check plus an x32-ABI guard where required, two
+        // instructions per allowlisted syscall (match + ALLOW), followed by
+        // the bounded default-deny action. Keeping the match/ALLOW pair
+        // adjacent avoids jump-offset overflow while making the control flow
+        // mechanically auditable.
+        let abi_guard_instructions = if policy.architecture == SeccompArchitecture::X86_64 {
+            2usize
+        } else {
+            0usize
+        };
+        let instruction_count = 5usize
+            .checked_add(abi_guard_instructions)
+            .and_then(|count| {
+                policy
+                    .allowed_syscalls
+                    .len()
+                    .checked_mul(2)
+                    .and_then(|body| count.checked_add(body))
+            })
+            .ok_or(SeccompError::FilterTooLarge)?;
+        if instruction_count > 4096 || instruction_count > u16::MAX as usize {
+            return Err(SeccompError::FilterTooLarge);
+        }
+
+        let mut filter = Vec::with_capacity(instruction_count);
+        filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_ARCH_OFFSET));
+        filter.push(jump_eq(policy.architecture as u32, 1, 0));
+        filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS));
+        filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_NR_OFFSET));
+
+        if policy.architecture == SeccompArchitecture::X86_64 {
+            const X32_SYSCALL_BIT: u32 = 0x4000_0000;
+            // x32 uses the same audit architecture value but sets bit 30 in
+            // the syscall number. Kill it explicitly before the allowlist.
+            filter.push(jump_ge(X32_SYSCALL_BIT, 0, 1));
+            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS));
+        }
+
+        for syscall in &policy.allowed_syscalls {
+            // Match -> next instruction is ALLOW; mismatch skips that ALLOW
+            // and continues with the next syscall comparison.
+            filter.push(jump_eq(*syscall as u32, 0, 1));
+            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
+        }
+
+        filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+
+        if filter.len() != instruction_count {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+        validate_compiled_filter(&filter)?;
+        Ok(filter)
+    }
+
+    fn validate_v2_compiled_semantics(
+        policy: &SeccompSyscallPolicyV2,
+        filter: &[SockFilter],
+    ) -> Result<(), SeccompError> {
+        // Keep the semantic backstop self-contained: callers cannot
+        // accidentally bypass the structural cBPF validator and receive a
+        // policy-bound success on an otherwise malformed stream.
+        validate_compiled_filter(filter)?;
+
+        if SeccompArchitecture::current() != Some(policy.architecture) {
+            return Err(SeccompError::ArchitectureMismatch);
+        }
+
+        let first_rule_index = if policy.architecture == SeccompArchitecture::X86_64 {
+            6usize
+        } else {
+            4usize
+        };
+        let mut dispatch_indices = Vec::with_capacity(policy.rules.len());
+        let mut dispatch_index = first_rule_index;
+        for rule in &policy.rules {
+            let dispatch = filter
+                .get(dispatch_index)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if dispatch.code != BPF_JMP | BPF_JEQ | BPF_K
+                || dispatch.k != rule.syscall as u32
+                || dispatch.jt != 0
+                || dispatch.jf == 0
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            dispatch_indices.push(dispatch_index);
+            if let Some(next_dispatch_index) = dispatch_indices.last().copied().and_then(|current| {
+                let next = current
+                    .checked_add(1)
+                    .and_then(|pc| pc.checked_add(usize::from(filter[current].jf)))?;
+                (next < filter.len() - 1).then_some(next)
+            }) {
+                dispatch_index = next_dispatch_index;
+            }
+        }
+        if dispatch_indices.len() != policy.rules.len() {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        let default_deny_index = filter
+            .len()
+            .checked_sub(1)
+            .ok_or(SeccompError::CompilerInvariantViolation)?;
+
+        let expect = |filter: &[SockFilter], pc: &mut usize, expected: SockFilter| {
+            let actual = filter.get(*pc).copied();
+            if actual != Some(expected) {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            *pc = pc
+                .checked_add(1)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            Ok(())
+        };
+
+        for (rule_index, rule) in policy.rules.iter().enumerate() {
+            let dispatch = dispatch_indices[rule_index];
+            let mut pc = dispatch
+                .checked_add(1)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+
+            if !rule.is_disjunctive() {
+                for predicate in rule.predicates() {
+                    let base = 16u32 + u32::from(predicate.arg_index) * 8;
+                    let low_mask = predicate.mask as u32;
+                    let low_value = predicate.value as u32;
+                    let high_mask = (predicate.mask >> 32) as u32;
+                    let high_value = (predicate.value >> 32) as u32;
+
+                    if low_mask != 0 {
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(BPF_LD | BPF_W | BPF_ABS, base),
+                        )?;
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(BPF_ALU | BPF_AND | BPF_K, low_mask),
+                        )?;
+                        match predicate.op {
+                            SeccompArgPredicateOpV1::MaskedEqual => {
+                                expect(filter, &mut pc, jump_eq(low_value, 1, 0))?;
+                            }
+                            SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                expect(
+                                    filter,
+                                    &mut pc,
+                                    if high_mask != 0 {
+                                        jump_eq(low_value, 0, 4)
+                                    } else {
+                                        jump_eq(low_value, 0, 1)
+                                    },
+                                )?;
+                            }
+                        }
+                        if predicate.op == SeccompArgPredicateOpV1::MaskedEqual
+                            || high_mask == 0
+                        {
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(
+                                    BPF_RET | BPF_K,
+                                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                                ),
+                            )?;
+                        }
+                    }
+
+                    if high_mask != 0 {
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(BPF_LD | BPF_W | BPF_ABS, base + 4),
+                        )?;
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(BPF_ALU | BPF_AND | BPF_K, high_mask),
+                        )?;
+                        match predicate.op {
+                            SeccompArgPredicateOpV1::MaskedEqual => {
+                                expect(filter, &mut pc, jump_eq(high_value, 1, 0))?;
+                            }
+                            SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                expect(filter, &mut pc, jump_eq(high_value, 0, 1))?;
+                            }
+                        }
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(
+                                BPF_RET | BPF_K,
+                                SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                            ),
+                        )?;
+                    }
+                }
+
+                expect(
+                    filter,
+                    &mut pc,
+                    stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+                )?;
+            } else {
+                for clause in &rule.clauses {
+                    for (predicate_index, predicate) in clause.predicates.iter().enumerate() {
+                        let later_in_predicates = clause
+                            .predicates
+                            .iter()
+                            .skip(predicate_index + 1)
+                            .map(disjunctive_predicate_instruction_count)
+                            .sum::<usize>();
+                        let clause_mismatch_skip = u8::try_from(
+                            later_in_predicates
+                                .checked_add(1)
+                                .ok_or(SeccompError::FilterTooLarge)?,
+                        )
+                        .map_err(|_| SeccompError::FilterTooLarge)?;
+
+                        let base = 16u32 + u32::from(predicate.arg_index) * 8;
+                        let low_mask = predicate.mask as u32;
+                        let low_value = predicate.value as u32;
+                        let high_mask = (predicate.mask >> 32) as u32;
+                        let high_value = (predicate.value >> 32) as u32;
+
+                        if low_mask != 0 {
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(BPF_LD | BPF_W | BPF_ABS, base),
+                            )?;
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(BPF_ALU | BPF_AND | BPF_K, low_mask),
+                            )?;
+                            match predicate.op {
+                                SeccompArgPredicateOpV1::MaskedEqual => {
+                                    let high_tail: usize = if high_mask != 0 { 3 } else { 0 };
+                                    let mismatch_skip = u8::try_from(
+                                        high_tail
+                                            .checked_add(later_in_predicates)
+                                            .and_then(|n| n.checked_add(1))
+                                            .ok_or(SeccompError::FilterTooLarge)?,
+                                    )
+                                    .map_err(|_| SeccompError::FilterTooLarge)?;
+                                    expect(
+                                        filter,
+                                        &mut pc,
+                                        jump_eq(low_value, 0, mismatch_skip),
+                                    )?;
+                                }
+                                SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                    if high_mask != 0 {
+                                        expect(
+                                            filter,
+                                            &mut pc,
+                                            jump_eq(low_value, 0, 3),
+                                        )?;
+                                    } else {
+                                        expect(
+                                            filter,
+                                            &mut pc,
+                                            jump_eq(low_value, clause_mismatch_skip, 0),
+                                        )?;
+                                    }
+                                }
+                            }
+                        }
+
+                        if high_mask != 0 {
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(BPF_LD | BPF_W | BPF_ABS, base + 4),
+                            )?;
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(BPF_ALU | BPF_AND | BPF_K, high_mask),
+                            )?;
+                            match predicate.op {
+                                SeccompArgPredicateOpV1::MaskedEqual => {
+                                    expect(
+                                        filter,
+                                        &mut pc,
+                                        jump_eq(high_value, 0, clause_mismatch_skip),
+                                    )?;
+                                }
+                                SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                    expect(
+                                        filter,
+                                        &mut pc,
+                                        jump_eq(high_value, clause_mismatch_skip, 0),
+                                    )?;
+                                }
+                            }
+                        }
+                    }
+
+                    expect(
+                        filter,
+                        &mut pc,
+                        stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+                    )?;
+                }
+            }
+
+            let expected_next = dispatch_indices
+                .get(rule_index + 1)
+                .copied()
+                .unwrap_or(default_deny_index);
+            let expected_jump = expected_next
+                .checked_sub(dispatch)
+                .and_then(|distance| distance.checked_sub(1))
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if pc != expected_next || usize::from(filter[dispatch].jf) != expected_jump {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+        }
+
+        if filter[default_deny_index]
+            != stmt(
+                BPF_RET | BPF_K,
+                SECCOMP_RET_ERRNO | libc::EPERM as u32,
+            )
+        {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        Ok(())
+    }
+
+    fn seccomp_evidence_digest(
+        policy: &SeccompSyscallPolicyV1,
+        filter: &[SockFilter],
+    ) -> [u8; 32] {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V3");
+        hasher.update(COMPILED_BYTECODE_STRUCTURAL_VALIDATION_DOMAIN);
+        hasher.update(&policy.digest());
+        hasher.update(&(filter.len() as u32).to_le_bytes());
+        for instruction in filter {
+            hasher.update(&instruction.code.to_le_bytes());
+            hasher.update(&[instruction.jt, instruction.jf]);
+            hasher.update(&instruction.k.to_le_bytes());
+        }
+        // This commits the renderer-policy validation contract separately
+        // from the syscall list and compiled BPF. Future changes to the
+        // forbidden renderer syscall set must therefore bump this version.
+        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V3");
+        hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
+        hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
+        hasher.update(&(libc::EPERM as u32).to_le_bytes());
+        hasher.update(&SECCOMP_RET_KILL_PROCESS.to_le_bytes());
+        hasher.update(&SECCOMP_RET_ALLOW.to_le_bytes());
+        hasher.update(&(SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH).to_le_bytes());
+        *hasher.finalize().as_bytes()
+    }
+
+    fn seccomp_evidence_digest_v2(
+        policy: &SeccompSyscallPolicyV2,
+        filter: &[SockFilter],
+    ) -> [u8; 32] {
+        let mut hasher = blake3::Hasher::new();
+        if policy.rules.iter().any(SeccompSyscallRuleV2::is_disjunctive) {
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V6");
+            hasher.update(b"PRISM-SECCOMP-POLICY-SCHEMA-V2-CLAUSES-V1");
+        } else {
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V5");
+        }
+        hasher.update(COMPILED_BYTECODE_STRUCTURAL_VALIDATION_DOMAIN);
+        hasher.update(COMPILED_BYTECODE_SEMANTIC_VALIDATION_DOMAIN);
+        hasher.update(&policy.digest());
+        hasher.update(&(filter.len() as u32).to_le_bytes());
+        for instruction in filter {
+            hasher.update(&instruction.code.to_le_bytes());
+            hasher.update(&[instruction.jt, instruction.jf]);
+            hasher.update(&instruction.k.to_le_bytes());
+        }
+        // Evidence binds the exact structural bytecode contract as well as
+        // policy-bound semantics. Future validator-invariant changes must
+        // therefore move this domain even if emitted bytes remain unchanged.
+        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V3");
+        hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
+        hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
+        hasher.update(&(libc::EPERM as u32).to_le_bytes());
+        hasher.update(&SECCOMP_RET_KILL_PROCESS.to_le_bytes());
+        hasher.update(&SECCOMP_RET_ALLOW.to_le_bytes());
+        hasher.update(&(SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH).to_le_bytes());
+        *hasher.finalize().as_bytes()
+    }
+
+    fn validate_v2_renderer_policy(policy: &SeccompSyscallPolicyV2) -> Result<(), SeccompError> {
+        if let Some(rule) = policy.rules.iter().find(|rule| {
+            FORBIDDEN_RENDERER_SYSCALLS.contains(&rule.syscall)
+        }) {
+            return Err(SeccompError::ForbiddenRendererSyscall(rule.syscall));
+        }
+        #[cfg(target_arch = "x86_64")]
+        if let Some(rule) = policy.rules.iter().find(|rule| {
+            FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS.contains(&rule.syscall)
+        }) {
+            return Err(SeccompError::ForbiddenRendererSyscall(rule.syscall));
+        }
+        Ok(())
+    }
+
+    /// Install a parameter-aware V2 policy. V1 remains the stable
+    /// syscall-number-only installation path; V2 must commit its complete
+    /// predicate-bearing policy to the renderer profile before enforcement.
+    pub fn install_v2(
+        assignment_id: RendererProcessAssignmentId,
+        profile: SandboxProfileV1,
+        policy: &SeccompSyscallPolicyV2,
+    ) -> Result<SandboxEnforcementReceipt, SeccompError> {
+        if assignment_id.0 == 0 {
+            return Err(SeccompError::InvalidAssignmentId);
+        }
+        if profile.syscall_policy_digest() == [0u8; 32]
+            || policy.digest() != profile.syscall_policy_digest()
+        {
+            return Err(SeccompError::PolicyCommitmentMismatch);
+        }
+        validate_v2_renderer_policy(policy)?;
+
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).map_err(|_| SeccompError::IdentityGenerationFailed)?;
+        let installation_id = SandboxInstallationId::new(u128::from_be_bytes(bytes))
+            .map_err(|_| SeccompError::IdentityGenerationFailed)?;
+
+        let mut filter = compile_filter_v2(policy)?;
+
+        // Construct the receipt before any irreversible state transition.
+        // Nothing after seccomp installation may turn a successful filter
+        // installation into an error, because the caller would already be
+        // sandboxed while observing `Err`.
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxSeccompSyscallV2,
+            profile.policy_digest(),
+            seccomp_evidence_digest_v2(policy, &filter),
+            SandboxEnforcementLayer::Syscall,
+        ).map_err(|_| SeccompError::CompilerInvariantViolation)?;
+
+        let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
+        if rc != 0 {
+            return Err(SeccompError::InstallationFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
+            ));
+        }
+
+        let program = SockFprog {
+            len: u16::try_from(filter.len()).map_err(|_| SeccompError::FilterTooLarge)?,
+            filter: filter.as_mut_ptr(),
+        };
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_seccomp,
+                SECCOMP_SET_MODE_FILTER,
+                SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH,
+                &program as *const SockFprog,
+            )
+        };
+        if rc < 0 {
+            return Err(SeccompError::InstallationFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
+            ));
+        }
+        if rc > 0 {
+            return Err(SeccompError::InstallationFailed(libc::ESRCH));
+        }
+
+        Ok(receipt)
+    }
+
+    /// Install an explicit architecture-qualified syscall allowlist into the
+    /// current process. This call is intended for the renderer bootstrap after
+    /// process identity is established and before renderer capability IPC.
+    pub fn install(
+        assignment_id: RendererProcessAssignmentId,
+        profile: SandboxProfileV1,
+        policy: &SeccompSyscallPolicyV1,
+    ) -> Result<SandboxEnforcementReceipt, SeccompError> {
+        // The renderer profile must commit to the exact syscall policy that
+        // this adapter is about to install. Reject mismatches before any
+        // irreversible state transition and before generating installation
+        // identity material that may itself become unavailable after filtering.
+        if assignment_id.0 == 0 {
+            return Err(SeccompError::InvalidAssignmentId);
+        }
+
+        if profile.syscall_policy_digest() == [0u8; 32]
+            || policy.digest() != profile.syscall_policy_digest()
+        {
+            return Err(SeccompError::PolicyCommitmentMismatch);
+        }
+
+        policy.validate_renderer_policy()?;
+
+        // Generate the installation identity before irreversible enforcement.
+        // Once seccomp is installed, a policy may legitimately deny getrandom(2)
+        // and other runtime helpers. A post-install RNG failure must never leave
+        // the caller sandboxed while the adapter reports installation failure.
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).map_err(|_| SeccompError::IdentityGenerationFailed)?;
+        let installation_id = SandboxInstallationId::new(u128::from_be_bytes(bytes))
+            .map_err(|_| SeccompError::IdentityGenerationFailed)?;
+
+        let mut filter = compile_filter(policy)?;
+
+        // Construct the receipt before any irreversible state transition.
+        // Nothing after seccomp installation may turn a successful filter
+        // installation into an error, because the caller would already be
+        // sandboxed while observing `Err`.
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxSeccompSyscallV1,
+            profile.policy_digest(),
+            seccomp_evidence_digest(policy, &filter),
+            SandboxEnforcementLayer::Syscall,
+        ).map_err(|_| SeccompError::CompilerInvariantViolation)?;
+
+        let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
+        if rc != 0 {
+            return Err(SeccompError::InstallationFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
+            ));
+        }
+
+        let program = SockFprog {
+            len: u16::try_from(filter.len()).map_err(|_| SeccompError::FilterTooLarge)?,
+            filter: filter.as_mut_ptr(),
+        };
+
+        // A renderer may be multithreaded. prctl(PR_SET_SECCOMP) can only
+        // attach to the calling thread; use the seccomp() API with TSYNC so
+        // the broker never records process-level syscall evidence for a
+        // single-thread-only filter. TSYNC_ESRCH normalizes synchronization
+        // failure to errno instead of exposing a kernel TID as the return value.
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_seccomp,
+                SECCOMP_SET_MODE_FILTER,
+                SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH,
+                &program as *const SockFprog,
+            )
+        };
+        if rc < 0 {
+            return Err(SeccompError::InstallationFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
+            ));
+        }
+        if rc > 0 {
+            // TSYNC_ESRCH asks the kernel to report synchronization failure as
+            // ESRCH rather than exposing a kernel TID. Treat any positive
+            // result defensively as a synchronization failure too; never
+            // interpret a thread ID as successful enforcement.
+            return Err(SeccompError::InstallationFailed(libc::ESRCH));
+        }
+
+        Ok(receipt)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn v2_masked_not_equal_predicate_supports_forbidden_bit_combinations() {
+            let predicate = SeccompArgPredicateV1::new_with_op(
+                2,
+                (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                SeccompArgPredicateOpV1::MaskedNotEqual,
+            ).unwrap();
+
+            assert!(!predicate.matches((libc::PROT_WRITE | libc::PROT_EXEC) as u64));
+            assert!(predicate.matches(libc::PROT_READ as u64));
+            assert!(predicate.matches(libc::PROT_EXEC as u64));
+        }
+
+        #[test]
+        fn v2_predicates_are_canonical_and_argument_bound() {
+            let predicate = SeccompArgPredicateV1::new(0, 0x0000_ffff, 0x0000_1234).unwrap();
+            assert!(predicate.matches(0x1234));
+            assert!(predicate.matches(0xabcd_1234));
+            assert!(!predicate.matches(0x1235));
+
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![
+                    predicate,
+                    SeccompArgPredicateV1::new(1, u64::MAX, 0).unwrap(),
+                ],
+            )
+            .unwrap();
+            assert_eq!(rule.predicates().len(), 2);
+
+            let policy = SeccompSyscallPolicyV2::new(
+                SeccompArchitecture::current().unwrap(),
+                vec![rule],
+            )
+            .unwrap();
+            assert!(policy.allows(libc::SYS_prctl, &[0x1234, 0, 0, 0, 0, 0]));
+            assert!(!policy.allows(libc::SYS_prctl, &[0x1235, 0, 0, 0, 0, 0]));
+        }
+
+        #[test]
+        fn v2_rejects_duplicate_rules_and_predicates() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let predicate = SeccompArgPredicateV1::new(0, u64::MAX, 1).unwrap();
+            let rule = SeccompSyscallRuleV2::new(libc::SYS_prctl, vec![predicate, predicate]);
+            assert!(matches!(rule, Err(SeccompError::DuplicateArgumentPredicate)));
+
+            let a = SeccompSyscallRuleV2::new(libc::SYS_prctl, vec![SeccompArgPredicateV1::new(0, 1, 1).unwrap()]).unwrap();
+            let b = SeccompSyscallRuleV2::new(libc::SYS_prctl, vec![SeccompArgPredicateV1::new(1, 1, 1).unwrap()]).unwrap();
+            assert!(matches!(
+                SeccompSyscallPolicyV2::new(arch, vec![a, b]),
+                Err(SeccompError::DuplicateSyscall)
+            ));
+        }
+
+        #[test]
+        fn v2_compiled_bytecode_is_canonical_for_equivalent_inputs() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let first_rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(2, u64::MAX, 3).unwrap(),
+                        SeccompArgPredicateV1::new_with_op(
+                            0,
+                            u64::MAX,
+                            0x0000_0001_0000_0001,
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        )
+                        .unwrap(),
+                    ])
+                    .unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(1, 0xffff_ffff, 7).unwrap(),
+                    ])
+                    .unwrap(),
+                ],
+            )
+            .unwrap();
+
+            let second_rule = SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap();
+
+            let first_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![first_rule.clone(), second_rule.clone()],
+            )
+            .unwrap();
+
+            let reordered_first_rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new_with_op(
+                            0,
+                            u64::MAX,
+                            0x0000_0001_0000_0001,
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        )
+                        .unwrap(),
+                        SeccompArgPredicateV1::new(2, u64::MAX, 3).unwrap(),
+                    ])
+                    .unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(1, 0xffff_ffff, 7).unwrap(),
+                    ])
+                    .unwrap(),
+                ],
+            )
+            .unwrap();
+
+            let second_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![second_rule, reordered_first_rule],
+            )
+            .unwrap();
+
+            let first_filter = compile_filter_v2(&first_policy).unwrap();
+            let second_filter = compile_filter_v2(&second_policy).unwrap();
+
+            assert_eq!(first_policy.digest(), second_policy.digest());
+            assert_eq!(
+                first_filter.len(),
+                second_filter.len(),
+                "equivalent policies must have identical emitted length"
+            );
+
+            for (left, right) in first_filter.iter().zip(second_filter.iter()) {
+                assert_eq!(left.code, right.code);
+                assert_eq!(left.jt, right.jt);
+                assert_eq!(left.jf, right.jf);
+                assert_eq!(left.k, right.k);
+            }
+        }
+
+        #[test]
+        fn v2_digest_is_deterministic_and_domain_separated() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let a = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, 0xff, 1).unwrap()],
+            ).unwrap();
+            let b = SeccompSyscallRuleV2::new(
+                libc::SYS_exit_group,
+                Vec::new(),
+            ).unwrap();
+            let first = SeccompSyscallPolicyV2::new(arch, vec![b.clone(), a.clone()]).unwrap();
+            let second = SeccompSyscallPolicyV2::new(arch, vec![a, b]).unwrap();
+            assert_eq!(first.digest(), second.digest());
+
+            let v1 = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_prctl, libc::SYS_exit_group]).unwrap();
+            assert_ne!(first.digest(), v1.digest());
+        }
+
+        #[test]
+        fn v2_install_requires_exact_profile_commitment() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u64::MAX, libc::PR_GET_NO_NEW_PRIVS as u64).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let profile = SandboxProfileV1::renderer_default();
+            assert!(matches!(
+                install_v2(RendererProcessAssignmentId::new(5).unwrap(), profile, &policy),
+                Err(SeccompError::PolicyCommitmentMismatch)
+            ));
+        }
+
+        #[test]
+        fn v2_install_rejects_forbidden_renderer_syscalls_before_enforcement() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_ptrace,
+                Vec::new(),
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let profile = SandboxProfileV1::renderer_default()
+                .with_syscall_policy_digest(policy.digest())
+                .unwrap();
+
+            assert!(matches!(
+                install_v2(RendererProcessAssignmentId::new(6).unwrap(), profile, &policy),
+                Err(SeccompError::ForbiddenRendererSyscall(syscall))
+                    if syscall == libc::SYS_ptrace
+            ));
+        }
+
+        #[test]
+        fn v2_evidence_digest_is_distinct_from_v2_policy_digest() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u64::MAX, libc::PR_GET_NO_NEW_PRIVS as u64).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            assert_ne!(seccomp_evidence_digest_v2(&policy, &filter), policy.digest());
+        }
+
+        #[test]
+        fn v2_evidence_digest_commits_structural_validation_domain() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::PR_GET_NO_NEW_PRIVS as u64,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            let current = seccomp_evidence_digest_v2(&policy, &filter);
+
+            // Reconstruct the pre-structural-validation evidence transcript
+            // exactly, but omit the new structural contract domain. The digest
+            // must differ, proving the validator contract is actually committed
+            // rather than merely documented beside the digest implementation.
+            let mut legacy = blake3::Hasher::new();
+            legacy.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V5");
+            legacy.update(b"PRISM-SECCOMP-COMPILED-BYTECODE-SEMANTIC-VALIDATION-V1");
+            legacy.update(&policy.digest());
+            legacy.update(&(filter.len() as u32).to_le_bytes());
+            for instruction in &filter {
+                legacy.update(&instruction.code.to_le_bytes());
+                legacy.update(&[instruction.jt, instruction.jf]);
+                legacy.update(&instruction.k.to_le_bytes());
+            }
+            legacy.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V3");
+            legacy.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
+            legacy.update(&SECCOMP_RET_ERRNO.to_le_bytes());
+            legacy.update(&(libc::EPERM as u32).to_le_bytes());
+            legacy.update(&SECCOMP_RET_KILL_PROCESS.to_le_bytes());
+            legacy.update(&SECCOMP_RET_ALLOW.to_le_bytes());
+            legacy.update(&(SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH).to_le_bytes());
+
+            assert_ne!(current, *legacy.finalize().as_bytes());
+        }
+
+        #[test]
+        fn v2_policy_digest_commits_predicate_operator_semantics() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let equal = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u64::MAX, 0x1122).unwrap()],
+            )
+            .unwrap();
+            let not_equal = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x1122,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+
+            let equal_policy = SeccompSyscallPolicyV2::new(arch, vec![equal]).unwrap();
+            let not_equal_policy =
+                SeccompSyscallPolicyV2::new(arch, vec![not_equal]).unwrap();
+            assert_ne!(equal_policy.digest(), not_equal_policy.digest());
+
+            let equal_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x1122).unwrap(),
+            ])
+            .unwrap();
+            let not_equal_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x1122,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+
+            let equal_disjunctive = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![equal_clause.clone(), equal_clause.clone()],
+            );
+            assert!(matches!(
+                equal_disjunctive,
+                Err(SeccompError::DuplicateArgumentClause)
+            ));
+
+            let equal_disjunctive =
+                SeccompSyscallRuleV2::new_with_clauses(libc::SYS_socket, vec![equal_clause, SeccompSyscallClauseV2::new(vec![
+                    SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                ]).unwrap()]).unwrap();
+            let not_equal_disjunctive = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![not_equal_clause, SeccompSyscallClauseV2::new(vec![
+                    SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                ]).unwrap()],
+            )
+            .unwrap();
+
+            let equal_disjunctive_policy =
+                SeccompSyscallPolicyV2::new(arch, vec![equal_disjunctive]).unwrap();
+            let not_equal_disjunctive_policy =
+                SeccompSyscallPolicyV2::new(arch, vec![not_equal_disjunctive]).unwrap();
+            assert_ne!(
+                equal_disjunctive_policy.digest(),
+                not_equal_disjunctive_policy.digest()
+            );
+        }
+
+        #[test]
+        fn v2_policy_digest_commits_endian_domain() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(1, 0xff00_0000_0000_0000, 0x1200_0000_0000_0000).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+
+            let mut legacy = blake3::Hasher::new();
+            legacy.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V2");
+            legacy.update(&(arch as u32).to_le_bytes());
+            legacy.update(&(policy.rules().len() as u32).to_le_bytes());
+            for rule in policy.rules() {
+                legacy.update(&(rule.syscall() as u32).to_le_bytes());
+                legacy.update(&(rule.predicates().len() as u32).to_le_bytes());
+                for predicate in rule.predicates() {
+                    legacy.update(&(predicate.arg_index() as u32).to_le_bytes());
+                    legacy.update(&predicate.mask().to_le_bytes());
+                    legacy.update(&predicate.value().to_le_bytes());
+                }
+            }
+
+            assert_ne!(policy.digest(), *legacy.finalize().as_bytes());
+        }
+
+        #[cfg(target_endian = "big")]
+        #[test]
+        fn v2_compiler_rejects_big_endian_targets_before_architecture_selection() {
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, 0xff, 0x12).unwrap()],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                SeccompArchitecture::X86_64,
+                vec![rule],
+            )
+            .unwrap();
+
+            assert!(matches!(
+                compile_filter_v2(&policy),
+                Err(SeccompError::UnsupportedEndianness)
+            ));
+        }
+
+        #[test]
+        fn v2_disjunctive_clauses_are_canonical_and_model_is_explicit_or() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![netlink.clone(), unix.clone()],
+            )
+            .unwrap();
+            assert_eq!(rule.clauses().len(), 2);
+            assert_eq!(rule.clauses()[0], unix);
+            assert_eq!(rule.clauses()[1], netlink);
+
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            assert!(policy.allows(
+                libc::SYS_socket,
+                &[libc::AF_UNIX as u64, 1, 0, 0, 0, 0]
+            ));
+            assert!(policy.allows(
+                libc::SYS_socket,
+                &[libc::AF_NETLINK as u64, 1, 0, 0, 0, 0]
+            ));
+            assert!(!policy.allows(
+                libc::SYS_socket,
+                &[libc::AF_INET as u64, 1, 0, 0, 0, 0]
+            ));
+            assert!(!policy.allows(libc::SYS_getpid, &[0; 6]));
+        }
+
+        #[test]
+        fn v2_disjunctive_policy_digest_is_order_independent_and_schema_bound() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+
+            let forward = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![unix.clone(), netlink.clone()],
+            )
+            .unwrap();
+            let reverse = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![netlink, unix],
+            )
+            .unwrap();
+            let first = SeccompSyscallPolicyV2::new(arch, vec![forward]).unwrap();
+            let second = SeccompSyscallPolicyV2::new(arch, vec![reverse]).unwrap();
+            assert_eq!(first.digest(), second.digest());
+
+            let single = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::AF_UNIX as u64,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let single_policy =
+                SeccompSyscallPolicyV2::new(arch, vec![single]).unwrap();
+            assert_ne!(first.digest(), single_policy.digest());
+        }
+
+        #[test]
+        fn v2_forbidden_renderer_syscall_cannot_be_hidden_in_a_disjunctive_rule() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let assert_forbidden = |syscall: i64| {
+                let clause = SeccompSyscallClauseV2::new(vec![
+                    SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap(),
+                ])
+                .unwrap();
+                let forbidden =
+                    SeccompSyscallRuleV2::new_with_clauses(syscall, vec![clause]).unwrap();
+                let policy = SeccompSyscallPolicyV2::new(arch, vec![forbidden]).unwrap();
+
+                assert!(matches!(
+                    validate_v2_renderer_policy(&policy),
+                    Err(SeccompError::ForbiddenRendererSyscall(rejected))
+                        if rejected == syscall
+                ));
+            };
+
+            for syscall in FORBIDDEN_RENDERER_SYSCALLS.iter().copied() {
+                assert_forbidden(syscall);
+            }
+            #[cfg(target_arch = "x86_64")]
+            for syscall in FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS.iter().copied() {
+                assert_forbidden(syscall);
+            }
+        }
+
+        #[test]
+        fn v2_disjunctive_clauses_reject_duplicate_and_unconditional_widening() {
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            assert!(matches!(
+                SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![unix.clone(), unix]
+                ),
+                Err(SeccompError::DuplicateArgumentClause)
+            ));
+
+            let unconditional = SeccompSyscallClauseV2::new(Vec::new()).unwrap();
+            let bounded = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            assert!(matches!(
+                SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![unconditional, bounded]
+                ),
+                Err(SeccompError::InvalidPolicy)
+            ));
+        }
+
+        #[test]
+        fn v2_single_clause_digest_is_legacy_compatible_and_disjunctive_is_separated() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let predicate =
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::PR_GET_NO_NEW_PRIVS as u64).unwrap();
+            let legacy =
+                SeccompSyscallRuleV2::new(libc::SYS_prctl, vec![predicate]).unwrap();
+            let clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::PR_GET_NO_NEW_PRIVS as u64)
+                    .unwrap(),
+            ])
+            .unwrap();
+            let same_semantics = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_prctl,
+                vec![clause],
+            )
+            .unwrap();
+
+            let first = SeccompSyscallPolicyV2::new(arch, vec![legacy]).unwrap();
+            let second = SeccompSyscallPolicyV2::new(arch, vec![same_semantics]).unwrap();
+            assert_eq!(first.digest(), second.digest());
+
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+            let disjunctive = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![unix, netlink],
+            )
+            .unwrap();
+            let third = SeccompSyscallPolicyV2::new(arch, vec![disjunctive]).unwrap();
+            assert_ne!(second.digest(), third.digest());
+        }
+
+        #[test]
+        fn v2_disjunctive_masked_equal_branch_polarity_is_explicit() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let first_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ]).unwrap();
+            let second_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ]).unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![first_clause, second_clause],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let dispatch = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_socket as u32
+            }).unwrap();
+            let first_predicate_jump = &filter[dispatch + 3];
+
+            // MaskedEqual: equality continues to the clause ALLOW;
+            // inequality skips that ALLOW and falls through to the next
+            // alternative. There is no local EPERM in a disjunctive clause.
+            // The first predicate is full-width: a low-half mismatch skips
+            // the high-half load/AND/branch plus this clause's ALLOW.
+            assert_eq!(first_predicate_jump.jt, 0);
+            assert_eq!(first_predicate_jump.jf, 4);
+            assert_eq!(filter[dispatch + 7].k, SECCOMP_RET_ALLOW);
+            assert_eq!(filter[dispatch + 8].code, BPF_LD | BPF_W | BPF_ABS);
+        }
+
+        #[test]
+        fn v2_disjunctive_compiler_jumps_to_next_clause_then_default_deny() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![unix, netlink],
+            )
+            .unwrap();
+            let denied = SeccompSyscallRuleV2::new(libc::SYS_getpid, Vec::new()).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule, denied]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let socket_dispatch = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_socket as u32
+                })
+                .unwrap();
+            assert_eq!(filter[socket_dispatch].jt, 0);
+            assert!(filter[socket_dispatch].jf > 1);
+
+            let allow_count = filter
+                .iter()
+                .filter(|instruction| {
+                    instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW
+                })
+                .count();
+            assert_eq!(allow_count, 3);
+
+            assert_eq!(
+                filter.last().map(|instruction| instruction.k),
+                Some(SECCOMP_RET_ERRNO | libc::EPERM as u32)
+            );
+        }
+
+        #[test]
+        fn v2_max_disjunctive_dispatch_offset_is_explicitly_bounded() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let mut clauses = Vec::new();
+            for clause_index in 0..4u64 {
+                let mut predicates = Vec::new();
+                for predicate_index in 0..4u64 {
+                    predicates.push(
+                        SeccompArgPredicateV1::new_with_op(
+                            predicate_index as u8,
+                            u64::MAX,
+                            0x0100_0000_0000_0001u64
+                                .wrapping_add(clause_index << 8)
+                                .wrapping_add(predicate_index),
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        )
+                        .unwrap(),
+                    );
+                }
+                clauses.push(SeccompSyscallClauseV2::new(predicates).unwrap());
+            }
+
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                clauses,
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let dispatch = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_socket as u32
+                })
+                .unwrap();
+
+            // Four clauses × (four full-width MaskedNotEqual predicates,
+            // six instructions each + one clause ALLOW) = 100 body
+            // instructions. Predicate failure now jumps directly to the next
+            // clause, so no local EPERM instruction is left unreachable.
+            assert_eq!(filter[dispatch].jf, 100);
+            assert!(filter[dispatch].jf <= u8::MAX);
+        }
+
+        #[test]
+        fn v2_disjunctive_compiler_enforces_instruction_budget_boundary() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            fn full_clause(seed: i64) -> SeccompSyscallClauseV2 {
+                // Keep every clause distinct so the constructor's duplicate
+                // clause rejection remains part of the fixture's validation.
+                SeccompSyscallClauseV2::new(vec![
+                    SeccompArgPredicateV1::new(0, u64::MAX, seed as u64).unwrap(),
+                    SeccompArgPredicateV1::new(1, u64::MAX, 1).unwrap(),
+                    SeccompArgPredicateV1::new(2, u64::MAX, 2).unwrap(),
+                    SeccompArgPredicateV1::new(3, u64::MAX, 3).unwrap(),
+                ])
+                .unwrap()
+            }
+
+            let full_rule = |syscall: i64| {
+                SeccompSyscallRuleV2::new_with_clauses(
+                    syscall,
+                    vec![
+                        full_clause(syscall),
+                        full_clause(syscall + 1),
+                        full_clause(syscall + 2),
+                        full_clause(syscall + 3),
+                    ],
+                )
+                .unwrap()
+            };
+
+            let under = (0..40)
+                .map(|index| full_rule(10_000 + index * 4))
+                .collect::<Vec<_>>();
+            let under_policy = SeccompSyscallPolicyV2::new(arch, under).unwrap();
+            let under_filter = compile_filter_v2(&under_policy).unwrap();
+            assert!(under_filter.len() <= 4096);
+            // 40 maximum-width disjunctive rules fit (x86-64: 4048
+            // instructions including the fixed prefix and terminator);
+            // adding the 41st rule crosses the kernel's 4096-instruction
+            // cBPF ceiling.
+
+            let over = (0..41)
+                .map(|index| full_rule(20_000 + index * 4))
+                .collect::<Vec<_>>();
+            let over_policy = SeccompSyscallPolicyV2::new(arch, over).unwrap();
+            assert!(matches!(
+                compile_filter_v2(&over_policy),
+                Err(SeccompError::FilterTooLarge)
+            ));
+        }
+
+        #[test]
+        fn v2_compiler_rejects_wrong_architecture() {
+            let current = SeccompArchitecture::current().unwrap();
+            let other = match current {
+                SeccompArchitecture::X86_64 => SeccompArchitecture::Aarch64,
+                _ => SeccompArchitecture::X86_64,
+            };
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(other, vec![rule]).unwrap();
+            assert!(matches!(
+                compile_filter_v2(&policy),
+                Err(SeccompError::ArchitectureMismatch)
+            ));
+        }
+
+        #[test]
+        fn v2_compiler_stays_within_bpf_budget_at_policy_limit() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let mut rules = Vec::new();
+            for syscall in 0..64 {
+                rules.push(SeccompSyscallRuleV2::new(
+                    10_000 + syscall,
+                    vec![
+                        SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap(),
+                        SeccompArgPredicateV1::new(1, u64::MAX, 1).unwrap(),
+                        SeccompArgPredicateV1::new(2, u64::MAX, 2).unwrap(),
+                        SeccompArgPredicateV1::new(3, u64::MAX, 3).unwrap(),
+                    ],
+                ).unwrap());
+            }
+            let policy = SeccompSyscallPolicyV2::new(arch, rules).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            assert!(filter.len() <= 4096);
+        }
+
+        #[test]
+        fn v2_masked_not_equal_is_whole_word_not_half_word() {
+            let predicate = SeccompArgPredicateV1::new_with_op(
+                0,
+                u64::MAX,
+                0x1122_3344_5566_7788,
+                SeccompArgPredicateOpV1::MaskedNotEqual,
+            ).unwrap();
+
+            assert!(!predicate.matches(0x1122_3344_5566_7788));
+            assert!(predicate.matches(0x1122_3344_5566_7789));
+            assert!(predicate.matches(0x1122_3344_5566_0000));
+            assert!(predicate.matches(0x0000_0000_5566_7788));
+        }
+
+        #[test]
+        fn v2_masked_not_equal_compiler_requires_both_halves_to_match_for_denial() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_mmap,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    2,
+                    u64::MAX,
+                    0x1122_3344_5566_7788,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let jump = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == 0x5566_7788
+            }).unwrap();
+            // Low-half equality falls through to the high-half load; a low-half
+            // mismatch skips exactly the remaining high-half predicate body.
+            assert_eq!((filter[jump].jt, filter[jump].jf), (0, 4));
+        }
+
+        #[test]
+        fn predicate_and_clause_size_helpers_cover_all_encoding_shapes() {
+            let shapes = [
+                (0x0000_0000_0000_00ffu64, SeccompArgPredicateOpV1::MaskedEqual, 4usize),
+                (0xffff_ffff_0000_0000u64, SeccompArgPredicateOpV1::MaskedEqual, 4),
+                (u64::MAX, SeccompArgPredicateOpV1::MaskedEqual, 8),
+                (0x0000_0000_0000_00ffu64, SeccompArgPredicateOpV1::MaskedNotEqual, 4),
+                (0xffff_ffff_0000_0000u64, SeccompArgPredicateOpV1::MaskedNotEqual, 4),
+                (u64::MAX, SeccompArgPredicateOpV1::MaskedNotEqual, 7),
+            ];
+
+            for (mask, op, expected) in shapes {
+                let predicate = SeccompArgPredicateV1::new_with_op(0, mask, mask, op).unwrap();
+                assert_eq!(predicate_instruction_count(&predicate), expected);
+            }
+
+            let clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x0100_0000_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+                SeccompArgPredicateV1::new(1, 0xff, 7).unwrap(),
+            ])
+            .unwrap();
+
+            assert_eq!(
+                clause_instruction_count(&clause),
+                1 + clause
+                    .predicates()
+                    .iter()
+                    .map(disjunctive_predicate_instruction_count)
+                    .sum::<usize>()
+            );
+
+            let second_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(2, u64::MAX, 9).unwrap(),
+            ]).unwrap();
+            let disjunctive_rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![clause.clone(), second_clause.clone()],
+            ).unwrap();
+            assert_eq!(
+                rule_body_instruction_count(&disjunctive_rule),
+                clause_instruction_count(&clause)
+                    + clause_instruction_count(&second_clause)
+            );
+
+            let single_rule =
+                SeccompSyscallRuleV2::new(libc::SYS_socket, clause.predicates().to_vec()).unwrap();
+            assert_eq!(
+                rule_body_instruction_count(&single_rule),
+                1 + clause
+                    .predicates()
+                    .iter()
+                    .map(predicate_instruction_count)
+                    .sum::<usize>()
+            );
+        }
+
+        #[test]
+        fn v2_compiler_preserves_predicate_branch_polarity() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let equal = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, 0xff, 0x12).unwrap()],
+            ).unwrap();
+            let not_equal = SeccompSyscallRuleV2::new(
+                libc::SYS_ioctl,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    1,
+                    0xff,
+                    0x34,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap()],
+            ).unwrap();
+
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![equal, not_equal]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let prctl = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_prctl as u32
+            }).unwrap();
+            let equal_jump = &filter[prctl + 3];
+            assert_eq!((equal_jump.jt, equal_jump.jf), (1, 0));
+
+            let ioctl = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_ioctl as u32
+            }).unwrap();
+            let not_equal_jump = &filter[ioctl + 3];
+            assert_eq!((not_equal_jump.jt, not_equal_jump.jf), (0, 1));
+        }
+
+        #[test]
+        fn v2_compiler_jump_offsets_skip_only_the_current_rule() {
+            let arch = SeccompArchitecture::current().unwrap();
+            // Policy construction canonicalizes rules by syscall number, so
+            // use two ascending syscall numbers to make the expected control
+            // flow explicit: socket(2) precedes prctl(2).
+            let socket_rule = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u32::MAX as u64,
+                    libc::AF_UNIX as u64,
+                ).unwrap()],
+            ).unwrap();
+            let prctl_rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                Vec::new(),
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![prctl_rule, socket_rule],
+            ).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            // The socket dispatch must skip exactly its predicate body plus
+            // its ALLOW and land on the next syscall comparison. This proves
+            // the mismatch jump is measured from the instruction after the
+            // dispatch comparison, not from the comparison itself.
+            let socket_index = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_socket as u32
+            }).unwrap();
+            let prctl_offset = filter[socket_index + 1..].iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_prctl as u32
+            }).unwrap();
+            assert_eq!(filter[socket_index].jf as usize, prctl_offset);
+
+            let prctl_index = socket_index + 1 + prctl_offset;
+            assert_eq!(filter[prctl_index].k, libc::SYS_prctl as u32);
+        }
+
+        #[test]
+        fn v2_compiler_binds_argument_words_before_allow() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u64::MAX, libc::PR_GET_NO_NEW_PRIVS as u64).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            assert!(filter.iter().any(|instruction| {
+                instruction.code == BPF_LD | BPF_W | BPF_ABS && instruction.k == 16
+            }));
+            assert!(filter.iter().any(|instruction| {
+                instruction.code == BPF_LD | BPF_W | BPF_ABS && instruction.k == 20
+            }));
+            assert!(filter.iter().any(|instruction| {
+                instruction.code == BPF_ALU | BPF_AND | BPF_K && instruction.k == u32::MAX
+            }));
+            assert!(filter.iter().any(|instruction| {
+                instruction.code == BPF_RET | BPF_K
+                    && instruction.k == SECCOMP_RET_ERRNO | libc::EPERM as u32
+            }));
+            assert_eq!(filter.last().map(|instruction| instruction.k), Some(SECCOMP_RET_ERRNO | libc::EPERM as u32));
+        }
+
+        fn interpret_v2_filter(
+            filter: &[SockFilter],
+            architecture: SeccompArchitecture,
+            syscall: i64,
+            arguments: [u64; 6],
+        ) -> u32 {
+            let mut accumulator = 0u32;
+            let mut pc = 0usize;
+
+            for _ in 0..=filter.len() {
+                let instruction = filter
+                    .get(pc)
+                    .unwrap_or_else(|| panic!("BPF program fell off the end at {pc}"));
+
+                match instruction.code {
+                    code if code == BPF_LD | BPF_W | BPF_ABS => {
+                        accumulator = match instruction.k {
+                            SECCOMP_DATA_ARCH_OFFSET => architecture as u32,
+                            SECCOMP_DATA_NR_OFFSET => syscall as u32,
+                            offset if (16..=56).contains(&offset) && (offset - 16) % 8 == 0 => {
+                                let index = ((offset - 16) / 8) as usize;
+                                arguments[index] as u32
+                            }
+                            offset
+                                if (20..=60).contains(&offset) && (offset - 20) % 8 == 0 =>
+                            {
+                                let index = ((offset - 20) / 8) as usize;
+                                (arguments[index] >> 32) as u32
+                            }
+                            offset => panic!("unexpected BPF argument offset {offset}"),
+                        };
+                        pc += 1;
+                    }
+                    code if code == BPF_ALU | BPF_AND | BPF_K => {
+                        accumulator &= instruction.k;
+                        pc += 1;
+                    }
+                    code if code == BPF_JMP | BPF_JEQ | BPF_K => {
+                        pc += 1 + if accumulator == instruction.k {
+                            instruction.jt as usize
+                        } else {
+                            instruction.jf as usize
+                        };
+                    }
+                    code if code == BPF_JMP | BPF_JGE | BPF_K => {
+                        pc += 1 + if accumulator >= instruction.k {
+                            instruction.jt as usize
+                        } else {
+                            instruction.jf as usize
+                        };
+                    }
+                    code if code == BPF_RET | BPF_K => return instruction.k,
+                    code => panic!("unexpected V2 BPF opcode 0x{code:04x}"),
+                }
+            }
+
+            panic!("BPF program exceeded the execution bound");
+        }
+
+        #[test]
+        fn v2_compiled_filter_matches_policy_model_for_adversarial_arguments() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let prctl = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::PR_GET_NO_NEW_PRIVS as u64,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let mmap_no_wx = SeccompSyscallRuleV2::new(
+                libc::SYS_mmap,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    2,
+                    (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                    (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let mprotect_no_x = SeccompSyscallRuleV2::new(
+                libc::SYS_mprotect,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    2,
+                    libc::PROT_EXEC as u64,
+                    libc::PROT_EXEC as u64,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let exit_group =
+                SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new()).unwrap();
+            let policy =
+                SeccompSyscallPolicyV2::new(arch, vec![prctl, mmap_no_wx, mprotect_no_x, exit_group])
+                    .unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let cases = [
+                (
+                    libc::SYS_prctl,
+                    [libc::PR_GET_NO_NEW_PRIVS as u64, 0, 0, 0, 0, 0],
+                    SECCOMP_RET_ALLOW,
+                ),
+                (
+                    libc::SYS_prctl,
+                    [libc::PR_SET_NO_NEW_PRIVS as u64, 1, 0, 0, 0, 0],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_mmap,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_READ | libc::PROT_WRITE) as u64,
+                        (libc::MAP_PRIVATE | libc::MAP_ANONYMOUS) as u64,
+                        u64::MAX,
+                        0,
+                    ],
+                    SECCOMP_RET_ALLOW,
+                ),
+                (
+                    libc::SYS_mmap,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                        (libc::MAP_PRIVATE | libc::MAP_ANONYMOUS) as u64,
+                        u64::MAX,
+                        0,
+                    ],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_mmap,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                        (libc::MAP_PRIVATE | libc::MAP_ANONYMOUS) as u64,
+                        u64::MAX,
+                        0,
+                    ],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_mprotect,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_READ | libc::PROT_WRITE) as u64,
+                        0,
+                        0,
+                        0,
+                    ],
+                    SECCOMP_RET_ALLOW,
+                ),
+                (
+                    libc::SYS_mprotect,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_READ | libc::PROT_EXEC) as u64,
+                        0,
+                        0,
+                        0,
+                    ],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_getpid,
+                    [0; 6],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_exit_group,
+                    [0; 6],
+                    SECCOMP_RET_ALLOW,
+                ),
+            ];
+
+            for (syscall, arguments, expected) in cases {
+                assert_eq!(
+                    policy.allows(syscall, &arguments),
+                    expected == SECCOMP_RET_ALLOW,
+                    "policy model mismatch for syscall {syscall} args {arguments:?}"
+                );
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, arguments),
+                    expected,
+                    "compiled BPF mismatch for syscall {syscall} args {arguments:?}"
+                );
+            }
+
+            if arch == SeccompArchitecture::X86_64 {
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, 0x4000_0000, [0; 6]),
+                    SECCOMP_RET_KILL_PROCESS,
+                    "x32 ABI must never fall through to the allowlist"
+                );
+            }
+
+            let wrong_arch = match arch {
+                SeccompArchitecture::X86_64 => SeccompArchitecture::Aarch64,
+                SeccompArchitecture::Aarch64 => SeccompArchitecture::X86_64,
+                SeccompArchitecture::Riscv64 => SeccompArchitecture::X86_64,
+            };
+            assert_eq!(
+                interpret_v2_filter(&filter, wrong_arch, libc::SYS_exit_group, [0; 6]),
+                SECCOMP_RET_KILL_PROCESS,
+                "architecture mismatch must kill before syscall dispatch"
+            );
+        }
+
+        #[test]
+        fn v2_all_six_argument_offsets_preserve_64bit_split_word_semantics() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let target = 0x1122_3344_5566_7788u64;
+
+            let rules = (0..6u8)
+                .map(|arg_index| {
+                    SeccompSyscallRuleV2::new(
+                        40_100 + i64::from(arg_index),
+                        vec![SeccompArgPredicateV1::new(
+                            arg_index,
+                            u64::MAX,
+                            target,
+                        )
+                        .unwrap()],
+                    )
+                    .unwrap()
+                })
+                .collect::<Vec<_>>();
+
+            let policy = SeccompSyscallPolicyV2::new(arch, rules).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            for arg_index in 0..6usize {
+                let syscall = 40_100 + arg_index as i64;
+
+                let mut exact = [0u64; 6];
+                exact[arg_index] = target;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, exact),
+                    SECCOMP_RET_ALLOW,
+                    "arg {arg_index} exact 64-bit value must reach ALLOW"
+                );
+
+                let mut low_mismatch = exact;
+                low_mismatch[arg_index] ^= 0x0000_0000_0000_0001;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, low_mismatch),
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                    "arg {arg_index} low-word mismatch must fail"
+                );
+
+                let mut high_mismatch = exact;
+                high_mismatch[arg_index] ^= 0x0000_0001_0000_0000;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, high_mismatch),
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                    "arg {arg_index} high-word mismatch must fail"
+                );
+            }
+        }
+
+        #[test]
+        fn v2_all_six_argument_offsets_preserve_masked_not_equal_semantics() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let target = 0x1122_3344_5566_7788u64;
+
+            let rules = (0..6u8)
+                .map(|arg_index| {
+                    SeccompSyscallRuleV2::new(
+                        40_200 + i64::from(arg_index),
+                        vec![SeccompArgPredicateV1::new_with_op(
+                            arg_index,
+                            u64::MAX,
+                            target,
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        )
+                        .unwrap()],
+                    )
+                    .unwrap()
+                })
+                .collect::<Vec<_>>();
+
+            let policy = SeccompSyscallPolicyV2::new(arch, rules).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            for arg_index in 0..6usize {
+                let syscall = 40_200 + arg_index as i64;
+
+                let mut exact = [0u64; 6];
+                exact[arg_index] = target;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, exact),
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                    "arg {arg_index} exact 64-bit value must fail MaskedNotEqual"
+                );
+
+                let mut low_mismatch = exact;
+                low_mismatch[arg_index] ^= 0x0000_0000_0000_0001;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, low_mismatch),
+                    SECCOMP_RET_ALLOW,
+                    "arg {arg_index} low-word mismatch must satisfy MaskedNotEqual"
+                );
+
+                let mut high_mismatch = exact;
+                high_mismatch[arg_index] ^= 0x0000_0001_0000_0000;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, high_mismatch),
+                    SECCOMP_RET_ALLOW,
+                    "arg {arg_index} high-word mismatch must satisfy MaskedNotEqual"
+                );
+            }
+        }
+
+        #[test]
+        fn v2_compiled_filter_deterministic_differential_matrix() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            fn make_predicate(
+                arg_index: u8,
+                shape: u8,
+                seed: u64,
+            ) -> SeccompArgPredicateV1 {
+                let (mask, value, op) = match shape {
+                    0 => (0x0000_0000_0000_00ff, seed & 0xff, SeccompArgPredicateOpV1::MaskedEqual),
+                    1 => (0x0000_0000_ff00_0000, seed & 0x0000_0000_ff00_0000, SeccompArgPredicateOpV1::MaskedEqual),
+                    2 => (0xffff_ffff_0000_0000, seed & 0xffff_ffff_0000_0000, SeccompArgPredicateOpV1::MaskedEqual),
+                    3 => (u64::MAX, seed, SeccompArgPredicateOpV1::MaskedEqual),
+                    4 => (0x0000_0000_0000_00ff, seed & 0xff, SeccompArgPredicateOpV1::MaskedNotEqual),
+                    5 => (0x0000_0000_ff00_0000, seed & 0x0000_0000_ff00_0000, SeccompArgPredicateOpV1::MaskedNotEqual),
+                    6 => (0xffff_ffff_0000_0000, seed & 0xffff_ffff_0000_0000, SeccompArgPredicateOpV1::MaskedNotEqual),
+                    7 => (u64::MAX, seed, SeccompArgPredicateOpV1::MaskedNotEqual),
+                    _ => unreachable!(),
+                };
+                SeccompArgPredicateV1::new_with_op(arg_index, mask, value, op).unwrap()
+            }
+
+            let mut rules = Vec::new();
+            for rule_index in 0..12u64 {
+                let clause_count = (rule_index % 4) + 1;
+                let mut clauses = Vec::new();
+                for clause_index in 0..clause_count {
+                    let predicate_count = ((rule_index + clause_index) % 4) + 1;
+                    let mut predicates = Vec::new();
+                    for predicate_index in 0..predicate_count {
+                        let shape = ((rule_index * 3 + clause_index * 5 + predicate_index * 7) % 8) as u8;
+                        let arg_index = ((rule_index + clause_index + predicate_index) % 6) as u8;
+                        let seed = 0x1111_0000_0000_0001u64
+                            .wrapping_add(rule_index * 0x0101_0001)
+                            .wrapping_add(clause_index * 0x0011_0101)
+                            .wrapping_add(predicate_index * 0x0001_0011)
+                            ^ ((shape as u64) << 40);
+                        predicates.push(make_predicate(arg_index, shape, seed));
+                    }
+                    clauses.push(SeccompSyscallClauseV2::new(predicates).unwrap());
+                }
+
+                let syscall = 40_000 + rule_index as i64;
+                rules.push(
+                    SeccompSyscallRuleV2::new_with_clauses(syscall, clauses).unwrap(),
+                );
+            }
+
+            let policy = SeccompSyscallPolicyV2::new(arch, rules).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            validate_compiled_filter(&filter).unwrap();
+
+            let mut state = 0x9e37_79b9_7f4a_7c15u64;
+            for case_index in 0..4_096u32 {
+                state ^= state << 7;
+                state ^= state >> 9;
+                state ^= state << 8;
+
+                let arguments = [
+                    state,
+                    state.rotate_left(11),
+                    state.rotate_right(17),
+                    state.wrapping_mul(0x9e37_79b9),
+                    !state,
+                    state ^ 0xa5a5_a5a5_a5a5_a5a5,
+                ];
+
+                // Exercise every compiled rule plus an unlisted syscall for
+                // every generated argument vector. This compares the bytecode
+                // interpreter with the declarative model rather than merely
+                // checking hand-selected examples.
+                for syscall in 40_000..40_012 {
+                    let modeled_allow = policy.allows(syscall, &arguments);
+                    let compiled = interpret_v2_filter(&filter, arch, syscall, arguments);
+                    assert_eq!(
+                        compiled,
+                        if modeled_allow {
+                            SECCOMP_RET_ALLOW
+                        } else {
+                            SECCOMP_RET_ERRNO | libc::EPERM as u32
+                        },
+                        "differential mismatch at case={case_index} syscall={syscall} args={arguments:?}"
+                    );
+                }
+
+                let unlisted = 50_000;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, unlisted, arguments),
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32
+                );
+            }
+        }
+
+        #[test]
+        fn v2_exhaustive_16bit_halves_match_the_policy_model() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let target = 0x0000_1234_0000_5678u64;
+            let mask = 0x0000_ffff_0000_ffffu64;
+
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    mask,
+                    target,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(
+                    0,
+                    mask,
+                    target.wrapping_add(1),
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_lseek,
+                vec![first, second],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            for high in 0u64..=0xffff {
+                for low in 0u64..=0xffff {
+                    let argument = (high << 32) | low;
+                    let arguments = [argument, 0, 0, 0, 0, 0];
+                    let modeled_allow = policy.allows(libc::SYS_lseek, &arguments);
+                    let compiled = interpret_v2_filter(
+                        &filter,
+                        arch,
+                        libc::SYS_lseek,
+                        arguments,
+                    );
+                    assert_eq!(
+                        compiled,
+                        if modeled_allow {
+                            SECCOMP_RET_ALLOW
+                        } else {
+                            SECCOMP_RET_ERRNO | libc::EPERM as u32
+                        },
+                        "exhaustive split-word mismatch high={high:#06x} low={low:#06x} modeled_allow={modeled_allow}"
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn v2_disjunctive_64bit_masked_not_equal_accepts_either_half_mismatch() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let target = 0x0000_0001_0000_0001u64;
+
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    target,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap(),
+            ]).unwrap();
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    target,
+                ).unwrap(),
+            ]).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![first, second],
+                ).unwrap()],
+            ).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let low_mismatch = [0x0000_0001_0000_0002, 0, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &low_mismatch));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, low_mismatch),
+                SECCOMP_RET_ALLOW
+            );
+
+            let high_mismatch = [0x0000_0002_0000_0001, 0, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &high_mismatch));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, high_mismatch),
+                SECCOMP_RET_ALLOW
+            );
+
+            let exact = [target, 0, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &exact));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, exact),
+                SECCOMP_RET_ALLOW,
+                "exact first-clause match must still reach the following equality clause"
+            );
+        }
+
+        #[test]
+        fn v2_disjunctive_64bit_equality_failures_reach_later_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let first_low_mismatch = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x0000_0001_0000_0001).unwrap(),
+            ]).unwrap();
+            let second_low_mismatch = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x0000_0002_0000_0002).unwrap(),
+            ]).unwrap();
+            let low_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![first_low_mismatch, second_low_mismatch],
+                ).unwrap()],
+            ).unwrap();
+            let low_filter = compile_filter_v2(&low_policy).unwrap();
+
+            let low_args = [0x0000_0002_0000_0002, 0, 0, 0, 0, 0];
+            assert!(low_policy.allows(libc::SYS_socket, &low_args));
+            assert_eq!(
+                interpret_v2_filter(&low_filter, arch, libc::SYS_socket, low_args),
+                SECCOMP_RET_ALLOW,
+                "low-word predicate failure must fall through to the next clause"
+            );
+
+            let first_high_mismatch = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x0000_0001_0000_0000).unwrap(),
+            ]).unwrap();
+            let second_high_mismatch = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x0000_0002_0000_0000).unwrap(),
+            ]).unwrap();
+            let high_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![first_high_mismatch, second_high_mismatch],
+                ).unwrap()],
+            ).unwrap();
+            let high_filter = compile_filter_v2(&high_policy).unwrap();
+
+            let high_args = [0x0000_0002_0000_0000, 0, 0, 0, 0, 0];
+            assert!(high_policy.allows(libc::SYS_socket, &high_args));
+            assert_eq!(
+                interpret_v2_filter(&high_filter, arch, libc::SYS_socket, high_args),
+                SECCOMP_RET_ALLOW,
+                "high-word predicate failure must fall through to the next clause"
+            );
+        }
+
+        #[test]
+        fn v2_dispatch_offsets_match_64bit_masked_not_equal_bodies() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let target = 0x0000_0001_0000_0001;
+
+            let single_rule = SeccompSyscallRuleV2::new(
+                libc::SYS_lseek,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    1,
+                    u64::MAX,
+                    target,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let single_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![
+                    single_rule,
+                    SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap(),
+                ],
+            )
+            .unwrap();
+            let single_filter = compile_filter_v2(&single_policy).unwrap();
+            let single_lseek = single_filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_lseek as u32
+                })
+                .unwrap();
+            let single_prctl = single_filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_prctl as u32
+                })
+                .unwrap();
+            assert_eq!(
+                single_filter[single_lseek].jf as usize,
+                single_prctl - single_lseek - 1,
+                "single-clause 64-bit MaskedNotEqual body length must match dispatch"
+            );
+            assert_eq!(single_filter[single_lseek].jf, 8);
+
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    1,
+                    u64::MAX,
+                    target,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(1, u64::MAX, target).unwrap(),
+            ])
+            .unwrap();
+            let disj_rule =
+                SeccompSyscallRuleV2::new_with_clauses(libc::SYS_lseek, vec![first, second])
+                    .unwrap();
+            let disj_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![
+                    disj_rule,
+                    SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap(),
+                ],
+            )
+            .unwrap();
+            let disj_filter = compile_filter_v2(&disj_policy).unwrap();
+            let disj_lseek = disj_filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_lseek as u32
+                })
+                .unwrap();
+            let disj_prctl = disj_filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_prctl as u32
+                })
+                .unwrap();
+            assert_eq!(
+                disj_filter[disj_lseek].jf as usize,
+                disj_prctl - disj_lseek - 1,
+                "disjunctive 64-bit MaskedNotEqual body length must match dispatch"
+            );
+            assert_eq!(disj_filter[disj_lseek].jf, 14);
+        }
+
+        #[test]
+        fn v2_semantic_validator_never_panics_on_mutated_streams() {
+            // Exercise the policy-bound semantic parser on near-valid streams,
+            // not just arbitrary garbage. This keeps future refactors from
+            // accidentally making semantic validation rely on assumptions that
+            // structural validation no longer guarantees.
+            let arch = SeccompArchitecture::current().unwrap();
+            let policies = [
+                SeccompSyscallPolicyV2::new(
+                    arch,
+                    vec![SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap()],
+                )
+                .unwrap(),
+                SeccompSyscallPolicyV2::new(
+                    arch,
+                    vec![SeccompSyscallRuleV2::new(
+                        libc::SYS_socket,
+                        vec![SeccompArgPredicateV1::new(
+                            0,
+                            u64::MAX,
+                            libc::AF_UNIX as u64,
+                        ).unwrap()],
+                    ).unwrap()],
+                )
+                .unwrap(),
+                SeccompSyscallPolicyV2::new(
+                    arch,
+                    vec![SeccompSyscallRuleV2::new(
+                        libc::SYS_socket,
+                        vec![SeccompArgPredicateV1::new_with_op(
+                            0,
+                            u64::MAX,
+                            0x0000_0001_0000_0001,
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        ).unwrap()],
+                    ).unwrap()],
+                )
+                .unwrap(),
+                SeccompSyscallPolicyV2::new(
+                    arch,
+                    vec![SeccompSyscallRuleV2::new_with_clauses(
+                        libc::SYS_socket,
+                        vec![
+                            SeccompSyscallClauseV2::new(vec![
+                                SeccompArgPredicateV1::new(
+                                    0,
+                                    u64::MAX,
+                                    libc::AF_UNIX as u64,
+                                ).unwrap(),
+                                SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                            ]).unwrap(),
+                            SeccompSyscallClauseV2::new(vec![
+                                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+                            ]).unwrap(),
+                        ],
+                    ).unwrap()],
+                )
+                .unwrap(),
+            ];
+
+            for (policy_index, policy) in policies.iter().enumerate() {
+                let filter = compile_filter_v2(policy).unwrap();
+
+                for (instruction_index, instruction) in filter.iter().enumerate() {
+                    for mutation in 0..4u8 {
+                        let mut mutated = filter.clone();
+                        match mutation {
+                            0 => mutated[instruction_index].code ^= 1,
+                            1 => mutated[instruction_index].jt ^= 1,
+                            2 => mutated[instruction_index].jf ^= 1,
+                            _ => mutated[instruction_index].k ^= 1,
+                        }
+
+                        let result = std::panic::catch_unwind(
+                            std::panic::AssertUnwindSafe(|| {
+                                validate_v2_compiled_semantics(policy, &mutated)
+                            }),
+                        )
+                        .expect("semantic validator panicked on a one-bit mutation");
+                        assert!(
+                            result.is_err(),
+                            "semantic validator accepted mutated stream for policy {policy_index}, instruction {instruction_index}, mutation {mutation}"
+                        );
+                    }
+                }
+            }
+        }
+
+        #[test]
+        fn compiled_filter_validator_never_panics_on_arbitrary_streams() {
+            // Treat emitted bytecode as hostile input at the validator boundary:
+            // malformed opcode/offset combinations must reject cleanly rather
+            // than triggering a Rust panic while proving the fail-closed claim.
+            fn next_u32(state: &mut u64) -> u32 {
+                *state = state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                (*state >> 32) as u32
+            }
+
+            let mut state = 0x4d59_4345_4c49_5801u64;
+            for case_index in 0..4096usize {
+                let length = 1 + (next_u32(&mut state) as usize % 96);
+                let mut filter = Vec::with_capacity(length);
+                for _ in 0..length {
+                    filter.push(SockFilter {
+                        code: next_u32(&mut state) as u16,
+                        jt: next_u32(&mut state) as u8,
+                        jf: next_u32(&mut state) as u8,
+                        k: next_u32(&mut state),
+                    });
+                }
+
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    validate_compiled_filter(&filter)
+                }));
+                assert!(
+                    result.is_ok(),
+                    "validator panicked on malformed stream case {case_index}"
+                );
+            }
+        }
+
+        #[test]
+        fn compiled_filter_rejects_filter_length_above_kernel_bounds() {
+            let mut filter = Vec::with_capacity(4097);
+            for _ in 0..4096 {
+                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_NR_OFFSET));
+            }
+            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_unexpected_instruction_shape() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap()],
+            )
+            .unwrap();
+
+            let mut unexpected_opcode = compile_filter_v2(&policy).unwrap();
+            unexpected_opcode[0].code = BPF_JMP;
+            assert!(matches!(
+                validate_compiled_filter(&unexpected_opcode),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut unexpected_load = compile_filter_v2(&policy).unwrap();
+            unexpected_load[0].k = 8; // instruction-pointer field is outside the compiler contract
+            assert!(matches!(
+                validate_compiled_filter(&unexpected_load),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let predicate_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(
+                    libc::SYS_socket,
+                    vec![SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap()],
+                ).unwrap()],
+            ).unwrap();
+            let mut broken_triplet = compile_filter_v2(&predicate_policy).unwrap();
+            let arg_load = broken_triplet.iter().position(|instruction| {
+                instruction.code == BPF_LD | BPF_W | BPF_ABS
+                    && instruction.k == 16
+            }).unwrap();
+            broken_triplet[arg_load + 1].code = BPF_LD | BPF_W | BPF_ABS;
+            assert!(matches!(
+                validate_compiled_filter(&broken_triplet),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut orphan_and = compile_filter_v2(&predicate_policy).unwrap();
+            orphan_and[arg_load].k = SECCOMP_DATA_NR_OFFSET;
+            assert!(matches!(
+                validate_compiled_filter(&orphan_and),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut invalid_predicate_value = compile_filter_v2(&predicate_policy).unwrap();
+            invalid_predicate_value[arg_load + 2].k = 0x100;
+            assert!(matches!(
+                validate_v2_compiled_semantics(&predicate_policy, &invalid_predicate_value),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut inverted_predicate = compile_filter_v2(&predicate_policy).unwrap();
+            inverted_predicate[arg_load + 2] = jump_eq(
+                libc::AF_UNIX as u32,
+                0,
+                1,
+            );
+            assert!(matches!(
+                validate_v2_compiled_semantics(&predicate_policy, &inverted_predicate),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut wrong_argument = compile_filter_v2(&predicate_policy).unwrap();
+            wrong_argument[arg_load].k = 24;
+            assert!(matches!(
+                validate_v2_compiled_semantics(&predicate_policy, &wrong_argument),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut wrong_dispatch = compile_filter_v2(&predicate_policy).unwrap();
+            let dispatch = wrong_dispatch.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_socket as u32
+            }).unwrap();
+            wrong_dispatch[dispatch].k = libc::SYS_prctl as u32;
+            assert!(matches!(
+                validate_v2_compiled_semantics(&predicate_policy, &wrong_dispatch),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut wrong_mask = compile_filter_v2(&predicate_policy).unwrap();
+            wrong_mask[arg_load + 1].k = 0x7f;
+            assert!(matches!(
+                validate_v2_compiled_semantics(&predicate_policy, &wrong_mask),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut unexpected_metadata = compile_filter_v2(&policy).unwrap();
+            unexpected_metadata[3].jt = 1; // non-branch instructions may not carry jump metadata
+            assert!(matches!(
+                validate_compiled_filter(&unexpected_metadata),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut unexpected_jump = compile_filter_v2(&policy).unwrap();
+            unexpected_jump[4].code = BPF_JMP | BPF_JGE | BPF_K;
+            unexpected_jump[4].k = 1;
+            assert!(matches!(
+                validate_compiled_filter(&unexpected_jump),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            if arch == SeccompArchitecture::X86_64 {
+                let mut relocated_guard = compile_filter_v2(&policy).unwrap();
+                relocated_guard[7] = jump_ge(0x4000_0000, 0, 1);
+                assert!(matches!(
+                    validate_compiled_filter(&relocated_guard),
+                    Err(SeccompError::CompilerInvariantViolation)
+                ));
+            }
+        }
+
+        #[test]
+        fn compiled_filter_rejects_stray_arch_or_syscall_load_inside_rule() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::AF_UNIX as u64,
+                ).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+
+            for forbidden_offset in [SECCOMP_DATA_ARCH_OFFSET, SECCOMP_DATA_NR_OFFSET] {
+                let mut filter = compile_filter_v2(&policy).unwrap();
+                let predicate_load = filter.iter().position(|instruction| {
+                    instruction.code == BPF_LD | BPF_W | BPF_ABS
+                        && instruction.k == 16
+                }).unwrap();
+
+                filter[predicate_load].k = forbidden_offset;
+                assert!(matches!(
+                    validate_compiled_filter(&filter),
+                    Err(SeccompError::CompilerInvariantViolation)
+                ));
+            }
+        }
+
+        #[test]
+        fn compiled_filter_rejects_predicate_jump_over_later_checks() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(
+                            0,
+                            u64::MAX,
+                            libc::AF_UNIX as u64,
+                        ).unwrap(),
+                        SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                    ]).unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(
+                            0,
+                            u64::MAX,
+                            libc::AF_NETLINK as u64,
+                        ).unwrap(),
+                    ]).unwrap(),
+                ],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let first_predicate = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::AF_UNIX as u32
+            }).unwrap();
+            let first_clause_allow = filter.iter().enumerate().skip(first_predicate + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW).then_some(index)
+                }
+            ).unwrap();
+
+            // Jump over a later predicate directly into this clause's ALLOW.
+            // The target is in bounds and reachable, but it bypasses a security
+            // predicate and therefore must not survive structural validation.
+            filter[first_predicate].jt = u8::try_from(
+                first_clause_allow - first_predicate - 1
+            ).unwrap();
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_single_clause_predicate_jump_past_allow() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![
+                    SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+                    SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                ],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let predicate = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::AF_UNIX as u32
+            }).unwrap();
+            let allow = filter.iter().enumerate().skip(predicate + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW).then_some(index)
+                }
+            ).unwrap();
+
+            // A single-clause predicate cannot use the disjunctive "next
+            // clause" edge. Jumping directly after this rule's ALLOW would
+            // bypass the remaining predicate and is therefore invalid.
+            filter[predicate].jf = u8::try_from(allow + 1 - predicate - 1).unwrap();
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_accepts_unconditional_single_clause_allow() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_getpid,
+                Vec::new(),
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            assert!(validate_compiled_filter(&filter).is_ok());
+            assert!(validate_v2_compiled_semantics(&policy, &filter).is_ok());
+        }
+
+        #[test]
+        fn compiled_filter_rejects_forged_allow_inside_single_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![
+                    SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+                    SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                ],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let first_predicate = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::AF_UNIX as u32
+            }).unwrap();
+            let second_predicate = filter.iter().enumerate().skip(first_predicate + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == 7).then_some(index)
+                }
+            ).unwrap();
+
+            // Turn the second predicate's local EPERM into a forged ALLOW. The
+            // resulting stream contains two ALLOWs inside one rule and makes
+            // the first predicate's branch appear to have a legitimate
+            // disjunctive boundary while actually skipping the second check.
+            filter[second_predicate + 1].k = SECCOMP_RET_ALLOW;
+            filter[first_predicate].jf = u8::try_from(
+                second_predicate + 2 - first_predicate - 1
+            ).unwrap();
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_predicate_jump_past_a_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+                    ]).unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+                    ]).unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_INET as u64).unwrap(),
+                    ]).unwrap(),
+                ],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let first_predicate = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::AF_UNIX as u32
+            }).unwrap();
+            let first_allow = filter.iter().enumerate().skip(first_predicate + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW).then_some(index)
+                }
+            ).unwrap();
+            let second_allow = filter.iter().enumerate().skip(first_allow + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW).then_some(index)
+                }
+            ).unwrap();
+
+            // Jump past the nearest ALLOW. The target remains an in-bounds clause
+            // boundary, but the mutation skips the second clause entirely.
+            filter[first_predicate].jf = u8::try_from(second_allow - first_predicate).unwrap();
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_dispatch_jump_over_argument_checks() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let first = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::AF_UNIX as u64,
+                ).unwrap()],
+            ).unwrap();
+            let second = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::PR_GET_NO_NEW_PRIVS as u64,
+                ).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![first, second]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let socket_dispatch = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_socket as u32
+            }).unwrap();
+            let prctl_allow = filter.iter().enumerate().skip(socket_dispatch + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW).then_some(index)
+                }
+            ).unwrap();
+
+            // Keep the mismatch edge intact, but redirect a matching syscall
+            // directly into a later ALLOW. The target is in bounds and remains
+            // reachable through the second rule, so reachability alone cannot
+            // detect this policy-widening shape.
+            filter[socket_dispatch].jt = u8::try_from(
+                prctl_allow - socket_dispatch - 1
+            ).unwrap();
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_in_bounds_dead_region() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![
+                    SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap(),
+                    SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap(),
+                ],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+            let socket_jump = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_socket as u32
+                })
+                .unwrap();
+            let prctl_jump = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_prctl as u32
+                })
+                .unwrap();
+
+            // Skip the entire prctl rule while still landing inside the
+            // program. The target remains formally valid, but the prctl rule
+            // becomes unreachable and must be rejected.
+            let skip = prctl_jump
+                .checked_sub(socket_jump + 1)
+                .unwrap()
+                .saturating_add(2);
+            filter[socket_jump].jf = u8::try_from(skip).unwrap();
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_kill_action_inside_rule_body() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap()],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let allow_index = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW
+                })
+                .unwrap();
+            filter[allow_index].k = SECCOMP_RET_KILL_PROCESS;
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_unapproved_return_action() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap()],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let allow_index = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW
+                })
+                .unwrap();
+            filter[allow_index].k = 0x7fc0_0000; // SECCOMP_RET_TRACE
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_out_of_range_conditional_jump() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![
+                    SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap(),
+                    SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap(),
+                ],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+            let socket_jump = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_socket as u32
+                })
+                .unwrap();
+
+            // Simulate the class of defect fixed in this tranche: a computed
+            // branch offset that escapes the emitted program. The validator
+            // must reject it before kernel installation can occur.
+            filter[socket_jump].jf = u8::MAX;
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_requires_exact_forecasted_length() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let cases = [
+                (
+                    0x0000_0000_0000_00ff,
+                    0x0000_0000_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedEqual,
+                    4usize,
+                ),
+                (
+                    0xffff_ffff_0000_0000,
+                    0x0000_0001_0000_0000,
+                    SeccompArgPredicateOpV1::MaskedEqual,
+                    4usize,
+                ),
+                (
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedEqual,
+                    8usize,
+                ),
+                (
+                    0x0000_0000_0000_00ff,
+                    0x0000_0000_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                    4usize,
+                ),
+                (
+                    0xffff_ffff_0000_0000,
+                    0x0000_0001_0000_0000,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                    4usize,
+                ),
+                (
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                    7usize,
+                ),
+            ];
+
+            for (mask, value, op, predicate_len) in cases {
+                let predicate =
+                    SeccompArgPredicateV1::new_with_op(0, mask, value, op).unwrap();
+                let rule = SeccompSyscallRuleV2::new(libc::SYS_socket, vec![predicate]).unwrap();
+                let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+                let filter = compile_filter_v2(&policy).unwrap();
+                validate_compiled_filter(&filter).unwrap();
+
+                let expected = if arch == SeccompArchitecture::X86_64 {
+                    9 + predicate_len
+                } else {
+                    7 + predicate_len
+                };
+                assert_eq!(filter.len(), expected);
+            }
+        }
+
+        #[test]
+        fn v2_disjunctive_masked_not_equal_failure_reaches_later_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let not_equal = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    0x0000_0000_0000_00ff,
+                    1,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap(),
+            ]).unwrap();
+            let later_equal = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(
+                    0,
+                    0x0000_0000_0000_ffff,
+                    1,
+                ).unwrap(),
+            ]).unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![not_equal, later_equal],
+            ).unwrap();
+            assert_eq!(rule.clauses()[0].predicates()[0].op(), SeccompArgPredicateOpV1::MaskedNotEqual);
+
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            let args = [1, 0, 0, 0, 0, 0];
+
+            assert!(policy.allows(libc::SYS_socket, &args));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, args),
+                SECCOMP_RET_ALLOW,
+                "masked-not-equal failure must fall through to the next clause"
+            );
+        }
+
+        #[test]
+        fn v2_disjunctive_masked_not_equal_high_word_mismatch_reaches_allow() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap(),
+            ]).unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![first],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            // Low 32 bits match while high 32 bits differ. The whole-word
+            // predicate therefore succeeds and must reach this clause's ALLOW.
+            let arguments = [0x0000_0002_0000_0001, 0, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &arguments));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, arguments),
+                SECCOMP_RET_ALLOW,
+                "high-word inequality must not fall into EPERM"
+            );
+
+            // Exact whole-word equality must still fail the predicate and
+            // reach the global/default denial path.
+            let equal = [0x0000_0001_0000_0001, 0, 0, 0, 0, 0];
+            assert!(!policy.allows(libc::SYS_socket, &equal));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, equal),
+                SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                "whole-word equality must deny a MaskedNotEqual predicate"
+            );
+        }
+
+        #[test]
+        fn v2_disjunctive_masked_not_equal_low_mismatch_preserves_later_predicates() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+                SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+            ])
+            .unwrap();
+
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(1, u64::MAX, 9).unwrap(),
+            ])
+            .unwrap();
+
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![first, second],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            // Low-half mismatch proves the NotEqual predicate. The later
+            // predicate in the same clause must still be evaluated.
+            let later_match = [0x0000_0002_0000_0001, 7, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &later_match));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, later_match),
+                SECCOMP_RET_ALLOW
+            );
+
+            // If the low mismatch incorrectly skips the later predicate,
+            // this case would widen into ALLOW. It must instead continue past
+            // the failed first clause and deny because the second clause also
+            // does not match.
+            let later_mismatch = [0x0000_0002_0000_0001, 8, 0, 0, 0, 0];
+            assert!(!policy.allows(libc::SYS_socket, &later_mismatch));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, later_mismatch),
+                SECCOMP_RET_ERRNO | libc::EPERM as u32
+            );
+        }
+
+        #[test]
+        fn v2_disjunctive_compiled_filter_matches_model_across_clause_boundaries() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![unix, netlink],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            for domain in [libc::AF_UNIX, libc::AF_NETLINK] {
+                let args = [domain as u64, 1, 0, 0, 0, 0];
+                assert_eq!(policy.allows(libc::SYS_socket, &args), true);
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, libc::SYS_socket, args),
+                    SECCOMP_RET_ALLOW,
+                    "allowed clause {domain} must reach ALLOW"
+                );
+            }
+
+            let denied_args = [libc::AF_INET as u64, 1, 0, 0, 0, 0];
+            assert!(!policy.allows(libc::SYS_socket, &denied_args));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, denied_args),
+                SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                "failed alternatives must reach global default deny"
+            );
+        }
+
+        #[test]
+        fn v2_disjunctive_each_predicate_boundary_falls_through_to_next_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            for failing_index in 0..4u8 {
+                let first = SeccompSyscallClauseV2::new(
+                    (0..4u8)
+                        .map(|arg_index| {
+                            let value = if arg_index == failing_index {
+                                0xfeed_u64
+                            } else {
+                                0x100_u64 + u64::from(arg_index)
+                            };
+                            SeccompArgPredicateV1::new(arg_index, u32::MAX as u64, value).unwrap()
+                        })
+                        .collect(),
+                )
+                .unwrap();
+
+                let second = SeccompSyscallClauseV2::new(
+                    (0..4u8)
+                        .map(|arg_index| {
+                            SeccompArgPredicateV1::new(
+                                arg_index,
+                                u32::MAX as u64,
+                                0x100_u64 + u64::from(arg_index),
+                            )
+                            .unwrap()
+                        })
+                        .collect(),
+                )
+                .unwrap();
+
+                let rule = SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![first, second],
+                )
+                .unwrap();
+                let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+                let filter = compile_filter_v2(&policy).unwrap();
+
+                let arguments = [
+                    0x100_u64,
+                    0x101_u64,
+                    0x102_u64,
+                    0x103_u64,
+                    0,
+                    0,
+                ];
+                assert!(policy.allows(libc::SYS_socket, &arguments));
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, libc::SYS_socket, arguments),
+                    SECCOMP_RET_ALLOW,
+                    "predicate {failing_index} failure must reach the second clause"
+                );
+            }
+        }
+
+        #[test]
+        fn v2_disjunctive_64bit_masked_not_equal_boundary_falls_through() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![first, second],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            let arguments = [0x0000_0001_0000_0001, 0, 0, 0, 0, 0];
+
+            assert!(policy.allows(libc::SYS_socket, &arguments));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, arguments),
+                SECCOMP_RET_ALLOW,
+                "64-bit masked-not-equal failure must reach the second clause"
+            );
+        }
+
+        #[test]
+        fn architecture_guard_is_present_before_syscall_allowlist() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_read, libc::SYS_write]).unwrap();
+            let filter = compile_filter(&policy).unwrap();
+            assert_eq!(filter[0].code, BPF_LD | BPF_W | BPF_ABS);
+            assert_eq!(filter[0].k, SECCOMP_DATA_ARCH_OFFSET);
+            assert_eq!(filter[1].k, arch as u32);
+            assert_eq!(filter[2].k, SECCOMP_RET_KILL_PROCESS);
+        }
+
+        #[test]
+        fn policy_is_sorted_and_deduplicated() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![9, 3, 7]).unwrap();
+            assert_eq!(policy.allowed_syscalls(), &[3, 7, 9]);
+            assert!(SeccompSyscallPolicyV1::new(arch, vec![3, 3]).is_err());
+        }
+
+        #[test]
+        fn each_allowlisted_syscall_has_a_reachable_allow_action() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_read, libc::SYS_write]).unwrap();
+            let filter = compile_filter(&policy).unwrap();
+
+            // x86-64: 0 load arch, 1 arch match, 2 kill on mismatch,
+            // 3 load nr, 4 x32 guard, 5 kill x32, then JEQ -> ALLOW pairs.
+            // Mismatch skips exactly one ALLOW and reaches the next comparison.
+            if arch == SeccompArchitecture::X86_64 {
+                assert_eq!(filter[4].code, BPF_JMP | BPF_JGE | BPF_K);
+                assert_eq!(filter[4].k, 0x4000_0000);
+                assert_eq!(filter[4].jt, 0);
+                assert_eq!(filter[4].jf, 1);
+                assert_eq!(filter[5].k, SECCOMP_RET_KILL_PROCESS);
+                assert_eq!(filter[6].jt, 0);
+                assert_eq!(filter[6].jf, 1);
+                assert_eq!(filter[7].k, SECCOMP_RET_ALLOW);
+                assert_eq!(filter[8].jt, 0);
+                assert_eq!(filter[8].jf, 1);
+                assert_eq!(filter[9].k, SECCOMP_RET_ALLOW);
+                assert_eq!(filter[10].k, SECCOMP_RET_ERRNO | libc::EPERM as u32);
+                assert_eq!(filter.len(), 11);
+            }
+        }
+
+        #[test]
+        fn oversized_syscall_number_is_rejected() {
+            let policy = SeccompSyscallPolicyV1::new(
+                SeccompArchitecture::X86_64,
+                vec![i32::MAX as i64 + 1],
+            );
+            assert!(matches!(policy, Err(SeccompError::InvalidPolicy)));
+        }
+
+        #[test]
+        fn oversized_policy_is_rejected() {
+            let syscalls = (0..257).map(|n| n as i64).collect();
+            let policy = SeccompSyscallPolicyV1::new(
+                SeccompArchitecture::X86_64,
+                syscalls,
+            );
+            assert!(matches!(policy, Err(SeccompError::InvalidPolicy)));
+        }
+
+        #[test]
+        fn x32_tagged_syscalls_are_rejected_from_x86_policy() {
+            let policy = SeccompSyscallPolicyV1::new(
+                SeccompArchitecture::X86_64,
+                vec![0x4000_0000],
+            );
+            assert!(matches!(policy, Err(SeccompError::InvalidPolicy)));
+        }
+
+        #[test]
+        fn wrong_architecture_fails_closed() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let other = match arch {
+                SeccompArchitecture::X86_64 => SeccompArchitecture::Aarch64,
+                _ => SeccompArchitecture::X86_64,
+            };
+            let policy = SeccompSyscallPolicyV1::new(other, vec![1]).unwrap();
+            assert!(matches!(compile_filter(&policy), Err(SeccompError::ArchitectureMismatch)));
+        }
+
+        #[test]
+        fn empty_policy_is_rejected() {
+            let arch = SeccompArchitecture::current().unwrap();
+            assert!(matches!(
+                SeccompSyscallPolicyV1::new(arch, vec![]),
+                Err(SeccompError::InvalidPolicy)
+            ));
+        }
+
+        #[test]
+        fn uncommitted_profile_rejects_install_before_enforcement() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getpid]).unwrap();
+            let profile = SandboxProfileV1::renderer_default();
+            assert!(matches!(
+                install(
+                    RendererProcessAssignmentId::new(1).unwrap(),
+                    profile,
+                    &policy,
+                ),
+                Err(SeccompError::PolicyCommitmentMismatch)
+            ));
+        }
+
+        #[test]
+        fn renderer_policy_rejects_process_tracing_primitives() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(
+                arch,
+                vec![libc::SYS_getpid, libc::SYS_ptrace],
+            )
+            .unwrap();
+            assert!(matches!(
+                policy.validate_renderer_policy(),
+                Err(SeccompError::ForbiddenRendererSyscall(syscall))
+                    if syscall == libc::SYS_ptrace
+            ));
+        }
+
+        #[test]
+        fn zero_assignment_rejects_install_before_enforcement() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(
+                arch,
+                vec![libc::SYS_getpid],
+            )
+            .unwrap();
+            let profile = SandboxProfileV1::renderer_default()
+                .with_syscall_policy_digest(policy.digest())
+                .unwrap();
+
+            assert!(matches!(
+                install(
+                    RendererProcessAssignmentId(0),
+                    profile,
+                    &policy,
+                ),
+                Err(SeccompError::InvalidAssignmentId)
+            ));
+        }
+
+        #[test]
+        fn forbidden_renderer_policy_rejects_install_before_enforcement() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(
+                arch,
+                vec![libc::SYS_getpid, libc::SYS_ptrace],
+            )
+            .unwrap();
+            let profile = SandboxProfileV1::renderer_default()
+                .with_syscall_policy_digest(policy.digest())
+                .unwrap();
+
+            assert!(matches!(
+                install(
+                    RendererProcessAssignmentId::new(1).unwrap(),
+                    profile,
+                    &policy,
+                ),
+                Err(SeccompError::ForbiddenRendererSyscall(syscall))
+                    if syscall == libc::SYS_ptrace
+            ));
+        }
+
+        #[test]
+        fn renderer_policy_rejects_process_creation_and_namespace_mutation() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let mut forbidden = vec![
+                libc::SYS_clone,
+                libc::SYS_clone3,
+                libc::SYS_execve,
+                libc::SYS_execveat,
+                libc::SYS_unshare,
+                libc::SYS_setns,
+                libc::SYS_open_tree,
+                libc::SYS_move_mount,
+                libc::SYS_fsopen,
+                libc::SYS_fsconfig,
+                libc::SYS_fsmount,
+                libc::SYS_fspick,
+                libc::SYS_mount_setattr,
+                libc::SYS_bpf,
+                libc::SYS_userfaultfd,
+                libc::SYS_perf_event_open,
+                libc::SYS_keyctl,
+                libc::SYS_add_key,
+                libc::SYS_request_key,
+                libc::SYS_io_uring_setup,
+                libc::SYS_io_uring_enter,
+                libc::SYS_io_uring_register,
+                libc::SYS_name_to_handle_at,
+                libc::SYS_open_by_handle_at,
+                libc::SYS_pidfd_open,
+                libc::SYS_pidfd_send_signal,
+                libc::SYS_process_mrelease,
+                libc::SYS_capset,
+                libc::SYS_setuid,
+                libc::SYS_setgid,
+                libc::SYS_setreuid,
+                libc::SYS_setregid,
+                libc::SYS_setresuid,
+                libc::SYS_setresgid,
+                libc::SYS_setgroups,
+                libc::SYS_setfsuid,
+                libc::SYS_setfsgid,
+                libc::SYS_kexec_load,
+                KEXEC_FILE_LOAD_SYSCALL,
+                libc::SYS_init_module,
+                libc::SYS_finit_module,
+                libc::SYS_delete_module,
+                libc::SYS_swapon,
+                libc::SYS_swapoff,
+                libc::SYS_acct,
+                libc::SYS_reboot,
+                libc::SYS_sethostname,
+                libc::SYS_setdomainname,
+                libc::SYS_syslog,
+            ];
+            #[cfg(target_arch = "x86_64")]
+            {
+                forbidden.extend([
+                    libc::SYS_fork,
+                    libc::SYS_vfork,
+                    libc::SYS_ioperm,
+                    libc::SYS_iopl,
+                ]);
+            }
+
+            for syscall in forbidden {
+                let policy = SeccompSyscallPolicyV1::new(
+                    arch,
+                    vec![libc::SYS_getpid, syscall],
+                )
+                .unwrap();
+                assert!(matches!(
+                    policy.validate_renderer_policy(),
+                    Err(SeccompError::ForbiddenRendererSyscall(rejected))
+                        if rejected == syscall
+                ));
+            }
+        }
+
+        #[test]
+        fn profile_policy_digest_is_part_of_profile_commitment() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getpid]).unwrap();
+            let committed = SandboxProfileV1::renderer_default()
+                .with_syscall_policy_digest(policy.digest())
+                .unwrap();
+            let other = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getppid]).unwrap();
+            assert_ne!(committed.syscall_policy_digest(), other.digest());
+            assert_ne!(committed.policy_digest(), SandboxProfileV1::renderer_default().policy_digest());
+        }
+
+        #[test]
+        fn evidence_digest_is_distinct_from_policy_digest() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getpid]).unwrap();
+            let filter = compile_filter(&policy).unwrap();
+            assert_ne!(seccomp_evidence_digest(&policy, &filter), policy.digest());
+        }
+
+        #[test]
+        fn digest_is_domain_separated_from_the_legacy_unversioned_encoding() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![1, 2]).unwrap();
+
+            let mut legacy = Vec::with_capacity(4 + policy.allowed_syscalls.len() * 4);
+            legacy.extend_from_slice(&(policy.architecture as u32).to_le_bytes());
+            for syscall in &policy.allowed_syscalls {
+                legacy.extend_from_slice(&(*syscall as u32).to_le_bytes());
+            }
+
+            assert_ne!(policy.digest(), *blake3::hash(&legacy).as_bytes());
+        }
+
+        #[test]
+        fn digest_changes_with_policy() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let a = SeccompSyscallPolicyV1::new(arch, vec![1, 2]).unwrap();
+            let b = SeccompSyscallPolicyV1::new(arch, vec![1, 3]).unwrap();
+            assert_ne!(a.digest(), b.digest());
+        }
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn linux_install_export_is_present() {
+        #[cfg(target_os = "linux")]
+        {
+            let _ = install;
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub use linux::{install, install_v2};
+
+#[cfg(not(target_os = "linux"))]
+pub fn install_v2(
+    _assignment_id: RendererProcessAssignmentId,
+    _profile: SandboxProfileV1,
+    _policy: &SeccompSyscallPolicyV2,
+) -> Result<SandboxEnforcementReceipt, SeccompError> {
+    Err(SeccompError::UnsupportedPlatform)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn install(
+    _assignment_id: RendererProcessAssignmentId,
+    _profile: SandboxProfileV1,
+    _policy: &SeccompSyscallPolicyV1,
+) -> Result<SandboxEnforcementReceipt, SeccompError> {
+    Err(SeccompError::UnsupportedPlatform)
+}

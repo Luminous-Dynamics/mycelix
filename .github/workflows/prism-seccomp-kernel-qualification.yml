@@ -1,0 +1,229 @@
+name: Prism Seccomp Kernel Qualification
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-prism/prism-bridge/**"
+      - "mycelix-workspace/mycelix-prism/prism-common/**"
+      - "mycelix-workspace/crates/mycelix-claim-types/**"
+      - ".github/workflows/prism-seccomp-kernel-qualification.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mycelix-workspace/mycelix-prism/prism-bridge/**"
+      - "mycelix-workspace/mycelix-prism/prism-common/**"
+      - "mycelix-workspace/crates/mycelix-claim-types/**"
+      - ".github/workflows/prism-seccomp-kernel-qualification.yml"
+
+concurrency:
+  group: prism-seccomp-kernel-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kernel-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - architecture: aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.96.0
+
+      - name: Build isolated Prism kernel qualification workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/prism-seccomp-kernel-qualification"
+          rm -rf "${root}"
+          mkdir -p "${root}/mycelix-prism/prism-bridge" "${root}/mycelix-prism/prism-common" "${root}/crates/mycelix-claim-types"
+          cp -a mycelix-workspace/mycelix-prism/prism-bridge/. "${root}/mycelix-prism/prism-bridge/"
+          cp -a mycelix-workspace/mycelix-prism/prism-common/. "${root}/mycelix-prism/prism-common/"
+          cp -a mycelix-workspace/crates/mycelix-claim-types/. "${root}/crates/mycelix-claim-types/"
+          cat > "${root}/Cargo.toml" <<'EOF'
+          [workspace]
+          members = ["mycelix-prism/prism-bridge", "mycelix-prism/prism-common", "crates/mycelix-claim-types"]
+          resolver = "3"
+
+          [workspace.package]
+          edition = "2024"
+          version = "0.1.0"
+          license = "AGPL-3.0-or-later"
+
+          [workspace.dependencies]
+          log = "0.4"
+          libc = "0.2"
+          url = "2.5"
+          blake3 = "1.5"
+          serde = { version = "1.0", features = ["derive"] }
+          serde_json = "1.0"
+          tokio = { version = "1.0", features = ["full"] }
+          thiserror = "2.0"
+          getrandom = { version = "0.3", features = ["wasm_js"] }
+          rmp-serde = "1.3"
+          EOF
+          cd "${root}"
+          cargo +1.96.0 generate-lockfile
+          set +e
+          RUST_TEST_THREADS=1 cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial 2>&1 | tee "${root}/seccomp-test.log"
+          test_status=${PIPESTATUS[0]}
+          set -e
+
+          expected_tests=(
+            seccomp_enforcement_is_isolated_and_fail_closed
+            seccomp_parameter_predicate_is_positive_and_negative
+            seccomp_disjunctive_argument_clauses_are_enforced
+            seccomp_maximum_dispatch_offset_is_kernel_enforced
+            seccomp_install_rejects_wrong_architecture_before_enforcement
+            seccomp_tsync_esrch_normalizes_divergent_filter_failure
+            seccomp_tsync_esrch_normalizes_strict_mode_failure
+            seccomp_tsync_constrains_existing_sibling_threads
+          )
+
+          inventory="${root}/seccomp-test-inventory.txt"
+          list_log="${root}/seccomp-test-list.log"
+          set +e
+          cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial -- --list >"${list_log}" 2>&1
+          list_status=$?
+          set -e
+
+          inventory_status=0
+          if [[ "${list_status}" -ne 0 ]]; then
+            echo "ERROR: unable to enumerate canonical seccomp adversarial test inventory" >&2
+            inventory_status="${list_status}"
+          fi
+
+          {
+            echo "expected_count=${#expected_tests[@]}"
+            for test_name in "${expected_tests[@]}"; do
+              echo "expected=${test_name}"
+            done
+            observed_count="$(grep -Ec '^seccomp_[A-Za-z0-9_]+: test$' "${list_log}" || true)"
+            echo "observed_count=${observed_count}"
+            for test_name in "${expected_tests[@]}"; do
+              if grep -Fqx "${test_name}: test" "${list_log}"; then
+                echo "observed=${test_name}"
+              else
+                echo "missing=${test_name}"
+                inventory_status=1
+              fi
+            done
+            if [[ "${observed_count}" -ne "${#expected_tests[@]}" ]]; then
+              echo "count_mismatch=true"
+              inventory_status=1
+            else
+              echo "count_mismatch=false"
+            fi
+          } | tee "${inventory}"
+
+          if [[ "${inventory_status}" -ne 0 ]]; then
+            cat "${list_log}" >&2 || true
+          fi
+
+          if [[ "${test_status}" -ne 0 ]]; then
+            exit "${test_status}"
+          fi
+          if [[ "${inventory_status}" -ne 0 ]]; then
+            exit "${inventory_status}"
+          fi
+          exit 0
+
+      - name: Emit kernel qualification identity
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/prism-seccomp-kernel-qualification"
+          evidence="${RUNNER_TEMP}/prism-seccomp-kernel-qualification-evidence.txt"
+          expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
+          checked_out_head="$(git rev-parse HEAD)"
+          job_status="${{ job.status }}"
+          qualified="false"
+          if [[ "${job_status}" == "success" && "${checked_out_head}" == "${expected_head}" ]]; then
+            qualified="true"
+          fi
+          {
+            echo "schema=PRISM-SECCOMP-KERNEL-QUALIFICATION-EVIDENCE-V4"
+            echo "qualification=PRISM-SECCOMP-KERNEL"
+            echo "qualified=${qualified}"
+            echo "job_status=${job_status}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "source_head=${expected_head}"
+            echo "checked_out_head=${checked_out_head}"
+            echo "rust=1.96.0"
+            echo "kernel=$(uname -srvm)"
+            echo "machine=$(uname -m)"
+            echo "runner_arch=${{ runner.arch }}"
+            echo "native_target=${{ matrix.target }}"
+            echo "runner_label=${{ matrix.runner }}"
+            echo "test_command=RUST_TEST_THREADS=1 cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial"
+            echo "cargo_version=$(cargo +1.96.0 --version)"
+            echo "rustc_version=$(rustc +1.96.0 --version)"
+            if [[ -f "${root}/seccomp-test-list.log" ]]; then
+              echo "test_inventory_source=cargo-test---list"
+            fi
+            if [[ -f "${root}/seccomp-test-inventory.txt" ]]; then
+              while IFS= read -r line; do
+                printf "test_inventory_%s\n" "${line}"
+              done < "${root}/seccomp-test-inventory.txt"
+            fi
+            if [[ -f "${root}/Cargo.lock" ]]; then
+              echo -n "workspace_lock_sha256="
+              sha256sum "${root}/Cargo.lock" | cut -d ' ' -f1
+            else
+              echo "workspace_lock_sha256=unavailable"
+            fi
+          } | tee "${evidence}"
+          if [[ "${checked_out_head}" != "${expected_head}" ]]; then
+            echo "ERROR: checkout provenance mismatch" | tee -a "${evidence}" >&2
+            exit 1
+          fi
+
+      - name: Collect kernel qualification evidence
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/prism-seccomp-kernel-qualification"
+          evidence_dir="${RUNNER_TEMP}/prism-seccomp-kernel-qualification-evidence"
+          rm -rf "${evidence_dir}"
+          mkdir -p "${evidence_dir}"
+          cp "${RUNNER_TEMP}/prism-seccomp-kernel-qualification-evidence.txt" "${evidence_dir}/qualification-evidence.txt"
+          if [[ -f "${root}/Cargo.lock" ]]; then
+            cp "${root}/Cargo.lock" "${evidence_dir}/Cargo.lock"
+          fi
+          if [[ -f "${root}/seccomp-test.log" ]]; then
+            cp "${root}/seccomp-test.log" "${evidence_dir}/seccomp-test.log"
+          fi
+          if [[ -f "${root}/seccomp-test-inventory.txt" ]]; then
+            cp "${root}/seccomp-test-inventory.txt" "${evidence_dir}/seccomp-test-inventory.txt"
+          fi
+          if [[ -f "${root}/seccomp-test-list.log" ]]; then
+            cp "${root}/seccomp-test-list.log" "${evidence_dir}/seccomp-test-list.log"
+          fi
+
+      - name: Upload kernel qualification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: prism-seccomp-kernel-qualification-evidence-${{ matrix.architecture }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/prism-seccomp-kernel-qualification-evidence
+          if-no-files-found: error
+          retention-days: 90
