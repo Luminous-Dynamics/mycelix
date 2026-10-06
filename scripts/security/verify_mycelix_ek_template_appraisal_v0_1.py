@@ -19,6 +19,7 @@ EXPECTED_ATTRS = bytes.fromhex("000300b2")
 EXPECTED_POLICY = bytes.fromhex(
     "837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa"
 )
+FIXTURE_RSA_MODULUS = bytes.fromhex("d019fb7bdf2679af2d0bf1d5438dae19f73cad698d171a5e3292506bcd05d8b85b7753f35b9c174105fab4613ccc54a67f43fa97c6ef9330a101897b39c3d0f730ee8001b0b53511846de96731104c242781a1fedee583b72c1205a8ace27bcea878ca22c3be355abd7989a3b8e0f9a384a0b6f3e3a8d8bfc35048d93fc07cf45957a52083ed2a49ce01016dcbbb66d4a39569de30285318f4f5a9ff364a80858cf16e84ee4182de3a282c972b6545ee7aa62d48202043cd006e2a5c84c575499b750226ad19c0a3faea19eb0b813a5e31907fb541ea11e3d3a05a39b120ba3b944dd87da4cb89c3e548d0a05e7b538b5e97c1ecd34290d0b0d2e413e369e657")
 
 
 def canonical_hash(value: Any) -> str:
@@ -169,6 +170,14 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY","template-exponent-mismatch")
     if parsed["unique_size"] != 256:
         return result("DENY","template-unique-size-mismatch")
+    if len(parsed["unique"]) != 256:
+        return result("DENY","template-rsa-modulus-length-mismatch")
+    if not any(parsed["unique"]):
+        return result("DENY","template-rsa-modulus-zero")
+    if not (parsed["unique"][0] & 0x80):
+        return result("DENY","template-rsa-modulus-not-2048-bit")
+    if (parsed["unique"][-1] & 1) == 0:
+        return result("DENY","template-rsa-modulus-even")
     if len(name) != 34 or name[:2] != SHA256_ID:
         return result("DENY","invalid-ek-name")
     if len(qname) != 34 or qname[:2] != SHA256_ID:
@@ -198,7 +207,7 @@ def fixture() -> dict[str, Any]:
         + bytes.fromhex("0020") + EXPECTED_POLICY
         + bytes.fromhex("00060080004300100800")
         + bytes.fromhex("00000000")
-        + bytes.fromhex("0100") + bytes(256)
+        + bytes.fromhex("0100") + FIXTURE_RSA_MODULUS
     )
     return {
         "profile_id":"mycelix.security.tpm.ek-template-appraisal",
@@ -252,6 +261,9 @@ def self_test() -> int:
         ("offline-bundle","INDETERMINATE",lambda x:x.update({"verification_mode":"OfflineBundle"})),
         ("live-verifier","INDETERMINATE",lambda x:x.update({"verification_mode":"LiveVerifierSession"})),
         ("creation-transcript-substitution","DENY",lambda x:x["creation_provenance"].update({"transcript_sha256":"ac"*32})),
+        ("rsa-modulus-zero","DENY",lambda x:x.update({"public_wire_hex":x["public_wire_hex"][:-512]+"00"*256})),
+        ("rsa-modulus-msb-cleared","DENY",lambda x:x.update({"public_wire_hex":x["public_wire_hex"][:-512]+"50"+x["public_wire_hex"][-510:]})),
+        ("rsa-modulus-even","DENY",lambda x:x.update({"public_wire_hex":x["public_wire_hex"][:-2]+"02"})),
     ]
     for name, expected, mutate in cases:
         candidate=copy.deepcopy(base)
@@ -265,7 +277,7 @@ def self_test() -> int:
         print("key-order-permutation: FAIL")
         return 1
     print("EK template appraisal semantic corpus: PASS")
-    print("23 adversarial mutations plus canonical case: PASS")
+    print("25 adversarial mutations plus canonical and key-order control: PASS")
     print("Manufacturer authenticity and hierarchy execution remain separate")
     return 0
 
