@@ -185,6 +185,13 @@ def result(state: str, reason: str, details: dict[str, Any] | None = None) -> di
     return out
 
 
+def der_encode_tlv(tag: int, value: bytes) -> bytes:
+    if len(value) < 128:
+        return bytes([tag, len(value)]) + value
+    raw_length = len(value).to_bytes((len(value).bit_length() + 7) // 8, "big")
+    return bytes([tag, 0x80 | len(raw_length)]) + raw_length + value
+
+
 def der_tlv(data: bytes, offset: int) -> tuple[int, bytes, bytes, int]:
     if offset >= len(data):
         raise ValueError("DER truncated at tag")
@@ -2165,6 +2172,69 @@ def self_test() -> int:
             base["trust_anchor_root_sha256"],
             base["revocation"]["crl_bundle_pem_sha256"],
         )
+        def tamper_signed_der(der: bytes) -> bytes:
+            tag, content, _raw, end = der_tlv(der, 0)
+            if tag != 0x30 or end != len(der):
+                raise ValueError("signed object malformed")
+            children = der_children(content)
+            if len(children) != 3 or children[2][0] != 0x03:
+                raise ValueError("signatureValue malformed")
+            signature_content = bytearray(children[2][1])
+            if len(signature_content) < 2:
+                raise ValueError("signatureValue too short")
+            signature_content[-1] ^= 0x01
+            return der_encode_tlv(
+                0x30,
+                children[0][2]
+                + children[1][2]
+                + der_encode_tlv(0x03, bytes(signature_content)),
+            )
+
+        inter_for_crypto = parse_certificate_der(fx["intermediate"])
+        root_for_crypto = parse_certificate_der(fx["root"])
+        leaf_for_crypto = parse_certificate_der(fx["leaf"])
+
+        tampered_leaf_info = parse_certificate_der(tamper_signed_der(fx["leaf"]))
+        try:
+            rsa_sha256_verify(
+                tampered_leaf_info["tbs_der"],
+                tampered_leaf_info["signature_der"],
+                inter_for_crypto["spki_der"],
+            )
+        except ValueError:
+            pass
+        else:
+            print("tampered leaf certificate signature acceptance: FAIL")
+            return 1
+
+        tampered_root_info = parse_certificate_der(tamper_signed_der(fx["root"]))
+        try:
+            rsa_sha256_verify(
+                tampered_root_info["tbs_der"],
+                tampered_root_info["signature_der"],
+                root_for_crypto["spki_der"],
+            )
+        except ValueError:
+            pass
+        else:
+            print("tampered root self-signature acceptance: FAIL")
+            return 1
+
+        crl_blocks_for_crypto = split_pem_crls(fx["crl_bundle_pem"])
+        root_crl_der = crl_pem_to_der(crl_blocks_for_crypto[0])
+        tampered_crl_info = parse_crl_der_for_crypto(tamper_signed_der(root_crl_der))
+        try:
+            rsa_sha256_verify(
+                tampered_crl_info["tbs_der"],
+                tampered_crl_info["signature_der"],
+                root_for_crypto["spki_der"],
+            )
+        except ValueError:
+            pass
+        else:
+            print("tampered CRL signature acceptance: FAIL")
+            return 1
+
         source = Path(__file__).read_text(encoding="utf-8")
         implementation_source = source.split("def self_test()", 1)[0]
         if 'manifest.get("profile_override")' in implementation_source or 'override = manifest.get("profile_override")' in implementation_source:
