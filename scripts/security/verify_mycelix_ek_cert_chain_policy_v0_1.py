@@ -3209,11 +3209,21 @@ def self_test() -> int:
                     + der_encode_tlv(0x81, b"\x00\x80"),
                 )),
             })),
+            ("crl-cdp-reasons-only", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30, der_encode_tlv(
+                    0x30, der_encode_tlv(0x81, b"\x00\x80")
+                )),
+            })),
             ("crl-cdp-crl-issuer-injected", lambda x: x["extensions"]["2.5.29.31"].update({
                 "extn_value": der_encode_tlv(0x30, der_encode_tlv(
                     0x30,
                     der_encode_tlv(0xA0, der_encode_tlv(0xA0, der_encode_tlv(0x86, b"https://example.invalid/ek.crl")))
                     + der_encode_tlv(0xA2, der_encode_tlv(0x82, b"attacker.invalid")),
+                )),
+            })),
+            ("crl-cdp-crl-issuer-only", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30, der_encode_tlv(
+                    0x30, der_encode_tlv(0xA2, der_encode_tlv(0x82, b"attacker.invalid"))
                 )),
             })),
             ("crl-cdp-multiple-distribution-points", lambda x: x["extensions"]["2.5.29.31"].update({
@@ -3223,6 +3233,11 @@ def self_test() -> int:
                 ) + der_encode_tlv(
                     0x30,
                     der_encode_tlv(0xA0, der_encode_tlv(0xA0, der_encode_tlv(0x86, b"https://example.invalid/ek.crl"))),
+                )),
+            })),
+            ("crl-cdp-relative-name", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30, der_encode_tlv(
+                    0x30, der_encode_tlv(0xA0, der_encode_tlv(0xA1, der_encode_tlv(0x16, b"relative")))
                 )),
             })),
             ("crl-cdp-uri-substitution", lambda x: x["extensions"]["2.5.29.31"].update({
