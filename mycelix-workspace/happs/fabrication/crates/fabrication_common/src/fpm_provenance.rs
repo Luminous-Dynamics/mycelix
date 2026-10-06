@@ -379,7 +379,7 @@ mod tests {
             source_observation_digest: source_observation_binding_digest(participant),
             acquisition_root_digest: root.into(),
             node_id: format!("{}-node", participant.source_id),
-        parent_node_ids: parents,
+            parent_node_ids: parents,
         }
     }
 
@@ -426,15 +426,17 @@ mod tests {
     #[test]
     fn shared_ancestor_is_conflicting() {
         let mut input = qualified_input();
-        let shared = witness(
-            &input.envelope.reference,
-            &hex_digest(b"shared-root"),
-            vec![],
-        );
-        let shared_digest = shared.digest();
+        let shared = AcquisitionLineageWitness {
+            node_id: "shared-upstream".into(),
+            source_id: "upstream-capture".into(),
+            modality: "upstream".into(),
+            source_observation_digest: digest('f'),
+            acquisition_root_digest: hex_digest(b"shared-root"),
+            parent_node_ids: vec![],
+        };
         input.lineage.push(shared);
-        input.lineage[0].parent_digests = vec![shared_digest.clone()];
-        input.lineage[1].parent_digests = vec![shared_digest];
+        input.lineage[0].parent_node_ids = vec!["shared-upstream".into()];
+        input.lineage[1].parent_node_ids = vec!["shared-upstream".into()];
         assert_eq!(
             qualify_provenance(&input).status,
             ProvenanceQualificationStatus::ConflictingProvenance
@@ -444,7 +446,7 @@ mod tests {
     #[test]
     fn missing_parent_is_insufficient() {
         let mut input = qualified_input();
-        input.lineage[0].parent_digests = vec![digest('e')];
+        input.lineage[0].parent_node_ids = vec!["missing-node".into()];
         assert_eq!(
             qualify_provenance(&input).status,
             ProvenanceQualificationStatus::InsufficientEvidence
