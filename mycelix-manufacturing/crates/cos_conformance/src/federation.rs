@@ -616,6 +616,8 @@ pub fn validate_state_machine_trace_external_evidence_anchor_reference(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation {
+    InvalidAnchorReferenceDigest,
+    InvalidVerifierReportSchemaVersion,
     EmptyVerifierProfile,
     EmptyVerifierReport,
 }
