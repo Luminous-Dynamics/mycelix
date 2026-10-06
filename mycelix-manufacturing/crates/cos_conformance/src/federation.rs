@@ -7956,6 +7956,22 @@ mod tests {
             FederationStateMachineTracePublicationCollectionHistoryRelationship::RightStrictPrefix
         );
 
+        let sparse =
+            state_machine_trace_publication_collection_reconciliation(
+                &[(&fork_a, &fork_a_publication)],
+                &right,
+            )
+            .expect("sparse view must reconcile without being treated as a prefix");
+        assert_eq!(
+            sparse.relationship,
+            FederationStateMachineTracePublicationCollectionRelationship::LeftStrictSubset
+        );
+        assert_eq!(
+            sparse.history_relationship,
+            FederationStateMachineTracePublicationCollectionHistoryRelationship::NotComparable
+        );
+        assert!(sparse.equivocation_witness_sha256s.is_empty());
+
         let unrelated =
             serde_json::from_str::<FederationStateMachineTraceCapsule>(
                 &state_machine_trace_capsule(59, 8),
