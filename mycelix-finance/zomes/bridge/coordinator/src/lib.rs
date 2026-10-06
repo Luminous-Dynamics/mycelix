@@ -1455,7 +1455,21 @@ pub fn query_tend_balance(member_did: String) -> ExternResult<TendBalanceRespons
                 .decode::<TendBalance>()
                 .map(|b| b.balance)
                 .unwrap_or(0);
-            let tier = fetch_mycel_score(&member_did);
+            let tier = match fetch_mycel_score(&member_did) {
+                Ok(score) => score,
+                Err(e) => {
+                    debug!(
+                        "query_tend_balance: MYCEL score unavailable for {}: {:?}, reporting unavailable",
+                        member_did, e
+                    );
+                    return Ok(TendBalanceResponse {
+                        member_did,
+                        balance: 0,
+                        mycel_score: 0.0,
+                        available: false,
+                    });
+                }
+            };
             Ok(TendBalanceResponse {
                 member_did,
                 balance,
