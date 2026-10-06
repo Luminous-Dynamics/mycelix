@@ -810,6 +810,52 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         (CHECKOUT, DOWNLOAD, DOWNLOAD),
         "S2 external actions",
     )
+    for expected in (
+        ("runs-on: ubuntu-24.04", 1),
+        ("timeout-minutes: 15", 1),
+        ("cache-mode: none", 1),
+    ):
+        if exact_count(l, expected[0]) != expected[1]:
+            fail(f"S2 job value mismatch: {expected[0]!r}")
+    require_exact_step_mapping(
+        l,
+        "Checkout exact verifier workflow commit",
+        "with",
+        (
+            "ref: ${{ github.workflow_sha }}",
+            "fetch-depth: 0",
+            "persist-credentials: false",
+        ),
+        S2,
+    )
+    require_exact_step_mapping(
+        l,
+        "Download retained qualification receipt through official artifact client",
+        "with",
+        (
+            "artifact-ids: ${{ steps.verify_result.outputs.artifact_id }}",
+            "path: ${{ runner.temp }}/security-kernel-official-receipt",
+            "github-token: ${{ github.token }}",
+            "repository: ${{ github.repository }}",
+            "run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}",
+            "digest-mismatch: error",
+        ),
+        S2,
+    )
+    require_exact_step_mapping(
+        l,
+        "Download retained sandbox negative-control transcript through official artifact client",
+        "with",
+        (
+            "artifact-ids: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}",
+            "path: ${{ runner.temp }}/security-kernel-official-negative-controls",
+            "github-token: ${{ github.token }}",
+            "repository: ${{ github.repository }}",
+            "run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}",
+            "digest-mismatch: error",
+        ),
+        S2,
+    )
     if local_uses(l):
         fail("S2 unexpectedly contains local reusable workflow calls")
     for key, expected in (
