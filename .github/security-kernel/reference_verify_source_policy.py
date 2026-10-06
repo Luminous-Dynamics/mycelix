@@ -159,7 +159,11 @@ def verify_s1(raw: bytes) -> None:
     verify_action_pins(lines, {"actions/checkout": CHECKOUT_SHA, "actions/upload-artifact": UPLOAD_SHA})
     require_exact_action_set(
         lines,
-        (f"actions/checkout@{CHECKOUT_SHA}", f"actions/upload-artifact@{UPLOAD_SHA}"),
+        (
+            f"actions/checkout@{CHECKOUT_SHA}",
+            f"actions/upload-artifact@{UPLOAD_SHA}",
+            f"actions/upload-artifact@{UPLOAD_SHA}",
+        ),
         "S1 actions",
     )
     require_exact_local_workflow_set(lines, (), "S1 local reusable workflows")
