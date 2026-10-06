@@ -111,12 +111,12 @@ jobs:
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_chain["vectors"]) == 45
-          assert cert_chain["parser_structural_control_count"] == 17
+          assert len(cert_chain["vectors"]) == 46
+          assert cert_chain["parser_structural_control_count"] == 20
           assert [entry["id"] for entry in cert_chain["parser_structural_controls"]] == [
               "EKC-S01", "EKC-S02", "EKC-S03", "EKC-S04", "EKC-S05", "EKC-S06",
               "EKC-S07", "EKC-S08", "EKC-S09", "EKC-S10", "EKC-S11", "EKC-S12",
-              "EKC-S13", "EKC-S14", "EKC-S15", "EKC-S16", "EKC-S17",
+              "EKC-S13", "EKC-S14", "EKC-S15", "EKC-S16", "EKC-S17", "EKC-S18", "EKC-S19", "EKC-S20",
           ]
           assert all(entry["expected"] == "DENY" for entry in cert_chain["parser_structural_controls"])
           rf = cert_chain["reference_fixture"]
