@@ -1625,7 +1625,9 @@ def test_commitment_attestation_rejects_trigger_source_mismatch() -> None:
             "D6U_TRIGGER_HEAD_SHA": "b" * 40,
             "D6U_TRIGGER_RUN_ID": "43",
             "D6U_TRIGGER_RUN_ATTEMPT": "3",
-        }, clear=False):
+        }, clear=False), patch(
+            "sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]
+        ):
             assert_rejected(lambda: verifier.main(), "mismatched triggering run ID was accepted")
 
 def test_commitment_attestation_rejects_hash_mismatch() -> None:
