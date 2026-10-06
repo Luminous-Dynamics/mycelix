@@ -347,7 +347,7 @@ jobs:
           receipt_expires_at = artifact.get("expires_at")
           assert isinstance(receipt_expires_at, str) and receipt_expires_at, "qualification receipt artifact has no expiration timestamp"
           receipt_expiry = datetime.datetime.fromisoformat(receipt_expires_at.replace("Z", "+00:00"))
-          assert receipt_expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1), "qualification receipt artifact expires too soon for retained evidence"
+          assert receipt_expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30), "qualification receipt artifact must retain for at least 30 days after verification"
           artifact_run = artifact.get("workflow_run") or {}
           assert artifact_run.get("repository_id") == run["repository"]["id"], (
               "qualification receipt artifact repository identity differs from triggering workflow run"
@@ -606,7 +606,7 @@ jobs:
           assert re.fullmatch(r"[0-9a-f]{64}", parent_binding), "parent evidence binding digest is not canonical"
           assert isinstance(receipt_expires_at, str) and receipt_expires_at, "receipt artifact expiration is missing from S2 step binding"
           receipt_expiry = datetime.datetime.fromisoformat(receipt_expires_at.replace("Z", "+00:00"))
-          assert receipt_expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1), "receipt artifact expires too soon for retained evidence"
+          assert receipt_expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30), "receipt artifact must retain for at least 30 days after verification"
 
           def get(path):
               req = urllib.request.Request(
@@ -642,7 +642,7 @@ jobs:
           transcript_expires_at = artifact.get("expires_at")
           assert isinstance(transcript_expires_at, str) and transcript_expires_at, "negative-control transcript artifact has no expiration timestamp"
           transcript_expiry = datetime.datetime.fromisoformat(transcript_expires_at.replace("Z", "+00:00"))
-          assert transcript_expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1), "negative-control transcript artifact expires too soon for retained evidence"
+          assert transcript_expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30), "negative-control transcript artifact must retain for at least 30 days after verification"
 
           pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
           assert pr["number"] == candidate_pr
