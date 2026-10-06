@@ -81,6 +81,13 @@ impl PolicyAtomV1 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledBindingV1 {
+    pub semantic_proof_digest: [u8; 32],
+    pub policy_digest: [u8; 32],
+    pub compiled_binding_digest: [u8; 32],
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PolicyJustificationSetV1 {
     pub policy_digest: [u8; 32],
@@ -150,7 +157,7 @@ impl PolicyJustificationSetV1 {
     pub fn validate_compiled_allow_paths(
         &self,
         policy: &SeccompSyscallPolicyV2,
-    ) -> Result<(), PolicyProofError> {
+    ) -> Result<CompiledBindingV1, PolicyProofError> {
         if self.policy_digest != policy.digest() {
             return Err(PolicyProofError::PolicyDigestMismatch);
         }
@@ -162,7 +169,11 @@ impl PolicyJustificationSetV1 {
             return Err(PolicyProofError::AllowPathCoverageMismatch);
         }
 
-        for path in paths {
+        let mut seen = BTreeSet::new();
+        for path in &paths {
+            if !seen.insert(path.allow_pc) {
+                return Err(PolicyProofError::DuplicateAllowPath);
+            }
             let clause_digest = Self::derive_clause_digest_for_index(
                 policy,
                 path.syscall,
@@ -175,7 +186,20 @@ impl PolicyJustificationSetV1 {
             }
         }
 
-        Ok(())
+        let mut hasher = Hasher::new();
+        hasher.update(b"prism-compiled-policy-binding-v1");
+        hasher.update(&self.digest());
+        for path in paths {
+            hasher.update(&path.syscall.to_be_bytes());
+            hasher.update(&(path.clause_index as u64).to_be_bytes());
+            hasher.update(&(path.allow_pc as u64).to_be_bytes());
+        }
+
+        Ok(CompiledBindingV1 {
+            semantic_proof_digest: self.digest(),
+            policy_digest: policy.digest(),
+            compiled_binding_digest: *hasher.finalize().as_bytes(),
+        })
     }
 
     #[cfg(target_os = "linux")]
@@ -223,6 +247,7 @@ pub enum PolicyProofError {
     CompiledFilterMismatch,
     AllowPathCoverageMismatch,
     UnownedAllowPath { allow_pc: usize },
+    DuplicateAllowPath,
 }
 
 #[cfg(test)]
@@ -353,7 +378,10 @@ mod tests {
     fn every_compiled_allow_path_has_one_owned_atom() {
         let policy = policy();
         let proof = PolicyJustificationSetV1::new(&policy, atoms_for(&policy)).unwrap();
-        proof.validate_compiled_allow_paths(&policy).unwrap();
+        let binding = proof.validate_compiled_allow_paths(&policy).unwrap();
+        assert_eq!(binding.policy_digest, policy.digest());
+        assert_eq!(binding.semantic_proof_digest, proof.digest());
+        assert_ne!(binding.compiled_binding_digest, [0; 32]);
     }
 
     #[cfg(target_os = "linux")]
