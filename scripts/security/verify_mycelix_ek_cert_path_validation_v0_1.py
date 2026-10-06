@@ -72,6 +72,8 @@ def expected_input_binding(manifest: dict[str, Any]) -> str:
             "policy_argv": [
                 "openssl",
                 "verify",
+                "-x509_strict",
+                "-check_ss_sig",
                 "-CAfile",
                 "root.pem",
                 "-untrusted",
