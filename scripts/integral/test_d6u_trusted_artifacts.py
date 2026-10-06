@@ -195,10 +195,11 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         stripped = line.strip()
         if stripped.startswith("uses:"):
             uses.append(stripped.split("uses:", 1)[1].strip())
-    assert set(uses) == {
-        "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0",
-        "actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2",
+    expected_uses = {
+        f"{name}@{config['ref']} # {config['version']}"
+        for name, config in policy["trusted_actions"].items()
     }
+    assert set(uses) == expected_uses
 
     assert policy["trusted_permissions"] == {
         "actions": "read",
