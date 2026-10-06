@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import copy
 import hashlib
 import json
 import subprocess
@@ -906,7 +907,7 @@ def self_test() -> int:
             })),
         ]
         for label, mutate in observed_applicability_cases:
-            candidate_leaf = __import__("copy").deepcopy(leaf_info)
+            candidate_leaf = copy.deepcopy(leaf_info)
             mutate(candidate_leaf)
             try:
                 expected_crl_applicability_check(
@@ -924,7 +925,7 @@ def self_test() -> int:
             ("authoritative CDP certificate", lambda x: x.update({"certificate_sha256": "96" * 32})),
         ]
         for label, mutate in applicability_selection_cases:
-            candidate = __import__("copy").deepcopy(m["expected_crl_applicability"])
+            candidate = copy.deepcopy(m["expected_crl_applicability"])
             mutate(candidate)
             try:
                 expected_crl_applicability_check(
