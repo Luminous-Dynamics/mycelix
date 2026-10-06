@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse,copy,hashlib,json
+import argparse,copy,hashlib,json,shutil,subprocess,tempfile
 from pathlib import Path
 from typing import Any
 VERIFIER_ID="mycelix.tpm.ek-cert-san-identity-binding.v0.1"
@@ -80,7 +80,8 @@ def verify(m:dict[str,Any])->dict[str,Any]:
         return result("DENY","san-extractor-reexecution-failed",{"error":str(exc)})
     if cert_sha256!=m["certificate_der_sha256"]:return result("DENY","san-extractor-certificate-digest-mismatch")
     if output_sha256!=san["output_sha256"]:return result("DENY","san-extractor-output-digest-mismatch")
-    if canonical_hash(generated)!=m["san_extraction_sha256"]:return result("DENY","san-extraction-reexecution-receipt-mismatch")
+    bound_receipt={k:v for k,v in san.items() if k!="output_sha256"}
+    if canonical_hash(generated)!=canonical_hash(bound_receipt):return result("DENY","san-extraction-reexecution-receipt-mismatch")
     tpm=m["tpm_identity"]
     for field in ("source_sha256","manufacturer_source_sha256","model_source_sha256","part_number_source_sha256","issuance_firmware_source_sha256"):
         if not valid_hash(tpm.get(field)):return result("DENY","tpm-source-digest-invalid",{"field":field})
@@ -128,6 +129,7 @@ tcg-at-tpmVersion=FW-1.0
         p=subprocess.run([sys.executable,str(EXTRACTOR_SCRIPT),"--extract",str(der),"--output",str(out)],cwd=work,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False)
         if p.returncode!=0 or not out.is_file(): raise RuntimeError(f"fixture extractor failed: {p.stderr}")
         san=json.loads(out.read_text(encoding="utf-8"))
+        san["output_sha256"]=hashlib.sha256(out.read_bytes()).hexdigest()
         cert_sha=hashlib.sha256(cert_bytes).hexdigest()
         tpm={"source_sha256":"22"*32,"manufacturer_source_sha256":"23"*32,"model_source_sha256":"24"*32,"part_number_source_sha256":"25"*32,"issuance_firmware_source_sha256":"26"*32,"manufacturer_name":"TEST-MFR","model":"TEST-MODEL","model_state":"PASS","part_number":"TEST-MODEL","part_number_state":"PASS","issuance_firmware":"FW-1.0","issuance_firmware_state":"PASS","current_firmware":"FW-2.0"}
         m={"profile_id":"mycelix.security.tpm.ek-cert-san-identity-binding","profile_version":"0.1.0","verification_mode":"ReferenceModelOnly","claim_ceiling":"ReferenceModelOnly","session_id":"san-self-test","certificate_der_sha256":cert_sha,"san_extraction":san,"tpm_identity":tpm}
