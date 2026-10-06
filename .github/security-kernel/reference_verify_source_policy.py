@@ -19,6 +19,7 @@ S1_PATH = ".github/workflows/security-kernel-independent-qualification.yml"
 S2_PATH = ".github/workflows/security-kernel-trusted-result-verifier.yml"
 BINDING_PATH = ".github/security-kernel/reference_verify_execution_binding.py"
 CAUSAL_PATH = ".github/security-kernel/reference_verify_causal_join.py"
+POLICY_PATH = ".github/security-kernel/reference_verify_source_policy.py"
 
 CHECKOUT_SHA = "3d3c42e5aac5ba805825da76410c181273ba90b1"
 UPLOAD_SHA = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
@@ -144,7 +145,14 @@ def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: reference_verify_source_policy.py <snapshot.json>")
     snapshot = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    expected_files = {"s0": S0_PATH, "s1": S1_PATH, "s2": S2_PATH, "binding": BINDING_PATH, "causal": CAUSAL_PATH}
+    expected_files = {
+        "s0": S0_PATH,
+        "s1": S1_PATH,
+        "s2": S2_PATH,
+        "binding": BINDING_PATH,
+        "causal": CAUSAL_PATH,
+        "policy": POLICY_PATH,
+    }
     if set(snapshot) != {"schema", "files"} or snapshot["schema"] != SCHEMA:
         fail("source-policy snapshot schema mismatch")
     files = snapshot["files"]
@@ -158,7 +166,7 @@ def main() -> None:
     verify_s0(raw["s0"])
     verify_s1(raw["s1"])
     verify_s2(raw["s2"])
-    print(json.dumps({"schema": SCHEMA, "policy_result": "verified", "workflow_file_count": 3, "reference_file_count": 2, "action_pins_verified": 3, "pinned_images_verified": 2, "forbidden_escalations_checked": 18}, sort_keys=True, separators=(",", ":")))
+    print(json.dumps({"schema": SCHEMA, "policy_result": "verified", "workflow_file_count": 3, "reference_file_count": 3, "action_pins_verified": 3, "pinned_images_verified": 2, "forbidden_escalations_checked": 18}, sort_keys=True, separators=(",", ":")))
 
 if __name__ == "__main__":
     main()
