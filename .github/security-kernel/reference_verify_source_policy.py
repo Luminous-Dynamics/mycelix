@@ -625,6 +625,52 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         (CHECKOUT, UPLOAD, UPLOAD),
         "S1 external actions",
     )
+    for expected in (
+        ("runs-on: ubuntu-24.04", 1),
+        ("timeout-minutes: 45", 1),
+        ("cache-mode: none", 1),
+    ):
+        if exact_count(l, expected[0]) != expected[1]:
+            fail(f"S1 job value mismatch: {expected[0]!r}")
+    require_exact_step_mapping(
+        l,
+        "Checkout trusted qualification root",
+        "with",
+        (
+            "ref: ${{ github.workflow_sha }}",
+            "fetch-depth: 0",
+            "persist-credentials: false",
+        ),
+        S1,
+    )
+    require_exact_step_mapping(
+        l,
+        "Upload sandbox negative-control transcript",
+        "with",
+        (
+            "name: security-kernel-negative-controls-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.log",
+            "path: ${{ runner.temp }}/security-kernel-negative-controls.log",
+            "if-no-files-found: error",
+            "archive: false",
+            "overwrite: false",
+            "retention-days: 90",
+        ),
+        S1,
+    )
+    require_exact_step_mapping(
+        l,
+        "Upload qualification receipt",
+        "with",
+        (
+            "name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt",
+            "path: ${{ runner.temp }}/security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt",
+            "if-no-files-found: error",
+            "archive: false",
+            "overwrite: false",
+            "retention-days: 90",
+        ),
+        S1,
+    )
     if local_uses(l):
         fail(f"S1 unexpectedly contains local reusable workflow calls: {local_uses(l)!r}")
     if exact_count(l, f'FETCH_IMAGE: "{GIT_FETCH_IMAGE}"') != 1:
