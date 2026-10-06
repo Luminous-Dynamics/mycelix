@@ -147,7 +147,6 @@ jobs:
 
       - name: Resolve exact candidate source
         id: resolve_source
-        shell: bash
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
@@ -336,7 +335,6 @@ jobs:
           PY
 
       - name: Static trust-surface audit
-        shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
         shell: bash
@@ -516,7 +514,6 @@ jobs:
 
       - name: Snapshot exact candidate source identity
         id: snapshot_source
-        shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
         shell: bash
@@ -551,7 +548,6 @@ jobs:
           echo "PASS: exact candidate source digest captured before dependency acquisition and candidate execution"
       - name: Snapshot locked dependency identity
         id: locked_dependency_identity
-        shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
         shell: bash
@@ -571,7 +567,6 @@ jobs:
 
       - name: Pull and preflight pinned sandbox image
         id: sandbox_preflight
-        shell: bash
         env:
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         shell: bash
@@ -645,7 +640,6 @@ jobs:
 
       - name: Prepare locked dependency subject
         id: dependency_subject
-        shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
         shell: bash
@@ -661,7 +655,6 @@ jobs:
 
       - name: Vendor locked dependency closure in fetch sandbox
         id: vendor_dependencies
-        shell: bash
         env:
           DEPENDENCY_ROOT: ${{ steps.dependency_subject.outputs.dependency_root }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
@@ -746,7 +739,6 @@ jobs:
           echo "vendor_digest=$vendor_digest"
       - name: Execute sandbox negative controls
         id: sandbox_negative_controls
-        shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
@@ -856,7 +848,6 @@ jobs:
           overwrite: false
           retention-days: 90
       - name: Execute candidate qualification in disposable networkless sandbox
-        shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
@@ -982,7 +973,6 @@ jobs:
           echo "PASS: all candidate compilation/test/lint gates executed in fresh disposable networkless sandboxes"
 
       - name: Verify candidate source immutability
-        shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
           EXPECTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
@@ -1018,7 +1008,6 @@ jobs:
 
       - name: Verify dependency substrate immutability
         id: dependency_postflight
-        shell: bash
         env:
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
@@ -1063,7 +1052,6 @@ jobs:
           PY
           printf 'dependency_substrate=passed\n' >> "$GITHUB_OUTPUT"
       - name: Emit qualification receipt
-        shell: bash
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CANDIDATE_PR: ${{ inputs.candidate_pr }}
@@ -1156,7 +1144,6 @@ jobs:
 
       - name: Verify retained qualification receipt
         if: success()
-        shell: bash
         env:
           TOKEN: ${{ github.token }}
           EXPECTED_ARTIFACT_ID: ${{ steps.receipt_upload.outputs.artifact-id }}

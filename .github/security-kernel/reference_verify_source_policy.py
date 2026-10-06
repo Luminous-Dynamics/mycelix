@@ -211,37 +211,40 @@ def require_explicit_bash_for_run_steps(lines_: list[str], description: str) -> 
 
 
 def require_step_execution_modes(lines_: list[str], description: str) -> None:
-    steps = []
     current = None
+    in_run_block = False
+
     def flush() -> None:
+        nonlocal current, in_run_block
         if current is None:
             return
         modes = current["run"] + current["uses"]
         if len(modes) != 1:
             fail(f"{description}: step {current['name']!r} must contain exactly one run/uses execution mode")
-        if current["run"] and len(current["shell"]) != 1:
-            fail(f"{description}: run step {current['name']!r} must contain exactly one shell: bash")
-        if current["run"] and current["shell"] != ["bash"]:
-            fail(f"{description}: run step {current['name']!r} must explicitly use shell: bash")
-        if current["uses"] and current["shell"]:
+        if current["run"]:
+            if current["shell"] != ["bash"]:
+                fail(f"{description}: run step {current['name']!r} must explicitly declare exactly one shell: bash")
+        elif current["shell"]:
             fail(f"{description}: uses step {current['name']!r} must not declare a shell")
+        in_run_block = False
 
     for line in lines_:
         match = re.fullmatch(r"\s{6}- name: (.+)", line)
         if match:
             flush()
             current = {"name": match.group(1), "run": [], "uses": [], "shell": []}
-            steps.append(current)
             continue
         if current is None:
             continue
+        if in_run_block:
+            continue
         if re.fullmatch(r"\s{8}run:\s*\|?\s*", line):
             current["run"].append(line)
+            in_run_block = True
         elif re.fullmatch(r"\s{8}uses:\s+.+", line):
             current["uses"].append(line)
         elif re.fullmatch(r"\s{8}shell:\s+(.+)\s*", line):
             current["shell"].append(re.fullmatch(r"\s{8}shell:\s+(.+)\s*", line).group(1))
-    flush()
 
 
 def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
