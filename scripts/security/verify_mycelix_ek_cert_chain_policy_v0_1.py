@@ -26,7 +26,7 @@ FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
 REFERENCE_TIME_UNIX = 1791158400
-EXPIRED_TIME_UNIX = 0
+EXPIRED_TIME_UNIX = 4102444800
 FIXTURE_HASHES = {
     "root.der": REFERENCE_ROOT_SHA256,
     "intermediate.der": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
@@ -116,6 +116,15 @@ def split_pem_crls(bundle: bytes) -> list[bytes]:
     if not blocks:
         raise ValueError("CRL bundle contains no PEM CRLs")
     return blocks
+
+
+def hex_bytes(value: Any, field: str) -> bytes:
+    if not isinstance(value, str) or len(value) % 2:
+        raise ValueError(f"{field} must be an even-length hexadecimal string")
+    try:
+        return bytes.fromhex(value)
+    except ValueError as exc:
+        raise ValueError(f"{field} invalid hexadecimal: {exc}") from exc
 
 
 def sha256_file(path: Path) -> str:
