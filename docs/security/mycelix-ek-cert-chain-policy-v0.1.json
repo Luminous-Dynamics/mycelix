@@ -534,6 +534,11 @@
       "id": "EKC-V70",
       "mutation": "crl-cdp-reason-scope-claim-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V71",
+      "mutation": "crl-cdp-crl-issuer-claim-substitution",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -551,7 +556,7 @@
     "generation_mode": "deterministic-generated-synthetic",
     "recipe_path": "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json",
     "generator_path": "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py",
-    "recipe_sha256": "75bf614beff67d2fc77def78e4706fd5a1e2dfb5ee5891c746e85cd935904e5a",
+    "recipe_sha256": "958099b45d4617a575b8015bdc0dfe01cf4b7422b30af7d62569c22f7a76ab16",
     "previous_frozen_fixture_status": "not-recoverable-from-Git-history; not fabricated",
     "generator_contract": "generator --recipe fixture-recipe-v0.1.json --output-dir <temp> --check",
     "root_crl_der_sha256": "2909c633b414913ff031e1224d41bfdc58d74c91f84d6c7705bd13194ab27b4e",
