@@ -687,7 +687,7 @@ impl D6XVerificationSummaryV1 {
             commitment: String::new(),
         };
         summary.commitment = summary.recompute();
-        Some(summary)
+        summary.valid().then_some(summary)
     }
 
     /// Construct a verification summary only when runtime resolution evidence
@@ -728,6 +728,7 @@ impl D6XVerificationSummaryV1 {
             summary.commitment = summary.recompute();
             summary
         })
+        .filter(|summary| summary.valid())
     }
 
     pub fn recompute(&self) -> String {
