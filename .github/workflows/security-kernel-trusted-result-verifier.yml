@@ -503,6 +503,8 @@ jobs:
               "candidate_tree","candidate_source_tree_entry_count","candidate_source_file_count",
               "candidate_source_total_path_bytes","candidate_source_total_bytes","candidate_source_max_blob_bytes",
               "candidate_source_digest","candidate_cargo_lock_format","candidate_cargo_lock_sha256",
+              "source_resource_profile","source_max_bytes","source_max_inodes","source_tmpfs_size","source_tmpfs_nr_inodes",
+              "source_volume_name","source_volume_spec","source_copy_bytes","source_copy_files","source_copy_inodes",
               "candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
               "vendor_resource_profile","vendor_max_bytes","vendor_max_files","vendor_max_inodes",
               "vendor_tmpfs_size","vendor_tmpfs_nr_inodes","vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","vendor_resource_measurement","vendor_digest",
@@ -522,6 +524,12 @@ jobs:
               "candidate_pr": str(candidate_pr),
               "candidate_sha": candidate_sha,
               "source_event": "pull_request_target",
+              "source_resource_profile": "v1",
+              "source_max_bytes": "1073741824",
+              "source_max_inodes": "300000",
+              "source_tmpfs_size": "1024m",
+              "source_tmpfs_nr_inodes": "300000",
+              "source_volume_spec": "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000",
               "trusted_workflow_sha": workflow_sha,
               "registered_s1_workflow_blob_sha": s1_at_run["sha"],
               "called_workflow_ref": f"{repo}/{os.environ['INDEPENDENT_WORKFLOW_PATH']}@refs/heads/main",
@@ -610,11 +618,17 @@ jobs:
           print(f"PASS: final retained-evidence binding SHA-256={evidence_binding_digest}")
 
           for key in ("candidate_cargo_lock_sha256", "candidate_source_digest", "vendor_digest", "sandbox_negative_controls_log_sha256"):
+              assert receipt.get("source_volume_name", "").startswith("security-kernel-source-"), "source volume name is not bound to the S1 execution identity"
+              assert re.fullmatch(r"security-kernel-source-[0-9]+-[0-9]+", receipt.get("source_volume_name", "")), "source volume name is not canonical"
               assert re.fullmatch(r"[0-9a-f]{64}", receipt.get(key, "")), (
                   f"qualification receipt field {key!r} is not a SHA-256 digest"
               )
           for key in (
               "candidate_source_tree_entry_count","candidate_source_file_count","candidate_source_total_path_bytes",
+              "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
+              "source_max_bytes","source_max_inodes","source_copy_bytes","source_copy_files","source_copy_inodes","s1_run_id","s1_run_attempt",
+              "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
+              "source_max_bytes","source_max_inodes","source_copy_bytes","source_copy_files","source_copy_inodes",
               "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count",
               "candidate_cargo_lock_dependency_edges","vendor_max_bytes","vendor_max_files","vendor_max_inodes",
               "vendor_tmpfs_nr_inodes","vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","s1_run_id","s1_run_attempt",
@@ -623,6 +637,15 @@ jobs:
                   f"qualification receipt field {key!r} is not a canonical non-negative integer"
               )
           assert receipt["candidate_cargo_lock_format"] == "v4"
+          assert receipt["source_resource_profile"] == "v1"
+          assert receipt["source_max_bytes"] == "1073741824"
+          assert receipt["source_max_inodes"] == "300000"
+          assert receipt["source_tmpfs_size"] == "1024m"
+          assert receipt["source_tmpfs_nr_inodes"] == "300000"
+          assert receipt["source_volume_spec"] == "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
+          assert 0 < int(receipt["source_copy_bytes"]) <= int(receipt["source_max_bytes"])
+          assert 0 < int(receipt["source_copy_files"]) <= 200000
+          assert 0 < int(receipt["source_copy_inodes"]) <= int(receipt["source_max_inodes"])
            assert receipt["vendor_resource_profile"] == "v2"
            assert receipt["vendor_max_bytes"] == "1073741824"
            assert receipt["vendor_max_files"] == "100000"
