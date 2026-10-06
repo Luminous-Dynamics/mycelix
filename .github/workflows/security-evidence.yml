@@ -112,6 +112,8 @@ jobs:
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(cert_chain["vectors"]) == 45
+          for fixture_path in cert_chain["reference_fixture"]["fixture_paths"]:
+              assert Path(fixture_path).is_file(), f"missing declared EK fixture: {fixture_path}"
           PY
 
       - name: Compile security verifiers and bundle regression
