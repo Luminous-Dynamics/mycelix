@@ -622,16 +622,14 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         if set(crl_results) != {"root", "intermediate"}:
             return result("DENY", "crl-set-incomplete")
         try:
-            recipe_path = Path(__file__).resolve().parents[2] / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
-            recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
             expected_crl_semantics_check(
                 crl_map,
                 {"root": r, "intermediate": i, "leaf": l},
-                recipe["crl_semantics"],
+                expected_recipe_semantics,
                 int(manifest["verification_time_unix"]),
             )
-            crl_semantics_sha256 = canonical_hash(recipe["crl_semantics"])
-        except (KeyError, ValueError, OSError, json.JSONDecodeError) as exc:
+            crl_semantics_sha256 = expected_semantics_sha
+        except (KeyError, ValueError, TypeError) as exc:
             return result("DENY", "crl-semantics-verification-failed", {"error": str(exc)})
         details = {
             "exact_input_objects": {
@@ -714,6 +712,13 @@ def self_test() -> int:
                 json.loads((recipe).read_text(encoding="utf-8"))["crl_semantics"]
             ),
         }
+        implementation_source = Path(__file__).read_text(encoding="utf-8").split("def self_test()", 1)[0]
+        if "fixture-recipe-v0.1.json" in implementation_source:
+            print("independent witness rereads fixture recipe from disk: FAIL")
+            return 1
+        if "expected_crl_semantics" not in implementation_source:
+            print("independent witness lacks supplied CRL recipe projection: FAIL")
+            return 1
         good = verify(m)
         if good["state"] != "PASS":
             print("exact synthetic EK cryptographic witness: FAIL")
