@@ -184,48 +184,18 @@ const HIBERNATION_YIELD_THRESHOLD: f32 = 1.0; // kWh
 /// Calculate the adaptive demurrage rate based on total yield (Loop 3).
 #[hdk_extern]
 pub fn get_adaptive_demurrage_rate(_: ()) -> ExternResult<f64> {
-    let base_rate = 0.02; // 2% annual
+    let base_rate = 0.02;
+    let state = read_current_oracle_state()?;
 
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
-
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            if let Some(state) = record.entry().to_app_option::<OracleState>().ok().flatten() {
-                // If yield is low, scale down demurrage (Linear falloff to 0%)
-                if state.total_yield_kwh < HIBERNATION_YIELD_THRESHOLD {
-                    return Ok(
-                        base_rate * (state.total_yield_kwh / HIBERNATION_YIELD_THRESHOLD) as f64
-                    );
-                }
-            }
-        }
+    if state.total_yield_kwh < HIBERNATION_YIELD_THRESHOLD {
+        return Ok(
+            base_rate * (state.total_yield_kwh / HIBERNATION_YIELD_THRESHOLD) as f64
+        );
     }
 
     Ok(base_rate)
 }
 
-/// Helper: Check if constellation is in metabolic hibernation.
-fn is_in_hibernation() -> ExternResult<bool> {
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            if let Some(state) = record.entry().to_app_option::<OracleState>().ok().flatten() {
-                return Ok(state.total_yield_kwh < HIBERNATION_YIELD_THRESHOLD);
-            }
-        }
-    }
-    Ok(false)
-}
-
-/// Update the oracle state with total yield (Loop 3).
 #[hdk_extern]
 pub fn update_oracle_state(input: UpdateOracleInput) -> ExternResult<OracleState> {
     verify_governance_or_bootstrap()?;
@@ -239,30 +209,49 @@ pub fn update_oracle_state(input: UpdateOracleInput) -> ExternResult<OracleState
         updated_at: now,
     };
 
-    // [Standard update-or-create logic follows...]
+    // Update the unique authoritative state; create only when no root exists.
     let links = get_links(
         LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(link_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(link_hash)?;
+    let mut hashes = links
+        .into_iter()
+        .map(|link| {
+            link.target.into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Oracle state anchor contains a non-ActionHash target".into()
+                ))
+            })
+        })
+        .collect::<ExternResult<Vec<_>>>()?;
+
+    hashes.sort();
+    hashes.dedup();
+
+    match hashes.len() {
+        0 => {
+            let hash = create_entry(&EntryTypes::OracleState(state.clone()))?;
+            create_link(
+                anchor_hash(ORACLE_STATE_ANCHOR)?,
+                hash,
+                LinkTypes::AnchorLinks,
+                (),
+            )?;
+        }
+        1 => {
+            let record = follow_update_chain(hashes.remove(0))?;
             update_entry(
                 record.action_address().clone(),
                 &EntryTypes::OracleState(state.clone()),
             )?;
-            return Ok(state);
+        }
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Conflicting TEND OracleState roots exist; refusing policy update".into()
+            )));
         }
     }
-
-    let hash = create_entry(&EntryTypes::OracleState(state.clone()))?;
-    create_link(
-        anchor_hash(ORACLE_STATE_ANCHOR)?,
-        hash,
-        LinkTypes::AnchorLinks,
-        (),
-    )?;
 
     Ok(state)
 }
@@ -285,61 +274,16 @@ pub fn get_dynamic_tend_limit(_: ()) -> ExternResult<i32> {
 /// Internal: read the current tier from oracle state.
 /// Follows the update chain to get the latest oracle state.
 fn read_current_tier() -> ExternResult<TendLimitTier> {
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
-
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            let state = record.entry().to_app_option::<OracleState>().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "OracleState deserialization error: {:?}",
-                    e
-                )))
-            })?;
-            if let Some(state) = state {
-                return Ok(state.tier);
-            }
-        }
-    }
-
-    // Default to Normal if no oracle state
-    Ok(TendLimitTier::Normal)
+    Ok(read_current_oracle_state()?.tier)
 }
 
-/// Get the current oracle state (vitality + tier).
-/// Used by bridge coordinator for cross-cluster TEND limit queries.
 #[hdk_extern]
 pub fn get_oracle_state(_: ()) -> ExternResult<OracleStateResponse> {
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            let state = record.entry().to_app_option::<OracleState>().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "OracleState deserialization error: {:?}",
-                    e
-                )))
-            })?;
-            if let Some(state) = state {
-                return Ok(OracleStateResponse {
-                    vitality: state.vitality,
-                    tier_name: format!("{:?}", state.tier),
-                    limit: state.tier.limit(),
-                });
-            }
-        }
-    }
-    // Default: Normal state
+    let state = read_current_oracle_state()?;
     Ok(OracleStateResponse {
-        vitality: 50,
-        tier_name: "Normal".to_string(),
-        limit: 40,
+        vitality: state.vitality,
+        tier_name: format!("{:?}", state.tier),
+        limit: state.tier.limit(),
     })
 }
 
