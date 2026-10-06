@@ -1191,7 +1191,7 @@ pub fn query_tend_balance(member_did: String) -> ExternResult<TendBalanceRespons
             let tier = fetch_mycel_score(&member_did)?;
             Ok(TendBalanceResponse {
                 member_did,
-                balance,
+                balance: balance.balance,
                 mycel_score: tier,
                 available: true,
             })
