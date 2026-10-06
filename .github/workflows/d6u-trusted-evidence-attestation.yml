@@ -8,9 +8,138 @@ on:
       - main
 
 jobs:
-  trusted-attestation:
-    name: D6U trusted evidence attestation
+  verifier:
+    name: D6U unprivileged evidence verifier
     if: >-
+      github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_CONFIG_DIR: ${{ runner.temp }}/d6u-gh-config
+    steps:
+      - name: Checkout trusted policy root
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Assert trusted workflow root
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
+          test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
+
+      - name: Assert trusted policy root cohesion
+        env:
+          TRUSTED_POLICY_VERSION: "32"
+        run: |
+          set -euo pipefail
+          policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
+          test "$policy_version" = "$TRUSTED_POLICY_VERSION"
+          expected_blob=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["trusted_workflow"]["blob_sha"])')
+          observed_blob=$(git hash-object .github/workflows/d6u-trusted-evidence-attestation.yml)
+          test "$observed_blob" = "$expected_blob"
+
+      - name: Assert trusted program identities
+        run: |
+          set -euo pipefail
+          trusted_programs=(
+            scripts/integral/verify_d6u_trusted_artifacts.py
+            scripts/integral/fetch_d6u_trusted_artifact.py
+            scripts/integral/verify_d6u_trusted_attestation.py
+            scripts/integral/emit_d6u_trusted_attestation_predicate.py
+            scripts/integral/verify_d6u_trusted_attestation_retention.py
+          )
+          for path in "${trusted_programs[@]}"; do
+            expected=$(python3 -c 'import json, sys; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["trusted_programs"][sys.argv[1]]["blob_sha"])' "$path")
+            index_record=$(git ls-files --stage -- "$path")
+            test -n "$index_record"
+            mode=$(printf '%s
+' "$index_record" | awk '{print $1}')
+            observed=$(printf '%s
+' "$index_record" | awk '{print $2}')
+            test "$mode" = "100644" || test "$mode" = "100755"
+            test "$observed" = "$expected"
+          done
+
+      - name: Preflight trusted verifier
+        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/verify_d6u_trusted_attestation_retention.py
+
+
+      - name: Fetch and safely extract exact D6U artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/fetch_d6u_trusted_artifact.py "${{ runner.temp }}/d6u-trusted-input"
+
+      - name: Verify untrusted D6U evidence as data
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/integral/verify_d6u_trusted_artifacts.py "${{ runner.temp }}/d6u-trusted-input"
+
+      - name: Emit canonical D6U evidence predicate
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/emit_d6u_trusted_attestation_predicate.py \
+            "${{ runner.temp }}/d6u-trusted-input" \
+            "$RUNNER_TEMP/d6u-trusted-evidence-predicate.json"
+
+
+      - name: Prepare inert trusted signer handoff
+        env:
+          D6U_TRUSTED_POLICY_VERSION: "32"
+        run: |
+          set -euo pipefail
+          handoff_dir="$RUNNER_TEMP/d6u-signer-handoff"
+          rm -rf "$handoff_dir"
+          mkdir -p "$handoff_dir"
+          cp -- "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-evidence.txt" "$handoff_dir/"
+          cp -- "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-test.log" "$handoff_dir/"
+          cp -- "$RUNNER_TEMP/d6u-trusted-input/Cargo.lock" "$handoff_dir/"
+          cp -- "$RUNNER_TEMP/d6u-trusted-evidence-predicate.json" "$handoff_dir/d6u-trusted-evidence-predicate.json"
+          cat > "$handoff_dir/d6u-signer-context.txt" <<EOF
+schema=d6u-trusted-signer-handoff/v1
+repository=$GITHUB_REPOSITORY
+source_digest=$GITHUB_SHA
+trusted_workflow_digest=$GITHUB_WORKFLOW_SHA
+run_id=$GITHUB_RUN_ID
+run_attempt=$GITHUB_RUN_ATTEMPT
+verifier_job=$GITHUB_JOB
+claim_ceiling=ReferenceModelOnly
+EOF
+          (
+            cd "$handoff_dir"
+            sha256sum \
+              Cargo.lock \
+              d6u-runtime-evidence.txt \
+              d6u-runtime-test.log \
+              d6u-signer-context.txt \
+              d6u-trusted-evidence-predicate.json \
+              > d6u-signer-handoff.manifest.sha256
+          )
+          test "$(wc -l < "$handoff_dir/d6u-signer-handoff.manifest.sha256")" -eq 5
+          test "$(find "$handoff_dir" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 6
+
+      - name: Upload inert trusted signer handoff
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6u-trusted-signer-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/d6u-signer-handoff
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: false
+  signer:
+    name: D6U privileged evidence signer and auditor
+    needs: verifier
+    if: >-
+      needs.verifier.result == 'success' &&
       github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main' &&
@@ -73,35 +202,71 @@ jobs:
       - name: Preflight trusted verifier
         run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/verify_d6u_trusted_attestation_retention.py
 
-      - name: Fetch and safely extract exact D6U artifact
+
+      - name: Download inert trusted signer handoff
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: d6u-trusted-signer-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/d6u-signer-handoff
+
+      - name: Assert inert trusted signer handoff
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          D6U_TRUSTED_POLICY_VERSION: "32"
         run: |
           set -euo pipefail
-          python3 scripts/integral/fetch_d6u_trusted_artifact.py "${{ runner.temp }}/d6u-trusted-input"
+          handoff_dir="$RUNNER_TEMP/d6u-signer-handoff"
+          test -d "$handoff_dir" && test ! -L "$handoff_dir"
+          expected_files=(
+            Cargo.lock
+            d6u-runtime-evidence.txt
+            d6u-runtime-test.log
+            d6u-signer-context.txt
+            d6u-signer-handoff.manifest.sha256
+            d6u-trusted-evidence-predicate.json
+          )
+          mapfile -t actual_files < <(find "$handoff_dir" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected_files[@]}" | sort)
+          test "${#actual_files[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${actual_files[$i]}" = "${expected_sorted[$i]}"
+          done
+          for name in "${expected_files[@]}"; do
+            path="$handoff_dir/$name"
+            test -f "$path"
+            test ! -L "$path"
+          done
+          (
+            cd "$handoff_dir"
+            sha256sum -c d6u-signer-handoff.manifest.sha256
+          )
+          test "$(wc -l < "$handoff_dir/d6u-signer-handoff.manifest.sha256")" -eq 5
+          test "$(awk '{print $2}' "$handoff_dir/d6u-signer-handoff.manifest.sha256" | sort | paste -sd, -)" = "Cargo.lock,d6u-runtime-evidence.txt,d6u-runtime-test.log,d6u-signer-context.txt,d6u-trusted-evidence-predicate.json"
+          grep -Fxq 'schema=d6u-trusted-signer-handoff/v1' "$handoff_dir/d6u-signer-context.txt"
+          grep -Fxq "repository=$GITHUB_REPOSITORY" "$handoff_dir/d6u-signer-context.txt"
+          grep -Fxq "source_digest=$GITHUB_SHA" "$handoff_dir/d6u-signer-context.txt"
+          grep -Fxq "trusted_workflow_digest=$GITHUB_WORKFLOW_SHA" "$handoff_dir/d6u-signer-context.txt"
+          grep -Fxq "run_id=$GITHUB_RUN_ID" "$handoff_dir/d6u-signer-context.txt"
+          grep -Fxq "run_attempt=$GITHUB_RUN_ATTEMPT" "$handoff_dir/d6u-signer-context.txt"
+          grep -Fxq 'verifier_job=verifier' "$handoff_dir/d6u-signer-context.txt"
+          grep -Fxq 'claim_ceiling=ReferenceModelOnly' "$handoff_dir/d6u-signer-context.txt"
+          test "$(sha256sum "$handoff_dir/d6u-runtime-evidence.txt" | awk '{print $1}')" = "$(sha256sum "$RUNNER_TEMP/d6u-signer-handoff/d6u-runtime-evidence.txt" | awk '{print $1}')"
 
-      - name: Verify untrusted D6U evidence as data
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 scripts/integral/verify_d6u_trusted_artifacts.py "${{ runner.temp }}/d6u-trusted-input"
-
-      - name: Emit canonical D6U evidence predicate
+      - name: Emit signer handoff identity
         run: |
           set -euo pipefail
-          python3 scripts/integral/emit_d6u_trusted_attestation_predicate.py \
-            "${{ runner.temp }}/d6u-trusted-input" \
-            "$RUNNER_TEMP/d6u-trusted-evidence-predicate.json"
+          printf 'verified inert signer handoff: run=%s attempt=%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
 
       - name: Attest trusted D6U evidence
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2
         with:
           subject-path: |
-            ${{ runner.temp }}/d6u-trusted-input/d6u-runtime-evidence.txt
-            ${{ runner.temp }}/d6u-trusted-input/d6u-runtime-test.log
-            ${{ runner.temp }}/d6u-trusted-input/Cargo.lock
+            ${{ runner.temp }}/d6u-signer-handoff/d6u-runtime-evidence.txt
+            ${{ runner.temp }}/d6u-signer-handoff/d6u-runtime-test.log
+            ${{ runner.temp }}/d6u-signer-handoff/Cargo.lock
           predicate-type: https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1
-          predicate-path: ${{ runner.temp }}/d6u-trusted-evidence-predicate.json
+          predicate-path: ${{ runner.temp }}/d6u-signer-handoff/d6u-trusted-evidence-predicate.json
 
+      - name: Assert GitHub CLI verification environment
       - name: Assert GitHub CLI verification environment
         run: |
           set -euo pipefail
@@ -151,6 +316,8 @@ jobs:
             rm -f "$report"
           done
 
+
+      - name: Retain and offline-verify trusted attestations
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
@@ -165,9 +332,9 @@ jobs:
           test -s "$retention_dir/trusted_root.jsonl"
 
           subjects=(
-            "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-evidence.txt"
-            "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-test.log"
-            "$RUNNER_TEMP/d6u-trusted-input/Cargo.lock"
+            "$RUNNER_TEMP/d6u-signer-handoff/d6u-runtime-evidence.txt"
+            "$RUNNER_TEMP/d6u-signer-handoff/d6u-runtime-test.log"
+            "$RUNNER_TEMP/d6u-signer-handoff/Cargo.lock"
           )
           names=(
             "d6u-runtime-evidence.txt"
@@ -361,7 +528,9 @@ jobs:
           out.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
           PY
 
-          D6U_TRUSTED_POLICY_VERSION="$D6U_TRUSTED_POLICY_VERSION"           GITHUB_REPOSITORY="$GITHUB_REPOSITORY"           GITHUB_REF="$GITHUB_REF"           GITHUB_SHA="$GITHUB_SHA"           GITHUB_WORKFLOW_SHA="$GITHUB_WORKFLOW_SHA"           GITHUB_RUN_ID="$GITHUB_RUN_ID"           GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT"           RUNNER_TEMP="$RUNNER_TEMP"           D6U_SUBJECT_D6U_RUNTIME_EVIDENCE_TXT_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-evidence.txt" | awk '{print $1}')"           D6U_SUBJECT_D6U_RUNTIME_TEST_LOG_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-test.log" | awk '{print $1}')"           D6U_SUBJECT_CARGO_LOCK_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/Cargo.lock" | awk '{print $1}')"             python3 scripts/integral/verify_d6u_trusted_attestation_retention.py "$retention_dir"
+          D6U_TRUSTED_POLICY_VERSION="$D6U_TRUSTED_POLICY_VERSION"           GITHUB_REPOSITORY="$GITHUB_REPOSITORY"           GITHUB_REF="$GITHUB_REF"           GITHUB_SHA="$GITHUB_SHA"           GITHUB_WORKFLOW_SHA="$GITHUB_WORKFLOW_SHA"           GITHUB_RUN_ID="$GITHUB_RUN_ID"           GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT"           RUNNER_TEMP="$RUNNER_TEMP"           D6U_SUBJECT_D6U_RUNTIME_EVIDENCE_TXT_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-signer-handoff/d6u-runtime-evidence.txt" | awk '{print $1}')"           D6U_SUBJECT_D6U_RUNTIME_TEST_LOG_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-signer-handoff/d6u-runtime-test.log" | awk '{print $1}')"           D6U_SUBJECT_CARGO_LOCK_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-signer-handoff/Cargo.lock" | awk '{print $1}')"             python3 scripts/integral/verify_d6u_trusted_attestation_retention.py "$retention_dir"
+
+      - name: Upload retained trusted attestation packet
       - name: Upload retained trusted attestation packet
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
