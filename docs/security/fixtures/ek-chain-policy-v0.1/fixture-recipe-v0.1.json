@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "recipe_id": "mycelix.synthetic-ek-chain-fixture.v0.1",
+  "generation_mode": "deterministic-generated-synthetic",
+  "key_seeds": {
+    "root": "mycelix-ek-v01-root-20261006",
+    "intermediate": "mycelix-ek-v01-intermediate-20261006",
+    "leaf": "mycelix-ek-v01-leaf-20261006"
+  },
+  "serials": {
+    "leaf": 4097,
+    "leaf_bad_eku": 4099,
+    "leaf_bad_usage": 4098
+  },
+  "tpm": {
+    "manufacturer": 1229346816,
+    "model": "Mycelix Reference TPM",
+    "version": "1.0"
+  },
+  "expected_outputs": {
+    "bad-eku.der": "cbfb90ff5a855dbd999364178eb06989cc82daebba20c2dc31af7c02c3c0986b",
+    "bad-usage.der": "deb8f4f3f7dfd6ebb05fc6a68cca96a1ba8892e9f61f5c411180658e19d3b159",
+    "crl-bundle.pem": "a5e4ab922a3d434f4c61e8f17fee24d53fb24f00c9ebc4132a8d6d88bf4a75ab",
+    "intermediate.der": "9c92d8c6362a2fbe24a324c36f525bec0c0619cb7527e68456d72189ac6fdfb8",
+    "leaf.der": "688094a4c40bc27deccb9932a18e417889fe56854fb91d31655de43f947d157b",
+    "root.der": "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
+  }
+}
