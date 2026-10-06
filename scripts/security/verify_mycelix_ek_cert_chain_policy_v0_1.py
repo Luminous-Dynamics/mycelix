@@ -26,6 +26,7 @@ FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
 REFERENCE_TIME_UNIX = 1791158400
+REFERENCE_EK_RSA_MODULUS = bytes.fromhex("d019fb7bdf2679af2d0bf1d5438dae19f73cad698d171a5e3292506bcd05d8b85b7753f35b9c174105fab4613ccc54a67f43fa97c6ef9330a101897b39c3d0f730ee8001b0b53511846de96731104c242781a1fedee583b72c1205a8ace27bcea878ca22c3be355abd7989a3b8e0f9a384a0b6f3e3a8d8bfc35048d93fc07cf45957a52083ed2a49ce01016dcbbb66d4a39569de30285318f4f5a9ff364a80858cf16e84ee4182de3a282c972b6545ee7aa62d48202043cd006e2a5c84c575499b750226ad19c0a3faea19eb0b813a5e31907fb541ea11e3d3a05a39b120ba3b944dd87da4cb89c3e548d0a05e7b538b5e97c1ecd34290d0b0d2e413e369e657")
 EXPIRED_TIME_UNIX = 4102444800
 FIXTURE_HASHES = {
     "root.der": REFERENCE_ROOT_SHA256,
@@ -1233,13 +1234,13 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             bytes.fromhex("0001000b000300b2")
             + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
             + bytes.fromhex("00060080004300100800")
-            + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+            + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
         ).hex(),
         "ek_public_wire_sha256": hashlib.sha256(
             bytes.fromhex("0001000b000300b2")
             + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
             + bytes.fromhex("00060080004300100800")
-            + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+            + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
         ).hexdigest(),
         "leaf_certificate_der_base64": b64(fx["leaf"]),
         "leaf_certificate_sha256": leaf_sha,
