@@ -1275,6 +1275,68 @@ def run_spki_verifier(
         return output
 
 
+def run_crypto_verifier(manifest: dict[str, Any]) -> dict[str, Any]:
+    if not CRYPTO_VERIFIER_SCRIPT.is_file():
+        return result("DENY", "cryptographic-verifier-missing")
+    verifier_input = {
+        "leaf_certificate_der_base64": manifest["leaf_certificate_der_base64"],
+        "leaf_certificate_sha256": manifest["leaf_certificate_sha256"],
+        "intermediate_certificate_der_base64": manifest["intermediate_certificate_der_base64"],
+        "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
+        "trust_anchor_root_der_base64": manifest["trust_anchor_root_der_base64"],
+        "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
+        "crl_bundle_pem_base64": manifest["revocation"]["crl_bundle_pem_base64"],
+        "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
+    }
+    expected_source_sha = sha256_file(CRYPTO_VERIFIER_SCRIPT)
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-crypto-compose-") as td:
+        work = Path(td)
+        ip = work / "crypto-input.json"
+        op = work / "crypto-output.json"
+        ip.write_text(json.dumps(verifier_input, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(CRYPTO_VERIFIER_SCRIPT), "--verify", str(ip), "--output", str(op)],
+            cwd=work, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        if proc.returncode not in (0, 1, 2):
+            return result("DENY", "cryptographic-verifier-execution-error", {"stderr": proc.stderr})
+        if not op.is_file():
+            return result("DENY", "cryptographic-verifier-produced-no-output")
+        try:
+            output = json.loads(op.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            return result("DENY", "cryptographic-verifier-output-invalid", {"error": str(exc)})
+        if output.get("verifier_id") != "mycelix.tpm.ek-fixture-crypto.v0.1":
+            return result("DENY", "cryptographic-verifier-id-mismatch")
+        if output.get("state") != "PASS":
+            return result("DENY", "cryptographic-verifier-not-pass")
+        if output.get("input_sha256") != hashlib.sha256(ip.read_bytes()).hexdigest():
+            return result("DENY", "cryptographic-verifier-input-digest-mismatch")
+        output_sha = hashlib.sha256(op.read_bytes()).hexdigest()
+        if not valid_hash(output.get("content_sha256")):
+            return result("DENY", "cryptographic-verifier-content-digest-invalid")
+        details = output.get("details")
+        if not isinstance(details, dict):
+            return result("DENY", "cryptographic-verifier-details-missing")
+        expected_exact = {
+            "leaf_certificate_sha256": manifest["leaf_certificate_sha256"],
+            "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
+            "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
+            "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
+        }
+        if details.get("exact_input_objects") != expected_exact:
+            return result("DENY", "cryptographic-verifier-object-binding-mismatch")
+        return {
+            "state": "PASS",
+            "verifier_id": output["verifier_id"],
+            "source_sha256": expected_source_sha,
+            "input_sha256": output["input_sha256"],
+            "output_sha256": output_sha,
+            "output_content_sha256": output["content_sha256"],
+            "details": details,
+        }
+
+
 def run_path_verifier(
     manifest: dict[str, Any],
     binding: dict[str, Any],
@@ -1682,6 +1744,16 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         expected_crypto_binding_sha256 = canonical_hash(crypto_receipt)
     except (ValueError, OSError) as exc:
         return result("DENY", "certificate-parse-error", {"error": str(exc)})
+    external_crypto = run_crypto_verifier(manifest)
+    if external_crypto.get("state") != "PASS":
+        return external_crypto
+    if external_crypto["source_sha256"] != manifest["cryptographic_binding_source_sha256"]:
+        return result("DENY", "cryptographic-verifier-source-binding-mismatch")
+    if external_crypto["input_sha256"] != manifest["cryptographic_binding_input_sha256"]:
+        return result("DENY", "cryptographic-verifier-input-binding-mismatch")
+    if external_crypto["output_sha256"] != manifest["cryptographic_binding_output_sha256"]:
+        return result("DENY", "cryptographic-verifier-output-binding-mismatch")
+    expected_external_content = external_crypto["output_content_sha256"]
     if manifest["cryptographic_binding_sha256"] != expected_crypto_binding_sha256:
         return result(
             "DENY",
@@ -2116,6 +2188,12 @@ def refresh_cryptographic_binding(m: dict[str, Any]) -> None:
     crl_bundle = unb64(m["revocation"]["crl_bundle_pem_base64"], "revocation.crl_bundle_pem_base64")
     receipt = cryptographic_binding_receipt(leaf, intermediate, root, crl_bundle)
     m["cryptographic_binding_sha256"] = canonical_hash(receipt)
+    external = run_crypto_verifier(m)
+    if external.get("state") != "PASS":
+        raise RuntimeError(f"independent crypto verifier failed: {external}")
+    m["cryptographic_binding_source_sha256"] = external["source_sha256"]
+    m["cryptographic_binding_input_sha256"] = external["input_sha256"]
+    m["cryptographic_binding_output_sha256"] = external["output_sha256"]
 
 
 def refresh_template_binding(m: dict[str, Any]) -> None:
