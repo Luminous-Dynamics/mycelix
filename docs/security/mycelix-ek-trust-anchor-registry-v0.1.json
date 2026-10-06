@@ -1,0 +1,15 @@
+{
+  "registry_id": "mycelix.ek-trust-anchor-registry",
+  "registry_version": "0.1.0",
+  "claim_ceiling": "ReferenceModelOnly",
+  "entries": [
+    {
+      "anchor_id": "mycelix.synthetic-ek-root.v0.1",
+      "root_certificate_sha256": "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab",
+      "authorization_state": "PASS",
+      "authorization_class": "synthetic-reference-fixture",
+      "source_tag": "mycelix.synthetic-ek-root.v0.1",
+      "notes": "Synthetic root used only for deterministic reference-model testing; never a real manufacturer trust root."
+    }
+  ]
+}
