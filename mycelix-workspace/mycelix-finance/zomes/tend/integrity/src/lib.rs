@@ -718,7 +718,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             Ok(ValidateCallbackResult::Valid)
                         }
                     }
-                    EntryTypes::BilateralBalance(_) => Ok(ValidateCallbackResult::Valid),
+                    EntryTypes::BilateralBalance(balance) => {
+                        validate_update_bilateral_balance(action, balance)
+                    }
                     EntryTypes::BilateralSettlement(settlement) => {
                         validate_update_bilateral_settlement(action, settlement)
                     }
@@ -1419,6 +1421,74 @@ fn validate_create_bilateral_settlement(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_bilateral_balance(
+    action: Update,
+    balance: BilateralBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address)?;
+    let original = original_record
+        .entry()
+        .to_app_option::<BilateralBalance>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "BilateralBalance predecessor deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "BilateralBalance update predecessor is not a BilateralBalance".into()
+            ))
+        })?;
+
+    Ok(validate_bilateral_balance_state_transition(&original, &balance))
+}
+
+fn validate_bilateral_balance_state_transition(
+    original: &BilateralBalance,
+    updated: &BilateralBalance,
+) -> ValidateCallbackResult {
+    if updated.dao_a_did != original.dao_a_did {
+        return ValidateCallbackResult::Invalid(
+            "BilateralBalance dao_a_did is immutable across updates".into(),
+        );
+    }
+    if updated.dao_b_did != original.dao_b_did {
+        return ValidateCallbackResult::Invalid(
+            "BilateralBalance dao_b_did is immutable across updates".into(),
+        );
+    }
+    if updated.dao_a_did >= updated.dao_b_did {
+        return ValidateCallbackResult::Invalid(
+            "BilateralBalance DAO identifiers must retain canonical ordering".into(),
+        );
+    }
+    if !updated.dao_a_did.starts_with("did:")
+        || !updated.dao_b_did.starts_with("did:")
+    {
+        return ValidateCallbackResult::Invalid(
+            "BilateralBalance DAO identifiers must remain valid DIDs".into(),
+        );
+    }
+    if updated.total_exchanges < original.total_exchanges {
+        return ValidateCallbackResult::Invalid(
+            "BilateralBalance total_exchanges cannot decrease".into(),
+        );
+    }
+    if updated.last_settled_at < original.last_settled_at {
+        return ValidateCallbackResult::Invalid(
+            "BilateralBalance last_settled_at cannot move backwards".into(),
+        );
+    }
+    if updated.last_updated_at < original.last_updated_at {
+        return ValidateCallbackResult::Invalid(
+            "BilateralBalance last_updated_at cannot move backwards".into(),
+        );
+    }
+
+    ValidateCallbackResult::Valid
 }
 
 fn validate_update_bilateral_settlement(
@@ -2209,6 +2279,90 @@ mod tests {
         time.last_activity = ts(500_000);
         assert!(matches!(
             validate_hearth_balance_state_transition(&original, &time),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    fn valid_bilateral_balance() -> BilateralBalance {
+        BilateralBalance {
+            dao_a_did: "did:mycelix:dao-a".into(),
+            dao_b_did: "did:mycelix:dao-b".into(),
+            net_balance: 10,
+            total_exchanges: 3,
+            last_settled_at: ts(1_000_000),
+            last_updated_at: ts(2_000_000),
+        }
+    }
+
+    #[test]
+    fn bilateral_balance_transition_accepts_monotonic_update() {
+        let original = valid_bilateral_balance();
+        let mut updated = original.clone();
+        updated.net_balance = 5;
+        updated.total_exchanges = 4;
+        updated.last_settled_at = ts(2_000_000);
+        updated.last_updated_at = ts(3_000_000);
+
+        assert!(matches!(
+            validate_bilateral_balance_state_transition(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn bilateral_balance_transition_rejects_identity_swaps() {
+        let original = valid_bilateral_balance();
+
+        let mut swap_a = original.clone();
+        swap_a.dao_a_did = "did:mycelix:attacker".into();
+        assert!(matches!(
+            validate_bilateral_balance_state_transition(&original, &swap_a),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut swap_b = original.clone();
+        swap_b.dao_b_did = "did:mycelix:attacker".into();
+        assert!(matches!(
+            validate_bilateral_balance_state_transition(&original, &swap_b),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn bilateral_balance_transition_rejects_history_regression() {
+        let original = valid_bilateral_balance();
+
+        let mut exchanges = original.clone();
+        exchanges.total_exchanges = 2;
+        assert!(matches!(
+            validate_bilateral_balance_state_transition(&original, &exchanges),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut settled = original.clone();
+        settled.last_settled_at = ts(500_000);
+        assert!(matches!(
+            validate_bilateral_balance_state_transition(&original, &settled),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut updated = original.clone();
+        updated.last_updated_at = ts(1_500_000);
+        assert!(matches!(
+            validate_bilateral_balance_state_transition(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn bilateral_balance_transition_rejects_noncanonical_dao_order() {
+        let original = valid_bilateral_balance();
+        let mut updated = original.clone();
+        updated.dao_a_did = "did:mycelix:zeta".into();
+        updated.dao_b_did = "did:mycelix:alpha".into();
+
+        assert!(matches!(
+            validate_bilateral_balance_state_transition(&original, &updated),
             ValidateCallbackResult::Invalid(_)
         ));
     }
