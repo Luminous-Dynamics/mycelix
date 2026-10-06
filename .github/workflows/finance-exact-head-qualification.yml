@@ -1,0 +1,175 @@
+name: Finance Exact-Head Qualification
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to qualify"
+        required: true
+        type: string
+      expected_head_sha:
+        description: "Exact PR head SHA to qualify"
+        required: true
+        type: string
+
+permissions: {}
+
+# This workflow is deliberately independent of supersedable merge CI.
+# One qualification subject gets one non-cancellable evidence run.
+concurrency:
+  group: finance-exact-head-qualification-${{ inputs.expected_head_sha || github.event.pull_request.head.sha }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    name: Qualify exact Finance subject
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.pull_request.draft == false &&
+           github.event.pull_request.head_repository.full_name == github.repository) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout trusted workflow revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          clean: true
+          persist-credentials: false
+
+      - name: Capture trusted workflow identity
+        id: trusted
+        run: |
+          set -euo pipefail
+          trusted_sha="$(git rev-parse HEAD)"
+          workflow_blob="$(git rev-parse HEAD:.github/workflows/finance-exact-head-qualification.yml)"
+          test "${trusted_sha}" = "${{ github.workflow_sha }}"
+          printf 'trusted_workflow_sha=%s\n' "${trusted_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'trusted_workflow_ref=%s\n' "${{ github.workflow_ref }}" >> "${GITHUB_OUTPUT}"
+          printf 'trusted_workflow_blob_sha=%s\n' "${workflow_blob}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate immutable action pins
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path(".github/workflows/finance-exact-head-qualification.yml")
+          text = path.read_text()
+          refs = re.findall(r"uses:\s*([^@\s]+)@([^\s#]+)", text)
+          assert refs, "no third-party actions discovered"
+          for action, ref in refs:
+              assert re.fullmatch(r"[0-9a-f]{40}", ref), (
+                  f"action is not pinned to a full SHA: {action}@{ref}"
+              )
+          expected = {
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "dtolnay/rust-toolchain": "7e38f4b43b4db5c8dd498af069a4f6196df1d067",
+              "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+          }
+          for action, ref in refs:
+              assert expected.get(action) == ref, f"unexpected action pin: {action}@{ref}"
+          assert "pull_request_target:" in text
+          assert "cancel-in-progress: false" in text
+          PY
+
+      - name: Resolve exact qualification subject
+        id: subject
+        env:
+          INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
+          INPUT_EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || '' }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        run: |
+          set -euo pipefail
+          pr_number="${INPUT_PR_NUMBER:-${EVENT_PR_NUMBER}}"
+          expected_head_sha="${INPUT_EXPECTED_HEAD_SHA:-${EVENT_HEAD_SHA}}"
+          base_sha="${EVENT_BASE_SHA:-}"
+          test -n "${pr_number}"
+          test "${expected_head_sha}" != "$(printf '%0.s0' {1..40})"
+          test "$(printf '%s' "${expected_head_sha}" | wc -c)" -eq 40
+          printf 'pr_number=%s\n' "${pr_number}" >> "${GITHUB_OUTPUT}"
+          printf 'expected_head_sha=%s\n' "${expected_head_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'base_sha=%s\n' "${base_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.subject.outputs.expected_head_sha }}
+          clean: true
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert exact PR-head checkout
+        id: checkout
+        run: |
+          set -euo pipefail
+          actual_head_sha="$(git rev-parse HEAD)"
+          test "${actual_head_sha}" = "${{ steps.subject.outputs.expected_head_sha }}"
+          printf 'tested_head_sha=%s\n' "${actual_head_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Assert no tracked Finance Python environments
+        id: artifact_guard
+        run: |
+          set -euo pipefail
+          forbidden="$(git ls-tree -r --name-only HEAD | grep -E '^mycelix-finance/(\.venv|venv|env)(/|$)' || true)"
+          test -z "${forbidden}"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # pinned action commit
+        with:
+          toolchain: 1.96.1
+          components: rustfmt
+
+      - name: Assert Rust identity
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
+          test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+
+      - name: Check Finance formatting
+        id: fmt
+        run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
+
+      - name: Run Finance workspace tests
+        id: tests
+        run: cargo test --workspace --manifest-path mycelix-finance/Cargo.toml --locked
+
+      - name: Emit qualification receipt
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cat > evidence/finance-exact-head-qualification.txt <<EOF
+          result=$([ "${{ steps.fmt.outcome }}" = "success" ] && [ "${{ steps.tests.outcome }}" = "success" ] && [ "${{ steps.artifact_guard.outcome }}" = "success" ] && echo PASS || echo FAIL)
+          pr_number=${{ steps.subject.outputs.pr_number }}
+          subject_sha=${{ steps.checkout.outputs.tested_head_sha || '' }}
+          expected_head_sha=${{ steps.subject.outputs.expected_head_sha }}
+          base_sha=${{ steps.subject.outputs.base_sha }}
+          workflow_run_id=${{ github.run_id }}
+          workflow_run_attempt=${{ github.run_attempt }}
+          trusted_workflow_sha=${{ steps.trusted.outputs.trusted_workflow_sha }}
+          trusted_workflow_ref=${{ steps.trusted.outputs.trusted_workflow_ref }}
+          trusted_workflow_blob_sha=${{ steps.trusted.outputs.trusted_workflow_blob_sha }}
+          workflow_name=${{ github.workflow }}
+          workflow_ref=${{ github.workflow_ref }}
+          workflow_event=${{ github.event_name }}
+          EOF
+          test "${{ steps.checkout.outputs.tested_head_sha || '' }}" = "${{ steps.subject.outputs.expected_head_sha }}"
+
+      - name: Upload immutable qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: finance-exact-head-qualification-${{ steps.subject.outputs.expected_head_sha }}
+          path: evidence/finance-exact-head-qualification.txt
+          if-no-files-found: error
+          retention-days: 30
