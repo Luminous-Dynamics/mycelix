@@ -439,12 +439,12 @@
     "generation_mode": "deterministic-generated-synthetic",
     "recipe_path": "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json",
     "generator_path": "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py",
-    "recipe_sha256": "ed2310c85fc96e3bc1919acec474729ba481907859a7ce2d5d8216d2d63df76c",
+    "recipe_sha256": "3f041119edf5c91b269ca12b1a5e97a0a1d439d995f42ffdc082b4b2da935af8",
     "previous_frozen_fixture_status": "not-recoverable-from-Git-history; not fabricated",
     "generator_contract": "generator --recipe fixture-recipe-v0.1.json --output-dir <temp> --check",
     "root_crl_der_sha256": "2909c633b414913ff031e1224d41bfdc58d74c91f84d6c7705bd13194ab27b4e",
     "intermediate_crl_der_sha256": "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8",
-    "crl_semantics_sha256": "65348d2b7441caf21a82cf8fba4160e654467ed6833f50a62217f7f135854ae4"
+    "crl_semantics_sha256": "43ace4ca89066ae1f09485a377564fd70a95154ae731caccbe2f8ff4035a6977"
   },
   "required_input_trust_anchor_appraisal": [
     "state",
@@ -647,7 +647,8 @@
         {
           "serial": 57005,
           "revocation_date": "260101010000Z",
-          "reason_code": 1
+          "reason_code": 1,
+          "entry_identity_sha256": "cbeb820faa9b295bc7deeaada0dd757904a4db0151304a6a9c0f24fd923dcef3"
         }
       ]
     },
@@ -659,12 +660,14 @@
         {
           "serial": 4098,
           "revocation_date": "260101020000Z",
-          "reason_code": 1
+          "reason_code": 1,
+          "entry_identity_sha256": "a9155d989c9b9ea99815dc873feed360cdf1ee2a4192e535be7c2bf4c32684ff"
         },
         {
           "serial": 4099,
           "revocation_date": "260101030000Z",
-          "reason_code": 1
+          "reason_code": 1,
+          "entry_identity_sha256": "8e2d27701943e51fdf4e634af4a55b7535b361666da8718953b19ee8fa05e4eb"
         }
       ]
     }
