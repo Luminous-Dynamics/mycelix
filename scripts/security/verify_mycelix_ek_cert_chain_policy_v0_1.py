@@ -16,6 +16,9 @@ from typing import Any
 VERIFIER_ID = "mycelix.tpm.ek-cert-chain-policy.v0.1"
 SPKI_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
 TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
+TRUST_ANCHOR_APPRAISAL_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
+TRUST_ANCHOR_APPRAISAL_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_trust_anchor_appraisal_v0_1.py")
+TRUST_ANCHOR_REGISTRY_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-registry-v0.1.json"
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
@@ -439,6 +442,94 @@ def verify_aki_ski(leaf: dict[str, Any], intermediate: dict[str, Any]) -> bool:
     return bool(aki and ski and aki == ski)
 
 
+def run_trust_anchor_appraiser(
+    manifest: dict[str, Any],
+    root_der: bytes,
+) -> dict[str, Any]:
+    appraisal = manifest.get("trust_anchor_appraisal")
+    if not isinstance(appraisal, dict):
+        return result("DENY", "trust-anchor-appraisal-invalid")
+    if appraisal.get("verifier_id") != TRUST_ANCHOR_APPRAISAL_ID:
+        return result("DENY", "trust-anchor-appraisal-verifier-id-mismatch")
+    if not TRUST_ANCHOR_APPRAISAL_SCRIPT.is_file():
+        return result("DENY", "trust-anchor-appraisal-verifier-missing")
+    if not TRUST_ANCHOR_REGISTRY_FILE.is_file():
+        return result("DENY", "trust-anchor-registry-missing")
+    try:
+        registry = json.loads(TRUST_ANCHOR_REGISTRY_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return result("DENY", "trust-anchor-registry-invalid", {"error": str(exc)})
+    registry_sha = hashlib.sha256(
+        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+    ).hexdigest()
+    if appraisal.get("registry_sha256") != registry_sha:
+        return result("DENY", "trust-anchor-registry-digest-mismatch")
+    required = ("anchor_id", "authorization_state", "registry_sha256", "registry_source_sha256", "input_sha256", "output_sha256")
+    for field in required:
+        if field not in appraisal:
+            return result("DENY", "trust-anchor-appraisal-field-missing", {"field": field})
+    try:
+        if not valid_hash(appraisal["registry_source_sha256"]):
+            return result("DENY", "trust-anchor-registry-source-digest-invalid")
+    except KeyError:
+        return result("DENY", "trust-anchor-registry-source-digest-invalid")
+
+    input_manifest = {
+        "profile_id": "mycelix.security.tpm.ek-trust-anchor-appraisal",
+        "profile_version": "0.1.0",
+        "claim_ceiling": "ReferenceModelOnly",
+        "anchor_id": appraisal["anchor_id"],
+        "root_certificate_der_base64": b64(root_der),
+        "root_certificate_sha256": hashlib.sha256(root_der).hexdigest(),
+        "registry_json": registry,
+        "registry_sha256": registry_sha,
+        "registry_source_sha256": appraisal["registry_source_sha256"],
+        "authorization_state": appraisal["authorization_state"],
+    }
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-trust-anchor-") as td:
+        work = Path(td)
+        input_path = work / "trust-anchor-input.json"
+        output_path = work / "trust-anchor-output.json"
+        input_path.write_text(
+            json.dumps(input_manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(TRUST_ANCHOR_APPRAISAL_SCRIPT),
+                "--verify",
+                str(input_path),
+                "--output",
+                str(output_path),
+            ],
+            cwd=work,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if proc.returncode not in (0, 1, 2):
+            return result("DENY", "trust-anchor-appraisal-execution-error", {"stderr": proc.stderr})
+        if not output_path.is_file():
+            return result("DENY", "trust-anchor-appraisal-produced-no-output")
+        try:
+            output = json.loads(output_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            return result("DENY", "trust-anchor-appraisal-output-invalid", {"error": str(exc)})
+        expected_input_sha = hashlib.sha256(input_path.read_bytes()).hexdigest()
+        expected_output_sha = hashlib.sha256(output_path.read_bytes()).hexdigest()
+        if appraisal["input_sha256"] != expected_input_sha:
+            return result("DENY", "trust-anchor-appraisal-input-digest-mismatch")
+        if appraisal["output_sha256"] != expected_output_sha:
+            return result("DENY", "trust-anchor-appraisal-output-digest-mismatch")
+        if output.get("verifier_id") != TRUST_ANCHOR_APPRAISAL_ID:
+            return result("DENY", "trust-anchor-appraisal-result-verifier-id-mismatch")
+        if output.get("state") != appraisal.get("state"):
+            return result("DENY", "trust-anchor-appraisal-result-state-mismatch")
+        return output
+
+
 def validate_template_binding(manifest: dict[str, Any]) -> dict[str, Any]:
     template = manifest.get("ek_template_binding")
     if not isinstance(template, dict):
@@ -501,6 +592,13 @@ def session_binding(
             "trust_anchor_root_sha256": root_sha,
             "trust_anchor_source_sha256": manifest["trust_anchor_source_sha256"],
             "trust_anchor_state": manifest["trust_anchor_state"],
+            "trust_anchor_appraisal_state": manifest["trust_anchor_appraisal"].get("state"),
+            "trust_anchor_appraisal_verifier_id": manifest["trust_anchor_appraisal"].get("verifier_id"),
+            "trust_anchor_appraisal_anchor_id": manifest["trust_anchor_appraisal"].get("anchor_id"),
+            "trust_anchor_appraisal_registry_sha256": manifest["trust_anchor_appraisal"].get("registry_sha256"),
+            "trust_anchor_appraisal_registry_source_sha256": manifest["trust_anchor_appraisal"].get("registry_source_sha256"),
+            "trust_anchor_appraisal_input_sha256": manifest["trust_anchor_appraisal"].get("input_sha256"),
+            "trust_anchor_appraisal_output_sha256": manifest["trust_anchor_appraisal"].get("output_sha256"),
             "verification_time_unix": manifest["verification_time_unix"],
             "revocation_state": rev["state"],
             "revocation_method": rev.get("method"),
@@ -524,7 +622,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "leaf_certificate_der_base64", "leaf_certificate_sha256",
         "intermediate_certificate_der_base64", "intermediate_certificate_sha256",
         "trust_anchor_root_der_base64", "trust_anchor_root_sha256",
-        "trust_anchor_state", "trust_anchor_source_sha256",
+        "trust_anchor_state", "trust_anchor_source_sha256", "trust_anchor_appraisal",
         "verification_time_unix", "revocation", "spki_binding", "ek_template_binding",
         "session_binding_sha256",
     }
@@ -571,10 +669,18 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "trust-anchor-denied")
     if manifest["trust_anchor_state"] == "INDETERMINATE":
         return result("INDETERMINATE", "trust-anchor-indeterminate")
-    if manifest["trust_anchor_root_sha256"] != REFERENCE_ROOT_SHA256:
-        return result("DENY", "trust-anchor-root-not-approved")
-    if manifest["trust_anchor_source_sha256"] != reference_root_source_hash(REFERENCE_ROOT_SHA256):
-        return result("DENY", "trust-anchor-source-not-authorized-for-root")
+    appraisal_result = run_trust_anchor_appraiser(manifest, root)
+    if appraisal_result.get("state") != "PASS":
+        return appraisal_result
+    appraisal_details = appraisal_result.get("details")
+    if not isinstance(appraisal_details, dict):
+        return result("DENY", "trust-anchor-appraisal-details-missing")
+    if appraisal_details.get("root_certificate_sha256") != manifest["trust_anchor_root_sha256"]:
+        return result("DENY", "trust-anchor-appraisal-root-digest-mismatch")
+    if appraisal_details.get("anchor_id") != manifest["trust_anchor_appraisal"].get("anchor_id"):
+        return result("DENY", "trust-anchor-appraisal-anchor-id-mismatch")
+    if manifest["trust_anchor_source_sha256"] != manifest["trust_anchor_appraisal"].get("registry_source_sha256"):
+        return result("DENY", "trust-anchor-source-appraisal-mismatch")
 
     if manifest["verification_time_unix"] < 0:
         return result("DENY", "verification-time-invalid")
@@ -755,6 +861,16 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             "crl_bundle_pem_base64": b64(fx["crl_bundle_pem"]),
             "crl_bundle_pem_sha256": crl_sha,
         },
+        "trust_anchor_appraisal": {
+            "state": "PASS",
+            "verifier_id": TRUST_ANCHOR_APPRAISAL_ID,
+            "anchor_id": "mycelix.synthetic-ek-root.v0.1",
+            "authorization_state": "PASS",
+            "registry_sha256": "",
+            "registry_source_sha256": "52" * 32,
+            "input_sha256": "",
+            "output_sha256": "",
+        },
         "ek_template_binding": {
             "state": "PASS",
             "verifier_id": TEMPLATE_VERIFIER_ID,
@@ -822,6 +938,40 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
     m["session_binding_sha256"] = session_binding(m, leaf_sha, inter_sha, root_sha, crl_sha)
     return m
 
+
+def refresh_trust_anchor_appraisal(m: dict[str, Any]) -> None:
+    appraisal = m["trust_anchor_appraisal"]
+    registry = json.loads(TRUST_ANCHOR_REGISTRY_FILE.read_text(encoding="utf-8"))
+    registry_sha = hashlib.sha256(
+        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+    ).hexdigest()
+    root = unb64(m["trust_anchor_root_der_base64"], "trust_anchor_root_der_base64")
+    input_manifest = {
+        "profile_id": "mycelix.security.tpm.ek-trust-anchor-appraisal",
+        "profile_version": "0.1.0",
+        "claim_ceiling": "ReferenceModelOnly",
+        "anchor_id": appraisal["anchor_id"],
+        "root_certificate_der_base64": b64(root),
+        "root_certificate_sha256": hashlib.sha256(root).hexdigest(),
+        "registry_json": registry,
+        "registry_sha256": registry_sha,
+        "registry_source_sha256": appraisal["registry_source_sha256"],
+        "authorization_state": appraisal["authorization_state"],
+    }
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-trust-anchor-refresh-") as td:
+        work = Path(td)
+        ip = work / "input.json"
+        op = work / "output.json"
+        ip.write_text(json.dumps(input_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(TRUST_ANCHOR_APPRAISAL_SCRIPT), "--verify", str(ip), "--output", str(op)],
+            cwd=work, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"trust-anchor appraiser fixture failed: {proc.stderr}")
+        appraisal["registry_sha256"] = registry_sha
+        appraisal["input_sha256"] = hashlib.sha256(ip.read_bytes()).hexdigest()
+        appraisal["output_sha256"] = hashlib.sha256(op.read_bytes()).hexdigest()
 
 def refresh_template_binding(m: dict[str, Any]) -> None:
     binding = m["ek_template_binding"]
@@ -924,6 +1074,7 @@ def self_test() -> int:
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-chain-fixture-") as td:
         fx = load_fixture()
         base = make_manifest(fx)
+        refresh_trust_anchor_appraisal(base)
         refresh_template_binding(base)
         base["session_binding_sha256"] = session_binding(
             base,
