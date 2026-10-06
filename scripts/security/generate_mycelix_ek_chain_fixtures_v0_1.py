@@ -6,6 +6,7 @@ import argparse
 import base64
 import hashlib
 import json
+import math
 from pathlib import Path
 
 SHA256_WITH_RSA = bytes.fromhex("300d06092a864886f70d01010b0500")
