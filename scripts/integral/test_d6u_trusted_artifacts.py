@@ -2001,15 +2001,34 @@ def test_artifact_layout_rejects_symlink() -> None:
 def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
     import fetch_d6u_trusted_artifact as fetcher
 
-    policy = {"artifact_max_total_bytes": 4096}
+    policy = {
+        "workflow_name": "D6U Exact-Head Runtime Executor",
+        "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+        "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "artifact_max_total_bytes": 4096,
+    }
     event = {
         "workflow_run": {
             "id": 700,
             "run_attempt": 3,
+            "event": "workflow_run",
+            "name": "D6U Exact-Head Runtime Executor",
+            "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+            "conclusion": "success",
+            "repository": {"full_name": "Luminous-Dynamics/mycelix"},
+            "head_repository": {"full_name": "Luminous-Dynamics/mycelix"},
             "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
             "head_sha": "a" * 40,
         },
-        "repository": {"id": 900},
+        "repository": {"id": 900, "full_name": "Luminous-Dynamics/mycelix"},
+    }
+    current_run = {
+        "id": 700,
+        "run_attempt": 3,
+        "repository": {"id": 900, "full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"id": 900, "full_name": "Luminous-Dynamics/mycelix"},
+        "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "head_sha": "a" * 40,
     }
     payload = {
         "artifacts": [{
@@ -2022,14 +2041,28 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
                 "id": 700,
                 "repository_id": 900,
                 "head_repository_id": 900,
-                "head_branch": "main",
-                "head_sha": "d" * 40,
+                "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+                "head_sha": "a" * 40,
             },
         }]
     }
-    with patch.dict(os.environ, {"GITHUB_TOKEN": "token"}, clear=False), patch.object(
-        fetcher, "github_get", return_value=payload
-    ):
+
+    def fake_github_get(_repo, api_path, _token):
+        if api_path == "/actions/runs/700":
+            return current_run
+        if api_path.startswith("/actions/runs/700/artifacts?"):
+            return payload
+        raise AssertionError(f"unexpected GitHub API path: {api_path}")
+
+    with patch.dict(
+        os.environ,
+        {
+            "GITHUB_TOKEN": "token",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "a" * 40,
+        },
+        clear=False,
+    ), patch.object(fetcher, "github_get", side_effect=fake_github_get):
         observed = expected_artifact("Luminous-Dynamics/mycelix", event, policy)
     assert observed["id"] == 9100
 
@@ -2040,8 +2073,18 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
     ]:
         bad = json.loads(json.dumps(payload))
         bad["artifacts"][0]["workflow_run"][field] = bad_value
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "token"}, clear=False), patch.object(
-            fetcher, "github_get", return_value=bad
+        with patch.dict(
+            os.environ,
+            {
+                "GITHUB_TOKEN": "token",
+                "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+                "D6U_TRIGGER_HEAD_SHA": "a" * 40,
+            },
+            clear=False,
+        ), patch.object(
+            fetcher,
+            "github_get",
+            side_effect=lambda _repo, api_path, _token: current_run if api_path == "/actions/runs/700" else bad,
         ):
             assert_rejected(
                 lambda: expected_artifact("Luminous-Dynamics/mycelix", event, policy),
