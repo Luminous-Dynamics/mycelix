@@ -428,8 +428,8 @@ def assert_mutation_rejected(snapshot: dict) -> int:
         if job.get("name") == EXPECTED_JOB_NAME
         or job.get("name", "").endswith(" / " + EXPECTED_JOB_NAME)
     )
-    add("resolver job id", ("jobs", resolver_index, "id"), snapshot["jobs"][resolver_index]["id"] + 1)
-    add("S1 job id", ("jobs", s1_index, "id"), snapshot["jobs"][s1_index]["id"] + 1)
+    add("resolver job run join", ("jobs", resolver_index, "run_id"), snapshot["jobs"][resolver_index]["run_id"] + 1)
+    add("S1 job run join", ("jobs", s1_index, "run_id"), snapshot["jobs"][s1_index]["run_id"] + 1)
     add("artifact list total", ("artifact_list_total_count",), 2)
     add("artifact name", ("artifact_list_view", "name"), snapshot["artifact_list_view"]["name"] + "-mutated")
     add("artifact id", ("artifact_list_view", "id"), snapshot["artifact_list_view"]["id"] + 1)
@@ -445,6 +445,21 @@ def assert_mutation_rejected(snapshot: dict) -> int:
         "S1 bytes",
         ("workflow_file_snapshots", "s1", "content"),
         snapshot["workflow_file_snapshots"]["s1"]["content"] + "AA==",
+    )
+    add(
+        "S2 bytes",
+        ("workflow_file_snapshots", "s2", "content"),
+        snapshot["workflow_file_snapshots"]["s2"]["content"] + "AA==",
+    )
+    add(
+        "binding verifier bytes",
+        ("workflow_file_snapshots", "binding", "content"),
+        snapshot["workflow_file_snapshots"]["binding"]["content"] + "AA==",
+    )
+    add(
+        "causal verifier bytes",
+        ("workflow_file_snapshots", "causal", "content"),
+        snapshot["workflow_file_snapshots"]["causal"]["content"] + "AA==",
     )
 
     for label, path, replacement in mutations:
