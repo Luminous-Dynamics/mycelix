@@ -24,6 +24,16 @@ jobs:
       contents: read
     env:
       GH_CONFIG_DIR: ${{ runner.temp }}/d6u-gh-config
+      D6U_TRIGGER_REPOSITORY: ${{ github.event.workflow_run.repository.full_name }}
+      D6U_TRIGGER_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      D6U_TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      D6U_TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+      D6U_TRIGGER_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+      D6U_TRIGGER_REPOSITORY: ${{ github.event.workflow_run.repository.full_name }}
+      D6U_TRIGGER_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      D6U_TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      D6U_TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+      D6U_TRIGGER_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
     outputs:
       evidence_sha256: ${{ steps.signer_inputs.outputs.evidence_sha256 }}
       runtime_test_sha256: ${{ steps.signer_inputs.outputs.runtime_test_sha256 }}
