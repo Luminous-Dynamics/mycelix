@@ -14,6 +14,7 @@ jobs:
     name: D6U unprivileged evidence verifier
     if: >-
       github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.name == 'D6U Exact-Head Runtime Executor' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
       github.event.repository.full_name == github.repository &&
@@ -180,6 +181,7 @@ EOF
     if: >-
       needs.verifier.result == 'success' &&
       github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.name == 'D6U Exact-Head Runtime Executor' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
       github.event.repository.full_name == github.repository &&
@@ -260,6 +262,7 @@ EOF
       needs.signer.result == 'success' &&
 
       github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.name == 'D6U Exact-Head Runtime Executor' &&
 
       github.event.workflow_run.conclusion == 'success' &&
 
