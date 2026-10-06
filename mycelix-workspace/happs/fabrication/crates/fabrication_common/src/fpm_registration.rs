@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 pub const FPM_REGISTRATION_SCHEMA_VERSION: &str = "fpm.registration.v1";
 const MAX_LABEL_BYTES: usize = 128;
+const MAX_REGISTRATION_PARTICIPANTS: usize = 64;
 const SHA256_HEX_LEN: usize = 64;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -105,6 +106,9 @@ impl RegistrationEnvelope {
         }
         if self.related.is_empty() {
             return RegistrationState::Unregistered;
+        }
+        if self.related.len() + 1 > MAX_REGISTRATION_PARTICIPANTS {
+            return RegistrationState::Invalid;
         }
         if self.reference.validate().is_err()
             || self.related.iter().any(|item| item.validate().is_err())
@@ -354,6 +358,19 @@ mod tests {
     fn invalid_schema_is_invalid_not_unknown() {
         let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.schema_version = "fpm.registration.v0".into();
+        assert_eq!(envelope.assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn oversized_registration_is_invalid() {
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.related = (0..MAX_REGISTRATION_PARTICIPANTS)
+            .map(|index| ModalityObservationRef {
+                source_id: format!("source-{index}"),
+                modality: format!("modality-{index}"),
+                ..sample(&format!("source-{index}"), index as u64)
+            })
+            .collect();
         assert_eq!(envelope.assess(), RegistrationState::Invalid);
     }
 
