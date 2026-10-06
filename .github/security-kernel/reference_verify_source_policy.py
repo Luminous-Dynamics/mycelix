@@ -463,6 +463,10 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate staging root lifecycle missing")
     if 'lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"' not in joined:
         fail("S1 locked dependency identity is not bound to the host staging root")
+    if 'install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"' not in joined or 'install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"' not in joined:
+        fail("S1 locked dependency subject must be copied from the trusted host staging root")
+    if 'install -m 0444 "$CANDIDATE_VOLUME_NAME/' in joined:
+        fail("S1 host-side dependency preparation must not treat a Docker volume name as a filesystem path")
     if joined.count('python3 - "$CANDIDATE_ROOT" <<\'PY\'') != 2:
         fail("S1 source digest routines must both target the explicit candidate staging root")
     if 'python3 - "$candidate_volume_name"' in joined or 'python3 - "$CANDIDATE_VOLUME_NAME"' in joined:
