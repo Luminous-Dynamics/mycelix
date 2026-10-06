@@ -1054,7 +1054,6 @@ pub enum FederationExternalVerificationTrustPolicyViolation {
     InvalidVerifierIdentityDigest,
     VerifierIdentityBindingIncomplete,
     InvalidMaximumVerificationAge,
-    VerificationFreshnessPolicyMissing,
     NoAcceptedVerifierProfiles,
     AcceptedClaimsContainRejected,
     DuplicateAcceptedClaim,
@@ -3920,6 +3919,23 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn external_verification_policy_wire_schema_rejects_legacy_version() {
+        let mut policy = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
+            1,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("current policy must build");
+        policy.schema_version = 1;
+        assert_eq!(
+            policy.validate(),
+            Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedSchemaVersion)
+        );
+    }
+
     #[test]
     fn external_verification_policy_wire_schema_uses_current_version() {
         let policy = FederationExternalVerificationTrustPolicyV1::try_new_bound(
