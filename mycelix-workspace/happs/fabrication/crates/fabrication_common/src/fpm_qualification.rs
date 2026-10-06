@@ -24,6 +24,8 @@ const SHA256_HEX_LEN: usize = 64;
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EvidenceKind {
     SourceData,
+    /// Canonical record binding source metadata to the source-data commitment.
+    SourceObservation,
     CalibrationProfile,
     ProcessContext,
     AlignmentEvidence,
@@ -33,6 +35,8 @@ impl EvidenceKind {
     fn tag(self) -> &'static str {
         match self {
             Self::SourceData => "source-data",
+            Self::SourceObservation => "source-observation"
+            ,
             Self::CalibrationProfile => "calibration-profile",
             Self::ProcessContext => "process-context",
             Self::AlignmentEvidence => "alignment-evidence",
@@ -42,7 +46,8 @@ impl EvidenceKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedEvidenceArtifact {
-    /// The commitment claimed by the registration envelope for this artifact.
+    /// The commitment claimed by the registration envelope or derived exact
+    /// source-observation binding for this artifact.
     pub declared_digest: String,
     /// Original immutable bytes resolved for the committed artifact.
     pub bytes: Vec<u8>,
@@ -85,6 +90,7 @@ pub enum RegistrationQualificationReason {
     RegistrationUnknown,
     MissingCommittedArtifact,
     ArtifactDigestMismatch,
+    ArtifactBindingMismatch,
     DuplicateArtifact,
     UnexpectedArtifact,
 }
@@ -208,6 +214,21 @@ pub fn qualify_registration(
             || hex_digest(&artifact.bytes) != artifact.declared_digest
         {
             reasons.insert(RegistrationQualificationReason::ArtifactDigestMismatch);
+            continue;
+        }
+
+        if artifact.kind == EvidenceKind::SourceObservation {
+            let matches_declared_record = expected.contains(&(
+                EvidenceKind::SourceObservation,
+                artifact.declared_digest.clone(),
+            ));
+            let canonical_records = canonical_source_observation_records(&input.envelope);
+            let matches_canonical_record = canonical_records
+                .iter()
+                .any(|(digest, bytes)| digest == &artifact.declared_digest && bytes == &artifact.bytes);
+            if !matches_declared_record || !matches_canonical_record {
+                reasons.insert(RegistrationQualificationReason::ArtifactBindingMismatch);
+            }
         }
     }
 
@@ -230,6 +251,7 @@ pub fn qualify_registration(
                 | RegistrationQualificationReason::EmptyVerifierVersion
                 | RegistrationQualificationReason::EnvelopeDigestMismatch
                 | RegistrationQualificationReason::ArtifactDigestMismatch
+                | RegistrationQualificationReason::ArtifactBindingMismatch
                 | RegistrationQualificationReason::DuplicateArtifact
                 | RegistrationQualificationReason::UnexpectedArtifact
                 | RegistrationQualificationReason::RegistrationInvalid
@@ -266,6 +288,10 @@ fn expected_artifacts(envelope: &RegistrationEnvelope) -> BTreeSet<(EvidenceKind
             participant.source_data_digest.clone(),
         ));
         expected.insert((
+            EvidenceKind::SourceObservation,
+            source_observation_digest(participant),
+        ));
+        expected.insert((
             EvidenceKind::CalibrationProfile,
             participant.calibration_profile_digest.clone(),
         ));
@@ -287,6 +313,68 @@ fn expected_artifacts(envelope: &RegistrationEnvelope) -> BTreeSet<(EvidenceKind
     }
 
     expected
+}
+
+fn source_observation_digest(
+    participant: &crate::fpm_registration::ModalityObservationRef,
+) -> String {
+    let mut bytes = Vec::new();
+    append_field(&mut bytes, b"fpm.source-observation.v1");
+    append_field(&mut bytes, participant.source_id.as_bytes());
+    append_field(&mut bytes, participant.modality.as_bytes());
+    append_field(&mut bytes, participant.clock_domain.as_bytes());
+    append_field(&mut bytes, &participant.source_sequence.to_be_bytes());
+    append_field(&mut bytes, participant.correlation_domain.as_bytes());
+    append_field(&mut bytes, participant.correlation_id.as_bytes());
+    match participant.source_timestamp_micros {
+        Some(value) => {
+            append_field(&mut bytes, b"some");
+            append_field(&mut bytes, &value.to_be_bytes());
+        }
+        None => append_field(&mut bytes, b"none"),
+    }
+    append_field(&mut bytes, participant.calibration_profile_digest.as_bytes());
+    append_field(&mut bytes, participant.process_context_digest.as_bytes());
+    append_field(&mut bytes, participant.source_data_digest.as_bytes());
+    hex_digest(&bytes)
+}
+
+fn canonical_source_observation_bytes(
+    participant: &crate::fpm_registration::ModalityObservationRef,
+) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    append_field(&mut bytes, b"fpm.source-observation.v1");
+    append_field(&mut bytes, participant.source_id.as_bytes());
+    append_field(&mut bytes, participant.modality.as_bytes());
+    append_field(&mut bytes, participant.clock_domain.as_bytes());
+    append_field(&mut bytes, &participant.source_sequence.to_be_bytes());
+    append_field(&mut bytes, participant.correlation_domain.as_bytes());
+    append_field(&mut bytes, participant.correlation_id.as_bytes());
+    match participant.source_timestamp_micros {
+        Some(value) => {
+            append_field(&mut bytes, b"some");
+            append_field(&mut bytes, &value.to_be_bytes());
+        }
+        None => append_field(&mut bytes, b"none"),
+    }
+    append_field(&mut bytes, participant.calibration_profile_digest.as_bytes());
+    append_field(&mut bytes, participant.process_context_digest.as_bytes());
+    append_field(&mut bytes, participant.source_data_digest.as_bytes());
+    bytes
+}
+
+fn canonical_source_observation_records(
+    envelope: &RegistrationEnvelope,
+) -> Vec<(String, Vec<u8>)> {
+    std::iter::once(&envelope.reference)
+        .chain(envelope.related.iter())
+        .map(|participant| {
+            (
+                source_observation_digest(participant),
+                canonical_source_observation_bytes(participant),
+            )
+        })
+        .collect()
 }
 
 fn evidence_manifest_digest(artifacts: &[ResolvedEvidenceArtifact]) -> String {
@@ -364,9 +452,19 @@ mod tests {
         let context_bytes = b"process-context-v1";
         let context_digest = hex_digest(context_bytes);
 
-        let artifacts = vec![
+        let mut artifacts = vec![
             source_artifact,
             related_source_artifact,
+            ResolvedEvidenceArtifact {
+                declared_digest: source_observation_digest(&envelope.reference),
+                bytes: canonical_source_observation_bytes(&envelope.reference),
+                kind: EvidenceKind::SourceObservation,
+            },
+            ResolvedEvidenceArtifact {
+                declared_digest: source_observation_digest(&envelope.related[0]),
+                bytes: canonical_source_observation_bytes(&envelope.related[0]),
+                kind: EvidenceKind::SourceObservation,
+            },
             ResolvedEvidenceArtifact {
                 declared_digest: calibration_digest,
                 bytes: calibration_bytes.to_vec(),
@@ -560,6 +658,55 @@ mod tests {
         assert!(qualification
             .reasons
             .contains(&RegistrationQualificationReason::EmptyVerifierIdentity));
+    }
+
+    #[test]
+    fn participant_payload_binding_rejects_metadata_relabeling() {
+        let mut input = input_with_exact_artifacts();
+        let canonical = canonical_source_observation_bytes(&input.envelope.reference);
+        let digest = source_observation_digest(&input.envelope.reference);
+
+        input.artifacts.push(ResolvedEvidenceArtifact {
+            declared_digest: digest,
+            bytes: canonical,
+            kind: EvidenceKind::SourceObservation,
+        });
+
+        input.envelope.reference.modality = "vibration".into();
+
+        let verifier = RegistrationQualificationVerifier {
+            verifier_id: "fpm.registration.qualifier".into(),
+            verifier_version: "1".into(),
+        };
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InvalidEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::ArtifactBindingMismatch));
+    }
+
+    #[test]
+    fn participant_payload_binding_is_deterministic_and_exact() {
+        let input = input_with_exact_artifacts();
+        let records = canonical_source_observation_records(&input.envelope);
+        assert_eq!(records.len(), 2);
+
+        for (digest, bytes) in records {
+            assert_eq!(hex_digest(&bytes), digest);
+            assert_eq!(source_observation_digest(
+                if digest == source_observation_digest(&input.envelope.reference) {
+                    &input.envelope.reference
+                } else {
+                    &input.envelope.related[0]
+                }
+            ), digest);
+        }
     }
 
     #[test]
