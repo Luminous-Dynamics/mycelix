@@ -169,6 +169,20 @@ The verifier re-hashes resolved evidence itself. Missing, substituted, duplicate
 
 The qualification core is deterministic: it does not read wall-clock time, query the DHT, depend on mutable host state, or trust a serialized verification boolean. The resulting record is therefore suitable as a stable evidence object for a later authenticated/transparency layer.
 
+## Anchored qualification and replay resistance
+
+The original structural qualification profile (`fpm.registration.structural`) proves exact internal consistency and exact commitment closure, but it is intentionally **not** an authority or anti-replay proof. A caller who supplies a different self-consistent envelope and recomputes its digest can produce a new structural qualification.
+
+The anchored profile (`fpm.registration.anchored`) therefore requires an externally resolved registration anchor whose committed envelope digest exactly matches the evaluated envelope. The pure qualification core still does not authenticate that anchor reference; that responsibility belongs to the Holochain/external resolver.
+
+For Holochain integrations, preserve the distinction between:
+- `EntryHash`: content identity for the registration entry;
+- `ActionHash`: identity of the authored entry instance, carrying source-chain/timestamp context.
+
+The authority-resolution layer should retrieve the referenced record, reconstruct the exact registration envelope, and fail closed when the resolved record does not match the committed digest or expected authoring context. Holochain documents these as distinct address semantics. citeturn450877search0turn450877search1
+
+Verifier identity is treated similarly. `verifier_id`, `verifier_version`, and `declared_verifier_implementation_digest` are captured declarations in the pure core, not proof of the binary that executed. Authenticated build/execution identity is a separate boundary tracked in #4355.
+
 ## Next research boundary
 
 The remaining work is empirical qualification of registration and detection against captured process traces, including clock skew, dropped/duplicated samples, calibration changes, context conflicts, and independent physical reference measurements. The current implementation remains a deterministic evidence contract, not a validated physical-defect detector.
