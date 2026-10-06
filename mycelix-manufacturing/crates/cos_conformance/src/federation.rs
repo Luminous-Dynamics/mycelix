@@ -4234,6 +4234,7 @@ mod tests {
             right_collection_size: receipt.right_collection_size,
             right_collection_sha256: receipt.right_collection_sha256.clone(),
             relationship: receipt.relationship,
+            history_relationship: receipt.history_relationship,
             shared_publication_sha256s: receipt.shared_publication_sha256s.clone(),
             left_only_publication_sha256s: receipt.left_only_publication_sha256s.clone(),
             right_only_publication_sha256s: receipt.right_only_publication_sha256s.clone(),
