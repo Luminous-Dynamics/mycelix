@@ -1506,6 +1506,9 @@ def run_crypto_verifier(manifest: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
         "crl_bundle_pem_base64": manifest["revocation"]["crl_bundle_pem_base64"],
         "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
+        "verification_time_unix": manifest["verification_time_unix"],
+        "expected_crl_semantics_sha256": manifest["crl_semantics_sha256"],
+        "expected_crl_semantics": manifest["crl_semantics"],
     }
     expected_source_sha = sha256_file(CRYPTO_VERIFIER_SCRIPT)
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-crypto-compose-") as td:
@@ -1549,6 +1552,10 @@ def run_crypto_verifier(manifest: dict[str, Any]) -> dict[str, Any]:
         }
         if details.get("exact_input_objects") != expected_exact:
             return result("DENY", "cryptographic-verifier-object-binding-mismatch")
+        if details.get("crl_semantics_sha256") != manifest["crl_semantics_sha256"]:
+            return result("DENY", "cryptographic-verifier-crl-semantics-digest-mismatch")
+        if details.get("crl_semantics") != manifest["crl_semantics"]:
+            return result("DENY", "cryptographic-verifier-crl-semantics-binding-mismatch")
         return {
             "state": "PASS",
             "verifier_id": output["verifier_id"],
