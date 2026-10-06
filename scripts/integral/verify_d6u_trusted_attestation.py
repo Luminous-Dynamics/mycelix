@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 
 PREDICATE_TYPE = "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"
-PREDICATE_SCHEMA = "d6u-trusted-runtime-evidence/v1"
+CANONICAL_PREDICATE_SCHEMA = "d6u-trusted-runtime-evidence/v1"
+ATTESTATION_PREDICATE_SCHEMA = "d6u-trusted-runtime-evidence-attestation/v2"
 SUBJECT_NAMES = (
     "d6u-runtime-evidence.txt",
     "d6u-runtime-test.log",
