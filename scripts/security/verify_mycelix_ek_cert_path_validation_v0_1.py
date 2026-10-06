@@ -161,6 +161,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     policy_argv = [
         "openssl",
         "verify",
+        "-x509_strict",
+        "-check_ss_sig",
         "-CAfile",
         "root.pem",
         "-untrusted",
@@ -332,6 +334,19 @@ def self_test() -> int:
         tampered["execution_binding_sha256"] = "aa" * 32
         if verify(tampered)["state"] != "DENY":
             print("execution-binding substitution: FAIL")
+            return 1
+        policy_details = observed.get("details")
+        expected_policy = [
+            "openssl", "verify", "-x509_strict", "-check_ss_sig",
+            "-CAfile", "root.pem", "-untrusted", "intermediate.pem",
+            "-CRLfile", "crl-bundle.pem", "-crl_check_all",
+            "-attime", str(manifest["verification_time_unix"]), "leaf.pem",
+        ]
+        if observed["state"] == "PASS" and (
+            not isinstance(policy_details, dict)
+            or policy_details.get("policy_argv") != expected_policy
+        ):
+            print("OpenSSL evidence argv/execution mismatch: FAIL")
             return 1
 
         tampered = dict(manifest)
