@@ -92,6 +92,24 @@ def top_level_keys_after(lines_: list[str], heading: str) -> tuple[str, ...]:
     return tuple(found)
 
 
+def top_level_keys(lines_: list[str]) -> tuple[str, ...]:
+    return tuple(
+        match.group(1)
+        for line in lines_
+        if (match := re.fullmatch(r"([A-Za-z0-9_-]+):\s*", line))
+    )
+
+
+def require_exact_top_level_keys(
+    lines_: list[str],
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    actual = top_level_keys(lines_)
+    if actual != expected:
+        fail(f"{description}: top-level key census mismatch: expected {expected!r}, found {actual!r}")
+
+
 def job_keys(lines_: list[str]) -> tuple[str, ...]:
     try:
         start = next(i for i, line in enumerate(lines_) if line.strip() == "jobs:")
@@ -99,6 +117,8 @@ def job_keys(lines_: list[str]) -> tuple[str, ...]:
         fail("missing jobs block")
     found = []
     for line in lines_[start + 1 :]:
+        if line and not line.startswith((" ", "\t")):
+            break
         match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", line)
         if match:
             found.append(match.group(1))
@@ -106,11 +126,158 @@ def job_keys(lines_: list[str]) -> tuple[str, ...]:
 
 
 def step_names(lines_: list[str]) -> tuple[str, ...]:
-    return tuple(
-        match.group(1)
-        for line in lines_
-        if (match := re.fullmatch(r"\s{6}- name: (.+)", line))
-    )
+    names = []
+    for line in lines_:
+        if not re.fullmatch(r"\s{6}-\s+(.+)", line):
+            continue
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if not match:
+            fail(f"workflow step item must use the closed-world '- name:' form: {line!r}")
+        names.append(match.group(1))
+    return tuple(names)
+
+
+def require_exact_job_keys(
+    lines_: list[str],
+    expected: tuple[tuple[str, tuple[str, ...]], ...],
+    description: str,
+) -> None:
+    actual = []
+    start = next((i for i, line in enumerate(lines_) if line.strip() == "jobs:"), None)
+    if start is None:
+        fail(f"{description}: missing jobs block")
+    current_job = None
+    current_keys = []
+
+    def flush() -> None:
+        if current_job is None:
+            return
+        actual.append((current_job, tuple(current_keys)))
+
+    for line in lines_[start + 1 :]:
+        if line and not line.startswith((" ", "\t")):
+            break
+        job_match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", line)
+        if job_match:
+            flush()
+            current_job = job_match.group(1)
+            current_keys = []
+            continue
+        if current_job is None:
+            continue
+        key_match = re.fullmatch(r"    ([A-Za-z0-9_-]+):(?:\s+.*)?", line)
+        if key_match:
+            current_keys.append(key_match.group(1))
+
+    flush()
+    if tuple(actual) != expected:
+        fail(f"{description}: job key census mismatch: expected {expected!r}, found {actual!r}")
+
+
+def require_exact_job_mapping(
+    lines_: list[str],
+    job_name: str,
+    mapping_name: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"{job_name}:"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one job named {job_name!r}")
+    start = matches[0]
+    heading = f"{mapping_name}:"
+    indexes = []
+    for i in range(start + 1, len(lines_)):
+        if lines_[i].strip() == heading and len(lines_[i]) - len(lines_[i].lstrip(" ")) == 4:
+            indexes.append(i)
+    if len(indexes) != 1:
+        fail(f"{description}: expected exactly one {mapping_name!r} mapping under {job_name!r}")
+    index = indexes[0]
+    actual = []
+    for line in lines_[index + 1:]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= 4:
+            break
+        if indent != 6:
+            fail(f"{description}: unexpected {mapping_name} indentation: {line!r}")
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):\\s+(.+)", line.strip())
+        if not match:
+            fail(f"{description}: malformed {mapping_name} entry: {line!r}")
+        actual.append(f"{match.group(1)}: {match.group(2)}")
+    if tuple(actual) != expected:
+        fail(f"{description}: {mapping_name} mismatch: expected {expected!r}, found {tuple(actual)!r}")
+
+
+def require_exact_step_mapping(
+    lines_: list[str],
+    step_name: str,
+    mapping_name: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    start = matches[0]
+    heading = f"{mapping_name}:"
+    mapping_indexes = []
+    for i in range(start + 1, len(lines_)):
+        if lines_[i].strip() == heading and len(lines_[i]) - len(lines_[i].lstrip(" ")) == 8:
+            if any(re.match(r"^\s{6}- name: ", line) for line in lines_[start + 1:i]):
+                break
+            mapping_indexes.append(i)
+    if len(mapping_indexes) != 1:
+        fail(f"{description}: expected exactly one {mapping_name!r} mapping under {step_name!r}")
+    index = mapping_indexes[0]
+    actual = []
+    for line in lines_[index + 1:]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= 8:
+            break
+        if indent != 10:
+            fail(f"{description}: unexpected {mapping_name} indentation: {line!r}")
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):\s+(.+)", line.strip())
+        if not match:
+            fail(f"{description}: malformed {mapping_name} entry: {line!r}")
+        actual.append(f"{match.group(1)}: {match.group(2)}")
+    if tuple(actual) != expected:
+        fail(f"{description}: {mapping_name} mismatch: expected {expected!r}, found {tuple(actual)!r}")
+
+
+def require_exact_step_keys(
+    lines_: list[str],
+    expected: tuple[tuple[str, tuple[str, ...]], ...],
+    description: str,
+) -> None:
+    actual = []
+    current_name = None
+    current_keys = []
+
+    def flush() -> None:
+        if current_name is None:
+            return
+        actual.append((current_name, tuple(current_keys)))
+
+    for line in lines_:
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if match:
+            flush()
+            current_name = match.group(1)
+            current_keys = ["name"]
+            continue
+        if current_name is None:
+            continue
+        match = re.fullmatch(r"\s{8}([A-Za-z0-9_-]+):(?:\s+.*)?", line)
+        if match:
+            current_keys.append(match.group(1))
+
+    flush()
+    if tuple(actual) != expected:
+        fail(f"{description}: step key census mismatch: expected {expected!r}, found {actual!r}")
 
 
 def external_uses(lines_: list[str]) -> tuple[str, ...]:
@@ -239,6 +406,40 @@ def require_explicit_bash_for_run_steps(lines_: list[str], description: str) -> 
             current["shell"].append("bash")
 
 
+def require_exact_step_conditionals(
+    lines_: list[str],
+    expected: tuple[tuple[str, str | None], ...],
+    description: str,
+) -> None:
+    actual = []
+    current_name = None
+    current_conditionals = []
+
+    def flush() -> None:
+        if current_name is None:
+            return
+        if len(current_conditionals) > 1:
+            fail(f"{description}: step {current_name!r} contains duplicate if mappings")
+        actual.append((current_name, current_conditionals[0] if current_conditionals else None))
+
+    for line in lines_:
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if match:
+            flush()
+            current_name = match.group(1)
+            current_conditionals = []
+            continue
+        if current_name is None:
+            continue
+        match = re.fullmatch(r"\s{8}if:\s*(.+)", line)
+        if match:
+            current_conditionals.append(match.group(1).strip())
+
+    flush()
+    if tuple(actual) != expected:
+        fail(f"{description}: step conditional census mismatch: expected {expected!r}, found {actual!r}")
+
+
 def require_step_execution_modes(lines_: list[str], description: str) -> None:
     current = None
     in_run_block = False
@@ -330,6 +531,15 @@ def inject_masked_docker_cleanup(raw: bytes) -> bytes:
     return raw.replace(marker, replacement, 1)
 
 
+def require_no_quoted_structural_keys(lines_: list[str], description: str) -> None:
+    for line in lines_:
+        indentation = len(line) - len(line.lstrip(" "))
+        if indentation > 8:
+            continue
+        if re.search(r'(?:^|[{,]\s*)(?:"[^"\n]*"|\'[^\'\n]*\')\s*:', line):
+            fail(f"{description}: quoted YAML mapping keys are forbidden: {line!r}")
+
+
 def require_no_yaml_reuse_syntax(lines_: list[str], description: str) -> None:
     for line in lines_:
         # Block-scalar command bodies are intentionally excluded; only structural YAML
@@ -366,6 +576,7 @@ def require_exact_actions(actual: tuple[str, ...], expected: tuple[str, ...], de
 
 def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     l = lines(raw)
+    require_exact_top_level_keys(l, ("name", "run-name", "on", "permissions", "concurrency", "env", "jobs"), S0)
     if exact_count(l, "name: Security Kernel Qualification — Trusted Dispatcher") != 1:
         fail("S0 name mismatch")
     if top_level_keys_after(l, "on:") != ("pull_request_target",):
@@ -381,12 +592,43 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 must contain exactly one pull_request_target runtime guard")
     if job_keys(l) != ("resolve", "qualify"):
         fail("S0 job topology mismatch")
+    require_exact_job_keys(
+        l,
+        (
+            ("resolve", ("name", "runs-on", "cache-mode", "timeout-minutes", "outputs", "steps")),
+            ("qualify", ("name", "needs", "permissions", "cache-mode", "uses", "with")),
+        ),
+        S0,
+    )
+    for expected in (
+        'runs-on: ubuntu-24.04',
+        'cache-mode: none',
+        'timeout-minutes: 10',
+        'group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}',
+        'cancel-in-progress: true',
+    ):
+        expected_count = 2 if expected == 'runs-on: ubuntu-24.04' or expected == 'cache-mode: none' else 1
+        if exact_count(l, expected) != expected_count:
+            fail(f"S0 scalar/concurrency value mismatch: {expected!r}")
     if step_names(l) != ("Verify trusted dispatcher context and exact PR identity",):
         fail("S0 step topology mismatch")
     if external_uses(l) != ():
         fail(f"S0 external action census mismatch: {external_uses(l)!r}")
     if local_uses(l) != ("./.github/workflows/security-kernel-independent-qualification.yml",):
         fail("S0 local reusable workflow census mismatch")
+    require_exact_job_mapping(
+        l,
+        "qualify",
+        "with",
+        (
+            "candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}",
+            "candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}",
+            "candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}",
+            "candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}",
+            "trusted_workflow_blob_sha: ${{ inputs.trusted_workflow_blob_sha }}",
+        ),
+        S0,
+    )
     if exact_count(l, f'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"') != 1:
         fail("S0 registered S1 blob pin mismatch")
     if exact_count(l, f'trusted_workflow_blob_sha: "{expected_s1_sha}"') != 1:
@@ -398,10 +640,17 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     if exact_count(l, 'BASE_BRANCH: "main"') != 1:
         fail("S0 base branch mismatch")
     require_no_fail_open_controls(l, "S0")
+    require_no_quoted_structural_keys(l, S0)
     require_no_yaml_reuse_syntax(l, S0)
     require_explicit_bash_for_run_steps(l, S0)
     require_no_duplicate_step_keys(l, S0)
     require_step_execution_modes(l, S0)
+    require_exact_step_keys(
+        l,
+        (("Verify trusted dispatcher context and exact PR identity", ("name", "id", "env", "shell", "run")),),
+        S0,
+    )
+    require_exact_step_conditionals(l, (("Verify trusted dispatcher context and exact PR identity", None),), S0)
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
         fail("S0 must remain metadata-only")
@@ -409,6 +658,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
 
 def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     l = lines(raw)
+    require_exact_top_level_keys(l, ("name", "on", "permissions", "cache-mode", "concurrency", "env", "jobs"), S1)
     if exact_count(l, "name: Security Kernel Independent Qualification") != 1:
         fail("S1 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_call",):
@@ -422,12 +672,63 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 must contain exactly one pull_request_target runtime guard")
     if job_keys(l) != ("qualify",):
         fail("S1 job topology mismatch")
+    require_exact_job_keys(
+        l,
+        (("qualify", ("name", "runs-on", "timeout-minutes", "steps")),),
+        S1,
+    )
     if tuple(step_names(l)) != S1_STEPS:
         fail("S1 step topology mismatch")
     require_exact_actions(
         external_uses(l),
         (CHECKOUT, UPLOAD, UPLOAD),
         "S1 external actions",
+    )
+    for expected in (
+        ("runs-on: ubuntu-24.04", 1),
+        ("timeout-minutes: 45", 1),
+        ("cache-mode: none", 1),
+    ):
+        if exact_count(l, expected[0]) != expected[1]:
+            fail(f"S1 job value mismatch: {expected[0]!r}")
+    require_exact_step_mapping(
+        l,
+        "Checkout trusted qualification root",
+        "with",
+        (
+            "ref: ${{ github.workflow_sha }}",
+            "fetch-depth: 0",
+            "persist-credentials: false",
+        ),
+        S1,
+    )
+    require_exact_step_mapping(
+        l,
+        "Upload sandbox negative-control transcript",
+        "with",
+        (
+            "name: security-kernel-negative-controls-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.log",
+            "path: ${{ runner.temp }}/security-kernel-negative-controls.log",
+            "if-no-files-found: error",
+            "archive: false",
+            "overwrite: false",
+            "retention-days: 90",
+        ),
+        S1,
+    )
+    require_exact_step_mapping(
+        l,
+        "Upload qualification receipt",
+        "with",
+        (
+            "name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt",
+            "path: ${{ runner.temp }}/security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt",
+            "if-no-files-found: error",
+            "archive: false",
+            "overwrite: false",
+            "retention-days: 90",
+        ),
+        S1,
     )
     if local_uses(l):
         fail(f"S1 unexpectedly contains local reusable workflow calls: {local_uses(l)!r}")
@@ -472,10 +773,57 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     ):
         if required not in joined:
             fail(f"S1 fail-closed sandbox teardown control missing: {required!r}")
+    require_no_quoted_structural_keys(l, S1)
     require_no_yaml_reuse_syntax(l, S1)
     require_explicit_bash_for_run_steps(l, S1)
     require_no_duplicate_step_keys(l, S1)
     require_step_execution_modes(l, S1)
+    require_exact_step_keys(
+        l,
+        (
+            ("Checkout trusted qualification root", ("name", "uses", "with")),
+            ("Verify trusted pull-request-target invocation", ("name", "env", "shell", "run")),
+            ("Resolve exact candidate source", ("name", "id", "env", "shell", "run")),
+            ("Static trust-surface audit", ("name", "env", "shell", "run")),
+            ("Snapshot exact candidate source identity", ("name", "id", "env", "shell", "run")),
+            ("Snapshot locked dependency identity", ("name", "id", "env", "shell", "run")),
+            ("Pull and preflight pinned sandbox image", ("name", "id", "env", "shell", "run")),
+            ("Prepare locked dependency subject", ("name", "id", "env", "shell", "run")),
+            ("Vendor locked dependency closure in fetch sandbox", ("name", "id", "env", "shell", "run")),
+            ("Execute sandbox negative controls", ("name", "id", "env", "shell", "run")),
+            ("Upload sandbox negative-control transcript", ("name", "if", "id", "uses", "with")),
+            ("Execute candidate qualification in disposable networkless sandbox", ("name", "shell", "env", "run")),
+            ("Verify candidate source immutability", ("name", "env", "shell", "run")),
+            ("Verify dependency substrate immutability", ("name", "id", "env", "shell", "run")),
+            ("Emit qualification receipt", ("name", "env", "shell", "run")),
+            ("Upload qualification receipt", ("name", "if", "id", "uses", "with")),
+            ("Verify retained qualification receipt", ("name", "if", "env", "shell", "run")),
+        ),
+        S1,
+    )
+    require_exact_step_conditionals(
+        l,
+        (
+            ("Checkout trusted qualification root", None),
+            ("Verify trusted pull-request-target invocation", None),
+            ("Resolve exact candidate source", None),
+            ("Static trust-surface audit", None),
+            ("Snapshot exact candidate source identity", None),
+            ("Snapshot locked dependency identity", None),
+            ("Pull and preflight pinned sandbox image", None),
+            ("Prepare locked dependency subject", None),
+            ("Vendor locked dependency closure in fetch sandbox", None),
+            ("Execute sandbox negative controls", None),
+            ("Upload sandbox negative-control transcript", "success()"),
+            ("Execute candidate qualification in disposable networkless sandbox", None),
+            ("Verify candidate source immutability", None),
+            ("Verify dependency substrate immutability", None),
+            ("Emit qualification receipt", None),
+            ("Upload qualification receipt", "success()"),
+            ("Verify retained qualification receipt", "success()"),
+        ),
+        S1,
+    )
     for required in (
         "--network=bridge",
         "--network=none",
@@ -491,6 +839,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
 
 def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_execution_sha: str, expected_policy_sha: str) -> None:
     l = lines(raw)
+    require_exact_top_level_keys(l, ("name", "on", "permissions", "concurrency", "env", "jobs"), S2)
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
         fail("S2 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_run",):
@@ -508,12 +857,63 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         fail("S2 must contain exactly one main-ref runtime guard")
     if job_keys(l) != ("verify",):
         fail("S2 job topology mismatch")
+    require_exact_job_keys(
+        l,
+        (("verify", ("name", "runs-on", "cache-mode", "timeout-minutes", "steps")),),
+        S2,
+    )
     if tuple(step_names(l)) != S2_STEPS:
         fail("S2 step topology mismatch")
     require_exact_actions(
         external_uses(l),
         (CHECKOUT, DOWNLOAD, DOWNLOAD),
         "S2 external actions",
+    )
+    for expected in (
+        ("runs-on: ubuntu-24.04", 1),
+        ("timeout-minutes: 15", 1),
+        ("cache-mode: none", 1),
+    ):
+        if exact_count(l, expected[0]) != expected[1]:
+            fail(f"S2 job value mismatch: {expected[0]!r}")
+    require_exact_step_mapping(
+        l,
+        "Checkout exact verifier workflow commit",
+        "with",
+        (
+            "ref: ${{ github.workflow_sha }}",
+            "fetch-depth: 0",
+            "persist-credentials: false",
+        ),
+        S2,
+    )
+    require_exact_step_mapping(
+        l,
+        "Download retained qualification receipt through official artifact client",
+        "with",
+        (
+            "artifact-ids: ${{ steps.verify_result.outputs.artifact_id }}",
+            "path: ${{ runner.temp }}/security-kernel-official-receipt",
+            "github-token: ${{ github.token }}",
+            "repository: ${{ github.repository }}",
+            "run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}",
+            "digest-mismatch: error",
+        ),
+        S2,
+    )
+    require_exact_step_mapping(
+        l,
+        "Download retained sandbox negative-control transcript through official artifact client",
+        "with",
+        (
+            "artifact-ids: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}",
+            "path: ${{ runner.temp }}/security-kernel-official-negative-controls",
+            "github-token: ${{ github.token }}",
+            "repository: ${{ github.repository }}",
+            "run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}",
+            "digest-mismatch: error",
+        ),
+        S2,
     )
     if local_uses(l):
         fail("S2 unexpectedly contains local reusable workflow calls")
@@ -548,10 +948,35 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         if required not in joined:
             fail(f"S2 artifact transport/decompression control missing: {required!r}")
     require_no_fail_open_controls(l, "S2")
+    require_no_quoted_structural_keys(l, S2)
     require_no_yaml_reuse_syntax(l, S2)
     require_explicit_bash_for_run_steps(l, S2)
     require_no_duplicate_step_keys(l, S2)
     require_step_execution_modes(l, S2)
+    require_exact_step_keys(
+        l,
+        (
+            ("Checkout exact verifier workflow commit", ("name", "uses", "with")),
+            ("Verify trusted dispatcher, reusable S1, and qualification gates", ("name", "id", "env", "shell", "run")),
+            ("Verify retained negative-control evidence binding", ("name", "if", "id", "env", "shell", "run")),
+            ("Download retained qualification receipt through official artifact client", ("name", "if", "uses", "with")),
+            ("Download retained sandbox negative-control transcript through official artifact client", ("name", "if", "uses", "with")),
+            ("Verify official receipt transport and publish verified result", ("name", "if", "env", "shell", "run")),
+        ),
+        S2,
+    )
+    require_exact_step_conditionals(
+        l,
+        (
+            ("Checkout exact verifier workflow commit", None),
+            ("Verify trusted dispatcher, reusable S1, and qualification gates", None),
+            ("Verify retained negative-control evidence binding", "success()"),
+            ("Download retained qualification receipt through official artifact client", "success()"),
+            ("Download retained sandbox negative-control transcript through official artifact client", "success()"),
+            ("Verify official receipt transport and publish verified result", "success()"),
+        ),
+        S2,
+    )
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
     require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: success()", "S2 transcript download gate")
@@ -708,6 +1133,203 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 blank-separated security-events: write",
+    )
+
+    def inject_unregistered_top_level_key(raw: bytes) -> bytes:
+        marker = b"jobs:\n"
+        if marker not in raw:
+            fail("top-level-key regression fixture marker missing")
+        return raw.replace(marker, b"defaults:\n  run:\n    shell: bash\n" + marker, 1)
+
+    def inject_unapproved_conditional(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"conditional regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, b"        if: false\n" + marker, 1)
+
+    expect_rejection(
+        lambda: verify_s0(inject_unregistered_top_level_key(raw["s0"]), s1_sha),
+        "S0 unregistered top-level defaults",
+    )
+    expect_rejection(
+        lambda: verify_s1(inject_unregistered_top_level_key(raw["s1"]), s1_sha),
+        "S1 unregistered top-level defaults",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unregistered_top_level_key(raw["s2"]),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unregistered top-level defaults",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unapproved_conditional(
+                raw["s0"],
+                b"      - name: Verify trusted dispatcher context and exact PR identity\n",
+            ),
+            s1_sha,
+        ),
+        "S0 unapproved step conditional",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unapproved_conditional(
+                raw["s1"],
+                b"      - name: Execute candidate qualification in disposable networkless sandbox\n",
+            ),
+            s1_sha,
+        ),
+        "S1 unapproved step conditional",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unapproved_conditional(
+                raw["s2"],
+                b"      - name: Checkout exact verifier workflow commit\n",
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unapproved step conditional",
+    )
+
+    def inject_quoted_structural_key(raw: bytes) -> bytes:
+        marker = b"jobs:\n"
+        if marker not in raw:
+            fail("quoted-key regression fixture marker missing")
+        return raw.replace(marker, b'\"defaults\":\n  run:\n    shell: bash\n' + marker, 1)
+
+    expect_rejection(
+        lambda: verify_s0(inject_quoted_structural_key(raw["s0"]), s1_sha),
+        "S0 quoted structural key",
+    )
+    expect_rejection(
+        lambda: verify_s1(inject_quoted_structural_key(raw["s1"]), s1_sha),
+        "S1 quoted structural key",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_quoted_structural_key(raw["s2"]),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 quoted structural key",
+    )
+
+    def inject_unapproved_step_property(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"step-key regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, marker + b"        timeout-minutes: 1\n", 1)
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unapproved_step_property(
+                raw["s0"],
+                b"      - name: Verify trusted dispatcher context and exact PR identity\n",
+            ),
+            s1_sha,
+        ),
+        "S0 unapproved step property",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unapproved_step_property(
+                raw["s1"],
+                b"      - name: Execute candidate qualification in disposable networkless sandbox\n",
+            ),
+            s1_sha,
+        ),
+        "S1 unapproved step property",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unapproved_step_property(
+                raw["s2"],
+                b"      - name: Checkout exact verifier workflow commit\n",
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unapproved step property",
+    )
+
+    def inject_unregistered_job_key(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"job-key regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, marker + b"    if: false\n", 1)
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unregistered_job_key(raw["s0"], b"  resolve:\n"),
+            s1_sha,
+        ),
+        "S0 unregistered job key",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unregistered_job_key(raw["s1"], b"  qualify:\n"),
+            s1_sha,
+        ),
+        "S1 unregistered job key",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unregistered_job_key(raw["s2"], b"  verify:\n"),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unregistered job key",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b"candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}",
+                b"candidate_sha: ${{ needs.resolve.outputs.candidate_pr }}",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 mutated reusable-workflow candidate_sha input",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"ref: ${{ github.workflow_sha }}",
+                b"ref: ${{ github.sha }}",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 mutated checkout ref",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(b"digest-mismatch: error", b"digest-mismatch: ignore", 1),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 mutated artifact digest policy",
     )
 
     print(json.dumps({
