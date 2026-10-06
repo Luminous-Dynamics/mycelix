@@ -22,7 +22,7 @@ use staking_integrity::*;
 /// Anchor for active stakes
 const ACTIVE_STAKES_ANCHOR: &str = "active_stakes";
 
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
+fn verify_governance() -> ExternResult<()> {
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
@@ -469,7 +469,7 @@ pub struct SlashStakeInput {
 /// Restricted to authorized governance agents (or any agent during bootstrap).
 #[hdk_extern]
 pub fn slash_stake(input: SlashStakeInput) -> ExternResult<Record> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
     let now = sys_time()?;
 
     // Serialize and hash evidence
