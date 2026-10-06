@@ -163,17 +163,19 @@ mod tests {
         policy
             .rules()
             .iter()
-            .enumerate()
-            .map(|(i, rule)| {
-                let digest = PolicyJustificationSetV1::derive_clause_digest(rule, i).unwrap();
-                PolicyAtomV1::new(
-                    rule.syscall(),
-                    digest,
-                    "network.socket",
-                    "renderer-network",
-                    "socket capability requires controlled domain",
-                )
-                .unwrap()
+            .flat_map(|rule| {
+                (0..rule.clauses().len()).map(move |i| {
+                    let digest =
+                        PolicyJustificationSetV1::derive_clause_digest(rule, i).unwrap();
+                    PolicyAtomV1::new(
+                        rule.syscall(),
+                        digest,
+                        "network.socket",
+                        "renderer-network",
+                        "socket capability requires controlled domain",
+                    )
+                    .unwrap()
+                })
             })
             .collect()
     }
@@ -184,6 +186,31 @@ mod tests {
         let proof = PolicyJustificationSetV1::new(&policy, atoms_for(&policy)).unwrap();
         assert_eq!(proof.atoms().len(), 1);
         assert_eq!(proof.policy_digest(), policy.digest());
+    }
+
+    #[test]
+    fn multi_clause_policy_requires_one_atom_per_clause() {
+        let predicate_a = SeccompArgPredicateV1::new(0, 0xff, 2).unwrap();
+        let predicate_b = SeccompArgPredicateV1::new(1, 0xff, 4).unwrap();
+        let clauses = vec![
+            SeccompSyscallClauseV2::new(vec![predicate_a]).unwrap(),
+            SeccompSyscallClauseV2::new(vec![predicate_b]).unwrap(),
+        ];
+        let rule = SeccompSyscallRuleV2::new_with_clauses(
+            libc::SYS_socket as i64,
+            clauses,
+        ).unwrap();
+        let policy = SeccompSyscallPolicyV2::new(
+            SeccompArchitecture::current().unwrap(),
+            vec![rule],
+        ).unwrap();
+
+        let proof = PolicyJustificationSetV1::new(&policy, atoms_for(&policy)).unwrap();
+        assert_eq!(proof.atoms().len(), 2);
+
+        let one = proof.atoms().first().cloned().unwrap();
+        let incomplete = PolicyJustificationSetV1::new(&policy, vec![one]);
+        assert_eq!(incomplete, Err(PolicyProofError::MissingAtom));
     }
 
     #[test]
