@@ -2079,6 +2079,36 @@ def self_test() -> int:
                 print(f"malformed {label} acceptance: FAIL")
                 return 1
 
+        for oid, label in (
+            ("1.3.6.1.5.5.7.1.1", "AuthorityInformationAccess"),
+            ("2.5.29.31", "CRLDistributionPoints"),
+            ("2.5.29.9", "SubjectDirectoryAttributes"),
+        ):
+            criticalized = copy.deepcopy(leaf_info)
+            criticalized["extensions"][oid]["critical"] = True
+            try:
+                leaf_profile_ok(criticalized)
+            except ValueError:
+                pass
+            else:
+                print(f"critical {label} acceptance: FAIL")
+                return 1
+
+        unknown_aia = copy.deepcopy(leaf_info)
+        unknown_aia["extensions"]["1.3.6.1.5.5.7.1.1"]["extn_value"] = der_tlv(
+            0x30,
+            der_tlv(
+                0x30,
+                der_tlv(0x06, bytes.fromhex("2b060104018237")) + der_tlv(0x86, b"https://example.invalid/unknown"),
+            ),
+        )
+        try:
+            leaf_profile_ok(unknown_aia)
+        except ValueError:
+            pass
+        else:
+            print("unknown AIA accessMethod acceptance: FAIL")
+            return 1
         malformed_sda = copy.deepcopy(leaf_info)
         malformed_sda["extensions"]["2.5.29.9"] = {
             "critical": False,
