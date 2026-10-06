@@ -220,6 +220,16 @@ fn validate_label(value: &str, field: &str) -> Result<(), RegistrationError> {
             "{field} cannot be empty"
         )));
     }
+    if value != value.trim() {
+        return Err(RegistrationError::InvalidField(format!(
+            "{field} cannot have leading or trailing whitespace"
+        )));
+    }
+    if value.chars().any(char::is_control) {
+        return Err(RegistrationError::InvalidField(format!(
+            "{field} cannot contain control characters"
+        )));
+    }
     if value.len() > MAX_LABEL_BYTES {
         return Err(RegistrationError::InvalidField(format!(
             "{field} cannot exceed {MAX_LABEL_BYTES} bytes"
@@ -229,12 +239,15 @@ fn validate_label(value: &str, field: &str) -> Result<(), RegistrationError> {
 }
 
 fn validate_digest(value: &str, field: &str) -> Result<(), RegistrationError> {
-    if value.len() != SHA256_HEX_LEN || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
+    if value.len() != SHA256_HEX_LEN
+        || !value
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    {
         return Err(RegistrationError::InvalidField(format!(
-            "{field} must be a {SHA256_HEX_LEN}-character hexadecimal SHA-256 digest"
+            "{field} must be a {SHA256_HEX_LEN}-character lowercase hexadecimal SHA-256 digest"
         )));
     }
-    Ok(())
 }
 
 fn hex_digest(bytes: &[u8]) -> String {
@@ -358,6 +371,28 @@ mod tests {
     fn invalid_schema_is_invalid_not_unknown() {
         let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.schema_version = "fpm.registration.v0".into();
+        assert_eq!(envelope.assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn uppercase_digest_is_invalid() {
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.reference.source_data_digest =
+            envelope.reference.source_data_digest.to_uppercase();
+        assert_eq!(envelope.assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn padded_identifier_is_invalid() {
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.reference.source_id = " thermal-1".into();
+        assert_eq!(envelope.assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn control_character_identifier_is_invalid() {
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.reference.modality = "thermal\n".into();
         assert_eq!(envelope.assess(), RegistrationState::Invalid);
     }
 
