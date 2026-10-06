@@ -104,6 +104,13 @@ pub struct TendExchange {
     /// Status of the exchange
     pub status: ExchangeStatus,
 
+    /// Exact ActionHash of the one-time settlement claim bound to this exchange.
+    ///
+    /// The claim is an immutable authorization artifact at creation and may only
+    /// transition its completion flags. Once bound, a different claim cannot
+    /// replace it.
+    pub settlement_claim: Option<ActionHash>,
+
     /// Optional: when the service was actually performed (if different from recorded)
     pub service_date: Option<Timestamp>,
 }
@@ -459,6 +466,8 @@ pub struct CurrencyAliasEntry {
 pub struct PendingBalanceAdjustment {
     /// The exchange this adjustment belongs to
     pub exchange_id: String,
+    /// Exact ActionHash of the original TendExchange create action.
+    pub exchange_action_hash: ActionHash,
     /// DID of the service provider (gains hours)
     pub provider_did: String,
     /// DID of the service receiver (spends hours)
@@ -679,7 +688,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::HearthTendBalance(bal) => validate_create_hearth_balance(bal),
                     EntryTypes::CurrencyAliasEntry(alias) => validate_create_currency_alias(alias),
                     EntryTypes::PendingBalanceAdjustment(adj) => {
-                        validate_create_pending_balance_adjustment(adj)
+                        validate_create_pending_balance_adjustment(
+                            EntryCreationAction::Create(action),
+                            adj,
+                        )
                     }
                     // Anchors are always valid (just hash placeholders)
                     EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
@@ -723,14 +735,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         Ok(ValidateCallbackResult::Valid)
                     }
                     EntryTypes::PendingBalanceAdjustment(adj) => {
-                        // Only completed flags can change; hours must stay valid
-                        if !adj.hours.is_finite() || adj.hours <= 0.0 {
-                            Ok(ValidateCallbackResult::Invalid(
-                                "PendingBalanceAdjustment hours must be finite and positive".into(),
-                            ))
-                        } else {
-                            Ok(ValidateCallbackResult::Valid)
-                        }
+                        validate_update_pending_balance_adjustment(action, adj)
                     }
                     // Anchors cannot be updated
                     EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
@@ -862,35 +867,140 @@ fn validate_update_exchange(
     action: Update,
     exchange: TendExchange,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Only status can change (Proposed -> Confirmed/Disputed/Cancelled)
-    // Core data (provider, receiver, hours) cannot change
+    // Only status and the one-time settlement-claim binding may change.
+    // Core exchange terms remain immutable.
     if !exchange.hours.is_finite() || exchange.hours <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Hours must be a finite positive number".into(),
         ));
     }
 
-    // Enforce status transition rules and immutable field invariants
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<TendExchange>() {
-            // Status transitions must follow the state machine
-            if original.status != exchange.status
-                && !original.status.can_transition_to(&exchange.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid exchange status transition: {:?} → {:?}",
-                    original.status, exchange.status
-                )));
-            }
-            // Core fields are immutable after creation
-            if original.provider_did != exchange.provider_did
-                || original.receiver_did != exchange.receiver_did
-                || original.hours != exchange.hours
-            {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<TendExchange>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "TendExchange predecessor deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "TendExchange update predecessor is not a TendExchange entry".into()
+            ))
+        })?;
+
+    if original.status != exchange.status
+        && !original.status.can_transition_to(&exchange.status)
+    {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid exchange status transition: {:?} → {:?}",
+            original.status, exchange.status
+        )));
+    }
+
+    if original.provider_did != exchange.provider_did
+        || original.receiver_did != exchange.receiver_did
+        || original.hours != exchange.hours
+        || original.service_description != exchange.service_description
+        || original.service_category != exchange.service_category
+        || original.cultural_alias != exchange.cultural_alias
+        || original.dao_did != exchange.dao_did
+        || original.timestamp != exchange.timestamp
+        || original.service_date != exchange.service_date
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cannot change immutable exchange terms on an existing exchange".into(),
+        ));
+    }
+
+    match (&original.settlement_claim, &exchange.settlement_claim) {
+        (Some(existing), Some(candidate)) if existing == candidate => {}
+        (Some(_), Some(_)) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Settlement claim is immutable once bound".into(),
+            ));
+        }
+        (Some(_), None) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Settlement claim cannot be cleared once bound".into(),
+            ));
+        }
+        (None, None) => {}
+        (None, Some(claim_hash)) => {
+            let claim_record = must_get_valid_record(claim_hash.clone())?;
+            let claim = claim_record
+                .entry()
+                .to_app_option::<PendingBalanceAdjustment>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Settlement claim deserialization error: {:?}",
+                        e
+                    )))
+                })?
+                .ok_or_else(|| {
+                    wasm_error!(WasmErrorInner::Guest(
+                        "Settlement claim does not resolve to PendingBalanceAdjustment".into()
+                    ))
+                })?;
+
+            if claim.exchange_action_hash != action.original_action_address {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change provider, receiver, or hours on an existing exchange".into(),
+                    "Settlement claim is bound to a different exchange".into(),
                 ));
             }
+            if claim.exchange_id != exchange.id
+                || claim.provider_did != exchange.provider_did
+                || claim.receiver_did != exchange.receiver_did
+                || claim.hours != exchange.hours as f64
+                || claim.currency_id != exchange.dao_did
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Settlement claim terms do not exactly match the exchange".into(),
+                ));
+            }
+            if claim.provider_completed || claim.receiver_completed {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "A settlement claim must be uncompleted when first bound".into(),
+                ));
+            }
+
+            let claim_author_did = did_for_author(claim_record.action().author());
+            if claim_author_did != exchange.receiver_did {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Settlement claim must be created by the exchange receiver".into(),
+                ));
+            }
+        }
+    }
+
+    // A terminal exchange may only be confirmed with its bound claim fully completed.
+    if exchange.status == ExchangeStatus::Confirmed {
+        let Some(claim_hash) = &exchange.settlement_claim else {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Confirmed exchange requires a bound settlement claim".into(),
+            ));
+        };
+        let claim_record = must_get_valid_record(claim_hash.clone())?;
+        let claim = claim_record
+            .entry()
+            .to_app_option::<PendingBalanceAdjustment>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Settlement claim deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Settlement claim does not resolve to PendingBalanceAdjustment".into()
+                ))
+            })?;
+        if !claim.provider_completed || !claim.receiver_completed {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Confirmed exchange requires both settlement claim sides to be completed".into(),
+            ));
         }
     }
 
@@ -1459,41 +1569,153 @@ fn validate_create_currency_alias(
 }
 
 fn validate_create_pending_balance_adjustment(
+    action: EntryCreationAction,
     adj: PendingBalanceAdjustment,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Hours must be finite and positive
     if !adj.hours.is_finite() || adj.hours <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "PendingBalanceAdjustment hours must be finite and positive".into(),
         ));
     }
 
-    // DID length checks
+    if adj.provider_completed || adj.receiver_completed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Settlement claims must start with both completion flags false".into(),
+        ));
+    }
+
     if adj.provider_did.len() > MAX_DID_LEN || adj.receiver_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
             "DID exceeds maximum length".into(),
         ));
     }
-    if adj.exchange_id.len() > MAX_ID_LEN {
+    if adj.exchange_id.len() > MAX_ID_LEN || adj.currency_id.len() > MAX_ID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
-            "Exchange ID exceeds maximum length".into(),
-        ));
-    }
-    if adj.currency_id.len() > MAX_ID_LEN {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Currency ID exceeds maximum length".into(),
+            "Identifier exceeds maximum length".into(),
         ));
     }
 
-    // DIDs must be valid
-    if !adj.provider_did.starts_with("did:") {
+    if !adj.provider_did.starts_with("did:")
+        || !adj.receiver_did.starts_with("did:")
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Provider must be a valid DID".into(),
+            "Provider and receiver must be valid DIDs".into(),
         ));
     }
-    if !adj.receiver_did.starts_with("did:") {
+
+    let exchange_record = must_get_valid_record(adj.exchange_action_hash.clone())?;
+    if !matches!(exchange_record.action(), Action::Create(_)) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Receiver must be a valid DID".into(),
+            "Settlement claim must target the original TendExchange create action".into(),
+        ));
+    }
+    let exchange = exchange_record
+        .entry()
+        .to_app_option::<TendExchange>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Settlement claim exchange deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Settlement claim target is not a TendExchange entry".into()
+            ))
+        })?;
+
+    if exchange.status != ExchangeStatus::Proposed || exchange.settlement_claim.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Settlement claim target must be an unbound Proposed exchange".into(),
+        ));
+    }
+    if exchange.id != adj.exchange_id
+        || exchange.provider_did != adj.provider_did
+        || exchange.receiver_did != adj.receiver_did
+        || exchange.hours != adj.hours as f32
+        || exchange.dao_did != adj.currency_id
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Settlement claim terms do not exactly match the exchange".into(),
+        ));
+    }
+
+    let claim_author_did = did_for_author(action.author());
+    if claim_author_did != adj.receiver_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the exchange receiver may create its settlement claim".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_pending_balance_adjustment(
+    action: Update,
+    adj: PendingBalanceAdjustment,
+) -> ExternResult<ValidateCallbackResult> {
+    if !adj.hours.is_finite() || adj.hours <= 0.0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PendingBalanceAdjustment hours must be finite and positive".into(),
+        ));
+    }
+    if adj.provider_completed && !adj.receiver_completed {
+        // This is the only intermediate state produced by the settlement protocol.
+    } else if !adj.provider_completed && adj.receiver_completed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Receiver completion cannot precede provider completion".into(),
+        ));
+    }
+
+    let original_record = must_get_valid_record(action.original_action_address)?;
+    let original = original_record
+        .entry()
+        .to_app_option::<PendingBalanceAdjustment>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "PendingBalanceAdjustment predecessor deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "PendingBalanceAdjustment predecessor is not a PendingBalanceAdjustment".into()
+            ))
+        })?;
+
+    if original.exchange_id != adj.exchange_id
+        || original.exchange_action_hash != adj.exchange_action_hash
+        || original.provider_did != adj.provider_did
+        || original.receiver_did != adj.receiver_did
+        || original.hours != adj.hours
+        || original.currency_id != adj.currency_id
+        || original.created_at != adj.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Settlement claim binding fields are immutable".into(),
+        ));
+    }
+
+    if original.provider_completed && !adj.provider_completed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Provider settlement completion cannot be reverted".into(),
+        ));
+    }
+    if original.receiver_completed && !adj.receiver_completed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Receiver settlement completion cannot be reverted".into(),
+        ));
+    }
+    if adj.receiver_completed && !adj.provider_completed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Receiver completion requires provider completion".into(),
+        ));
+    }
+
+    let original_author = original_record.action().author();
+    if action.author() != original_author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Settlement claim may only be updated by its original author".into(),
         ));
     }
 
@@ -1629,6 +1851,7 @@ mod tests {
             dao_did: "did:mycelix:dao1".into(),
             timestamp: ts(1_000_000),
             status: ExchangeStatus::Proposed,
+            settlement_claim: None,
             service_date: None,
         }
     }
