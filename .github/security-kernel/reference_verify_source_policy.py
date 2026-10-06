@@ -381,8 +381,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 fetch sandbox image digest pin mismatch")
     if exact_count(l, f'SANDBOX_IMAGE: "{RUST_IMAGE}"') != 1:
         fail("S1 candidate sandbox image digest pin mismatch")
-    if exact_count(l, f'TRUSTED_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"') != 1:
-        fail("S1 trusted workflow blob pin mismatch")
+    if exact_count(l, 'TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}') != 1:
+        fail("S1 trusted workflow blob input binding mismatch")
     require_no_fail_open_controls(l, "S1")
     joined = "\n".join(l)
     for forbidden in (
