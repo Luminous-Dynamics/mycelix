@@ -1,9 +1,9 @@
 //! Deterministic multimodal registration evidence for Fabrication Process Monitoring.
 //!
-//! This module describes registration evidence, not sensor truth. A Registered
-//! state means the required identity/alignment evidence is explicit and
-//! reproducible; it does not establish that the sensors are calibrated correctly
-//! or that an inferred anomaly is a physical defect.
+//! This module describes registration evidence, not sensor truth. A Consistent
+//! state means the supplied identity/alignment metadata is internally coherent;
+//! it does not establish independent verification, sensor calibration correctness,
+//! clock synchronization beyond the declared evidence, or a physical defect.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -72,7 +72,9 @@ pub struct RegistrationEnvelope {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegistrationState {
-    Registered,
+    /// Supplied registration metadata is internally consistent. This is not
+    /// independent verification of the underlying sources or clocks.
+    Consistent,
     Unregistered,
     Conflicting,
     Invalid,
@@ -135,7 +137,7 @@ impl RegistrationEnvelope {
                     item.correlation_domain == self.reference.correlation_domain
                         && item.correlation_id == self.reference.correlation_id
                 }) {
-                    RegistrationState::Registered
+                    RegistrationState::Consistent
                 } else {
                     RegistrationState::Conflicting
                 }
@@ -148,7 +150,7 @@ impl RegistrationEnvelope {
                     item.clock_domain == self.reference.clock_domain
                         && item.source_timestamp_micros == Some(reference_ts)
                 }) {
-                    RegistrationState::Registered
+                    RegistrationState::Consistent
                 } else {
                     RegistrationState::Conflicting
                 }
@@ -165,7 +167,7 @@ impl RegistrationEnvelope {
 
     pub fn validate_for_use(&self) -> Result<(), RegistrationError> {
         match self.assess() {
-            RegistrationState::Registered => Ok(()),
+            RegistrationState::Consistent => Ok(()),
             RegistrationState::Unregistered => Err(RegistrationError::InvalidField(
                 "registration evidence is absent".into(),
             )),
@@ -257,7 +259,7 @@ mod tests {
     fn exact_correlation_id_requires_shared_frame_identity() {
         assert_eq!(
             registered(AlignmentMethod::ExactCorrelationId).assess(),
-            RegistrationState::Registered
+            RegistrationState::Consistent
         );
 
         let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
@@ -266,7 +268,7 @@ mod tests {
 
         let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.related[0].source_sequence = 11;
-        assert_eq!(envelope.assess(), RegistrationState::Registered);
+        assert_eq!(envelope.assess(), RegistrationState::Consistent);
 
         let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.related[0].clock_domain = "local-clock-2".into();
@@ -277,7 +279,7 @@ mod tests {
     fn exact_timestamp_requires_present_equal_source_timestamps() {
         assert_eq!(
             registered(AlignmentMethod::ExactSourceTimestampMicros).assess(),
-            RegistrationState::Registered
+            RegistrationState::Consistent
         );
 
         let mut envelope = registered(AlignmentMethod::ExactSourceTimestampMicros);
