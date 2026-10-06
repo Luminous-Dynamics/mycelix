@@ -183,12 +183,10 @@ mod tests {
     fn incomplete_registration_is_not_qualified() {
         let mut registration = envelope(AlignmentMethod::ExactCorrelationId);
         registration.alignment_method = None;
+        let verifier = AgentPubKey::from_raw_36(vec![1u8; 36]);
         let result =
-            qualify_registration_structure(
-                &registration,
-                &AgentPubKey::from_raw_36(vec![1u8; 36]),
-            )
-            .expect("qualification");
+            qualify_registration_structure(&registration, &verifier)
+                .expect("qualification");
         assert_eq!(result.outcome, StructuralQualificationOutcome::InsufficientEvidence);
     }
 
@@ -196,8 +194,9 @@ mod tests {
     fn conflicting_registration_is_rejected() {
         let mut registration = envelope(AlignmentMethod::ExactCorrelationId);
         registration.related[0].correlation_id = "other-frame".into();
+        let verifier = AgentPubKey::from_raw_36(vec![1u8; 36]);
         let result =
-            qualify_registration_structure(&registration, "verifier-1").expect("qualification");
+            qualify_registration_structure(&registration, &verifier).expect("qualification");
         assert_eq!(result.registration_state, RegistrationState::Conflicting);
         assert_eq!(result.outcome, StructuralQualificationOutcome::Rejected);
     }
@@ -207,8 +206,9 @@ mod tests {
         let registration = envelope(AlignmentMethod::DeclaredClockTransform {
             transform_digest: digest('d'),
         });
+        let verifier = AgentPubKey::from_raw_36(vec![1u8; 36]);
         let result =
-            qualify_registration_structure(&registration, "verifier-1").expect("qualification");
+            qualify_registration_structure(&registration, &verifier).expect("qualification");
         assert_eq!(result.registration_state, RegistrationState::Unknown);
         assert_eq!(result.outcome, StructuralQualificationOutcome::InsufficientEvidence);
     }
@@ -216,8 +216,9 @@ mod tests {
     #[test]
     fn qualification_digest_is_self_verifiable() {
         let registration = envelope(AlignmentMethod::ExactCorrelationId);
+        let verifier = AgentPubKey::from_raw_36(vec![1u8; 36]);
         let qualification =
-            qualify_registration_structure(&registration, "verifier-1").expect("qualification");
+            qualify_registration_structure(&registration, &verifier).expect("qualification");
         assert!(qualification.verify_digest().expect("digest verification"));
 
         let mut tampered = qualification;
