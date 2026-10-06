@@ -1270,7 +1270,10 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
     ).into()
 }
 
-pub fn compose_finality_eligibility_from_authoritative_d6o(
+/// Internal authoritative helper. External consumers must enter through
+/// the D6N+D6O boundary so the D6N qualification profile, observation set,
+/// and assessment are reconstructed before this helper can contribute evidence.
+fn compose_finality_eligibility_from_authoritative_d6o(
     set: &ExternalObservationSetV1,
     assessment: &ObservationSetAssessmentV1,
     evidence: &[ExternalObservedEvidenceV1],
