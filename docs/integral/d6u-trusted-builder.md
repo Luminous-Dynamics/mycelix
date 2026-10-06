@@ -66,6 +66,10 @@ The read-only trusted-verifier suite contains thirty-seven deterministic checks:
 
 The self-test has no signing permissions and is not itself an authority root. Its policy-shape test pins the retention verifier, upload Action revision, public Tlog requirement, and retained packet limits; dedicated regressions cover the offline workflow controls and unexpected retention-packet members.
 
+## Branch-validation boundary
+
+The trusted attestation workflow is deliberately not branch-executable. GitHub documents that `workflow_run` only triggers when the workflow file exists on the default branch, and the resulting run uses the default branch for `GITHUB_SHA`/`GITHUB_REF`. Feature-branch pushes that surface a workflow-file run without jobs are therefore not treated as failed attestation evidence; they cannot create signing authority. The deterministic self-test is the branch-side validation surface. Real trusted attestation execution occurs only after the reviewed workflow/policy root is present on the default branch and a qualifying main-owned executor run completes.
+
 ## Workflow-run chain
 
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
