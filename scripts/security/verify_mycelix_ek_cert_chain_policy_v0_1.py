@@ -2006,6 +2006,33 @@ def self_test() -> int:
             print("empty X.509 Extensions acceptance: FAIL")
             return 1
 
+        for oid, label in (
+            ("1.3.6.1.5.5.7.1.1", "AuthorityInformationAccess"),
+            ("2.5.29.31", "CRLDistributionPoints"),
+        ):
+            malformed = copy.deepcopy(leaf_info)
+            malformed["extensions"][oid]["extn_value"] = der_tlv(0x04, b"malformed")
+            try:
+                leaf_profile_ok(malformed)
+            except ValueError:
+                pass
+            else:
+                print(f"malformed {label} acceptance: FAIL")
+                return 1
+
+        malformed_sda = copy.deepcopy(leaf_info)
+        malformed_sda["extensions"]["2.5.29.9"] = {
+            "critical": False,
+            "extn_value": der_tlv(0x30, b""),
+        }
+        try:
+            leaf_profile_ok(malformed_sda)
+        except ValueError:
+            pass
+        else:
+            print("malformed SubjectDirectoryAttributes acceptance: FAIL")
+            return 1
+
 
         cases = [
             ("canonical-valid", "PASS", lambda x: None),
