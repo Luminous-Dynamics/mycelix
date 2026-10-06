@@ -1908,6 +1908,7 @@ if __name__ == "__main__":
         test_trusted_zip_rejects_duplicate_member,
         test_trusted_zip_rejects_symlink_member,
         test_trusted_zip_rejects_unexpected_member_path,
+        test_trusted_python_programs_reject_optimized_mode,
         test_attestation_verifier_accepts_current_run,
         test_attestation_verifier_rejects_old_run,
         test_commitment_attestation_rejects_canonical_predicate_tampering,
