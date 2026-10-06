@@ -210,9 +210,17 @@ def verify(snapshot: object) -> dict:
 
     assert snapshot["dispatcher_workflow_blob_sha"] == S0_BLOB
     assert snapshot["s1_workflow_blob_sha"] == S1_BLOB
+    assert re.fullmatch(r"[0-9a-f]{40}", event_verifier_sha)
+    assert re.fullmatch(r"[0-9a-f]{40}", event_verifier_blob_sha)
+    assert event_binding_blob_sha == snapshot["workflow_file_snapshots"]["binding"]["sha"]
+    assert event_causal_blob_sha == snapshot["workflow_file_snapshots"]["causal"]["sha"]
 
     workflow_snapshots = snapshot["workflow_file_snapshots"]
     expected_snapshot_keys = {"s0", "s1", "s2", "binding", "causal"}
+    event_verifier_sha = snapshot["event"]["verifier_workflow_sha"]
+    event_verifier_blob_sha = snapshot["event"]["verifier_workflow_blob_sha"]
+    event_binding_blob_sha = snapshot["event"]["reference_verifier_blob_sha"]
+    event_causal_blob_sha = snapshot["event"]["causal_join_verifier_blob_sha"]
     assert set(workflow_snapshots) == expected_snapshot_keys
 
     def verify_file_snapshot(name: str, expected_path: str, expected_ref: str, expected_sha: str | None = None):
@@ -234,9 +242,9 @@ def verify(snapshot: object) -> dict:
 
     verify_file_snapshot("s0", S0_PATH, run["workflow_sha"], S0_BLOB)
     verify_file_snapshot("s1", S1_PATH, run["workflow_sha"], S1_BLOB)
-    verify_file_snapshot("s2", S2_PATH, snapshot["event"]["verifier_workflow_sha"])
-    verify_file_snapshot("binding", BINDING_PATH, snapshot["event"]["verifier_workflow_sha"])
-    verify_file_snapshot("causal", CAUSAL_PATH, snapshot["event"]["verifier_workflow_sha"])
+    verify_file_snapshot("s2", S2_PATH, event_verifier_sha, event_verifier_blob_sha)
+    verify_file_snapshot("binding", BINDING_PATH, event_verifier_sha, event_binding_blob_sha)
+    verify_file_snapshot("causal", CAUSAL_PATH, event_verifier_sha, event_causal_blob_sha)
 
     title = run.get("display_title", "")
     match = re.fullmatch(
