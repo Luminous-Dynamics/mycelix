@@ -436,17 +436,64 @@ jobs:
               assert workflow.startswith("name: Security Kernel Qualification")
               assert "pull_request_target:" not in workflow, "candidate workflow must not elevate to pull_request_target"
               assert workflow.count("permissions:") == 1, "candidate workflow must have exactly one permissions block"
-              permission_lines = []
               workflow_lines = workflow.splitlines()
-              for index, line in enumerate(workflow_lines):
-                  if line.strip() == "permissions:":
-                      for candidate in workflow_lines[index + 1:]:
-                          if candidate and not candidate.startswith(" "):
+
+              def candidate_permissions(text):
+                  blocks = []
+                  lines = text.splitlines()
+                  for index, line in enumerate(lines):
+                      if line.strip() != "permissions:":
+                          continue
+                      permission_indent = len(line) - len(line.lstrip(" "))
+                      child_indent = permission_indent + 2
+                      block = []
+                      for candidate in lines[index + 1:]:
+                          if not candidate.strip():
+                              continue
+                          actual_indent = len(candidate) - len(candidate.lstrip(" "))
+                          if actual_indent <= permission_indent:
                               break
-                          if candidate.strip():
-                              permission_lines.append(candidate.strip())
-                      break
-              assert permission_lines == ["contents: read"], permission_lines
+                          assert actual_indent == child_indent
+                          assert re.fullmatch(r"[A-Za-z0-9_-]+:\s+[^#]+", candidate.strip())
+                          block.append(candidate.strip())
+                      blocks.append(tuple(block))
+                  return blocks
+
+              assert candidate_permissions(workflow) == [("contents: read",)]
+
+              mutated_permissions = workflow.replace(
+                  "  contents: read\n",
+                  "  contents: read\n\n  security-events: write\n",
+                  1,
+              )
+              try:
+                  candidate_permissions(mutated_permissions)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate workflow permission parser accepted blank-separated escalation")
+
+              def candidate_step_items(text):
+                  items = re.findall(r"(?m)^\s{6}-\s+(.+)$", text)
+                  assert items, "candidate workflow must contain at least one named step"
+                  assert all(item.startswith("name: ") for item in items)
+                  return tuple(items)
+
+              candidate_step_items(workflow)
+              step_match = re.search(r"(?m)^\s{6}- name: .+$", workflow)
+              assert step_match, "candidate workflow named-step regression marker missing"
+              mutated_steps = (
+                  workflow[:step_match.start()]
+                  + "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n"
+                  + workflow[step_match.start():]
+              )
+              try:
+                  candidate_step_items(mutated_steps)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate workflow step parser accepted unnamed step")
+
               assert "secrets." not in workflow
               uses=re.findall(r"(?m)^\s*-\s*uses:\s*([^\n]+)$",workflow)
               assert uses and all(re.search(r"@[0-9a-fA-F]{40}(?:\s+#.*)?$",line.strip()) for line in uses)
