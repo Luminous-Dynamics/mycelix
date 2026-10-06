@@ -536,14 +536,118 @@ def expected_crl_semantics_check(
         raise ValueError("CRL number cannot be negative")
 
 
+
+def expected_crl_applicability_check(
+    leaf: dict[str, Any],
+    selected_issuer: dict[str, Any],
+    selected_crl: dict[str, Any],
+    expected: dict[str, Any],
+) -> dict[str, Any]:
+    required = {
+        "profile",
+        "locator_authority",
+        "certificate_sha256",
+        "selected_crl_issuer_certificate_sha256",
+        "selected_crl_der_sha256",
+        "selected_crl_scope",
+        "distribution_point",
+    }
+    if not isinstance(expected, dict) or set(expected) != required:
+        raise ValueError("CRL applicability contract malformed")
+    if expected["profile"] != "direct-issuer-complete-crl-v0.1":
+        raise ValueError("CRL applicability profile unsupported")
+    if expected["locator_authority"] != "non-authoritative":
+        raise ValueError("CRL distribution locator cannot be an authority")
+    if expected["certificate_sha256"] != leaf["object_sha256"]:
+        raise ValueError("CRL applicability certificate identity mismatch")
+    if expected["selected_crl_issuer_certificate_sha256"] != selected_issuer["object_sha256"]:
+        raise ValueError("CRL applicability issuer certificate identity mismatch")
+    if expected["selected_crl_der_sha256"] != selected_crl["object_sha256"]:
+        raise ValueError("CRL applicability CRL object identity mismatch")
+    if expected["selected_crl_scope"] != "all-certificates-issued-by-issuer":
+        raise ValueError("CRL applicability requires complete direct-issuer scope")
+    if leaf["issuer"] != selected_issuer["subject"]:
+        raise ValueError("CRL applicability certificate issuer does not match selected issuer subject")
+    if selected_crl["issuer"] != leaf["issuer"]:
+        raise ValueError("CRL applicability selected CRL issuer does not match certificate issuer")
+
+    distribution_point = expected["distribution_point"]
+    expected_dp = {
+        "count",
+        "name_form",
+        "general_name_count",
+        "general_name_type",
+        "uri_sha256",
+        "reasons_present",
+        "crl_issuer_present",
+    }
+    if not isinstance(distribution_point, dict) or set(distribution_point) != expected_dp:
+        raise ValueError("CRL applicability distribution-point contract malformed")
+    if distribution_point["count"] != 1:
+        raise ValueError("reference model requires exactly one CRL DistributionPoint")
+
+    extension = leaf["extensions"].get("2.5.29.31")
+    if not isinstance(extension, dict) or extension.get("critical"):
+        raise ValueError("reference model requires a non-critical CRLDistributionPoints extension")
+    tag, content, _raw, end = tlv(extension["extn_value"])
+    if tag != 0x30 or end != len(extension["extn_value"]):
+        raise ValueError("CRLDistributionPoints extension malformed")
+    points = children(content)
+    if len(points) != 1 or points[0][0] != 0x30:
+        raise ValueError("reference model requires exactly one DistributionPoint")
+    point_fields = children(points[0][1])
+    if len(point_fields) != 1 or point_fields[0][0] != 0xA0:
+        raise ValueError("reference model DistributionPoint must contain only distributionPoint")
+    dp_tag, dp_content, _dp_raw, dp_end = tlv(point_fields[0][1])
+    if dp_tag != 0xA0 or dp_end != len(point_fields[0][1]):
+        raise ValueError("reference model DistributionPointName must be fullName")
+    names = children(dp_content)
+    if len(names) != 1 or names[0][0] != 0x86 or not names[0][1]:
+        raise ValueError("reference model fullName must contain exactly one non-empty URI")
+    if distribution_point["name_form"] != "fullName":
+        raise ValueError("CRL applicability name form mismatch")
+    if distribution_point["general_name_count"] != 1:
+        raise ValueError("CRL applicability GeneralNames count mismatch")
+    if distribution_point["general_name_type"] != "uniformResourceIdentifier":
+        raise ValueError("CRL applicability GeneralName type mismatch")
+    if distribution_point["uri_sha256"] != hashlib.sha256(names[0][1]).hexdigest():
+        raise ValueError("CRL applicability URI identity mismatch")
+    if distribution_point["reasons_present"] is not False:
+        raise ValueError("reference model does not support reason-scoped certificate CRLDistributionPoints")
+    if distribution_point["crl_issuer_present"] is not False:
+        raise ValueError("reference model does not support certificate cRLIssuer")
+    return {
+        "profile": expected["profile"],
+        "locator_authority": expected["locator_authority"],
+        "certificate_sha256": leaf["object_sha256"],
+        "selected_crl_issuer_certificate_sha256": selected_issuer["object_sha256"],
+        "selected_crl_der_sha256": selected_crl["object_sha256"],
+        "selected_crl_scope": "all-certificates-issued-by-issuer",
+        "distribution_point": {
+            "count": 1,
+            "name_form": "fullName",
+            "general_name_count": 1,
+            "general_name_type": "uniformResourceIdentifier",
+            "uri_sha256": hashlib.sha256(names[0][1]).hexdigest(),
+            "reasons_present": False,
+            "crl_issuer_present": False,
+        },
+    }
+
 def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     try:
         expected_recipe_semantics = manifest["expected_crl_semantics"]
         if not isinstance(expected_recipe_semantics, dict):
             return result("DENY", "crl-semantics-recipe-projection-invalid")
+        expected_recipe_applicability = manifest["expected_crl_applicability"]
+        if not isinstance(expected_recipe_applicability, dict):
+            return result("DENY", "crl-applicability-recipe-projection-invalid")
         expected_semantics_sha = canonical_hash(expected_recipe_semantics)
         if manifest.get("expected_crl_semantics_sha256") != expected_semantics_sha:
             return result("DENY", "crl-semantics-recipe-digest-mismatch")
+        expected_applicability_sha = canonical_hash(expected_recipe_applicability)
+        if manifest.get("expected_crl_applicability_sha256") != expected_applicability_sha:
+            return result("DENY", "crl-applicability-recipe-digest-mismatch")
         if manifest.get("verification_time_unix") is None:
             return result("DENY", "verification-time-missing")
         leaf = base64.b64decode(manifest["leaf_certificate_der_base64"], validate=True)
@@ -631,6 +735,12 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             crl_semantics_sha256 = expected_semantics_sha
         except (KeyError, ValueError, TypeError) as exc:
             return result("DENY", "crl-semantics-verification-failed", {"error": str(exc)})
+        try:
+            crl_applicability = expected_crl_applicability_check(
+                l, i, crl_map["intermediate"], expected_recipe_applicability
+            )
+        except (KeyError, ValueError, TypeError) as exc:
+            return result("DENY", "crl-applicability-verification-failed", {"error": str(exc)})
         details = {
             "exact_input_objects": {
                 "leaf_certificate_sha256": l["object_sha256"],
@@ -673,6 +783,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
                 }
                 for label in ("root", "intermediate")
             },
+            "crl_applicability_sha256": expected_applicability_sha,
+            "crl_applicability": crl_applicability,
             "exact_relationships": {
                 "leaf_to_intermediate_subject_exact": True,
                 "intermediate_to_root_subject_exact": True,
@@ -711,13 +823,17 @@ def self_test() -> int:
             "expected_crl_semantics_sha256": canonical_hash(
                 json.loads((recipe).read_text(encoding="utf-8"))["crl_semantics"]
             ),
+            "expected_crl_applicability": json.loads((recipe).read_text(encoding="utf-8"))["crl_applicability"],
+            "expected_crl_applicability_sha256": canonical_hash(
+                json.loads((recipe).read_text(encoding="utf-8"))["crl_applicability"]
+            ),
         }
         implementation_source = Path(__file__).read_text(encoding="utf-8").split("def self_test()", 1)[0]
         if "fixture-recipe-v0.1.json" in implementation_source:
             print("independent witness rereads fixture recipe from disk: FAIL")
             return 1
-        if "expected_crl_semantics" not in implementation_source:
-            print("independent witness lacks supplied CRL recipe projection: FAIL")
+        if "expected_crl_semantics" not in implementation_source or "expected_crl_applicability" not in implementation_source:
+            print("independent witness lacks supplied CRL projections: FAIL")
             return 1
         good = verify(m)
         if good["state"] != "PASS":
@@ -753,6 +869,67 @@ def self_test() -> int:
             mutate(candidate)
             try:
                 expected_crl_semantics_check(candidate, {"root": root_info, "intermediate": intermediate_info, "leaf": leaf_info}, m["expected_crl_semantics"], m["verification_time_unix"])
+            except (ValueError, KeyError):
+                pass
+            else:
+                print(f"{label} mutation acceptance: FAIL")
+                return 1
+
+
+        observed_applicability_cases = [
+            ("certificate-cdp-missing", lambda x: x["extensions"].pop("2.5.29.31")),
+            ("certificate-cdp-reasons-present", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30, der_encode_tlv(
+                    0x30,
+                    der_encode_tlv(0xA0, der_encode_tlv(0xA0, der_encode_tlv(0x86, b"https://example.invalid/ek.crl")))
+                    + der_encode_tlv(0x81, b"\x00\x80"),
+                )),
+            })),
+            ("certificate-cdp-crl-issuer-present", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30, der_encode_tlv(
+                    0x30,
+                    der_encode_tlv(0xA0, der_encode_tlv(0xA0, der_encode_tlv(0x86, b"https://example.invalid/ek.crl")))
+                    + der_encode_tlv(0xA2, der_encode_tlv(0x82, b"attacker.invalid")),
+                )),
+            })),
+            ("certificate-cdp-multiple-points", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30,
+                    der_encode_tlv(0x30, der_encode_tlv(0xA0, der_encode_tlv(0xA0, der_encode_tlv(0x86, b"https://example.invalid/ek.crl"))))
+                    + der_encode_tlv(0x30, der_encode_tlv(0xA0, der_encode_tlv(0xA0, der_encode_tlv(0x86, b"https://example.invalid/ek.crl"))))
+                ),
+            })),
+            ("certificate-cdp-uri-substitution", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30, der_encode_tlv(
+                    0x30,
+                    der_encode_tlv(0xA0, der_encode_tlv(0xA0, der_encode_tlv(0x86, b"https://attacker.invalid/ek.crl")))
+                )),
+            })),
+        ]
+        for label, mutate in observed_applicability_cases:
+            candidate_leaf = json.loads(json.dumps(leaf_info))
+            mutate(candidate_leaf)
+            try:
+                expected_crl_applicability_check(
+                    candidate_leaf, intermediate_info, crl_map["intermediate"], m["expected_crl_applicability"]
+                )
+            except (ValueError, KeyError):
+                pass
+            else:
+                print(f"{label} mutation acceptance: FAIL")
+                return 1
+
+        applicability_selection_cases = [
+            ("authoritative CDP CRL object", lambda x: x.update({"selected_crl_der_sha256": "94" * 32})),
+            ("authoritative CDP issuer", lambda x: x.update({"selected_crl_issuer_certificate_sha256": "95" * 32})),
+            ("authoritative CDP certificate", lambda x: x.update({"certificate_sha256": "96" * 32})),
+        ]
+        for label, mutate in applicability_selection_cases:
+            candidate = json.loads(json.dumps(m["expected_crl_applicability"]))
+            mutate(candidate)
+            try:
+                expected_crl_applicability_check(
+                    leaf_info, intermediate_info, crl_map["intermediate"], candidate
+                )
             except (ValueError, KeyError):
                 pass
             else:
