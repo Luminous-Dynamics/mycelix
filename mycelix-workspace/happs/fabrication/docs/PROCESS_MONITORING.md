@@ -190,6 +190,27 @@ This adapter is still not a claim of physical truth or universal authority: Holo
 
 Verifier identity is treated similarly. `verifier_id`, `verifier_version`, and `declared_verifier_implementation_digest` are captured declarations in the pure core, not proof of the binary that executed. Authenticated build/execution identity is a separate boundary tracked in #4355.
 
+## Authenticated provenance
+
+The provenance-disjointness qualifier evaluates the supplied lineage graph, but a producer could still fabricate that graph unless the individual provenance declarations have an independent integrity anchor.
+
+FPM now adds a separate authenticated provenance layer:
+
+- each provenance witness is committed as a typed `FpmProvenanceAnchor` Holochain entry;
+- the entry binds the witness to a specific registration `ActionHash`;
+- the witness digest is recomputed from the stored witness rather than trusted as a label;
+- resolution requires the provenance action to be a valid original `Create` action with no updates or deletes;
+- resolution requires the exact FPM provenance entry type;
+- the referenced registration `ActionHash` is independently resolved and its envelope digest is recomputed;
+- the witness's source/modality pair and source-observation binding must match that exact registration envelope;
+- only after every supplied provenance anchor has been resolved does FPM feed the witnesses into the existing provenance-disjointness qualifier.
+
+The resulting qualification preserves each provenance anchor's ActionHash, author, signer, timestamp, source-chain sequence, previous-action hash, and witness commitment as separate evidence. The complete authenticated qualification also receives its own deterministic manifest and record digest.
+
+This establishes **authenticated provenance declarations**: who committed which lineage statement, which registration anchor it referenced, and whether the declaration remains valid in the resolver's Holochain view. It does not establish that the declared sensor lineage is physically true, that the source device is honest, or that two sources are physically independent.
+
+This distinction mirrors supply-chain provenance systems such as in-toto/SLSA, where a provenance statement identifies a subject and describes production lineage but still depends on the trustworthiness of the attesting builder/platform. citeturn173650search0turn173650search6
+
 ## Provenance disjointness qualification
 
 FPM can now qualify a supplied acquisition-lineage graph separately from registration consistency. A provenance witness binds a participant to its exact source-observation commitment, an acquisition-root commitment, and explicit parent lineage nodes.
