@@ -390,6 +390,31 @@ def main() -> None:
     for subject_name, env_name in expected_subject_env.items():
         assert by_name[subject_name]["sha256"] == os.environ[env_name]
 
+    canonical_path = root / "d6u-trusted-evidence-predicate.json"
+    canonical_predicate_sha256 = sha256(canonical_path)
+    assert transcript["canonical_predicate_sha256"] == canonical_predicate_sha256
+    canonical_predicate = load_json(canonical_path)
+    assert isinstance(canonical_predicate, dict)
+    assert set(canonical_predicate) == {
+        "attestation_kind", "claim_ceiling", "evidence", "executor",
+        "nonclaims", "policy_version", "schema", "source", "subjects", "trigger",
+    }
+    assert canonical_predicate["schema"] == CANONICAL_PREDICATE_SCHEMA
+    assert canonical_predicate["attestation_kind"] == "verified-runtime-evidence"
+    assert canonical_predicate["claim_ceiling"] == transcript["claim_ceiling"]
+    assert canonical_predicate["policy_version"] == transcript["policy_version"]
+    source = canonical_predicate["source"]
+    assert isinstance(source, dict)
+    assert set(source) == {"branch", "commit", "repository"}
+    assert source["repository"] == transcript["repository"]
+    assert isinstance(source["branch"], str) and source["branch"]
+    assert isinstance(source["commit"], str) and len(source["commit"]) == 40
+    assert all(ch in "0123456789abcdef" for ch in source["commit"])
+    assert canonical_predicate["subjects"] == [
+        {"name": name, "digest": {"sha256": by_name[name]["sha256"]}}
+        for name in SUBJECTS
+    ]
+
     retained = transcript["retained_files"]
     assert isinstance(retained, dict)
     assert set(retained) == set(RETAINED_FILES)
@@ -425,6 +450,7 @@ def main() -> None:
             "offline_report_filename",
             "offline_report_sha256",
             "predicate_sha256",
+            "canonical_predicate_sha256",
             "negative_control_filename",
             "negative_control_sha256",
             "trusted_root_sha256",
@@ -445,6 +471,7 @@ def main() -> None:
         assert binding["bundle_sha256"] == retained[expected_bundle]["sha256"]
         assert binding["online_report_sha256"] == retained[expected_online]["sha256"]
         assert binding["offline_report_sha256"] == retained[expected_offline]["sha256"]
+        assert binding["canonical_predicate_sha256"] == canonical_predicate_sha256
         assert binding["negative_control_sha256"] == retained[expected_control]["sha256"]
         assert binding["trusted_root_sha256"] == root_sha256
 
@@ -457,6 +484,8 @@ def main() -> None:
             "certificate_oidc_issuer": transcript["certificate_oidc_issuer"],
             "predicate_type": transcript["predicate_type"],
             "predicate_schema": transcript["predicate_schema"],
+            "policy_version": str(transcript["policy_version"]),
+            "canonical_predicate_sha256": transcript["canonical_predicate_sha256"],
             "claim_ceiling": transcript["claim_ceiling"],
         }
         online_predicate_sha256 = verify_report(
