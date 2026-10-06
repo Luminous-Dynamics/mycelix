@@ -1,5 +1,5 @@
 {
-  "policy_version": 43,
+  "policy_version": 44,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "e93542d0936d123e1b273867765af23dd653d97f"
+    "blob_sha": "78828fdfaa66569a883acd562487d4fc154502b2"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -353,7 +353,7 @@
     "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "retain_canonical_predicate": true
   },
-  "attestation_integrity_revision": 43,
+  "attestation_integrity_revision": 44,
   "attestation_commitment": {
     "schema": "d6u-trusted-runtime-evidence-attestation/v2",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
@@ -392,6 +392,7 @@
     "conclusion": "success",
     "repository": "Luminous-Dynamics/mycelix",
     "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+    "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
     "require_record_source_binding": true,
     "require_record_executor_run_binding": true
   }
