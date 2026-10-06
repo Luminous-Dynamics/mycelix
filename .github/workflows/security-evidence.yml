@@ -111,7 +111,7 @@ jobs:
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_chain["vectors"]) == 29
+          assert len(cert_chain["vectors"]) == 33
           PY
 
       - name: Compile security verifiers and bundle regression
