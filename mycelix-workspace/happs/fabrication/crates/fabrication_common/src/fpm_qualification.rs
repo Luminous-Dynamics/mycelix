@@ -410,7 +410,7 @@ fn expected_artifacts(envelope: &RegistrationEnvelope) -> BTreeSet<(EvidenceKind
         ));
         expected.insert((
             EvidenceKind::SourceObservation,
-            source_observation_digest(participant),
+            source_observation_binding_digest(participant),
         ));
         expected.insert((
             EvidenceKind::CalibrationProfile,
@@ -464,7 +464,7 @@ fn qualification_basis_digest(
     hex_digest(&bytes)
 }
 
-fn source_observation_digest(
+pub fn source_observation_binding_digest(
     participant: &crate::fpm_registration::ModalityObservationRef,
 ) -> String {
     hex_digest(&canonical_source_observation_bytes(participant))
@@ -608,12 +608,12 @@ mod tests {
             source_artifact,
             related_source_artifact,
             ResolvedEvidenceArtifact {
-                declared_digest: source_observation_digest(&envelope.reference),
+                declared_digest: source_observation_binding_digest(&envelope.reference),
                 bytes: canonical_source_observation_bytes(&envelope.reference),
                 kind: EvidenceKind::SourceObservation,
             },
             ResolvedEvidenceArtifact {
-                declared_digest: source_observation_digest(&envelope.related[0]),
+                declared_digest: source_observation_binding_digest(&envelope.related[0]),
                 bytes: canonical_source_observation_bytes(&envelope.related[0]),
                 kind: EvidenceKind::SourceObservation,
             },
@@ -949,7 +949,7 @@ mod tests {
             .iter_mut()
             .find(|artifact| {
                 artifact.kind == EvidenceKind::SourceObservation
-                    && artifact.declared_digest == source_observation_digest(&original)
+                    && artifact.declared_digest == source_observation_binding_digest(&original)
             })
             .expect("reference source-observation artifact");
         artifact.bytes = canonical_source_observation_bytes(&replay);
@@ -979,8 +979,8 @@ mod tests {
 
         for (digest, bytes) in records {
             assert_eq!(hex_digest(&bytes), digest);
-            assert_eq!(source_observation_digest(
-                if digest == source_observation_digest(&input.envelope.reference) {
+            assert_eq!(source_observation_binding_digest(
+                if digest == source_observation_binding_digest(&input.envelope.reference) {
                     &input.envelope.reference
                 } else {
                     &input.envelope.related[0]
