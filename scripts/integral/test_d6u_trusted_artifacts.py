@@ -439,6 +439,29 @@ def test_retention_workflow_contains_offline_controls() -> None:
     assert workflow.count("--limit 8") >= 5
 
 
+def test_privilege_split_handoff_topology_is_fail_closed() -> None:
+    root = Path(__file__).parents[2]
+    policy = json.loads(
+        (root / "docs/integral/d6u-trusted-builder-policy.json").read_text(encoding="utf-8")
+    )
+    workflow = (root / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
+    verifier, signer = workflow.split("\n  signer:\n", 1)
+
+    assert "id-token: write" not in verifier
+    assert "attestations: write" not in verifier
+    assert "uses: actions/attest@" not in verifier
+    assert "Attest trusted D6U evidence" not in verifier
+    assert "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0" in signer
+    assert "actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2" in signer
+    assert "sha256sum -c d6u-signer-handoff.manifest.sha256" in signer
+    run_expr = "d6u-trusted-signer-handoff-run-${" + "{ github.run_id }}-attempt-${" + "{ github.run_attempt }}"
+    assert run_expr in verifier
+    assert run_expr in signer
+    assert "retention-days: 1" in verifier
+    assert workflow.count("id-token: write") == 1
+    assert workflow.count("attestations: write") == 1
+    assert workflow.count("uses: actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2") == 1
+
 def test_trusted_cli_policy_is_explicit() -> None:
     policy = json.loads(
         (Path(__file__).parents[2] / "docs/integral/d6u-trusted-builder-policy.json").read_text(
@@ -1624,6 +1647,7 @@ if __name__ == "__main__":
         test_record_metadata_is_canonicalized,
         test_policy_pins_current_trusted_workflow,
         test_policy_pins_current_trusted_fetcher,
+        test_privilege_split_handoff_topology_is_fail_closed,
         test_trusted_cli_policy_is_explicit,
         test_privileged_actions_are_exactly_pinned,
         test_forbidden_cargo_config_is_rejected,
