@@ -68,8 +68,13 @@ jobs:
               match = pattern.fullmatch(line)
               assert match, f"CI action is not pinned to a full SHA: {line!r}"
               action, sha = match.groups()
-              assert action not in refs, f"duplicate action identity: {action}"
-              refs[action] = sha
+              if action in refs:
+                  assert refs[action] == sha, (
+                      f"action {action} is reused with conflicting immutable refs: "
+                      f"{refs[action]} vs {sha}"
+                  )
+              else:
+                  refs[action] = sha
           assert refs == expected, f"CI action pin set drifted: expected={expected!r} actual={refs!r}"
           PY
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v3.0.4
