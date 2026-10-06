@@ -12,6 +12,121 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const FEDERATION_PROFILE_ID: &str = "INTEGRAL-FED-REF-001";
+
+/// An externally supplied verifier's claim about an anchor reference.
+///
+/// This is a statement record, not a proof result. The reference model can
+/// verify the exact binding of the statement to the anchor reference and
+/// verifier-report bytes, but it does not verify the external claim itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationStateMachineTraceExternalVerificationClaim {
+    CryptographicSignatureVerified,
+    TimestampTokenVerified,
+    TransparencyConsistencyVerified,
+    ArchiveEvidenceVerified,
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FederationStateMachineTraceExternalEvidenceVerificationStatement {
+    schema_version: u16,
+    statement_profile: String,
+    hash_algorithm: String,
+    hash_encoding: String,
+    anchor_reference_schema_version: u16,
+    anchor_reference_profile: String,
+    anchor_reference_sha256: String,
+    verifier_schema_version: u16,
+    verifier_profile: String,
+    verification_claim: FederationStateMachineTraceExternalVerificationClaim,
+    verifier_report_hash_algorithm: String,
+    verifier_report_hash_encoding: String,
+    verifier_report_sha256: String,
+    claimed_verified_at_unix_seconds: u64,
+    statement_sha256: String,
+}
+
+/// Typed read-only projection produced only after the external-evidence binding chain validates.
+///
+/// This is an externally asserted verification result, not a locally verified proof or authority.
+/// It intentionally omits `Deserialize`, private-key/trust-root fields, and authority fields.
+///
+/// It is constructed only by the validated statement/anchor chain.
+///
+/// ```compile_fail
+/// use serde_json::from_str;
+/// # use cos_conformance::federation::FederationStateMachineTraceExternalEvidenceVerificationResult;
+/// let _: FederationStateMachineTraceExternalEvidenceVerificationResult = from_str("{}").unwrap();
+/// ```
+///
+/// ```compile_fail
+/// # use cos_conformance::federation::{
+/// #     FederationStateMachineTraceExternalEvidenceVerificationResult,
+/// #     FederationStateMachineTraceExternalVerificationClaim,
+/// # };
+/// let _ = FederationStateMachineTraceExternalEvidenceVerificationResult {
+///     anchor_reference_sha256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+///     anchor_reference_schema_version: 1,
+///     anchor_reference_profile: "anchor-v1".into(),
+///     verifier_schema_version: 1,
+///     verifier_profile: "verifier-v1".into(),
+///     claim: FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+///     verifier_report_sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+///     claimed_verified_at_unix_seconds: 1,
+///     statement_sha256: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
+/// };
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FederationStateMachineTraceExternalEvidenceVerificationResult {
+    anchor_reference_sha256: String,
+    anchor_reference_schema_version: u16,
+    anchor_reference_profile: String,
+    verifier_schema_version: u16,
+    verifier_profile: String,
+    claim: FederationStateMachineTraceExternalVerificationClaim,
+    verifier_report_sha256: String,
+    claimed_verified_at_unix_seconds: u64,
+    statement_sha256: String,
+}
+
+impl FederationStateMachineTraceExternalEvidenceVerificationResult {
+    pub fn anchor_reference_sha256(&self) -> &str {
+        &self.anchor_reference_sha256
+    }
+
+    pub fn anchor_reference_schema_version(&self) -> u16 {
+        self.anchor_reference_schema_version
+    }
+
+    pub fn anchor_reference_profile(&self) -> &str {
+        &self.anchor_reference_profile
+    }
+
+    pub fn verifier_schema_version(&self) -> u16 {
+        self.verifier_schema_version
+    }
+
+    pub fn verifier_profile(&self) -> &str {
+        &self.verifier_profile
+    }
+
+    pub fn claim(&self) -> FederationStateMachineTraceExternalVerificationClaim {
+        self.claim
+    }
+
+    pub fn verifier_report_sha256(&self) -> &str {
+        &self.verifier_report_sha256
+    }
+
+    pub fn claimed_verified_at_unix_seconds(&self) -> u64 {
+        self.claimed_verified_at_unix_seconds
+    }
+
+    pub fn statement_sha256(&self) -> &str {
+        &self.statement_sha256
+    }
+}
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 1;
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE: &str =
     "integral-federation-external-verification-trust-policy-v1";
