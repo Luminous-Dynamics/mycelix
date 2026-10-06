@@ -514,6 +514,13 @@ pub struct CompletePrintInput {
 pub fn complete_print(input: CompletePrintInput) -> ExternResult<Record> {
     let job = get_print_job_mut(input.job_hash.clone())?;
 
+    // Only an actively printing job may be completed/failed.
+    if !matches!(job.status, PrintJobStatus::Printing) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Job must be currently printing to be completed".to_string(),
+        )));
+    }
+
     // Only the printer owner may mark a job as complete/failed
     ensure_caller_is_printer_owner(&job.printer_hash)?;
 
