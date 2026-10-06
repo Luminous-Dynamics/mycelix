@@ -18,6 +18,9 @@ pub struct ModalityObservationRef {
     pub modality: String,
     pub clock_domain: String,
     pub source_sequence: u64,
+    /// Producer-assigned correlation identifier shared by observations that
+    /// are asserted to represent the same acquisition frame.
+    pub correlation_id: String,
     pub source_timestamp_micros: Option<u64>,
     pub calibration_profile_digest: String,
     pub process_context_digest: String,
@@ -29,6 +32,7 @@ impl ModalityObservationRef {
         validate_label(&self.source_id, "source_id")?;
         validate_label(&self.modality, "modality")?;
         validate_label(&self.clock_domain, "clock_domain")?;
+        validate_label(&self.correlation_id, "correlation_id")?;
         validate_digest(&self.calibration_profile_digest, "calibration_profile_digest")?;
         validate_digest(&self.process_context_digest, "process_context_digest")?;
         validate_digest(&self.source_data_digest, "source_data_digest")?;
@@ -126,8 +130,7 @@ impl RegistrationEnvelope {
         match method {
             AlignmentMethod::ExactSequence => {
                 if participants.clone().all(|item| {
-                    item.clock_domain == self.reference.clock_domain
-                        && item.source_sequence == self.reference.source_sequence
+                    item.correlation_id == self.reference.correlation_id
                 }) {
                     RegistrationState::Registered
                 } else {
@@ -149,7 +152,10 @@ impl RegistrationEnvelope {
             }
             AlignmentMethod::DeclaredClockTransform { .. }
             | AlignmentMethod::ExternalRegistrationEvidence { .. } => {
-                RegistrationState::Registered
+                // A commitment to an external artifact is not the same as
+                // independently validating that artifact. Keep this state
+                // unknown until a separate verifier consumes the evidence.
+                RegistrationState::Unknown
             }
         }
     }
@@ -223,6 +229,7 @@ mod tests {
             modality: "thermal".into(),
             clock_domain: "ptp-domain-1".into(),
             source_sequence: sequence,
+            correlation_id: format!("frame-{sequence}"),
             source_timestamp_micros: Some(1_000_000),
             calibration_profile_digest: digest('a'),
             process_context_digest: digest('b'),
