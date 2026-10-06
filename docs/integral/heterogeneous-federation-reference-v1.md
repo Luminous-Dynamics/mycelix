@@ -220,6 +220,14 @@ This boundary follows established evidence patterns without importing a trust ro
 
 The claimed observation time is intentionally data, not authority. Re-sealing an altered time claim produces a structurally valid reference, which is expected: without an independent time source, the reference model cannot distinguish a real external timestamp from a locally fabricated claim. This keeps the qualification boundary fail-closed instead of converting an internally consistent assertion into a false authenticity or temporal proof.
 
+### External verification statements
+
+An external anchor is now followed by an explicit `FederationStateMachineTraceExternalEvidenceVerificationStatement` boundary when a separate verifier has evaluated the external witness. The statement records the anchor-reference digest, verifier-report schema/profile, the verification claim (such as a validated time-stamp token, transparency consistency result, archive-evidence result, or cryptographic-signature result), the exact verifier-report bytes by digest, and the claimed verification time. The statement has its own strict schema and domain-separated digest.
+
+The corresponding verifier only checks binding: that the statement names the supplied anchor reference, that the verifier report bytes hash exactly as declared, that its algorithm/encoding metadata is supported, and that the statement digest matches. It deliberately does not turn `TimestampTokenVerified`, `TransparencyConsistencyVerified`, or any other claim into a locally proven fact. A changed claim can therefore remain structurally valid after intentional re-sealing; that is expected because the reference model has no trust root for the external verifier.
+
+This separation mirrors the actual external protocols. RFC 3161 requires the requester to verify the message imprint, hash algorithm, time-stamp token signature, certificate identifier, timeliness, and applicable policy before accepting a token. RFC 9162 likewise has signed tree heads and a defined consistency-proof verification algorithm, while the resulting audit evidence is distinct from the local statement that an external verifier performed that audit. RFC 4998's verification procedure likewise operates over a concrete evidence record, digest algorithm, and archival timestamp structure. The Mycelix reference layer therefore records those results as externally asserted evidence, then keeps verifier trust and policy evaluation outside the semantic oracle. [RFC 3161](https://www.rfc-editor.org/rfc/rfc3161.html) [RFC 9162](https://www.rfc-editor.org/rfc/rfc9162.html) [RFC 4998](https://www.rfc-editor.org/rfc/rfc4998.html)
+
 ## Qualification boundary
 
 The tests prove only the deterministic behavior of this reference model for the encoded fixtures. They do not prove:
