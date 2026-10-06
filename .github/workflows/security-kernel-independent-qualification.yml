@@ -885,8 +885,20 @@ jobs:
                 $script
               "
             local status=$?
-            docker rm -f "$name" >/dev/null 2>&1 || true
             set -e
+            local remaining
+            remaining="$(docker ps -aq --filter "name=^/${name}$")"
+            if [ -n "$remaining" ]; then
+              if ! docker rm -f "$name" >/dev/null 2>&1; then
+                echo "security-kernel sandbox cleanup failed" >&2
+                return 1
+              fi
+            fi
+            remaining="$(docker ps -aq --filter "name=^/${name}$")"
+            if [ -n "$remaining" ]; then
+              echo "security-kernel sandbox container remains after cleanup" >&2
+              return 1
+            fi
             return "$status"
           }
 
