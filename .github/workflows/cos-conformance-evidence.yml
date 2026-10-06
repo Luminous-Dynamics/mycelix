@@ -160,6 +160,7 @@ jobs:
       - name: Write run envelope
         if: always()
         env:
+          TARGET_REPOSITORY: ${{ github.repository }}
           TRIGGER_SHA: ${{ github.sha }}
           REQUESTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -198,7 +199,7 @@ jobs:
           {
             "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1",
             "claim_ceiling": "ReferenceModelOnly",
-            "repository": "$HEAD_REPOSITORY",
+            "repository": "$TARGET_REPOSITORY",
             "trigger_sha": "$TRIGGER_SHA",
             "requested_head_sha": "$REQUESTED_HEAD_SHA",
             "tested_commit_sha": "$tested_commit_sha",
