@@ -671,11 +671,6 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             "crl-bundle-missing-intermediate-issuer",
             {**profile, "crl_root_issuer_name_match": False},
         )
-    root_subject = x509_scalar(root, work, "root-subject", "-subject")
-    if not verify_crl_sign_key_usage(intermediate_text):
-        return result("DENY", "intermediate-crl-issuer-missing-crlSign", profile)
-    if not verify_crl_sign_key_usage(root_text):
-        return result("DENY", "root-crl-issuer-missing-crlSign", profile)
     if not verify_crl_sign_key_usage(intermediate_info):
         return result("DENY", "intermediate-crl-issuer-missing-crlSign", profile)
     if not verify_crl_sign_key_usage(root_info):
@@ -938,7 +933,8 @@ def self_test() -> int:
             base["revocation"]["crl_bundle_pem_sha256"],
         )
         source = Path(__file__).read_text(encoding="utf-8")
-        if 'manifest.get("profile_override")' in source or 'override = manifest.get("profile_override")' in source:
+        implementation_source = source.split("def self_test()", 1)[0]
+        if 'manifest.get("profile_override")' in implementation_source or 'override = manifest.get("profile_override")' in implementation_source:
             print("caller profile override escape hatch: FAIL")
             return 1
         if "def verify_crl_sign_key_usage" not in source or "crl sign" not in source.lower():
@@ -947,10 +943,10 @@ def self_test() -> int:
         if '"-crl_check_all",' not in source:
             print("full-chain CRL verification command: FAIL")
             return 1
-        if "def parse_certificate_der" not in source or "leaf_profile_ok(leaf_info)" not in source:
+        if "def parse_certificate_der" not in implementation_source or "leaf_profile_ok(leaf_info)" not in implementation_source:
             print("binary DER certificate semantics: FAIL")
             return 1
-        if "x509_text(" in source or "extension(leaf_text" in source:
+        if "x509_text(" in implementation_source or "x509_scalar(" in implementation_source or "extension(leaf_text" in implementation_source:
             print("human-readable certificate text remains security-authoritative: FAIL")
             return 1
 
@@ -1020,7 +1016,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("25 adversarial mutations plus canonical and key-order control: PASS")
+    print("27 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
