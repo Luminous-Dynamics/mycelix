@@ -2732,7 +2732,7 @@ def self_test() -> int:
             ("cryptographic-binding-substitution", "DENY", lambda x: x.update({
                 "cryptographic_binding_sha256": "99" * 32
             })),
-            ("tcg-san-value-substitution", "DENY", lambda x: x.update({
+            ("tpm-identity-digest-substitution", "DENY", lambda x: x.update({
                 "tpm_identity_digest": "ab" * 32
             })),
             ("root-substitution", "DENY", lambda x: (
