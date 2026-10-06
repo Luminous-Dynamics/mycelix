@@ -59,6 +59,10 @@ pub struct RegistrationQualificationInput {
     pub registration_envelope_digest: String,
     pub envelope: RegistrationEnvelope,
     /// Optional externally resolved anchor binding. Required by anchored profiles.
+    ///
+    /// The pure core verifies only that this binding matches the evaluated
+    /// envelope. It does not authenticate the external reference; an authority
+    /// resolver must establish that separately.
     pub registration_anchor: Option<RegistrationAnchorEvidence>,
     /// Exact bytes resolved for the commitments referenced by the envelope.
     pub artifacts: Vec<ResolvedEvidenceArtifact>,
@@ -178,6 +182,9 @@ impl RegistrationQualificationProfile {
         requires_registration_anchor: false,
     };
 
+    /// Anchor-bound structural qualification. This profile requires an external
+    /// anchor binding, but the anchor's authority must be established by a
+    /// separate resolver before this result is treated as anti-replay evidence.
     pub const STRUCTURAL_ANCHORED_V1: Self = Self {
         profile_id: "fpm.registration.anchored",
         profile_version: "1",
