@@ -158,16 +158,6 @@
     ],
     [
       "QK-V17",
-      "offline-origin",
-      "INDETERMINATE"
-    ],
-    [
-      "QK-V18",
-      "live-origin",
-      "INDETERMINATE"
-    ],
-    [
-      "QK-V19",
       "key-order-permutation",
       "PASS"
     ]
