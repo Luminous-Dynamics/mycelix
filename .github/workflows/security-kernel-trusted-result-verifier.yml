@@ -25,7 +25,7 @@ env:
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
   RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "e88715709722071f7c76dadd174f9c7f325573b7"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "df2d13a39d84742b82f72b305c4d7253d2c9bacf"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -913,7 +913,7 @@ jobs:
               output.write(f"negative_controls_log_artifact_size={artifact_size}\n")
               output.write(f"negative_controls_log_content_sha256={content_sha256}\n")
               output.write(f"evidence_retention_binding_sha256={binding_sha256}\n")
-               output.write(f"retention_reference_binding_sha256={retention_reference_digest}\n")
+              output.write(f"retention_reference_binding_sha256={retention_reference_digest}\n")
           print(f"PASS: evidence-retention binding SHA-256={binding_sha256}")
           PY
 
@@ -951,7 +951,7 @@ jobs:
           EXPECTED_NEGATIVE_CONTROLS_LOG_SHA256: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_content_sha256 }}
           EVIDENCE_RETENTION_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.evidence_retention_binding_sha256 }}
           SOURCE_POLICY_REFERENCE_RESULT_SHA256: ${{ steps.verify_result.outputs.source_policy_reference_result_sha256 }}
-           RETENTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.retention_reference_binding_sha256 }}
+          RETENTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.retention_reference_binding_sha256 }}
           EXPECTED_ARTIFACT_NAME: ${{ steps.verify_result.outputs.artifact_name }}
           EXPECTED_ARTIFACT_DIGEST: ${{ steps.verify_result.outputs.artifact_digest }}
           EXPECTED_ARTIFACT_SIZE: ${{ steps.verify_result.outputs.artifact_size }}
@@ -998,7 +998,7 @@ jobs:
           printf '%s\n' "$VERIFIER_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s\n' "$VERIFIER_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
           echo "PASS: official artifact client returned exactly one direct-file receipt with exact filename, size, and SHA-256"
-           printf "retention_reference_binding_sha256=%s\n" "$RETENTION_REFERENCE_BINDING_SHA256"
+          printf "retention_reference_binding_sha256=%s\n" "$RETENTION_REFERENCE_BINDING_SHA256"
           printf "evidence_retention_binding_sha256=%s\nnegative_controls_log_artifact_id=%s\nnegative_controls_log_artifact_name=%s\nnegative_controls_log_artifact_digest=%s\nnegative_controls_log_content_sha256=%s\n" "$EVIDENCE_RETENTION_BINDING_SHA256" "${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST" "$negative_controls_digest"
           printf "%s\n" "$EXECUTION_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
           printf "%s\n" "$EVIDENCE_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
