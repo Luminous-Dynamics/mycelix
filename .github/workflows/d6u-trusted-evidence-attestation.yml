@@ -241,7 +241,7 @@ EOF
   "schema": "d6u-trusted-runtime-evidence-attestation/v2",
   "attestation_kind": "verified-runtime-evidence",
   "claim_ceiling": "ReferenceModelOnly",
-  "policy_version": 40,
+  "policy_version": 41,
   "canonical_predicate_sha256": "$CANONICAL_PREDICATE_SHA256"
 }
 EOF
@@ -442,7 +442,7 @@ EOF
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-auditor-handoff" \
-            D6U_TRUSTED_POLICY_VERSION="40" \
+            D6U_TRUSTED_POLICY_VERSION="41" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
