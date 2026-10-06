@@ -111,7 +111,7 @@ jobs:
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_chain["vectors"]) == 46
+          assert len(cert_chain["vectors"]) == 47
           assert cert_chain["parser_structural_control_count"] == 20
           assert [entry["id"] for entry in cert_chain["parser_structural_controls"]] == [
               "EKC-S01", "EKC-S02", "EKC-S03", "EKC-S04", "EKC-S05", "EKC-S06",
@@ -119,6 +119,8 @@ jobs:
               "EKC-S13", "EKC-S14", "EKC-S15", "EKC-S16", "EKC-S17", "EKC-S18", "EKC-S19", "EKC-S20",
           ]
           assert all(entry["expected"] == "DENY" for entry in cert_chain["parser_structural_controls"])
+          assert cert_chain["cryptographic_binding_composition"]["verifier_id"] == "mycelix.tpm.ek-fixture-signatures.v0.1"
+          assert cert_chain["cryptographic_binding_composition"]["required_fields"] == ["cryptographic_binding_sha256"]
           rf = cert_chain["reference_fixture"]
           assert rf["generation_mode"] == "deterministic-generated-synthetic"
           assert rf["fixture_paths"] == [
