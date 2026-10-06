@@ -191,6 +191,26 @@ This adapter is still not a claim of physical truth or universal authority: Holo
 Verifier identity is treated similarly. `verifier_id`, `verifier_version`, and `declared_verifier_implementation_digest` are captured declarations in the pure core, not proof of the binary that executed. Authenticated build/execution identity is a separate boundary tracked in #4355.
 
 ## Authenticated acquisition roots
+## Verifier key trust-root boundary
+
+The cryptographic EAT/COSE adapter does not treat a caller-supplied public key as a trust root.
+
+FPM now defines an immutable FpmVerificationKeyTrustAnchor whose authorization comes from the Fabrication DNA properties:
+
+- fpm_verifier_trust_authority identifies the sole agent permitted to provision verifier-key anchors for that DNA;
+- the anchor commits the exact P-256 public key bytes, key identifier, attestation format, and verifier-profile digest;
+- the public-key digest is recomputed from the exact stored key bytes;
+- the trust-anchor action must remain the original valid Create action with no updates or deletes;
+- a verifier may issue a challenge only for a key anchor naming that verifier;
+- challenge creation copies the key, format, and verifier-profile commitments from the anchor rather than accepting them as caller-selected fields;
+- EAT/COSE verification resolves the public key from the challenge's trust anchor, so callers cannot substitute a different trusted key.
+
+Deleting the authority-created trust anchor makes future resolution fail closed because the coordinator requires the anchor to remain live and immutable. This gives key rollover/revocation a concrete Holochain boundary without conflating key provisioning with authenticated verifier software identity.
+
+The DNA property is intentionally unset (null) in the repository's generic manifest. A deployment must explicitly configure its trust authority before this trust-rooted attestation path can qualify evidence.
+
+This is a trust-root guarantee, not a hardware-attestation guarantee. It does not prove that the authority chose the correct verifier, that the key is hardware-backed, that a TPM/TEE created it, or that the verifier software is the declared implementation. Those remain separate qualification layers; SLSA likewise requires consumers to verify artifacts against a preconfigured root of trust and separately verify builder/provenance identity. (see SLSA v1.2)
+
 ## Challenge-bound source attestation
 
 FPM now models source-system attestation using a challenge-bound RATS-style flow.
@@ -212,7 +232,7 @@ The separation follows the RATS architecture: Evidence is appraised by a Verifie
 
 ## Cryptographic EAT-over-COSE verification
 
-The cryptographic adapter verifies the exact wire evidence rather than accepting an attestation-result digest or boolean.
+The cryptographic adapter verifies the exact wire evidence rather than accepting an attestation-result digest or boolean. The verification key is now resolved from the DNA-authorized trust anchor bound into the challenge; callers no longer select the key at verification time.
 
 FPM v1 pins:
 - tagged COSE_Sign1 (CBOR tag 18);
