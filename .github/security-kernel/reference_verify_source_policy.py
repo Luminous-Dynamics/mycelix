@@ -136,7 +136,9 @@ def require_permissions(lines_: list[str], count: int) -> None:
         child_indent = indent + 2
         block = []
         for candidate in lines_[i + 1 :]:
-            if not candidate.strip() or len(candidate) - len(candidate.lstrip(" ")) <= indent:
+            if not candidate.strip():
+                continue
+            if len(candidate) - len(candidate.lstrip(" ")) <= indent:
                 break
             actual_indent = len(candidate) - len(candidate.lstrip(" "))
             if actual_indent != child_indent:
@@ -162,6 +164,13 @@ def inject_extra_permission(raw: bytes) -> bytes:
     replacement = marker + b"  security-events: write\n"
     if marker not in raw:
         fail("permission regression fixture marker missing")
+    return raw.replace(marker, replacement, 1)
+
+def inject_extra_permission_with_blank(raw: bytes) -> bytes:
+    marker = b"  pull-requests: read\n"
+    replacement = marker + b"\n  security-events: write\n"
+    if marker not in raw:
+        fail("blank-separated permission regression fixture marker missing")
     return raw.replace(marker, replacement, 1)
 
 
@@ -462,6 +471,26 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 security-events: write",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(inject_extra_permission_with_blank(raw["s0"]), s1_sha),
+        "S0 blank-separated security-events: write",
+    )
+    expect_rejection(
+        lambda: verify_s1(inject_extra_permission_with_blank(raw["s1"]), s1_sha),
+        "S1 blank-separated security-events: write",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_extra_permission_with_blank(raw["s2"]),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 blank-separated security-events: write",
     )
 
     print(json.dumps({
