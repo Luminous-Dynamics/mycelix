@@ -3356,6 +3356,13 @@ def self_test() -> int:
             ("crl-scope-completeness-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["selection"].update({"scope": "limited-reason-scope"})),
             ("crl-delta-indirect-semantics-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["selection"].update({"indirect_crl_supported": True})),
             ("crl-number-progression-claim-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["selection"].update({"crl_number_lineage": "strictly-increasing-history"})),
+            ("crl-cdp-applicability-digest-substitution", "DENY", lambda x: x.update({"crl_applicability_sha256": "97" * 32})),
+            ("crl-cdp-selected-crl-substitution", "DENY", lambda x: x["crl_applicability"].update({"selected_crl_der_sha256": "98" * 32})),
+            ("crl-cdp-selected-issuer-substitution", "DENY", lambda x: x["crl_applicability"].update({"selected_crl_issuer_certificate_sha256": "99" * 32})),
+            ("crl-cdp-certificate-substitution", "DENY", lambda x: x["crl_applicability"].update({"certificate_sha256": "9a" * 32})),
+            ("crl-cdp-scope-substitution", "DENY", lambda x: x["crl_applicability"].update({"selected_crl_scope": "limited-reason-scope"})),
+            ("crl-cdp-uri-digest-substitution", "DENY", lambda x: x["crl_applicability"]["distribution_point"].update({"uri_sha256": "9b" * 32})),
+            ("crl-cdp-reason-scope-claim-substitution", "DENY", lambda x: x["crl_applicability"]["distribution_point"].update({"reasons_present": True})),
         ]
         for name, expected, mutate in cases:
             candidate = copy.deepcopy(base)
