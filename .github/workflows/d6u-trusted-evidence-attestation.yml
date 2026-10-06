@@ -5,7 +5,7 @@ on:
     workflows: ["D6U Exact-Head Runtime Executor"]
     types: [completed]
     branches:
-      - main
+      - myc-int-demo-d6u-holochain-07-runtime
 
 permissions: {}
 
@@ -15,7 +15,7 @@ jobs:
     if: >-
       github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
       github.event.repository.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -185,7 +185,7 @@ EOF
       needs.verifier.result == 'success' &&
       github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
       github.event.repository.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -267,7 +267,7 @@ EOF
 
       github.event.workflow_run.conclusion == 'success' &&
 
-      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
 
       github.event.repository.full_name == github.repository
 
