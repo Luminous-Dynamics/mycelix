@@ -10,4 +10,4 @@ The theorem deliberately does not prove the Quote signature itself, TPM residenc
 
 ReferenceModelOnly is the qualification ceiling. Offline/live origin is INDETERMINATE.
 
-The semantic corpus is aligned at 19 vectors: one canonical PASS, fifteen adversarial mutations, two origin-boundary INDETERMINATE cases, and one key-order PASS control.
+The semantic corpus is aligned at 17 vectors: one canonical PASS, fifteen negative/indeterminate cases (including offline and live origin substitutions), and one key-order PASS control.
