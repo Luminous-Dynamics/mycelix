@@ -371,6 +371,11 @@
       "id": "EKC-V47",
       "mutation": "cryptographic-binding-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V48",
+      "mutation": "tpm-identity-digest-substitution",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
