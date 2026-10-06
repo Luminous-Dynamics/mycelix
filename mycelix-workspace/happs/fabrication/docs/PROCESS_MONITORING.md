@@ -135,6 +135,8 @@ The next research layer is therefore a separately versioned multimodal registrat
 
 FPM now has a separate registration layer for heterogeneous sensor evidence. A `RegistrationEnvelope` binds source identity, modality, source-local sequence/timestamp, clock domain, an explicit correlation domain and producer-assigned correlation ID, calibration-profile commitment, process-context commitment, source-data digest, and an explicit alignment method.
 
+The registration envelope also requires at least two distinct modalities and rejects duplicate `(source_id, modality)` participant identities. This prevents a single modality from manufacturing a superficially multimodal registration by repeating the same source record.
+
 Registration state is derived from the envelope rather than accepted as a caller-supplied field. Correlation IDs are namespace-bound so an opaque ID reused by unrelated acquisition systems cannot by itself imply shared frame identity. The mechanically derived positive state is named `Consistent`, not `Registered`, because these inputs remain supplied by the acquisition/registration layer:
 
 - **Consistent** — supplied registration metadata is internally coherent and passes the deterministic checks;
