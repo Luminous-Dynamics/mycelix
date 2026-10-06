@@ -1009,6 +1009,9 @@ pub enum FederationExternalVerificationPolicyAdmissionViolation {
     VerifierProfileNotAdmitted,
     WitnessKindNotAdmitted,
     WitnessProfileNotAdmitted,
+    VerifierIdentityKindNotAdmitted,
+    VerifierIdentityProfileNotAdmitted,
+    VerifierIdentityDigestNotAdmitted,
     VerificationClaimNotAdmitted,
     PolicyInvalid(FederationExternalVerificationTrustPolicyViolation),
 }
@@ -1021,6 +1024,9 @@ pub enum FederationExternalVerificationTrustPolicyViolation {
     EmptyVerifierProfile,
     DuplicateVerifierProfile,
     EmptyVerifierProfileEntry,
+    EmptyVerifierIdentityProfile,
+    InvalidVerifierIdentityDigest,
+    VerifierIdentityBindingIncomplete,
     NoAcceptedVerifierProfiles,
     AcceptedClaimsContainRejected,
     DuplicateAcceptedClaim,
@@ -1037,6 +1043,9 @@ pub struct FederationExternalVerificationTrustPolicyV1 {
     accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
     required_witness_kind: Option<FederationStateMachineTraceExternalWitnessKind>,
     required_witness_profile: Option<String>,
+    required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
+    required_verifier_identity_profile: Option<String>,
+    required_verifier_identity_sha256: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1051,6 +1060,9 @@ struct FederationExternalVerificationTrustPolicyHashView {
     accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
     required_witness_kind: Option<FederationStateMachineTraceExternalWitnessKind>,
     required_witness_profile: Option<String>,
+    required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
+    required_verifier_identity_profile: Option<String>,
+    required_verifier_identity_sha256: Option<String>,
 }
 
 /// Local policy admission of an externally asserted verification result.
@@ -1073,6 +1085,9 @@ pub struct FederationExternalVerificationPolicyAdmissionV1 {
     policy_sha256: String,
     witness_kind: FederationStateMachineTraceExternalWitnessKind,
     witness_profile: String,
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: String,
+    verifier_identity_sha256: String,
     verifier_profile: String,
     verifier_schema_version: u16,
     claim: FederationStateMachineTraceExternalVerificationClaim,
@@ -1100,6 +1115,9 @@ impl FederationExternalVerificationTrustPolicyV1 {
             accepted_claims,
             required_witness_kind: None,
             required_witness_profile: None,
+            required_verifier_identity_kind: None,
+            required_verifier_identity_profile: None,
+            required_verifier_identity_sha256: None,
         };
         policy.validate()?;
         Ok(policy)
@@ -1120,6 +1138,37 @@ impl FederationExternalVerificationTrustPolicyV1 {
         }
         if self.required_witness_profile.as_deref().is_some_and(str::is_empty) {
             return Err(FederationExternalVerificationTrustPolicyViolation::EmptyWitnessProfile);
+        }
+        let identity_field_count = [
+            self.required_verifier_identity_kind.is_some(),
+            self.required_verifier_identity_profile.is_some(),
+            self.required_verifier_identity_sha256.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count();
+        if identity_field_count != 0 && identity_field_count != 3 {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::VerifierIdentityBindingIncomplete
+            );
+        }
+        if self
+            .required_verifier_identity_profile
+            .as_deref()
+            .is_some_and(str::is_empty)
+        {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::EmptyVerifierIdentityProfile
+            );
+        }
+        if self
+            .required_verifier_identity_sha256
+            .as_deref()
+            .is_some_and(|value| !state_machine_trace_is_sha256_digest(value))
+        {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::InvalidVerifierIdentityDigest
+            );
         }
         if self.accepted_verifier_profiles.is_empty() {
             return Err(FederationExternalVerificationTrustPolicyViolation::NoAcceptedVerifierProfiles);
@@ -1157,6 +1206,15 @@ impl FederationExternalVerificationTrustPolicyV1 {
     pub fn accepted_claims(&self) -> &[FederationStateMachineTraceExternalVerificationClaim] { &self.accepted_claims }
     pub fn required_witness_kind(&self) -> Option<FederationStateMachineTraceExternalWitnessKind> { self.required_witness_kind }
     pub fn required_witness_profile(&self) -> Option<&str> { self.required_witness_profile.as_deref() }
+    pub fn required_verifier_identity_kind(&self) -> Option<FederationExternalVerifierIdentityKind> {
+        self.required_verifier_identity_kind
+    }
+    pub fn required_verifier_identity_profile(&self) -> Option<&str> {
+        self.required_verifier_identity_profile.as_deref()
+    }
+    pub fn required_verifier_identity_sha256(&self) -> Option<&str> {
+        self.required_verifier_identity_sha256.as_deref()
+    }
 
     pub fn try_new_bound(
         witness_kind: FederationStateMachineTraceExternalWitnessKind,
@@ -1176,6 +1234,20 @@ impl FederationExternalVerificationTrustPolicyV1 {
         Ok(policy)
     }
 
+    pub fn try_new_bound_identity(
+        &self,
+        verifier_identity_kind: FederationExternalVerifierIdentityKind,
+        verifier_identity_profile: impl Into<String>,
+        verifier_identity_sha256: impl Into<String>,
+    ) -> Result<Self, FederationExternalVerificationTrustPolicyViolation> {
+        let mut policy = self.clone();
+        policy.required_verifier_identity_kind = Some(verifier_identity_kind);
+        policy.required_verifier_identity_profile = Some(verifier_identity_profile.into());
+        policy.required_verifier_identity_sha256 = Some(verifier_identity_sha256.into());
+        policy.validate()?;
+        Ok(policy)
+    }
+
     pub fn policy_sha256(&self) -> Result<String, FederationExternalVerificationTrustPolicyViolation> {
         self.validate()?;
         let view = FederationExternalVerificationTrustPolicyHashView {
@@ -1189,6 +1261,9 @@ impl FederationExternalVerificationTrustPolicyV1 {
             accepted_claims: self.accepted_claims.clone(),
             required_witness_kind: self.required_witness_kind,
             required_witness_profile: self.required_witness_profile.clone(),
+            required_verifier_identity_kind: self.required_verifier_identity_kind,
+            required_verifier_identity_profile: self.required_verifier_identity_profile.clone(),
+            required_verifier_identity_sha256: self.required_verifier_identity_sha256.clone(),
         };
         let bytes = serde_json::to_vec(&view)
             .expect("external verification policy hash view is serializable");
@@ -1242,6 +1317,36 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             return Err(FederationExternalVerificationPolicyAdmissionViolation::WitnessProfileNotAdmitted);
         }
 
+        let (required_identity_kind, required_identity_profile, required_identity_sha256) = match (
+            policy.required_verifier_identity_kind(),
+            policy.required_verifier_identity_profile(),
+            policy.required_verifier_identity_sha256(),
+        ) {
+            (Some(kind), Some(profile), Some(digest)) => (kind, profile, digest),
+            _ => {
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid(
+                        FederationExternalVerificationTrustPolicyViolation::VerifierIdentityBindingIncomplete,
+                    ),
+                )
+            }
+        };
+        if required_identity_kind != self.verifier_identity_kind() {
+            return Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityKindNotAdmitted,
+            );
+        }
+        if required_identity_profile != self.verifier_identity_profile() {
+            return Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityProfileNotAdmitted,
+            );
+        }
+        if required_identity_sha256 != self.verifier_identity_sha256() {
+            return Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityDigestNotAdmitted,
+            );
+        }
+
         let decision = policy
             .classify(self.verifier_schema_version(), self.verifier_profile(), self.claim())
             .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?;
@@ -1267,6 +1372,9 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
                 .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?,
             witness_kind: self.witness_kind(),
             witness_profile: self.witness_profile().into(),
+            verifier_identity_kind: self.verifier_identity_kind(),
+            verifier_identity_profile: self.verifier_identity_profile().into(),
+            verifier_identity_sha256: self.verifier_identity_sha256().into(),
             verifier_profile: self.verifier_profile().into(),
             verifier_schema_version: self.verifier_schema_version(),
             claim: self.claim(),
@@ -1279,6 +1387,11 @@ impl FederationExternalVerificationPolicyAdmissionV1 {
     pub fn policy_sha256(&self) -> &str { &self.policy_sha256 }
     pub fn witness_kind(&self) -> FederationStateMachineTraceExternalWitnessKind { self.witness_kind }
     pub fn witness_profile(&self) -> &str { &self.witness_profile }
+    pub fn verifier_identity_kind(&self) -> FederationExternalVerifierIdentityKind {
+        self.verifier_identity_kind
+    }
+    pub fn verifier_identity_profile(&self) -> &str { &self.verifier_identity_profile }
+    pub fn verifier_identity_sha256(&self) -> &str { &self.verifier_identity_sha256 }
     pub fn verifier_profile(&self) -> &str { &self.verifier_profile }
     pub fn verifier_schema_version(&self) -> u16 { self.verifier_schema_version }
     pub fn claim(&self) -> FederationStateMachineTraceExternalVerificationClaim { self.claim }
