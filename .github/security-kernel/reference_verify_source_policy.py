@@ -20,6 +20,7 @@ S0 = ".github/workflows/security-kernel-trusted-dispatch.yml"
 S1 = ".github/workflows/security-kernel-independent-qualification.yml"
 S2 = ".github/workflows/security-kernel-trusted-result-verifier.yml"
 RETENTION = ".github/security-kernel/reference_verify_evidence_retention_binding.py"
+EXECUTION = ".github/security-kernel/reference_verify_execution_binding.py"
 POLICY = ".github/security-kernel/reference_verify_source_policy.py"
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
@@ -271,7 +272,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             fail(f"S1 isolation control missing: {required!r}")
 
 
-def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_policy_sha: str) -> None:
+def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_execution_sha: str, expected_policy_sha: str) -> None:
     l = lines(raw)
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
         fail("S2 name mismatch")
@@ -308,6 +309,10 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
             fail(f"S2 {key} mismatch")
     if exact_count(l, 'RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"') != 1:
         fail("S2 retention verifier path mismatch")
+    if exact_count(l, 'EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"') != 1:
+        fail("S2 execution verifier path mismatch")
+    if exact_count(l, f'EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "{expected_execution_sha}"') != 1:
+        fail("S2 execution verifier pin mismatch")
     if exact_count(l, 'SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"') != 1:
         fail("S2 source-policy verifier path mismatch")
     if exact_count(l, f'SOURCE_POLICY_VERIFIER_BLOB_SHA: "{expected_policy_sha}"') != 1:
@@ -331,6 +336,18 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: success()", "S2 transcript download gate")
     require_following(l, "Verify official receipt transport and publish verified result", "if: success()", "S2 final witness gate")
     require_no_escalation(l, "S2")
+
+
+def verify_execution(raw: bytes) -> None:
+    text = raw.decode("utf-8")
+    if 'SCHEMA = "security-kernel-execution-binding-v2"' not in text:
+        fail("execution oracle schema missing")
+    if "urllib" in text or "requests" in text:
+        fail("execution oracle unexpectedly contains network imports")
+    if "repository-local" not in text:
+        fail("execution oracle self-containment marker missing")
+    if 'struct.pack(">Q"' not in text:
+        fail("execution oracle must use the registered length-framed encoding")
 
 
 def verify_retention(raw: bytes) -> None:
@@ -369,7 +386,7 @@ def main() -> None:
     if set(snapshot) != {"schema", "files"} or snapshot["schema"] != SCHEMA:
         fail("source-policy snapshot schema mismatch")
     files = snapshot["files"]
-    expected = {"s0": S0, "s1": S1, "s2": S2, "retention": RETENTION, "policy": POLICY}
+    expected = {"s0": S0, "s1": S1, "s2": S2, "retention": RETENTION, "execution": EXECUTION, "policy": POLICY}
     if set(files) != set(expected):
         fail("source-policy file census mismatch")
     raw = {
@@ -379,15 +396,17 @@ def main() -> None:
     s1_sha = files["s1"]["sha"]
     s0_sha = files["s0"]["sha"]
     retention_sha = files["retention"]["sha"]
+    execution_sha = files["execution"]["sha"]
     verify_s0(raw["s0"], s1_sha)
     verify_s1(raw["s1"], s1_sha)
-    verify_s2(raw["s2"], s0_sha, s1_sha, retention_sha, files["policy"]["sha"])
+    verify_s2(raw["s2"], s0_sha, s1_sha, retention_sha, execution_sha, files["policy"]["sha"])
+    verify_execution(raw["execution"])
     verify_retention(raw["retention"])
     print(json.dumps({
         "schema": SCHEMA,
         "policy_result": "verified",
         "workflow_file_count": 3,
-        "reference_file_count": 2,
+        "reference_file_count": 3,
         "action_pins_verified": 3,
         "exact_job_topologies_verified": 3,
         "exact_trigger_topologies_verified": 3,
