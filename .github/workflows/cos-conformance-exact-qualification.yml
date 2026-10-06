@@ -73,6 +73,8 @@ jobs:
           grep -Fq 'pub fn try_new_bound_identity_use' "$source"
           grep -Fq 'required_verifier_identity_use_method' "$source"
           grep -Fq 'required_verifier_identity_use_profile' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 3' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE' "$source"
           grep -Fq 'VerifierIdentityUsePolicyNotConfigured' "$source"
           if grep -Fq 'pub pub fn' "$source"; then
             echo 'Duplicated visibility keyword detected.'
