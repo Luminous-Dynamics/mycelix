@@ -1160,6 +1160,55 @@ def refresh_trust_anchor_appraisal(m: dict[str, Any]) -> None:
         output = json.loads(op.read_text(encoding="utf-8"))
         appraisal["output_content_sha256"] = output["content_sha256"]
 
+def refresh_spki_binding(m: dict[str, Any]) -> None:
+    binding=m["spki_binding"]
+    leaf=unb64(m["leaf_certificate_der_base64"],"leaf_certificate_der_base64")
+    wire=bytes.fromhex(m["ek_public_wire_hex"])
+    binding["certificate_sha256"]=hashlib.sha256(leaf).hexdigest()
+    binding["ek_public_wire_sha256"]=hashlib.sha256(wire).hexdigest()
+    binding["source_sha256"]=sha256_file(SPKI_VERIFIER_SCRIPT)
+    verifier_input={
+        "certificate_source_sha256":"11"*32,
+        "ek_public_source_sha256":"22"*32,
+    }
+    binding["verifier_input"]=verifier_input
+    binding["session_binding_sha256"]=canonical_hash({
+        "session_id":m["session_id"],
+        "tpm_identity_digest":m["tpm_identity_digest"],
+        "certificate_der_sha256":hashlib.sha256(leaf).hexdigest(),
+        "ek_public_wire_sha256":hashlib.sha256(wire).hexdigest(),
+    })
+    composed_input={
+        "profile_id":"mycelix.security.tpm.ek-cert-spki-binding",
+        "profile_version":"0.1.0",
+        "session_id":m["session_id"],
+        "tpm_identity_digest":m["tpm_identity_digest"],
+        "verification_mode":m["verification_mode"],
+        "claim_ceiling":"ReferenceModelOnly",
+        "certificate_der_hex":leaf.hex(),
+        "certificate_der_sha256":hashlib.sha256(leaf).hexdigest(),
+        "ek_public_format":"TPMT_PUBLIC",
+        "ek_public_wire_hex":wire.hex(),
+        "ek_public_wire_sha256":hashlib.sha256(wire).hexdigest(),
+        "certificate_source_sha256":"11"*32,
+        "ek_public_source_sha256":"22"*32,
+    }
+    composed_input["session_binding_sha256"]=binding["session_binding_sha256"]
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-spki-refresh-") as td:
+        work=Path(td);ip=work/"input.json";op=work/"output.json"
+        ip.write_text(json.dumps(composed_input,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+        proc=subprocess.run(
+            [sys.executable,str(SPKI_VERIFIER_SCRIPT),"--verify",str(ip),"--output",str(op)],
+            cwd=work,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False
+        )
+        if proc.returncode!=0 or not op.is_file():
+            raise RuntimeError(f"SPKI fixture verifier failed: {proc.stderr}")
+        output=json.loads(op.read_text(encoding="utf-8"))
+        binding["input_sha256"]=hashlib.sha256(ip.read_bytes()).hexdigest()
+        binding["output_sha256"]=hashlib.sha256(op.read_bytes()).hexdigest()
+        binding["output_content_sha256"]=output["content_sha256"]
+
+
 def refresh_template_binding(m: dict[str, Any]) -> None:
     binding = m["ek_template_binding"]
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-template-refresh-") as td:
@@ -1328,6 +1377,10 @@ def self_test() -> int:
             ("revocation-indeterminate", "INDETERMINATE", lambda x: x["revocation"].update({"state": "INDETERMINATE"})),
             ("root-crl-missing", "DENY", mutate_root_crl_missing),
             ("spki-certificate-substitution", "DENY", lambda x: x["spki_binding"].update({"certificate_sha256": "77" * 32})),
+            ("spki-verifier-source-substitution", "DENY", lambda x: x["spki_binding"].update({"source_sha256": "78" * 32})),
+            ("spki-input-substitution", "DENY", lambda x: x["spki_binding"].update({"input_sha256": "79" * 32})),
+            ("spki-output-substitution", "DENY", lambda x: x["spki_binding"].update({"output_sha256": "7a" * 32})),
+            ("spki-output-content-substitution", "DENY", lambda x: x["spki_binding"].update({"output_content_sha256": "7b" * 32})),
             ("spki-indeterminate", "INDETERMINATE", lambda x: x["spki_binding"].update({"state": "INDETERMINATE"})),
             ("spki-ek-public-digest-substitution", "DENY", lambda x: x["spki_binding"].update({"ek_public_wire_sha256": "77" * 32})),
             ("verification-time-binding-substitution", "DENY", lambda x: x.update({"verification_time_unix": x["verification_time_unix"] + 3600})),
@@ -1362,7 +1415,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("32 adversarial mutations plus canonical and key-order control: PASS")
+    print("36 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
