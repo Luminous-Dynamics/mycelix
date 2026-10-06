@@ -69,10 +69,21 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
         f"d6u-runtime-evidence-run-{run_id}-attempt-{run_attempt}"
     )
     query = urllib.parse.urlencode({"name": expected_name})
+    token = os.environ["GITHUB_TOKEN"]
+    current_run = github_get(
+        repo,
+        f"/actions/runs/{run_id}",
+        token,
+    )
+    assert current_run["id"] == run_id
+    assert current_run["run_attempt"] == run_attempt
+    assert current_run["repository"]["full_name"] == repo
+    assert current_run["head_branch"] == os.environ["D6U_TRIGGER_HEAD_BRANCH"]
+    assert current_run["head_sha"] == os.environ["D6U_TRIGGER_HEAD_SHA"]
     payload = github_get(
         repo,
         f"/actions/runs/{run_id}/artifacts?{query}",
-        os.environ["GITHUB_TOKEN"],
+        token,
     )
     artifacts = payload.get("artifacts", [])
     assert len(artifacts) == 1, (
@@ -87,7 +98,6 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     assert workflow_artifact_run["head_repository_id"] == event["repository"]["id"]
     assert workflow_artifact_run["head_branch"] == workflow_run["head_branch"]
     assert workflow_artifact_run["head_sha"] == workflow_run["head_sha"]
-    assert workflow_artifact_run["run_attempt"] == run_attempt
 
     digest = artifact.get("digest", "")
     assert digest.startswith("sha256:") and len(digest) == 71, (
@@ -123,9 +133,10 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     assert artifact["expired"] is False
     workflow_artifact_run = artifact["workflow_run"]
     assert workflow_artifact_run["id"] == run_id
-    assert workflow_artifact_run["run_attempt"] == run_attempt
-    assert workflow_artifact_run["head_branch"] == os.environ["D6U_TRIGGER_HEAD_BRANCH"]
-    assert workflow_artifact_run["head_sha"] == os.environ["D6U_TRIGGER_HEAD_SHA"]
+    assert workflow_artifact_run["head_branch"] == current_run["head_branch"]
+    assert workflow_artifact_run["head_sha"] == current_run["head_sha"]
+    assert workflow_artifact_run["repository_id"] == current_run["repository"]["id"]
+    assert workflow_artifact_run["head_repository_id"] == current_run["head_repository"]["id"]
     digest = artifact.get("digest", "")
     assert digest.startswith("sha256:") and len(digest) == 71, (
         f"missing or malformed GitHub artifact digest: {digest!r}"
