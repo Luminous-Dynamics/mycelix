@@ -146,6 +146,11 @@ path = "sweettest_multi_agent.rs"
 name = "sweettest_day_in_the_life"
 path = "sweettest_day_in_the_life.rs"
 
+# Governance-root source contract — locks AC-122 symmetry across Finance zomes
+[[test]]
+name = "governance_root_contract_test"
+path = "governance_root_contract_test.rs"
+
 # NOTE: economics_stress_test has been moved to types/tests/ where it compiles
 # without the heavy Holochain dependency. Run with:
 #   cargo test -p mycelix_finance_types --test economics_stress_test
