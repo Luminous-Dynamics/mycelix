@@ -333,7 +333,11 @@ mod tests {
             expected_verification_key_digest: claim.verification_key_digest.clone(),
             expected_acquisition_root_digest: claim.acquisition_root_digest.clone(),
             expected_challenge_nonce_digest: claim.challenge_nonce_digest.clone(),
+            expected_attestation_format: claim.attestation_format.clone(),
+            expected_verifier_profile_digest: claim.verifier_profile_digest.clone(),
             expected_appraisal_policy_digest: claim.appraisal_policy_digest.clone(),
+            expected_reference_values_digest: claim.reference_values_digest.clone(),
+            expected_endorsement_digest: claim.endorsement_digest.clone(),
             claim,
         }
     }
