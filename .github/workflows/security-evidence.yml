@@ -103,11 +103,11 @@ jobs:
           assert cert_spki["profile_id"] == "mycelix.security.tpm.ek-cert-spki-binding"
           assert cert_spki["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_spki["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_spki["vectors"]) == 16
+          assert len(cert_spki["vectors"]) == 17
           assert ek_template["profile_id"] == "mycelix.security.tpm.ek-template-appraisal"
           assert ek_template["claim_ceiling"] == "ReferenceModelOnly"
           assert ek_template["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(ek_template["vectors"]) == 24
+          assert len(ek_template["vectors"]) == 27
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
