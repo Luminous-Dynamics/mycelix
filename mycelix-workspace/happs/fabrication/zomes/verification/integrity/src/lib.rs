@@ -238,7 +238,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::FpmRegistrationAnchor(a) => validate_fpm_registration_anchor(a),
             EntryTypes::FpmProvenanceAnchor(a) => validate_fpm_provenance_anchor(a),
             EntryTypes::FpmAcquisitionRootAnchor(a) => validate_fpm_acquisition_root_anchor(a),
-            EntryTypes::FpmAttestationChallenge(a) => validate_fpm_attestation_challenge(a),
+            EntryTypes::FpmVerificationKeyTrustAnchor(_) | EntryTypes::FpmAttestationChallenge(_) => {
+                unreachable!("dedicated create/update validation arms must handle these entry types")
+            }
             EntryTypes::FpmSourceAttestationAnchor(a) => validate_fpm_source_attestation_anchor(a),
             EntryTypes::FpmEatCoseVerificationAnchor(a) => validate_fpm_eat_cose_verification_anchor(a),
             EntryTypes::FpmAttestationChallengeUse(a) => validate_fpm_attestation_challenge_use(a),
