@@ -318,6 +318,7 @@ jobs:
           if [ "${{ steps.fmt.outcome }}" = "success" ] &&
              [ "${{ steps.tests.outcome }}" = "success" ] &&
              [ "${{ steps.artifact_guard.outcome }}" = "success" ] &&
+             [ "${{ steps.source_immutability.outcome }}" = "success" ] &&
              [ "${{ steps.tree_immutability.outcome }}" = "success" ]; then
             result=PASS
           fi
@@ -334,6 +335,11 @@ jobs:
           head_repository=${{ steps.subject.outputs.head_repository }}
           base_repository=${{ steps.subject.outputs.base_repository }}
           resolution_mode=${{ steps.subject.outputs.resolution_mode }}
+          candidate_execution_identity=finance-qualification-test
+          candidate_source_snapshot=${{ steps.isolation.outputs.subject_dir || '' }}
+          candidate_source_read_only=true
+          candidate_build_state=${{ steps.isolation.outputs.cargo_target || '' }}
+          candidate_cargo_home=${{ steps.isolation.outputs.cargo_home || '' }}
           upstream_request_run_id=${{ github.event.workflow_run.id || '' }}
           upstream_request_run_attempt=${{ github.event.workflow_run.run_attempt || '' }}
           workflow_run_id=${{ github.run_id }}
