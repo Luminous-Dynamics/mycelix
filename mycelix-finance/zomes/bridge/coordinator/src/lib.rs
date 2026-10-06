@@ -1054,11 +1054,8 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
 /// proposal before creating/amending currencies. Returns true if the proposal is
 /// valid, false if not found or not approved.
 ///
-/// **Fallback behavior** depends on `STRICT_GOVERNANCE_MODE`:
-/// - `false` (default): Returns `true` when governance is unreachable (permissive).
-/// - `true`: Returns `false` when governance is unreachable (fail-closed),
-///   blocking any operation that requires a governance proposal until the
-///   governance cluster is available.
+/// Governance transport and payload failures are fail-closed. Unreachable
+/// governance is never treated as evidence that a proposal is approved.
 #[hdk_extern]
 pub fn verify_governance_proposal(proposal_id: String) -> ExternResult<bool> {
     match call(
