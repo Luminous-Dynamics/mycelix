@@ -1740,6 +1740,22 @@ pub fn run_scenario(
             state_machine_trace_external_evidence_anchor_reference(
                 FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
                 FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                FederationStateMachineTraceExternalWitnessKind::Other,
+                0,
+                "external-v1",
+                b"witness",
+                0,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidWitnessSchemaVersion
+            )
+        );
+
+        assert_eq!(
+            state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
                 "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                 FederationStateMachineTraceExternalWitnessKind::Other,
                 1,
@@ -5232,6 +5248,7 @@ mod tests {
         EmptySubjectProfile,
         EmptySubjectDigest,
         InvalidSubjectDigest,
+        InvalidWitnessSchemaVersion,
         EmptyWitnessProfile,
         EmptyWitnessArtifact,
     }
@@ -5262,6 +5279,11 @@ mod tests {
         if !state_machine_trace_is_sha256_digest(subject_sha256) {
             return Err(
                 FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidSubjectDigest
+            );
+        }
+        if witness_schema_version == 0 {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidWitnessSchemaVersion
             );
         }
         if witness_profile.is_empty() {
