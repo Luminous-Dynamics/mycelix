@@ -4533,16 +4533,17 @@ mod tests {
     enum FederationStateMachineTracePublicationCollectionReconciliationBuildViolation {
         LeftCollectionInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
         RightCollectionInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
+        UnionCollectionInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
     }
 
-    fn state_machine_trace_publication_collection_reconciliation(
+    fn state_machine_trace_publication_collection_reconciliation<'a>(
         left: &[(
-            &FederationStateMachineTraceCapsule,
-            &FederationStateMachineTraceCheckpointPublication,
+            &'a FederationStateMachineTraceCapsule,
+            &'a FederationStateMachineTraceCheckpointPublication,
         )],
         right: &[(
-            &FederationStateMachineTraceCapsule,
-            &FederationStateMachineTraceCheckpointPublication,
+            &'a FederationStateMachineTraceCapsule,
+            &'a FederationStateMachineTraceCheckpointPublication,
         )],
     ) -> Result<
         FederationStateMachineTracePublicationCollectionReconciliationReceipt,
@@ -4575,7 +4576,7 @@ mod tests {
         let equivocation_witness_sha256s =
             collect_state_machine_trace_publication_equivocation_witnesses(&union)
                 .map_err(
-                    FederationStateMachineTracePublicationCollectionReconciliationBuildViolation::LeftCollectionInvalid,
+                    FederationStateMachineTracePublicationCollectionReconciliationBuildViolation::UnionCollectionInvalid,
                 )?
                 .into_iter()
                 .map(|witness| witness.witness_sha256)
@@ -4842,17 +4843,18 @@ mod tests {
         LeftOnlyPublicationSetMismatch,
         RightOnlyPublicationSetMismatch,
         EquivocationWitnessCoverageMismatch,
+        UnionCollectionInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
         ReconciliationDigestMismatch,
     }
 
-    fn validate_state_machine_trace_publication_collection_reconciliation(
+    fn validate_state_machine_trace_publication_collection_reconciliation<'a>(
         left: &[(
-            &FederationStateMachineTraceCapsule,
-            &FederationStateMachineTraceCheckpointPublication,
+            &'a FederationStateMachineTraceCapsule,
+            &'a FederationStateMachineTraceCheckpointPublication,
         )],
         right: &[(
-            &FederationStateMachineTraceCapsule,
-            &FederationStateMachineTraceCheckpointPublication,
+            &'a FederationStateMachineTraceCapsule,
+            &'a FederationStateMachineTraceCheckpointPublication,
         )],
         receipt: &FederationStateMachineTracePublicationCollectionReconciliationReceipt,
     ) -> Result<(), FederationStateMachineTracePublicationCollectionReconciliationViolation> {
@@ -5020,7 +5022,7 @@ mod tests {
         let expected_witnesses =
             collect_state_machine_trace_publication_equivocation_witnesses(&union)
                 .map_err(
-                    FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionInvalid,
+                    FederationStateMachineTracePublicationCollectionReconciliationViolation::UnionCollectionInvalid,
                 )?
                 .into_iter()
                 .map(|witness| witness.witness_sha256)
@@ -7788,6 +7790,39 @@ mod tests {
             FederationStateMachineTracePublicationCollectionRelationship::LeftStrictSubset
         );
 
+        let reverse_subset =
+            state_machine_trace_publication_collection_reconciliation(
+                &left,
+                &[(&base, &base_publication)],
+            )
+            .expect("reverse subset views must reconcile");
+        assert_eq!(
+            reverse_subset.relationship,
+            FederationStateMachineTracePublicationCollectionRelationship::RightStrictSubset
+        );
+
+        let unrelated =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(
+                &state_machine_trace_capsule(59, 8),
+            )
+            .expect("unrelated capsule must deserialize");
+        let unrelated_publication = state_machine_trace_checkpoint_publication(
+            &unrelated,
+            8,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let disjoint =
+            state_machine_trace_publication_collection_reconciliation(
+                &[(&unrelated, &unrelated_publication)],
+                &right,
+            )
+            .expect("disjoint views must reconcile");
+        assert_eq!(
+            disjoint.relationship,
+            FederationStateMachineTracePublicationCollectionRelationship::Disjoint
+        );
+        assert!(disjoint.equivocation_witness_sha256s.is_empty());
+
         let mut bad = receipt.clone();
         bad.relationship =
             FederationStateMachineTracePublicationCollectionRelationship::ExactMatch;
@@ -7799,6 +7834,19 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTracePublicationCollectionReconciliationViolation::RelationshipMismatch
+            )
+        );
+
+        let mut bad_left_digest = receipt.clone();
+        bad_left_digest.left_collection_sha256 = "sha256:invalid-left-view".into();
+        bad_left_digest.reconciliation_sha256 =
+            state_machine_trace_publication_collection_reconciliation_sha256(&bad_left_digest);
+        assert_eq!(
+            validate_state_machine_trace_publication_collection_reconciliation(
+                &left, &right, &bad_left_digest
+            ),
+            Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionDigestMismatch
             )
         );
 
