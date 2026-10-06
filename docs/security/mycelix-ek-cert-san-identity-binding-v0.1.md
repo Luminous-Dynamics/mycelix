@@ -9,3 +9,5 @@ The manufacturer name itself is not authorized by this verifier; mapping TPM_PT_
 Missing issuance-era firmware provenance is INDETERMINATE. Current firmware is recorded but is not accepted as evidence for what firmware existed when the EK certificate was created.
 
 The theorem remains independent of EK SPKI key identity, certificate-chain trust, and measured-boot validity.
+
+The SAN receipt is no longer accepted as a standalone authority artifact. The verifier source, exact certificate input, extractor output, and extractor content digest are all rebound by re-executing the DER-native extractor against the exact certificate bytes. The canonical positive fixture itself is produced through that same path.

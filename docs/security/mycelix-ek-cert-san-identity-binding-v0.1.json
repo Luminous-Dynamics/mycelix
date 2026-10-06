@@ -12,7 +12,7 @@
     "INDETERMINATE"
   ],
   "theorem": {
-    "statement": "The TCG EK SAN directoryName manufacturer and model claims must equal independently observed TPM identity values; the SAN firmware value may only be bound to issuance-era firmware evidence and is not required to equal current firmware.",
+    "statement": "The TCG EK SAN directoryName manufacturer, model and firmware claims must equal independently observed TPM identity values, and the SAN extraction result must be produced by re-executing the exact DER-native extractor over the exact certificate bytes.",
     "scope": "Manufacturer-name authorization itself is a separate vendor-ID registry theorem; this theorem only compares normalized identity values."
   },
   "oid_map": {
@@ -25,6 +25,10 @@
     "san_extraction": [
       "verifier_id",
       "state",
+      "input_sha256",
+      "output_sha256",
+      "source_sha256",
+      "content_sha256",
       "certificate_der_sha256",
       "details.manufacturer",
       "details.model",
@@ -151,6 +155,21 @@
     ],
     [
       "SAN-V16",
+      "extractor-source-substitution",
+      "DENY"
+    ],
+    [
+      "SAN-V17",
+      "extractor-input-substitution",
+      "DENY"
+    ],
+    [
+      "SAN-V18",
+      "extractor-output-substitution",
+      "DENY"
+    ],
+    [
+      "SAN-V19",
       "key-order-permutation",
       "PASS"
     ]
