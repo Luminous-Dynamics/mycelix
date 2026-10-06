@@ -2683,10 +2683,34 @@ fn find_exchange_action_hash_by_id(exchange_id: &str) -> ExternResult<ActionHash
 /// Find an exchange by its ID using the ExchangeIdToExchange index.
 /// Follows the update chain to get the latest version (exchanges are mutable — status changes).
 fn find_exchange_by_id(exchange_id: &str) -> ExternResult<Option<TendExchange>> {
-    let action_hash = match find_exchange_action_hash_by_id(exchange_id) {
-        Ok(hash) => hash,
-        Err(_) => return Ok(None),
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&format!("exchange:{}", exchange_id))?,
+            LinkTypes::ExchangeIdToExchange,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    let mut hashes = links
+        .into_iter()
+        .filter_map(|link| link.target.into_action_hash())
+        .collect::<Vec<_>>();
+    hashes.sort();
+    hashes.dedup();
+
+    let Some(action_hash) = match hashes.len() {
+        0 => None,
+        1 => hashes.into_iter().next(),
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Conflicting exchange ActionHashes exist for exchange ID: {}",
+                exchange_id
+            ))));
+        }
+    } else {
+        return Ok(None);
     };
+
     let record = follow_update_chain(action_hash)?;
     record
         .entry()
