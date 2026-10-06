@@ -1,0 +1,110 @@
+name: Security Kernel Qualification — Trusted Dispatcher
+run-name: SEC-KERNEL-DISPATCH repo_id=${{ github.event.pull_request.head.repo.id }} pr=${{ github.event.pull_request.number }} candidate=${{ github.event.pull_request.head.sha }}
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+  BASE_REPOSITORY_ID: "1176351975"
+  BASE_BRANCH: "main"
+  TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
+  TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
+
+jobs:
+  resolve:
+    name: Resolve exact pull request subject
+    runs-on: ubuntu-24.04
+    cache-mode: none
+    timeout-minutes: 10
+    outputs:
+      candidate_pr: ${{ steps.resolve.outputs.candidate_pr }}
+      candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
+      candidate_repository: ${{ steps.resolve.outputs.candidate_repository }}
+      candidate_repository_id: ${{ steps.resolve.outputs.candidate_repository_id }}
+    steps:
+      - name: Verify trusted dispatcher context and exact PR identity
+        id: resolve
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
+          BASE_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.base.repo.id }}
+          BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_REPOSITORY" = "$BASE_REPOSITORY"
+          test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
+          test "$GITHUB_REF_PROTECTED" = "true"
+          test "${ACTIONS_CACHE_MODE:-}" = "none"
+          test "$GITHUB_EVENT_NAME" = "pull_request_target"
+          printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
+          printf '%s' "$HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$HEAD_REPOSITORY_ID" | grep -Eq '^[0-9]+$'
+          printf '%s' "$BASE_REPOSITORY_ID_EVENT" | grep -Eq '^[0-9]+$'
+          test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
+          test "$BASE_REPOSITORY_ID_EVENT" = "$BASE_REPOSITORY_ID"
+          test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
+          test -n "$HEAD_REPOSITORY"
+          python3 - <<'PY'
+          import json, os, urllib.request
+          repo=os.environ["BASE_REPOSITORY"]
+          pr_number=int(os.environ["PR_NUMBER"])
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
+              headers={
+                  "Accept":"application/vnd.github+json",
+                  "Authorization":f"Bearer {os.environ['TOKEN']}",
+                  "X-GitHub-Api-Version":"2022-11-28",
+              })
+          with urllib.request.urlopen(req, timeout=20) as response:
+              pr=json.load(response)
+          assert pr["number"] == pr_number
+          assert pr["state"] == "open"
+          assert pr["base"]["repo"]["full_name"] == repo
+          assert pr["base"]["repo"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
+          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
+          assert pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
+          assert pr["head"]["repo"]["id"] == int(os.environ["HEAD_REPOSITORY_ID"])
+          assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
+          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"candidate_pr={pr_number}\n")
+              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
+              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
+              output.write(f"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\n")
+          PY
+
+  qualify:
+    name: Execute exact candidate qualification
+    needs: resolve
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    cache-mode: none
+    uses: ./.github/workflows/security-kernel-independent-qualification.yml
+    with:
+      candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
+      candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
+      candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
+      candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
+      trusted_workflow_blob_sha: "42b9bfe548a90475ce1a4dc531c76991facd2111"
+
