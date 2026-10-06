@@ -182,6 +182,23 @@ jobs:
               assert trigger_repository == os.environ["GITHUB_REPOSITORY"]
           PY
 
+          if [[ "${TRIGGER_EVENT}" == "pull_request" ]]; then
+            trigger_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.head_sha')"
+            trigger_head_branch="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.head_branch')"
+            trigger_event="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.event')"
+            trigger_workflow_id_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.workflow_id')"
+            trigger_workflow_path_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.path')"
+            trigger_repository_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.repository.full_name')"
+            trigger_pr_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq --arg pr "${PR_NUMBER}" '.pull_requests[] | select((.number|tostring)==$pr) | .head.sha' | head -n 1)"
+            test "${trigger_head_sha}" = "${EXPECTED_HEAD_SHA}"
+            test "${trigger_pr_head_sha}" = "${EXPECTED_HEAD_SHA}"
+            test "${trigger_event}" = "pull_request"
+            test "${trigger_workflow_id_live}" = "374065836"
+            test "${trigger_workflow_path_live}" = ".github/workflows/cos-conformance-evidence.yml"
+            test "${trigger_repository_live}" = "${GITHUB_REPOSITORY}"
+            test -n "${trigger_head_branch}"
+          fi
+
 
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
