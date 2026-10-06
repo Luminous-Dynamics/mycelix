@@ -830,10 +830,10 @@ jobs:
               assert set(result) == expected_keys, "causal reference verifier result schema drift"
               assert result["schema"] == "security-kernel-causal-join-reference-v1"
               assert result["reference_result"] == "verified"
-              assert result["metamorphic_mutations_verified"] == 35
+              assert result["metamorphic_mutations_verified"] == 36
               assert re.fullmatch(r"[0-9a-f]{64}", result["snapshot_sha256"])
               assert re.fullmatch(r"[0-9a-f]{64}", result["workflow_file_snapshot_sha256"])
-              assert result["metamorphic_mutations_verified"] == 35
+              assert result["metamorphic_mutations_verified"] == 36
               assert result["candidate_repository"] == candidate_repository
               assert result["candidate_repository_id"] == candidate_repo_id
               assert result["candidate_pr"] == candidate_pr
