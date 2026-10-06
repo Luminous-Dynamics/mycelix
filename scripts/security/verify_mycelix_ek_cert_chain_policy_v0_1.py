@@ -378,18 +378,24 @@ def parse_certificate_der(der: bytes) -> dict[str, Any]:
         raise ValueError("X.509 SubjectPublicKeyInfo invalid")
 
     extensions: dict[str, dict[str, Any]] = {}
+    saw_issuer_unique_id = False
+    saw_subject_unique_id = False
     saw_extensions = False
     while cursor < len(tbs_content):
         tag, content, _raw, cursor = der_tlv(tbs_content, cursor)
-        if tag in (0xA1, 0xA2):
-            if version != 3:
-                raise ValueError("X.509 unique ID present outside v3")
+        if tag == 0xA1:
+            if version != 3 or saw_issuer_unique_id or saw_subject_unique_id or saw_extensions:
+                raise ValueError("X.509 issuerUniqueID is duplicated or out of order")
+            saw_issuer_unique_id = True
+            continue
+        if tag == 0xA2:
+            if version != 3 or saw_subject_unique_id or saw_extensions:
+                raise ValueError("X.509 subjectUniqueID is duplicated or out of order")
+            saw_subject_unique_id = True
             continue
         if tag == 0xA3:
-            if saw_extensions:
-                raise ValueError("X.509 Extensions wrapper duplicated")
-            if version != 3:
-                raise ValueError("X.509 Extensions present outside v3")
+            if saw_extensions or version != 3:
+                raise ValueError("X.509 Extensions wrapper duplicated or outside v3")
             extensions = parse_extensions(content)
             saw_extensions = True
             continue
@@ -481,12 +487,22 @@ def authority_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
             names = der_children(child_content)
             if not names:
                 raise ValueError("AuthorityKeyIdentifier authorityCertIssuer is empty")
-            allowed = {0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0xA0}
+            allowed = {0xA0, 0x81, 0x82, 0x83, 0xA4, 0xA5, 0x86, 0x87, 0x88}
             for general_name_tag, general_name_content, _general_name_raw in names:
                 if general_name_tag not in allowed:
                     raise ValueError("AuthorityKeyIdentifier authorityCertIssuer GeneralName invalid")
-                if general_name_tag == 0x87 and len(general_name_content) not in (4, 16):
-                    raise ValueError("AuthorityKeyIdentifier registeredID/ediPartyName structure invalid")
+                if general_name_tag == 0xA4:
+                    name_tag, _name_content, _name_raw, name_end = der_tlv(general_name_content, 0)
+                    if name_tag != 0x30 or name_end != len(general_name_content):
+                        raise ValueError("AuthorityKeyIdentifier directoryName malformed")
+                elif general_name_tag == 0xA0:
+                    other_tag, _other_content, _other_raw, other_end = der_tlv(general_name_content, 0)
+                    if other_tag != 0x30 or other_end != len(general_name_content):
+                        raise ValueError("AuthorityKeyIdentifier otherName malformed")
+                elif general_name_tag == 0x87 and len(general_name_content) not in (4, 16):
+                    raise ValueError("AuthorityKeyIdentifier iPAddress structure invalid")
+                elif general_name_tag == 0x88:
+                    oid_string(general_name_content)
         elif child_tag == 0x82:
             # authorityCertSerialNumber is CertificateSerialNumber, encoded IMPLICIT INTEGER.
             der_integer_value(child_content, "AuthorityKeyIdentifier.authorityCertSerialNumber", positive=True)
