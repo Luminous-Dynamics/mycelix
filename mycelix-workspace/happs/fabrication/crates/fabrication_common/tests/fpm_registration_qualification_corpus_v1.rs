@@ -5,7 +5,6 @@ use fabrication_common::fpm_registration::{
 use fabrication_common::fpm_registration_qualification::{
     qualify_registration_structure, StructuralQualificationOutcome,
 };
-
 use hdi::prelude::AgentPubKey;
 
 fn digest(ch: char) -> String {
@@ -36,14 +35,17 @@ fn envelope(method: AlignmentMethod) -> RegistrationEnvelope {
     }
 }
 
+fn verifier(byte: u8) -> AgentPubKey {
+    AgentPubKey::from_raw_36(vec![byte; 36])
+}
+
 #[test]
 fn structural_profile_qualifies_consistent_metadata_only() {
-    let result =
-        qualify_registration_structure(
+    let result = qualify_registration_structure(
         &envelope(AlignmentMethod::ExactCorrelationId),
-        &AgentPubKey::from_raw_36(vec![1u8; 36]),
+        &verifier(1),
     )
-            .expect("qualification");
+    .expect("qualification");
     assert_eq!(result.registration_state, RegistrationState::Consistent);
     assert_eq!(result.outcome, StructuralQualificationOutcome::Qualified);
 }
@@ -52,12 +54,12 @@ fn structural_profile_qualifies_consistent_metadata_only() {
 fn unregistered_metadata_is_insufficient_evidence() {
     let mut registration = envelope(AlignmentMethod::ExactCorrelationId);
     registration.alignment_method = None;
-    let result = qualify_registration_structure(
-        &registration,
-        &AgentPubKey::from_raw_36(vec![1u8; 36]),
-    )
-    .expect("qualification");
-    assert_eq!(result.outcome, StructuralQualificationOutcome::InsufficientEvidence);
+    let result = qualify_registration_structure(&registration, &verifier(1))
+        .expect("qualification");
+    assert_eq!(
+        result.outcome,
+        StructuralQualificationOutcome::InsufficientEvidence
+    );
 }
 
 #[test]
@@ -65,16 +67,21 @@ fn unknown_alignment_evidence_is_not_qualified() {
     let registration = envelope(AlignmentMethod::DeclaredClockTransform {
         transform_digest: digest('d'),
     });
-    let result = qualify_registration_structure(&registration, "v1").expect("qualification");
+    let result = qualify_registration_structure(&registration, &verifier(1))
+        .expect("qualification");
     assert_eq!(result.registration_state, RegistrationState::Unknown);
-    assert_eq!(result.outcome, StructuralQualificationOutcome::InsufficientEvidence);
+    assert_eq!(
+        result.outcome,
+        StructuralQualificationOutcome::InsufficientEvidence
+    );
 }
 
 #[test]
 fn conflicting_participants_are_rejected() {
     let mut registration = envelope(AlignmentMethod::ExactCorrelationId);
     registration.related[0].correlation_id = "different-frame".into();
-    let result = qualify_registration_structure(&registration, "v1").expect("qualification");
+    let result = qualify_registration_structure(&registration, &verifier(1))
+        .expect("qualification");
     assert_eq!(result.registration_state, RegistrationState::Conflicting);
     assert_eq!(result.outcome, StructuralQualificationOutcome::Rejected);
 }
@@ -83,7 +90,8 @@ fn conflicting_participants_are_rejected() {
 fn malformed_registration_is_rejected() {
     let mut registration = envelope(AlignmentMethod::ExactCorrelationId);
     registration.related[0].source_data_digest = "bad".into();
-    let result = qualify_registration_structure(&registration, "v1").expect("qualification");
+    let result = qualify_registration_structure(&registration, &verifier(1))
+        .expect("qualification");
     assert_eq!(result.registration_state, RegistrationState::Invalid);
     assert_eq!(result.outcome, StructuralQualificationOutcome::Rejected);
 }
@@ -91,21 +99,19 @@ fn malformed_registration_is_rejected() {
 #[test]
 fn qualification_receipt_is_self_verifiable() {
     let registration = envelope(AlignmentMethod::ExactCorrelationId);
-    let qualification =
-        qualify_registration_structure(&registration, "verifier-1").expect("qualification");
+    let qualification = qualify_registration_structure(&registration, &verifier(1))
+        .expect("qualification");
     assert!(qualification.verify_digest().expect("verify"));
 
     let mut tampered = qualification;
-    tampered.verifier_id = "verifier-2".into();
+    tampered.verifier = verifier(2);
     assert!(!tampered.verify_digest().expect("tampered verify"));
 }
 
 #[test]
 fn different_verifiers_produce_distinct_qualification_digests() {
     let registration = envelope(AlignmentMethod::ExactCorrelationId);
-    let a = let a_verifier = AgentPubKey::from_raw_36(vec![1u8; 36]);
-    let b_verifier = AgentPubKey::from_raw_36(vec![2u8; 36]);
-    let a = qualify_registration_structure(&registration, &a_verifier).expect("a");
-    let b = qualify_registration_structure(&registration, &b_verifier).expect("b");
+    let a = qualify_registration_structure(&registration, &verifier(1)).expect("a");
+    let b = qualify_registration_structure(&registration, &verifier(2)).expect("b");
     assert_ne!(a.qualification_digest, b.qualification_digest);
 }
