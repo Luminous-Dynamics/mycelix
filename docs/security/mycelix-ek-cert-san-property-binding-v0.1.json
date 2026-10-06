@@ -18,7 +18,7 @@
       "TPMModel": "2.23.133.2.2",
       "TPMVersion": "2.23.133.2.3"
     },
-    "rule": "Manufacturer is rendered as id:<8 uppercase hex digits>. Model and version require a reviewed vendor-specific mapping; unknown mappings are INDETERMINATE."
+    "rule": "The verifier parses GeneralName directoryName directly from certificate DER, requires exactly one directoryName carrying all three TCG identity attributes, requires each target attribute to occur exactly once, and requires UTF8String values."
   },
   "required_input": [
     "leaf_certificate_der_base64",
@@ -159,6 +159,11 @@
     ],
     [
       "EKSAN-V19",
+      "certificate-uri-dirname-confusion",
+      "DENY"
+    ],
+    [
+      "EKSAN-V20",
       "key-order-permutation",
       "PASS"
     ]
