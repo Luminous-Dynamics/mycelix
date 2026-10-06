@@ -28,6 +28,9 @@ UPLOAD = "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
 DOWNLOAD = "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
 GIT_FETCH_IMAGE = "docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329"
 RUST_IMAGE = "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
+VENDOR_VOLUME_CREATE = "docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"
+VENDOR_VOLUME_RW = '--volume "$vendor_volume_name:/vendor:rw"'
+VENDOR_VOLUME_RO = '--volume "$VENDOR_VOLUME_NAME:/vendor:ro"'
 
 S1_STEPS = (
     "Checkout trusted qualification root",
@@ -427,8 +430,22 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate sandbox image digest pin mismatch")
     if exact_count(l, 'TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}') != 1:
         fail("S1 trusted workflow blob input binding mismatch")
+    for key, expected in (("VENDOR_RESOURCE_PROFILE", "v2"), ("VENDOR_MAX_BYTES", "1073741824"), ("VENDOR_MAX_FILES", "100000"), ("VENDOR_MAX_INODES", "150000"), ("VENDOR_TMPFS_SIZE", "1024m"), ("VENDOR_TMPFS_NR_INODES", "150000")):
+        if exact_count(l, f'  {key}: "{expected}"') != 1:
+            fail(f"S1 vendor resource profile mismatch: {key}")
     require_no_fail_open_controls(l, "S1")
     joined = "\n".join(l)
+    if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
+        fail("S1 vendor resource volume create profile mismatch")
+    if exact_count(l, VENDOR_VOLUME_RW) != 1:
+        fail("S1 vendor acquisition must use one bounded Docker volume for writes")
+    if exact_count(l, VENDOR_VOLUME_RO) != 3:
+        fail("S1 bounded vendor volume read-only mount count mismatch")
+    if '--volume "$vendor_root:/vendor:rw"' in joined or '--volume "$VENDOR_ROOT:/vendor:rw"' in joined:
+        fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
+    for required in ("vendor_volume_name=\"security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT\"", "vendor_observed_bytes=", "vendor_observed_files=", "vendor_observed_inodes=", "vendor_cleanup_on_failure", "docker volume rm \"$vendor_volume_name\"", "vendor volume remains after cleanup", "dependency_substrate=passed"):
+        if required not in joined:
+            fail(f"S1 vendor resource-bound control missing: {required!r}")
     if any("docker rm -f " in line and "|| true" in line for line in l):
         fail("S1 sandbox setup/cleanup must not force-remove an existing container or mask Docker errors")
     for required in (
@@ -642,6 +659,16 @@ def main() -> None:
         ),
         "masked pre-run Docker cleanup",
     )
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(VENDOR_VOLUME_RW.encode(), b'--volume "$vendor_root:/vendor:rw"', 1), s1_sha),
+        "writable host-backed vendor root",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(VENDOR_VOLUME_CREATE.encode(), b'docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m', 1), s1_sha),
+        "vendor tmpfs without inode ceiling",
+    )
+
 
     expect_rejection(
         lambda: verify_s2(

@@ -38,6 +38,12 @@ concurrency:
 env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
   BASE_REPOSITORY_ID: "1176351975"
+  VENDOR_RESOURCE_PROFILE: "v2"
+  VENDOR_MAX_BYTES: "1073741824"
+  VENDOR_MAX_FILES: "100000"
+  VENDOR_MAX_INODES: "150000"
+  VENDOR_TMPFS_SIZE: "1024m"
+  VENDOR_TMPFS_NR_INODES: "150000"
 
 jobs:
   qualify:
@@ -631,85 +637,87 @@ jobs:
           set -euo pipefail
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
-          vendor_root="$RUNNER_TEMP/security-kernel-vendor"
+          vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           vendor_config="$RUNNER_TEMP/security-kernel-vendor-config.toml"
-          rm -rf "$vendor_root" "$vendor_config"
-          mkdir -p "$vendor_root"
+          vendor_metrics="$RUNNER_TEMP/security-kernel-vendor-metrics.txt"
+          if docker volume inspect "$vendor_volume_name" >/dev/null 2>&1; then
+            echo "security-kernel vendor volume name collision" >&2
+            exit 1
+          fi
+          rm -f "$vendor_config" "$vendor_metrics"
+          install -m 0600 /dev/null "$vendor_config"
+          install -m 0600 /dev/null "$vendor_metrics"
+          docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000 "$vendor_volume_name" >/dev/null
+          vendor_cleanup_on_failure() {
+            local status=$?
+            if [ "$status" -ne 0 ] && docker volume inspect "$vendor_volume_name" >/dev/null 2>&1; then
+              if ! docker volume rm "$vendor_volume_name" >/dev/null; then status=1; fi
+              if docker volume inspect "$vendor_volume_name" >/dev/null 2>&1; then status=1; fi
+            fi
+            trap - EXIT
+            exit "$status"
+          }
+          trap vendor_cleanup_on_failure EXIT
+          set +e
           docker run --rm --platform=linux/amd64 --pull=never \
-            --network=bridge \
-            --read-only \
-            --cap-drop=ALL \
-            --security-opt=no-new-privileges:true \
-            --security-opt=seccomp=default \
-            --pids-limit=256 \
-            --memory=2g \
-            --memory-swap=2g \
-            --cpus=2 \
-            --ulimit=nofile=4096:4096 \
-            --ulimit=core=0:0 \
-            --user "$runner_uid:$runner_gid" \
-            --ipc=private \
-            --pid=private \
-            --cgroupns=private \
+            --network=bridge --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges:true --security-opt=seccomp=default \
+            --pids-limit=256 --memory=2g --memory-swap=2g --cpus=2 \
+            --ulimit=nofile=4096:4096 --ulimit=core=0:0 \
+            --user "$runner_uid:$runner_gid" --ipc=private --pid=private --cgroupns=private \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m \
             --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m \
-            --env HOME=/cargo-home \
-            --env CARGO_HOME=/cargo-home \
-            --env GITHUB_TOKEN= \
-            --env GH_TOKEN= \
-            --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
-            --env ACTIONS_ID_TOKEN_REQUEST_URL= \
-            --env ACTIONS_RUNTIME_TOKEN= \
+            --volume "$vendor_volume_name:/vendor:rw" \
             --volume "$DEPENDENCY_ROOT:/subject:ro" \
-            --volume "$vendor_root:/vendor:rw" \
+            --volume "$vendor_config:/vendor-config:rw" \
+            --volume "$vendor_metrics:/vendor-metrics:rw" \
+            --env HOME=/cargo-home --env CARGO_HOME=/cargo-home \
+            --env VENDOR_MAX_BYTES="$VENDOR_MAX_BYTES" --env VENDOR_MAX_FILES="$VENDOR_MAX_FILES" --env VENDOR_MAX_INODES="$VENDOR_MAX_INODES" \
+            --env GITHUB_TOKEN= --env GH_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_URL= --env ACTIONS_RUNTIME_TOKEN= \
             "$SANDBOX_IMAGE" /bin/bash -euc '
-              /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor
-            ' > "$vendor_config"
+              set -euo pipefail
+              /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config
+              python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" /vendor /vendor-metrics <<\PY
+              import hashlib, pathlib, stat, sys
+              max_bytes=int(sys.argv[1]); max_files=int(sys.argv[2]); max_inodes=int(sys.argv[3])
+              vendor=pathlib.Path(sys.argv[4]); metrics=pathlib.Path(sys.argv[5]); digest=hashlib.sha256()
+              total=0; files=0; inodes=0
+              for path in sorted(vendor.rglob('*')):
+                  inodes += 1; rel=path.relative_to(vendor); mode=path.lstat().st_mode
+                  if stat.S_ISLNK(mode) or (not path.is_dir() and not stat.S_ISREG(mode)): raise SystemExit('vendor contains forbidden file type')
+                  if path.is_dir(): continue
+                  files += 1; content=path.read_bytes(); total += len(content)
+                  if files > max_files or total > max_bytes or inodes > max_inodes: raise SystemExit('vendor resource ceiling exceeded')
+                  relative=rel.as_posix().encode(); digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
+              metrics.write_text(f'vendor_observed_bytes={total}\nvendor_observed_files={files}\nvendor_observed_inodes={inodes}\nvendor_digest={digest.hexdigest()}\n', encoding='utf-8')
+              PY
+            '
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
           test -s "$vendor_config"
-          vendor_digest="$(python3 - "$vendor_root" "$vendor_config" <<'PY'
-          import hashlib, pathlib, stat, sys
-          vendor=pathlib.Path(sys.argv[1])
-          config=pathlib.Path(sys.argv[2])
-          text=config.read_text(encoding="utf-8")
-          required_config=(
-              '[source.crates-io]\n'
-              'replace-with = "vendored-sources"\n'
-              '\n'
-              '[source.vendored-sources]\n'
-              'directory = "/vendor"\n'
-          )
-          assert text.strip() == required_config.strip(), f"unexpected vendor config: {text!r}"
-          assert "credentials" not in text.lower()
-          digest=hashlib.sha256()
-          for path in sorted(vendor.rglob("*")):
-              rel=path.relative_to(vendor)
-              mode=path.lstat().st_mode
-              if stat.S_ISLNK(mode):
-                  raise SystemExit(f"vendored dependency contains forbidden symlink: {rel}")
-              if path.is_dir():
-                  continue
-              if not stat.S_ISREG(mode):
-                  raise SystemExit(f"vendored dependency contains forbidden non-regular file: {rel}")
-              relative = rel.as_posix().encode()
-              content = path.read_bytes()
-              mode_bits = stat.S_IMODE(mode)
-              digest.update(mode_bits.to_bytes(4, "big"))
-              digest.update(len(relative).to_bytes(8, "big"))
-              digest.update(relative)
-              digest.update(len(content).to_bytes(8, "big"))
-              digest.update(content)
-          print(digest.hexdigest())
-          PY
-          )"
-          test "${#vendor_digest}" -eq 64
-          printf 'vendor_root=%s\\nvendor_config=%s\\nvendor_digest=%s\\n' "$vendor_root" "$vendor_config" "$vendor_digest" >> "$GITHUB_OUTPUT"
-          echo "PASS: locked dependency closure vendored in constrained fetch sandbox"
+          test -s "$vendor_metrics"
+          vendor_observed_bytes="$(sed -n 's/^vendor_observed_bytes=//p' "$vendor_metrics")"
+          vendor_observed_files="$(sed -n 's/^vendor_observed_files=//p' "$vendor_metrics")"
+          vendor_observed_inodes="$(sed -n 's/^vendor_observed_inodes=//p' "$vendor_metrics")"
+          vendor_digest="$(sed -n 's/^vendor_digest=//p' "$vendor_metrics")"
+          for value in "$vendor_observed_bytes" "$vendor_observed_files" "$vendor_observed_inodes"; do printf "%s" "$value" | grep -Eq '^[0-9]+$'; done
+          printf "%s" "$vendor_digest" | grep -Eq '^[0-9a-f]{64}$'
+          test "$vendor_observed_bytes" -le "$VENDOR_MAX_BYTES"
+          test "$vendor_observed_files" -le "$VENDOR_MAX_FILES"
+          test "$vendor_observed_inodes" -le "$VENDOR_MAX_INODES"
+          printf 'vendor_volume_name=%s\nvendor_config=%s\nvendor_metrics=%s\nvendor_digest=%s\nvendor_observed_bytes=%s\nvendor_observed_files=%s\nvendor_observed_inodes=%s\n' "$vendor_volume_name" "$vendor_config" "$vendor_metrics" "$vendor_digest" "$vendor_observed_bytes" "$vendor_observed_files" "$vendor_observed_inodes" >> "$GITHUB_OUTPUT"
+          trap - EXIT
+          echo "PASS: locked dependency closure acquired inside a Docker-managed bounded tmpfs volume"
           echo "vendor_digest=$vendor_digest"
+          echo "vendor_observed_bytes=$vendor_observed_bytes"
+          echo "vendor_observed_files=$vendor_observed_files"
+          echo "vendor_observed_inodes=$vendor_observed_inodes"
       - name: Execute sandbox negative controls
         id: sandbox_negative_controls
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
-          VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
+          VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         shell: bash
@@ -747,7 +755,7 @@ jobs:
             --cgroupns=private \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
             --volume "$CANDIDATE_ROOT:/source:ro" \
-            --volume "$VENDOR_ROOT:/vendor:ro" \
+            --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
             --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
             --volume "$sentinel:/trusted-sentinel:ro" \
             --env GITHUB_TOKEN= \
@@ -822,13 +830,23 @@ jobs:
         shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
-          VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
+          VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         run: |
           set -euo pipefail
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
+          vendor_cleanup_on_failure() {
+            local status=$?
+            if [ "$status" -ne 0 ] && docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then
+              if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null; then status=1; fi
+              if docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
+            fi
+            trap - EXIT
+            exit "$status"
+          }
+          trap vendor_cleanup_on_failure EXIT
 
           run_sandbox() {
             local wall="$1"
@@ -861,7 +879,7 @@ jobs:
               --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m \
               --tmpfs /target:rw,nosuid,nodev,size=8g \
               --volume "$CANDIDATE_ROOT:/source:ro" \
-              --volume "$VENDOR_ROOT:/vendor:ro" \
+              --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
               --workdir /source/crates/mycelix-bridge-common \
               --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
               --env HOME=/cargo-home \
@@ -996,48 +1014,58 @@ jobs:
       - name: Verify dependency substrate immutability
         id: dependency_postflight
         env:
-          VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
-          VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
+          VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
           EXPECTED_VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
+          SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$VENDOR_ROOT" "$VENDOR_CONFIG" "$EXPECTED_VENDOR_DIGEST" <<'PY'
-          import hashlib, pathlib, stat, sys
-          vendor=pathlib.Path(sys.argv[1])
-          config=pathlib.Path(sys.argv[2])
-          expected=sys.argv[3].strip()
-          required_config=(
-              '[source.crates-io]\n'
-              'replace-with = "vendored-sources"\n'
-              '\n'
-              '[source.vendored-sources]\n'
-              'directory = "/vendor"\n'
-          )
-          assert config.read_text(encoding="utf-8").strip() == required_config.strip()
-          digest=hashlib.sha256()
-          for path in sorted(vendor.rglob("*")):
-              rel=path.relative_to(vendor)
-              mode=path.lstat().st_mode
-              if stat.S_ISLNK(mode):
-                  raise SystemExit(f"vendored dependency contains forbidden symlink: {rel}")
-              if path.is_dir():
-                  continue
-              if not stat.S_ISREG(mode):
-                  raise SystemExit(f"vendored dependency contains forbidden non-regular file: {rel}")
-              relative=rel.as_posix().encode()
-              content=path.read_bytes()
-              mode_bits=stat.S_IMODE(mode)
-              digest.update(mode_bits.to_bytes(4, "big"))
-              digest.update(len(relative).to_bytes(8, "big"))
-              digest.update(relative)
-              digest.update(len(content).to_bytes(8, "big"))
-              digest.update(content)
-          after=digest.hexdigest()
-          assert after == expected, f"vendored dependency substrate mutated: {expected} != {after}"
-          print("PASS: vendored dependency substrate and trusted config remained immutable")
-          PY
+          runner_uid="$(id -u)"
+          runner_gid="$(id -g)"
+          vendor_cleanup_on_failure() {
+            local status=$?
+            if [ "$status" -ne 0 ] && docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then
+              if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null; then status=1; fi
+              if docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
+            fi
+            trap - EXIT
+            exit "$status"
+          }
+          trap vendor_cleanup_on_failure EXIT
+          docker run --rm --platform=linux/amd64 --pull=never \
+            --network=none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges:true --security-opt=seccomp=default \
+            --pids-limit=128 --memory=256m --memory-swap=256m --cpus=1 \
+            --ulimit=nofile=2048:2048 --ulimit=core=0:0 \
+            --user "$runner_uid:$runner_gid" --ipc=private --pid=private --cgroupns=private \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
+            --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
+            "$SANDBOX_IMAGE" /bin/bash -euc '
+              python3 - "$EXPECTED_VENDOR_DIGEST" /vendor <<\PY
+              import hashlib, pathlib, stat, sys
+              expected=sys.argv[1]; vendor=pathlib.Path(sys.argv[2]); digest=hashlib.sha256()
+              for path in sorted(vendor.rglob('*')):
+                  rel=path.relative_to(vendor); mode=path.lstat().st_mode
+                  if stat.S_ISLNK(mode) or (not path.is_dir() and not stat.S_ISREG(mode)): raise SystemExit(f'forbidden vendor file type: {rel}')
+                  if path.is_dir(): continue
+                  relative=rel.as_posix().encode(); content=path.read_bytes()
+                  digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
+              observed=digest.hexdigest()
+              if observed != expected: raise SystemExit(f'vendor substrate mutated: {expected} != {observed}')
+              print('PASS: vendored dependency substrate remained immutable and regular-file-only')
+              PY
+            '
+          if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null; then
+            echo "security-kernel vendor volume cleanup failed" >&2
+            exit 1
+          fi
+          if docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then
+            echo "security-kernel vendor volume remains after cleanup" >&2
+            exit 1
+          fi
+          trap - EXIT
           printf 'dependency_substrate=passed\n' >> "$GITHUB_OUTPUT"
+          echo "PASS: bounded vendor volume was independently re-hashed and removed fail-closed"
       - name: Emit qualification receipt
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
@@ -1055,6 +1083,15 @@ jobs:
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
           LOCK_PACKAGE_COUNT: ${{ steps.locked_dependency_identity.outputs.lock_package_count }}
           LOCK_DEPENDENCY_EDGES: ${{ steps.locked_dependency_identity.outputs.lock_dependency_edges }}
+          VENDOR_RESOURCE_PROFILE: ${{ env.VENDOR_RESOURCE_PROFILE }}
+          VENDOR_MAX_BYTES: ${{ env.VENDOR_MAX_BYTES }}
+          VENDOR_MAX_FILES: ${{ env.VENDOR_MAX_FILES }}
+          VENDOR_MAX_INODES: ${{ env.VENDOR_MAX_INODES }}
+          VENDOR_TMPFS_SIZE: ${{ env.VENDOR_TMPFS_SIZE }}
+          VENDOR_TMPFS_NR_INODES: ${{ env.VENDOR_TMPFS_NR_INODES }}
+          VENDOR_OBSERVED_BYTES: ${{ steps.vendor_dependencies.outputs.vendor_observed_bytes }}
+          VENDOR_OBSERVED_FILES: ${{ steps.vendor_dependencies.outputs.vendor_observed_files }}
+          VENDOR_OBSERVED_INODES: ${{ steps.vendor_dependencies.outputs.vendor_observed_inodes }}
           VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
           NEGATIVE_CONTROLS: ${{ steps.sandbox_negative_controls.outputs.negative_controls }}
           NEGATIVE_CONTROLS_LOG_DIGEST: ${{ steps.sandbox_negative_controls.outputs.negative_controls_log_digest }}
@@ -1084,6 +1121,16 @@ jobs:
             echo "candidate_cargo_lock_sha256=$CARGO_LOCK_DIGEST"
             echo "candidate_cargo_lock_package_count=$LOCK_PACKAGE_COUNT"
             echo "candidate_cargo_lock_dependency_edges=$LOCK_DEPENDENCY_EDGES"
+            echo "vendor_resource_profile=$VENDOR_RESOURCE_PROFILE"
+            echo "vendor_max_bytes=$VENDOR_MAX_BYTES"
+            echo "vendor_max_files=$VENDOR_MAX_FILES"
+            echo "vendor_max_inodes=$VENDOR_MAX_INODES"
+            echo "vendor_tmpfs_size=$VENDOR_TMPFS_SIZE"
+            echo "vendor_tmpfs_nr_inodes=$VENDOR_TMPFS_NR_INODES"
+            echo "vendor_observed_bytes=$VENDOR_OBSERVED_BYTES"
+            echo "vendor_observed_files=$VENDOR_OBSERVED_FILES"
+            echo "vendor_observed_inodes=$VENDOR_OBSERVED_INODES"
+            echo "vendor_resource_measurement=bounded-pass"
             echo "vendor_digest=$VENDOR_DIGEST"
             echo "sandbox_negative_controls=$NEGATIVE_CONTROLS"
             echo "sandbox_negative_controls_log_sha256=$NEGATIVE_CONTROLS_LOG_DIGEST"
