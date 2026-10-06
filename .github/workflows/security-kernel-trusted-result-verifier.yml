@@ -23,7 +23,7 @@ env:
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "4de97e62dd81195c52750a5065631b08c092aac8"
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
-  RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "b24a2a4690e776f11e2263b365e1b3f45fe50f7b"
+  RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
