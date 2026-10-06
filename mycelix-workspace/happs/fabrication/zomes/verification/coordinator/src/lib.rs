@@ -291,6 +291,357 @@ pub fn resolve_fpm_registration_entry_anchor(
     resolve_entry_anchor(input)
 }
 
+
+fn validate_provenance_witness_against_envelope(
+    witness: &AcquisitionLineageWitness,
+    envelope: &RegistrationEnvelope,
+) -> ExternResult<()> {
+    let participant = std::iter::once(&envelope.reference)
+        .chain(envelope.related.iter())
+        .find(|candidate| {
+            candidate.source_id == witness.source_id && candidate.modality == witness.modality
+        })
+        .ok_or_else(|| fpm_anchor_error(
+            "provenance witness does not name a registration participant"
+        ))?;
+
+    if witness.source_observation_digest != source_observation_binding_digest(participant) {
+        return Err(fpm_anchor_error(
+            "provenance witness source-observation binding does not match registration anchor",
+        ));
+    }
+    if !valid_fpm_digest(&witness.acquisition_root_digest) {
+        return Err(fpm_anchor_error(
+            "provenance witness root commitment is not canonical SHA-256",
+        ));
+    }
+    if !valid_provenance_identifier(&witness.node_id)
+        || witness.parent_node_ids.iter().any(|parent| !valid_provenance_identifier(parent))
+    {
+        return Err(fpm_anchor_error("provenance witness contains an invalid node identifier"));
+    }
+    if witness.parent_node_ids.len() > 32 {
+        return Err(fpm_anchor_error(
+            "provenance witness has too many parents",
+        ));
+    }
+    Ok(())
+}
+
+fn valid_provenance_identifier(value: &str) -> bool {
+    !value.is_empty()
+        && value == value.trim()
+        && value.len() <= 128
+        && !value.chars().any(char::is_control)
+}
+
+fn resolve_registration_anchor_for_provenance(
+    action_hash: &ActionHash,
+) -> ExternResult<ResolvedFpmRegistrationAnchor> {
+    let details = get_details(action_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| FabricationError::not_found("FpmRegistrationAnchor", action_hash))?;
+
+    let Details::Record(record_details) = details else {
+        return Err(fpm_anchor_error(
+            "registration anchor did not resolve to record details",
+        ));
+    };
+
+    let record = record_details.record;
+    let anchor: FpmRegistrationAnchor = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            fpm_anchor_error(format!(
+                "could not decode registration anchor for provenance: {e}"
+            ))
+        })?
+        .ok_or_else(|| {
+            fpm_anchor_error("registration action is not an FPM registration anchor")
+        })?;
+
+    resolve_action_anchor(ResolveFpmRegistrationActionAnchorInput {
+        action_hash: action_hash.clone(),
+        claimed_envelope_digest: anchor.envelope_digest,
+        expected_author: None,
+        expected_signer: None,
+    })
+}
+
+fn resolve_provenance_action_anchor(
+    input: ResolveFpmProvenanceActionAnchorInput,
+) -> ExternResult<ResolvedFpmProvenanceAnchor> {
+    let details = get_details(input.provenance_action_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| FabricationError::not_found(
+            "FpmProvenanceAnchor",
+            &input.provenance_action_hash,
+        ))?;
+
+    let Details::Record(record_details) = details else {
+        return Err(fpm_anchor_error(
+            "provenance ActionHash did not resolve to record details",
+        ));
+    };
+
+    if record_details.validation_status != ValidationStatus::Valid {
+        return Err(fpm_anchor_error("provenance anchor record is not valid"));
+    }
+    if !record_details.updates.is_empty() {
+        return Err(fpm_anchor_error("provenance anchor record has updates"));
+    }
+    if !record_details.deletes.is_empty() {
+        return Err(fpm_anchor_error("provenance anchor record has deletes"));
+    }
+
+    let record = record_details.record;
+    if record.action().action_type() != ActionType::Create {
+        return Err(fpm_anchor_error(
+            "provenance ActionHash must resolve to the original Create action",
+        ));
+    }
+
+    let expected_entry_type = EntryType::App(
+        UnitEntryTypes::FpmProvenanceAnchor
+            .try_into()
+            .map_err(|_| {
+                fpm_anchor_error("could not construct FPM provenance anchor entry type")
+            })?,
+    );
+    if record.action().entry_type() != Some(&expected_entry_type) {
+        return Err(fpm_anchor_error(
+            "ActionHash does not reference the FPM provenance anchor entry type",
+        ));
+    }
+
+    let anchor: FpmProvenanceAnchor = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            fpm_anchor_error(format!("could not decode FPM provenance anchor: {e}"))
+        })?
+        .ok_or_else(|| fpm_anchor_error("record is not an FPM provenance anchor entry"))?;
+
+    if anchor.schema_version != FPM_PROVENANCE_ANCHOR_SCHEMA_VERSION {
+        return Err(fpm_anchor_error("unsupported FPM provenance anchor schema"));
+    }
+    if !valid_fpm_digest(&anchor.witness_digest)
+        || anchor.witness_digest != anchor.witness.digest()
+    {
+        return Err(fpm_anchor_error(
+            "FPM provenance witness digest is invalid or mismatched",
+        ));
+    }
+
+    let registration =
+        resolve_registration_anchor_for_provenance(&anchor.registration_anchor_action)?;
+
+    if let Some(expected) = input.expected_registration_anchor_action.as_ref() {
+        if expected != &anchor.registration_anchor_action {
+            return Err(fpm_anchor_error(
+                "provenance anchor references an unexpected registration anchor",
+            ));
+        }
+    }
+
+    validate_provenance_witness_against_envelope(
+        &anchor.witness,
+        &registration.envelope,
+    )?;
+
+    let provenance_entry_hash = record
+        .action()
+        .entry_hash()
+        .ok_or_else(|| fpm_anchor_error("provenance anchor action has no entry hash"))?;
+    let provenance_entry_hash = provenance_entry_hash.clone();
+
+    Ok(ResolvedFpmProvenanceAnchor {
+        provenance_action_hash: input.provenance_action_hash,
+        provenance_entry_hash,
+        registration_anchor_action: anchor.registration_anchor_action,
+        witness: anchor.witness,
+        witness_digest: anchor.witness_digest,
+        author: *record.action().author(),
+        signer: *record.action().signer(),
+        timestamp: record.action().timestamp(),
+        action_seq: record.action().action_seq(),
+        prev_action: record.action().prev_action().cloned(),
+    })
+}
+
+fn authenticated_provenance_manifest_digest(
+    witnesses: &[ResolvedFpmProvenanceAnchor],
+) -> String {
+    let mut entries = witnesses
+        .iter()
+        .map(|item| {
+            (
+                item.provenance_action_hash.to_string(),
+                item.witness_digest.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    entries.sort_unstable();
+
+    let mut bytes = Vec::new();
+    append_length_prefixed(&mut bytes, b"fpm.authenticated-provenance-manifest.v1");
+    for (action_hash, witness_digest) in entries {
+        append_length_prefixed(&mut bytes, action_hash.as_bytes());
+        append_length_prefixed(&mut bytes, witness_digest.as_bytes());
+    }
+    hex_digest_bytes(&bytes)
+}
+
+fn append_length_prefixed(buffer: &mut Vec<u8>, field: &[u8]) {
+    buffer.extend_from_slice(&(field.len() as u64).to_be_bytes());
+    buffer.extend_from_slice(field);
+}
+
+fn hex_digest_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher.finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+#[hdk_extern]
+pub fn create_fpm_provenance_anchor(
+    input: CreateFpmProvenanceAnchorInput,
+) -> ExternResult<Record> {
+    rate_limit_caller()?;
+
+    let registration =
+        resolve_registration_anchor_for_provenance(&input.registration_anchor_action)?;
+    registration
+        .envelope
+        .validate_consistency()
+        .map_err(|e| fpm_anchor_error(format!(
+            "provenance anchor requires a consistent registration envelope: {e}"
+        )))?;
+
+    validate_provenance_witness_against_envelope(
+        &input.witness,
+        &registration.envelope,
+    )?;
+
+    let anchor = FpmProvenanceAnchor {
+        schema_version: FPM_PROVENANCE_ANCHOR_SCHEMA_VERSION.into(),
+        registration_anchor_action: input.registration_anchor_action,
+        witness: input.witness.clone(),
+        witness_digest: input.witness.digest(),
+    };
+
+    let action_hash = create_entry(EntryTypes::FpmProvenanceAnchor(anchor))?;
+
+    get(action_hash, GetOptions::default())?.ok_or_else(|| {
+        FabricationError::not_found("FpmProvenanceAnchor", &"newly-created action")
+    })
+}
+
+#[hdk_extern]
+pub fn resolve_fpm_provenance_action_anchor(
+    input: ResolveFpmProvenanceActionAnchorInput,
+) -> ExternResult<ResolvedFpmProvenanceAnchor> {
+    rate_limit_caller()?;
+    resolve_provenance_action_anchor(input)
+}
+
+#[hdk_extern]
+pub fn qualify_authenticated_fpm_provenance(
+    input: QualifyAuthenticatedFpmProvenanceInput,
+) -> ExternResult<AuthenticatedFpmProvenanceQualification> {
+    rate_limit_caller()?;
+
+    const MAX_PROVENANCE_ANCHORS: usize = 256;
+    if input.provenance_action_hashes.is_empty()
+        || input.provenance_action_hashes.len() > MAX_PROVENANCE_ANCHORS
+    {
+        return Err(fpm_anchor_error(
+            "authenticated provenance anchor count is outside supported bounds",
+        ));
+    }
+
+    let registration =
+        resolve_registration_anchor_for_provenance(&input.registration_anchor_action)?;
+
+    let mut action_hashes = input.provenance_action_hashes.clone();
+    action_hashes.sort_by_key(|hash| hash.to_string());
+    if action_hashes.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(fpm_anchor_error(
+            "duplicate authenticated provenance ActionHash",
+        ));
+    }
+
+    let mut resolved = Vec::with_capacity(action_hashes.len());
+    for action_hash in &action_hashes {
+        resolved.push(resolve_provenance_action_anchor(
+            ResolveFpmProvenanceActionAnchorInput {
+                provenance_action_hash: action_hash.clone(),
+                expected_registration_anchor_action: Some(
+                    input.registration_anchor_action.clone(),
+                ),
+            },
+        )?);
+    }
+
+    let lineage = resolved
+        .iter()
+        .map(|item| item.witness.clone())
+        .collect::<Vec<_>>();
+
+    let structural_qualification = qualify_provenance(&ProvenanceQualificationInput {
+        registration_envelope_digest: registration.registration_envelope_digest.clone(),
+        envelope: registration.envelope.clone(),
+        lineage,
+    });
+
+    let provenance_anchor_manifest_digest =
+        authenticated_provenance_manifest_digest(&resolved);
+
+    Ok(AuthenticatedFpmProvenanceQualification {
+        schema_version: FPM_AUTHENTICATED_PROVENANCE_SCHEMA_VERSION.into(),
+        registration_anchor_action: input.registration_anchor_action,
+        registration_envelope_digest: registration.registration_envelope_digest,
+        provenance_anchor_manifest_digest,
+        structural_qualification,
+        witnesses: resolved,
+    })
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct QualifyAuthenticatedFpmProvenanceInput {
+    pub registration_anchor_action: ActionHash,
+    pub provenance_action_hashes: Vec<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AuthenticatedFpmProvenanceQualification {
+    pub schema_version: String,
+    pub registration_anchor_action: ActionHash,
+    pub registration_envelope_digest: String,
+    pub provenance_anchor_manifest_digest: String,
+    pub structural_qualification: ProvenanceQualification,
+    pub witnesses: Vec<ResolvedFpmProvenanceAnchor>,
+}
+
+pub const FPM_AUTHENTICATED_PROVENANCE_SCHEMA_VERSION: &str =
+    "fpm.registration.authenticated-provenance.v1";
+
+impl AuthenticatedFpmProvenanceQualification {
+    pub fn digest(&self) -> String {
+        let bytes = serde_json::to_vec(self)
+            .expect("authenticated FPM provenance qualification is serializable");
+        let mut preimage = Vec::new();
+        append_length_prefixed(
+            &mut preimage,
+            b"fpm.authenticated-provenance-qualification.v1",
+        );
+        append_length_prefixed(&mut preimage, &bytes);
+        hex_digest_bytes(&preimage)
+    }
+}
+
 // =============================================================================
 // RATE LIMITING
 // =============================================================================
