@@ -61,8 +61,7 @@ def result(state: str, reason: str, details: dict[str, Any] | None = None) -> di
 
 def registry_digest(registry: dict[str, Any]) -> str:
     return hashlib.sha256(
-        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "
-").encode()
+        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
     ).hexdigest()
 
 def verify(manifest: dict[str, Any]) -> dict[str, Any]:
@@ -100,8 +99,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     if registry.get("claim_ceiling") != "ReferenceModelOnly":
         return result("DENY", "registry-claim-ceiling-mismatch")
     if hashlib.sha256(
-        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "
-").encode()
+        (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
     ).hexdigest() != manifest["registry_sha256"]:
         return result("DENY", "registry-digest-mismatch")
     if manifest["registry_sha256"] != registry_digest(REFERENCE_REGISTRY):
@@ -159,8 +157,7 @@ def fixture() -> dict[str, Any]:
         root_sha = hashlib.sha256(root).hexdigest()
         if root_sha != REFERENCE_ROOT_SHA256:
             raise RuntimeError(f"reference root digest mismatch: {root_sha}")
-    registry_text = json.dumps(REFERENCE_REGISTRY, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "
-"
+    registry_text = json.dumps(REFERENCE_REGISTRY, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
     rs = hashlib.sha256(root).hexdigest()
     return {
         "profile_id": "mycelix.security.tpm.ek-trust-anchor-appraisal",
@@ -187,7 +184,7 @@ def self_test() -> int:
         ("unknown-anchor","INDETERMINATE",lambda x:x.update({"anchor_id":"unknown-anchor"})),
         ("registry-source-substitution","DENY",lambda x:x.update({"registry_source_sha256":"33"*32})),
     ]
-    # The reference fixture root is deliberately tiny; it is only a deterministic policy vector.
+    # The reference fixture root is generated from the committed deterministic corpus recipe.
     for name, expected, mutate in cases:
         candidate = copy.deepcopy(base)
         mutate(candidate)
@@ -217,8 +214,7 @@ def main() -> int:
     verified = verify(manifest)
     output = {"profile_id":"mycelix.security.tpm.ek-trust-anchor-appraisal","profile_version":"0.1.0","verifier_id":VERIFIER_ID,"input_sha256":hashlib.sha256(path.read_bytes()).hexdigest(),**verified}
     output["content_sha256"] = canonical_hash({k:v for k,v in output.items() if k!="content_sha256"})
-    rendered = json.dumps(output, indent=2, sort_keys=True) + "
-"
+    rendered = json.dumps(output, indent=2, sort_keys=True) + "\n"
     if args.output:
         Path(args.output).write_text(rendered, encoding="utf-8")
     else:
