@@ -74,7 +74,7 @@ def require_rsa_certificate_spki(cert_der: bytes) -> dict[str, Any]:
     spki_tag, spki_content, cursor_tbs = der_tlv_parse(tbs, cursor_tbs)
     if spki_tag != 0x30 or cursor_tbs != len(tbs):
         raise ValueError("SubjectPublicKeyInfo malformed")
-    alg_tag, alg_content, bit_content, end1 = (*der_tlv_parse(spki_content, 0),)
+    alg_tag, alg_content, end1 = der_tlv_parse(spki_content, 0)
     if alg_tag != 0x30:
         raise ValueError("SPKI AlgorithmIdentifier malformed")
     alg_offset = end1
