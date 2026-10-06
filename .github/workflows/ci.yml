@@ -99,8 +99,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
       - name: Assert exact qualification subject
-        if: github.event_name == 'pull_request'
-        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
       - name: Assert no tracked local Python environments
         run: |
           set -euo pipefail
@@ -504,6 +503,7 @@ jobs:
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
     needs:
+      - changes
       - format
       - test-cos-conformance
       - test-commons
@@ -541,6 +541,24 @@ jobs:
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
+
+          # The path-filter admission job is mandatory for every non-draft
+          # execution. A broken or cancelled admission cannot authorize a pass.
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "changes admission is not successful: ${{ needs.changes.result }}"
+            exit 1
+          fi
+
+          # Finance Exact-Head is a qualification authority, not a best-effort
+          # informational job. It may be skipped only when Finance is outside
+          # the PR path filter.
+          if [ "${{ github.event_name }}" != "pull_request" ] || [ "${{ needs.changes.outputs.finance }}" = "true" ]; then
+            if [ "${{ needs.finance-exact-head.result }}" != "success" ]; then
+              echo "Finance Exact-Head qualification is not successful: ${{ needs.finance-exact-head.result }}"
+              exit 1
+            fi
+          fi
+
           # Skipped jobs are OK (path filter didn't match)
           for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.finance-exact-head.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
