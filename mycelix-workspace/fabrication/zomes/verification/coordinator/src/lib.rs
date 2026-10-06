@@ -45,7 +45,6 @@ pub struct ResolveFpmRegistrationActionAnchorInput {
     pub action_hash: ActionHash,
     pub claimed_envelope_digest: String,
     pub expected_author: Option<AgentPubKey>,
-    pub expected_signer: Option<AgentPubKey>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -62,10 +61,7 @@ pub struct ResolvedFpmRegistrationAnchor {
     pub entry_hash: EntryHash,
     pub action_hash: Option<ActionHash>,
     pub author: Option<AgentPubKey>,
-    pub signer: Option<AgentPubKey>,
     pub timestamp: Option<Timestamp>,
-    pub action_seq: Option<u32>,
-    pub prev_action: Option<ActionHash>,
     pub envelope: RegistrationEnvelope,
 }
 
@@ -159,16 +155,6 @@ fn resolve_action_anchor(
             "ActionHash anchor must resolve to the original Create action",
         ));
     }
-    let expected_entry_type = EntryType::App(
-        UnitEntryTypes::FpmRegistrationAnchor
-            .try_into()
-            .map_err(|_| fpm_anchor_error("could not construct FPM registration anchor entry type"))?,
-    );
-    if record.action().entry_type() != Some(&expected_entry_type) {
-        return Err(fpm_anchor_error(
-            "ActionHash does not reference the FPM registration anchor entry type",
-        ));
-    }
     let anchor: FpmRegistrationAnchor = record
         .entry()
         .to_app_option()
@@ -188,12 +174,6 @@ fn resolve_action_anchor(
         .action()
         .entry_hash()
         .ok_or_else(|| fpm_anchor_error("registration anchor action has no entry hash"))?;
-    let signer = *record.action().signer();
-    if let Some(expected_signer) = input.expected_signer.as_ref() {
-        if *expected_signer != signer {
-            return Err(fpm_anchor_error("ActionHash signer does not match expected signer"));
-        }
-    }
 
     Ok(ResolvedFpmRegistrationAnchor {
         anchor_kind: RegistrationAnchorKind::HolochainAction,
@@ -202,7 +182,7 @@ fn resolve_action_anchor(
         entry_hash,
         action_hash: Some(input.action_hash),
         author: Some(author),
-        timestamp: Some(*record.action().timestamp()),
+        timestamp: Some(record.action().timestamp()),
         envelope: anchor.envelope,
     })
 }
@@ -241,17 +221,6 @@ fn resolve_entry_anchor(
         return Err(fpm_anchor_error("resolved record entry hash does not match requested EntryHash"));
     }
 
-    let expected_entry_type = EntryType::App(
-        UnitEntryTypes::FpmRegistrationAnchor
-            .try_into()
-            .map_err(|_| fpm_anchor_error("could not construct FPM registration anchor entry type"))?,
-    );
-    if record.action().entry_type() != Some(&expected_entry_type) {
-        return Err(fpm_anchor_error(
-            "EntryHash does not resolve to the FPM registration anchor entry type",
-        ));
-    }
-
     let anchor: FpmRegistrationAnchor = record
         .entry()
         .to_app_option()
@@ -267,10 +236,7 @@ fn resolve_entry_anchor(
         entry_hash: input.entry_hash,
         action_hash: None,
         author: None,
-        signer: None,
         timestamp: None,
-        action_seq: None,
-        prev_action: None,
         envelope: anchor.envelope,
     })
 }
