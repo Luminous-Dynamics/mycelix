@@ -274,8 +274,6 @@ def preflight_zip_entry_count(archive_path: pathlib.Path, maximum_entries: int) 
             zip64_offset = struct.unpack_from("<Q", tail, position + 8)[0]
             total_disks = struct.unpack_from("<I", tail, position + 16)[0]
             absolute_locator = tail_base + position
-            if disk_number != 0 or total_disks != 1:
-                continue
             if zip64_offset >= absolute_locator or zip64_offset + 56 > archive_size:
                 continue
             handle.seek(zip64_offset)
