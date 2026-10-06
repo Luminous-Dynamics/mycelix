@@ -1535,6 +1535,7 @@ pub fn run_scenario(
             FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
             &receipt.reconciliation_sha256,
             FederationStateMachineTraceExternalWitnessKind::ArchiveEvidenceRecord,
+            1,
             "external-archive-evidence-record-v1",
             &witness_artifact,
             1_791_000_000,
@@ -1575,6 +1576,7 @@ pub fn run_scenario(
                 subject_profile,
                 subject_digest,
                 FederationStateMachineTraceExternalWitnessKind::TransparencyLogHead,
+                2,
                 "ct-log-sth-v2",
                 witness_artifact,
                 1_791_000_123,
@@ -1599,6 +1601,23 @@ pub fn run_scenario(
 
         reference.subject_hash_algorithm =
             FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM.into();
+        reference.witness_schema_version = 0;
+        reference.anchor_reference_sha256 =
+            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                subject_profile,
+                subject_digest,
+                witness_artifact,
+                &reference,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessSchemaVersionMismatch
+            )
+        );
+
+        reference.witness_schema_version = 2;
         reference.witness_hash_encoding = "raw-bytes-v1".into();
         reference.anchor_reference_sha256 =
             state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
@@ -1708,6 +1727,7 @@ pub fn run_scenario(
                 "",
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 FederationStateMachineTraceExternalWitnessKind::Other,
+                1,
                 "external-v1",
                 b"witness",
                 0,
@@ -1722,6 +1742,7 @@ pub fn run_scenario(
                 FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
                 "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                 FederationStateMachineTraceExternalWitnessKind::Other,
+                1,
                 "external-v1",
                 b"witness",
                 0,
@@ -1737,6 +1758,7 @@ pub fn run_scenario(
                 FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 FederationStateMachineTraceExternalWitnessKind::Other,
+                1,
                 "external-v1",
                 b"witness",
                 0,
@@ -1765,6 +1787,7 @@ pub fn run_scenario(
                 FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 FederationStateMachineTraceExternalWitnessKind::Other,
+                1,
                 "external-v1",
                 b"",
                 0,
@@ -1780,6 +1803,7 @@ pub fn run_scenario(
                 "subject-profile-v1",
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+                1,
                 "tsa-token-v1",
                 b"token",
                 1_791_000_001,
@@ -1808,6 +1832,7 @@ pub fn run_scenario(
                 "subject-profile-v1",
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+                1,
                 "tsa-token-v1",
                 witness_artifact,
                 u64::MAX,
@@ -3774,6 +3799,7 @@ mod tests {
         subject_sha256: String,
         witness_hash_algorithm: String,
         witness_hash_encoding: String,
+        witness_schema_version: u16,
         witness_kind: FederationStateMachineTraceExternalWitnessKind,
         witness_profile: String,
         witness_sha256: String,
@@ -3795,6 +3821,7 @@ mod tests {
         subject_sha256: String,
         witness_hash_algorithm: String,
         witness_hash_encoding: String,
+        witness_schema_version: u16,
         witness_kind: FederationStateMachineTraceExternalWitnessKind,
         witness_profile: String,
         witness_sha256: String,
@@ -4678,6 +4705,7 @@ mod tests {
             subject_sha256: reference.subject_sha256.clone(),
             witness_hash_algorithm: reference.witness_hash_algorithm.clone(),
             witness_hash_encoding: reference.witness_hash_encoding.clone(),
+            witness_schema_version: reference.witness_schema_version,
             witness_kind: reference.witness_kind,
             witness_profile: reference.witness_profile.clone(),
             witness_sha256: reference.witness_sha256.clone(),
@@ -5213,6 +5241,7 @@ mod tests {
         subject_profile: &str,
         subject_sha256: &str,
         witness_kind: FederationStateMachineTraceExternalWitnessKind,
+        witness_schema_version: u16,
         witness_profile: &str,
         witness_artifact: &[u8],
         claimed_observed_at_unix_seconds: u64,
@@ -5266,6 +5295,7 @@ mod tests {
                 FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM.into(),
             witness_hash_encoding:
                 FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING.into(),
+            witness_schema_version,
             witness_kind,
             witness_profile: witness_profile.into(),
             witness_sha256: state_machine_trace_external_witness_artifact_sha256(witness_artifact),
@@ -5292,6 +5322,7 @@ mod tests {
         EmptyWitnessDigest,
         WitnessHashAlgorithmMismatch,
         WitnessHashEncodingMismatch,
+        WitnessSchemaVersionMismatch,
         EmptyWitnessArtifact,
         SubjectSchemaVersionMismatch,
         SubjectProfileMismatch,
@@ -5357,6 +5388,11 @@ mod tests {
         if !state_machine_trace_is_sha256_digest(&reference.subject_sha256) {
             return Err(
                 FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::InvalidSubjectDigest
+            );
+        }
+        if reference.witness_schema_version == 0 {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessSchemaVersionMismatch
             );
         }
         if reference.witness_profile.is_empty() {
