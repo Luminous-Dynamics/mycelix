@@ -803,10 +803,6 @@ def validate_crl_applicability(
     names = der_children(dp_content)
     if len(names) != 1 or names[0][0] != 0x86 or not names[0][1]:
         raise ValueError("reference model fullName must contain exactly one non-empty URI")
-    try:
-        uri = names[0][1].decode("ascii")
-    except UnicodeDecodeError as exc:
-        raise ValueError("CRL distribution URI is not IA5String/ASCII") from exc
     if distribution_point["name_form"] != "fullName":
         raise ValueError("CRL applicability name form mismatch")
     if distribution_point["general_name_count"] != 1:
@@ -835,7 +831,6 @@ def validate_crl_applicability(
             "reasons_present": False,
             "crl_issuer_present": False,
         },
-        "uri_text": uri,
     }
 
 def validate_subject_directory_attributes(info: dict[str, Any]) -> bool:
@@ -1910,6 +1905,8 @@ def session_binding(
             "revocation_crl_bundle_pem_sha256": crl_sha,
             "crl_semantics_sha256": manifest.get("crl_semantics_sha256"),
             "crl_semantics": manifest.get("crl_semantics"),
+            "crl_applicability_sha256": manifest.get("crl_applicability_sha256"),
+            "crl_applicability": manifest.get("crl_applicability"),
             "path_state": manifest["path_validation"].get("state"),
             "path_verifier_id": manifest["path_validation"].get("verifier_id"),
             "path_source_sha256": manifest["path_validation"].get("source_sha256"),
@@ -2134,6 +2131,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
         "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
         "crl_semantics_sha256": manifest["crl_semantics_sha256"],
+        "crl_applicability_sha256": manifest["crl_applicability_sha256"],
     }
 
     try:
@@ -2172,6 +2170,10 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "independent-crl-semantics-recipe-binding-mismatch")
     if independent_details.get("crl_semantics") != crypto_receipt["crl_semantics"]:
         return result("DENY", "independent-crl-semantics-binding-mismatch")
+    if crypto_receipt["crl_applicability"] != manifest["crl_applicability"]:
+        return result("DENY", "crl-applicability-observed-binding-mismatch")
+    if crypto_receipt["crl_applicability_sha256"] != manifest["crl_applicability_sha256"]:
+        return result("DENY", "crl-applicability-observed-digest-mismatch")
     if manifest["cryptographic_binding_sha256"] != expected_crypto_binding_sha256:
         return result(
             "DENY",
@@ -2675,7 +2677,7 @@ def refresh_cryptographic_binding(m: dict[str, Any]) -> None:
         unb64(m["trust_anchor_root_der_base64"], "trust_anchor_root_der_base64")
     )
     crl_bundle = unb64(m["revocation"]["crl_bundle_pem_base64"], "revocation.crl_bundle_pem_base64")
-    receipt = cryptographic_binding_receipt(leaf, intermediate, root, crl_bundle, m["crl_semantics"], m["verification_time_unix"])
+    receipt = cryptographic_binding_receipt(leaf, intermediate, root, crl_bundle, m["crl_semantics"], m["crl_applicability"], m["verification_time_unix"])
     m["cryptographic_binding_sha256"] = canonical_hash(receipt)
     external = run_crypto_verifier(m)
     if external.get("state") != "PASS":
@@ -3191,8 +3193,8 @@ def self_test() -> int:
             parsed_crls["intermediate"],
             base["crl_applicability"],
         )
-        if applicability["uri_text"] != "https://example.invalid/ek.crl":
-            print("CRL applicability fixture URI: FAIL")
+        if applicability != base["crl_applicability"]:
+            print("CRL applicability observed projection: FAIL")
             return 1
 
         applicability_observed_mutations = [
