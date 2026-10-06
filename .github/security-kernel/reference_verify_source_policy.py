@@ -988,7 +988,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
             'EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"',
             'EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "18dca202667b1dc26f57c588efcab42087c8a49e"',
             'SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"',
-            'SOURCE_POLICY_VERIFIER_BLOB_SHA: "9819e583b17fed8f35b425d3f0d1222ff8d86db6"',
+            f'SOURCE_POLICY_VERIFIER_BLOB_SHA: "{expected_policy_sha}"',
             'EXPECTED_JOB_NAME: "Independent Security Kernel"',
         ),
         "S2",
