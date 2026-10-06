@@ -6,7 +6,6 @@ import argparse
 import copy
 import hashlib
 import json
-import shutil
 import sys
 import subprocess
 import tempfile
@@ -1661,7 +1660,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("41 adversarial mutations plus canonical and key-order control: PASS")
+    print("43 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
