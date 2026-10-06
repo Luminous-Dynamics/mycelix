@@ -162,7 +162,7 @@ def split_pem_crls(bundle: bytes) -> list[bytes]:
         if end < 0:
             raise ValueError("CRL PEM block missing END marker")
         end += len(end_marker)
-        blocks.append(bundle[start:end] + b"\\n")
+        blocks.append(bundle[start:end])
         cursor = end
     if not blocks:
         raise ValueError("CRL bundle contains no PEM CRLs")
@@ -1054,6 +1054,8 @@ def parse_crl_der_for_crypto(der: bytes) -> dict[str, Any]:
     number_tag, number_content, _number_raw, number_end = der_tlv(number_value, 0)
     if number_tag != 0x02 or number_end != len(number_value):
         raise ValueError("CRL cRLNumber malformed")
+    if len(number_content) > 20:
+        raise ValueError("CRL.cRLNumber exceeds RFC 5280 20-octet limit")
     crl_number = der_integer_value(number_content, "CRL.cRLNumber")
     authority_key_identifier = parse_crl_aki({"crl_extensions": crl_extensions})
     return {
@@ -1096,6 +1098,22 @@ def validate_crl_semantics(
             raise ValueError(f"{label} CRL thisUpdate/nextUpdate are required")
         if crl["this_update"]["unix"] > verification_time_unix or verification_time_unix >= crl["next_update"]["unix"]:
             raise ValueError(f"{label} CRL outside exact modeled validity window")
+        selection = spec.get("selection")
+        if not isinstance(selection, dict) or set(selection) != {
+            "issuer_certificate_sha256", "crl_der_sha256", "scope",
+            "delta_crl_supported", "indirect_crl_supported", "crl_number_lineage",
+        }:
+            raise ValueError(f"{label} CRL authoritative selection contract malformed")
+        if selection["issuer_certificate_sha256"] != issuers[label]["object_sha256"]:
+            raise ValueError(f"{label} CRL authoritative issuer certificate identity mismatch")
+        if selection["crl_der_sha256"] != crl["object_sha256"]:
+            raise ValueError(f"{label} CRL authoritative CRL DER identity mismatch")
+        if selection["scope"] != "all-certificates-issued-by-issuer":
+            raise ValueError(f"{label} CRL scope is not complete-single-CA")
+        if selection["delta_crl_supported"] is not False or selection["indirect_crl_supported"] is not False:
+            raise ValueError(f"{label} CRL delta/indirect semantics are outside the reference model")
+        if selection["crl_number_lineage"] != "single-current-reference-no-history":
+            raise ValueError(f"{label} CRL number historical progression is not modeled")
         expected_number = int(spec["crl_number"])
         if crl["crl_number"] != expected_number:
             raise ValueError(f"{label} cRLNumber does not match committed recipe")
@@ -1129,6 +1147,8 @@ def validate_crl_semantics(
             if len(reason_content) > 1 and reason_content[0] == 0:
                 raise ValueError(f"{label} CRL reasonCode non-canonical")
             reason = int.from_bytes(reason_content, "big")
+            if reason == 8:
+                raise ValueError(f"{label} CRL removeFromCRL requires delta-CRL semantics")
             if reason != int(expected_entry["reason_code"]):
                 raise ValueError(f"{label} CRL reasonCode mismatch")
             if observed_entry["entry_identity_sha256"] != str(expected_entry["entry_identity_sha256"]):
@@ -3015,6 +3035,24 @@ def self_test() -> int:
                 print(f"{name}: FAIL")
                 return 1
 
+        selection_mutations = [
+            ("crl-authoritative-object-identity", lambda x: x["root"]["selection"].update({"crl_der_sha256": "92" * 32})),
+            ("crl-authoritative-issuer-certificate-identity", lambda x: x["root"]["selection"].update({"issuer_certificate_sha256": "93" * 32})),
+            ("crl-scope-completeness-substitution", lambda x: x["root"]["selection"].update({"scope": "limited-reason-scope"})),
+            ("crl-delta-indirect-semantics-substitution", lambda x: x["root"]["selection"].update({"indirect_crl_supported": True})),
+            ("crl-number-progression-claim-substitution", lambda x: x["root"]["selection"].update({"crl_number_lineage": "strictly-increasing-history"})),
+        ]
+        for name, mutate in selection_mutations:
+            expected = copy.deepcopy(base["crl_semantics"])
+            mutate(expected)
+            try:
+                validate_crl_semantics(parsed_crls, {"root": root_for_crypto, "intermediate": inter_for_crypto, "leaf": leaf_for_crypto}, expected, base["verification_time_unix"])
+            except (ValueError, KeyError):
+                pass
+            else:
+                print(f"{name}: FAIL")
+                return 1
+
         cases = [
             ("canonical-valid", "PASS", lambda x: None),
             ("forbidden-profile-override-on-valid-input", "DENY", lambda x: x.update({
@@ -3092,6 +3130,11 @@ def self_test() -> int:
             ("crl-number-substitution", "DENY", lambda x: x["crl_semantics"]["intermediate"].update({"crl_number": 99})),
             ("crl-revocation-entry-identity-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["revoked_entries"][0].update({"entry_identity_sha256": "00" * 32})),
             ("crl-revocation-entry-reason-substitution", "DENY", lambda x: x["crl_semantics"]["intermediate"]["revoked_entries"][0].update({"reason_code": 2})),
+            ("crl-authoritative-object-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["selection"].update({"crl_der_sha256": "92" * 32})),
+            ("crl-authoritative-issuer-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["selection"].update({"issuer_certificate_sha256": "93" * 32})),
+            ("crl-scope-completeness-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["selection"].update({"scope": "limited-reason-scope"})),
+            ("crl-delta-indirect-semantics-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["selection"].update({"indirect_crl_supported": True})),
+            ("crl-number-progression-claim-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["selection"].update({"crl_number_lineage": "strictly-increasing-history"})),
         ]
         for name, expected, mutate in cases:
             candidate = copy.deepcopy(base)
