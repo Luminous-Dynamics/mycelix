@@ -37,7 +37,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "32"
+          TRUSTED_POLICY_VERSION: "33"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -94,7 +94,7 @@ jobs:
 
       - name: Prepare inert trusted signer handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "32"
+          D6U_TRUSTED_POLICY_VERSION: "33"
         run: |
           set -euo pipefail
           handoff_dir="$RUNNER_TEMP/d6u-signer-handoff"
@@ -168,7 +168,7 @@ EOF
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "32"
+          TRUSTED_POLICY_VERSION: "33"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -211,7 +211,7 @@ EOF
 
       - name: Assert inert trusted signer handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "32"
+          D6U_TRUSTED_POLICY_VERSION: "33"
         run: |
           set -euo pipefail
           handoff_dir="$RUNNER_TEMP/d6u-signer-handoff"
@@ -311,7 +311,7 @@ EOF
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
-            D6U_TRUSTED_POLICY_VERSION="32" \
+            D6U_TRUSTED_POLICY_VERSION="33" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
@@ -321,7 +321,7 @@ EOF
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "32"
+          D6U_TRUSTED_POLICY_VERSION: "33"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"
@@ -530,7 +530,6 @@ EOF
 
           D6U_TRUSTED_POLICY_VERSION="$D6U_TRUSTED_POLICY_VERSION"           GITHUB_REPOSITORY="$GITHUB_REPOSITORY"           GITHUB_REF="$GITHUB_REF"           GITHUB_SHA="$GITHUB_SHA"           GITHUB_WORKFLOW_SHA="$GITHUB_WORKFLOW_SHA"           GITHUB_RUN_ID="$GITHUB_RUN_ID"           GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT"           RUNNER_TEMP="$RUNNER_TEMP"           D6U_SUBJECT_D6U_RUNTIME_EVIDENCE_TXT_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-signer-handoff/d6u-runtime-evidence.txt" | awk '{print $1}')"           D6U_SUBJECT_D6U_RUNTIME_TEST_LOG_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-signer-handoff/d6u-runtime-test.log" | awk '{print $1}')"           D6U_SUBJECT_CARGO_LOCK_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-signer-handoff/Cargo.lock" | awk '{print $1}')"             python3 scripts/integral/verify_d6u_trusted_attestation_retention.py "$retention_dir"
 
-      - name: Upload retained trusted attestation packet
       - name: Upload retained trusted attestation packet
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
