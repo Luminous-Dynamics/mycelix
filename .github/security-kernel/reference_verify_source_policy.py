@@ -167,6 +167,18 @@ def require_no_fail_open_controls(lines_: list[str], description: str) -> None:
             fail(f"{description}: forbidden fail-open control {fragment!r}")
 
 
+def require_no_yaml_reuse_syntax(lines_: list[str], description: str) -> None:
+    for line in lines_:
+        # Block-scalar command bodies are intentionally excluded; only structural YAML
+        # lines (indentation <= 8) are examined here.
+        if len(line) - len(line.lstrip(" ")) > 8:
+            continue
+        if re.search(r"(^|\s)[&*][A-Za-z0-9_-]+(?:\s|$)", line):
+            fail(f"{description}: YAML anchors/aliases are forbidden: {line!r}")
+        if re.match(r"^\s{0,8}<<:\s*", line):
+            fail(f"{description}: YAML merge keys are forbidden: {line!r}")
+
+
 def require_following(lines_: list[str], step_name: str, expected_line: str, description: str) -> None:
     matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
     if len(matches) != 1:
@@ -223,6 +235,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     if exact_count(l, 'BASE_BRANCH: "main"') != 1:
         fail("S0 base branch mismatch")
     require_no_fail_open_controls(l, "S0")
+    require_no_yaml_reuse_syntax(l, S0)
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
         fail("S0 must remain metadata-only")
@@ -259,6 +272,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if exact_count(l, f'TRUSTED_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"') != 1:
         fail("S1 trusted workflow blob pin mismatch")
     require_no_fail_open_controls(l, "S1")
+    require_no_yaml_reuse_syntax(l, S1)
     for required in (
         "--network=bridge",
         "--network=none",
@@ -331,6 +345,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         if required not in joined:
             fail(f"S2 artifact transport/decompression control missing: {required!r}")
     require_no_fail_open_controls(l, "S2")
+    require_no_yaml_reuse_syntax(l, S2)
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
     require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: success()", "S2 transcript download gate")
