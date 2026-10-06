@@ -7882,6 +7882,10 @@ mod tests {
             FederationStateMachineTracePublicationCollectionRelationship::OverlappingDivergence
         );
         assert_eq!(
+            receipt.history_relationship,
+            FederationStateMachineTracePublicationCollectionHistoryRelationship::DivergentAfterCommonPrefix
+        );
+        assert_eq!(
             receipt.shared_publication_sha256s,
             vec![base_publication.publication_sha256.clone()]
         );
@@ -7932,6 +7936,10 @@ mod tests {
             subset.relationship,
             FederationStateMachineTracePublicationCollectionRelationship::LeftStrictSubset
         );
+        assert_eq!(
+            subset.history_relationship,
+            FederationStateMachineTracePublicationCollectionHistoryRelationship::LeftStrictPrefix
+        );
 
         let reverse_subset =
             state_machine_trace_publication_collection_reconciliation(
@@ -7942,6 +7950,10 @@ mod tests {
         assert_eq!(
             reverse_subset.relationship,
             FederationStateMachineTracePublicationCollectionRelationship::RightStrictSubset
+        );
+        assert_eq!(
+            reverse_subset.history_relationship,
+            FederationStateMachineTracePublicationCollectionHistoryRelationship::RightStrictPrefix
         );
 
         let unrelated =
@@ -7963,6 +7975,10 @@ mod tests {
         assert_eq!(
             disjoint.relationship,
             FederationStateMachineTracePublicationCollectionRelationship::Disjoint
+        );
+        assert_eq!(
+            disjoint.history_relationship,
+            FederationStateMachineTracePublicationCollectionHistoryRelationship::Disjoint
         );
         assert!(disjoint.equivocation_witness_sha256s.is_empty());
 
