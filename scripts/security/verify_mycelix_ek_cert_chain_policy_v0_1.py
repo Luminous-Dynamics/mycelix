@@ -787,6 +787,193 @@ def crl_pem_to_der(block: bytes) -> bytes:
         raise ValueError(f"invalid X509 CRL PEM encoding: {exc}") from exc
 
 
+def rsa_public_key_from_spki(spki_der: bytes) -> tuple[int, int]:
+    tag, content, _raw, end = der_tlv(spki_der, 0)
+    if tag != 0x30 or end != len(spki_der):
+        raise ValueError("SubjectPublicKeyInfo must be one SEQUENCE")
+    children = der_children(content)
+    if len(children) != 2 or children[0][0] != 0x30 or children[1][0] != 0x03:
+        raise ValueError("SubjectPublicKeyInfo structure invalid")
+    if algorithm_identifier_oid(children[0][2], "SubjectPublicKeyInfo") != RSA_ENCRYPTION_OID:
+        raise ValueError("SubjectPublicKeyInfo algorithm is not rsaEncryption")
+    key_bits = children[1][1]
+    if not key_bits or key_bits[0] != 0:
+        raise ValueError("SubjectPublicKeyInfo RSA BIT STRING must have zero unused bits")
+    rsa_der = key_bits[1:]
+    rsa_tag, rsa_content, _rsa_raw, rsa_end = der_tlv(rsa_der, 0)
+    if rsa_tag != 0x30 or rsa_end != len(rsa_der):
+        raise ValueError("RSA public key is not one SEQUENCE")
+    rsa_children = der_children(rsa_content)
+    if len(rsa_children) != 2 or any(child[0] != 0x02 for child in rsa_children):
+        raise ValueError("RSA public key must contain modulus and exponent")
+    modulus = der_integer_value(rsa_children[0][1], "RSA.modulus", positive=True)
+    exponent = der_integer_value(rsa_children[1][1], "RSA.exponent", positive=True)
+    return modulus, exponent
+
+
+def rsa_sha256_verify(tbs_der: bytes, signature: bytes, spki_der: bytes) -> dict[str, str]:
+    modulus, exponent = rsa_public_key_from_spki(spki_der)
+    width = (modulus.bit_length() + 7) // 8
+    if len(signature) != width:
+        raise ValueError("RSA signature width does not match issuer modulus")
+    signature_integer = int.from_bytes(signature, "big")
+    if signature_integer >= modulus:
+        raise ValueError("RSA signature integer is not below issuer modulus")
+    encoded = pow(signature_integer, exponent, modulus).to_bytes(width, "big")
+    digest_info = bytes.fromhex("3031300d060960864801650304020105000420") + hashlib.sha256(tbs_der).digest()
+    if not encoded.startswith(b"\x00\x01"):
+        raise ValueError("RSA PKCS#1 v1.5 signature header invalid")
+    separator = encoded.find(b"\x00", 2)
+    if separator < 10 or any(byte != 0xFF for byte in encoded[2:separator]):
+        raise ValueError("RSA PKCS#1 v1.5 padding invalid")
+    if encoded[separator + 1:] != digest_info:
+        raise ValueError("RSA SHA-256 signature does not match exact TBS bytes")
+    return {
+        "modulus_sha256": hashlib.sha256(
+            modulus.to_bytes((modulus.bit_length() + 7) // 8, "big")
+        ).hexdigest(),
+        "signature_sha256": hashlib.sha256(signature).hexdigest(),
+        "tbs_sha256": hashlib.sha256(tbs_der).hexdigest(),
+    }
+
+
+def parse_crl_der_for_crypto(der: bytes) -> dict[str, Any]:
+    tag, content, _raw, end = der_tlv(der, 0)
+    if tag != 0x30 or end != len(der):
+        raise ValueError("CRL is not one DER SEQUENCE")
+    outer = der_children(content)
+    if len(outer) != 3 or outer[0][0] != 0x30 or outer[1][0] != 0x30 or outer[2][0] != 0x03:
+        raise ValueError("CRL outer structure invalid")
+    tbs_raw = outer[0][2]
+    outer_alg_raw = outer[1][2]
+    signature_content = outer[2][1]
+    if signature_content[:1] != b"\x00":
+        raise ValueError("CRL signatureValue must have zero unused bits")
+    signature = signature_content[1:]
+    tbs_tag, tbs_content, _tbs_raw, tbs_end = der_tlv(tbs_raw, 0)
+    if tbs_tag != 0x30 or tbs_end != len(tbs_raw):
+        raise ValueError("TBSCertList malformed")
+    fields = der_children(tbs_content)
+    cursor = 0
+    if fields and fields[0][0] == 0x02:
+        if der_integer_value(fields[0][1], "TBSCertList.version") != 1:
+            raise ValueError("synthetic CRL must be v2")
+        cursor += 1
+    if len(fields) <= cursor or fields[cursor][0] != 0x30:
+        raise ValueError("TBSCertList signature AlgorithmIdentifier malformed")
+    inner_alg_raw = fields[cursor][2]
+    inner_oid = algorithm_identifier_oid(inner_alg_raw, "TBSCertList.signature")
+    outer_oid = algorithm_identifier_oid(outer_alg_raw, "CRL.signatureAlgorithm")
+    if inner_alg_raw != outer_alg_raw or inner_oid != SHA256_WITH_RSA_OID or outer_oid != SHA256_WITH_RSA_OID:
+        raise ValueError("CRL signature AlgorithmIdentifiers are not identical SHA256withRSA")
+    cursor += 1
+    if cursor >= len(fields) or fields[cursor][0] != 0x30:
+        raise ValueError("TBSCertList issuer Name malformed")
+    issuer_der = fields[cursor][2]
+    return {
+        "object_der": der,
+        "object_sha256": hashlib.sha256(der).hexdigest(),
+        "tbs_der": tbs_raw,
+        "tbs_sha256": hashlib.sha256(tbs_raw).hexdigest(),
+        "signature_der": signature,
+        "signature_sha256": hashlib.sha256(signature).hexdigest(),
+        "signature_algorithm_oid": outer_oid,
+        "issuer_der": issuer_der,
+    }
+
+
+def cryptographic_binding_receipt(
+    leaf: dict[str, Any],
+    intermediate: dict[str, Any],
+    root: dict[str, Any],
+    crl_bundle: bytes,
+) -> dict[str, Any]:
+    if leaf["issuer_der"] != intermediate["subject_der"]:
+        raise ValueError("leaf issuer does not exactly match intermediate subject")
+    if intermediate["issuer_der"] != root["subject_der"]:
+        raise ValueError("intermediate issuer does not exactly match root subject")
+    if root["issuer_der"] != root["subject_der"]:
+        raise ValueError("root is not self-issued")
+
+    certificate_signatures = {}
+    for label, cert, issuer, self_signed in (
+        ("leaf", leaf, intermediate, False),
+        ("intermediate", intermediate, root, False),
+        ("root", root, root, True),
+    ):
+        check = rsa_sha256_verify(cert["tbs_der"], cert["signature_der"], issuer["spki_der"])
+        certificate_signatures[label] = {
+            "object_sha256": cert["object_sha256"],
+            "tbs_sha256": check["tbs_sha256"],
+            "signature_sha256": check["signature_sha256"],
+            "signature_algorithm_oid": cert["signature_algorithm_oid"],
+            "issuer_name_sha256": hashlib.sha256(cert["issuer_der"]).hexdigest(),
+            "subject_name_sha256": hashlib.sha256(cert["subject_der"]).hexdigest(),
+            "issuer_object_sha256": issuer["object_sha256"],
+            "issuer_spki_sha256": hashlib.sha256(issuer["spki_der"]).hexdigest(),
+            "issuer_modulus_sha256": check["modulus_sha256"],
+            "signature_verification": "PASS",
+            "issuer_name_exact_match": True,
+            "self_signed": self_signed,
+        }
+
+    crl_signatures: dict[str, dict[str, Any]] = {}
+    seen_crl: set[str] = set()
+    blocks = split_pem_crls(crl_bundle)
+    for block in blocks:
+        der = crl_pem_to_der(block)
+        entry = parse_crl_der_for_crypto(der)
+        if entry["object_sha256"] in seen_crl:
+            raise ValueError("duplicate CRL object")
+        seen_crl.add(entry["object_sha256"])
+        matches = []
+        if entry["issuer_der"] == root["subject_der"]:
+            matches.append(("root", root))
+        if entry["issuer_der"] == intermediate["subject_der"]:
+            matches.append(("intermediate", intermediate))
+        if len(matches) != 1:
+            raise ValueError("CRL issuer does not exactly match one chain issuer subject")
+        label, issuer = matches[0]
+        check = rsa_sha256_verify(entry["tbs_der"], entry["signature_der"], issuer["spki_der"])
+        if label in crl_signatures:
+            raise ValueError(f"duplicate CRL issuer: {label}")
+        crl_signatures[label] = {
+            "object_sha256": entry["object_sha256"],
+            "pem_block_sha256": hashlib.sha256(block).hexdigest(),
+            "tbs_sha256": check["tbs_sha256"],
+            "signature_sha256": check["signature_sha256"],
+            "signature_algorithm_oid": entry["signature_algorithm_oid"],
+            "issuer_name_sha256": hashlib.sha256(entry["issuer_der"]).hexdigest(),
+            "issuer_object_sha256": issuer["object_sha256"],
+            "issuer_spki_sha256": hashlib.sha256(issuer["spki_der"]).hexdigest(),
+            "issuer_modulus_sha256": check["modulus_sha256"],
+            "signature_verification": "PASS",
+            "issuer_name_exact_match": True,
+        }
+    if set(crl_signatures) != {"root", "intermediate"}:
+        raise ValueError("CRL bundle must contain exactly one CRL for root and intermediate")
+
+    return {
+        "verifier_id": CRYPTO_BINDING_ID,
+        "state": "PASS",
+        "certificate_signatures": certificate_signatures,
+        "crl_signatures": crl_signatures,
+        "exact_relationships": {
+            "leaf_to_intermediate_subject_exact": True,
+            "intermediate_to_root_subject_exact": True,
+            "root_self_issued_exact": True,
+            "root_crl_issuer_exact": True,
+            "intermediate_crl_issuer_exact": True,
+        },
+        "exact_input_objects": {
+            "leaf_certificate_sha256": leaf["object_sha256"],
+            "intermediate_certificate_sha256": intermediate["object_sha256"],
+            "trust_anchor_root_sha256": root["object_sha256"],
+            "crl_bundle_pem_sha256": hashlib.sha256(crl_bundle).hexdigest(),
+        },
+    }
+
+
 def crl_issuer_names_from_pem_bundle(bundle: bytes) -> list[bytes]:
     issuers: list[bytes] = []
     for block in split_pem_crls(bundle):
