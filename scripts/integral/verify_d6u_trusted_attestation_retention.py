@@ -36,6 +36,7 @@ FILES = (
     "d6u-runtime-evidence.no-public-good.json",
     "d6u-runtime-test.no-public-good.json",
     "Cargo_lock.no-public-good.json",
+    "d6u-trusted-evidence-predicate.json",
     "trusted_root.jsonl",
     "retention-transcript.json",
 )
@@ -45,7 +46,8 @@ MAX_TOTAL_BYTES = 18 * 1024 * 1024
 MAX_JSONL_LINES = 64
 RETAINED_FILES = tuple(name for name in FILES if name != "retention-transcript.json")
 PREDICATE_TYPE = "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"
-PREDICATE_SCHEMA = "d6u-trusted-runtime-evidence/v1"
+CANONICAL_PREDICATE_SCHEMA = "d6u-trusted-runtime-evidence/v1"
+ATTESTATION_PREDICATE_SCHEMA = "d6u-trusted-runtime-evidence-attestation/v2"
 PUBLIC_GOOD_INSTANCE = "sigstore-public-good"
 SIGNER_WORKFLOW_SUFFIX = "/.github/workflows/d6u-trusted-evidence-attestation.yml"
 CERT_OIDC_ISSUER = "https://token.actions.githubusercontent.com"
