@@ -67,6 +67,16 @@ jobs:
           printf 'trusted_workflow_ref=%s\n' "${{ github.workflow_ref }}" >> "${GITHUB_OUTPUT}"
           printf 'trusted_workflow_blob_sha=%s\n' "${workflow_blob}" >> "${GITHUB_OUTPUT}"
 
+      - name: Capture trusted substrate policy
+        id: substrate_policy
+        run: |
+          set -euo pipefail
+          test -f docs/finance-qualification/substrate-matrix.toml
+          matrix_blob="$(git rev-parse HEAD:docs/finance-qualification/substrate-matrix.toml)"
+          cp docs/finance-qualification/substrate-matrix.toml /tmp/finance-substrate-matrix.toml
+          printf 'trusted_substrate_matrix_blob_sha=%s\n' "${matrix_blob}" >> "${GITHUB_OUTPUT}"
+          sha256sum /tmp/finance-substrate-matrix.toml | awk '{print $1}' > /tmp/finance-substrate-matrix.sha256
+
       - name: Validate immutable verifier shape
         run: |
           set -euo pipefail
@@ -176,6 +186,62 @@ jobs:
           forbidden="$(git ls-tree -r --name-only HEAD | grep -E '^mycelix-finance/(\.venv|venv|env)(/|$)' || true)"
           test -z "${forbidden}"
 
+      - name: Verify Finance substrate identity
+        id: substrate_guard
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          import tomllib
+          from pathlib import Path
+
+          matrix = tomllib.loads(Path("/tmp/finance-substrate-matrix.toml").read_text(encoding="utf-8"))
+          assert matrix["schema"] == "MYCELIX-FINANCE-SUBSTRATE-MATRIX-V1"
+          assert matrix["matrix_version"] == 1
+          assert matrix["status"] == "known-mismatch"
+          assert matrix["intended_holochain_family"] == "0.7"
+          assert matrix["implemented_holochain_family"] == "0.6"
+          assert matrix["claim_ceiling"]["known_mismatch_is_pass"] is False
+          assert matrix["claim_ceiling"]["holochain_07_claim_requires_reconciled_substrate"] is True
+
+          cargo = tomllib.loads(Path("mycelix-finance/Cargo.toml").read_text(encoding="utf-8"))
+          deps = cargo["workspace"]["dependencies"]
+          expected_cargo = matrix["cargo"]
+          for key, expected in expected_cargo.items():
+              observed = deps[key]
+              if isinstance(observed, str):
+                  observed_version = observed
+              else:
+                  observed_version = observed.get("version")
+              assert observed_version == expected, (
+                  f"Finance Cargo {key} drift: expected {expected}, got {observed_version}"
+              )
+
+          for flake_path in (
+              "mycelix-finance/flake.nix",
+              "mycelix-workspace/mycelix-finance/flake.nix",
+          ):
+              flake = Path(flake_path).read_text(encoding="utf-8")
+              match = re.search(
+                  r'holonix\s*=\s*\{\s*\n\s*url\s*=\s*"github:holochain/holonix/([0-9a-f]+)"',
+                  flake,
+              )
+              assert match, f"Holonix revision missing from {flake_path}"
+              assert match.group(1) == matrix["holonix"]["commit"], (
+                  f"{flake_path} Holonix drift: expected {matrix['holonix']['commit']}, "
+                  f"got {match.group(1)}"
+              )
+
+          rust_match = re.search(
+              r'toolchain:\s*' + re.escape(matrix["qualification"]["rust"]) + r'\b',
+              Path(".github/workflows/finance-exact-head-qualification.yml").read_text(encoding="utf-8"),
+          )
+          assert rust_match, "qualification Rust toolchain no longer matches trusted substrate matrix"
+
+          print("FINANCE_SUBSTRATE_STATUS=known-mismatch")
+          print("FINANCE_SUBSTRATE_IMPLEMENTED=0.6")
+          print("FINANCE_SUBSTRATE_INTENDED=0.7")
+          PY
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # pinned action commit
         with:
@@ -215,6 +281,7 @@ jobs:
           if [ "${{ steps.fmt.outcome }}" = "success" ] &&
              [ "${{ steps.tests.outcome }}" = "success" ] &&
              [ "${{ steps.artifact_guard.outcome }}" = "success" ] &&
+             [ "${{ steps.substrate_guard.outcome }}" = "success" ] &&
              [ "${{ steps.tree_immutability.outcome }}" = "success" ]; then
             result=PASS
           fi
@@ -238,6 +305,10 @@ jobs:
           trusted_workflow_sha=${{ steps.trusted.outputs.trusted_workflow_sha }}
           trusted_workflow_ref=${{ steps.trusted.outputs.trusted_workflow_ref }}
           trusted_workflow_blob_sha=${{ steps.trusted.outputs.trusted_workflow_blob_sha }}
+          trusted_substrate_matrix_blob_sha=${{ steps.substrate_policy.outputs.trusted_substrate_matrix_blob_sha }}
+          substrate_status=known-mismatch
+          substrate_intended_holochain=0.7
+          substrate_implemented_holochain=0.6
           workflow_name=${{ github.workflow }}
           workflow_ref=${{ github.workflow_ref }}
           workflow_event=${{ github.event_name }}
