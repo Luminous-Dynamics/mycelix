@@ -702,6 +702,14 @@ def validate_subject_directory_attributes(info: dict[str, Any]) -> bool:
     return True
 
 
+def reference_tpm_values() -> dict[str, Any]:
+    recipe = json.loads(FIXTURE_RECIPE_FILE.read_text(encoding="utf-8"))
+    tpm = recipe.get("tpm")
+    if not isinstance(tpm, dict) or not {"manufacturer", "model", "version"} <= set(tpm):
+        raise ValueError("fixture recipe TPM metadata incomplete")
+    return tpm
+
+
 def subject_alt_name(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     critical, value = extension_value(info, "2.5.29.17")
     if value is None:
@@ -752,7 +760,8 @@ def subject_alt_name(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
 
 
 
-def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+def leaf_profile_ok(info: dict[str, Any], expected_tpm: dict[str, Any] | None = None) -> tuple[bool, dict[str, Any]]:
+    expected_tpm = reference_tpm_values() if expected_tpm is None else expected_tpm
     bc_critical, ca_false = basic_constraints(info)
     ku_critical, key_encipherment, _crl_sign, key_cert_sign = key_usage_bits(info)
     eku_critical, eku = eku_oids(info)
