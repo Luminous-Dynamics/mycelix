@@ -26,7 +26,7 @@ env:
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   REFERENCE_VERIFIER_BLOB_SHA: "8cecbae7c8be8082598340ac7340743640bf50b2"
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
-  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "d5db5e1c8c748765ec11db0c1e04139b571fcbc9"
+  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "20cb3cbc1cd4b4c97ff576284e234692c89390ac"
 
 jobs:
   verify:
@@ -706,7 +706,7 @@ jobs:
               assert result["reference_result"] == "verified"
               assert re.fullmatch(r"[0-9a-f]{64}", result["snapshot_sha256"])
               assert re.fullmatch(r"[0-9a-f]{64}", result["workflow_file_snapshot_sha256"])
-              assert result["metamorphic_mutations_verified"] >= 15
+              assert result["metamorphic_mutations_verified"] == 19
               assert result["candidate_repository"] == candidate_repository
               assert result["candidate_repository_id"] == candidate_repo_id
               assert result["candidate_pr"] == candidate_pr
