@@ -78,7 +78,9 @@ fn registration_digest(
 fn qualification_digest(
     qualification: &StructuralQualification,
 ) -> Result<String, QualificationError> {
-    let bytes = serde_json::to_vec(qualification).map_err(|e| {
+    let mut unsigned = qualification.clone();
+    unsigned.qualification_digest.clear();
+    let bytes = serde_json::to_vec(&unsigned).map_err(|e| {
         QualificationError::Serialization(e.to_string())
     })?;
     Ok(hex_digest(&bytes))
@@ -105,7 +107,10 @@ pub fn qualify_registration_structure(
     registration: &RegistrationEnvelope,
     verifier_id: &str,
 ) -> Result<StructuralQualification, QualificationError> {
-    if verifier_id.trim().is_empty() || verifier_id.len() > MAX_VERIFIER_ID_BYTES {
+    if verifier_id.trim().is_empty()
+        || verifier_id != verifier_id.trim()
+        || verifier_id.len() > MAX_VERIFIER_ID_BYTES
+    {
         return Err(QualificationError::InvalidVerifierId);
     }
 
@@ -124,6 +129,18 @@ pub fn qualify_registration_structure(
     };
     qualification.qualification_digest = qualification_digest(&qualification)?;
     Ok(qualification)
+}
+
+impl StructuralQualification {
+    /// Recompute the content digest with the stored digest field excluded.
+    pub fn digest(&self) -> Result<String, QualificationError> {
+        qualification_digest(self)
+    }
+
+    /// Verify that the stored qualification digest matches its content.
+    pub fn verify_digest(&self) -> Result<bool, QualificationError> {
+        Ok(self.digest()? == self.qualification_digest)
+    }
 }
 
 #[cfg(test)]
@@ -201,12 +218,28 @@ mod tests {
     }
 
     #[test]
-    fn verifier_id_is_required() {
+    fn verifier_id_is_required_and_canonical() {
         let registration = envelope(AlignmentMethod::ExactCorrelationId);
         assert_eq!(
             qualify_registration_structure(&registration, " "),
             Err(QualificationError::InvalidVerifierId)
         );
+        assert_eq!(
+            qualify_registration_structure(&registration, " verifier-1"),
+            Err(QualificationError::InvalidVerifierId)
+        );
+    }
+
+    #[test]
+    fn qualification_digest_is_self_verifiable() {
+        let registration = envelope(AlignmentMethod::ExactCorrelationId);
+        let qualification =
+            qualify_registration_structure(&registration, "verifier-1").expect("qualification");
+        assert!(qualification.verify_digest().expect("digest verification"));
+
+        let mut tampered = qualification;
+        tampered.outcome = StructuralQualificationOutcome::Rejected;
+        assert!(!tampered.verify_digest().expect("tampered digest verification"));
     }
 
     #[test]
