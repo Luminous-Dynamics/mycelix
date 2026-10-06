@@ -268,6 +268,15 @@ def verify_zip_members(
             assert not (info.flag_bits & 0x1), (
                 f"trusted artifact contains encrypted member: {info.filename!r}"
             )
+            compression_codes = {"stored": 0, "deflate": 8}
+            allowed_compression_methods = policy["artifact_integrity"]["allowed_compression_methods"]
+            allowed_compression_codes = {
+                compression_codes[name] for name in allowed_compression_methods
+            }
+            assert info.compress_type in allowed_compression_codes, (
+                f"trusted artifact contains unsupported ZIP compression method: "
+                f"{info.filename!r}: {info.compress_type}"
+            )
             maximum = int(maximums[info.filename])
             assert info.file_size <= maximum, (
                 f"trusted artifact member is too large: "
