@@ -179,7 +179,6 @@ pub struct CreateFpmSourceAttestationAnchorInput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VerifyFpmEatCoseAgainstChallengeInput {
     pub challenge_action: ActionHash,
-    pub trusted_public_key_sec1: Vec<u8>,
     pub token_bytes: Vec<u8>,
     pub expected_evidence_digest: Option<String>,
 }
@@ -194,7 +193,6 @@ pub struct FpmChallengeEatCoseVerification {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateFpmEatCoseVerificationAnchorInput {
     pub challenge_action: ActionHash,
-    pub trusted_public_key_sec1: Vec<u8>,
     pub token_bytes: Vec<u8>,
     pub expected_evidence_digest: Option<String>,
 }
@@ -394,13 +392,18 @@ fn verify_fpm_eat_cose_against_challenge_impl(
         ));
     }
 
+    let trust = resolve_fpm_verification_key_trust_anchor_impl(
+        ResolveFpmVerificationKeyTrustAnchorInput {
+            action_hash: challenge.verification_key_trust_anchor_action.clone(),
+        },
+    )?;
     let verification = verify_fpm_eat_cose_sign1(&FpmEatCoseVerificationInput {
         expected_subject_id: challenge.subject_id.clone(),
         expected_audience: challenge.audience.clone(),
         expected_nonce: challenge.nonce.clone(),
-        expected_verification_key_id: challenge.verification_key_id.clone(),
-        expected_verification_key_digest: challenge.verification_key_digest.clone(),
-        trusted_public_key_sec1: input.trusted_public_key_sec1,
+        expected_verification_key_id: trust.verification_key_id.clone(),
+        expected_verification_key_digest: trust.verification_key_digest.clone(),
+        trusted_public_key_sec1: trust.public_key_sec1,
         expected_evidence_digest: input.expected_evidence_digest,
         token_bytes: input.token_bytes,
     });
@@ -431,7 +434,6 @@ fn create_fpm_eat_cose_verification_anchor_impl(
     let result = verify_fpm_eat_cose_against_challenge_impl(
         VerifyFpmEatCoseAgainstChallengeInput {
             challenge_action: input.challenge_action.clone(),
-            trusted_public_key_sec1: input.trusted_public_key_sec1,
             token_bytes: input.token_bytes,
             expected_evidence_digest: input.expected_evidence_digest,
         },
