@@ -494,9 +494,9 @@ def expected_crl_semantics_check(
         number_tag, number_content, _raw, number_end = tlv(extensions["2.5.29.20"]["extn_value"])
         if number_tag != 0x02 or number_end != len(extensions["2.5.29.20"]["extn_value"]):
             raise ValueError(f"{label} CRL number malformed")
-        if len(number_content) > 20:
-            raise ValueError("CRL.cRLNumber exceeds RFC 5280 20-octet limit")
         number = integer(number_content, f"{label}.cRLNumber")
+        if number.bit_length() > 160:
+            raise ValueError("CRL.cRLNumber value exceeds RFC 5280 20-octet limit")
         if number != int(spec["crl_number"]):
             raise ValueError(f"{label} cRLNumber mismatch")
         if crl["this_update"]["text"] != str(spec["this_update"]) or crl["next_update"]["text"] != str(spec["next_update"]):
@@ -727,6 +727,23 @@ def self_test() -> int:
         if verify(bad)["state"] != "DENY":
             print("tampered leaf rejection: FAIL")
             return 1
+
+        selection_cases = [
+            ("authoritative CRL object", lambda x: x["root"]["selection"].update({"crl_der_sha256": "92" * 32})),
+            ("authoritative issuer certificate", lambda x: x["root"]["selection"].update({"issuer_certificate_sha256": "93" * 32})),
+            ("complete direct-issuer scope", lambda x: x["root"]["selection"].update({"scope": "limited-reason-scope"})),
+            ("indirect CRL support", lambda x: x["root"]["selection"].update({"indirect_crl_supported": True})),
+            ("historical CRL-number progression", lambda x: x["root"]["selection"].update({"crl_number_lineage": "strictly-increasing-history"})),
+        ]
+        for label, mutate in selection_cases:
+            candidate = json.loads(json.dumps(m["expected_crl_semantics"]))
+            mutate(candidate)
+            bad_selection = dict(m)
+            bad_selection["expected_crl_semantics"] = candidate
+            bad_selection["expected_crl_semantics_sha256"] = canonical_hash(candidate)
+            if verify(bad_selection)["state"] != "DENY":
+                print(f"{label} mutation acceptance: FAIL")
+                return 1
     print("independent EK certificate/CRL cryptographic witness: PASS")
     print("exact DER/TBS/signature binding: PASS")
     return 0
