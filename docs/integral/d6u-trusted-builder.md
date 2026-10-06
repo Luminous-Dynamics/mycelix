@@ -75,4 +75,4 @@ The trusted attestation workflow is deliberately not branch-executable. GitHub d
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v40.
+Current trusted policy revision: v41.
