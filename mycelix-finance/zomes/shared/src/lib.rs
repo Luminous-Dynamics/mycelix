@@ -585,6 +585,14 @@ pub mod governance {
         pub governance_bootstrap_authority: Option<AgentPubKey>,
     }
 
+    fn first_registration_allowed(
+        caller: &AgentPubKey,
+        configured_authority: Option<&AgentPubKey>,
+        registry_is_empty: bool,
+    ) -> bool {
+        registry_is_empty && configured_authority == Some(caller)
+    }
+
     fn bootstrap_authority() -> ExternResult<AgentPubKey> {
         FinanceDnaProperties::try_from_dna_properties()?
             .governance_bootstrap_authority
@@ -636,7 +644,7 @@ pub mod governance {
         if gov_links.is_empty() {
             let caller = agent_info()?.agent_initial_pubkey;
             let authority = bootstrap_authority()?;
-            if caller == authority {
+            if first_registration_allowed(&caller, Some(&authority), true) {
                 return Ok(());
             }
             return Err(wasm_error!(WasmErrorInner::Guest(
@@ -646,6 +654,22 @@ pub mod governance {
         }
 
         verify_governance_from_links(gov_links)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn first_registration_requires_empty_registry_and_exact_authority() {
+            let authority = AgentPubKey::from_raw_32(vec![7; 32]);
+            let other = AgentPubKey::from_raw_32(vec![8; 32]);
+
+            assert!(first_registration_allowed(&authority, Some(&authority), true));
+            assert!(!first_registration_allowed(&other, Some(&authority), true));
+            assert!(!first_registration_allowed(&authority, Some(&authority), false));
+            assert!(!first_registration_allowed(&authority, None, true));
+        }
     }
 }
 /// Agent identity helpers
