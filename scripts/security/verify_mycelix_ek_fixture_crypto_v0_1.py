@@ -683,6 +683,10 @@ def self_test() -> int:
             "crl_bundle_pem_base64": base64.b64encode((out/"crl-bundle.pem").read_bytes()).decode(),
             "crl_bundle_pem_sha256": hashlib.sha256((out/"crl-bundle.pem").read_bytes()).hexdigest(),
             "verification_time_unix": 1791158400,
+            "expected_crl_semantics": json.loads((recipe).read_text(encoding="utf-8"))["crl_semantics"],
+            "expected_crl_semantics_sha256": canonical_hash(
+                json.loads((recipe).read_text(encoding="utf-8"))["crl_semantics"]
+            ),
         }
         good = verify(m)
         if good["state"] != "PASS":
