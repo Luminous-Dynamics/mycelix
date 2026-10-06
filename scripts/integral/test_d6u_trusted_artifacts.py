@@ -404,6 +404,8 @@ def test_retention_workflow_contains_offline_controls() -> None:
     ]
     for fragment in required_fragments:
         assert fragment in workflow, f"retention workflow control missing: {fragment}"
+    assert workflow.count("gh attestation verify") == 4
+    assert workflow.count("--limit 8") >= 5
 
 
 def test_trusted_cli_policy_is_explicit() -> None:
