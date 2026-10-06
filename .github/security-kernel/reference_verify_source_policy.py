@@ -174,6 +174,44 @@ def require_exact_job_keys(
         fail(f"{description}: job key census mismatch: expected {expected!r}, found {actual!r}")
 
 
+def require_exact_step_mapping(
+    lines_: list[str],
+    step_name: str,
+    mapping_name: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    start = matches[0]
+    heading = f"{mapping_name}:"
+    mapping_indexes = []
+    for i in range(start + 1, len(lines_)):
+        if lines_[i].strip() == heading and len(lines_[i]) - len(lines_[i].lstrip(" ")) == 8:
+            if any(re.match(r"^\s{6}- name: ", line) for line in lines_[start + 1:i]):
+                break
+            mapping_indexes.append(i)
+    if len(mapping_indexes) != 1:
+        fail(f"{description}: expected exactly one {mapping_name!r} mapping under {step_name!r}")
+    index = mapping_indexes[0]
+    actual = []
+    for line in lines_[index + 1:]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= 8:
+            break
+        if indent != 10:
+            fail(f"{description}: unexpected {mapping_name} indentation: {line!r}")
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):\s+(.+)", line.strip())
+        if not match:
+            fail(f"{description}: malformed {mapping_name} entry: {line!r}")
+        actual.append(f"{match.group(1)}: {match.group(2)}")
+    if tuple(actual) != expected:
+        fail(f"{description}: {mapping_name} mismatch: expected {expected!r}, found {tuple(actual)!r}")
+
+
 def require_exact_step_keys(
     lines_: list[str],
     expected: tuple[tuple[str, tuple[str, ...]], ...],
