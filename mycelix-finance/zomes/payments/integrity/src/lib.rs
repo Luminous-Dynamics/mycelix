@@ -424,7 +424,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         Ok(ValidateCallbackResult::Invalid(
                             "SAP mint records are immutable".into(),
                         ))
-                    }
+                    },
                     EntryTypes::SapMintClaim(_) => Ok(ValidateCallbackResult::Invalid(
                         "SAP mint claims cannot be updated".into(),
                     ))
