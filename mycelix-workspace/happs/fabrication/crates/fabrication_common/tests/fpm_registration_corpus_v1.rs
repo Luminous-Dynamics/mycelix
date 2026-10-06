@@ -64,6 +64,20 @@ fn independent_source_sequences_may_differ_when_shared_correlation_is_explicit()
 }
 
 #[test]
+fn duplicate_source_modality_is_invalid() {
+    let mut duplicate = envelope(AlignmentMethod::ExactCorrelationId);
+    duplicate.related.push(duplicate.reference.clone());
+    assert_eq!(duplicate.assess(), RegistrationState::Invalid);
+}
+
+#[test]
+fn one_modality_is_unregistered() {
+    let mut single = envelope(AlignmentMethod::ExactCorrelationId);
+    single.related[0].modality = single.reference.modality.clone();
+    assert_eq!(single.assess(), RegistrationState::Unregistered);
+}
+
+#[test]
 fn context_conflict_is_not_registered() {
     let mut conflicting = envelope(AlignmentMethod::ExactCorrelationId);
     conflicting.related[0].process_context_digest = digest('d');
