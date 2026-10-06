@@ -36,7 +36,7 @@ Required channels must have at least 5 baseline observations:
 
 Filament tension is optional and is only admitted into a baseline after the same minimum sample count is available.
 
-The baseline records its schema version, detector version, source observation count, and feature statistics.
+The baseline records its schema version, detector identifier/version, source observation count, source-observation SHA-256 commitment, and feature statistics.
 
 ### Detection semantics
 
