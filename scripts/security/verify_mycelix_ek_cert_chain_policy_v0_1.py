@@ -27,6 +27,7 @@ TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE = ROOT / "docs/security/mycelix-ek-trust
 SPKI_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_cert_spki_binding_v0_1.py")
 FIXTURE_RECIPE_FILE = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
 FIXTURE_GENERATOR_SCRIPT = ROOT / "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py"
+CRYPTO_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_ek_fixture_crypto_v0_1.py"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
 REFERENCE_TIME_UNIX = 1791158400
@@ -1473,6 +1474,9 @@ def session_binding(
             "path_output_content_sha256": manifest["path_validation"].get("output_content_sha256"),
             "path_execution_binding_sha256": manifest["path_validation"].get("execution_binding_sha256"),
             "cryptographic_binding_sha256": manifest.get("cryptographic_binding_sha256"),
+            "cryptographic_binding_source_sha256": manifest.get("cryptographic_binding_source_sha256"),
+            "cryptographic_binding_input_sha256": manifest.get("cryptographic_binding_input_sha256"),
+            "cryptographic_binding_output_sha256": manifest.get("cryptographic_binding_output_sha256"),
             "spki_state": spki.get("state"),
             "spki_certificate_sha256": spki.get("certificate_sha256"),
             "spki_ek_public_wire_sha256": spki.get("ek_public_wire_sha256"),
@@ -1499,7 +1503,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_der_base64", "trust_anchor_root_sha256",
         "trust_anchor_state", "trust_anchor_source_sha256", "trust_anchor_appraisal",
         "verification_time_unix", "revocation", "path_validation", "spki_binding", "ek_template_binding",
-        "cryptographic_binding_sha256", "session_binding_sha256",
+        "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "session_binding_sha256",
     }
     missing = sorted(required - set(manifest))
     if missing:
@@ -1519,7 +1523,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(manifest["session_id"], str) or not manifest["session_id"]:
         return result("DENY", "session-id-invalid")
     for field in ("tpm_identity_digest", "ek_public_wire_sha256", "leaf_certificate_sha256", "intermediate_certificate_sha256",
-                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "cryptographic_binding_sha256", "session_binding_sha256"):
+                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "session_binding_sha256"):
         if not valid_hash(manifest[field]):
             return result("DENY", "digest-invalid", {"field": field})
 
@@ -1849,6 +1853,9 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_source_sha256": "3bad61140bfe271c6495e6b7e58dfc5ae45cf4fff339bd891a9e04881b63a3ea",
         "verification_time_unix": fx["attime"],
         "cryptographic_binding_sha256": "",
+        "cryptographic_binding_source_sha256": "",
+        "cryptographic_binding_input_sha256": "",
+        "cryptographic_binding_output_sha256": "",
         "path_validation": {
             "state": "PASS",
             "verifier_id": PATH_VERIFIER_ID,
