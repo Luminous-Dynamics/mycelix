@@ -27,6 +27,8 @@ env:
   REFERENCE_VERIFIER_BLOB_SHA: "8cecbae7c8be8082598340ac7340743640bf50b2"
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
   CAUSAL_JOIN_VERIFIER_BLOB_SHA: "20cb3cbc1cd4b4c97ff576284e234692c89390ac"
+  SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "8ec4d22bd919cdcd02ad4bbf3f91bcacf596304a"
 
 jobs:
   verify:
@@ -159,6 +161,14 @@ jobs:
           assert causal_file["encoding"] == "base64"
           assert causal_file["sha"] == os.environ["CAUSAL_JOIN_VERIFIER_BLOB_SHA"]
           assert isinstance(causal_file.get("content"), str) and causal_file["content"]
+          policy_file = get(
+              f"/repos/{repo}/contents/{os.environ['SOURCE_POLICY_VERIFIER_PATH']}?ref={os.environ['GITHUB_WORKFLOW_SHA']}"
+          )
+          assert policy_file["type"] == "file"
+          assert policy_file["path"] == os.environ["SOURCE_POLICY_VERIFIER_PATH"]
+          assert policy_file["encoding"] == "base64"
+          assert policy_file["sha"] == os.environ["SOURCE_POLICY_VERIFIER_BLOB_SHA"]
+          assert isinstance(policy_file.get("content"), str) and policy_file["content"]
 
           title = run.get("display_title", "")
           match = re.fullmatch(
@@ -258,6 +268,7 @@ jobs:
               s1_workflow_path, s1_workflow_blob_sha, run_id, run_attempt, run_number,
               resolver_job_id, s1_job_id, reference_verifier_path, reference_verifier_blob_sha,
               causal_join_verifier_path, causal_join_verifier_blob_sha,
+              source_policy_verifier_path, source_policy_verifier_blob_sha,
           ):
               return {
                   "schema": "security-kernel-execution-binding-v1",
@@ -280,6 +291,8 @@ jobs:
                   "reference_verifier_blob_sha": str(reference_verifier_blob_sha),
                   "causal_join_verifier_path": str(causal_join_verifier_path),
                   "causal_join_verifier_blob_sha": str(causal_join_verifier_blob_sha),
+                  "source_policy_verifier_path": str(source_policy_verifier_path),
+                  "source_policy_verifier_blob_sha": str(source_policy_verifier_blob_sha),
               }
 
           def execution_binding_digest(binding):
@@ -308,6 +321,8 @@ jobs:
               reference_verifier_blob_sha=os.environ["REFERENCE_VERIFIER_BLOB_SHA"],
               causal_join_verifier_path=os.environ["CAUSAL_JOIN_VERIFIER_PATH"],
               causal_join_verifier_blob_sha=os.environ["CAUSAL_JOIN_VERIFIER_BLOB_SHA"],
+              source_policy_verifier_path=os.environ["SOURCE_POLICY_VERIFIER_PATH"],
+              source_policy_verifier_blob_sha=os.environ["SOURCE_POLICY_VERIFIER_BLOB_SHA"],
           )
           expected_execution_binding_keys = {
               "schema", "repository_id", "repository", "candidate_repository_id",
@@ -317,6 +332,7 @@ jobs:
               "run_number", "resolver_job_id", "s1_job_id",
               "reference_verifier_path", "reference_verifier_blob_sha",
               "causal_join_verifier_path", "causal_join_verifier_blob_sha",
+              "source_policy_verifier_path", "source_policy_verifier_blob_sha",
           }
           assert set(binding) == expected_execution_binding_keys, "execution binding schema drift"
           assert binding["repository_id"] == int(os.environ["BASE_REPOSITORY_ID"])
@@ -354,6 +370,8 @@ jobs:
               "reference_verifier_blob_sha": "5" * 40,
               "causal_join_verifier_path": binding["causal_join_verifier_path"] + ".mutated",
               "causal_join_verifier_blob_sha": "6" * 40,
+              "source_policy_verifier_path": binding["source_policy_verifier_path"] + ".mutated",
+              "source_policy_verifier_blob_sha": "8" * 40,
               "run_id": binding["run_id"] + 1,
               "run_attempt": binding["run_attempt"] + 1,
               "run_number": binding["run_number"] + 1,
