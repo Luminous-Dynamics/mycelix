@@ -264,7 +264,7 @@
   },
   "trusted_attestation_verifier": {
     "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-    "blob_sha": "9a1f44c5805573bb0cad6752fcb95cdc272f8a98"
+    "blob_sha": "18463493635342302689f3e055f1badbaa3d5c73"
   },
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
@@ -277,7 +277,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-      "blob_sha": "9a1f44c5805573bb0cad6752fcb95cdc272f8a98"
+      "blob_sha": "18463493635342302689f3e055f1badbaa3d5c73"
     },
     "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
       "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
