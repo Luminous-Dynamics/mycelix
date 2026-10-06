@@ -862,7 +862,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_der_base64": b64(fx["root"]),
         "trust_anchor_root_sha256": root_sha,
         "trust_anchor_state": "PASS",
-        "trust_anchor_source_sha256": "52" * 32,
+        "trust_anchor_source_sha256": "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591",
         "verification_time_unix": fx["attime"],
         "revocation": {
             "state": "PASS",
@@ -877,7 +877,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             "anchor_id": "mycelix.synthetic-ek-root.v0.1",
             "authorization_state": "PASS",
             "registry_sha256": "",
-            "registry_source_sha256": "52" * 32,
+            "registry_source_sha256": "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591",
             "input_sha256": "",
             "output_sha256": "",
         },
@@ -1155,6 +1155,10 @@ def self_test() -> int:
             ("verification-time-binding-substitution", "DENY", lambda x: x.update({"verification_time_unix": x["verification_time_unix"] + 3600})),
             ("revocation-state-binding-substitution", "DENY", lambda x: (x["revocation"].update({"state": "INDETERMINATE"}), x.update({"session_binding_sha256": session_binding(x, x["leaf_certificate_sha256"], x["intermediate_certificate_sha256"], x["trust_anchor_root_sha256"], x["revocation"]["crl_bundle_pem_sha256"])}), x["revocation"].update({"state": "PASS"}))),
             ("verification-mode-substitution", "DENY", lambda x: x.update({"verification_mode": "OfflineBundle"})),
+            ("trust-anchor-appraisal-verifier-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"verifier_id": "other-verifier"})),
+            ("trust-anchor-appraisal-registry-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"registry_sha256": "12" * 32})),
+            ("trust-anchor-appraisal-receipt-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"registry_source_sha256": "13" * 32})),
+            ("trust-anchor-appraisal-output-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"output_sha256": "14" * 32})),
             ("session-binding-substitution", "DENY", lambda x: x.update({"session_id": "attacker"})),
         ]
         for name, expected, mutate in cases:
@@ -1177,7 +1181,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("27 adversarial mutations plus canonical and key-order control: PASS")
+    print("31 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
