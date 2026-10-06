@@ -112,9 +112,9 @@ jobs:
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_chain["vectors"]) == 61
+          assert len(cert_chain["vectors"]) == 63
           assert cert_chain["parser_structural_control_count"] == 20
-          assert cert_chain["crl_semantics_control_count"] == 13
+          assert cert_chain["crl_semantics_control_count"] == 15
           assert [entry["id"] for entry in cert_chain["parser_structural_controls"]] == [
               "EKC-S01", "EKC-S02", "EKC-S03", "EKC-S04", "EKC-S05", "EKC-S06",
               "EKC-S07", "EKC-S08", "EKC-S09", "EKC-S10", "EKC-S11", "EKC-S12",
@@ -124,7 +124,7 @@ jobs:
           assert [entry["id"] for entry in cert_chain["crl_semantics_controls"]] == [
               "CRL-S01", "CRL-S02", "CRL-S03", "CRL-S04",
               "CRL-S05", "CRL-S06", "CRL-S07", "CRL-S08", "CRL-S09", "CRL-S10",
-              "CRL-S11", "CRL-S12", "CRL-S13",
+              "CRL-S11", "CRL-S12", "CRL-S13", "CRL-S14", "CRL-S15",
           ]
           assert all(entry["expected"] == "DENY" for entry in cert_chain["crl_semantics_controls"])
           assert cert_chain["cryptographic_binding_composition"]["verifier_id"] == "mycelix.tpm.ek-fixture-crypto.v0.1"
