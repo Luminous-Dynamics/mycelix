@@ -205,11 +205,21 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
         });
     }
 
-    // Update balance
+    // Commit immutable debit provenance first; the balance update consumes
+    // that record against this exact predecessor balance.
+    let debit = SapDebitRecord {
+        member_did: input.member_did.clone(),
+        amount: deduction,
+        source: SapDebitSource::Demurrage,
+        balance_before_action_hash: record.action_address().clone(),
+        created_at: now,
+    };
+    let debit_hash = create_entry(&EntryTypes::SapDebitRecord(debit))?;
+
     let updated = SapBalance {
         balance: bal.balance.saturating_sub(deduction),
         last_demurrage_at: now,
-        justified_by: None,
+        justified_by: Some(debit_hash),
         ..bal
     };
     update_entry(
@@ -469,85 +479,15 @@ pub struct CreditSapInput {
     pub reason: String,
 }
 
-/// Debit SAP from the caller's own balance.
+/// Legacy raw SAP debit entry point.
 ///
-/// This remains an owner-authenticated negative balance transition. Positive
-/// balance increases use the explicit transfer/mint claim paths.
+/// Arbitrary debit reasons are no longer a monetary primitive. Every negative
+/// balance transition must be created by a purpose-specific path that emits
+/// immutable SapDebitRecord provenance.
 #[hdk_extern]
-pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
-    verify_caller_is_did(&input.member_did)?;
-
-    // Do not perform cross-zome compost delivery inside the balance mutation.
-    // Pending delivery is handled separately from the committed debit.
-    for attempt in 0..MAX_SAP_RETRIES {
-        let (record, bal) = get_sap_balance_inner(&input.member_did)?;
-        let now = sys_time()?;
-
-        let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
-        let effective = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
-            let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
-            let deduction = compute_demurrage_with_exemption(
-                bal.balance,
-                bal.exemption.as_ref(),
-                now_secs,
-                DEMURRAGE_EXEMPT_FLOOR,
-                DEMURRAGE_RATE,
-                elapsed,
-            );
-            bal.balance.saturating_sub(deduction)
-        } else {
-            bal.balance
-        };
-
-        if input.amount > effective {
-            let demurrage_applied = bal.balance.saturating_sub(effective);
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Insufficient SAP balance: effective {} (raw {} - demurrage {}), need {}",
-                effective, bal.balance, demurrage_applied, input.amount
-            ))));
-        }
-
-        let expected_balance = effective - input.amount;
-        let updated = SapBalance {
-            balance: expected_balance,
-            last_demurrage_at: now,
-            justified_by: None,
-            ..bal
-        };
-        let action_hash = update_entry(
-            record.action_address().clone(),
-            &EntryTypes::SapBalance(updated),
-        )?;
-
-        let verify = find_sap_balance_record(&input.member_did)?;
-        if let Some((_, actual)) = verify {
-            if actual.balance == expected_balance {
-                return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
-                    WasmErrorInner::Guest(format!(
-                        "SAP balance record not found after debit for member {}",
-                        input.member_did
-                    ))
-                ));
-            }
-        }
-
-        if attempt == MAX_SAP_RETRIES - 1 {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "debit_sap for {} failed after {} retries due to concurrent modifications",
-                input.member_did, MAX_SAP_RETRIES
-            ))));
-        }
-
-        debug!(
-            "debit_sap: concurrent update detected for {}, retry {}/{}",
-            input.member_did,
-            attempt + 1,
-            MAX_SAP_RETRIES
-        );
-    }
-
+pub fn debit_sap(_input: DebitSapInput) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
-        "debit_sap: retry loop exited unexpectedly".into()
+        "debit_sap is retired: use purpose-specific SAP debit paths with typed provenance".into(),
     )))
 }
 
@@ -558,6 +498,178 @@ pub struct DebitSapInput {
     pub reason: String,
 }
 
+/// Redeem SAP from the caller's own balance through an explicit typed sink.
+///
+/// This is intentionally distinct from the legacy untyped debit API. The caller
+/// remains the account owner, while the redemption identifier provides the durable
+/// accounting classification consumed by the SapBalance validator.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RedemptionSapDebitInput {
+    pub member_did: String,
+    pub amount: u64,
+    pub redemption_id: String,
+    pub redemption_action_hash: ActionHash,
+}
+
+#[hdk_extern]
+pub fn debit_sap_for_redemption(input: RedemptionSapDebitInput) -> ExternResult<Record> {
+    verify_caller_is_did(&input.member_did)?;
+
+    if input.amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Redemption amount must be positive".into(),
+        )));
+    }
+    if input.redemption_id.is_empty() || input.redemption_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Redemption id must be 1-256 characters".into(),
+        )));
+    }
+
+    let (record, bal) = get_sap_balance_inner(&input.member_did)?;
+    let now = sys_time()?;
+    let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
+    if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+        let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+        let pending = compute_demurrage_with_exemption(
+            bal.balance,
+            bal.exemption.as_ref(),
+            now_secs,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            elapsed,
+        );
+        if pending > 0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Pending SAP demurrage must be applied before redemption".into(),
+            )));
+        }
+    }
+    if input.amount > bal.balance {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Insufficient SAP balance for redemption: have {}, need {}",
+            bal.balance, input.amount
+        ))));
+    }
+
+    let debit = SapDebitRecord {
+        member_did: input.member_did.clone(),
+        amount: input.amount,
+        source: SapDebitSource::Redemption {
+            redemption_id: input.redemption_id,
+            redemption_action_hash: input.redemption_action_hash,
+        },
+        balance_before_action_hash: record.action_address().clone(),
+        created_at: now,
+    };
+    let debit_hash = create_entry(&EntryTypes::SapDebitRecord(debit))?;
+    let updated = SapBalance {
+        balance: bal.balance - input.amount,
+        last_demurrage_at: now,
+        justified_by: Some(debit_hash),
+        ..bal
+    };
+    let action_hash = update_entry(
+        record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "SAP balance record not found after redemption debit".into(),
+    )))
+}
+
+/// Apply a transfer fee to the caller's own balance.
+///
+/// The fee rate must already have been obtained from the canonical finance-bridge
+/// fee authority. The local balance transition is separately bound to typed debit
+/// provenance so fee accounting cannot hide inside an arbitrary reason string.
+fn debit_sap_for_transfer_fee(
+    member_did: &str,
+    amount: u64,
+    transfer_id: &str,
+    basis_amount: u64,
+    fee_rate: f64,
+) -> ExternResult<Record> {
+    verify_caller_is_did(member_did)?;
+
+    if amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer fee must be positive".into(),
+        )));
+    }
+    if basis_amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer fee basis amount must be positive".into(),
+        )));
+    }
+    if !fee_rate.is_finite() || fee_rate <= 0.0 || fee_rate > 1.0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer fee rate is invalid".into(),
+        )));
+    }
+    let expected_fee = (basis_amount as f64 * fee_rate) as u64;
+    if expected_fee == 0 || expected_fee != amount {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer fee does not match the supplied principal and authority rate".into(),
+        )));
+    }
+
+    let (record, bal) = get_sap_balance_inner(member_did)?;
+    let now = sys_time()?;
+    let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
+    if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+        let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+        let pending = compute_demurrage_with_exemption(
+            bal.balance,
+            bal.exemption.as_ref(),
+            now_secs,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            elapsed,
+        );
+        if pending > 0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Pending SAP demurrage must be applied before charging a transfer fee".into(),
+            )));
+        }
+    }
+
+    if amount > bal.balance {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Insufficient SAP balance for transfer fee: have {}, need {}",
+            bal.balance, amount
+        ))));
+    }
+
+    let debit = SapDebitRecord {
+        member_did: member_did.to_string(),
+        amount,
+        source: SapDebitSource::TransferFee {
+            transfer_id: transfer_id.to_string(),
+            basis_amount,
+            fee_rate,
+        },
+        balance_before_action_hash: record.action_address().clone(),
+        created_at: now,
+    };
+    let debit_hash = create_entry(&EntryTypes::SapDebitRecord(debit))?;
+
+    let updated = SapBalance {
+        balance: bal.balance - amount,
+        last_demurrage_at: now,
+        justified_by: Some(debit_hash),
+        ..bal
+    };
+    let action_hash = update_entry(
+        record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "SAP balance record not found after transfer fee debit".into(),
+    )))
+}
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TransferSapInput {
     pub from_did: String,
@@ -713,7 +825,7 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
 
     // Compute the fee before mutating the sender account. A failed transfer must
     // not leave behind a fee debit when the principal transfer is unaffordable.
-    let (fee, _fee_rate) = compute_sap_fee(&input.from_did, input.amount)?;
+    let (fee, fee_rate) = compute_sap_fee(&input.from_did, input.amount)?;
     let required = input.amount.checked_add(fee).ok_or(wasm_error!(
         WasmErrorInner::Guest("Transfer amount plus fee overflows u64".into())
     ))?;
@@ -734,25 +846,28 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
     } else {
         0
     };
-    let pre_fee_effective = pre_fee_balance.balance.saturating_sub(pre_fee_deduction);
-    if required > pre_fee_effective {
+    if pre_fee_deduction > 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Pending SAP demurrage must be applied before initiating a transfer".into(),
+        )));
+    }
+    if required > pre_fee_balance.balance {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Insufficient SAP balance for transfer plus fee: effective {}, required {}",
-            pre_fee_effective, required
+            "Insufficient SAP balance for transfer plus fee: have {}, required {}",
+            pre_fee_balance.balance, required
         ))));
     }
     if fee > 0 {
-        debit_sap(DebitSapInput {
-            member_did: input.from_did.clone(),
-            amount: fee,
-            reason: format!("SAP transfer fee to global commons ({})", fee),
-        })?;
+        debit_sap_for_transfer_fee(
+            &input.from_did,
+            fee,
+            &input.transfer_id,
+            input.amount,
+            fee_rate,
+        )?;
 
         // Durable-first settlement: persist the fee-delivery obligation in the
-        // same atomic source-chain transaction as the fee debit. Delivery is
-        // retried from the explicit queue after the local commit, so a later
-        // validation/chain-head failure cannot leave an external compost credit
-        // without its corresponding committed local fee debit.
+        // same atomic source-chain transaction as the fee debit.
         queue_pending_compost(
             "global-fee-pool",
             fee,
@@ -760,30 +875,31 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
             CompostPoolTier::Global,
         )?;
     }
-    // The fee debit above may advance last_demurrage_at. Re-read the balance and
-    // capture a fresh timestamp so the transfer update can never move that timestamp
-    // backward on the owner's source chain.
+    // Re-read after the fee debit. A newly accrued demurrage deduction must
+    // remain a separate typed debit rather than being folded into the transfer.
     let (balance_record, balance) = get_sap_balance_inner(&input.from_did)?;
     let now = sys_time()?;
     let elapsed = elapsed_seconds(balance.last_demurrage_at, now);
-    let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
-    let deduction = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
-        compute_demurrage_with_exemption(
+    if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+        let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+        let pending = compute_demurrage_with_exemption(
             balance.balance,
             balance.exemption.as_ref(),
             now_secs,
             DEMURRAGE_EXEMPT_FLOOR,
             DEMURRAGE_RATE,
             elapsed,
-        )
-    } else {
-        0
-    };
-    let effective = balance.balance.saturating_sub(deduction);
-    if input.amount > effective {
+        );
+        if pending > 0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Pending SAP demurrage accrued during transfer; apply demurrage and retry".into(),
+            )));
+        }
+    }
+    if input.amount > balance.balance {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Insufficient SAP balance: effective {} (raw {} - demurrage {}), need {}",
-            effective, balance.balance, deduction, input.amount
+            "Insufficient SAP balance after fee: have {}, need {}",
+            balance.balance, input.amount
         ))));
     }
 
@@ -805,10 +921,21 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
         (),
     )?;
 
+    let debit = SapDebitRecord {
+        member_did: input.from_did.clone(),
+        amount: input.amount,
+        source: SapDebitSource::Transfer {
+            intent_action_hash: intent_hash.clone(),
+        },
+        balance_before_action_hash: balance_record.action_address().clone(),
+        created_at: now,
+    };
+    let debit_hash = create_entry(&EntryTypes::SapDebitRecord(debit))?;
+
     let updated = SapBalance {
-        balance: effective - input.amount,
+        balance: balance.balance - input.amount,
         last_demurrage_at: now,
-        justified_by: Some(intent_hash.clone()),
+        justified_by: Some(debit_hash),
         ..balance
     };
     update_entry(
@@ -2434,6 +2561,25 @@ pub fn contribute_to_hearth_pool(input: ContributeToHearthInput) -> ExternResult
         WasmErrorInner::Guest("No SAP balance found".into())
     ))?;
 
+    let now = sys_time()?;
+    let elapsed = elapsed_seconds(personal_bal.last_demurrage_at, now);
+    if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+        let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+        let pending = compute_demurrage_with_exemption(
+            personal_bal.balance,
+            personal_bal.exemption.as_ref(),
+            now_secs,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            elapsed,
+        );
+        if pending > 0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Pending SAP demurrage must be applied before a hearth contribution".into(),
+            )));
+        }
+    }
+
     if personal_bal.balance < input.amount {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Insufficient SAP balance: have {}, need {}",
@@ -2441,11 +2587,27 @@ pub fn contribute_to_hearth_pool(input: ContributeToHearthInput) -> ExternResult
         ))));
     }
 
-    // Deduct from personal. This is a negative balance delta, so clear
-    // any prior positive-issuance justification.
-    personal_bal.balance -= input.amount;
-    personal_bal.justified_by = None;
-    update_entry(record.action_address().clone(), &personal_bal)?;
+    let debit = SapDebitRecord {
+        member_did: caller_did.clone(),
+        amount: input.amount,
+        source: SapDebitSource::HearthContribution {
+            hearth_did: input.hearth_did.clone(),
+        },
+        balance_before_action_hash: record.action_address().clone(),
+        created_at: now,
+    };
+    let debit_hash = create_entry(&EntryTypes::SapDebitRecord(debit))?;
+
+    let updated_personal = SapBalance {
+        balance: personal_bal.balance - input.amount,
+        last_demurrage_at: now,
+        justified_by: Some(debit_hash),
+        ..personal_bal
+    };
+    update_entry(
+        record.action_address().clone(),
+        &EntryTypes::SapBalance(updated_personal),
+    )?;
 
     // Credit hearth pool with optimistic-locking retry
     for attempt in 0..MAX_SAP_RETRIES {
