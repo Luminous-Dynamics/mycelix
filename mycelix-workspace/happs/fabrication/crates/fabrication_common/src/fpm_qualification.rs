@@ -35,8 +35,7 @@ impl EvidenceKind {
     fn tag(self) -> &'static str {
         match self {
             Self::SourceData => "source-data",
-            Self::SourceObservation => "source-observation"
-            ,
+            Self::SourceObservation => "source-observation",
             Self::CalibrationProfile => "calibration-profile",
             Self::ProcessContext => "process-context",
             Self::AlignmentEvidence => "alignment-evidence",
@@ -318,25 +317,7 @@ fn expected_artifacts(envelope: &RegistrationEnvelope) -> BTreeSet<(EvidenceKind
 fn source_observation_digest(
     participant: &crate::fpm_registration::ModalityObservationRef,
 ) -> String {
-    let mut bytes = Vec::new();
-    append_field(&mut bytes, b"fpm.source-observation.v1");
-    append_field(&mut bytes, participant.source_id.as_bytes());
-    append_field(&mut bytes, participant.modality.as_bytes());
-    append_field(&mut bytes, participant.clock_domain.as_bytes());
-    append_field(&mut bytes, &participant.source_sequence.to_be_bytes());
-    append_field(&mut bytes, participant.correlation_domain.as_bytes());
-    append_field(&mut bytes, participant.correlation_id.as_bytes());
-    match participant.source_timestamp_micros {
-        Some(value) => {
-            append_field(&mut bytes, b"some");
-            append_field(&mut bytes, &value.to_be_bytes());
-        }
-        None => append_field(&mut bytes, b"none"),
-    }
-    append_field(&mut bytes, participant.calibration_profile_digest.as_bytes());
-    append_field(&mut bytes, participant.process_context_digest.as_bytes());
-    append_field(&mut bytes, participant.source_data_digest.as_bytes());
-    hex_digest(&bytes)
+    hex_digest(&canonical_source_observation_bytes(participant))
 }
 
 fn canonical_source_observation_bytes(
@@ -452,7 +433,7 @@ mod tests {
         let context_bytes = b"process-context-v1";
         let context_digest = hex_digest(context_bytes);
 
-        let mut artifacts = vec![
+        let artifacts = vec![
             source_artifact,
             related_source_artifact,
             ResolvedEvidenceArtifact {
@@ -663,16 +644,12 @@ mod tests {
     #[test]
     fn participant_payload_binding_rejects_metadata_relabeling() {
         let mut input = input_with_exact_artifacts();
-        let canonical = canonical_source_observation_bytes(&input.envelope.reference);
-        let digest = source_observation_digest(&input.envelope.reference);
-
-        input.artifacts.push(ResolvedEvidenceArtifact {
-            declared_digest: digest,
-            bytes: canonical,
-            kind: EvidenceKind::SourceObservation,
-        });
-
-        input.envelope.reference.modality = "vibration".into();
+        let thermal_artifact = input
+            .artifacts
+            .iter_mut()
+            .find(|artifact| artifact.kind == EvidenceKind::SourceObservation)
+            .expect("thermal source-observation artifact");
+        thermal_artifact.bytes = canonical_source_observation_bytes(&input.envelope.related[0]);
 
         let verifier = RegistrationQualificationVerifier {
             verifier_id: "fpm.registration.qualifier".into(),
@@ -686,6 +663,46 @@ mod tests {
             qualification.status,
             RegistrationQualificationStatus::InvalidEvidence
         );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::ArtifactDigestMismatch));
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::ArtifactBindingMismatch));
+    }
+
+    #[test]
+    fn participant_payload_binding_rejects_replayed_source_identity() {
+        let mut input = input_with_exact_artifacts();
+        let original = input.envelope.reference.clone();
+        let mut replay = original.clone();
+        replay.source_id = "thermal-replay".into();
+
+        let artifact = input
+            .artifacts
+            .iter_mut()
+            .find(|artifact| {
+                artifact.kind == EvidenceKind::SourceObservation
+                    && artifact.declared_digest == source_observation_digest(&original)
+            })
+            .expect("reference source-observation artifact");
+        artifact.bytes = canonical_source_observation_bytes(&replay);
+
+        let verifier = RegistrationQualificationVerifier {
+            verifier_id: "fpm.registration.qualifier".into(),
+            verifier_version: "1".into(),
+        };
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InvalidEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::ArtifactDigestMismatch));
         assert!(qualification
             .reasons
             .contains(&RegistrationQualificationReason::ArtifactBindingMismatch));
