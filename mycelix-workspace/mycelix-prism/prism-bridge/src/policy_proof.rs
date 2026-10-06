@@ -101,7 +101,11 @@ impl PolicyJustificationSetV1 {
             hasher.update(&[predicate.arg_index()]);
             hasher.update(&predicate.mask().to_be_bytes());
             hasher.update(&predicate.value().to_be_bytes());
-            hasher.update(&[predicate.op() as u8]);
+            let op_code = match predicate.op() {
+                crate::seccomp::SeccompArgPredicateOpV1::MaskedEqual => 1,
+                crate::seccomp::SeccompArgPredicateOpV1::MaskedNotEqual => 2,
+            };
+            hasher.update(&[op_code]);
         }
         Ok(*hasher.finalize().as_bytes())
     }
@@ -270,6 +274,26 @@ mod tests {
             PolicyJustificationSetV1::new(&policy, vec![atoms[0].clone(), atoms[0].clone()]),
             Err(PolicyProofError::DuplicateAtom)
         );
+    }
+
+    #[test]
+    fn policy_mutation_changes_proof_identity() {
+        let p1 = policy();
+        let predicate = SeccompArgPredicateV1::new(0, 0xff, 3).unwrap();
+        let changed_rule =
+            SeccompSyscallRuleV2::new(libc::SYS_socket as i64, vec![predicate]).unwrap();
+        let p2 = SeccompSyscallPolicyV2::new(
+            SeccompArchitecture::current().unwrap(),
+            vec![changed_rule],
+        ).unwrap();
+
+        let proof1 =
+            PolicyJustificationSetV1::new(&p1, atoms_for(&p1)).unwrap();
+        let proof2 =
+            PolicyJustificationSetV1::new(&p2, atoms_for(&p2)).unwrap();
+
+        assert_ne!(p1.digest(), p2.digest());
+        assert_ne!(proof1.digest(), proof2.digest());
     }
 
     #[test]
