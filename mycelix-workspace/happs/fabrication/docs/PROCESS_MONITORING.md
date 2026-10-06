@@ -191,6 +191,26 @@ This adapter is still not a claim of physical truth or universal authority: Holo
 Verifier identity is treated similarly. `verifier_id`, `verifier_version`, and `declared_verifier_implementation_digest` are captured declarations in the pure core, not proof of the binary that executed. Authenticated build/execution identity is a separate boundary tracked in #4355.
 
 ## Authenticated acquisition roots
+## Cryptographic EAT-over-COSE verification
+
+
+The next adapter layer verifies the exact wire evidence rather than accepting an attestation-result digest or boolean.
+
+FPM v1 pins:
+- COSE object: tagged COSE_Sign1 (CBOR tag 18);
+- protected algorithm: ES256 only;
+- protected key identifier (kid): required and matched against the configured verification key;
+- unprotected COSE headers: rejected;
+- protected content type: application/eat+cwt;
+- EAT payload: CBOR claim map with exact text-string subject and audience;
+- EAT nonce: claim 10, required as a byte string and matched exactly to the FPM challenge nonce;
+- EAT profile: claim 265, required to equal the FPM profile URI;
+- exact received COSE bytes: hashed directly as the evidence commitment;
+- detached payloads, trailing CBOR, malformed keys, signature failures, and profile/key substitutions: rejected or classified as explicit conflicts.
+
+The verifier uses the COSE library's preserved protected-header wire representation when constructing the Sig_structure, avoiding a re-serialization step that could silently change the signed bytes. COSE_Sign1 verification therefore covers the exact transmitted protected headers and payload under the configured empty external AAD. RFC 9052 defines the Sig_structure and tag-18 COSE_Sign1 form. citeturn615673search0turn502348search0
+
+The EAT profile is deliberately private and versioned. Its profile identifier is tag:luminousdynamics.org,2026:fpm-source-attestation-v1; the identifier is part of the signed payload and is not inferred from the transport media type. EAT requires the profile to be explicitly identifiable, and nonce freshness is a separate anti-replay property. citeturn615673search1
 ## Challenge-bound source attestation
 
 FPM now models source-system attestation using a challenge-bound RATS-style flow.
