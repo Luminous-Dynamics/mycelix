@@ -328,12 +328,22 @@ pub fn verify_fpm_eat_cose_sign1(
         }
     };
 
+    let mut claim_keys = BTreeSet::new();
     for (claim_key, _) in &claims {
-        if !matches!(claim_key, coset::cbor::value::Value::Integer(_)) {
-            reasons.insert(FpmEatCoseVerificationReason::NonIntegerClaimKey);
+        match claim_key {
+            coset::cbor::value::Value::Integer(value) => {
+                if !claim_keys.insert(value.to_string()) {
+                    reasons.insert(FpmEatCoseVerificationReason::DuplicateClaim);
+                }
+            }
+            _ => {
+                reasons.insert(FpmEatCoseVerificationReason::NonIntegerClaimKey);
+            }
         }
     }
-    if reasons.contains(&FpmEatCoseVerificationReason::NonIntegerClaimKey) {
+    if reasons.contains(&FpmEatCoseVerificationReason::NonIntegerClaimKey)
+        || reasons.contains(&FpmEatCoseVerificationReason::DuplicateClaim)
+    {
         return invalid_result_with_payload(
             evidence_digest,
             verification_key_digest,
@@ -628,6 +638,59 @@ mod tests {
         assert!(result
             .reasons
             .contains(&FpmEatCoseVerificationReason::SignatureInvalid));
+    }
+
+    #[test]
+    fn duplicate_unrecognized_claim_is_invalid() {
+        let nonce = b"fresh-nonce-32-bytes-123456789012";
+        let claims = coset::cbor::Value::Map(vec![
+            (
+                coset::cbor::Value::Integer(CLAIM_SUB.into()),
+                coset::cbor::Value::Text("source-1".into()),
+            ),
+            (
+                coset::cbor::Value::Integer(CLAIM_AUD.into()),
+                coset::cbor::Value::Text("fpm-verifier".into()),
+            ),
+            (
+                coset::cbor::Value::Integer(CLAIM_NONCE.into()),
+                coset::cbor::Value::Bytes(nonce.to_vec()),
+            ),
+            (
+                coset::cbor::Value::Integer(CLAIM_EAT_PROFILE.into()),
+                coset::cbor::Value::Text(FPM_EAT_PROFILE_URI.into()),
+            ),
+            (
+                coset::cbor::Value::Integer(999.into()),
+                coset::cbor::Value::Text("extension-a".into()),
+            ),
+            (
+                coset::cbor::Value::Integer(999.into()),
+                coset::cbor::Value::Text("extension-b".into()),
+            ),
+        ]);
+        let payload = claims.to_vec().expect("CBOR payload");
+        let protected = HeaderBuilder::new()
+            .algorithm(iana::Algorithm::ES256)
+            .key_id(b"fpm-key-1".to_vec())
+            .content_type(ContentType::Text(FPM_EAT_MEDIA_TYPE.into()))
+            .build();
+        let token = CoseSign1Builder::new()
+            .protected(protected)
+            .payload(payload)
+            .create_signature(&[], |data| signing_key().sign(data))
+            .build()
+            .to_tagged_vec()
+            .expect("COSE_Sign1");
+
+        let result = verify_fpm_eat_cose_sign1(&input(token));
+        assert_eq!(
+            result.status,
+            FpmEatCoseVerificationStatus::InvalidEvidence
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmEatCoseVerificationReason::DuplicateClaim));
     }
 
     #[test]
