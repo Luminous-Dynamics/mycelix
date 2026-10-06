@@ -483,9 +483,7 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "attestations: write" in signer
     assert "uses: actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2" in signer
     assert "gh attestation verify" not in signer
-    assert "uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0" in signer
-    assert "sha256sum -c d6u-signer-handoff.manifest.sha256" in signer
-    assert 'cmp -s "$expected_context" "$handoff_dir/d6u-signer-context.txt"' in signer
+    assert "uses: actions/download-artifact@" not in signer
 
     assert "id-token: write" not in auditor
     assert "attestations: write" not in auditor
@@ -494,9 +492,8 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2" in auditor
     assert "d6u-trusted-input" not in signer
     assert "d6u-trusted-input" not in auditor
-    assert "d6u-signer-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}" in verifier
-    assert "d6u-signer-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}" in signer
-    assert "d6u-signer-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}" in auditor
+    assert "d6u-trusted-auditor-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}" in verifier
+    assert "d6u-trusted-auditor-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}" in auditor
     assert workflow.count("id-token: write") == 1
     assert workflow.count("attestations: write") == 1
     assert workflow.count("uses: actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2") == 1
@@ -1080,7 +1077,7 @@ def _valid_negative_control_fixture():
 
     tmp = tempfile.TemporaryDirectory()
     root = Path(tmp.name)
-    evidence_root = root / "d6u-trusted-input"
+    evidence_root = root / "d6u-auditor-handoff"
     evidence_root.mkdir()
     subject = evidence_root / "d6u-runtime-evidence.txt"
     subject.write_text("subject\n", encoding="utf-8")
@@ -1246,7 +1243,8 @@ def test_retained_report_identity_and_predicate_are_bound() -> None:
         {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
         {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
     ]
-    entry = synthetic_attestation_entry(subjects, "42")
+    canonical_hash = hashlib.sha256(b"canonical-predicate").hexdigest()
+    entry = synthetic_commitment_attestation_entry(subjects, canonical_hash, "42")
     context = {
         "repository": "Luminous-Dynamics/mycelix",
         "source_digest": "a" * 40,
@@ -1259,7 +1257,9 @@ def test_retained_report_identity_and_predicate_are_bound() -> None:
         ),
         "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
         "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
-        "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+        "predicate_schema": "d6u-trusted-runtime-evidence-attestation/v2",
+        "policy_version": "22",
+        "canonical_predicate_sha256": canonical_hash,
         "claim_ceiling": "ReferenceModelOnly",
     }
     with tempfile.TemporaryDirectory() as tmp:
