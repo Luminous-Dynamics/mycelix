@@ -4,33 +4,21 @@ on:
   workflow_run:
     workflows: ["Finance Qualification Request"]
     types: [completed]
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: "Pull request number to qualify"
-        required: true
-        type: string
-      expected_head_sha:
-        description: "Exact PR head SHA to qualify"
-        required: true
-        type: string
-
 permissions: {}
 
 # Independent qualification evidence must never be superseded by generic PR CI.
 concurrency:
-  group: finance-exact-head-qualification-${{ inputs.expected_head_sha || github.event.workflow_run.pull_requests[0].head.sha || github.run_id }}
+  group: finance-exact-head-qualification-${{ github.event.workflow_run.pull_requests[0].head.sha }}
   cancel-in-progress: false
 
 jobs:
   qualify:
     name: Qualify exact Finance subject
     if: >-
-      ${{ github.event_name == 'workflow_dispatch' ||
-          (github.event.workflow_run.conclusion == 'success' &&
-           github.event.workflow_run.event == 'pull_request' &&
-           github.event.workflow_run.pull_requests[0].head.repo.full_name == github.repository &&
-           github.event.workflow_run.pull_requests[0].base.ref == 'main') }}
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'pull_request' &&
+          github.event.workflow_run.pull_requests[0].head.repo.full_name == github.repository &&
+          github.event.workflow_run.pull_requests[0].base.ref == 'main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -84,18 +72,21 @@ jobs:
       - name: Resolve exact qualification subject
         id: subject
         env:
-          INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
-          INPUT_EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || '' }}
           EVENT_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || '' }}
           EVENT_HEAD_SHA: ${{ github.event.workflow_run.pull_requests[0].head.sha || '' }}
           EVENT_BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha || '' }}
         run: |
           set -euo pipefail
-          pr_number="${INPUT_PR_NUMBER:-${EVENT_PR_NUMBER}}"
-          expected_head_sha="${INPUT_EXPECTED_HEAD_SHA:-${EVENT_HEAD_SHA}}"
-          base_sha="${EVENT_BASE_SHA:-}"
+          pr_number="${EVENT_PR_NUMBER}"
+          expected_head_sha="${EVENT_HEAD_SHA}"
+          base_sha="${EVENT_BASE_SHA}"
           test -n "${pr_number}"
-          printf '%s\n' "${expected_head_sha}" | grep -Eq '^[0-9a-f]{40}
+          printf '%s\n' "${expected_head_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          printf 'pr_number=%s\n' "${pr_number}" >> "${GITHUB_OUTPUT}"
+          printf 'expected_head_sha=%s\n' "${expected_head_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'base_sha=%s\n' "${base_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'resolution_mode=workflow_run\n' >> "${GITHUB_OUTPUT}"
+
       - name: Checkout exact PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
