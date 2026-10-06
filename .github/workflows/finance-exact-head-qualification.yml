@@ -84,6 +84,7 @@ jobs:
           assert text.count("workflow_dispatch:") == 1
           assert text.count("workflow_run:") == 1
           assert text.count("name: Resolve exact qualification subject") == 1
+          assert text.count("name: Revalidate live PR subject") == 1
           assert text.count("name: Checkout exact PR head") == 1
           assert text.count("id: checkout") == 1
           assert text.count("id: artifact_guard") == 1
@@ -133,6 +134,32 @@ jobs:
           printf 'expected_head_sha=%s\n' "${expected_head_sha}" >> "${GITHUB_OUTPUT}"
           printf 'base_sha=%s\n' "${base_sha}" >> "${GITHUB_OUTPUT}"
           printf 'resolution_mode=%s\n' "${resolution_mode}" >> "${GITHUB_OUTPUT}"
+
+      - name: Revalidate live PR subject
+        id: live_pr
+        env:
+          PR_NUMBER: ${{ steps.subject.outputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ steps.subject.outputs.expected_head_sha }}
+        run: |
+          set -euo pipefail
+          pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          state="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+          draft="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["draft"]).lower())')"
+          base_ref="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["base"]["ref"])')"
+          head_sha="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["head"]["sha"])')"
+          head_repo="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["head"]["repo"]["full_name"])')"
+
+          test "${state}" = "open"
+          test "${draft}" = "false"
+          test "${base_ref}" = "main"
+          test "${head_repo}" = "${GITHUB_REPOSITORY}"
+          test "${head_sha}" = "${EXPECTED_HEAD_SHA}"
+          printf 'live_head_sha=%s
+' "${head_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'live_state=%s
+' "${state}" >> "${GITHUB_OUTPUT}"
+          printf 'live_draft=%s
+' "${draft}" >> "${GITHUB_OUTPUT}"
 
       - name: Checkout exact PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -220,6 +247,9 @@ jobs:
           workflow_name=${{ github.workflow }}
           workflow_ref=${{ github.workflow_ref }}
           workflow_event=${{ github.event_name }}
+          live_pr_head_sha=${{ steps.live_pr.outputs.live_head_sha || '' }}
+          live_pr_state=${{ steps.live_pr.outputs.live_state || '' }}
+          live_pr_draft=${{ steps.live_pr.outputs.live_draft || '' }}
           EOF
           test "${{ steps.checkout.outputs.tested_head_sha || '' }}" = "${{ steps.subject.outputs.expected_head_sha }}"
 
