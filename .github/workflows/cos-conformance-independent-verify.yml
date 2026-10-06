@@ -1,6 +1,9 @@
 name: COS Conformance Independent Verify
 
 on:
+  workflow_run:
+    workflows: ["COS Conformance Evidence"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -20,7 +23,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: cos-conformance-independent-verify-${{ inputs.expected_head_sha }}
+  group: cos-conformance-independent-verify-${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:
@@ -95,10 +98,19 @@ jobs:
       - name: Validate requested PR head
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number || github.event.workflow_run.pull_requests[0].number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
         run: |
-          printf '%s' "${PR_NUMBER}" | grep -Eq '^[1-9][0-9]*          head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          printf '%s' "${PR_NUMBER}" | grep -Eq '^[1-9][0-9]*$' || {
+            echo "pr_number must be a positive decimal integer" >&2
+            exit 1
+          }
+          printf '%s' "${EXPECTED_HEAD_SHA}" | grep -Eq '^[0-9a-f]{40}$' || {
+            echo "expected_head_sha must be a 40-character lowercase Git SHA" >&2
+            exit 1
+          }
+
+          actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
 
           test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
