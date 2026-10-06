@@ -179,8 +179,8 @@ jobs:
           assert all(job["status"] == "completed" for job in jobs)
 
           resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact pull request subject"]
-          resolver_job = resolver_jobs[0]
           assert len(resolver_jobs) == 1, f"expected one S0 resolver job, found {len(resolver_jobs)}"
+          resolver_job = resolver_jobs[0]
           assert resolver_job["conclusion"] == "success"
           assert resolver_job["id"] > 0
           assert resolver_job["name"] == "Resolve exact pull request subject"
