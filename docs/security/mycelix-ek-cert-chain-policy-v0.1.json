@@ -363,6 +363,11 @@
       "id": "EKC-V46",
       "mutation": "forbidden-profile-override-on-valid-input",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V47",
+      "mutation": "cryptographic-binding-substitution",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -570,6 +575,7 @@
     "required_fields": [
       "cryptographic_binding_sha256"
     ],
-    "rule": "The chain verifier parses the exact supplied leaf/intermediate/root DER and exact CRL bundle, verifies leaf-to-intermediate, intermediate-to-root, root self-signature, and both issuer CRL signatures directly from exact TBS/signature bytes using the exact issuer SubjectPublicKeyInfo, records object/TBS/signature/issuer hashes, and rejects any receipt hash mismatch before profile acceptance."
-  }
+    "rule": "The chain verifier parses the exact supplied leaf/intermediate/root DER and exact CRL bundle, verifies leaf-to-intermediate, intermediate-to-root, root self-signature, and both issuer CRL signatures directly from exact TBS/signature bytes using the exact issuer SubjectPublicKeyInfo, records object/TBS/signature/issuer hashes and its own verifier source SHA-256, and rejects any receipt hash mismatch before profile acceptance."
+  },
+  "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, cryptographic binding receipt, and SPKI certificate/public-key identity"
 }
