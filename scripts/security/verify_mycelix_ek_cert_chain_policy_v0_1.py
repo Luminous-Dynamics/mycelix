@@ -1742,7 +1742,6 @@ def session_binding(
             "leaf_certificate_sha256": leaf_sha,
             "intermediate_certificate_sha256": intermediate_sha,
             "trust_anchor_root_sha256": root_sha,
-        "fixture_recipe_sha256": fx["fixture_recipe_sha256"],
             "trust_anchor_source_sha256": manifest["trust_anchor_source_sha256"],
             "trust_anchor_state": manifest["trust_anchor_state"],
             "trust_anchor_appraisal_state": manifest["trust_anchor_appraisal"].get("state"),
@@ -1759,6 +1758,8 @@ def session_binding(
             "revocation_state": rev["state"],
             "revocation_method": rev.get("method"),
             "revocation_crl_bundle_pem_sha256": crl_sha,
+            "crl_semantics_sha256": manifest.get("crl_semantics_sha256"),
+            "crl_semantics": manifest.get("crl_semantics"),
             "path_state": manifest["path_validation"].get("state"),
             "path_verifier_id": manifest["path_validation"].get("verifier_id"),
             "path_source_sha256": manifest["path_validation"].get("source_sha256"),
@@ -1796,7 +1797,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "intermediate_certificate_der_base64", "intermediate_certificate_sha256",
         "trust_anchor_root_der_base64", "trust_anchor_root_sha256",
         "trust_anchor_state", "trust_anchor_source_sha256", "trust_anchor_appraisal",
-        "verification_time_unix", "revocation", "path_validation", "spki_binding", "ek_template_binding",
+        "verification_time_unix", "revocation", "crl_semantics", "crl_semantics_sha256", "path_validation", "spki_binding", "ek_template_binding",
         "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "fixture_recipe_sha256", "session_binding_sha256",
     }
     missing = sorted(required - set(manifest))
@@ -1812,6 +1813,15 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "claim-ceiling-mismatch")
     if manifest["fixture_recipe_sha256"] != sha256_file(FIXTURE_RECIPE_FILE):
         return result("DENY", "fixture-recipe-source-mismatch")
+    try:
+        recipe = json.loads(FIXTURE_RECIPE_FILE.read_text(encoding="utf-8"))
+        expected_crl_semantics = recipe["crl_semantics"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        return result("DENY", "fixture-crl-semantics-invalid", {"error": str(exc)})
+    if manifest.get("crl_semantics") != expected_crl_semantics:
+        return result("DENY", "crl-semantics-recipe-mismatch")
+    if manifest.get("crl_semantics_sha256") != canonical_hash(expected_crl_semantics):
+        return result("DENY", "crl-semantics-digest-mismatch")
     forbidden_inputs = {"profile_override", "caller_supplied_certificate_criticality_overrides"}
     supplied_forbidden = sorted(forbidden_inputs & set(manifest))
     if supplied_forbidden:
@@ -1819,7 +1829,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(manifest["session_id"], str) or not manifest["session_id"]:
         return result("DENY", "session-id-invalid")
     for field in ("tpm_identity_digest", "ek_public_wire_sha256", "leaf_certificate_sha256", "intermediate_certificate_sha256",
-                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "fixture_recipe_sha256", "session_binding_sha256"):
+                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "fixture_recipe_sha256", "crl_semantics_sha256", "session_binding_sha256"):
         if not valid_hash(manifest[field]):
             return result("DENY", "digest-invalid", {"field": field})
 
@@ -1971,20 +1981,74 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
         "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
         "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
+        "crl_semantics_sha256": manifest["crl_semantics_sha256"],
     }
-    crypto_exact = external_crypto["details"].get("exact_input_objects")
+
+    try:
+        leaf_info = parse_certificate_der(leaf)
+        intermediate_info = parse_certificate_der(intermediate)
+        root_info = parse_certificate_der(root)
+        crl_issuers = crl_issuer_names_from_pem_bundle(crl_bundle_pem)
+        crypto_receipt = cryptographic_binding_receipt(
+            leaf_info,
+            intermediate_info,
+            root_info,
+            crl_bundle_pem,
+            manifest["crl_semantics"],
+            manifest["verification_time_unix"],
+        )
+        expected_crypto_binding_sha256 = canonical_hash(crypto_receipt)
+    except (ValueError, OSError) as exc:
+        return result("DENY", "certificate-parse-error", {"error": str(exc)})
+
+    external_crypto = run_crypto_verifier(manifest)
+    if external_crypto.get("state") != "PASS":
+        return external_crypto
+    if external_crypto["source_sha256"] != manifest["cryptographic_binding_source_sha256"]:
+        return result("DENY", "cryptographic-verifier-source-binding-mismatch")
+    if external_crypto["input_sha256"] != manifest["cryptographic_binding_input_sha256"]:
+        return result("DENY", "cryptographic-verifier-input-binding-mismatch")
+    if external_crypto["output_sha256"] != manifest["cryptographic_binding_output_sha256"]:
+        return result("DENY", "cryptographic-verifier-output-binding-mismatch")
+    independent_details = external_crypto["details"]
+    if not isinstance(independent_details, dict):
+        return result("DENY", "independent-crypto-details-invalid")
+    if independent_details.get("crl_semantics_sha256") != manifest["crl_semantics_sha256"]:
+        return result("DENY", "independent-crl-semantics-digest-mismatch")
+    if independent_details.get("crl_semantics") != crypto_receipt["crl_semantics"]:
+        return result("DENY", "independent-crl-semantics-binding-mismatch")
+    if manifest["cryptographic_binding_sha256"] != expected_crypto_binding_sha256:
+        return result(
+            "DENY",
+            "cryptographic-binding-receipt-mismatch",
+            {
+                "expected_sha256": expected_crypto_binding_sha256,
+                "supplied_sha256": manifest["cryptographic_binding_sha256"],
+            },
+        )
+
+    crypto_exact = independent_details.get("exact_input_objects")
+    if crypto_exact != {key: expected_cross_witness[key] for key in (
+        "leaf_certificate_sha256",
+        "intermediate_certificate_sha256",
+        "trust_anchor_root_sha256",
+        "crl_bundle_pem_sha256",
+    )}:
+        return result("DENY", "independent-crypto-exact-object-binding-mismatch")
     path_exact = {
         "leaf_certificate_sha256": path_details.get("leaf_certificate_sha256"),
         "intermediate_certificate_sha256": path_details.get("intermediate_certificate_sha256"),
         "trust_anchor_root_sha256": path_details.get("trust_anchor_root_sha256"),
         "crl_bundle_pem_sha256": path_details.get("crl_bundle_pem_sha256"),
     }
-    if crypto_exact != expected_cross_witness:
-        return result("DENY", "independent-crypto-exact-object-binding-mismatch")
-    if path_exact != expected_cross_witness:
+    if path_exact != {key: expected_cross_witness[key] for key in (
+        "leaf_certificate_sha256",
+        "intermediate_certificate_sha256",
+        "trust_anchor_root_sha256",
+        "crl_bundle_pem_sha256",
+    )}:
         return result("DENY", "openssl-path-exact-object-binding-mismatch")
 
-    independent_details = external_crypto["details"]
     independent_certs = independent_details.get("certificate_signatures")
     independent_crls = independent_details.get("crl_signatures")
     if not isinstance(independent_certs, dict) or not isinstance(independent_crls, dict):
@@ -1999,11 +2063,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             return result("DENY", "independent-certificate-signature-missing", {"label": label})
         for field in ("object_sha256", "tbs_sha256", "signature_sha256", "issuer_object_sha256"):
             if observed.get(field) != embedded.get(field):
-                return result(
-                    "DENY",
-                    "independent-certificate-signature-binding-mismatch",
-                    {"label": label, "field": field},
-                )
+                return result("DENY", "independent-certificate-signature-binding-mismatch", {"label": label, "field": field})
     for label, embedded in (
         ("root", crypto_receipt["crl_signatures"]["root"]),
         ("intermediate", crypto_receipt["crl_signatures"]["intermediate"]),
@@ -2013,51 +2073,22 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             return result("DENY", "independent-crl-signature-missing", {"label": label})
         for field in ("object_sha256", "tbs_sha256", "signature_sha256", "issuer_object_sha256"):
             if observed.get(field) != embedded.get(field):
-                return result(
-                    "DENY",
-                    "independent-crl-signature-binding-mismatch",
-                    {"label": label, "field": field},
-                )
+                return result("DENY", "independent-crl-signature-binding-mismatch", {"label": label, "field": field})
 
     cross_witness = canonical_hash({
-        "exact_input_objects": expected_cross_witness,
+        "exact_input_objects": {key: expected_cross_witness[key] for key in (
+            "leaf_certificate_sha256",
+            "intermediate_certificate_sha256",
+            "trust_anchor_root_sha256",
+            "crl_bundle_pem_sha256",
+        )},
+        "crl_semantics_sha256": manifest["crl_semantics_sha256"],
         "independent_crypto_verifier_source_sha256": external_crypto["source_sha256"],
         "independent_crypto_output_sha256": external_crypto["output_sha256"],
         "openssl_path_verifier_source_sha256": path_validation["source_sha256"],
         "openssl_path_output_sha256": path_validation["output_sha256"],
         "openssl_policy_argv": path_details.get("policy_argv"),
     })
-
-    try:
-        leaf_info = parse_certificate_der(leaf)
-        intermediate_info = parse_certificate_der(intermediate)
-        root_info = parse_certificate_der(root)
-        crl_issuers = crl_issuer_names_from_pem_bundle(crl_bundle_pem)
-        crypto_receipt = cryptographic_binding_receipt(
-            leaf_info, intermediate_info, root_info, crl_bundle_pem
-        )
-        expected_crypto_binding_sha256 = canonical_hash(crypto_receipt)
-    except (ValueError, OSError) as exc:
-        return result("DENY", "certificate-parse-error", {"error": str(exc)})
-    external_crypto = run_crypto_verifier(manifest)
-    if external_crypto.get("state") != "PASS":
-        return external_crypto
-    if external_crypto["source_sha256"] != manifest["cryptographic_binding_source_sha256"]:
-        return result("DENY", "cryptographic-verifier-source-binding-mismatch")
-    if external_crypto["input_sha256"] != manifest["cryptographic_binding_input_sha256"]:
-        return result("DENY", "cryptographic-verifier-input-binding-mismatch")
-    if external_crypto["output_sha256"] != manifest["cryptographic_binding_output_sha256"]:
-        return result("DENY", "cryptographic-verifier-output-binding-mismatch")
-    expected_external_content = external_crypto["output_content_sha256"]
-    if manifest["cryptographic_binding_sha256"] != expected_crypto_binding_sha256:
-        return result(
-            "DENY",
-            "cryptographic-binding-receipt-mismatch",
-            {
-                "expected_sha256": expected_crypto_binding_sha256,
-                "supplied_sha256": manifest["cryptographic_binding_sha256"],
-            },
-        )
 
     profile_ok, profile = leaf_profile_ok(leaf_info)
     profile["leaf_issuer_name_sha256"] = hashlib.sha256(leaf_info["issuer_der"]).hexdigest()
