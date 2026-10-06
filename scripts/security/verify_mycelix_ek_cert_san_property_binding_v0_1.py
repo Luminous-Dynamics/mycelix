@@ -20,6 +20,7 @@ MAPPING_CONTENT={
 }
 MAPPING_SHA256="994e81d09a2bed5d2a1a569e7dded6459392676a26d18552dbb4f3599b4ff3e7"
 FIXTURE_CERT_DER=base64.b64decode("MIIDOjCCAiKgAwIBAgIBBzANBgkqhkiG9w0BAQsFADAfMR0wGwYDVQQDDBRNeWNlbGl4IFN5bnRoZXRpYyBFSzAeFw0yNjEwMDUyMjQ4MDJaFw0zNjEwMDIyMjQ5MDJaMB8xHTAbBgNVBAMMFE15Y2VsaXggU3ludGhldGljIEVLMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAAlAiIZEv8RMiji8E8xXvKv0ScWAG8fQCpTYCsf30sEP2WdoFZdVb4jUtcaMFMyeAdHNrlrtnZFZxDFXQNewOQEpFg53BVEHUeUyxQBlkv6o43WJoIKrIHk1kfIh7FkRXhtg7T22j6DEE0Y5wR6eEVAQ4iy8YQohbxt35HNaWoadO8wgCSw28ECuiqoWTYvT65oanRwGZUdcrm63YEx5G8kw0PJwwwOmeLrY6lUyDkOC3VZ9JxqP8Na15yKCasvKIDRHn4gztIRGYOTwM3M2Xbai6ZeHxn9SPeSCVST1sI3fL5tuS3qX6Z418+Ii12r4rOvta/QuwluBB0Jk87esbBsQIDAQABo4GAMH4wXgYDVR0RAQH/BFQwUqRQME4xFjAUBgVngQUCAQwLaWQ6NEQ1OTQzNTgxHDAaBgVngQUCAgwRU3ludGhldGljRUstTW9kZWwxFjAUBgVngQUCAwwLaWQ6MDAwMTAwMDIwDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCBSAwDQYJKoZIhvcNAQELBQADggEBACEJ79Q6WYyFzlz/LHDV3KQRN4MWnkri0zQXECGL699kvuY+ZeSnG+uw+/OY5h2rX29gQgYteROtWZTLMm4lvnO9UOTIqxsln47Y0IFAcS3ua5r+J8GOvMFRDEUczfVGECKDBZqhrTKtLF5ApOoS09bp/nNXM01MLFlET2e1n0HJAMkTKER6aa7yqbT+5HE0eDN3Gn2h1cGo9hOb6Ga3tPvyMuSWLoMyXjGp7LM6uMRtme6ENowFaVAIMR8WpkG2iN9/b8d+SUp3RSYygAvKfHink/afex8AEEPFjGMFecRmHvrx/xNgfAJJlYCCUbTIr56sY9JG+5/werDU+LOFQRE=")
+FIXTURE_URI_DIRNAME_CONFUSION_CERT_DER=base64.b64decode("MIIDWDCCAkCgAwIBAgIUIa3Tuiscdr/1u1RTKZKyiZUJgbAwDQYJKoZIhvcNAQELBQAwGzEZMBcGA1UEAwwQTXljZWxpeCBTQU4gVGVzdDAeFw0yNjEwMDYwODUwMjlaFw0yNjEwMTMwODUwMjlaMBsxGTAXBgNVBAMMEE15Y2VsaXggU0FOIFRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQClcDSAF8uXBXbkdC+KIGJRROCPlsPJUTPYP2OGIMSNc9i6OB0jQn69bMKDVBmTfVrgWmew3aspE/wBAXWHm2Ag9zGBRwHAQnf3UpKkhrBytsMucgwX9n2qduJKcxBZ1UgB9CisJ9VNoTRx6hE6WLw8zXfCsbmlec6SuvsXqucGnZJl750rtcXBLnsE2v3Xc/JeotdqqZjVzn2gnlRMBVm48kfXw9k+OHeEXetVMoM8s02T+m2WU1cVExGY0W8kE0nvgvCehgM5f5ZQKKFgtU8m9n121PnGqOrEM9aA2iyRoSq/b4IQRZFlqMYG3g41z3hj1o/jMq4NASyu3OLsvO2jAgMBAAGjgZMwgZAwYQYDVR0RBFowWIZWaHR0cHM6Ly9leGFtcGxlLnRlc3QvMi4yMy4xMzMuMi4xPVRFU1QtTUZSLzIuMjMuMTMzLjIuMj1URVNULU1PREVMLzIuMjMuMTMzLjIuMz1GVy0xLjAwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUggbtZOEXjIEvm1bXhuMhg3gpTKowDQYJKoZIhvcNAQELBQADggEBAGFZ7CLWPzWVrz99Z8fU7cKWDLMyN+WRvsUC5sdQI7jfa+1mR117NbrIIT6NXE4ZwSD+vRQe0RaQ3dmz8Q5fuk4YKYIVO/lQA+QFbzwqYCtnydlXB1aW2YdvbnWuF99Ga81NT+/dbRCrG4YFPzPlSoJte3UeG3ZQILn5mcTNOVN5ovBjtUVdj5G7M6GXuNxp3u73QIceDrypm/Rx92wEX12tfk8MlDQC299aNf9LIwfTRt+dsoNffX2Q+5uKVSnH3E0zpvBnoHcKCkIRDhX6F1OlXmE0u8K+9InON1CJjADH79v4eUEJVuxjCVTFO811P15LYCe6HvThd2yvddEcP2s=")
 FIXTURE_BAD_CERT_DER=base64.b64decode("MIIDMjCCAhqgAwIBAgIBCDANBgkqhkiG9w0BAQsFADAfMR0wGwYDVQQDDBRNeWNlbGl4IFN5bnRoZXRpYyBFSzAeFw0yNjEwMDUyMjQ4MzhaFw0zNjEwMDIyMjQ5MzhaMB8xHTAbBgNVBAMMFE15Y2VsaXggU3ludGhldGljIEVLMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmmzLEBRz/Ebof6fx/Zuh9Pv9q0x4otvdT/KcwXxbxT3WNd1OdWVThNpkZzxRGtGajqgQ7lPDS0+RFRV98cl8Nf0BOZe8RdpN/PdEMDORE0r5WyGl9SZfX59RRg8i9LN67LGxqx1XvDEjSWWUSLWYQnUkcrjMCVgxNKr/dUOTigxnj0Md+1/ukTHfCf3JHAs9AkXTNLnKHEkbZav65OHwP3jU6fchxSIS9uAiAJjMQli/J6tI6l2y5K65OjZnziaWuD8ekwOy0F0m24ckSwblhh7mcDYcojFEuLX6FWTqyC13xz/ZmIGi83rr6bfszcixyAErXq1h3YIXXWCFstJOHwIDAQABo3kwdzBXBgNVHREBAf8ETTBLpEkwRzEWMBQGBWeBBQIBDAtpZDo0RDU5NDM1ODEVMBMGBWeBBQICDApPdGhlck1vZGVsMRYwFAYFZ4EFAgMMC2lkOjAwMDEwMDAzMAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgUgMA0GCSqGSIb3DQEBCwUAA4IBAQBfNIy/bxha+iwZkrfkyYXQxZlwz8UAhQ4cZmg6kmwaMHGVtd55rXocGKTJt1ODWY3Fbz4yZaLsVexliXCE7LQoJNzdjjCmAtFQt45xQ9aNJ5hRji8LQOq+jArdpoNiaVf5R5cUAwLBptW9ThoSHmguA44TKkx5naMIKC35SdeCjcpkwoxKd/yq+SB3EZIRS6110H0m5Oncj1PCEbjid68C2FP84aRfXKvrXcb/ELhC23ifcn4ShaAQlJhlyABFlDC47gFcwfWVUhAvKHXnnnAsJw5AotOLSDNQbofh5kixU+OP22VrQl09AZJRzdOLWc8dH57l5cdY+nvssU5hHbcZ")
 MANUFACTURER_OID="2.23.133.2.1"
 MODEL_OID="2.23.133.2.2"
@@ -31,25 +32,132 @@ def canonical_hash(v:Any)->str:
 def valid_hash(v:Any)->bool:
  return isinstance(v,str) and len(v)==64 and all(c in "0123456789abcdef" for c in v)
 
-def cert_san(cert_der:bytes,work:Path)->dict[str,str]:
- if shutil.which("openssl") is None: raise RuntimeError("openssl executable not found")
- p=work/"leaf.der";p.write_bytes(cert_der)
- r=subprocess.run(["openssl","x509","-inform","DER","-in",str(p),"-noout","-ext","subjectAltName"],text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False)
- if r.returncode!=0: raise RuntimeError(f"OpenSSL SAN extraction failed: {r.stderr}")
- out={}
- aliases={
-  "manufacturer": (MANUFACTURER_OID,"tcg-at-tpmManufacturer"),
-  "model": (MODEL_OID,"tcg-at-tpmModel"),
-  "version": (VERSION_OID,"tcg-at-tpmVersion"),
- }
- for key,(numeric,friendly) in aliases.items():
-  matches=[]
-  for prefix in (numeric,friendly):
-   matches.extend(re.findall(rf"/{re.escape(prefix)}=([^/\n]+)",r.stdout))
-  if len(matches)!=1:
-   raise ValueError(f"expected exactly one SAN identity field for {key}, observed {len(matches)}")
-  out[key]=matches[0].strip()
+def der_tlv(data:bytes,offset:int)->tuple[int,bytes,int]:
+ if offset>=len(data):raise ValueError("DER truncated before tag")
+ tag=data[offset];offset+=1
+ if offset>=len(data):raise ValueError("DER truncated before length")
+ first=data[offset];offset+=1
+ if first==0x80:raise ValueError("indefinite DER length forbidden")
+ if first<0x80:
+  length=first
+ else:
+  octets=first&0x7F
+  if octets==0 or octets>4 or offset+octets>len(data):raise ValueError("invalid DER length")
+  if data[offset]==0:raise ValueError("non-minimal DER length")
+  length=int.from_bytes(data[offset:offset+octets],"big");offset+=octets
+  if length<0x80:raise ValueError("non-minimal DER long length")
+ end=offset+length
+ if end>len(data):raise ValueError("DER value truncated")
+ return tag,data[offset:end],end
+
+def exact_der_tlv(data:bytes)->tuple[int,bytes]:
+ tag,value,end=der_tlv(data,0)
+ if end!=len(data):raise ValueError("DER trailing bytes")
+ return tag,value
+
+def decode_oid(value:bytes)->str:
+ if not value:raise ValueError("empty OID")
+ first=value[0]
+ first_arc=min(first//40,2)
+ second_arc=first-first_arc*40
+ arcs=[first_arc,second_arc]
+ acc=0;started=False
+ for byte in value[1:]:
+  if not started and byte==0x80:raise ValueError("non-minimal OID")
+  acc=(acc<<7)|(byte&0x7F)
+  started=True
+  if not (byte&0x80):
+   arcs.append(acc);acc=0;started=False
+ if started:raise ValueError("unterminated OID")
+ return ".".join(str(v) for v in arcs)
+
+def decode_tcg_utf8(tag:int,value:bytes,field:str)->str:
+ if tag!=0x0C:
+  raise ValueError(f"{field} is not UTF8String")
+ try:
+  text=value.decode("utf-8")
+ except UnicodeDecodeError as exc:
+  raise ValueError(f"{field} is not valid UTF-8") from exc
+ if not text:
+  raise ValueError(f"{field} is empty")
+ return text
+
+def parse_tcg_dirname(name_der:bytes)->dict[str,str]:
+ seq_tag,seq=exact_der_tlv(name_der)
+ if seq_tag!=0x30:raise ValueError("directoryName is not an RDNSequence")
+ targets={MANUFACTURER_OID,MODEL_OID,VERSION_OID}
+ out={};counts={oid:0 for oid in targets}
+ off=0
+ while off<len(seq):
+  set_tag,set_value,off=der_tlv(seq,off)
+  if set_tag!=0x31:raise ValueError("RDN is not a SET")
+  inner=0
+  while inner<len(set_value):
+   atv_tag,atv,inner=der_tlv(set_value,inner)
+   if atv_tag!=0x30:raise ValueError("AttributeTypeAndValue is not a SEQUENCE")
+   ao=0
+   oid_tag,oid_bytes,ao=der_tlv(atv,ao)
+   if oid_tag!=0x06:raise ValueError("RDN attribute type is not an OID")
+   oid=decode_oid(oid_bytes)
+   value_tag,value_bytes,ao=der_tlv(atv,ao)
+   if ao!=len(atv):raise ValueError("RDN AttributeTypeAndValue has trailing bytes")
+   if oid in targets:
+    counts[oid]+=1
+    if counts[oid]>1:raise ValueError(f"duplicate TCG EK SAN attribute {oid}")
+    out[oid]=decode_tcg_utf8(value_tag,value_bytes,oid)
  return out
+
+def parse_tcg_san(cert_der:bytes)->list[dict[str,str]]:
+ cert_tag,cert_value=exact_der_tlv(cert_der)
+ if cert_tag!=0x30:raise ValueError("certificate is not a SEQUENCE")
+ tbs_tag,tbs,_=der_tlv(cert_value,0)
+ if tbs_tag!=0x30:raise ValueError("TBSCertificate is not a SEQUENCE")
+ san_payload=None;tbs_off=0
+ while tbs_off<len(tbs):
+  tag,value,tbs_off=der_tlv(tbs,tbs_off)
+  if tag!=0xA3:continue
+  ext_tag,ext_seq,ext_end=der_tlv(value,0)
+  if ext_tag!=0x30 or ext_end!=len(value):raise ValueError("extensions wrapper is malformed")
+  ext_off=0
+  while ext_off<len(ext_seq):
+   e_tag,e_value,ext_off=der_tlv(ext_seq,ext_off)
+   if e_tag!=0x30:raise ValueError("Extension is not a SEQUENCE")
+   eo=0
+   oid_tag,oid_value,eo=der_tlv(e_value,eo)
+   if oid_tag!=0x06:raise ValueError("Extension OID is not an OBJECT IDENTIFIER")
+   oid=decode_oid(oid_value)
+   if eo<len(e_value) and e_value[eo]==0x01:
+    critical_tag,critical_value,eo=der_tlv(e_value,eo)
+    if critical_tag!=0x01 or len(critical_value)!=1:raise ValueError("invalid extension critical flag")
+   value_tag,octets,eo=der_tlv(e_value,eo)
+   if value_tag!=0x04 or eo!=len(e_value):raise ValueError("invalid extension value")
+   if oid=="2.5.29.17":
+    if san_payload is not None:raise ValueError("duplicate subjectAltName extension")
+    san_payload=octets
+ if san_payload is None:raise ValueError("subjectAltName extension missing")
+ san_tag,san_seq=exact_der_tlv(san_payload)
+ if san_tag!=0x30:raise ValueError("subjectAltName is not GeneralNames")
+ dirnames=[];off=0
+ while off<len(san_seq):
+  tag,value,off=der_tlv(san_seq,off)
+  if tag!=0xA4:continue
+  dirnames.append(parse_tcg_dirname(value))
+ targets={MANUFACTURER_OID,MODEL_OID,VERSION_OID}
+ if not dirnames:raise ValueError("no directoryName GeneralName present")
+ complete=[d for d in dirnames if targets.issubset(d)]
+ if len(complete)!=1:raise ValueError("expected exactly one directoryName carrying all TCG EK identity attributes")
+ for oid in targets:
+  if sum(1 for d in dirnames if oid in d)!=1:raise ValueError(f"TCG EK identity attribute {oid} appears outside the selected directoryName")
+ return dirnames
+
+def cert_san(cert_der:bytes,work:Path)->dict[str,str]:
+ dirnames=parse_tcg_san(cert_der)
+ selected=next(d for d in dirnames if {MANUFACTURER_OID,MODEL_OID,VERSION_OID}.issubset(d))
+ return {
+  "manufacturer":selected[MANUFACTURER_OID],
+  "model":selected[MODEL_OID],
+  "version":selected[VERSION_OID],
+ }
 
 def run_properties_verifier(binding:dict[str,Any])->dict[str,Any]:
  verifier_input=binding.get("verifier_input")
@@ -250,6 +358,7 @@ def self_test()->int:
   ("properties-input-digest-substitution","DENY",lambda x:x["properties_binding"].update({"verifier_input_sha256":"14"*32})),
   ("properties-output-digest-substitution","DENY",lambda x:x["properties_binding"].update({"verifier_output_sha256":"15"*32})),
   ("certificate-san-substitution","DENY",lambda x:x.update({"leaf_certificate_der_base64":base64.b64encode(FIXTURE_BAD_CERT_DER).decode(),"leaf_certificate_sha256":hashlib.sha256(FIXTURE_BAD_CERT_DER).hexdigest()})),
+  ("certificate-uri-dirname-confusion","DENY",lambda x:x.update({"leaf_certificate_der_base64":base64.b64encode(FIXTURE_URI_DIRNAME_CONFUSION_CERT_DER).decode(),"leaf_certificate_sha256":hashlib.sha256(FIXTURE_URI_DIRNAME_CONFUSION_CERT_DER).hexdigest()})),
   ("manufacturer-property-substitution","INDETERMINATE",lambda x:mutate_property_raw(x,"TPM2_PT_MANUFACTURER","4D594359")),
   ("model-mapping-substitution","INDETERMINATE",lambda x:mutate_property_raw(x,"TPM2_PT_VENDOR_TPM_TYPE","00000001")),
   ("firmware-property-substitution","INDETERMINATE",lambda x:mutate_property_raw(x,"TPM2_PT_FIRMWARE_VERSION_2","00010003")),
