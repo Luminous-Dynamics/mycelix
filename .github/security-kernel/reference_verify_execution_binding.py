@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Independent reference verifier for Security Kernel causal-binding commitments.
+"""Independent reference verifier for Security Kernel execution/evidence commitments.
 
 This file is intentionally self-contained: it performs no network access, imports no
 repository-local modules, and uses a distinct length-framed encoding rather than the
 S2 verifier's JSON canonicalization. It validates the complete v1/v2 binding schema,
-then emits a reference SHA-256 commitment.
+including direct verifier-workflow identity in v1 and the policy-verifier result
+commitment in v2, then emits a reference SHA-256 commitment.
 """
 import hashlib
 import json
@@ -39,6 +40,9 @@ V1_KEYS = frozenset(
         "causal_join_verifier_blob_sha",
         "source_policy_verifier_path",
         "source_policy_verifier_blob_sha",
+        "verifier_workflow_path",
+        "verifier_workflow_sha",
+        "verifier_workflow_blob_sha",
     }
 )
 
@@ -49,6 +53,7 @@ V2_KEYS = V1_KEYS | frozenset(
         "artifact_digest",
         "receipt_content_sha256",
         "causal_reference_snapshot_sha256",
+        "source_policy_reference_result_sha256",
     }
 )
 
@@ -73,6 +78,8 @@ HEX40_KEYS = frozenset(
         "reference_verifier_blob_sha",
         "causal_join_verifier_blob_sha",
         "source_policy_verifier_blob_sha",
+        "verifier_workflow_sha",
+        "verifier_workflow_blob_sha",
     }
 )
 
@@ -140,6 +147,7 @@ def validate(binding: object) -> dict:
         "reference_verifier_path",
         "causal_join_verifier_path",
         "source_policy_verifier_path",
+        "verifier_workflow_path",
         "artifact_name",
     ):
         if key in binding and (not isinstance(binding[key], str) or not binding[key]):
