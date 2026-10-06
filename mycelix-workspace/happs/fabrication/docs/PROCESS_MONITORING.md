@@ -151,6 +151,38 @@ This distinction follows established industrial data semantics: OPC UA preserves
 
 A downstream detector should consume multimodal evidence only after the registration state and provenance requirements for that detector are satisfied. Registration status must never be silently converted into a Normal detection result.
 
+## Registration qualification
+
+Registration consistency is not the terminal trust boundary. FPM now has a deterministic qualification layer that consumes an exact `RegistrationEnvelope` together with the immutable bytes referenced by its commitments.
+
+The structural profile records:
+
+- the exact registration-envelope digest;
+- exact source-data, calibration-profile, process-context, and applicable alignment-evidence commitments;
+- a deterministic evidence-manifest digest;
+- an explicit qualification profile identifier/version/digest;
+- an explicit verifier identifier/version.
+
+The verifier re-hashes resolved evidence itself. Missing, substituted, duplicated, unexpected, or cross-kind artifacts cannot produce `QualifiedForProfile`.
+
+`QualifiedForProfile` is deliberately narrower than verification. It does not prove source authenticity, clock synchronization, calibration correctness, provenance independence, or physical truth. In particular, distinct modality labels establish modality diversity only. A stronger acquisition-provenance profile must bind participant metadata to committed source-observation records and independently qualify acquisition ancestry; this is tracked separately in #4331 and #4333.
+
+The qualification core is deterministic: it does not read wall-clock time, query the DHT, depend on mutable host state, or trust a serialized verification boolean. The resulting record is therefore suitable as a stable evidence object for a later authenticated/transparency layer.
+
+## Anchored qualification and replay resistance
+
+The original structural qualification profile (`fpm.registration.structural`) proves exact internal consistency and exact commitment closure, but it is intentionally **not** an authority or anti-replay proof. A caller who supplies a different self-consistent envelope and recomputes its digest can produce a new structural qualification.
+
+The anchored profile (`fpm.registration.anchored`) therefore requires an external registration-anchor binding whose committed envelope digest exactly matches the evaluated envelope. This makes the dependency explicit, but it is **not itself an authority or anti-replay proof**: the pure qualification core still does not authenticate the anchor reference. That responsibility belongs to the Holochain/external resolver tracked in #4354.
+
+For Holochain integrations, preserve the distinction between:
+- `EntryHash`: content identity for the registration entry;
+- `ActionHash`: identity of the authored entry instance, carrying source-chain/timestamp context.
+
+The authority-resolution layer should retrieve the referenced record, reconstruct the exact registration envelope, and fail closed when the resolved record does not match the committed digest or expected authoring context. Holochain documents these as distinct address semantics. citeturn450877search0turn450877search1
+
+Verifier identity is treated similarly. `verifier_id`, `verifier_version`, and `declared_verifier_implementation_digest` are captured declarations in the pure core, not proof of the binary that executed. Authenticated build/execution identity is a separate boundary tracked in #4355.
+
 ## Next research boundary
 
 The remaining work is empirical qualification of registration and detection against captured process traces, including clock skew, dropped/duplicated samples, calibration changes, context conflicts, and independent physical reference measurements. The current implementation remains a deterministic evidence contract, not a validated physical-defect detector.
