@@ -417,7 +417,7 @@
     },
     {
       "id": "EKC-V53",
-      "mutation": "crl-authority-key-identifier-substitution",
+      "mutation": "crl-revocation-entry-serial-substitution",
       "expected": "DENY"
     },
     {
