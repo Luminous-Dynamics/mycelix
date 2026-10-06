@@ -112,9 +112,12 @@ jobs:
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_chain["vectors"]) == 56
+          assert len(cert_chain["vectors"]) == 71
+          assert [entry["id"] for entry in cert_chain["vectors"][-8:]] == [
+              "EKC-V64", "EKC-V65", "EKC-V66", "EKC-V67", "EKC-V68", "EKC-V69", "EKC-V70", "EKC-V71",
+          ]
           assert cert_chain["parser_structural_control_count"] == 20
-          assert cert_chain["crl_semantics_control_count"] == 8
+          assert cert_chain["crl_semantics_control_count"] == 22
           assert [entry["id"] for entry in cert_chain["parser_structural_controls"]] == [
               "EKC-S01", "EKC-S02", "EKC-S03", "EKC-S04", "EKC-S05", "EKC-S06",
               "EKC-S07", "EKC-S08", "EKC-S09", "EKC-S10", "EKC-S11", "EKC-S12",
@@ -123,7 +126,8 @@ jobs:
           assert all(entry["expected"] == "DENY" for entry in cert_chain["parser_structural_controls"])
           assert [entry["id"] for entry in cert_chain["crl_semantics_controls"]] == [
               "CRL-S01", "CRL-S02", "CRL-S03", "CRL-S04",
-              "CRL-S05", "CRL-S06", "CRL-S07", "CRL-S08",
+              "CRL-S05", "CRL-S06", "CRL-S07", "CRL-S08", "CRL-S09", "CRL-S10",
+              "CRL-S11", "CRL-S12", "CRL-S13", "CRL-S14", "CRL-S15", "CRL-S16", "CRL-S17", "CRL-S18", "CRL-S19", "CRL-S20", "CRL-S21", "CRL-S22",
           ]
           assert all(entry["expected"] == "DENY" for entry in cert_chain["crl_semantics_controls"])
           assert cert_chain["cryptographic_binding_composition"]["verifier_id"] == "mycelix.tpm.ek-fixture-crypto.v0.1"
@@ -132,6 +136,7 @@ jobs:
               "cryptographic_binding_source_sha256",
               "cryptographic_binding_input_sha256",
               "cryptographic_binding_output_sha256",
+              "crl_applicability_sha256",
           ]
           rf = cert_chain["reference_fixture"]
           assert rf["generation_mode"] == "deterministic-generated-synthetic"
@@ -146,6 +151,20 @@ jobs:
           semantic_bytes = json.dumps(fixture_recipe["crl_semantics"], sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
           assert hashlib.sha256(semantic_bytes).hexdigest() == rf["crl_semantics_sha256"]
           assert cert_chain["crl_semantics"] == fixture_recipe["crl_semantics"]
+          assert cert_chain["crl_applicability"] == fixture_recipe["crl_applicability"]
+          assert cert_chain["crl_applicability_sha256"] == "7ffabfe47960eedfcb58f7b9819c6f5ed4b2c533372e3641b42c9ec4daeea968"
+          assert rf["recipe_sha256"] == "958099b45d4617a575b8015bdc0dfe01cf4b7422b30af7d62569c22f7a76ab16"
+          assert rf["crl_applicability_uri_sha256"] == "cd780db8173506d6aa08a06a64bab407c5dc9386ab516bfca29c8ffde1ca5e47"
+          assert cert_chain["crl_semantics"]["root"]["selection"]["issuer_certificate_sha256"] == "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
+          assert cert_chain["crl_semantics"]["root"]["selection"]["crl_der_sha256"] == "2909c633b414913ff031e1224d41bfdc58d74c91f84d6c7705bd13194ab27b4e"
+          assert cert_chain["crl_semantics"]["intermediate"]["selection"]["issuer_certificate_sha256"] == "9c92d8c6362a2fbe24a324c36f525bec0c0619cb7527e68456d72189ac6fdfb8"
+          assert cert_chain["crl_semantics"]["intermediate"]["selection"]["crl_der_sha256"] == "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8"
+          for label in ("root", "intermediate"):
+              selection = cert_chain["crl_semantics"][label]["selection"]
+              assert selection["scope"] == "all-certificates-issued-by-issuer"
+              assert selection["delta_crl_supported"] is False
+              assert selection["indirect_crl_supported"] is False
+              assert selection["crl_number_lineage"] == "single-current-reference-no-history"
           assert rf["crl_bundle_pem_sha256"] == fixture_recipe["expected_outputs"]["crl-bundle.pem"]
           assert rf["root_crl_der_sha256"] == "2909c633b414913ff031e1224d41bfdc58d74c91f84d6c7705bd13194ab27b4e"
           assert rf["intermediate_crl_der_sha256"] == "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8"

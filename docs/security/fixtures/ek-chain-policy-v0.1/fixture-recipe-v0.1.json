@@ -29,7 +29,15 @@
           "reason_code": 1,
           "entry_identity_sha256": "b7970bf76ddd41318f1ff60990cf9390746da9770a4035a0a1a5a54b2160bfa4"
         }
-      ]
+      ],
+      "selection": {
+        "issuer_certificate_sha256": "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556",
+        "crl_der_sha256": "2909c633b414913ff031e1224d41bfdc58d74c91f84d6c7705bd13194ab27b4e",
+        "scope": "all-certificates-issued-by-issuer",
+        "delta_crl_supported": false,
+        "indirect_crl_supported": false,
+        "crl_number_lineage": "single-current-reference-no-history"
+      }
     },
     "intermediate": {
       "crl_number": 1,
@@ -48,7 +56,15 @@
           "reason_code": 1,
           "entry_identity_sha256": "e5effaea9a2e8fc7b296bb1a52b1a1f55cfa952af69cca814d188b9ae0946d12"
         }
-      ]
+      ],
+      "selection": {
+        "issuer_certificate_sha256": "9c92d8c6362a2fbe24a324c36f525bec0c0619cb7527e68456d72189ac6fdfb8",
+        "crl_der_sha256": "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8",
+        "scope": "all-certificates-issued-by-issuer",
+        "delta_crl_supported": false,
+        "indirect_crl_supported": false,
+        "crl_number_lineage": "single-current-reference-no-history"
+      }
     }
   },
   "expected_outputs": {
@@ -58,5 +74,22 @@
     "intermediate.der": "9c92d8c6362a2fbe24a324c36f525bec0c0619cb7527e68456d72189ac6fdfb8",
     "leaf.der": "688094a4c40bc27deccb9932a18e417889fe56854fb91d31655de43f947d157b",
     "root.der": "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
+  },
+  "crl_applicability": {
+    "profile": "direct-issuer-complete-crl-v0.1",
+    "locator_authority": "non-authoritative",
+    "certificate_sha256": "688094a4c40bc27deccb9932a18e417889fe56854fb91d31655de43f947d157b",
+    "selected_crl_issuer_certificate_sha256": "9c92d8c6362a2fbe24a324c36f525bec0c0619cb7527e68456d72189ac6fdfb8",
+    "selected_crl_der_sha256": "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8",
+    "selected_crl_scope": "all-certificates-issued-by-issuer",
+    "distribution_point": {
+      "count": 1,
+      "name_form": "fullName",
+      "general_name_count": 1,
+      "general_name_type": "uniformResourceIdentifier",
+      "uri_sha256": "cd780db8173506d6aa08a06a64bab407c5dc9386ab516bfca29c8ffde1ca5e47",
+      "reasons_present": false,
+      "crl_issuer_present": false
+    }
   }
 }
