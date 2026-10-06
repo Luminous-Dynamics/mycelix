@@ -228,6 +228,7 @@ jobs:
           duplicate_required = {name: count for name, count in step_counts.items() if count != 1}
           assert not duplicate_required, f"required qualification step multiplicity is not exactly one: {duplicate_required}"
           steps = {step["name"]: step["conclusion"] for step in raw_steps}
+          missing = [name for name in required if name not in steps]
           assert not missing, f"required qualification steps missing: {missing}"
           failed = {name: steps[name] for name in required if steps[name] != "success"}
           assert not failed, f"independent qualification gate failed: {failed}"
@@ -330,9 +331,6 @@ jobs:
           matching_artifacts = artifact_response.get("artifacts", [])
           assert artifact_response.get("total_count") == len(matching_artifacts), (
               "artifact name-filter response count does not match returned artifact records"
-          )
-          assert len(matching_artifacts) == 1, (
-              f"expected exactly one retained qualification receipt artifact: {len(matching_artifacts)}"
           )
           assert len(matching_artifacts) == 1, (
               f"expected exactly one retained qualification receipt artifact: {len(matching_artifacts)}"
