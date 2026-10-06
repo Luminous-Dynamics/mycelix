@@ -26,6 +26,19 @@ pub enum FederationStateMachineTraceExternalWitnessKind {
     Other,
 }
 
+/// Identifies the semantic kind of verifier identity material committed by an adapter.
+///
+/// The reference model binds the supplied identity bytes; it does not authenticate
+/// the identity or decide whether that verifier is trusted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationExternalVerifierIdentityKind {
+    PublicKey,
+    SigningCertificate,
+    TransparencyLogId,
+    ArchiveProviderId,
+    Opaque,
+}
+
 /// An externally supplied verifier's claim about an anchor reference.
 ///
 /// This is a statement record, not a proof result. The reference model can
@@ -52,6 +65,11 @@ pub struct FederationStateMachineTraceExternalEvidenceVerificationStatement {
     anchor_reference_sha256: String,
     verifier_schema_version: u16,
     verifier_profile: String,
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: String,
+    verifier_identity_hash_algorithm: String,
+    verifier_identity_hash_encoding: String,
+    verifier_identity_sha256: String,
     verification_claim: FederationStateMachineTraceExternalVerificationClaim,
     verifier_report_hash_algorithm: String,
     verifier_report_hash_encoding: String,
@@ -68,6 +86,9 @@ impl FederationStateMachineTraceExternalEvidenceVerificationStatement {
     pub fn anchor_reference_sha256(&self) -> &str { &self.anchor_reference_sha256 }
     pub fn verifier_schema_version(&self) -> u16 { self.verifier_schema_version }
     pub fn verifier_profile(&self) -> &str { &self.verifier_profile }
+    pub fn verifier_identity_kind(&self) -> FederationExternalVerifierIdentityKind { self.verifier_identity_kind }
+    pub fn verifier_identity_profile(&self) -> &str { &self.verifier_identity_profile }
+    pub fn verifier_identity_sha256(&self) -> &str { &self.verifier_identity_sha256 }
     pub fn verification_claim(&self) -> FederationStateMachineTraceExternalVerificationClaim { self.verification_claim }
     pub fn verifier_report_sha256(&self) -> &str { &self.verifier_report_sha256 }
     pub fn claimed_verified_at_unix_seconds(&self) -> u64 { self.claimed_verified_at_unix_seconds }
@@ -96,8 +117,13 @@ impl FederationStateMachineTraceExternalEvidenceVerificationStatement {
 ///     anchor_reference_sha256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
 ///     anchor_reference_schema_version: 1,
 ///     anchor_reference_profile: "anchor-v1".into(),
+///     witness_kind: FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+///     witness_profile: "tsa-token-v1".into(),
 ///     verifier_schema_version: 1,
 ///     verifier_profile: "verifier-v1".into(),
+///     verifier_identity_kind: FederationExternalVerifierIdentityKind::Opaque,
+///     verifier_identity_profile: "verifier-identity-v1".into(),
+///     verifier_identity_sha256: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".into(),
 ///     claim: FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
 ///     verifier_report_sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
 ///     claimed_verified_at_unix_seconds: 1,
@@ -113,6 +139,9 @@ pub struct FederationStateMachineTraceExternalEvidenceVerificationResult {
     witness_profile: String,
     verifier_schema_version: u16,
     verifier_profile: String,
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: String,
+    verifier_identity_sha256: String,
     claim: FederationStateMachineTraceExternalVerificationClaim,
     verifier_report_sha256: String,
     claimed_verified_at_unix_seconds: u64,
@@ -146,6 +175,18 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
 
     pub fn verifier_profile(&self) -> &str {
         &self.verifier_profile
+    }
+
+    pub fn verifier_identity_kind(&self) -> FederationExternalVerifierIdentityKind {
+        self.verifier_identity_kind
+    }
+
+    pub fn verifier_identity_profile(&self) -> &str {
+        &self.verifier_identity_profile
+    }
+
+    pub fn verifier_identity_sha256(&self) -> &str {
+        &self.verifier_identity_sha256
     }
 
     pub fn claim(&self) -> FederationStateMachineTraceExternalVerificationClaim {
