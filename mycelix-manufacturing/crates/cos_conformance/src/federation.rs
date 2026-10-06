@@ -1024,6 +1024,8 @@ pub enum FederationExternalVerificationTrustPolicyViolation {
     EmptyVerifierProfile,
     DuplicateVerifierProfile,
     EmptyVerifierProfileEntry,
+    EmptyWitnessProfile,
+    WitnessBindingIncomplete,
     EmptyVerifierIdentityProfile,
     InvalidVerifierIdentityDigest,
     VerifierIdentityBindingIncomplete,
@@ -3365,6 +3367,48 @@ mod tests {
             Err(
                 FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportDigestMismatch
             )
+        );
+    }
+
+    #[test]
+    fn external_verification_statement_builder_rejects_missing_identity_material() {
+        let err = state_machine_trace_external_evidence_verification_statement(
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            1,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            b"report",
+            1,
+        )
+        .expect_err("empty verifier identity material must be rejected");
+
+        assert_eq!(
+            err,
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierIdentityMaterial
+        );
+    }
+
+    #[test]
+    fn external_verification_statement_builder_rejects_missing_identity_profile() {
+        let err = state_machine_trace_external_evidence_verification_statement(
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            1,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "",
+            b"identity",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            b"report",
+            1,
+        )
+        .expect_err("empty verifier identity profile must be rejected");
+
+        assert_eq!(
+            err,
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierIdentityProfile
         );
     }
 
