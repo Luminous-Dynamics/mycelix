@@ -683,6 +683,7 @@ pub fn validate_state_machine_trace_external_evidence_anchor_reference(
 pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation {
     InvalidAnchorReferenceDigest,
     InvalidVerifierReportSchemaVersion,
+    InvalidVerificationTimestamp,
     EmptyVerifierProfile,
     EmptyVerifierIdentityProfile,
     EmptyVerifierIdentityMaterial,
@@ -726,6 +727,11 @@ pub fn state_machine_trace_external_evidence_verification_statement(
     if verifier_identity_material.is_empty() {
         return Err(
             FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierIdentityMaterial
+        );
+    }
+    if claimed_verified_at_unix_seconds == 0 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidVerificationTimestamp
         );
     }
     if verifier_report.is_empty() {
@@ -786,6 +792,7 @@ pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementViolati
     AnchorReferenceProfileMismatch,
     AnchorReferenceDigestMismatch,
     InvalidVerifierReportSchemaVersion,
+    InvalidVerificationTimestamp,
     EmptyVerifierProfile,
     EmptyVerifierIdentityProfile,
     EmptyVerifierIdentityDigest,
@@ -865,6 +872,11 @@ pub fn validate_state_machine_trace_external_evidence_verification_statement_bin
     if statement.verifier_schema_version == 0 {
         return Err(
             FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidVerifierReportSchemaVersion
+        );
+    }
+    if statement.claimed_verified_at_unix_seconds == 0 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidVerificationTimestamp
         );
     }
     if statement.verifier_profile.is_empty() {
@@ -1365,6 +1377,11 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
                 FederationExternalVerificationPolicyAdmissionViolation::VerificationFreshnessPolicyMissing,
             )?;
 
+        if evaluated_at_unix_seconds == 0 {
+            return Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerificationClaimFromFuture,
+            );
+        }
         if self.claimed_verified_at_unix_seconds() > evaluated_at_unix_seconds {
             return Err(
                 FederationExternalVerificationPolicyAdmissionViolation::VerificationClaimFromFuture,
@@ -3465,6 +3482,27 @@ mod tests {
             Err(
                 FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportDigestMismatch
             )
+        );
+    }
+
+    #[test]
+    fn external_verification_statement_builder_rejects_zero_verification_timestamp() {
+        let err = state_machine_trace_external_evidence_verification_statement(
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            2,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"identity",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            b"report",
+            0,
+        )
+        .expect_err("zero verification timestamp must be rejected");
+
+        assert_eq!(
+            err,
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidVerificationTimestamp
         );
     }
 
