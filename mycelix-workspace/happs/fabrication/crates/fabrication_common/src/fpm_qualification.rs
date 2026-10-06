@@ -499,6 +499,70 @@ mod tests {
     }
 
     #[test]
+    fn unresolved_clock_transform_cannot_qualify_even_with_committed_evidence() {
+        let mut input = input_with_exact_artifacts();
+        let transform_bytes = b"clock-transform-v1";
+        let transform_digest = hex_digest(transform_bytes);
+        input.envelope.alignment_method = Some(AlignmentMethod::DeclaredClockTransform {
+            transform_digest: transform_digest.clone(),
+        });
+        input.registration_envelope_digest = input.envelope.digest().expect("envelope digest");
+        input.artifacts.push(ResolvedEvidenceArtifact {
+            declared_digest: transform_digest,
+            bytes: transform_bytes.to_vec(),
+            kind: EvidenceKind::AlignmentEvidence,
+        });
+
+        let verifier = RegistrationQualificationVerifier {
+            verifier_id: "fpm.registration.qualifier".into(),
+            verifier_version: "1".into(),
+        };
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InsufficientEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::RegistrationUnknown));
+    }
+
+    #[test]
+    fn evidence_manifest_digest_is_order_independent() {
+        let input = input_with_exact_artifacts();
+        let mut reversed = input.artifacts.clone();
+        reversed.reverse();
+
+        assert_eq!(
+            evidence_manifest_digest(&input.artifacts),
+            evidence_manifest_digest(&reversed)
+        );
+    }
+
+    #[test]
+    fn empty_verifier_identity_cannot_qualify() {
+        let input = input_with_exact_artifacts();
+        let verifier = RegistrationQualificationVerifier {
+            verifier_id: "   ".into(),
+            verifier_version: "1".into(),
+        };
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InvalidEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::EmptyVerifierIdentity));
+    }
+
+    #[test]
     fn verifier_identity_is_part_of_the_record_but_not_an_authentication_claim() {
         let input = input_with_exact_artifacts();
         let verifier = RegistrationQualificationVerifier {
