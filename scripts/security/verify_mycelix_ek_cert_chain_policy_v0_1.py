@@ -293,8 +293,11 @@ def parse_extensions(extension_wrapper: bytes) -> dict[str, dict[str, Any]]:
     tag, content, _raw, end = der_tlv(extension_wrapper, 0)
     if tag != 0x30 or end != len(extension_wrapper):
         raise ValueError("X.509 Extensions must be a SEQUENCE")
+    extension_children = der_children(content)
+    if not extension_children:
+        raise ValueError("X.509 Extensions must contain at least one Extension")
     extensions: dict[str, dict[str, Any]] = {}
-    for ext_tag, ext_content, _ext_raw in der_children(content):
+    for ext_tag, ext_content, _ext_raw in extension_children:
         if ext_tag != 0x30:
             raise ValueError("X.509 Extension is not a SEQUENCE")
         offset = 0
@@ -522,6 +525,91 @@ def subject_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
 
 
 
+def _extension_sequence_content(info: dict[str, Any], oid: str, label: str) -> tuple[bool, bytes | None]:
+    critical, value = extension_value(info, oid)
+    if value is None:
+        return critical, None
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x30 or end != len(value):
+        raise ValueError(f"{label} extension value must be a SEQUENCE")
+    return critical, content
+
+
+def validate_aia(info: dict[str, Any]) -> bool:
+    _critical, content = _extension_sequence_content(
+        info, "1.3.6.1.5.5.7.1.1", "AuthorityInformationAccess"
+    )
+    if content is None:
+        return True
+    descriptions = der_children(content)
+    if not descriptions:
+        raise ValueError("AuthorityInformationAccess must contain AccessDescription")
+    for tag, description, _raw in descriptions:
+        if tag != 0x30:
+            raise ValueError("AuthorityInformationAccess AccessDescription malformed")
+        children = der_children(description)
+        if len(children) != 2 or children[0][0] != 0x06:
+            raise ValueError("AuthorityInformationAccess AccessDescription structure invalid")
+        oid_string(children[0][1])
+        if children[1][0] not in {0xA0, 0x81, 0x82, 0xA4, 0xA5, 0x86, 0x87, 0x88}:
+            raise ValueError("AuthorityInformationAccess accessLocation GeneralName invalid")
+    return True
+
+
+def validate_cdp(info: dict[str, Any]) -> bool:
+    _critical, content = _extension_sequence_content(
+        info, "2.5.29.31", "CRLDistributionPoints"
+    )
+    if content is None:
+        return True
+    points = der_children(content)
+    if not points:
+        raise ValueError("CRLDistributionPoints must contain DistributionPoint")
+    for tag, point, _raw in points:
+        if tag != 0x30:
+            raise ValueError("CRLDistributionPoints DistributionPoint malformed")
+        children = der_children(point)
+        if not children:
+            raise ValueError("CRLDistributionPoints DistributionPoint empty")
+        for child_tag, child_content, _child_raw in children:
+            if child_tag == 0xA0:
+                inner_tag, inner_content, _inner_raw, inner_end = der_tlv(child_content, 0)
+                if inner_tag not in {0xA0, 0xA1} or inner_end != len(child_content):
+                    raise ValueError("CRLDistributionPoints DistributionPointName malformed")
+                if inner_tag == 0xA0 and not der_children(inner_content):
+                    raise ValueError("CRLDistributionPoints fullName is empty")
+            elif child_tag == 0x81:
+                bit_string_has(child_content, 0)
+            elif child_tag == 0xA2:
+                names = der_children(child_content)
+                if not names:
+                    raise ValueError("CRLDistributionPoints cRLIssuer is empty")
+            else:
+                raise ValueError("CRLDistributionPoints DistributionPoint field invalid")
+    return True
+
+
+def validate_subject_directory_attributes(info: dict[str, Any]) -> bool:
+    _critical, content = _extension_sequence_content(
+        info, "2.5.29.9", "SubjectDirectoryAttributes"
+    )
+    if content is None:
+        return True
+    attributes = der_children(content)
+    if not attributes:
+        raise ValueError("SubjectDirectoryAttributes must contain Attribute")
+    for tag, attribute, _raw in attributes:
+        if tag != 0x30:
+            raise ValueError("SubjectDirectoryAttributes Attribute malformed")
+        children = der_children(attribute)
+        if len(children) != 2 or children[0][0] != 0x06 or children[1][0] != 0x31:
+            raise ValueError("SubjectDirectoryAttributes Attribute structure invalid")
+        oid_string(children[0][1])
+        if not der_children(children[1][1]):
+            raise ValueError("SubjectDirectoryAttributes Attribute value SET empty")
+    return True
+
+
 def subject_alt_name(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     critical, value = extension_value(info, "2.5.29.17")
     if value is None:
@@ -579,6 +667,9 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     aki_critical, aki = authority_key_id(info)
     san_critical, san = subject_alt_name(info)
     ski_critical, ski_value = subject_key_id(info)
+    validate_aia(info)
+    validate_cdp(info)
+    validate_subject_directory_attributes(info)
     profile = {
         "version_3": info["version"] == 3,
         "serial_positive": info["serial"] > 0,
@@ -1904,6 +1995,15 @@ def self_test() -> int:
         san_ok, _san_profile = leaf_profile_ok(missing_san)
         if san_ok:
             print("TCG SubjectAltName omission acceptance: FAIL")
+            return 1
+
+        empty_extensions = der_tlv(0x30, b"")
+        try:
+            parse_extensions(empty_extensions)
+        except ValueError:
+            pass
+        else:
+            print("empty X.509 Extensions acceptance: FAIL")
             return 1
 
 
