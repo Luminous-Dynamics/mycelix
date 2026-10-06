@@ -217,6 +217,7 @@ jobs:
               "Prepare locked dependency subject",
               "Vendor locked dependency closure in fetch sandbox",
               "Execute sandbox negative controls",
+              "Upload sandbox negative-control transcript",
               "Execute candidate qualification in disposable networkless sandbox",
               "Verify candidate source immutability",
               "Verify dependency substrate immutability",
