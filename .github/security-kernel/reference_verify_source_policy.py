@@ -452,6 +452,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             fail(f"S1 vendor resource profile mismatch: {key}")
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
+    joined = "\n".join(l)
     if "CANDIDATE_ROOT: " not in joined:
         fail("S1 candidate host staging root binding missing")
     if 'candidate_root="$CANDIDATE_ROOT"' not in joined:
@@ -474,7 +475,6 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 source volume failure-trap cleanup missing")
     if 'if ! docker volume rm "$CANDIDATE_VOLUME_NAME" >/dev/null 2>&1; then' not in joined:
         fail("S1 final candidate source volume cleanup missing")
-    joined = "\n".join(l)
     for key, expected in (("SOURCE_RESOURCE_PROFILE", SOURCE_RESOURCE_PROFILE), ("SOURCE_MAX_BYTES", SOURCE_MAX_BYTES), ("SOURCE_MAX_INODES", SOURCE_MAX_INODES), ("SOURCE_TMPFS_SIZE", SOURCE_TMPFS_SIZE), ("SOURCE_TMPFS_NR_INODES", SOURCE_TMPFS_NR_INODES)):
         if exact_count(l, f'  {key}: "{expected}"') != 1:
             fail(f"S1 source resource profile mismatch: {key}")
