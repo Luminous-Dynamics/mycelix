@@ -725,6 +725,21 @@ fn resolve_fpm_source_attestation_anchor_impl(
         ));
     }
 
+    let verification =
+        resolve_fpm_eat_cose_verification_anchor_impl(anchor.eat_cose_verification_action.clone())?;
+    if verification.challenge_action != anchor.challenge_action
+        || verification.evidence_digest != anchor.claim.evidence_digest
+        || verification.subject_id != anchor.claim.subject_id
+        || verification.audience != anchor.claim.audience
+        || verification.key_id != anchor.claim.verification_key_id
+        || verification.verification_key_digest != anchor.claim.verification_key_digest
+        || verification.nonce_digest != anchor.claim.challenge_nonce_digest
+    {
+        return Err(fpm_attestation_error(
+            "source attestation is not exactly bound to its EAT/COSE verification",
+        ));
+    }
+
     let challenge = resolve_fpm_attestation_challenge_impl(
         ResolveFpmAttestationChallengeInput {
             action_hash: anchor.challenge_action.clone(),
@@ -886,7 +901,7 @@ fn create_fpm_source_attestation_anchor_impl(
         verification_key_digest: challenge.verification_key_digest.clone(),
         acquisition_root_digest: challenge.acquisition_root_digest.clone(),
         challenge_nonce_digest: challenge.nonce_digest.clone(),
-        evidence_digest: input.evidence_digest,
+        evidence_digest: verification.evidence_digest.clone(),
         attestation_format: challenge.attestation_format.clone(),
         verifier_id: input.verifier_id,
         verifier_version: input.verifier_version,
