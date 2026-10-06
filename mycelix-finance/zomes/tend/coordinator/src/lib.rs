@@ -3461,6 +3461,99 @@ mod tests {
         );
     }
 
+    fn settlement_test_exchange(hash: ActionHash) -> TendExchange {
+        let _ = hash;
+        TendExchange {
+            id: "exchange-1".into(),
+            provider_did: "did:mycelix:provider".into(),
+            receiver_did: "did:mycelix:receiver".into(),
+            hours: 2.0,
+            service_description: "exchange".into(),
+            service_category: ServiceCategory::GeneralAssistance,
+            cultural_alias: None,
+            dao_did: "did:mycelix:dao".into(),
+            timestamp: ts(),
+            status: ExchangeStatus::Proposed,
+            service_date: None,
+        }
+    }
+
+    fn settlement_test_claim(hash: ActionHash) -> PendingBalanceAdjustment {
+        PendingBalanceAdjustment {
+            exchange_id: "exchange-1".into(),
+            exchange_action_hash: hash,
+            provider_did: "did:mycelix:provider".into(),
+            receiver_did: "did:mycelix:receiver".into(),
+            hours: 2.0,
+            currency_id: "did:mycelix:dao".into(),
+            provider_completed: false,
+            receiver_completed: false,
+            created_at: ts(),
+        }
+    }
+
+    #[test]
+    fn settlement_claim_runtime_binding_accepts_exact_terms() {
+        let hash = ActionHash::from_raw_36(vec![7; 36]);
+        let exchange = settlement_test_exchange(hash.clone());
+        let claim = settlement_test_claim(hash.clone());
+
+        assert!(validate_pending_claim_runtime(
+            &claim,
+            &exchange,
+            &hash,
+            "did:mycelix:receiver",
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn settlement_claim_runtime_binding_rejects_wrong_exchange_hash() {
+        let hash = ActionHash::from_raw_36(vec![7; 36]);
+        let other = ActionHash::from_raw_36(vec![8; 36]);
+        let exchange = settlement_test_exchange(hash.clone());
+        let claim = settlement_test_claim(hash);
+
+        assert!(validate_pending_claim_runtime(
+            &claim,
+            &exchange,
+            &other,
+            "did:mycelix:receiver",
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn settlement_claim_runtime_binding_rejects_wrong_receiver() {
+        let hash = ActionHash::from_raw_36(vec![7; 36]);
+        let exchange = settlement_test_exchange(hash.clone());
+        let claim = settlement_test_claim(hash.clone());
+
+        assert!(validate_pending_claim_runtime(
+            &claim,
+            &exchange,
+            &hash,
+            "did:mycelix:attacker",
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn settlement_claim_runtime_binding_rejects_mismatched_terms() {
+        let hash = ActionHash::from_raw_36(vec![7; 36]);
+        let mut claim = settlement_test_claim(hash.clone());
+        let exchange = settlement_test_exchange(hash.clone());
+        claim.hours = 3.0;
+
+        assert!(validate_pending_claim_runtime(
+            &claim,
+            &exchange,
+            &hash,
+            "did:mycelix:receiver",
+        )
+        .is_err());
+    }
+
     #[test]
     fn activity_dao_did_supports_all_discovery_entry_types() {
         let exchange = ActivityDaoEntry::Exchange(TendExchange {
