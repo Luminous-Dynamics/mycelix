@@ -201,13 +201,32 @@ def require_no_fail_open_controls(lines_: list[str], description: str) -> None:
 
 
 def require_explicit_bash_for_run_steps(lines_: list[str], description: str) -> None:
-    run_indices = [
-        i for i, line in enumerate(lines_)
-        if re.fullmatch(r"\s{8}run:\s*\|?\s*", line)
-    ]
-    for index in run_indices:
-        if index == 0 or not re.fullmatch(r"\s{8}shell:\s+bash\s*", lines_[index - 1]):
-            fail(f"{description}: every trusted run step must explicitly declare shell: bash")
+    current = None
+    in_run_block = False
+
+    def flush() -> None:
+        nonlocal current, in_run_block
+        if current is None:
+            return
+        if current["run"] and current["shell"] != ["bash"]:
+            fail(f"{description}: run step {current['name']!r} must explicitly declare exactly one shell: bash")
+        in_run_block = False
+
+    for line in lines_:
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if match:
+            flush()
+            current = {"name": match.group(1), "run": [], "shell": []}
+            continue
+        if current is None:
+            continue
+        if in_run_block:
+            continue
+        if re.fullmatch(r"\s{8}run:\s*\|?\s*", line):
+            current["run"].append(line)
+            in_run_block = True
+        elif re.fullmatch(r"\s{8}shell:\s+bash\s*", line):
+            current["shell"].append("bash")
 
 
 def require_step_execution_modes(lines_: list[str], description: str) -> None:
@@ -274,6 +293,23 @@ def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
             key = key_match.group(1)
             counts[key] = counts.get(key, 0) + 1
     flush()
+
+
+def inject_run_step_conditional_layout(raw: bytes) -> bytes:
+    marker = b"      - name: Upload sandbox negative-control transcript\n"
+    insertion = marker + b"        if: success()\n"
+    if marker not in raw:
+        fail("conditional-step shell regression fixture marker missing")
+    mutated = raw.replace(marker, insertion, 1)
+    return mutated
+
+
+def inject_run_step_without_shell(raw: bytes) -> bytes:
+    marker = b"      - name: Execute candidate qualification in disposable networkless sandbox\n        shell: bash\n"
+    replacement = b"      - name: Execute candidate qualification in disposable networkless sandbox\n"
+    if marker not in raw:
+        fail("missing-shell regression fixture marker missing")
+    return raw.replace(marker, replacement, 1)
 
 
 def inject_masked_docker_cleanup(raw: bytes) -> bytes:
@@ -589,6 +625,16 @@ def main() -> None:
         lambda: verify_s1(inject_extra_permission_with_blank(raw["s1"]), s1_sha),
         "S1 blank-separated security-events: write",
     )
+    verify_s1(inject_run_step_conditional_layout(raw["s1"]), s1_sha)
+
+    expect_rejection(
+        lambda: verify_s1(
+            inject_run_step_without_shell(raw["s1"]),
+            s1_sha,
+        ),
+        "run step missing explicit shell",
+    )
+
     expect_rejection(
         lambda: verify_s1(
             inject_masked_docker_cleanup(raw["s1"]),
