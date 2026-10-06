@@ -75,12 +75,14 @@ jobs:
           grep -Fq 'WitnessBindingIncomplete' "$source"
           grep -Fq 'VerifierIdentityBindingIncomplete' "$source"
 
-          if grep -Eq '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source"; then
+          result_context="$(grep -n -B12 -A2 -F 'pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source")"
+          if printf '%s\n' "$result_context" | grep -q 'Deserialize'; then
             echo 'External verification result must remain non-deserializable.'
             exit 1
           fi
 
-          if grep -Eq '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*pub struct FederationExternalVerificationPolicyAdmissionV1' "$source"; then
+          admission_context="$(grep -n -B12 -A2 -F 'pub struct FederationExternalVerificationPolicyAdmissionV1' "$source")"
+          if printf '%s\n' "$admission_context" | grep -q 'Deserialize'; then
             echo 'Policy admission must remain non-deserializable.'
             exit 1
           fi
