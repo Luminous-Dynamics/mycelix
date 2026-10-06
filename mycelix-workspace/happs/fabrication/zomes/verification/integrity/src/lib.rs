@@ -449,7 +449,11 @@ fn validate_fpm_source_attestation_anchor(
         expected_subject_id: anchor.claim.subject_id.clone(),
         expected_acquisition_root_digest: anchor.claim.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: anchor.claim.challenge_nonce_digest.clone(),
+        expected_attestation_format: anchor.claim.attestation_format.clone(),
+        expected_verifier_profile_digest: anchor.claim.verifier_profile_digest.clone(),
         expected_appraisal_policy_digest: anchor.claim.appraisal_policy_digest.clone(),
+        expected_reference_values_digest: anchor.claim.reference_values_digest.clone(),
+        expected_endorsement_digest: anchor.claim.endorsement_digest.clone(),
         claim: anchor.claim.clone(),
     });
     if qualification.status == FpmAttestationQualificationStatus::InvalidEvidence {
