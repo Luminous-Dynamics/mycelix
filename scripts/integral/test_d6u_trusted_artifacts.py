@@ -2050,6 +2050,8 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
         "GITHUB_RUN_ID": "501",
         "GITHUB_RUN_ATTEMPT": "2",
         "GITHUB_SHA": "a" * 40,
+        "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+        "D6U_TRIGGER_HEAD_SHA": "b" * 40,
         "GITHUB_TOKEN": "token",
     }
     payload = {
