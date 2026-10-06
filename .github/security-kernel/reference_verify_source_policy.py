@@ -383,6 +383,15 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate sandbox image digest pin mismatch")
     if exact_count(l, f'TRUSTED_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"') != 1:
         fail("S1 trusted workflow blob pin mismatch")
+    for required in (
+        "def candidate_permissions(text):",
+        "if not candidate.strip():",
+        "actual_indent == child_indent",
+        'assert permission_blocks == [("contents: read",)], permission_blocks',
+        "candidate workflow permission parser accepted blank-separated security-events: write",
+    ):
+        if exact_count(l, required) != 1:
+            fail(f"S1 candidate-workflow permission parser control missing or duplicated: {required!r}")
     require_no_fail_open_controls(l, "S1")
     require_no_yaml_reuse_syntax(l, S1)
     require_explicit_bash_for_run_steps(l, S1)
