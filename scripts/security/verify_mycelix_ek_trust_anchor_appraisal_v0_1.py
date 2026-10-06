@@ -7,13 +7,16 @@ import base64
 import copy
 import hashlib
 import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 VERIFIER_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
 REFERENCE_ANCHOR_ID = "mycelix.synthetic-ek-root.v0.1"
-REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
-REFERENCE_REGISTRY_SOURCE_SHA256 = "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591"
+REFERENCE_ROOT_SHA256 = "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
+REFERENCE_REGISTRY_SOURCE_SHA256 = "893e37158367a5d0f82f84e4051ffdc1c1090dec966f0fb5d63f56c70bc6076d"
 REFERENCE_AUTHORIZATION_RECEIPT_FILE = Path(__file__).resolve().parents[2] / "docs/security/mycelix-ek-trust-anchor-authorization-receipt-v0.1.json"
 REFERENCE_REGISTRY = {
     "registry_id": "mycelix.ek-trust-anchor-registry",
@@ -142,7 +145,20 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
 def fixture() -> dict[str, Any]:
-    root = bytes.fromhex("3003020101")
+    generator = Path(__file__).resolve().parent / "generate_mycelix_ek_chain_fixtures_v0_1.py"
+    recipe = Path(__file__).resolve().parents[2] / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-trust-anchor-fixture-") as td:
+        output_dir = Path(td)
+        proc = subprocess.run(
+            [sys.executable, str(generator), "--recipe", str(recipe), "--output-dir", str(output_dir), "--check"],
+            cwd=output_dir, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"deterministic EK fixture generation failed: {proc.stderr or proc.stdout}")
+        root = (output_dir / "root.der").read_bytes()
+        root_sha = hashlib.sha256(root).hexdigest()
+        if root_sha != REFERENCE_ROOT_SHA256:
+            raise RuntimeError(f"reference root digest mismatch: {root_sha}")
     registry_text = json.dumps(REFERENCE_REGISTRY, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "
 "
     rs = hashlib.sha256(root).hexdigest()
