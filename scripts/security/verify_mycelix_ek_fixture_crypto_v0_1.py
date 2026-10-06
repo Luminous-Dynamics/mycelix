@@ -484,6 +484,8 @@ def expected_crl_semantics_check(
         for observed, exp in zip(entries, expected_entries, strict=True):
             if observed["serial"] != int(exp["serial"]):
                 raise ValueError(f"{label} revoked serial mismatch")
+            if observed["entry_identity_sha256"] != str(exp["entry_identity_sha256"]):
+                raise ValueError(f"{label} revoked-entry DER identity mismatch")
             if observed["revocation_date"]["text"] != str(exp["revocation_date"]):
                 raise ValueError(f"{label} revocationDate mismatch")
             if observed["revocation_date"]["unix"] > crl["this_update"]["unix"]:
