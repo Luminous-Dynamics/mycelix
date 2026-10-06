@@ -1,0 +1,339 @@
+name: COS Conformance Independent Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to verify"
+        required: true
+        type: string
+      expected_head_sha:
+        description: "Exact PR head SHA to qualify"
+        required: true
+        type: string
+
+# This verifier is intentionally controlled by main-branch workflow state.
+# It executes PR code only with read-only repository access and never consumes
+# PR-provided secrets or write-capable credentials.
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: cos-conformance-independent-verify-${{ inputs.expected_head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Assert trusted workflow control plane
+        env:
+          EXPECTED_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/cos-conformance-independent-verify.yml@refs/heads/main
+          ACTUAL_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          test "${ACTUAL_WORKFLOW_REF}" = "${EXPECTED_WORKFLOW_REF}" || {
+            echo "untrusted workflow ref: expected ${EXPECTED_WORKFLOW_REF}, got ${ACTUAL_WORKFLOW_REF}" >&2
+            exit 1
+          }
+
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Capture trusted verifier identity
+        env:
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          TRUSTED_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          mkdir -p evidence
+          printf '%s\n' "${TRUSTED_WORKFLOW_SHA}" > evidence/trusted-workflow-sha.txt
+          printf '%s\n' "${TRUSTED_WORKFLOW_REF}" > evidence/trusted-workflow-ref.txt
+          git rev-parse HEAD > evidence/trusted-workflow-checked-out-sha.txt
+          git rev-parse HEAD:.github/workflows/cos-conformance-independent-verify.yml > evidence/trusted-workflow-file-blob-sha.txt
+
+      - name: Validate requested PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+        run: |
+          printf '%s' "${EXPECTED_HEAD_SHA}" | grep -Eq '^[0-9a-f]{40}$' || {
+            echo "expected_head_sha must be a 40-character lowercase Git SHA" >&2
+            exit 1
+          }
+
+          actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
+
+          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
+            echo "PR head drift: expected ${EXPECTED_HEAD_SHA}, got ${actual_head_sha}" >&2
+            exit 1
+          }
+          test "${head_repository}" = "${GITHUB_REPOSITORY}" || {
+            echo "independent verifier currently accepts same-repository PR heads only: ${head_repository}" >&2
+            exit 1
+          }
+          test "${pull_request_state}" = "open" || {
+            echo "PR ${PR_NUMBER} is not open: ${pull_request_state}" >&2
+            exit 1
+          }
+
+          printf '%s\n' "${PR_NUMBER}" > evidence/pr-number.txt
+          printf '%s\n' "${EXPECTED_HEAD_SHA}" > evidence/expected-head-sha.txt
+          printf '%s\n' "${head_repository}" > evidence/head-repository.txt
+
+      - name: Checkout exact PR head for unprivileged verification
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.expected_head_sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Assert exact PR-head checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+        run: |
+          actual_head_sha="$(git rev-parse HEAD)"
+          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
+            echo "PR-head checkout drift: expected ${EXPECTED_HEAD_SHA}, got ${actual_head_sha}" >&2
+            exit 1
+          }
+          printf '%s\n' "${actual_head_sha}" > evidence/tested-commit-sha.txt
+
+      - name: Capture tested dependency lock
+        if: always()
+        run: |
+          if [[ ! -f mycelix-manufacturing/Cargo.lock ]]; then
+            echo "Cargo.lock missing from tested revision" > evidence/dependency-lock-error.txt
+            exit 1
+          fi
+          cp mycelix-manufacturing/Cargo.lock evidence/Cargo.lock
+          sha256sum evidence/Cargo.lock | awk '{print $1}' > evidence/cargo-lock-sha256.txt
+
+      - name: Test COS conformance harness
+        id: conformance_test
+        continue-on-error: true
+        run: |
+          mkdir -p evidence
+          set +e
+          cd mycelix-manufacturing
+          cargo test -p cos_conformance 2>&1 | tee ../evidence/cargo-test.log
+          status=${PIPESTATUS[0]}
+          printf '%s\n' "${status}" > ../evidence/cargo-test.exit-code
+          exit "${status}"
+
+      - name: Generate machine-readable report
+        id: generate_report
+        continue-on-error: true
+        run: |
+          mkdir -p evidence
+          cd mycelix-manufacturing
+          cargo run -q -p cos_conformance --bin cos-report > ../evidence/cos-conformance-report.json
+
+      - name: Validate evidence report
+        id: validate_evidence_report
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("evidence/cos-conformance-report.json")
+          assert path.is_file() and path.stat().st_size > 0
+          report = json.loads(path.read_text())
+          assert report["corpus_id"] == "COS-CONF-001"
+          assert report["case_count"] == 32
+          assert report["untested_formal_obligations"] == []
+          assert report["claim_ceiling"] == "ReferenceModelOnly"
+          assert "verified_score" not in json.dumps(report, sort_keys=True)
+          PY
+
+      - name: Validate immutable verifier action pins
+        if: always()
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path(".github/workflows/cos-conformance-independent-verify.yml")
+          expected = {
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "dtolnay/rust-toolchain": "7e38f4b43b4db5c8dd498af069a4f6196df1d067",
+              "Swatinem/rust-cache": "6323deb102c322ba6fcbdcafc7e3dddab59af2b6",
+              "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+          }
+          refs = {}
+          pattern = re.compile(
+              r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
+          )
+          for line in path.read_text().splitlines():
+              stripped = line.lstrip()
+              if not (stripped.startswith("- uses:") or stripped.startswith("uses:")):
+                  continue
+              match = pattern.fullmatch(line)
+              assert match, f"workflow action is not pinned to a full SHA: {line!r}"
+              action, sha = match.groups()
+              if action in refs:
+                  assert refs[action] == sha, (
+                      f"action {action} is reused with conflicting immutable refs: "
+                      f"{refs[action]} vs {sha}"
+                  )
+              else:
+                  refs[action] = sha
+          assert refs == expected, (
+              f"verifier action pin set drifted: expected={expected!r} actual={refs!r}"
+          )
+          PY
+
+      - name: Write independent verification envelope
+        if: always()
+        env:
+          TARGET_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          TRUSTED_WORKFLOW_REF: ${{ github.workflow_ref }}
+          CONFORMANCE_TEST_OUTCOME: ${{ steps.conformance_test.outcome || 'skipped' }}
+          REPORT_GENERATION_OUTCOME: ${{ steps.generate_report.outcome || 'skipped' }}
+          REPORT_VALIDATION_OUTCOME: ${{ steps.validate_evidence_report.outcome || 'skipped' }}
+        run: |
+          test_exit_code="null"
+          if [[ -f evidence/cargo-test.exit-code ]]; then
+            test_exit_code="$(cat evidence/cargo-test.exit-code)"
+          fi
+          tested_commit_sha="null"
+          if [[ -f evidence/tested-commit-sha.txt ]]; then
+            tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
+          fi
+          dependency_lock_sha256="null"
+          if [[ -f evidence/cargo-lock-sha256.txt ]]; then
+            dependency_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
+          fi
+
+          case "${CONFORMANCE_TEST_OUTCOME}:${REPORT_GENERATION_OUTCOME}:${REPORT_VALIDATION_OUTCOME}" in
+            success:success:success)
+              qualification_result="passed"
+              ;;
+            skipped:*|cancelled:*|*:skipped|*:cancelled)
+              qualification_result="not_run"
+              ;;
+            *)
+              qualification_result="failed"
+              ;;
+          esac
+
+          cat > evidence/independent-run-envelope.json <<JSON
+          {
+            "schema": "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V1",
+            "claim_ceiling": "ReferenceModelOnly",
+            "repository": "${TARGET_REPOSITORY}",
+            "pr_number": "${PR_NUMBER}",
+            "expected_head_sha": "${EXPECTED_HEAD_SHA}",
+            "tested_commit_sha": "${tested_commit_sha}",
+            "trusted_workflow_sha": "${TRUSTED_WORKFLOW_SHA}",
+            "trusted_workflow_ref": "${TRUSTED_WORKFLOW_REF}",
+            "trusted_workflow_checked_out_sha": "$(cat evidence/trusted-workflow-checked-out-sha.txt 2>/dev/null || printf %s null)",
+            "trusted_workflow_file_blob_sha": "$(cat evidence/trusted-workflow-file-blob-sha.txt 2>/dev/null || printf %s null)",
+            "tested_lock_sha256": "${dependency_lock_sha256}",
+            "run_id": ${{ github.run_id }},
+            "run_attempt": ${{ github.run_attempt }},
+            "qualification_result": "${qualification_result}",
+            "conformance_test_outcome": "${CONFORMANCE_TEST_OUTCOME}",
+            "conformance_test_exit_code": ${test_exit_code},
+            "report_generation_outcome": "${REPORT_GENERATION_OUTCOME}",
+            "report_validation_outcome": "${REPORT_VALIDATION_OUTCOME}",
+            "runner_os": "${{ runner.os }}"
+          }
+          JSON
+
+      - name: Validate and seal independent evidence
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          path = Path("evidence/independent-run-envelope.json")
+          envelope = json.loads(path.read_text())
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          sha64 = re.compile(r"^[0-9a-f]{64}$")
+
+          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V1"
+          assert envelope["claim_ceiling"] == "ReferenceModelOnly"
+          assert sha40.fullmatch(envelope["expected_head_sha"])
+          assert sha40.fullmatch(envelope["tested_commit_sha"])
+          assert envelope["expected_head_sha"] == envelope["tested_commit_sha"]
+          assert sha40.fullmatch(envelope["trusted_workflow_sha"])
+          assert sha40.fullmatch(envelope["trusted_workflow_checked_out_sha"])
+          assert envelope["trusted_workflow_sha"] == envelope["trusted_workflow_checked_out_sha"]
+          assert sha40.fullmatch(envelope["trusted_workflow_file_blob_sha"])
+          assert sha64.fullmatch(envelope["tested_lock_sha256"])
+          assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
+          assert envelope["pr_number"].isdigit()
+          allowed = {"success", "failure", "cancelled", "skipped"}
+          assert envelope["conformance_test_outcome"] in allowed
+          assert envelope["report_generation_outcome"] in allowed
+          assert envelope["report_validation_outcome"] in allowed
+
+          exit_code = envelope["conformance_test_exit_code"]
+          if envelope["conformance_test_outcome"] == "success":
+              assert exit_code == 0
+          elif envelope["conformance_test_outcome"] == "failure":
+              assert isinstance(exit_code, int) and exit_code != 0
+          else:
+              assert exit_code is None
+
+          if envelope["qualification_result"] == "passed":
+              assert (
+                  envelope["conformance_test_outcome"]
+                  == envelope["report_generation_outcome"]
+                  == envelope["report_validation_outcome"]
+                  == "success"
+              )
+          elif envelope["qualification_result"] == "not_run":
+              assert (
+                  envelope["conformance_test_outcome"] in {"skipped", "cancelled"}
+                  or envelope["report_generation_outcome"] in {"skipped", "cancelled"}
+                  or envelope["report_validation_outcome"] in {"skipped", "cancelled"}
+              )
+          else:
+              assert (
+                  envelope["conformance_test_outcome"] != "success"
+                  or envelope["report_generation_outcome"] != "success"
+                  or envelope["report_validation_outcome"] != "success"
+              )
+          PY
+
+          (
+            cd evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+          ) > evidence/SHA256SUMS
+
+      - name: Preserve independent evidence
+        if: always()
+        id: evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-independent-evidence-${{ inputs.expected_head_sha }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce independent qualification result
+        if: always()
+        run: |
+          result="$(python - <<'PY'
+          import json
+          print(json.load(open("evidence/independent-run-envelope.json"))["qualification_result"])
+          PY
+          )"
+          test "${result}" = "passed" || {
+            echo "independent qualification result: ${result}" >&2
+            exit 1
+          }
