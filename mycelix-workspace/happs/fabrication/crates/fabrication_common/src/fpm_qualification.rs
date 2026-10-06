@@ -529,10 +529,7 @@ mod tests {
     fn missing_committed_evidence_cannot_qualify() {
         let mut input = input_with_exact_artifacts();
         input.artifacts.pop();
-        let verifier = RegistrationQualificationVerifier {
-            verifier_id: "fpm.registration.qualifier".into(),
-            verifier_version: "1".into(),
-        };
+        let verifier = verifier();
 
         let qualification =
             qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
@@ -550,10 +547,7 @@ mod tests {
     fn tampered_artifact_bytes_are_invalid_not_missing() {
         let mut input = input_with_exact_artifacts();
         input.artifacts[0].bytes = b"tampered".to_vec();
-        let verifier = RegistrationQualificationVerifier {
-            verifier_id: "fpm.registration.qualifier".into(),
-            verifier_version: "1".into(),
-        };
+        let verifier = verifier();
 
         let qualification =
             qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
@@ -571,10 +565,7 @@ mod tests {
     fn cross_kind_digest_confusion_is_rejected() {
         let mut input = input_with_exact_artifacts();
         input.artifacts[0].kind = EvidenceKind::CalibrationProfile;
-        let verifier = RegistrationQualificationVerifier {
-            verifier_id: "fpm.registration.qualifier".into(),
-            verifier_version: "1".into(),
-        };
+        let verifier = verifier();
 
         let qualification =
             qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
@@ -595,10 +586,7 @@ mod tests {
     fn envelope_substitution_is_rejected_by_exact_digest() {
         let mut input = input_with_exact_artifacts();
         input.envelope.related[0].source_sequence = 11;
-        let verifier = RegistrationQualificationVerifier {
-            verifier_id: "fpm.registration.qualifier".into(),
-            verifier_version: "1".into(),
-        };
+        let verifier = verifier();
 
         let qualification =
             qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
@@ -627,10 +615,7 @@ mod tests {
             kind: EvidenceKind::AlignmentEvidence,
         });
 
-        let verifier = RegistrationQualificationVerifier {
-            verifier_id: "fpm.registration.qualifier".into(),
-            verifier_version: "1".into(),
-        };
+        let verifier = verifier();
 
         let qualification =
             qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
@@ -687,10 +672,7 @@ mod tests {
             .expect("thermal source-observation artifact");
         thermal_artifact.bytes = canonical_source_observation_bytes(&input.envelope.related[0]);
 
-        let verifier = RegistrationQualificationVerifier {
-            verifier_id: "fpm.registration.qualifier".into(),
-            verifier_version: "1".into(),
-        };
+        let verifier = verifier();
 
         let qualification =
             qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
@@ -724,10 +706,7 @@ mod tests {
             .expect("reference source-observation artifact");
         artifact.bytes = canonical_source_observation_bytes(&replay);
 
-        let verifier = RegistrationQualificationVerifier {
-            verifier_id: "fpm.registration.qualifier".into(),
-            verifier_version: "1".into(),
-        };
+        let verifier = verifier();
 
         let qualification =
             qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
