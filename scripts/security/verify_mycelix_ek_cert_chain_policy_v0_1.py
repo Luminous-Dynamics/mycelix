@@ -3042,9 +3042,22 @@ def self_test() -> int:
                 print(f"{name}: FAIL")
                 return 1
 
-        selection_mutations = [
+        observed_extension_mutations = [
             ("observed-delta-crl-indicator-extension", lambda x: x["root"]["crl_extensions"].update({"2.5.29.27": {"critical": True}})),
             ("observed-issuing-distribution-point-extension", lambda x: x["root"]["crl_extensions"].update({"2.5.29.28": {"critical": True}})),
+        ]
+        for name, mutate in observed_extension_mutations:
+            observed_crls = copy.deepcopy(parsed_crls)
+            mutate(observed_crls)
+            try:
+                validate_crl_semantics(observed_crls, {"root": root_for_crypto, "intermediate": inter_for_crypto, "leaf": leaf_for_crypto}, base["crl_semantics"], base["verification_time_unix"])
+            except (ValueError, KeyError):
+                pass
+            else:
+                print(f"{name}: FAIL")
+                return 1
+
+        selection_mutations = [
             ("crl-authoritative-object-identity", lambda x: x["root"]["selection"].update({"crl_der_sha256": "92" * 32})),
             ("crl-authoritative-issuer-certificate-identity", lambda x: x["root"]["selection"].update({"issuer_certificate_sha256": "93" * 32})),
             ("crl-scope-completeness-substitution", lambda x: x["root"]["selection"].update({"scope": "limited-reason-scope"})),
