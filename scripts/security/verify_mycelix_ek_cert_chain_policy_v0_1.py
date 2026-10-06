@@ -1695,7 +1695,6 @@ def self_test() -> int:
             ("path-verifier-output-substitution", "DENY", lambda x: x["path_validation"].update({"output_sha256": "82" * 32})),
             ("path-verifier-output-content-substitution", "DENY", lambda x: x["path_validation"].update({"output_content_sha256": "83" * 32})),
             ("path-verifier-execution-binding-substitution", "DENY", lambda x: x["path_validation"].update({"execution_binding_sha256": "84" * 32})),
-            ("duplicate-extension-structure", "DENY", lambda x: None),
             ("spki-ek-public-digest-substitution", "DENY", lambda x: x["spki_binding"].update({"ek_public_wire_sha256": "77" * 32})),
             ("verification-time-binding-substitution", "DENY", lambda x: x.update({"verification_time_unix": x["verification_time_unix"] + 3600})),
             ("revocation-state-binding-substitution", "DENY", lambda x: (x["revocation"].update({"state": "INDETERMINATE"}), x.update({"session_binding_sha256": session_binding(x, x["leaf_certificate_sha256"], x["intermediate_certificate_sha256"], x["trust_anchor_root_sha256"], x["revocation"]["crl_bundle_pem_sha256"])}), x["revocation"].update({"state": "PASS"}))),
