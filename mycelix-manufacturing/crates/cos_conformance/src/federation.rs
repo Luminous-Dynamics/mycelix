@@ -39,6 +39,69 @@ pub enum FederationExternalVerifierIdentityKind {
     Opaque,
 }
 
+/// Describes how an external verifier claims its report was bound to its verifier identity.
+///
+/// The reference model records this method but never interprets the cryptographic evidence.
+/// A protocol adapter remains responsible for proving that the selected method was actually
+/// used and valid.
+///
+/// `SignatureOnVerifierReport` is appropriate when the verifier report itself is signed by
+/// the verifier identity; `CertificateBoundSignature` makes a certificate/key relationship
+/// explicit; `TransparencyLogSignedArtifact` covers a log identity verified against its
+/// signing key; `ArchiveProviderAttestation` and `ExternalAttestation` leave the protocol
+/// semantics to the adapter profile while retaining an explicit evidence boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationExternalVerifierIdentityUseMethod {
+    SignatureOnVerifierReport,
+    CertificateBoundSignature,
+    TransparencyLogSignedArtifact,
+    ArchiveProviderAttestation,
+    ExternalAttestation,
+}
+
+/// A separately supplied assertion that a verifier report was bound to a verifier identity.
+///
+/// This is intentionally one step stronger in structure than naming an identity alone:
+/// the statement commits to the exact identity material, exact verifier report, and exact
+/// binding-evidence bytes, together with an explicit method and evidence profile. It still
+/// does not prove that the evidence is a valid signature/certificate/key relationship;
+/// that remains the external adapter's job.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FederationExternalVerifierIdentityUseStatementV1 {
+    schema_version: u16,
+    statement_profile: String,
+    hash_algorithm: String,
+    hash_encoding: String,
+    use_method: FederationExternalVerifierIdentityUseMethod,
+    use_evidence_profile: String,
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: String,
+    verifier_identity_hash_algorithm: String,
+    verifier_identity_hash_encoding: String,
+    verifier_identity_sha256: String,
+    verifier_report_hash_algorithm: String,
+    verifier_report_hash_encoding: String,
+    verifier_report_sha256: String,
+    use_evidence_hash_algorithm: String,
+    use_evidence_hash_encoding: String,
+    use_evidence_sha256: String,
+    statement_sha256: String,
+}
+
+impl FederationExternalVerifierIdentityUseStatementV1 {
+    pub fn schema_version(&self) -> u16 { self.schema_version }
+    pub fn statement_profile(&self) -> &str { &self.statement_profile }
+    pub fn use_method(&self) -> FederationExternalVerifierIdentityUseMethod { self.use_method }
+    pub fn use_evidence_profile(&self) -> &str { &self.use_evidence_profile }
+    pub fn verifier_identity_kind(&self) -> FederationExternalVerifierIdentityKind { self.verifier_identity_kind }
+    pub fn verifier_identity_profile(&self) -> &str { &self.verifier_identity_profile }
+    pub fn verifier_identity_sha256(&self) -> &str { &self.verifier_identity_sha256 }
+    pub fn verifier_report_sha256(&self) -> &str { &self.verifier_report_sha256 }
+    pub fn use_evidence_sha256(&self) -> &str { &self.use_evidence_sha256 }
+    pub fn statement_sha256(&self) -> &str { &self.statement_sha256 }
+}
+
 /// An externally supplied verifier's claim about an anchor reference.
 ///
 /// This is a statement record, not a proof result. The reference model can
@@ -241,6 +304,29 @@ pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMEN
     "sha-256";
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING: &str =
     "serde-json-struct-order-v1";
+
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION: u16 = 1;
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_PROFILE: &str =
+    "integral-federation-external-verifier-identity-use-statement-v1";
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_DOMAIN: &str =
+    "integral-federation-external-verifier-identity-use-statement-sha256-v1";
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_ENCODING: &str =
+    "serde-json-struct-order-v1";
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_IDENTITY_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_IDENTITY_HASH_ENCODING: &str =
+    "sha256-lowercase-hex-v1";
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_REPORT_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_REPORT_HASH_ENCODING: &str =
+    "sha256-lowercase-hex-v1";
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_EVIDENCE_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_EVIDENCE_HASH_ENCODING: &str =
+    "sha256-lowercase-hex-v1";
+
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ALGORITHM: &str =
     "sha-256";
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ENCODING: &str =
@@ -315,6 +401,28 @@ struct FederationStateMachineTraceExternalEvidenceVerificationStatementHashView 
     claimed_verified_at_unix_seconds: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct FederationExternalVerifierIdentityUseStatementHashView {
+    hash_domain: String,
+    schema_version: u16,
+    statement_profile: String,
+    hash_algorithm: String,
+    hash_encoding: String,
+    use_method: FederationExternalVerifierIdentityUseMethod,
+    use_evidence_profile: String,
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: String,
+    verifier_identity_hash_algorithm: String,
+    verifier_identity_hash_encoding: String,
+    verifier_identity_sha256: String,
+    verifier_report_hash_algorithm: String,
+    verifier_report_hash_encoding: String,
+    verifier_report_sha256: String,
+    use_evidence_hash_algorithm: String,
+    use_evidence_hash_encoding: String,
+    use_evidence_sha256: String,
+}
+
 
 impl FederationStateMachineTraceExternalEvidenceAnchorReference {
     pub fn schema_version(&self) -> u16 { self.schema_version }
@@ -350,7 +458,7 @@ fn state_machine_trace_external_witness_artifact_sha256(bytes: &[u8]) -> String 
     format!("sha256:{digest:x}")
 }
 
-pub pub fn state_machine_trace_external_verifier_identity_sha256(bytes: &[u8]) -> String {
+pub fn state_machine_trace_external_verifier_identity_sha256(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     format!("sha256:{digest:x}")
 }
@@ -363,6 +471,37 @@ fn state_machine_trace_is_sha256_digest(value: &str) -> bool {
         && hex
             .bytes()
             .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+}
+
+fn state_machine_trace_external_verifier_identity_use_statement_sha256(
+    statement: &FederationExternalVerifierIdentityUseStatementV1,
+) -> String {
+    let view = FederationExternalVerifierIdentityUseStatementHashView {
+        hash_domain: FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_DOMAIN.into(),
+        schema_version: statement.schema_version,
+        statement_profile: statement.statement_profile.clone(),
+        hash_algorithm: statement.hash_algorithm.clone(),
+        hash_encoding: statement.hash_encoding.clone(),
+        use_method: statement.use_method,
+        use_evidence_profile: statement.use_evidence_profile.clone(),
+        verifier_identity_kind: statement.verifier_identity_kind,
+        verifier_identity_profile: statement.verifier_identity_profile.clone(),
+        verifier_identity_hash_algorithm: statement.verifier_identity_hash_algorithm.clone(),
+        verifier_identity_hash_encoding: statement.verifier_identity_hash_encoding.clone(),
+        verifier_identity_sha256: statement.verifier_identity_sha256.clone(),
+        verifier_report_hash_algorithm: statement.verifier_report_hash_algorithm.clone(),
+        verifier_report_hash_encoding: statement.verifier_report_hash_encoding.clone(),
+        verifier_report_sha256: statement.verifier_report_sha256.clone(),
+        use_evidence_hash_algorithm: statement.use_evidence_hash_algorithm.clone(),
+        use_evidence_hash_encoding: statement.use_evidence_hash_encoding.clone(),
+        use_evidence_sha256: statement.use_evidence_sha256.clone(),
+    };
+    let bytes = serde_json::to_vec(&view)
+        .expect("external verifier identity-use statement hash view must be serializable");
+    state_machine_domain_separated_sha256(
+        FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_DOMAIN,
+        &bytes,
+    )
 }
 
 fn state_machine_trace_external_evidence_verification_statement_sha256(
@@ -1003,6 +1142,227 @@ pub fn validate_state_machine_trace_external_evidence_verification_statement_cha
         claimed_verified_at_unix_seconds: statement.claimed_verified_at_unix_seconds,
         statement_sha256: statement.statement_sha256.clone(),
     })
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationExternalVerifierIdentityUseStatementBuildViolation {
+    EmptyVerifierIdentityProfile,
+    EmptyUseEvidenceProfile,
+    EmptyVerifierIdentityMaterial,
+    EmptyVerifierReport,
+    EmptyUseEvidence,
+}
+
+pub fn federation_external_verifier_identity_use_statement(
+    use_method: FederationExternalVerifierIdentityUseMethod,
+    use_evidence_profile: &str,
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: &str,
+    verifier_identity_material: &[u8],
+    verifier_report: &[u8],
+    use_evidence: &[u8],
+) -> Result<
+    FederationExternalVerifierIdentityUseStatementV1,
+    FederationExternalVerifierIdentityUseStatementBuildViolation,
+> {
+    if use_evidence_profile.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyUseEvidenceProfile);
+    }
+    if verifier_identity_profile.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierIdentityProfile);
+    }
+    if verifier_identity_material.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierIdentityMaterial);
+    }
+    if verifier_report.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierReport);
+    }
+    if use_evidence.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyUseEvidence);
+    }
+
+    let mut statement = FederationExternalVerifierIdentityUseStatementV1 {
+        schema_version: FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION,
+        statement_profile: FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_PROFILE.into(),
+        hash_algorithm: FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_ALGORITHM.into(),
+        hash_encoding: FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_ENCODING.into(),
+        use_method,
+        use_evidence_profile: use_evidence_profile.into(),
+        verifier_identity_kind,
+        verifier_identity_profile: verifier_identity_profile.into(),
+        verifier_identity_hash_algorithm:
+            FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_IDENTITY_HASH_ALGORITHM.into(),
+        verifier_identity_hash_encoding:
+            FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_IDENTITY_HASH_ENCODING.into(),
+        verifier_identity_sha256:
+            state_machine_trace_external_verifier_identity_sha256(verifier_identity_material),
+        verifier_report_hash_algorithm:
+            FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_REPORT_HASH_ALGORITHM.into(),
+        verifier_report_hash_encoding:
+            FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_REPORT_HASH_ENCODING.into(),
+        verifier_report_sha256:
+            state_machine_trace_external_witness_artifact_sha256(verifier_report),
+        use_evidence_hash_algorithm:
+            FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_EVIDENCE_HASH_ALGORITHM.into(),
+        use_evidence_hash_encoding:
+            FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_EVIDENCE_HASH_ENCODING.into(),
+        use_evidence_sha256:
+            state_machine_trace_external_witness_artifact_sha256(use_evidence),
+        statement_sha256: String::new(),
+    };
+    statement.statement_sha256 =
+        state_machine_trace_external_verifier_identity_use_statement_sha256(&statement);
+    Ok(statement)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationExternalVerifierIdentityUseStatementViolation {
+    UnsupportedSchemaVersion,
+    UnsupportedStatementProfile,
+    UnsupportedHashAlgorithm,
+    UnsupportedHashEncoding,
+    EmptyVerifierIdentityProfile,
+    EmptyUseEvidenceProfile,
+    IdentityHashAlgorithmMismatch,
+    IdentityHashEncodingMismatch,
+    EmptyVerifierIdentityDigest,
+    InvalidVerifierIdentityDigest,
+    IdentityDigestMismatch,
+    ReportHashAlgorithmMismatch,
+    ReportHashEncodingMismatch,
+    EmptyVerifierReportDigest,
+    InvalidVerifierReportDigest,
+    VerifierReportDigestMismatch,
+    EvidenceHashAlgorithmMismatch,
+    EvidenceHashEncodingMismatch,
+    EmptyUseEvidenceDigest,
+    InvalidUseEvidenceDigest,
+    UseEvidenceDigestMismatch,
+    StatementDigestMismatch,
+    ResultIdentityKindMismatch,
+    ResultIdentityProfileMismatch,
+    ResultIdentityDigestMismatch,
+    ResultVerifierReportDigestMismatch,
+}
+
+pub fn validate_federation_external_verifier_identity_use_statement(
+    verifier_identity_material: &[u8],
+    verifier_report: &[u8],
+    use_evidence: &[u8],
+    statement: &FederationExternalVerifierIdentityUseStatementV1,
+) -> Result<(), FederationExternalVerifierIdentityUseStatementViolation> {
+    if statement.schema_version != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::UnsupportedSchemaVersion);
+    }
+    if statement.statement_profile != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_PROFILE {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::UnsupportedStatementProfile);
+    }
+    if statement.hash_algorithm != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_ALGORITHM {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::UnsupportedHashAlgorithm);
+    }
+    if statement.hash_encoding != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_ENCODING {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::UnsupportedHashEncoding);
+    }
+    if statement.verifier_identity_profile.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::EmptyVerifierIdentityProfile);
+    }
+    if statement.use_evidence_profile.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::EmptyUseEvidenceProfile);
+    }
+    if statement.verifier_identity_hash_algorithm
+        != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_IDENTITY_HASH_ALGORITHM
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::IdentityHashAlgorithmMismatch);
+    }
+    if statement.verifier_identity_hash_encoding
+        != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_IDENTITY_HASH_ENCODING
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::IdentityHashEncodingMismatch);
+    }
+    if statement.verifier_identity_sha256.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::EmptyVerifierIdentityDigest);
+    }
+    if !state_machine_trace_is_sha256_digest(&statement.verifier_identity_sha256) {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::InvalidVerifierIdentityDigest);
+    }
+    if verifier_identity_material.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::IdentityDigestMismatch);
+    }
+    if statement.verifier_identity_sha256
+        != state_machine_trace_external_verifier_identity_sha256(verifier_identity_material)
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::IdentityDigestMismatch);
+    }
+    if statement.verifier_report_hash_algorithm
+        != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_REPORT_HASH_ALGORITHM
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::ReportHashAlgorithmMismatch);
+    }
+    if statement.verifier_report_hash_encoding
+        != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_REPORT_HASH_ENCODING
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::ReportHashEncodingMismatch);
+    }
+    if statement.verifier_report_sha256.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::EmptyVerifierReportDigest);
+    }
+    if !state_machine_trace_is_sha256_digest(&statement.verifier_report_sha256) {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::InvalidVerifierReportDigest);
+    }
+    if verifier_report.is_empty()
+        || statement.verifier_report_sha256
+            != state_machine_trace_external_witness_artifact_sha256(verifier_report)
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::VerifierReportDigestMismatch);
+    }
+    if statement.use_evidence_hash_algorithm
+        != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_EVIDENCE_HASH_ALGORITHM
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::EvidenceHashAlgorithmMismatch);
+    }
+    if statement.use_evidence_hash_encoding
+        != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_EVIDENCE_HASH_ENCODING
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::EvidenceHashEncodingMismatch);
+    }
+    if statement.use_evidence_sha256.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::EmptyUseEvidenceDigest);
+    }
+    if !state_machine_trace_is_sha256_digest(&statement.use_evidence_sha256) {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::InvalidUseEvidenceDigest);
+    }
+    if use_evidence.is_empty()
+        || statement.use_evidence_sha256
+            != state_machine_trace_external_witness_artifact_sha256(use_evidence)
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::UseEvidenceDigestMismatch);
+    }
+    if statement.statement_sha256
+        != state_machine_trace_external_verifier_identity_use_statement_sha256(statement)
+    {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::StatementDigestMismatch);
+    }
+    Ok(())
+}
+
+pub fn validate_federation_external_verifier_identity_use_statement_against_result(
+    result: &FederationStateMachineTraceExternalEvidenceVerificationResult,
+    statement: &FederationExternalVerifierIdentityUseStatementV1,
+) -> Result<(), FederationExternalVerifierIdentityUseStatementViolation> {
+    if result.verifier_identity_kind() != statement.verifier_identity_kind {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::ResultIdentityKindMismatch);
+    }
+    if result.verifier_identity_profile() != statement.verifier_identity_profile {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::ResultIdentityProfileMismatch);
+    }
+    if result.verifier_identity_sha256() != statement.verifier_identity_sha256 {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::ResultIdentityDigestMismatch);
+    }
+    if result.verifier_report_sha256() != statement.verifier_report_sha256 {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::ResultVerifierReportDigestMismatch);
+    }
+    Ok(())
 }
 
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 2;
@@ -3734,7 +4094,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn external_verification_wire_schema_rejects_legacy_version() {
         let subject_schema_version =
             FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION;
@@ -3791,6 +4150,7 @@ mod tests {
         );
     }
 
+    #[test]
     fn external_verification_statement_identity_is_digest_bound() {
         let subject_schema_version =
             FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION;
@@ -3852,6 +4212,294 @@ mod tests {
             &right,
         )
         .expect("right structural binding must validate");
+    }
+
+
+    #[test]
+    fn external_verifier_identity_use_statement_binds_identity_report_and_use_evidence() {
+        let identity_material = b"identity-material";
+        let verifier_report = b"verifier-report";
+        let use_evidence = b"signature-or-certificate-binding-evidence";
+
+        let statement = federation_external_verifier_identity_use_statement(
+            FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
+            "cms-signature-binding-v1",
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "ed25519-spki-sha256-v1",
+            identity_material,
+            verifier_report,
+            use_evidence,
+        )
+        .expect("identity-use statement must build");
+
+        validate_federation_external_verifier_identity_use_statement(
+            identity_material,
+            verifier_report,
+            use_evidence,
+            &statement,
+        )
+        .expect("identity-use statement must validate");
+
+        let round_trip = serde_json::to_string(&statement)
+            .expect("identity-use statement must serialize");
+        assert_eq!(
+            serde_json::from_str::<FederationExternalVerifierIdentityUseStatementV1>(&round_trip)
+                .expect("identity-use statement must deserialize"),
+            statement
+        );
+        assert_eq!(
+            statement.use_evidence_profile(),
+            "cms-signature-binding-v1"
+        );
+        assert_eq!(
+            statement.use_method(),
+            FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport
+        );
+    }
+
+    #[test]
+    fn external_verifier_identity_use_statement_rejects_rebound_inputs_and_preserves_boundary() {
+        let identity_material = b"identity-material";
+        let verifier_report = b"verifier-report";
+        let use_evidence = b"binding-evidence";
+        let mut statement = federation_external_verifier_identity_use_statement(
+            FederationExternalVerifierIdentityUseMethod::CertificateBoundSignature,
+            "cms-signingcertificatev2-binding-v1",
+            FederationExternalVerifierIdentityKind::SigningCertificate,
+            "rfc5035-certid-v2",
+            identity_material,
+            verifier_report,
+            use_evidence,
+        )
+        .expect("identity-use statement must build");
+
+        let mut wrong_identity = statement.clone();
+        wrong_identity.verifier_identity_sha256 =
+            state_machine_trace_external_verifier_identity_sha256(b"wrong-identity");
+        assert_eq!(
+            validate_federation_external_verifier_identity_use_statement(
+                identity_material,
+                verifier_report,
+                use_evidence,
+                &wrong_identity,
+            ),
+            Err(FederationExternalVerifierIdentityUseStatementViolation::IdentityDigestMismatch)
+        );
+
+        let mut wrong_report = statement.clone();
+        wrong_report.verifier_report_sha256 =
+            state_machine_trace_external_witness_artifact_sha256(b"wrong-report");
+        assert_eq!(
+            validate_federation_external_verifier_identity_use_statement(
+                identity_material,
+                verifier_report,
+                use_evidence,
+                &wrong_report,
+            ),
+            Err(FederationExternalVerifierIdentityUseStatementViolation::VerifierReportDigestMismatch)
+        );
+
+        let mut wrong_evidence = statement.clone();
+        wrong_evidence.use_evidence_sha256 =
+            state_machine_trace_external_witness_artifact_sha256(b"wrong-evidence");
+        assert_eq!(
+            validate_federation_external_verifier_identity_use_statement(
+                identity_material,
+                verifier_report,
+                use_evidence,
+                &wrong_evidence,
+            ),
+            Err(FederationExternalVerifierIdentityUseStatementViolation::UseEvidenceDigestMismatch)
+        );
+
+        statement.use_method =
+            FederationExternalVerifierIdentityUseMethod::ExternalAttestation;
+        statement.statement_sha256 =
+            state_machine_trace_external_verifier_identity_use_statement_sha256(&statement);
+        validate_federation_external_verifier_identity_use_statement(
+            identity_material,
+            verifier_report,
+            use_evidence,
+            &statement,
+        )
+        .expect("re-sealed method mutation remains a structurally valid external assertion");
+    }
+
+    #[test]
+    fn external_verifier_identity_use_statement_can_be_bound_to_typed_verification_result() {
+        let subject_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let witness_artifact = b"identity-use-anchor";
+        let anchor_reference = state_machine_trace_external_evidence_anchor_reference(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            witness_artifact,
+            1_791_004_000,
+        )
+        .expect("anchor reference must build");
+        let verifier_report = b"identity-use-report";
+        let identity_material = b"identity-use-key";
+
+        let statement = state_machine_trace_external_evidence_verification_statement(
+            &anchor_reference.anchor_reference_sha256,
+            2,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-tsa-key-sha256-v1",
+            identity_material,
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            verifier_report,
+            1_791_004_001,
+        )
+        .expect("verification statement must build");
+        let result = validate_state_machine_trace_external_evidence_verification_statement_chain(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            witness_artifact,
+            &anchor_reference,
+            verifier_report,
+            &statement,
+        )
+        .expect("typed external verification result must build");
+
+        let identity_use = federation_external_verifier_identity_use_statement(
+            FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
+            "rfc3161-signed-report-binding-v1",
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-tsa-key-sha256-v1",
+            identity_material,
+            verifier_report,
+            b"signature-evidence",
+        )
+        .expect("identity-use statement must build");
+
+        validate_federation_external_verifier_identity_use_statement(
+            identity_material,
+            verifier_report,
+            b"signature-evidence",
+            &identity_use,
+        )
+        .expect("identity-use evidence must validate");
+        validate_federation_external_verifier_identity_use_statement_against_result(
+            &result,
+            &identity_use,
+        )
+        .expect("identity-use evidence must match the typed result");
+
+        let mut mismatched = identity_use.clone();
+        mismatched.verifier_report_sha256 =
+            state_machine_trace_external_witness_artifact_sha256(b"other-report");
+        assert_eq!(
+            validate_federation_external_verifier_identity_use_statement_against_result(
+                &result,
+                &mismatched,
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementViolation::ResultVerifierReportDigestMismatch
+            )
+        );
+    }
+
+    #[test]
+    fn external_verifier_identity_use_statement_rejects_empty_inputs_and_unknown_fields() {
+        let valid_identity = b"identity";
+        let valid_report = b"report";
+        let valid_evidence = b"binding";
+
+        assert_eq!(
+            federation_external_verifier_identity_use_statement(
+                FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
+                "",
+                FederationExternalVerifierIdentityKind::Opaque,
+                "opaque-v1",
+                valid_identity,
+                valid_report,
+                valid_evidence,
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyUseEvidenceProfile
+            )
+        );
+        assert_eq!(
+            federation_external_verifier_identity_use_statement(
+                FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
+                "opaque-binding-v1",
+                FederationExternalVerifierIdentityKind::Opaque,
+                "",
+                valid_identity,
+                valid_report,
+                valid_evidence,
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierIdentityProfile
+            )
+        );
+        assert_eq!(
+            federation_external_verifier_identity_use_statement(
+                FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
+                "opaque-binding-v1",
+                FederationExternalVerifierIdentityKind::Opaque,
+                "opaque-v1",
+                b"",
+                valid_report,
+                valid_evidence,
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierIdentityMaterial
+            )
+        );
+        assert_eq!(
+            federation_external_verifier_identity_use_statement(
+                FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
+                "opaque-binding-v1",
+                FederationExternalVerifierIdentityKind::Opaque,
+                "opaque-v1",
+                valid_identity,
+                b"",
+                valid_evidence,
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierReport
+            )
+        );
+        assert_eq!(
+            federation_external_verifier_identity_use_statement(
+                FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
+                "opaque-binding-v1",
+                FederationExternalVerifierIdentityKind::Opaque,
+                "opaque-v1",
+                valid_identity,
+                valid_report,
+                b"",
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyUseEvidence
+            )
+        );
+
+        let statement = federation_external_verifier_identity_use_statement(
+            FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
+            "opaque-binding-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "opaque-v1",
+            valid_identity,
+            valid_report,
+            valid_evidence,
+        )
+        .expect("identity-use statement must build");
+        let mut value =
+            serde_json::to_value(&statement).expect("identity-use statement must serialize");
+        value
+            .as_object_mut()
+            .expect("statement must serialize as an object")
+            .insert("unexpected".into(), serde_json::Value::String("x".into()));
+        assert!(serde_json::from_value::<FederationExternalVerifierIdentityUseStatementV1>(value)
+            .is_err());
     }
 
     #[test]
@@ -3919,7 +4567,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn external_verification_policy_wire_schema_rejects_legacy_version() {
         let mut policy = FederationExternalVerificationTrustPolicyV1::try_new_bound(
             FederationStateMachineTraceExternalWitnessKind::TimestampToken,
@@ -3957,6 +4604,7 @@ mod tests {
         );
     }
 
+    #[test]
     fn external_verification_policy_identity_is_part_of_content_address() {
         let base = FederationExternalVerificationTrustPolicyV1::try_new_bound(
             FederationStateMachineTraceExternalWitnessKind::TimestampToken,

@@ -238,6 +238,30 @@ The expanded external verification wire contract is schema/profile **v2**. The s
 
 Verifier identity is now separately committed as well. Each external verification statement carries a verifier identity kind, identity profile, and SHA-256 identity commitment over adapter-supplied identity material. The statement digest includes all three identity fields, so changing identity necessarily changes statement identity. The local policy can additionally bind an exact verifier identity kind/profile/digest; a matching verifier profile and claim are not sufficient when the identity commitment differs.
 
+### Verifier identity-use binding
+
+Verifier identity naming and verifier identity use are now separate evidence boundaries. The new `FederationExternalVerifierIdentityUseStatementV1` commits, independently, to the exact verifier identity material, exact verifier report, and exact binding-evidence bytes, together with a typed binding method and explicit evidence profile. A companion validator recomputes those digests and the statement digest, while a second validator requires the identity-use statement to match the already-typed external verification result's verifier identity and report digest.
+
+This closes the ambiguity left by an identity commitment alone: a digest can name identity material without demonstrating that the same key or certificate actually authenticated the verifier report. The identity-use statement makes that relationship explicit without claiming to verify the cryptography locally. Future adapters can supply a protocol-specific binding artifact—for example a CMS signing-certificate relationship for RFC 3161-style evidence, a transparency-log signature binding for CT, or an archive-provider attestation—while the reference model preserves the exact bytes and profile used.
+
+RFC 5035 defines `SigningCertificateV2` as a signed attribute that cryptographically links the certificate used for signature validation and includes a certificate hash (with optional issuer/serial identification). RFC 9162 separately identifies a transparency log by its public key/log ID and uses that key to verify log signatures. These are concrete examples of why verifier identity and proof-of-use are distinct semantic objects. The Mycelix layer records this relationship as external evidence; protocol-specific signature/certificate validation and trust decisions remain adapter responsibilities. citeturn128227search1turn128227search5
+
+The intended composition is therefore:
+
+```text
+verifier identity commitment
+    ≠ proof that the verifier report was authenticated by that identity
+
+identity-use statement
+    = external assertion of that relationship + exact binding evidence
+
+identity-use validator
+    = validates identity/report/evidence byte bindings + result correspondence
+
+protocol adapter
+    = performs the actual signature/certificate/CT/ERS verification
+```
+
 Freshness is an independent admission dimension rather than an implicit timestamp convention. An institutionally bound policy may configure a non-zero `maximum_verification_age_seconds`; `admit_under_policy_at()` requires an explicit evaluation timestamp and rejects evidence from the future, evidence older than the configured maximum age, or any policy that has not explicitly configured a freshness budget. The resulting non-deserializable admission record carries the claimed verification time, evaluation time, and computed age so downstream consumers cannot silently reinterpret the freshness decision.
 
 This prevents a second class of replay: an otherwise exact verifier identity, witness identity, and claim can become inadmissible solely because its evidence horizon has expired. Freshness is therefore part of local policy admission, not part of the external verifier's truth claim.
