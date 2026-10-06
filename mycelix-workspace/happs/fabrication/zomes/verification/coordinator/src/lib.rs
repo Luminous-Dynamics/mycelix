@@ -1434,9 +1434,18 @@ mod tests {
 
         let a = resolved(1, "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
         let b = resolved(2, "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd");
+        let ordered = authenticated_provenance_manifest_digest(&[a.clone(), b.clone()]);
         assert_eq!(
-            authenticated_provenance_manifest_digest(&[a.clone(), b.clone()]),
-            authenticated_provenance_manifest_digest(&[b, a]),
+            ordered,
+            authenticated_provenance_manifest_digest(&[b.clone(), a.clone()]),
+        );
+
+        let mut scoped = b;
+        scoped.registration_anchor_action = action(10);
+        assert_ne!(
+            ordered,
+            authenticated_provenance_manifest_digest(&[a, scoped]),
+            "manifest must bind provenance witnesses to registration-anchor scope",
         );
     }
 
