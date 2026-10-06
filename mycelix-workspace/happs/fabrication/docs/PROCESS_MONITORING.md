@@ -210,6 +210,30 @@ This implements **challenge-bound attestation-result provenance**, not universal
 
 The separation follows the RATS architecture: Evidence is appraised by a Verifier under an Evidence Appraisal Policy, while Attestation Results are subsequently consumed under relying-party policy. EAT requires a freshness mechanism such as a nonce for anti-replay protection. citeturn101814search0turn101814search2
 
+## Cryptographic EAT-over-COSE verification
+
+The cryptographic adapter verifies the exact wire evidence rather than accepting an attestation-result digest or boolean.
+
+FPM v1 pins:
+- tagged COSE_Sign1 (CBOR tag 18);
+- protected algorithm: ES256 only;
+- protected key identifier (kid): required and matched against the configured verification key;
+- all unprotected COSE headers: rejected;
+- protected content type: application/eat+cwt;
+- EAT/CWT subject claim (claim 2): one exact text value;
+- EAT/CWT audience claim (claim 3): one exact text value;
+- EAT nonce claim (claim 10): one exact byte string matching the challenge nonce;
+- EAT profile claim (claim 265): one exact text URI;
+- exact received COSE bytes: hashed directly as the evidence commitment.
+
+The verifier checks the COSE signature over the Sig_structure before interpreting EAT claims. Trailing CBOR, detached payloads, duplicate required claims, malformed keys, wrong protected key IDs, signature failures, and profile/subject/audience/nonce substitutions cannot produce a qualified cryptographic result.
+
+The successful cryptographic verification is itself recorded as a typed Holochain evidence anchor. Source-attestation creation requires that anchor and derives its evidence digest from the verified COSE object; it cannot submit an arbitrary digest independently.
+
+This boundary establishes cryptographic verification under a configured key and profile. It does not establish that the key belongs to secure hardware, that the attester's software is uncompromised, or that the captured physical phenomenon is truthful. Those remain separate RATS trust, platform-attestation, calibration, and physical-validation boundaries.
+
+
+
 
 The authenticated provenance layer now requires each distinct `acquisition_root_digest` to resolve to its own typed Holochain acquisition-root anchor.
 
