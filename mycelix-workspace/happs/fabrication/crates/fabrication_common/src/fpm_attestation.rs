@@ -129,7 +129,11 @@ pub fn qualify_source_attestation(
 ) -> FpmAttestationQualification {
     let mut reasons = std::collections::BTreeSet::new();
 
-    for value in [&input.expected_subject_id, &input.claim.subject_id] {
+    for value in [
+        &input.expected_subject_id,
+        &input.claim.subject_id,
+        &input.expected_attestation_format,
+    ] {
         if !valid_label(value) {
             reasons.insert(FpmAttestationQualificationReason::InvalidIdentifier);
         }
@@ -163,6 +167,9 @@ pub fn qualify_source_attestation(
     }
     if input.claim.challenge_nonce_digest != input.expected_challenge_nonce_digest {
         reasons.insert(FpmAttestationQualificationReason::ChallengeNonceMismatch);
+    }
+    if input.claim.attestation_format != input.expected_attestation_format {
+        reasons.insert(FpmAttestationQualificationReason::AttestationFormatMismatch);
     }
     if input.claim.verifier_profile_digest != input.expected_verifier_profile_digest {
         reasons.insert(FpmAttestationQualificationReason::VerifierProfileMismatch);
