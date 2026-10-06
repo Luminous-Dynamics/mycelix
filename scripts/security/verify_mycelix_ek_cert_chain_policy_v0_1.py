@@ -466,24 +466,30 @@ def authority_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
     tag, content, _raw, end = der_tlv(value, 0)
     if tag != 0x30 or end != len(value):
         raise ValueError("AuthorityKeyIdentifier extension malformed")
-    seen = set()
+    seen: set[int] = set()
     key_identifier: bytes | None = None
     for child_tag, child_content, _raw in der_children(content):
         if child_tag in seen:
             raise ValueError("AuthorityKeyIdentifier field duplicated")
         seen.add(child_tag)
         if child_tag == 0x80:
+            if not child_content:
+                raise ValueError("AuthorityKeyIdentifier keyIdentifier is empty")
             key_identifier = child_content
         elif child_tag == 0xA1:
-            # authorityCertIssuer is GeneralNames.
-            gn_tag, _gn_content, _gn_raw, gn_end = der_tlv(child_content, 0)
-            if gn_tag != 0x30 or gn_end != len(child_content):
-                raise ValueError("AuthorityKeyIdentifier authorityCertIssuer malformed")
+            # authorityCertIssuer is GeneralNames encoded by IMPLICIT context tag [1].
+            names = der_children(child_content)
+            if not names:
+                raise ValueError("AuthorityKeyIdentifier authorityCertIssuer is empty")
+            allowed = {0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0xA0}
+            for general_name_tag, general_name_content, _general_name_raw in names:
+                if general_name_tag not in allowed:
+                    raise ValueError("AuthorityKeyIdentifier authorityCertIssuer GeneralName invalid")
+                if general_name_tag == 0x87 and len(general_name_content) not in (4, 16):
+                    raise ValueError("AuthorityKeyIdentifier registeredID/ediPartyName structure invalid")
         elif child_tag == 0x82:
-            # authorityCertSerialNumber is INTEGER.
-            serial_tag, serial_content, _serial_raw, serial_end = der_tlv(child_content, 0)
-            if serial_tag != 0x02 or not serial_content or serial_end != len(child_content):
-                raise ValueError("AuthorityKeyIdentifier authorityCertSerialNumber malformed")
+            # authorityCertSerialNumber is CertificateSerialNumber, encoded IMPLICIT INTEGER.
+            der_integer_value(child_content, "AuthorityKeyIdentifier.authorityCertSerialNumber", positive=True)
         else:
             raise ValueError("AuthorityKeyIdentifier contains unknown field")
     return critical, key_identifier
@@ -555,6 +561,8 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     ku_critical, key_encipherment, _crl_sign, key_cert_sign = key_usage_bits(info)
     eku_critical, eku = eku_oids(info)
     aki_critical, aki = authority_key_id(info)
+    san_critical, san = subject_alt_name(info)
+    ski_critical, ski_value = subject_key_id(info)
     profile = {
         "version_3": info["version"] == 3,
         "serial_positive": info["serial"] > 0,
@@ -567,12 +575,17 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         "extended_key_usage_critical": eku_critical,
         "authority_key_identifier_present": aki is not None,
         "authority_key_identifier_critical": aki_critical,
+        "subject_alt_name_present": san["present"],
+        "subject_alt_name_directory_name_count": san["directory_name_count"],
+        "subject_alt_name_tcg_attributes": san["attributes"],
+        "subject_alt_name_critical": san_critical,
+        "subject_name_empty": info["subject_empty"],
+        "subject_key_identifier_present": ski_value is not None,
+        "subject_key_identifier_critical": ski_critical,
     }
     eku_ok = not eku or EK_CERT_EKU_OID in eku
     eku_critical_ok = not eku_critical
     aki_critical_ok = not aki_critical
-    san_critical, san = subject_alt_name(info)
-    ski_critical, ski_value = subject_key_id(info)
     tcg_san_oids = {"2.23.133.2.1", "2.23.133.2.2", "2.23.133.2.3"}
     san_attrs = san["attributes"]
     san_ok = (
@@ -581,15 +594,8 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         and all(len(san_attrs.get(oid, [])) == 1 for oid in tcg_san_oids)
         and san_attrs["2.23.133.2.1"][0].startswith("id:")
         and san_attrs["2.23.133.2.3"][0].startswith("id:")
+        and (not info["subject_empty"] or san_critical)
     )
-    profile.update({
-        "subject_alt_name_present": san["present"],
-        "subject_alt_name_directory_name_count": san["directory_name_count"],
-        "subject_alt_name_tcg_attributes": san_attrs,
-        "subject_alt_name_critical": san_critical,
-        "subject_key_identifier_present": ski_value is not None,
-        "subject_key_identifier_critical": ski_critical,
-    })
     ok = (
         profile["version_3"]
         and profile["serial_positive"]
