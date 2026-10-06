@@ -906,7 +906,7 @@ def self_test() -> int:
             })),
         ]
         for label, mutate in observed_applicability_cases:
-            candidate_leaf = json.loads(json.dumps(leaf_info))
+            candidate_leaf = __import__("copy").deepcopy(leaf_info)
             mutate(candidate_leaf)
             try:
                 expected_crl_applicability_check(
@@ -924,7 +924,7 @@ def self_test() -> int:
             ("authoritative CDP certificate", lambda x: x.update({"certificate_sha256": "96" * 32})),
         ]
         for label, mutate in applicability_selection_cases:
-            candidate = json.loads(json.dumps(m["expected_crl_applicability"]))
+            candidate = __import__("copy").deepcopy(m["expected_crl_applicability"])
             mutate(candidate)
             try:
                 expected_crl_applicability_check(
