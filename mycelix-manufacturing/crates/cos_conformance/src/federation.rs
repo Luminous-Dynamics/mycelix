@@ -42,7 +42,7 @@ pub enum FederationStateMachineTraceExternalVerificationClaim {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct FederationStateMachineTraceExternalEvidenceVerificationStatement {
+pub struct FederationStateMachineTraceExternalEvidenceVerificationStatement {
     schema_version: u16,
     statement_profile: String,
     hash_algorithm: String,
@@ -58,6 +58,20 @@ struct FederationStateMachineTraceExternalEvidenceVerificationStatement {
     verifier_report_sha256: String,
     claimed_verified_at_unix_seconds: u64,
     statement_sha256: String,
+}
+
+impl FederationStateMachineTraceExternalEvidenceVerificationStatement {
+    pub fn schema_version(&self) -> u16 { self.schema_version }
+    pub fn statement_profile(&self) -> &str { &self.statement_profile }
+    pub fn anchor_reference_schema_version(&self) -> u16 { self.anchor_reference_schema_version }
+    pub fn anchor_reference_profile(&self) -> &str { &self.anchor_reference_profile }
+    pub fn anchor_reference_sha256(&self) -> &str { &self.anchor_reference_sha256 }
+    pub fn verifier_schema_version(&self) -> u16 { self.verifier_schema_version }
+    pub fn verifier_profile(&self) -> &str { &self.verifier_profile }
+    pub fn verification_claim(&self) -> FederationStateMachineTraceExternalVerificationClaim { self.verification_claim }
+    pub fn verifier_report_sha256(&self) -> &str { &self.verifier_report_sha256 }
+    pub fn claimed_verified_at_unix_seconds(&self) -> u64 { self.claimed_verified_at_unix_seconds }
+    pub fn statement_sha256(&self) -> &str { &self.statement_sha256 }
 }
 
 /// Typed read-only projection produced only after the external-evidence binding chain validates.
@@ -150,6 +164,708 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
         &self.statement_sha256
     }
 }
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION: u16 = 1;
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE: &str =
+    "integral-federation-trace-external-evidence-anchor-reference-v1";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_DOMAIN: &str =
+    "integral-federation-trace-external-evidence-anchor-reference-sha256-v1";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING: &str =
+    "serde-json-struct-order-v1";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ENCODING: &str =
+    "sha256-lowercase-hex-v1";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING: &str =
+    "sha256-lowercase-hex-v1";
+
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 1;
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_PROFILE: &str =
+    "integral-federation-trace-external-evidence-verification-statement-v1";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_DOMAIN: &str =
+    "integral-federation-trace-external-evidence-verification-statement-sha256-v1";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING: &str =
+    "serde-json-struct-order-v1";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ENCODING: &str =
+    "sha256-lowercase-hex-v1";
+
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FederationStateMachineTraceExternalEvidenceAnchorReference {
+    schema_version: u16,
+    reference_profile: String,
+    hash_algorithm: String,
+    hash_encoding: String,
+    subject_hash_algorithm: String,
+    subject_hash_encoding: String,
+    subject_schema_version: u16,
+    subject_profile: String,
+    subject_sha256: String,
+    witness_hash_algorithm: String,
+    witness_hash_encoding: String,
+    witness_schema_version: u16,
+    witness_kind: FederationStateMachineTraceExternalWitnessKind,
+    witness_profile: String,
+    witness_sha256: String,
+    claimed_observed_at_unix_seconds: u64,
+    anchor_reference_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct FederationStateMachineTraceExternalEvidenceAnchorReferenceHashView {
+    hash_domain: String,
+    schema_version: u16,
+    reference_profile: String,
+    hash_algorithm: String,
+    hash_encoding: String,
+    subject_hash_algorithm: String,
+    subject_hash_encoding: String,
+    subject_schema_version: u16,
+    subject_profile: String,
+    subject_sha256: String,
+    witness_hash_algorithm: String,
+    witness_hash_encoding: String,
+    witness_schema_version: u16,
+    witness_kind: FederationStateMachineTraceExternalWitnessKind,
+    witness_profile: String,
+    witness_sha256: String,
+    claimed_observed_at_unix_seconds: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct FederationStateMachineTraceExternalEvidenceVerificationStatementHashView {
+    hash_domain: String,
+    schema_version: u16,
+    statement_profile: String,
+    hash_algorithm: String,
+    hash_encoding: String,
+    anchor_reference_schema_version: u16,
+    anchor_reference_profile: String,
+    anchor_reference_sha256: String,
+    verifier_schema_version: u16,
+    verifier_profile: String,
+    verification_claim: FederationStateMachineTraceExternalVerificationClaim,
+    verifier_report_hash_algorithm: String,
+    verifier_report_hash_encoding: String,
+    verifier_report_sha256: String,
+    claimed_verified_at_unix_seconds: u64,
+}
+
+
+impl FederationStateMachineTraceExternalEvidenceAnchorReference {
+    pub fn schema_version(&self) -> u16 { self.schema_version }
+    pub fn reference_profile(&self) -> &str { &self.reference_profile }
+    pub fn hash_algorithm(&self) -> &str { &self.hash_algorithm }
+    pub fn hash_encoding(&self) -> &str { &self.hash_encoding }
+    pub fn subject_schema_version(&self) -> u16 { self.subject_schema_version }
+    pub fn subject_profile(&self) -> &str { &self.subject_profile }
+    pub fn subject_sha256(&self) -> &str { &self.subject_sha256 }
+    pub fn witness_schema_version(&self) -> u16 { self.witness_schema_version }
+    pub fn witness_kind(&self) -> FederationStateMachineTraceExternalWitnessKind { self.witness_kind }
+    pub fn witness_profile(&self) -> &str { &self.witness_profile }
+    pub fn witness_sha256(&self) -> &str { &self.witness_sha256 }
+    pub fn claimed_observed_at_unix_seconds(&self) -> u64 { self.claimed_observed_at_unix_seconds }
+    pub fn anchor_reference_sha256(&self) -> &str { &self.anchor_reference_sha256 }
+}
+
+fn state_machine_domain_separated_sha256(domain: &str, bytes: &[u8]) -> String {
+    assert!(
+        domain.as_bytes().iter().all(|byte| *byte != 0),
+        "hash domains must not contain the delimiter byte"
+    );
+    let mut input = Vec::with_capacity(domain.len() + 1 + bytes.len());
+    input.extend_from_slice(domain.as_bytes());
+    input.push(0);
+    input.extend_from_slice(bytes);
+    let digest = Sha256::digest(input);
+    format!("sha256:{digest:x}")
+}
+
+fn state_machine_trace_external_witness_artifact_sha256(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!("sha256:{digest:x}")
+}
+
+fn state_machine_trace_is_sha256_digest(value: &str) -> bool {
+    let Some(hex) = value.strip_prefix("sha256:") else {
+        return false;
+    };
+    hex.len() == 64
+        && hex
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+}
+
+fn state_machine_trace_external_evidence_verification_statement_sha256(
+    statement: &FederationStateMachineTraceExternalEvidenceVerificationStatement,
+) -> String {
+    let view = FederationStateMachineTraceExternalEvidenceVerificationStatementHashView {
+        hash_domain:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_DOMAIN.into(),
+        schema_version: statement.schema_version,
+        statement_profile: statement.statement_profile.clone(),
+        hash_algorithm: statement.hash_algorithm.clone(),
+        hash_encoding: statement.hash_encoding.clone(),
+        anchor_reference_schema_version: statement.anchor_reference_schema_version,
+        anchor_reference_profile: statement.anchor_reference_profile.clone(),
+        anchor_reference_sha256: statement.anchor_reference_sha256.clone(),
+        verifier_schema_version: statement.verifier_schema_version,
+        verifier_profile: statement.verifier_profile.clone(),
+        verification_claim: statement.verification_claim,
+        verifier_report_hash_algorithm: statement.verifier_report_hash_algorithm.clone(),
+        verifier_report_hash_encoding: statement.verifier_report_hash_encoding.clone(),
+        verifier_report_sha256: statement.verifier_report_sha256.clone(),
+        claimed_verified_at_unix_seconds: statement.claimed_verified_at_unix_seconds,
+    };
+    let bytes = serde_json::to_vec(&view)
+        .expect("external evidence verification statement hash view must be serializable");
+    state_machine_domain_separated_sha256(
+        FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_DOMAIN,
+        &bytes,
+    )
+}
+
+fn state_machine_trace_external_evidence_anchor_reference_sha256(
+    reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
+) -> String {
+    let view = FederationStateMachineTraceExternalEvidenceAnchorReferenceHashView {
+        hash_domain:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_DOMAIN.into(),
+        schema_version: reference.schema_version,
+        reference_profile: reference.reference_profile.clone(),
+        hash_algorithm: reference.hash_algorithm.clone(),
+        hash_encoding: reference.hash_encoding.clone(),
+        subject_hash_algorithm: reference.subject_hash_algorithm.clone(),
+        subject_hash_encoding: reference.subject_hash_encoding.clone(),
+        subject_schema_version: reference.subject_schema_version,
+        subject_profile: reference.subject_profile.clone(),
+        subject_sha256: reference.subject_sha256.clone(),
+        witness_hash_algorithm: reference.witness_hash_algorithm.clone(),
+        witness_hash_encoding: reference.witness_hash_encoding.clone(),
+        witness_schema_version: reference.witness_schema_version,
+        witness_kind: reference.witness_kind,
+        witness_profile: reference.witness_profile.clone(),
+        witness_sha256: reference.witness_sha256.clone(),
+        claimed_observed_at_unix_seconds: reference.claimed_observed_at_unix_seconds,
+    };
+    let bytes = serde_json::to_vec(&view)
+        .expect("external evidence anchor reference hash view must be serializable");
+    state_machine_domain_separated_sha256(
+        FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_DOMAIN,
+        &bytes,
+    )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation {
+    EmptySubjectProfile,
+    EmptySubjectDigest,
+    InvalidSubjectDigest,
+    InvalidWitnessSchemaVersion,
+    EmptyWitnessProfile,
+    EmptyWitnessArtifact,
+}
+
+pub fn state_machine_trace_external_evidence_anchor_reference(
+    subject_schema_version: u16,
+    subject_profile: &str,
+    subject_sha256: &str,
+    witness_kind: FederationStateMachineTraceExternalWitnessKind,
+    witness_schema_version: u16,
+    witness_profile: &str,
+    witness_artifact: &[u8],
+    claimed_observed_at_unix_seconds: u64,
+) -> Result<
+    FederationStateMachineTraceExternalEvidenceAnchorReference,
+    FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation,
+> {
+    if subject_profile.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptySubjectProfile
+        );
+    }
+    if subject_sha256.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptySubjectDigest
+        );
+    }
+    if !state_machine_trace_is_sha256_digest(subject_sha256) {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidSubjectDigest
+        );
+    }
+    if witness_schema_version == 0 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidWitnessSchemaVersion
+        );
+    }
+    if witness_profile.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptyWitnessProfile
+        );
+    }
+    if witness_artifact.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptyWitnessArtifact
+        );
+    }
+
+    let mut reference = FederationStateMachineTraceExternalEvidenceAnchorReference {
+        schema_version:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION,
+        reference_profile:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE.into(),
+        hash_algorithm:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM.into(),
+        hash_encoding:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING.into(),
+        subject_hash_algorithm:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM.into(),
+        subject_hash_encoding:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ENCODING.into(),
+        subject_schema_version,
+        subject_profile: subject_profile.into(),
+        subject_sha256: subject_sha256.into(),
+        witness_hash_algorithm:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM.into(),
+        witness_hash_encoding:
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING.into(),
+        witness_schema_version,
+        witness_kind,
+        witness_profile: witness_profile.into(),
+        witness_sha256: state_machine_trace_external_witness_artifact_sha256(witness_artifact),
+        claimed_observed_at_unix_seconds,
+        anchor_reference_sha256: String::new(),
+    };
+    reference.anchor_reference_sha256 =
+        state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+    Ok(reference)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation {
+    UnsupportedSchemaVersion,
+    UnsupportedReferenceProfile,
+    UnsupportedHashAlgorithm,
+    UnsupportedHashEncoding,
+    EmptySubjectProfile,
+    EmptySubjectDigest,
+    InvalidSubjectDigest,
+    SubjectHashAlgorithmMismatch,
+    SubjectHashEncodingMismatch,
+    EmptyWitnessProfile,
+    EmptyWitnessDigest,
+    WitnessHashAlgorithmMismatch,
+    WitnessHashEncodingMismatch,
+    WitnessSchemaVersionMismatch,
+    EmptyWitnessArtifact,
+    SubjectSchemaVersionMismatch,
+    SubjectProfileMismatch,
+    SubjectDigestMismatch,
+    WitnessDigestMismatch,
+    AnchorReferenceDigestMismatch,
+}
+
+/// Verifies that a reference binds one exact model artifact to one exact
+/// externally supplied witness byte sequence.
+///
+/// This verifier intentionally stops at the binding boundary. It does not
+/// verify a TSA signature, a transparency-log signature, an archive policy,
+/// observer independence, or the truth of the claimed observation time.
+pub fn validate_state_machine_trace_external_evidence_anchor_reference(
+    subject_schema_version: u16,
+    subject_profile: &str,
+    subject_sha256: &str,
+    witness_artifact: &[u8],
+    reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
+) -> Result<
+    (),
+    FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation,
+> {
+    if reference.schema_version
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedSchemaVersion
+        );
+    }
+    if reference.reference_profile
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedReferenceProfile
+        );
+    }
+    if reference.hash_algorithm
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedHashAlgorithm
+        );
+    }
+    if reference.hash_encoding
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedHashEncoding
+        );
+    }
+    if reference.subject_profile.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptySubjectProfile
+        );
+    }
+    if reference.subject_sha256.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptySubjectDigest
+        );
+    }
+    if !state_machine_trace_is_sha256_digest(&reference.subject_sha256) {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::InvalidSubjectDigest
+        );
+    }
+    if reference.witness_schema_version == 0 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessSchemaVersionMismatch
+        );
+    }
+    if reference.witness_profile.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptyWitnessProfile
+        );
+    }
+    if reference.witness_sha256.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptyWitnessDigest
+        );
+    }
+    if witness_artifact.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptyWitnessArtifact
+        );
+    }
+    if reference.subject_schema_version != subject_schema_version {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectSchemaVersionMismatch
+        );
+    }
+    if reference.subject_hash_algorithm
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectHashAlgorithmMismatch
+        );
+    }
+    if reference.subject_hash_encoding
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ENCODING
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectHashEncodingMismatch
+        );
+    }
+    if reference.subject_profile != subject_profile {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectProfileMismatch
+        );
+    }
+    if reference.subject_sha256 != subject_sha256 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectDigestMismatch
+        );
+    }
+    if reference.witness_hash_algorithm
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessHashAlgorithmMismatch
+        );
+    }
+    if reference.witness_hash_encoding
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessHashEncodingMismatch
+        );
+    }
+    let expected_witness_sha256 =
+        state_machine_trace_external_witness_artifact_sha256(witness_artifact);
+    if reference.witness_sha256 != expected_witness_sha256 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessDigestMismatch
+        );
+    }
+    if reference.anchor_reference_sha256
+        != state_machine_trace_external_evidence_anchor_reference_sha256(reference)
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::AnchorReferenceDigestMismatch
+        );
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation {
+    EmptyVerifierProfile,
+    EmptyVerifierReport,
+}
+
+pub fn state_machine_trace_external_evidence_verification_statement(
+    anchor_reference_sha256: &str,
+    verifier_schema_version: u16,
+    verifier_profile: &str,
+    verification_claim: FederationStateMachineTraceExternalVerificationClaim,
+    verifier_report: &[u8],
+    claimed_verified_at_unix_seconds: u64,
+) -> Result<
+    FederationStateMachineTraceExternalEvidenceVerificationStatement,
+    FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation,
+> {
+    if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceDigest
+        );
+    }
+    if verifier_schema_version == 0 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidVerifierReportSchemaVersion
+        );
+    }
+    if verifier_profile.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierProfile
+        );
+    }
+    if verifier_report.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierReport
+        );
+    }
+
+    let mut statement =
+        FederationStateMachineTraceExternalEvidenceVerificationStatement {
+            schema_version:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION,
+            statement_profile:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_PROFILE.into(),
+            hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM.into(),
+            hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING.into(),
+            anchor_reference_schema_version:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION,
+            anchor_reference_profile:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE.into(),
+            anchor_reference_sha256: anchor_reference_sha256.into(),
+            verifier_schema_version,
+            verifier_profile: verifier_profile.into(),
+            verification_claim,
+            verifier_report_hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ALGORITHM.into(),
+            verifier_report_hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ENCODING.into(),
+            verifier_report_sha256:
+                state_machine_trace_external_witness_artifact_sha256(verifier_report),
+            claimed_verified_at_unix_seconds,
+            statement_sha256: String::new(),
+        };
+    statement.statement_sha256 =
+        state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+    Ok(statement)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementViolation {
+    UnsupportedSchemaVersion,
+    UnsupportedStatementProfile,
+    UnsupportedHashAlgorithm,
+    UnsupportedHashEncoding,
+    InvalidAnchorReferenceDigest,
+    AnchorReferenceInvalid(FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation),
+    AnchorReferenceSchemaVersionMismatch,
+    AnchorReferenceProfileMismatch,
+    AnchorReferenceDigestMismatch,
+    InvalidVerifierReportSchemaVersion,
+    EmptyVerifierProfile,
+    VerifierReportHashAlgorithmMismatch,
+    VerifierReportHashEncodingMismatch,
+    EmptyVerifierReportDigest,
+    InvalidVerifierReportDigest,
+    VerifierReportDigestMismatch,
+    StatementDigestMismatch,
+}
+
+/// Verifies only the binding of an external verifier statement to an exact
+/// anchor reference and exact verifier-report byte sequence.
+pub fn validate_state_machine_trace_external_evidence_verification_statement_binding(
+    anchor_reference_sha256: &str,
+    verifier_report: &[u8],
+    statement: &FederationStateMachineTraceExternalEvidenceVerificationStatement,
+) -> Result<
+    (),
+    FederationStateMachineTraceExternalEvidenceVerificationStatementViolation,
+> {
+    if statement.schema_version
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedSchemaVersion
+        );
+    }
+    if statement.statement_profile
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_PROFILE
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedStatementProfile
+        );
+    }
+    if statement.hash_algorithm
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedHashAlgorithm
+        );
+    }
+    if statement.hash_encoding
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedHashEncoding
+        );
+    }
+    if statement.anchor_reference_schema_version
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceSchemaVersionMismatch
+        );
+    }
+    if statement.anchor_reference_profile
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceProfileMismatch
+        );
+    }
+    if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidAnchorReferenceDigest
+        );
+    }
+    if statement.anchor_reference_sha256 != anchor_reference_sha256 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceDigestMismatch
+        );
+    }
+    if statement.verifier_schema_version == 0 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidVerifierReportSchemaVersion
+        );
+    }
+    if statement.verifier_profile.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::EmptyVerifierProfile
+        );
+    }
+    if statement.verifier_report_hash_algorithm
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ALGORITHM
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportHashAlgorithmMismatch
+        );
+    }
+    if statement.verifier_report_hash_encoding
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ENCODING
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportHashEncodingMismatch
+        );
+    }
+    if statement.verifier_report_sha256.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::EmptyVerifierReportDigest
+        );
+    }
+    if !state_machine_trace_is_sha256_digest(&statement.verifier_report_sha256) {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidVerifierReportDigest
+        );
+    }
+    if verifier_report.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportDigestMismatch
+        );
+    }
+    let expected_report_sha256 =
+        state_machine_trace_external_witness_artifact_sha256(verifier_report);
+    if statement.verifier_report_sha256 != expected_report_sha256 {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportDigestMismatch
+        );
+    }
+    if statement.statement_sha256
+        != state_machine_trace_external_evidence_verification_statement_sha256(statement)
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::StatementDigestMismatch
+        );
+    }
+    Ok(())
+}
+
+pub fn validate_state_machine_trace_external_evidence_verification_statement_chain(
+    subject_schema_version: u16,
+    subject_profile: &str,
+    subject_sha256: &str,
+    anchor_witness_artifact: &[u8],
+    anchor_reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
+    verifier_report: &[u8],
+    statement: &FederationStateMachineTraceExternalEvidenceVerificationStatement,
+) -> Result<
+    FederationStateMachineTraceExternalEvidenceVerificationResult,
+    FederationStateMachineTraceExternalEvidenceVerificationStatementViolation,
+> {
+    validate_state_machine_trace_external_evidence_anchor_reference(
+        subject_schema_version,
+        subject_profile,
+        subject_sha256,
+        anchor_witness_artifact,
+        anchor_reference,
+    )
+    .map_err(
+        FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceInvalid,
+    )?;
+    validate_state_machine_trace_external_evidence_verification_statement_binding(
+        &anchor_reference.anchor_reference_sha256,
+        verifier_report,
+        statement,
+    )?;
+
+    Ok(FederationStateMachineTraceExternalEvidenceVerificationResult {
+        anchor_reference_sha256: statement.anchor_reference_sha256.clone(),
+        anchor_reference_schema_version: statement.anchor_reference_schema_version,
+        anchor_reference_profile: statement.anchor_reference_profile.clone(),
+        witness_kind: anchor_reference.witness_kind,
+        witness_profile: anchor_reference.witness_profile.clone(),
+        verifier_schema_version: statement.verifier_schema_version,
+        verifier_profile: statement.verifier_profile.clone(),
+        claim: statement.verification_claim,
+        verifier_report_sha256: statement.verifier_report_sha256.clone(),
+        claimed_verified_at_unix_seconds: statement.claimed_verified_at_unix_seconds,
+        statement_sha256: statement.statement_sha256.clone(),
+    })
+}
+
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 1;
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE: &str =
     "integral-federation-external-verification-trust-policy-v1";
@@ -4823,38 +5539,6 @@ mod tests {
     const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_ENCODING: &str =
         "serde-json-struct-order-v1";
 
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION: u16 = 1;
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE: &str =
-        "integral-federation-trace-external-evidence-anchor-reference-v1";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_DOMAIN: &str =
-        "integral-federation-trace-external-evidence-anchor-reference-sha256-v1";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM: &str =
-        "sha-256";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING: &str =
-        "serde-json-struct-order-v1";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM: &str =
-        "sha-256";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ENCODING: &str =
-        "sha256-lowercase-hex-v1";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM: &str =
-        "sha-256";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING: &str =
-        "sha256-lowercase-hex-v1";
-
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 1;
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_PROFILE: &str =
-        "integral-federation-trace-external-evidence-verification-statement-v1";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_DOMAIN: &str =
-        "integral-federation-trace-external-evidence-verification-statement-sha256-v1";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM: &str =
-        "sha-256";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING: &str =
-        "serde-json-struct-order-v1";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ALGORITHM: &str =
-        "sha-256";
-    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ENCODING: &str =
-        "sha256-lowercase-hex-v1";
-
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     enum FederationStateMachineTracePublicationCollectionRelationship {
         ExactMatch,
@@ -4872,68 +5556,6 @@ mod tests {
         DivergentAfterCommonPrefix,
         Disjoint,
         NotComparable,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct FederationStateMachineTraceExternalEvidenceAnchorReference {
-        schema_version: u16,
-        reference_profile: String,
-        hash_algorithm: String,
-        hash_encoding: String,
-        subject_hash_algorithm: String,
-        subject_hash_encoding: String,
-        subject_schema_version: u16,
-        subject_profile: String,
-        subject_sha256: String,
-        witness_hash_algorithm: String,
-        witness_hash_encoding: String,
-        witness_schema_version: u16,
-        witness_kind: FederationStateMachineTraceExternalWitnessKind,
-        witness_profile: String,
-        witness_sha256: String,
-        claimed_observed_at_unix_seconds: u64,
-        anchor_reference_sha256: String,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-    struct FederationStateMachineTraceExternalEvidenceAnchorReferenceHashView {
-        hash_domain: String,
-        schema_version: u16,
-        reference_profile: String,
-        hash_algorithm: String,
-        hash_encoding: String,
-        subject_hash_algorithm: String,
-        subject_hash_encoding: String,
-        subject_schema_version: u16,
-        subject_profile: String,
-        subject_sha256: String,
-        witness_hash_algorithm: String,
-        witness_hash_encoding: String,
-        witness_schema_version: u16,
-        witness_kind: FederationStateMachineTraceExternalWitnessKind,
-        witness_profile: String,
-        witness_sha256: String,
-        claimed_observed_at_unix_seconds: u64,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-    struct FederationStateMachineTraceExternalEvidenceVerificationStatementHashView {
-        hash_domain: String,
-        schema_version: u16,
-        statement_profile: String,
-        hash_algorithm: String,
-        hash_encoding: String,
-        anchor_reference_schema_version: u16,
-        anchor_reference_profile: String,
-        anchor_reference_sha256: String,
-        verifier_schema_version: u16,
-        verifier_profile: String,
-        verification_claim: FederationStateMachineTraceExternalVerificationClaim,
-        verifier_report_hash_algorithm: String,
-        verifier_report_hash_encoding: String,
-        verifier_report_sha256: String,
-        claimed_verified_at_unix_seconds: u64,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -5150,19 +5772,6 @@ mod tests {
             evidence: capsule.evidence.clone(),
             final_state: capsule.final_state.clone(),
         }
-    }
-
-    fn state_machine_domain_separated_sha256(domain: &str, bytes: &[u8]) -> String {
-        assert!(
-            domain.as_bytes().iter().all(|byte| *byte != 0),
-            "hash domains must not contain the delimiter byte"
-        );
-        let mut input = Vec::with_capacity(domain.len() + 1 + bytes.len());
-        input.extend_from_slice(domain.as_bytes());
-        input.push(0);
-        input.extend_from_slice(bytes);
-        let digest = Sha256::digest(input);
-        format!("sha256:{digest:x}")
     }
 
     fn state_machine_evidence_chain_sha256(
@@ -5781,81 +6390,6 @@ mod tests {
         )
     }
 
-    fn state_machine_trace_external_witness_artifact_sha256(bytes: &[u8]) -> String {
-        let digest = Sha256::digest(bytes);
-        format!("sha256:{digest:x}")
-    }
-
-    fn state_machine_trace_is_sha256_digest(value: &str) -> bool {
-        let Some(hex) = value.strip_prefix("sha256:") else {
-            return false;
-        };
-        hex.len() == 64
-            && hex
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-    }
-
-    fn state_machine_trace_external_evidence_verification_statement_sha256(
-        statement: &FederationStateMachineTraceExternalEvidenceVerificationStatement,
-    ) -> String {
-        let view = FederationStateMachineTraceExternalEvidenceVerificationStatementHashView {
-            hash_domain:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_DOMAIN.into(),
-            schema_version: statement.schema_version,
-            statement_profile: statement.statement_profile.clone(),
-            hash_algorithm: statement.hash_algorithm.clone(),
-            hash_encoding: statement.hash_encoding.clone(),
-            anchor_reference_schema_version: statement.anchor_reference_schema_version,
-            anchor_reference_profile: statement.anchor_reference_profile.clone(),
-            anchor_reference_sha256: statement.anchor_reference_sha256.clone(),
-            verifier_schema_version: statement.verifier_schema_version,
-            verifier_profile: statement.verifier_profile.clone(),
-            verification_claim: statement.verification_claim,
-            verifier_report_hash_algorithm: statement.verifier_report_hash_algorithm.clone(),
-            verifier_report_hash_encoding: statement.verifier_report_hash_encoding.clone(),
-            verifier_report_sha256: statement.verifier_report_sha256.clone(),
-            claimed_verified_at_unix_seconds: statement.claimed_verified_at_unix_seconds,
-        };
-        let bytes = serde_json::to_vec(&view)
-            .expect("external evidence verification statement hash view must be serializable");
-        state_machine_domain_separated_sha256(
-            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_DOMAIN,
-            &bytes,
-        )
-    }
-
-    fn state_machine_trace_external_evidence_anchor_reference_sha256(
-        reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
-    ) -> String {
-        let view = FederationStateMachineTraceExternalEvidenceAnchorReferenceHashView {
-            hash_domain:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_DOMAIN.into(),
-            schema_version: reference.schema_version,
-            reference_profile: reference.reference_profile.clone(),
-            hash_algorithm: reference.hash_algorithm.clone(),
-            hash_encoding: reference.hash_encoding.clone(),
-            subject_hash_algorithm: reference.subject_hash_algorithm.clone(),
-            subject_hash_encoding: reference.subject_hash_encoding.clone(),
-            subject_schema_version: reference.subject_schema_version,
-            subject_profile: reference.subject_profile.clone(),
-            subject_sha256: reference.subject_sha256.clone(),
-            witness_hash_algorithm: reference.witness_hash_algorithm.clone(),
-            witness_hash_encoding: reference.witness_hash_encoding.clone(),
-            witness_schema_version: reference.witness_schema_version,
-            witness_kind: reference.witness_kind,
-            witness_profile: reference.witness_profile.clone(),
-            witness_sha256: reference.witness_sha256.clone(),
-            claimed_observed_at_unix_seconds: reference.claimed_observed_at_unix_seconds,
-        };
-        let bytes = serde_json::to_vec(&view)
-            .expect("external evidence anchor reference hash view must be serializable");
-        state_machine_domain_separated_sha256(
-            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_DOMAIN,
-            &bytes,
-        )
-    }
-
     fn state_machine_trace_publication_equivocation_witness_set_sha256(
         witness_set: &FederationStateMachineTracePublicationEquivocationWitnessSet,
     ) -> String {
@@ -6362,507 +6896,6 @@ mod tests {
         receipt.reconciliation_sha256 =
             state_machine_trace_publication_collection_reconciliation_sha256(&receipt);
         Ok(receipt)
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    enum FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation {
-        EmptySubjectProfile,
-        EmptySubjectDigest,
-        InvalidSubjectDigest,
-        InvalidWitnessSchemaVersion,
-        EmptyWitnessProfile,
-        EmptyWitnessArtifact,
-    }
-
-    fn state_machine_trace_external_evidence_anchor_reference(
-        subject_schema_version: u16,
-        subject_profile: &str,
-        subject_sha256: &str,
-        witness_kind: FederationStateMachineTraceExternalWitnessKind,
-        witness_schema_version: u16,
-        witness_profile: &str,
-        witness_artifact: &[u8],
-        claimed_observed_at_unix_seconds: u64,
-    ) -> Result<
-        FederationStateMachineTraceExternalEvidenceAnchorReference,
-        FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation,
-    > {
-        if subject_profile.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptySubjectProfile
-            );
-        }
-        if subject_sha256.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptySubjectDigest
-            );
-        }
-        if !state_machine_trace_is_sha256_digest(subject_sha256) {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidSubjectDigest
-            );
-        }
-        if witness_schema_version == 0 {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidWitnessSchemaVersion
-            );
-        }
-        if witness_profile.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptyWitnessProfile
-            );
-        }
-        if witness_artifact.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptyWitnessArtifact
-            );
-        }
-
-        let mut reference = FederationStateMachineTraceExternalEvidenceAnchorReference {
-            schema_version:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION,
-            reference_profile:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE.into(),
-            hash_algorithm:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM.into(),
-            hash_encoding:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING.into(),
-            subject_hash_algorithm:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM.into(),
-            subject_hash_encoding:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ENCODING.into(),
-            subject_schema_version,
-            subject_profile: subject_profile.into(),
-            subject_sha256: subject_sha256.into(),
-            witness_hash_algorithm:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM.into(),
-            witness_hash_encoding:
-                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING.into(),
-            witness_schema_version,
-            witness_kind,
-            witness_profile: witness_profile.into(),
-            witness_sha256: state_machine_trace_external_witness_artifact_sha256(witness_artifact),
-            claimed_observed_at_unix_seconds,
-            anchor_reference_sha256: String::new(),
-        };
-        reference.anchor_reference_sha256 =
-            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
-        Ok(reference)
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    enum FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation {
-        UnsupportedSchemaVersion,
-        UnsupportedReferenceProfile,
-        UnsupportedHashAlgorithm,
-        UnsupportedHashEncoding,
-        EmptySubjectProfile,
-        EmptySubjectDigest,
-        InvalidSubjectDigest,
-        SubjectHashAlgorithmMismatch,
-        SubjectHashEncodingMismatch,
-        EmptyWitnessProfile,
-        EmptyWitnessDigest,
-        WitnessHashAlgorithmMismatch,
-        WitnessHashEncodingMismatch,
-        WitnessSchemaVersionMismatch,
-        EmptyWitnessArtifact,
-        SubjectSchemaVersionMismatch,
-        SubjectProfileMismatch,
-        SubjectDigestMismatch,
-        WitnessDigestMismatch,
-        AnchorReferenceDigestMismatch,
-    }
-
-    /// Verifies that a reference binds one exact model artifact to one exact
-    /// externally supplied witness byte sequence.
-    ///
-    /// This verifier intentionally stops at the binding boundary. It does not
-    /// verify a TSA signature, a transparency-log signature, an archive policy,
-    /// observer independence, or the truth of the claimed observation time.
-    fn validate_state_machine_trace_external_evidence_anchor_reference(
-        subject_schema_version: u16,
-        subject_profile: &str,
-        subject_sha256: &str,
-        witness_artifact: &[u8],
-        reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
-    ) -> Result<
-        (),
-        FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation,
-    > {
-        if reference.schema_version
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedSchemaVersion
-            );
-        }
-        if reference.reference_profile
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedReferenceProfile
-            );
-        }
-        if reference.hash_algorithm
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedHashAlgorithm
-            );
-        }
-        if reference.hash_encoding
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedHashEncoding
-            );
-        }
-        if reference.subject_profile.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptySubjectProfile
-            );
-        }
-        if reference.subject_sha256.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptySubjectDigest
-            );
-        }
-        if !state_machine_trace_is_sha256_digest(&reference.subject_sha256) {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::InvalidSubjectDigest
-            );
-        }
-        if reference.witness_schema_version == 0 {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessSchemaVersionMismatch
-            );
-        }
-        if reference.witness_profile.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptyWitnessProfile
-            );
-        }
-        if reference.witness_sha256.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptyWitnessDigest
-            );
-        }
-        if witness_artifact.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptyWitnessArtifact
-            );
-        }
-        if reference.subject_schema_version != subject_schema_version {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectSchemaVersionMismatch
-            );
-        }
-        if reference.subject_hash_algorithm
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectHashAlgorithmMismatch
-            );
-        }
-        if reference.subject_hash_encoding
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ENCODING
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectHashEncodingMismatch
-            );
-        }
-        if reference.subject_profile != subject_profile {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectProfileMismatch
-            );
-        }
-        if reference.subject_sha256 != subject_sha256 {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectDigestMismatch
-            );
-        }
-        if reference.witness_hash_algorithm
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessHashAlgorithmMismatch
-            );
-        }
-        if reference.witness_hash_encoding
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessHashEncodingMismatch
-            );
-        }
-        let expected_witness_sha256 =
-            state_machine_trace_external_witness_artifact_sha256(witness_artifact);
-        if reference.witness_sha256 != expected_witness_sha256 {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessDigestMismatch
-            );
-        }
-        if reference.anchor_reference_sha256
-            != state_machine_trace_external_evidence_anchor_reference_sha256(reference)
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::AnchorReferenceDigestMismatch
-            );
-        }
-        Ok(())
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    enum FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation {
-        EmptyVerifierProfile,
-        EmptyVerifierReport,
-    }
-
-    fn state_machine_trace_external_evidence_verification_statement(
-        anchor_reference_sha256: &str,
-        verifier_schema_version: u16,
-        verifier_profile: &str,
-        verification_claim: FederationStateMachineTraceExternalVerificationClaim,
-        verifier_report: &[u8],
-        claimed_verified_at_unix_seconds: u64,
-    ) -> Result<
-        FederationStateMachineTraceExternalEvidenceVerificationStatement,
-        FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation,
-    > {
-        if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceDigest
-            );
-        }
-        if verifier_schema_version == 0 {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidVerifierReportSchemaVersion
-            );
-        }
-        if verifier_profile.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierProfile
-            );
-        }
-        if verifier_report.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierReport
-            );
-        }
-
-        let mut statement =
-            FederationStateMachineTraceExternalEvidenceVerificationStatement {
-                schema_version:
-                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION,
-                statement_profile:
-                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_PROFILE.into(),
-                hash_algorithm:
-                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM.into(),
-                hash_encoding:
-                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING.into(),
-                anchor_reference_schema_version:
-                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION,
-                anchor_reference_profile:
-                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE.into(),
-                anchor_reference_sha256: anchor_reference_sha256.into(),
-                verifier_schema_version,
-                verifier_profile: verifier_profile.into(),
-                verification_claim,
-                verifier_report_hash_algorithm:
-                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ALGORITHM.into(),
-                verifier_report_hash_encoding:
-                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ENCODING.into(),
-                verifier_report_sha256:
-                    state_machine_trace_external_witness_artifact_sha256(verifier_report),
-                claimed_verified_at_unix_seconds,
-                statement_sha256: String::new(),
-            };
-        statement.statement_sha256 =
-            state_machine_trace_external_evidence_verification_statement_sha256(&statement);
-        Ok(statement)
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    enum FederationStateMachineTraceExternalEvidenceVerificationStatementViolation {
-        UnsupportedSchemaVersion,
-        UnsupportedStatementProfile,
-        UnsupportedHashAlgorithm,
-        UnsupportedHashEncoding,
-        InvalidAnchorReferenceDigest,
-        AnchorReferenceInvalid(FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation),
-        AnchorReferenceSchemaVersionMismatch,
-        AnchorReferenceProfileMismatch,
-        AnchorReferenceDigestMismatch,
-        InvalidVerifierReportSchemaVersion,
-        EmptyVerifierProfile,
-        VerifierReportHashAlgorithmMismatch,
-        VerifierReportHashEncodingMismatch,
-        EmptyVerifierReportDigest,
-        InvalidVerifierReportDigest,
-        VerifierReportDigestMismatch,
-        StatementDigestMismatch,
-    }
-
-    /// Verifies only the binding of an external verifier statement to an exact
-    /// anchor reference and exact verifier-report byte sequence.
-    fn validate_state_machine_trace_external_evidence_verification_statement_binding(
-        anchor_reference_sha256: &str,
-        verifier_report: &[u8],
-        statement: &FederationStateMachineTraceExternalEvidenceVerificationStatement,
-    ) -> Result<
-        (),
-        FederationStateMachineTraceExternalEvidenceVerificationStatementViolation,
-    > {
-        if statement.schema_version
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedSchemaVersion
-            );
-        }
-        if statement.statement_profile
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_PROFILE
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedStatementProfile
-            );
-        }
-        if statement.hash_algorithm
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedHashAlgorithm
-            );
-        }
-        if statement.hash_encoding
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedHashEncoding
-            );
-        }
-        if statement.anchor_reference_schema_version
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceSchemaVersionMismatch
-            );
-        }
-        if statement.anchor_reference_profile
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceProfileMismatch
-            );
-        }
-        if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidAnchorReferenceDigest
-            );
-        }
-        if statement.anchor_reference_sha256 != anchor_reference_sha256 {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceDigestMismatch
-            );
-        }
-        if statement.verifier_schema_version == 0 {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidVerifierReportSchemaVersion
-            );
-        }
-        if statement.verifier_profile.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::EmptyVerifierProfile
-            );
-        }
-        if statement.verifier_report_hash_algorithm
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ALGORITHM
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportHashAlgorithmMismatch
-            );
-        }
-        if statement.verifier_report_hash_encoding
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ENCODING
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportHashEncodingMismatch
-            );
-        }
-        if statement.verifier_report_sha256.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::EmptyVerifierReportDigest
-            );
-        }
-        if !state_machine_trace_is_sha256_digest(&statement.verifier_report_sha256) {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidVerifierReportDigest
-            );
-        }
-        if verifier_report.is_empty() {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportDigestMismatch
-            );
-        }
-        let expected_report_sha256 =
-            state_machine_trace_external_witness_artifact_sha256(verifier_report);
-        if statement.verifier_report_sha256 != expected_report_sha256 {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportDigestMismatch
-            );
-        }
-        if statement.statement_sha256
-            != state_machine_trace_external_evidence_verification_statement_sha256(statement)
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::StatementDigestMismatch
-            );
-        }
-        Ok(())
-    }
-
-    fn validate_state_machine_trace_external_evidence_verification_statement_chain(
-        subject_schema_version: u16,
-        subject_profile: &str,
-        subject_sha256: &str,
-        anchor_witness_artifact: &[u8],
-        anchor_reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
-        verifier_report: &[u8],
-        statement: &FederationStateMachineTraceExternalEvidenceVerificationStatement,
-    ) -> Result<
-        FederationStateMachineTraceExternalEvidenceVerificationResult,
-        FederationStateMachineTraceExternalEvidenceVerificationStatementViolation,
-    > {
-        validate_state_machine_trace_external_evidence_anchor_reference(
-            subject_schema_version,
-            subject_profile,
-            subject_sha256,
-            anchor_witness_artifact,
-            anchor_reference,
-        )
-        .map_err(
-            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceInvalid,
-        )?;
-        validate_state_machine_trace_external_evidence_verification_statement_binding(
-            &anchor_reference.anchor_reference_sha256,
-            verifier_report,
-            statement,
-        )?;
-
-        Ok(FederationStateMachineTraceExternalEvidenceVerificationResult {
-            anchor_reference_sha256: statement.anchor_reference_sha256.clone(),
-            anchor_reference_schema_version: statement.anchor_reference_schema_version,
-            anchor_reference_profile: statement.anchor_reference_profile.clone(),
-            witness_kind: anchor_reference.witness_kind,
-            witness_profile: anchor_reference.witness_profile.clone(),
-            verifier_schema_version: statement.verifier_schema_version,
-            verifier_profile: statement.verifier_profile.clone(),
-            claim: statement.verification_claim,
-            verifier_report_sha256: statement.verifier_report_sha256.clone(),
-            claimed_verified_at_unix_seconds: statement.claimed_verified_at_unix_seconds,
-            statement_sha256: statement.statement_sha256.clone(),
-        })
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
