@@ -288,7 +288,7 @@ jobs:
               verifier_workflow_blob_sha, run_id, run_attempt, run_number, resolver_job_id, s1_job_id,
           ):
               return {
-                  "schema": "security-kernel-execution-binding-v2",
+                  "schema": "security-kernel-execution-binding-v3",
                   "repository_id": int(repository_id),
                   "repository": str(repository),
                   "workflow_id": int(workflow_id),
