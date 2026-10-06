@@ -1,5 +1,5 @@
 {
-  "policy_version": 47,
+  "policy_version": 48,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "3e65741def75e9430dbf9171131345643b36a035"
+    "blob_sha": "145aa35ec969a2827fd8eb6fb613e54b44a52243"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -218,7 +218,7 @@
     "reject_encrypted_members": true,
     "reject_symlink_members": true,
     "expected_member_count": 3,
-    "policy_revision": 29,
+    "policy_revision": 30,
     "allowed_compression_methods": [
       "stored",
       "deflate"
@@ -226,7 +226,7 @@
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-    "blob_sha": "cf8c0f9dd3142a4262a4f33fa6ac6a1a4cbd2a86"
+    "blob_sha": "52e0de7270b61c8ac510eebe34faedc3572b353d"
   },
   "trusted_permissions": {
     "verifier": {
@@ -277,7 +277,7 @@
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-      "blob_sha": "cf8c0f9dd3142a4262a4f33fa6ac6a1a4cbd2a86"
+      "blob_sha": "52e0de7270b61c8ac510eebe34faedc3572b353d"
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
@@ -356,7 +356,7 @@
     "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "retain_canonical_predicate": true
   },
-  "attestation_integrity_revision": 47,
+  "attestation_integrity_revision": 48,
   "attestation_commitment": {
     "schema": "d6u-trusted-runtime-evidence-attestation/v2",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
@@ -417,5 +417,10 @@
     "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
     "require_record_source_binding": true,
     "require_record_executor_run_binding": true
+  },
+  "artifact_run_binding": {
+    "require_exact_run_attempt": true,
+    "require_head_branch_match_trigger": true,
+    "require_head_sha_match_trigger": true
   }
 }
