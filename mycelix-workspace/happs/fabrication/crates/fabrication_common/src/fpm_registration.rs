@@ -51,7 +51,7 @@ pub enum AlignmentMethod {
 impl AlignmentMethod {
     fn validate(&self) -> Result<(), RegistrationError> {
         match self {
-            Self::ExactSequence | Self::ExactSourceTimestampMicros => Ok(()),
+            Self::ExactCorrelationId | Self::ExactSourceTimestampMicros => Ok(()),
             Self::DeclaredClockTransform { transform_digest }
             | Self::ExternalRegistrationEvidence {
                 evidence_digest: transform_digest,
@@ -128,7 +128,7 @@ impl RegistrationEnvelope {
         }
 
         match method {
-            AlignmentMethod::ExactSequence => {
+            AlignmentMethod::ExactCorrelationId => {
                 if participants.clone().all(|item| {
                     item.correlation_id == self.reference.correlation_id
                 }) {
@@ -250,19 +250,23 @@ mod tests {
     }
 
     #[test]
-    fn exact_sequence_is_registered_only_on_shared_clock_and_sequence() {
+    fn exact_correlation_id_requires_shared_frame_identity() {
         assert_eq!(
-            registered(AlignmentMethod::ExactSequence).assess(),
+            registered(AlignmentMethod::ExactCorrelationId).assess(),
             RegistrationState::Registered
         );
 
-        let mut envelope = registered(AlignmentMethod::ExactSequence);
-        envelope.related[0].source_sequence = 11;
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.related[0].correlation_id = "frame-11".into();
         assert_eq!(envelope.assess(), RegistrationState::Conflicting);
 
-        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.related[0].source_sequence = 11;
+        assert_eq!(envelope.assess(), RegistrationState::Registered);
+
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.related[0].clock_domain = "local-clock-2".into();
-        assert_eq!(envelope.assess(), RegistrationState::Conflicting);
+        assert_eq!(envelope.assess(), RegistrationState::Registered);
     }
 
     #[test]
@@ -283,7 +287,7 @@ mod tests {
 
     #[test]
     fn missing_alignment_is_unregistered() {
-        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.alignment_method = None;
         assert_eq!(envelope.assess(), RegistrationState::Unregistered);
         assert!(envelope.validate_for_use().is_err());
@@ -291,14 +295,14 @@ mod tests {
 
     #[test]
     fn conflicting_context_cannot_register() {
-        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.related[0].process_context_digest = digest('d');
         assert_eq!(envelope.assess(), RegistrationState::Conflicting);
     }
 
     #[test]
     fn conflicting_calibration_cannot_register() {
-        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.related[0].calibration_profile_digest = digest('d');
         assert_eq!(envelope.assess(), RegistrationState::Conflicting);
     }
@@ -323,21 +327,21 @@ mod tests {
 
     #[test]
     fn invalid_schema_is_invalid_not_unknown() {
-        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.schema_version = "fpm.registration.v0".into();
         assert_eq!(envelope.assess(), RegistrationState::Invalid);
     }
 
     #[test]
     fn empty_related_set_is_unregistered() {
-        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.related.clear();
         assert_eq!(envelope.assess(), RegistrationState::Unregistered);
     }
 
     #[test]
     fn digest_changes_when_registration_changes() {
-        let a = registered(AlignmentMethod::ExactSequence);
+        let a = registered(AlignmentMethod::ExactCorrelationId);
         let mut b = a.clone();
         b.related[0].source_sequence = 11;
         assert_ne!(a.digest().expect("digest a"), b.digest().expect("digest b"));
