@@ -116,7 +116,7 @@ def verify(m:dict[str,Any])->dict[str,Any]:
     if name!=expected_name:return result("DENY","ak-name-does-not-match-public-area")
     tpm_spki=rsa_spki(modulus,exponent)
     ak_spki_sha=hashlib.sha256(ak_spki).hexdigest();tpm_spki_sha=hashlib.sha256(tpm_spki).hexdigest()
-    details={"ak_spki_sha256":ak_spki_sha,"tpm_spki_sha256":tpm_spki_sha,"ak_public_representation_sha256":m["ak_public_key_sha256"],"ak_public_wire_sha256":m["ak_public_wire_sha256"],"ak_name_hex":name.hex(),"lineage_bound":False,"quote_key_bound":False}
+    details={"ak_spki_sha256":ak_spki_sha,"tpm_spki_sha256":tpm_spki_sha,"ak_public_representation_sha256":hashlib.sha256(public_key_bytes).hexdigest(),"ak_public_wire_sha256":m["ak_public_wire_sha256"],"ak_name_hex":name.hex(),"lineage_bound":False,"quote_key_bound":False}
     if ak_spki!=tpm_spki:return result("DENY","ak-key-does-not-match-tpm-public",details)
     if l["name_hex"]!=m["ak_name_hex"]:return result("DENY","lineage-name-mismatch",details)
     if l["public_area_sha256"]!=hashlib.sha256(pub_wire).hexdigest():return result("DENY","lineage-public-area-mismatch",details)
