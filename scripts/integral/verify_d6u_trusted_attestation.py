@@ -125,6 +125,14 @@ def verify_commitment_entry(
     statement_subjects = statement.get("subject", [])
     verified_timestamps = result.get("verifiedTimestamps", [])
     assert statement.get("predicateType") == PREDICATE_TYPE
+    assert isinstance(predicate, dict)
+    assert set(predicate) == {
+        "attestation_kind",
+        "canonical_predicate_sha256",
+        "claim_ceiling",
+        "policy_version",
+        "schema",
+    }
     assert predicate.get("schema") == ATTESTATION_PREDICATE_SCHEMA
     assert predicate.get("attestation_kind") == "verified-runtime-evidence"
     assert predicate.get("claim_ceiling") == record["claim_ceiling"]
