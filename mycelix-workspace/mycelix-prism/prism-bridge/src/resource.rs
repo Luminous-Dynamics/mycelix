@@ -144,13 +144,18 @@ impl NetworkAddressClassV1 {
                     Self::Loopback
                 } else if ip.is_link_local() {
                     Self::LinkLocal
-                } else if ip.is_private() {
+                } else if ip.is_private()
+                    || (octets[0] == 100 && (64..=127).contains(&octets[1]))
+                {
                     Self::Private
                 } else if ip.is_multicast() {
                     Self::Multicast
                 } else if ip.is_unspecified() {
                     Self::Unspecified
                 } else if (octets[0] == 192 && octets[1] == 0 && octets[2] == 0)
+                    || (octets[0] == 192 && octets[1] == 0 && octets[2] == 2)
+                    || (octets[0] == 192 && octets[1] == 88 && octets[2] == 99)
+                    || (octets[0] == 198 && octets[1] == 18)
                     || (octets[0] == 198 && octets[1] == 51 && octets[2] == 100)
                     || (octets[0] == 203 && octets[1] == 0 && octets[2] == 113)
                 {
@@ -160,16 +165,24 @@ impl NetworkAddressClassV1 {
                 }
             }
             std::net::IpAddr::V6(ip) => {
+                let segments = ip.segments();
+                if let Some(mapped) = ip.to_ipv4_mapped() {
+                    return Self::from_ip(std::net::IpAddr::V4(mapped));
+                }
                 if ip.is_loopback() {
                     Self::Loopback
                 } else if ip.is_unspecified() {
                     Self::Unspecified
                 } else if ip.is_multicast() {
                     Self::Multicast
-                } else if (ip.segments()[0] & 0xfe00) == 0xfc00 {
+                } else if (segments[0] & 0xfe00) == 0xfc00 {
                     Self::Private
-                } else if (ip.segments()[0] & 0xffc0) == 0xfe80 {
+                } else if (segments[0] & 0xffc0) == 0xfe80 {
                     Self::LinkLocal
+                } else if segments[0] == 0x2001
+                    && (segments[1] == 0x0db8)
+                {
+                    Self::Reserved
                 } else {
                     Self::Global
                 }
@@ -317,6 +330,39 @@ mod tests {
         assert!(!policy.allows(NetworkAddressClassV1::from_ip(
             IpAddr::V6(Ipv6Addr::LOCALHOST)
         )));
+    }
+
+    #[test]
+    fn ipv4_shared_and_mapped_addresses_are_not_global() {
+        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V4(Ipv4Addr::new(100, 64, 0, 1))),
+            NetworkAddressClassV1::Private
+        );
+        let mapped = "::ffff:10.0.0.1".parse::<Ipv6Addr>().unwrap();
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V6(mapped)),
+            NetworkAddressClassV1::Private
+        );
+    }
+
+    #[test]
+    fn documentation_and_benchmark_ranges_are_not_global() {
+        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1))),
+            NetworkAddressClassV1::Reserved
+        );
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 1))),
+            NetworkAddressClassV1::Reserved
+        );
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V6("2001:db8::1".parse::<Ipv6Addr>().unwrap())),
+            NetworkAddressClassV1::Reserved
+        );
     }
 
     #[test]
