@@ -16,6 +16,10 @@ import sys
 from pathlib import Path
 
 
+if not __debug__:
+    raise RuntimeError("trusted D6U program must not run with Python optimization enabled")
+
+
 SCHEMA = "d6u-attestation-retention/v2"
 CONTROL_SCHEMA = "d6u-no-public-good-control/v1"
 SUBJECTS = (
