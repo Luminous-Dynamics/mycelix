@@ -635,6 +635,51 @@ jobs:
               )
 
 
+          def run_reference_source_policy():
+              workspace = os.environ["GITHUB_WORKSPACE"]
+              verifier_path = os.path.join(workspace, os.environ["SOURCE_POLICY_VERIFIER_PATH"])
+              snapshot = {
+                  "schema": "security-kernel-source-policy-reference-v1",
+                  "files": {
+                      "s0": dispatcher_at_run,
+                      "s1": s1_at_run,
+                      "s2": verifier_file,
+                      "binding": binding_file,
+                      "causal": causal_file,
+                      "policy": policy_file,
+                  },
+              }
+              with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+                  json.dump(snapshot, handle, sort_keys=True, separators=(",", ":"))
+                  snapshot_path = handle.name
+              try:
+                  output = subprocess.check_output(
+                      ["python3", verifier_path, snapshot_path],
+                      text=True,
+                      stderr=subprocess.STDOUT,
+                      timeout=20,
+                  )
+              except subprocess.CalledProcessError as exc:
+                  raise AssertionError(f"independent source-policy verifier rejected raw snapshot: {exc.output!r}") from exc
+              finally:
+                  os.unlink(snapshot_path)
+              result = json.loads(output)
+              expected_keys = {
+                  "schema", "policy_result", "workflow_file_count", "reference_file_count",
+                  "action_pins_verified", "pinned_images_verified", "forbidden_escalations_checked",
+              }
+              assert set(result) == expected_keys, "source-policy verifier result schema drift"
+              assert result["schema"] == "security-kernel-source-policy-reference-v1"
+              assert result["policy_result"] == "verified"
+              assert result["workflow_file_count"] == 3
+              assert result["reference_file_count"] == 3
+              assert result["action_pins_verified"] == 3
+              assert result["pinned_images_verified"] == 2
+              assert result["forbidden_escalations_checked"] == 18
+              return result
+
+          source_policy_reference_result = run_reference_source_policy()
+
           def run_reference_causal_join():
               workspace = os.environ["GITHUB_WORKSPACE"]
               verifier_path = os.path.join(workspace, os.environ["CAUSAL_JOIN_VERIFIER_PATH"])
@@ -647,6 +692,7 @@ jobs:
                       "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
                       "reference_verifier_blob_sha": os.environ["REFERENCE_VERIFIER_BLOB_SHA"],
                       "causal_join_verifier_blob_sha": os.environ["CAUSAL_JOIN_VERIFIER_BLOB_SHA"],
+                      "source_policy_verifier_blob_sha": os.environ["SOURCE_POLICY_VERIFIER_BLOB_SHA"],
                   },
                   "repository": repository_obj,
                   "run": run,
@@ -695,6 +741,13 @@ jobs:
                           "encoding": causal_file["encoding"],
                           "content": causal_file["content"],
                       },
+                      "policy": {
+                          "path": policy_file["path"],
+                          "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                          "sha": policy_file["sha"],
+                          "encoding": policy_file["encoding"],
+                          "content": policy_file["content"],
+                      },
                   },
               }
               with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
@@ -722,6 +775,7 @@ jobs:
               assert set(result) == expected_keys, "causal reference verifier result schema drift"
               assert result["schema"] == "security-kernel-causal-join-reference-v1"
               assert result["reference_result"] == "verified"
+              assert result["metamorphic_mutations_verified"] == 20
               assert re.fullmatch(r"[0-9a-f]{64}", result["snapshot_sha256"])
               assert re.fullmatch(r"[0-9a-f]{64}", result["workflow_file_snapshot_sha256"])
               assert result["metamorphic_mutations_verified"] == 19
@@ -826,6 +880,7 @@ jobs:
               "evidence_binding_reference_sha256": reference_evidence_binding_digest,
               "causal_reference_result": causal_reference_result,
               "causal_reference_snapshot_sha256": causal_reference_snapshot_sha256,
+              "source_policy_reference_result": source_policy_reference_result,
               "causal_reference_workflow_file_snapshot_sha256": causal_reference_result["workflow_file_snapshot_sha256"],
               "causal_reference_metamorphic_mutations_verified": causal_reference_result["metamorphic_mutations_verified"],
               "independent_qualification": "verified-pass",
