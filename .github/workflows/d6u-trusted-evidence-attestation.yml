@@ -485,6 +485,9 @@ EOF
 
           gh attestation trusted-root > "$retention_dir/trusted_root.jsonl"
           test -s "$retention_dir/trusted_root.jsonl"
+          cp -- "$RUNNER_TEMP/d6u-auditor-handoff/d6u-trusted-evidence-predicate.json" "$retention_dir/d6u-trusted-evidence-predicate.json"
+          test -s "$retention_dir/d6u-trusted-evidence-predicate.json"
+          test ! -L "$retention_dir/d6u-trusted-evidence-predicate.json"
 
           subjects=(
             "$RUNNER_TEMP/d6u-auditor-handoff/d6u-runtime-evidence.txt"
