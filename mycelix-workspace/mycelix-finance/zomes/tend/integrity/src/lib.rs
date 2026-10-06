@@ -1441,59 +1441,66 @@ fn validate_update_bilateral_settlement(
             ))
         })?;
 
+    Ok(validate_bilateral_settlement_transition(&original, &settlement))
+}
+
+fn validate_bilateral_settlement_transition(
+    original: &BilateralSettlement,
+    updated: &BilateralSettlement,
+) -> ValidateCallbackResult {
     if original.status != SettlementStatus::Pending {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Only a Pending settlement may transition to a terminal state".into(),
-        ));
+        );
     }
 
-    match settlement.status {
+    match updated.status {
         SettlementStatus::Completed | SettlementStatus::Failed => {}
         SettlementStatus::Pending => {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "BilateralSettlement updates must use a terminal status".into(),
-            ));
+            );
         }
     }
 
-    if settlement.id != original.id
-        || settlement.debtor_dao_did != original.debtor_dao_did
-        || settlement.creditor_dao_did != original.creditor_dao_did
-        || settlement.amount != original.amount
-        || settlement.created_at != original.created_at
+    if updated.id != original.id
+        || updated.debtor_dao_did != original.debtor_dao_did
+        || updated.creditor_dao_did != original.creditor_dao_did
+        || updated.amount != original.amount
+        || updated.created_at != original.created_at
     {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "BilateralSettlement terms are immutable after creation".into(),
-        ));
+        );
     }
 
-    if settlement.amount <= 0 {
-        return Ok(ValidateCallbackResult::Invalid(
+    if updated.amount <= 0 {
+        return ValidateCallbackResult::Invalid(
             "Settlement amount must remain positive".into(),
-        ));
+        );
     }
 
-    if !settlement.debtor_dao_did.starts_with("did:")
-        || !settlement.creditor_dao_did.starts_with("did:")
+    if !updated.debtor_dao_did.starts_with("did:")
+        || !updated.creditor_dao_did.starts_with("did:")
     {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Settlement DAO DIDs must remain valid".into(),
-        ));
+        );
     }
 
-    let Some(completed_at) = settlement.completed_at else {
-        return Ok(ValidateCallbackResult::Invalid(
+    let Some(completed_at) = updated.completed_at else {
+        return ValidateCallbackResult::Invalid(
             "Terminal BilateralSettlement state requires completed_at".into(),
-        ));
+        );
     };
 
     if completed_at < original.created_at {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "completed_at cannot precede created_at".into(),
-        ));
+        );
     }
 
-    Ok(ValidateCallbackResult::Valid)
+    ValidateCallbackResult::Valid
 }
 
 fn validate_create_hearth_balance(bal: HearthTendBalance) -> ExternResult<ValidateCallbackResult> {
@@ -1994,22 +2001,74 @@ mod tests {
     }
 
     #[test]
-    fn bilateral_settlement_terminal_state_requires_predecessor_binding() {
+    fn bilateral_settlement_transition_accepts_pending_to_completed() {
         let original = valid_bilateral_settlement();
+        let mut updated = original.clone();
+        updated.status = SettlementStatus::Completed;
+        updated.completed_at = Some(ts(2_000_000));
 
-        assert!(original.created_at <= ts(2_000_000));
+        assert!(matches!(
+            validate_bilateral_settlement_transition(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
     }
 
     #[test]
-    fn bilateral_settlement_identity_fields_are_conceptually_immutable() {
+    fn bilateral_settlement_transition_rejects_term_swaps() {
         let original = valid_bilateral_settlement();
-        let mut updated = original.clone();
-        updated.debtor_dao_did = "did:mycelix:attacker".into();
-        assert_ne!(original.debtor_dao_did, updated.debtor_dao_did);
 
-        updated = original.clone();
-        updated.amount = 99;
-        assert_ne!(original.amount, updated.amount);
+        for mutate in [
+            |x: &mut BilateralSettlement| x.id = "attacker".into(),
+            |x: &mut BilateralSettlement| x.debtor_dao_did = "did:mycelix:attacker".into(),
+            |x: &mut BilateralSettlement| x.creditor_dao_did = "did:mycelix:attacker".into(),
+            |x: &mut BilateralSettlement| x.amount = 99,
+            |x: &mut BilateralSettlement| x.created_at = ts(2_000_000),
+        ] {
+            let mut updated = original.clone();
+            mutate(&mut updated);
+            updated.status = SettlementStatus::Completed;
+            updated.completed_at = Some(ts(2_000_000));
+
+            assert!(matches!(
+                validate_bilateral_settlement_transition(&original, &updated),
+                ValidateCallbackResult::Invalid(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn bilateral_settlement_transition_rejects_invalid_terminal_state() {
+        let original = valid_bilateral_settlement();
+
+        let mut missing_time = original.clone();
+        missing_time.status = SettlementStatus::Completed;
+        assert!(matches!(
+            validate_bilateral_settlement_transition(&original, &missing_time),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut backwards_time = original.clone();
+        backwards_time.status = SettlementStatus::Failed;
+        backwards_time.completed_at = Some(ts(500_000));
+        assert!(matches!(
+            validate_bilateral_settlement_transition(&original, &backwards_time),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn bilateral_settlement_transition_rejects_repeated_terminal_transition() {
+        let mut original = valid_bilateral_settlement();
+        original.status = SettlementStatus::Completed;
+        original.completed_at = Some(ts(2_000_000));
+
+        let mut updated = original.clone();
+        updated.completed_at = Some(ts(3_000_000));
+
+        assert!(matches!(
+            validate_bilateral_settlement_transition(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     fn valid_hearth_balance() -> HearthTendBalance {
