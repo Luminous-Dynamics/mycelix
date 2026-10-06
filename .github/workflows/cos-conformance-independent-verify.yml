@@ -427,7 +427,42 @@ jobs:
           assert report["case_count"] == 32
           assert report["untested_formal_obligations"] == []
           assert report["claim_ceiling"] == "ReferenceModelOnly"
+          assert report["claim_scope"].startswith("Semantic conformance of this reference harness only;")
           assert "verified_score" not in json.dumps(report, sort_keys=True)
+
+          expected = {
+              "COS-N-001": (["COS-FV-002", "COS-FV-007"], "Rejected", "Accepted", "Plan/execution semantic conformance only."),
+              "COS-N-002": (["COS-FV-002"], "Rejected", "Accepted", "Planned-vs-consumed evidence separation only."),
+              "COS-N-003": (["COS-FV-003"], "Rejected", "Accepted", "Temporal availability binding only."),
+              "COS-N-004": (["COS-FV-003"], "Rejected", "Accepted", "Machine capability/availability separation only."),
+              "COS-N-005": (["COS-FV-005"], "Stale", "Accepted", "Freshness semantics only."),
+              "COS-N-006": (["COS-FV-004"], "Rejected", "Accepted", "Output qualification boundary only."),
+              "COS-N-007": (["COS-FV-002"], "Rejected", "Accepted", "Single-run/general-capability separation only."),
+              "COS-N-008": (["COS-FV-006"], "Rejected", "Accepted", "Historical failure immutability only."),
+              "COS-N-009": (["COS-FV-009"], "Rejected", "Accepted", "External dependency provenance only."),
+              "COS-N-010": (["COS-FV-008"], "Rejected", "Accepted", "FRS projection/source-observation separation only."),
+              "COS-N-011": (["COS-FV-001"], "Rejected", "Accepted", "Production/ITC projection separation only."),
+              "COS-N-012": (["COS-FV-001"], "Rejected", "Accepted", "ITC/physical-work separation only."),
+              "COS-N-013": (["COS-FV-010"], "Rejected", "Accepted", "Foreign/local provenance separation only."),
+              "COS-N-014": (["COS-FV-008"], "Unauthorized", "Accepted", "Authorization/effect separation only."),
+              "COS-N-015": (["COS-FV-004"], "Rejected", "Accepted", "Distribution/quality separation only."),
+              "COS-N-016": (["COS-FV-001"], "Rejected", "Accepted", "Explicit-denominator arithmetic claim only."),
+          }
+          records = report["records"]
+          assert isinstance(records, list) and len(records) == len(expected)
+          observed_ids = [record["test_id"] for record in records]
+          assert len(observed_ids) == len(set(observed_ids))
+          assert set(observed_ids) == set(expected)
+          for record in records:
+              test_id = record["test_id"]
+              obligations, expected_negative, expected_positive, case_ceiling = expected[test_id]
+              assert record["formal_obligations"] == obligations
+              assert record["expected_negative"] == expected_negative
+              assert record["actual_negative"] == expected_negative
+              assert record["expected_positive"] == expected_positive
+              assert record["actual_positive"] == expected_positive
+              assert record["claim_ceiling"] == case_ceiling
+              assert record["refinement_status"] == "ReferenceModelOnly"
           PY
 
       - name: Write independent verification envelope
