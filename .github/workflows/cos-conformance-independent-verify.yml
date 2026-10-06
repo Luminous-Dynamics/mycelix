@@ -24,6 +24,13 @@ concurrency:
 
 jobs:
   prepare:
+    # Manual dispatches are explicit targets. Automatic runs only make sense
+    # when the upstream Evidence workflow actually ran for a pull request.
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'workflow_run' &&
+           github.event.workflow_run.event == 'pull_request' &&
+           github.event.workflow_run.pull_requests[0].number != '') }}
     name: Prepare trusted verification target
     runs-on: ubuntu-latest
     timeout-minutes: 10
