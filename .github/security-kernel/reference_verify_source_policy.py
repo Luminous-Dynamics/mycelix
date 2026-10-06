@@ -121,6 +121,8 @@ def verify_s2(raw: bytes) -> None:
     require_exact(lines, "workflow_run:", "S2 trigger")
     require_exact(lines, 'workflows: ["Security Kernel Qualification — Trusted Dispatcher"]', "S2 workflow trigger")
     require_exact(lines, "types: [completed]", "S2 trigger type")
+    if exact_count(lines, re.escape("workflow_dispatch:")):
+        fail("S2 must not expose workflow_dispatch")
     require_permission_block(lines, 1, "S2 permissions")
     require_exact(lines, "cache-mode: none", "S2 cache mode")
     require_exact(lines, "ref: " + "$" + "{{ github.workflow_sha }}", "S2 exact-workflow checkout")
@@ -128,6 +130,11 @@ def verify_s2(raw: bytes) -> None:
     require_exact(lines, "persist-credentials: false", "S2 checkout credentials")
     require_exact(lines, 'test "$GITHUB_REF_PROTECTED" = "true"', "S2 protected-ref check")
     require_exact(lines, 'test "$GITHUB_REF" = "refs/heads/main"', "S2 main-ref check")
+    require_exact(lines, 'TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "ac91d40e653b1ed2ddeb4b7d7111954d0fa4f4bb"', "S2 S0 pin")
+    require_exact(lines, 'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"', "S2 S1 pin")
+    require_exact(lines, 'REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"', "S2 binding oracle path")
+    require_exact(lines, 'CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"', "S2 causal oracle path")
+    require_exact(lines, 'SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"', "S2 policy oracle path")
     forbid(lines, ("actions: write", "contents: write", "pull-requests: write", "id-token:", "actions/upload-artifact@", "docker run ", "docker exec "), "S2 read-only verifier boundary")
     verify_action_pins(lines, {"actions/checkout": CHECKOUT_SHA})
 
