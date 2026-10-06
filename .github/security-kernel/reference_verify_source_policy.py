@@ -210,6 +210,35 @@ def require_explicit_bash_for_run_steps(lines_: list[str], description: str) -> 
             fail(f"{description}: every trusted run step must explicitly declare shell: bash")
 
 
+def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
+    current_name = None
+    counts = {}
+    def flush() -> None:
+        if counts:
+            duplicates = sorted(key for key, count in counts.items() if count > 1)
+            if duplicates:
+                fail(f"{description}: duplicate step mapping keys under {current_name!r}: {duplicates!r}")
+    for line in lines_:
+        step_match = re.match(r"^\s{6}- name: (.+)$", line)
+        if step_match:
+            flush()
+            current_name = step_match.group(1)
+            counts = {}
+            continue
+        if re.match(r"^\s{6}- ", line):
+            flush()
+            current_name = None
+            counts = {}
+            continue
+        if current_name is None:
+            continue
+        key_match = re.fullmatch(r"\s{8}([A-Za-z0-9_-]+):(?:\s+.*)?", line)
+        if key_match:
+            key = key_match.group(1)
+            counts[key] = counts.get(key, 0) + 1
+    flush()
+
+
 def require_no_yaml_reuse_syntax(lines_: list[str], description: str) -> None:
     for line in lines_:
         # Block-scalar command bodies are intentionally excluded; only structural YAML
@@ -280,6 +309,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_no_fail_open_controls(l, "S0")
     require_no_yaml_reuse_syntax(l, S0)
     require_explicit_bash_for_run_steps(l, S0)
+    require_no_duplicate_step_keys(l, S0)
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
         fail("S0 must remain metadata-only")
@@ -318,6 +348,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_fail_open_controls(l, "S1")
     require_no_yaml_reuse_syntax(l, S1)
     require_explicit_bash_for_run_steps(l, S1)
+    require_no_duplicate_step_keys(l, S1)
     for required in (
         "--network=bridge",
         "--network=none",
@@ -392,6 +423,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_no_fail_open_controls(l, "S2")
     require_no_yaml_reuse_syntax(l, S2)
     require_explicit_bash_for_run_steps(l, S2)
+    require_no_duplicate_step_keys(l, S2)
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
     require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: success()", "S2 transcript download gate")
