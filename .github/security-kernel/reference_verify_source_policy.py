@@ -885,6 +885,32 @@ def main() -> None:
         "S2 unapproved step conditional",
     )
 
+    def inject_quoted_structural_key(raw: bytes) -> bytes:
+        marker = b"jobs:\n"
+        if marker not in raw:
+            fail("quoted-key regression fixture marker missing")
+        return raw.replace(marker, b'\"defaults\":\n  run:\n    shell: bash\n' + marker, 1)
+
+    expect_rejection(
+        lambda: verify_s0(inject_quoted_structural_key(raw["s0"]), s1_sha),
+        "S0 quoted structural key",
+    )
+    expect_rejection(
+        lambda: verify_s1(inject_quoted_structural_key(raw["s1"]), s1_sha),
+        "S1 quoted structural key",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_quoted_structural_key(raw["s2"]),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 quoted structural key",
+    )
+
     print(json.dumps({
         "schema": SCHEMA,
         "policy_result": "verified",
