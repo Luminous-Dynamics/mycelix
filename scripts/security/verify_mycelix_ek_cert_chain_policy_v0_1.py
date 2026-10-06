@@ -554,11 +554,13 @@ def _extension_sequence_content(info: dict[str, Any], oid: str, label: str) -> t
 
 
 def validate_aia(info: dict[str, Any]) -> bool:
-    _critical, content = _extension_sequence_content(
+    critical, content = _extension_sequence_content(
         info, "1.3.6.1.5.5.7.1.1", "AuthorityInformationAccess"
     )
     if content is None:
         return True
+    if critical:
+        raise ValueError("AuthorityInformationAccess MUST be non-critical")
     descriptions = der_children(content)
     if not descriptions:
         raise ValueError("AuthorityInformationAccess must contain AccessDescription")
@@ -568,18 +570,22 @@ def validate_aia(info: dict[str, Any]) -> bool:
         children = der_children(description)
         if len(children) != 2 or children[0][0] != 0x06:
             raise ValueError("AuthorityInformationAccess AccessDescription structure invalid")
-        oid_string(children[0][1])
+        access_method = oid_string(children[0][1])
+        if access_method not in {"1.3.6.1.5.5.7.48.1", "1.3.6.1.5.5.7.48.2"}:
+            raise ValueError("AuthorityInformationAccess accessMethod is not id-ad-ocsp or id-ad-caIssuers")
         if children[1][0] not in {0xA0, 0x81, 0x82, 0xA4, 0xA5, 0x86, 0x87, 0x88}:
             raise ValueError("AuthorityInformationAccess accessLocation GeneralName invalid")
     return True
 
 
 def validate_cdp(info: dict[str, Any]) -> bool:
-    _critical, content = _extension_sequence_content(
+    critical, content = _extension_sequence_content(
         info, "2.5.29.31", "CRLDistributionPoints"
     )
     if content is None:
         return True
+    if critical:
+        raise ValueError("CRLDistributionPoints MUST be non-critical")
     points = der_children(content)
     if not points:
         raise ValueError("CRLDistributionPoints must contain DistributionPoint")
@@ -608,11 +614,13 @@ def validate_cdp(info: dict[str, Any]) -> bool:
 
 
 def validate_subject_directory_attributes(info: dict[str, Any]) -> bool:
-    _critical, content = _extension_sequence_content(
+    critical, content = _extension_sequence_content(
         info, "2.5.29.9", "SubjectDirectoryAttributes"
     )
     if content is None:
         return True
+    if critical:
+        raise ValueError("SubjectDirectoryAttributes MUST be non-critical")
     attributes = der_children(content)
     if not attributes:
         raise ValueError("SubjectDirectoryAttributes must contain Attribute")
