@@ -591,6 +591,7 @@ jobs:
               output.write(f"evidence_binding_sha256={evidence_binding_digest}\n")
               output.write(f"sandbox_negative_controls_log_sha256={receipt['sandbox_negative_controls_log_sha256']}\n")
               output.write(f"receipt_artifact_expires_at={receipt_expires_at}\n")
+              output.write(f"source_policy_reference_result_sha256={source_policy_reference_result_sha256}\n")
           print("PASS: trusted metadata and artifact identity are ready for independent direct-file verification")
 
           print(json.dumps({
@@ -929,6 +930,7 @@ jobs:
           EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_SIZE: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_size }}
           EXPECTED_NEGATIVE_CONTROLS_LOG_SHA256: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_content_sha256 }}
           EVIDENCE_RETENTION_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.evidence_retention_binding_sha256 }}
+          SOURCE_POLICY_REFERENCE_RESULT_SHA256: ${{ steps.verify_result.outputs.source_policy_reference_result_sha256 }}
            RETENTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.retention_reference_binding_sha256 }}
           EXPECTED_ARTIFACT_NAME: ${{ steps.verify_result.outputs.artifact_name }}
           EXPECTED_ARTIFACT_DIGEST: ${{ steps.verify_result.outputs.artifact_digest }}
@@ -980,4 +982,4 @@ jobs:
           printf "evidence_retention_binding_sha256=%s\nnegative_controls_log_artifact_id=%s\nnegative_controls_log_artifact_name=%s\nnegative_controls_log_artifact_digest=%s\nnegative_controls_log_content_sha256=%s\n" "$EVIDENCE_RETENTION_BINDING_SHA256" "${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST" "$negative_controls_digest"
           printf "%s\n" "$EXECUTION_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
           printf "%s\n" "$EVIDENCE_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
-          printf 'candidate_sha=%s\ncandidate_pr=%s\ncandidate_repository=%s\ncandidate_repository_id=%s\ntrusted_dispatcher_workflow_sha=%s\ntrusted_dispatcher_workflow_blob_sha=%s\ntrusted_s1_workflow_blob_sha=%s\nexecution_binding_sha256=%s\nevidence_binding_sha256=%s\nverifier_workflow_sha=%s\nverifier_workflow_blob_sha=%s\nqualification_receipt_artifact_id=%s\nqualification_receipt_artifact_digest=%s\nqualification_receipt_content_sha256=%s\nindependent_qualification=verified-pass\nstatus_publication=deliberately-deferred-to-protected-status-plane\n' "$CANDIDATE_SHA" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$TRUSTED_WORKFLOW_SHA" "$S0_BLOB_SHA" "$S1_BLOB_SHA" "$EXECUTION_BINDING_SHA256" "$EVIDENCE_BINDING_SHA256" "$VERIFIER_WORKFLOW_SHA" "$VERIFIER_BLOB_SHA" "$ARTIFACT_ID" "$EXPECTED_ARTIFACT_DIGEST" "$actual_digest"
+          printf 'candidate_sha=%s\ncandidate_pr=%s\ncandidate_repository=%s\ncandidate_repository_id=%s\ntrusted_dispatcher_workflow_sha=%s\ntrusted_dispatcher_workflow_blob_sha=%s\ntrusted_s1_workflow_blob_sha=%s\nexecution_binding_sha256=%s\nevidence_binding_sha256=%s\nretention_reference_binding_sha256=%s\nsource_policy_reference_result_sha256=%s\nverifier_workflow_sha=%s\nverifier_workflow_blob_sha=%s\nqualification_receipt_artifact_id=%s\nqualification_receipt_artifact_digest=%s\nqualification_receipt_content_sha256=%s\nindependent_qualification=verified-pass\nstatus_publication=deliberately-deferred-to-protected-status-plane\n' "$CANDIDATE_SHA" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$TRUSTED_WORKFLOW_SHA" "$S0_BLOB_SHA" "$S1_BLOB_SHA" "$EXECUTION_BINDING_SHA256" "$EVIDENCE_BINDING_SHA256" "$RETENTION_REFERENCE_BINDING_SHA256" "$SOURCE_POLICY_REFERENCE_RESULT_SHA256" "$VERIFIER_WORKFLOW_SHA" "$VERIFIER_BLOB_SHA" "$ARTIFACT_ID" "$EXPECTED_ARTIFACT_DIGEST" "$actual_digest"
