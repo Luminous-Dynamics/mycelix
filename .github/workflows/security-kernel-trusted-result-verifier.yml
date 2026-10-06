@@ -618,20 +618,17 @@ jobs:
           print(f"PASS: final retained-evidence binding SHA-256={evidence_binding_digest}")
 
           for key in ("candidate_cargo_lock_sha256", "candidate_source_digest", "vendor_digest", "sandbox_negative_controls_log_sha256"):
-              assert receipt.get("source_volume_name", "").startswith("security-kernel-source-"), "source volume name is not bound to the S1 execution identity"
-              assert re.fullmatch(r"security-kernel-source-[0-9]+-[0-9]+", receipt.get("source_volume_name", "")), "source volume name is not canonical"
               assert re.fullmatch(r"[0-9a-f]{64}", receipt.get(key, "")), (
                   f"qualification receipt field {key!r} is not a SHA-256 digest"
               )
+          expected_source_volume_name = f"security-kernel-source-{run_id}-{run_attempt}"
+          assert receipt["source_volume_name"] == expected_source_volume_name, "source volume name is not bound to exact S1 run identity"
           for key in (
               "candidate_source_tree_entry_count","candidate_source_file_count","candidate_source_total_path_bytes",
               "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
-              "source_max_bytes","source_max_inodes","source_copy_bytes","source_copy_files","source_copy_inodes","s1_run_id","s1_run_attempt",
-              "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
               "source_max_bytes","source_max_inodes","source_copy_bytes","source_copy_files","source_copy_inodes",
-              "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count",
-              "candidate_cargo_lock_dependency_edges","vendor_max_bytes","vendor_max_files","vendor_max_inodes",
-              "vendor_tmpfs_nr_inodes","vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","s1_run_id","s1_run_attempt",
+              "vendor_max_bytes","vendor_max_files","vendor_max_inodes","vendor_tmpfs_nr_inodes",
+              "vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","s1_run_id","s1_run_attempt",
           ):
               assert re.fullmatch(r"[0-9]+", receipt.get(key, "")), (
                   f"qualification receipt field {key!r} is not a canonical non-negative integer"
