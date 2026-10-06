@@ -14,3 +14,5 @@ The reference mapping and certificate are synthetic fixtures. ReferenceModelOnly
 The certificate SAN is not compared directly with caller-supplied TPM values. The verifier requires a properties_binding containing the exact properties-fixed receipt, then re-executes the TPM properties verifier as a separate process and consumes only its parsed result. The input and output receipts, verifier source digest, and property-source digest are all bound into the SAN session identity.
 
 Unknown vendor/model/version mappings remain INDETERMINATE. A valid certificate and valid SPKI key do not by themselves establish that the certificate describes the current TPM implementation.
+
+The SAN parser is DER-native at the GeneralName/RDN boundary. Human-readable OpenSSL extension text is not treated as authoritative. The corpus includes an explicit URI/DirName type-confusion regression.
