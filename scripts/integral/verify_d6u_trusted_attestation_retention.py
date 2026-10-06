@@ -110,6 +110,8 @@ def expected_verify_command(
         subject_path,
         "--repo",
         repository,
+        "--limit",
+        "8",
     ]
     if bundle_path is not None:
         command.extend(["--bundle", bundle_path])
