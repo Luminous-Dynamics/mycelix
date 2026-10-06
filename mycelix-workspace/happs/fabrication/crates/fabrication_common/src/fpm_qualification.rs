@@ -79,7 +79,10 @@ pub enum RegistrationQualificationReason {
     EmptyVerifierIdentity,
     EmptyVerifierVersion,
     EnvelopeDigestMismatch,
-    RegistrationNotConsistent,
+    RegistrationUnregistered,
+    RegistrationConflicting,
+    RegistrationInvalid,
+    RegistrationUnknown,
     MissingCommittedArtifact,
     ArtifactDigestMismatch,
     DuplicateArtifact,
@@ -164,10 +167,22 @@ pub fn qualify_registration(
         }
     }
 
-    if profile.requires_consistent_registration
-        && input.envelope.assess() != RegistrationState::Consistent
-    {
-        reasons.insert(RegistrationQualificationReason::RegistrationNotConsistent);
+    if profile.requires_consistent_registration {
+        match input.envelope.assess() {
+            RegistrationState::Consistent => {}
+            RegistrationState::Unregistered => {
+                reasons.insert(RegistrationQualificationReason::RegistrationUnregistered);
+            }
+            RegistrationState::Conflicting => {
+                reasons.insert(RegistrationQualificationReason::RegistrationConflicting);
+            }
+            RegistrationState::Invalid => {
+                reasons.insert(RegistrationQualificationReason::RegistrationInvalid);
+            }
+            RegistrationState::Unknown => {
+                reasons.insert(RegistrationQualificationReason::RegistrationUnknown);
+            }
+        }
     }
 
     let expected = expected_artifacts(&input.envelope);
@@ -217,10 +232,11 @@ pub fn qualify_registration(
                 | RegistrationQualificationReason::ArtifactDigestMismatch
                 | RegistrationQualificationReason::DuplicateArtifact
                 | RegistrationQualificationReason::UnexpectedArtifact
+                | RegistrationQualificationReason::RegistrationInvalid
         )
     }) {
         RegistrationQualificationStatus::InvalidEvidence
-    } else if reasons.contains(&RegistrationQualificationReason::RegistrationNotConsistent) {
+    } else if reasons.contains(&RegistrationQualificationReason::RegistrationConflicting) {
         RegistrationQualificationStatus::ConflictingEvidence
     } else {
         RegistrationQualificationStatus::InsufficientEvidence
@@ -320,8 +336,8 @@ mod tests {
                 correlation_domain: "printer-frame-domain-1".into(),
                 correlation_id: format!("frame-{sequence}"),
                 source_timestamp_micros: Some(1_000_000),
-                calibration_profile_digest: digest('a'),
-                process_context_digest: digest('b'),
+                calibration_profile_digest: hex_digest(b"calibration-profile-v1"),
+                process_context_digest: hex_digest(b"process-context-v1"),
                 source_data_digest: source_data_digest.clone(),
             },
             ResolvedEvidenceArtifact {
@@ -343,17 +359,22 @@ mod tests {
         };
         let registration_envelope_digest = envelope.digest().expect("envelope digest");
 
+        let calibration_bytes = b"calibration-profile-v1";
+        let calibration_digest = hex_digest(calibration_bytes);
+        let context_bytes = b"process-context-v1";
+        let context_digest = hex_digest(context_bytes);
+
         let artifacts = vec![
             source_artifact,
             related_source_artifact,
             ResolvedEvidenceArtifact {
-                declared_digest: digest('a'),
-                bytes: vec![0u8; 32],
+                declared_digest: calibration_digest,
+                bytes: calibration_bytes.to_vec(),
                 kind: EvidenceKind::CalibrationProfile,
             },
             ResolvedEvidenceArtifact {
-                declared_digest: digest('b'),
-                bytes: vec![1u8; 32],
+                declared_digest: context_digest,
+                bytes: context_bytes.to_vec(),
                 kind: EvidenceKind::ProcessContext,
             },
         ];
@@ -404,11 +425,11 @@ mod tests {
 
         assert_eq!(
             qualification.status,
-            RegistrationQualificationStatus::InsufficientEvidence
+            RegistrationQualificationStatus::InvalidEvidence
         );
         assert!(qualification
             .reasons
-            .contains(&RegistrationQualificationReason::MissingCommittedArtifact));
+            .contains(&RegistrationQualificationReason::UnexpectedArtifact));
     }
 
     #[test]
