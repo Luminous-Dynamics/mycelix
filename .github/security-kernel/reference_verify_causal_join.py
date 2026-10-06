@@ -173,6 +173,15 @@ def verify(snapshot: object) -> dict:
     if snapshot["schema"] != SCHEMA:
         fail(f"unexpected snapshot schema: {snapshot['schema']!r}")
 
+    event = need(snapshot["event"], "workflow_run event identity")
+    assert set(event) == {
+        "run_id",
+        "run_attempt",
+        "verifier_workflow_sha",
+        "verifier_workflow_blob_sha",
+        "reference_verifier_blob_sha",
+        "causal_join_verifier_blob_sha",
+    }
     repository = need(snapshot["repository"], "repository object")
     run = need(snapshot["run"], "workflow run")
     pr = need(snapshot["pull_request"], "pull request")
@@ -181,7 +190,6 @@ def verify(snapshot: object) -> dict:
     artifact_total_count = snapshot["artifact_list_total_count"]
     assert type(artifact_total_count) is int and artifact_total_count == 1
     artifact_by_id = need(snapshot["artifact_id_view"], "artifact ID view")
-    event = need(snapshot["event"], "workflow_run event identity")
     receipt = parse_receipt(snapshot["receipt_text"])
 
     assert repository["full_name"] == BASE_REPOSITORY
@@ -409,8 +417,17 @@ def assert_mutation_rejected(snapshot: dict) -> int:
     add("run SHA", ("run", "workflow_sha"), "2" * 40)
     add("run title", ("run", "display_title"), snapshot["run"]["display_title"] + "-mutated")
     add("PR head SHA", ("pull_request", "head", "sha"), "3" * 40)
-    add("resolver job id", ("jobs", 0, "id"), snapshot["jobs"][0]["id"] + 1)
-    add("S1 job id", ("jobs", 1, "id"), snapshot["jobs"][1]["id"] + 1)
+    resolver_index = next(
+        i for i, job in enumerate(snapshot["jobs"])
+        if job.get("name") == "Resolve exact pull request subject"
+    )
+    s1_index = next(
+        i for i, job in enumerate(snapshot["jobs"])
+        if job.get("name") == EXPECTED_JOB_NAME
+        or job.get("name", "").endswith(" / " + EXPECTED_JOB_NAME)
+    )
+    add("resolver job id", ("jobs", resolver_index, "id"), snapshot["jobs"][resolver_index]["id"] + 1)
+    add("S1 job id", ("jobs", s1_index, "id"), snapshot["jobs"][s1_index]["id"] + 1)
     add("artifact list total", ("artifact_list_total_count",), 2)
     add("artifact name", ("artifact_list_view", "name"), snapshot["artifact_list_view"]["name"] + "-mutated")
     add("artifact id", ("artifact_list_view", "id"), snapshot["artifact_list_view"]["id"] + 1)
