@@ -1472,6 +1472,11 @@ def test_attestation_verifier_accepts_current_run() -> None:
                 "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
                 "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
                 "D6U_TRUSTED_POLICY_VERSION": "22",
+                "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+                "D6U_TRIGGER_HEAD_SHA": "b" * 40,
+                "D6U_TRIGGER_RUN_ID": "42",
+                "D6U_TRIGGER_RUN_ATTEMPT": "3",
             },
             clear=False,
         ), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
@@ -1499,6 +1504,11 @@ def test_attestation_verifier_rejects_old_run() -> None:
                 "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
                 "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
                 "D6U_TRUSTED_POLICY_VERSION": "22",
+                "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+                "D6U_TRIGGER_HEAD_SHA": "b" * 40,
+                "D6U_TRIGGER_RUN_ID": "42",
+                "D6U_TRIGGER_RUN_ATTEMPT": "3",
             },
             clear=False,
         ), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
@@ -1530,6 +1540,11 @@ def test_commitment_attestation_rejects_canonical_predicate_tampering() -> None:
             "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
             "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
             "D6U_TRUSTED_POLICY_VERSION": "22",
+            "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "b" * 40,
+            "D6U_TRIGGER_RUN_ID": "42",
+            "D6U_TRIGGER_RUN_ATTEMPT": "3",
         }, clear=False), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
             assert_rejected(lambda: verifier.main(), "tampered canonical predicate was accepted")
 
@@ -1551,6 +1566,11 @@ def test_commitment_attestation_rejects_hash_mismatch() -> None:
             "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
             "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
             "D6U_TRUSTED_POLICY_VERSION": "22",
+            "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "b" * 40,
+            "D6U_TRIGGER_RUN_ID": "42",
+            "D6U_TRIGGER_RUN_ATTEMPT": "3",
         }, clear=False), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
             assert_rejected(lambda: verifier.main(), "attestation hash mismatch was accepted")
 
@@ -1569,6 +1589,11 @@ def test_commitment_attestation_requires_verified_timestamp() -> None:
             "GITHUB_RUN_ATTEMPT": "3",
             "GITHUB_SHA": "a" * 40,
             "D6U_TRUSTED_POLICY_VERSION": "22",
+            "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "b" * 40,
+            "D6U_TRIGGER_RUN_ID": "42",
+            "D6U_TRIGGER_RUN_ATTEMPT": "3",
         }, clear=False):
             assert verifier.verify_commitment_entry(entry, synthetic_record(), subjects, canonical_sha) is False
 
@@ -1588,6 +1613,11 @@ def test_commitment_attestation_rejects_non_tlog_timestamp() -> None:
             "GITHUB_RUN_ATTEMPT": "3",
             "GITHUB_SHA": "a" * 40,
             "D6U_TRUSTED_POLICY_VERSION": "22",
+            "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "b" * 40,
+            "D6U_TRIGGER_RUN_ID": "42",
+            "D6U_TRIGGER_RUN_ATTEMPT": "3",
         }, clear=False):
             assert verifier.verify_commitment_entry(entry, synthetic_record(), subjects, canonical_sha) is False
 
@@ -1610,6 +1640,11 @@ def test_commitment_attestation_subject_set_is_order_independent_but_exact() -> 
             "GITHUB_RUN_ATTEMPT": "3",
             "GITHUB_SHA": "a" * 40,
             "D6U_TRUSTED_POLICY_VERSION": "22",
+            "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "b" * 40,
+            "D6U_TRIGGER_RUN_ID": "42",
+            "D6U_TRIGGER_RUN_ATTEMPT": "3",
         }, clear=False):
             assert verifier.verify_commitment_entry(current, synthetic_record(), subjects, canonical_sha) is True
             assert verifier.verify_commitment_entry(duplicate, synthetic_record(), subjects, canonical_sha) is False
@@ -1630,6 +1665,11 @@ def test_commitment_attestation_accepts_current_run_and_rejects_old_run() -> Non
             "GITHUB_RUN_ATTEMPT": "3",
             "GITHUB_SHA": "a" * 40,
             "D6U_TRUSTED_POLICY_VERSION": "22",
+            "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "b" * 40,
+            "D6U_TRIGGER_RUN_ID": "42",
+            "D6U_TRIGGER_RUN_ATTEMPT": "3",
         }, clear=False):
             assert verifier.verify_commitment_entry(current, synthetic_record(), subjects, canonical_sha) is True
             assert verifier.verify_commitment_entry(old, synthetic_record(), subjects, canonical_sha) is False
