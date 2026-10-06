@@ -8,13 +8,13 @@ set -euo pipefail
 # The public standalone projection is:
 #   mycelix-finance/
 #
-# The two trees intentionally have different standalone-specific files, and
-# their flake.nix files differ because the layouts require different relative
-# paths. Every other overlapping tracked file must be byte-identical.
+# The two trees intentionally have different standalone-specific files.
+# Every overlapping tracked file must be byte-identical after applying only
+# the single deterministic Finance layout rewrite for flake.nix:
+#   ../../nix/modules/holochain-base.nix -> ../nix/modules/holochain-base.nix
 
 canonical_root="mycelix-workspace/mycelix-finance"
 projection_root="mycelix-finance"
-intentionally_different="flake.nix"
 
 test -d "$canonical_root"
 test -d "$projection_root"
@@ -36,19 +36,24 @@ mismatch_count=0
 while IFS= read -r rel; do
   [ -n "$rel" ] || continue
 
-  # Layout-specific flake files are intentionally different and are documented
-  # as such in the source-of-truth record.
-  if [ "$rel" = "$intentionally_different" ]; then
-    continue
-  fi
-
   common_count=$((common_count + 1))
   canonical_blob="$(git rev-parse "HEAD:$canonical_root/$rel")"
   projection_blob="$(git rev-parse "HEAD:$projection_root/$rel")"
 
-  if [ "$canonical_blob" != "$projection_blob" ]; then
-    printf 'SOURCE_PARITY_MISMATCH %s canonical=%s projection=%s\n' \
-      "$rel" "$canonical_blob" "$projection_blob"
+  if [ "$rel" = "flake.nix" ]; then
+    # The projection may change only the one relative path required by the
+    # standalone directory layout. Compare its exact blob against the
+    # canonical file after that deterministic transformation.
+    canonical_content="$(git show "HEAD:$canonical_root/$rel")"
+    expected_content="$(printf '%s' "$canonical_content" |       sed 's#../../nix/modules/holochain-base.nix#../nix/modules/holochain-base.nix#g')"
+    expected_blob="$(printf '%s' "$expected_content" | git hash-object --stdin)"
+
+    if [ "$projection_blob" != "$expected_blob" ]; then
+      printf 'SOURCE_PARITY_MISMATCH %s canonical=%s expected_projection=%s actual_projection=%s\n'         "$rel" "$canonical_blob" "$expected_blob" "$projection_blob"
+      mismatch_count=$((mismatch_count + 1))
+    fi
+  elif [ "$canonical_blob" != "$projection_blob" ]; then
+    printf 'SOURCE_PARITY_MISMATCH %s canonical=%s projection=%s\n'       "$rel" "$canonical_blob" "$projection_blob"
     mismatch_count=$((mismatch_count + 1))
   fi
 done < <(comm -12 <(printf '%s\n' "${canonical_paths[@]}") <(printf '%s\n' "${projection_paths[@]}"))
