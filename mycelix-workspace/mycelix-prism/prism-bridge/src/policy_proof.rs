@@ -144,6 +144,54 @@ impl PolicyJustificationSetV1 {
         Ok(Self { policy_digest, atoms })
     }
 
+    /// Bind each proof atom to a concrete ALLOW instruction in the
+    /// actual V2 filter emitted and semantically validated by PRISM.
+    #[cfg(target_os = "linux")]
+    pub fn validate_compiled_allow_paths(
+        &self,
+        policy: &SeccompSyscallPolicyV2,
+    ) -> Result<(), PolicyProofError> {
+        if self.policy_digest != policy.digest() {
+            return Err(PolicyProofError::PolicyDigestMismatch);
+        }
+
+        let paths = crate::seccomp::linux::compiled_v2_allow_paths(policy)
+            .map_err(|_| PolicyProofError::CompiledFilterMismatch)?;
+
+        if paths.len() != self.atoms.len() {
+            return Err(PolicyProofError::AllowPathCoverageMismatch);
+        }
+
+        for path in paths {
+            let clause_digest = Self::derive_clause_digest_for_index(
+                policy,
+                path.syscall,
+                path.clause_index,
+            )?;
+            if self.find(path.syscall, clause_digest).is_none() {
+                return Err(PolicyProofError::UnownedAllowPath {
+                    allow_pc: path.allow_pc,
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    fn derive_clause_digest_for_index(
+        policy: &SeccompSyscallPolicyV2,
+        syscall: i64,
+        clause_index: usize,
+    ) -> Result<[u8; 32], PolicyProofError> {
+        let rule = policy
+            .rules()
+            .iter()
+            .find(|rule| rule.syscall() == syscall)
+            .ok_or(PolicyProofError::ClauseOutOfRange)?;
+        Self::derive_clause_digest(rule, clause_index)
+    }
+
     pub fn policy_digest(&self) -> [u8; 32] { self.policy_digest }
     pub fn atoms(&self) -> &[PolicyAtomV1] { &self.atoms }
 
@@ -171,6 +219,10 @@ pub enum PolicyProofError {
     DuplicateAtom,
     MissingAtom,
     OrphanAtom,
+    PolicyDigestMismatch,
+    CompiledFilterMismatch,
+    AllowPathCoverageMismatch,
+    UnownedAllowPath { allow_pc: usize },
 }
 
 #[cfg(test)]
@@ -294,6 +346,37 @@ mod tests {
 
         assert_ne!(p1.digest(), p2.digest());
         assert_ne!(proof1.digest(), proof2.digest());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn every_compiled_allow_path_has_one_owned_atom() {
+        let policy = policy();
+        let proof = PolicyJustificationSetV1::new(&policy, atoms_for(&policy)).unwrap();
+        proof.validate_compiled_allow_paths(&policy).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn compiled_disjunction_has_one_owned_allow_per_clause() {
+        let first = SeccompArgPredicateV1::new(0, 0xff, 2).unwrap();
+        let second = SeccompArgPredicateV1::new(1, 0xff, 4).unwrap();
+        let rule = SeccompSyscallRuleV2::new_with_clauses(
+            libc::SYS_socket as i64,
+            vec![
+                SeccompSyscallClauseV2::new(vec![first]).unwrap(),
+                SeccompSyscallClauseV2::new(vec![second]).unwrap(),
+            ],
+        ).unwrap();
+        let policy = SeccompSyscallPolicyV2::new(
+            SeccompArchitecture::current().unwrap(),
+            vec![rule],
+        ).unwrap();
+        let paths = crate::seccomp::linux::compiled_v2_allow_paths(&policy).unwrap();
+        assert_eq!(paths.len(), 2);
+        assert_eq!(paths[0].clause_index, 0);
+        assert_eq!(paths[1].clause_index, 1);
+        assert_ne!(paths[0].allow_pc, paths[1].allow_pc);
     }
 
     #[test]
