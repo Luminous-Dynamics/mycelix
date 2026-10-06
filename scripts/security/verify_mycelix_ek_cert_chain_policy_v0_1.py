@@ -224,24 +224,50 @@ def der_children(sequence_content: bytes) -> list[tuple[int, bytes, bytes]]:
     return children
 
 
+def der_integer_value(content: bytes, field: str, *, positive: bool = False) -> int:
+    if not content:
+        raise ValueError(f"{field} INTEGER empty")
+    if content[0] & 0x80:
+        raise ValueError(f"{field} INTEGER negative")
+    if len(content) > 1 and content[0] == 0 and not (content[1] & 0x80):
+        raise ValueError(f"{field} INTEGER non-canonical leading zero")
+    value = int.from_bytes(content, "big")
+    if positive and value == 0:
+        raise ValueError(f"{field} INTEGER must be positive")
+    return value
+
+
+def oid_base128_value(content: bytes, offset: int, field: str) -> tuple[int, int]:
+    if offset >= len(content):
+        raise ValueError(f"{field} OID truncated")
+    value = 0
+    first = True
+    while True:
+        if offset >= len(content):
+            raise ValueError(f"{field} OID unterminated")
+        byte = content[offset]
+        offset += 1
+        if first and byte & 0x80 and (byte & 0x7F) == 0:
+            raise ValueError(f"{field} OID non-canonical base-128")
+        value = (value << 7) | (byte & 0x7F)
+        first = False
+        if byte & 0x80 == 0:
+            return value, offset
+
+
 def oid_string(content: bytes) -> str:
     if not content:
         raise ValueError("DER OID empty")
-    first = content[0]
-    first_arc = min(first // 40, 2)
-    second_arc = first - (40 * first_arc)
-    arcs = [first_arc, second_arc]
-    value = 0
-    have = False
-    for byte in content[1:]:
-        have = True
-        value = (value << 7) | (byte & 0x7F)
-        if byte & 0x80 == 0:
-            arcs.append(value)
-            value = 0
-            have = False
-    if have:
-        raise ValueError("DER OID unterminated")
+    first_subidentifier, offset = oid_base128_value(content, 0, "first")
+    if first_subidentifier < 40:
+        arcs = [0, first_subidentifier]
+    elif first_subidentifier < 80:
+        arcs = [1, first_subidentifier - 40]
+    else:
+        arcs = [2, first_subidentifier - 80]
+    while offset < len(content):
+        value, offset = oid_base128_value(content, offset, "arc")
+        arcs.append(value)
     return ".".join(str(x) for x in arcs)
 
 
@@ -252,6 +278,14 @@ def bit_string_has(bit_string_content: bytes, bit_number: int) -> bool:
     payload = bit_string_content[1:]
     if unused > 7:
         raise ValueError("DER BIT STRING invalid unused-bit count")
+    if not payload:
+        if unused != 0:
+            raise ValueError("DER BIT STRING empty payload has unused bits")
+        return False
+    if unused and payload[-1] & ((1 << unused) - 1):
+        raise ValueError("DER BIT STRING has non-zero padding bits")
+    if payload[-1] == 0 or (payload[-1] >> unused) == 0:
+        raise ValueError("DER BIT STRING has non-canonical trailing zero named bits")
     byte_index = bit_number // 8
     bit_mask = 0x80 >> (bit_number % 8)
     return byte_index < len(payload) and bool(payload[byte_index] & bit_mask)
@@ -272,9 +306,9 @@ def parse_extensions(extension_wrapper: bytes) -> dict[str, dict[str, Any]]:
         critical = False
         next_tag, next_content, _next_raw, next_offset = der_tlv(ext_content, offset)
         if next_tag == 0x01:
-            if len(next_content) != 1 or next_content not in (b"\x00", b"\xff"):
-                raise ValueError("X.509 Extension critical BOOLEAN invalid")
-            critical = next_content != b"\x00"
+            if next_content != b"\xff":
+                raise ValueError("X.509 Extension critical BOOLEAN must encode TRUE")
+            critical = True
             next_tag, next_content, _next_raw, next_offset = der_tlv(ext_content, next_offset)
         if next_tag != 0x04 or next_offset != len(ext_content):
             raise ValueError("X.509 Extension missing extnValue")
@@ -292,47 +326,84 @@ def parse_certificate_der(der: bytes) -> dict[str, Any]:
     tag, cert_content, _cert_raw, cert_end = der_tlv(der, 0)
     if tag != 0x30 or cert_end != len(der):
         raise ValueError("X.509 Certificate is not a single DER SEQUENCE")
-    tag, tbs_content, _tbs_raw, tbs_end = der_tlv(cert_content, 0)
+
+    tag, tbs_content, _tbs_raw, cert_cursor = der_tlv(cert_content, 0)
     if tag != 0x30:
         raise ValueError("X.509 TBSCertificate is not a SEQUENCE")
+    sig_alg_tag, _sig_alg_content, _sig_alg_raw, cert_cursor = der_tlv(cert_content, cert_cursor)
+    if sig_alg_tag != 0x30:
+        raise ValueError("X.509 certificate signatureAlgorithm is not a SEQUENCE")
+    sig_value_tag, sig_value_content, _sig_value_raw, cert_end = der_tlv(cert_content, cert_cursor)
+    if sig_value_tag != 0x03 or cert_end != len(cert_content):
+        raise ValueError("X.509 certificate signatureValue is malformed")
+    bit_string_has(sig_value_content, 0)
+
     cursor = 0
     version = 1
-    tag, content, raw, next_cursor = der_tlv(tbs_content, cursor)
+    tag, content, _raw, next_cursor = der_tlv(tbs_content, cursor)
     if tag == 0xA0:
         inner_tag, inner_content, _inner_raw, inner_end = der_tlv(content, 0)
         if inner_tag != 0x02 or inner_end != len(content):
             raise ValueError("X.509 version field invalid")
-        version = int.from_bytes(inner_content, "big") + 1
+        version_value = der_integer_value(inner_content, "X.509.version")
+        if version_value > 2:
+            raise ValueError("X.509 version value invalid")
+        version = version_value + 1
         cursor = next_cursor
-    else:
-        cursor = 0
+
     tag, serial_content, _serial_raw, cursor = der_tlv(tbs_content, cursor)
-    if tag != 0x02 or not serial_content:
-        raise ValueError("X.509 serial invalid")
-    serial = int.from_bytes(serial_content, "big")
-    _tag, _sig_content, _sig_raw, cursor = der_tlv(tbs_content, cursor)
-    issuer_tag, issuer_content, issuer_raw, cursor = der_tlv(tbs_content, cursor)
-    if issuer_tag not in (0x30, 0xA0, 0xA1, 0xA2, 0xA3):
+    if tag != 0x02:
+        raise ValueError("X.509 serial is not INTEGER")
+    serial = der_integer_value(serial_content, "X.509.serial", positive=True)
+
+    sig_tag, _sig_content, _sig_raw, cursor = der_tlv(tbs_content, cursor)
+    if sig_tag != 0x30:
+        raise ValueError("X.509 TBSCertificate signature is not a SEQUENCE")
+
+    issuer_tag, _issuer_content, issuer_raw, cursor = der_tlv(tbs_content, cursor)
+    if issuer_tag != 0x30:
         raise ValueError("X.509 issuer Name invalid")
-    _tag, _validity_content, _validity_raw, cursor = der_tlv(tbs_content, cursor)
-    subject_tag, _subject_content, subject_raw, cursor = der_tlv(tbs_content, cursor)
-    if subject_tag not in (0x30, 0xA0, 0xA1, 0xA2, 0xA3):
+
+    validity_tag, validity_content, _validity_raw, cursor = der_tlv(tbs_content, cursor)
+    if validity_tag != 0x30:
+        raise ValueError("X.509 validity is not a SEQUENCE")
+    validity = der_children(validity_content)
+    if len(validity) != 2 or any(tag not in (0x17, 0x18) or not content or content[-1] != 0x5A for tag, content, _ in validity):
+        raise ValueError("X.509 validity time structure invalid")
+
+    subject_tag, subject_content, subject_raw, cursor = der_tlv(tbs_content, cursor)
+    if subject_tag != 0x30:
         raise ValueError("X.509 subject Name invalid")
-    _tag, _spki_content, spki_raw, cursor = der_tlv(tbs_content, cursor)
+
+    spki_tag, _spki_content, spki_raw, cursor = der_tlv(tbs_content, cursor)
+    if spki_tag != 0x30:
+        raise ValueError("X.509 SubjectPublicKeyInfo invalid")
 
     extensions: dict[str, dict[str, Any]] = {}
+    saw_extensions = False
     while cursor < len(tbs_content):
-        tag, content, raw, cursor = der_tlv(tbs_content, cursor)
+        tag, content, _raw, cursor = der_tlv(tbs_content, cursor)
+        if tag in (0xA1, 0xA2):
+            if version != 3:
+                raise ValueError("X.509 unique ID present outside v3")
+            continue
         if tag == 0xA3:
+            if saw_extensions:
+                raise ValueError("X.509 Extensions wrapper duplicated")
+            if version != 3:
+                raise ValueError("X.509 Extensions present outside v3")
             extensions = parse_extensions(content)
-    if cursor != len(tbs_content):
-        raise ValueError("X.509 TBSCertificate trailing bytes")
+            saw_extensions = True
+            continue
+        raise ValueError("X.509 TBSCertificate contains unexpected trailing field")
+
     return {
         "version": version,
         "serial": serial,
         "issuer_der": issuer_raw,
         "subject_der": subject_raw,
         "spki_der": spki_raw,
+        "subject_empty": subject_content == b"",
         "extensions": extensions,
     }
 
@@ -354,16 +425,15 @@ def basic_constraints(info: dict[str, Any]) -> tuple[bool, bool]:
     children = der_children(content)
     if not children:
         return critical, True
-    if children[0][0] != 0x01 or len(children[0][1]) != 1:
-        raise ValueError("BasicConstraints missing cA BOOLEAN")
-    ca_false = children[0][1] == b"\x00"
-    if len(children) > 1:
-        # RFC 5280 forbids pathLenConstraint when cA is FALSE.
-        if ca_false:
-            raise ValueError("BasicConstraints pathLenConstraint present with CA=false")
+    if children[0][0] != 0x01 or children[0][1] != b"\xff":
+        raise ValueError("BasicConstraints cA BOOLEAN must encode TRUE when present")
+    if len(children) > 2:
+        raise ValueError("BasicConstraints contains unexpected fields")
+    if len(children) == 2:
         if children[1][0] != 0x02:
             raise ValueError("BasicConstraints pathLenConstraint malformed")
-    return critical, ca_false
+        der_integer_value(children[1][1], "BasicConstraints.pathLenConstraint")
+    return critical, True
 
 
 def key_usage_bits(info: dict[str, Any]) -> tuple[bool, bool, bool, bool]:
@@ -431,6 +501,57 @@ def subject_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
     return critical, content
 
 
+
+def subject_alt_name(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+    critical, value = extension_value(info, "2.5.29.17")
+    if value is None:
+        return critical, {"present": False, "directory_name_count": 0, "attributes": {}}
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x30 or end != len(value):
+        raise ValueError("SubjectAltName extension malformed")
+    general_names = der_children(content)
+    if not general_names:
+        raise ValueError("SubjectAltName must contain at least one GeneralName")
+    directory_names = 0
+    attributes: dict[str, list[str]] = {}
+    for gn_tag, gn_content, _gn_raw in general_names:
+        if gn_tag != 0xA4:
+            continue
+        directory_names += 1
+        name_tag, name_content, _name_raw, name_end = der_tlv(gn_content, 0)
+        if name_tag != 0x30 or name_end != len(gn_content):
+            raise ValueError("SubjectAltName directoryName is not a Name")
+        for rdn_tag, rdn_content, _rdn_raw in der_children(name_content):
+            if rdn_tag != 0x31:
+                raise ValueError("SubjectAltName RDN is not a SET")
+            attrs = der_children(rdn_content)
+            for attr_tag, attr_content, _attr_raw in attrs:
+                if attr_tag != 0x30:
+                    raise ValueError("SubjectAltName Attribute is not a SEQUENCE")
+                at_offset = 0
+                oid_tag, oid_content, _oid_raw, at_offset = der_tlv(attr_content, at_offset)
+                if oid_tag != 0x06:
+                    raise ValueError("SubjectAltName Attribute missing OID")
+                value_tag, value_content, _value_raw, value_end = der_tlv(attr_content, at_offset)
+                if value_tag != 0x31 or value_end != len(attr_content):
+                    raise ValueError("SubjectAltName Attribute value is not a SET")
+                values = der_children(value_content)
+                if len(values) != 1 or values[0][0] != 0x0C:
+                    raise ValueError("SubjectAltName TCG directory attribute must contain one UTF8String")
+                text_value = values[0][1].decode("utf-8")
+                if not text_value:
+                    raise ValueError("SubjectAltName TCG directory attribute is empty")
+                oid = oid_string(oid_content)
+                attributes.setdefault(oid, []).append(text_value)
+    return critical, {
+        "present": True,
+        "directory_name_count": directory_names,
+        "attributes": attributes,
+    }
+
+
+
+
 def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     bc_critical, ca_false = basic_constraints(info)
     ku_critical, key_encipherment, _crl_sign, key_cert_sign = key_usage_bits(info)
@@ -452,6 +573,25 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     eku_ok = not eku or EK_CERT_EKU_OID in eku
     eku_critical_ok = not eku_critical
     aki_critical_ok = not aki_critical
+    san_critical, san = subject_alt_name(info)
+    ski_critical, ski_value = subject_key_id(info)
+    tcg_san_oids = {"2.23.133.2.1", "2.23.133.2.2", "2.23.133.2.3"}
+    san_attrs = san["attributes"]
+    san_ok = (
+        san["present"]
+        and san["directory_name_count"] >= 1
+        and all(len(san_attrs.get(oid, [])) == 1 for oid in tcg_san_oids)
+        and san_attrs["2.23.133.2.1"][0].startswith("id:")
+        and san_attrs["2.23.133.2.3"][0].startswith("id:")
+    )
+    profile.update({
+        "subject_alt_name_present": san["present"],
+        "subject_alt_name_directory_name_count": san["directory_name_count"],
+        "subject_alt_name_tcg_attributes": san_attrs,
+        "subject_alt_name_critical": san_critical,
+        "subject_key_identifier_present": ski_value is not None,
+        "subject_key_identifier_critical": ski_critical,
+    })
     ok = (
         profile["version_3"]
         and profile["serial_positive"]
@@ -464,6 +604,8 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         and eku_critical_ok
         and aki_critical_ok
         and aki is not None
+        and san_ok
+        and not ski_critical
     )
     return ok, profile
 
