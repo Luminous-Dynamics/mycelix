@@ -257,12 +257,22 @@
       "expected": "DENY"
     },
     {
+      "id": "AKQ-V28",
+      "mutation": "public-name-source-substitution",
+      "expected": "DENY"
+    },
+    {
       "id": "AKQ-V29",
       "mutation": "public-name-input-substitution",
       "expected": "DENY"
     },
     {
       "id": "AKQ-V30",
+      "mutation": "public-name-output-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "AKQ-V31",
       "mutation": "key-order-permutation",
       "expected": "PASS"
     }
