@@ -75,6 +75,8 @@ jobs:
           matrix_blob="$(git rev-parse HEAD:docs/finance-qualification/substrate-matrix.toml)"
           cp docs/finance-qualification/substrate-matrix.toml /tmp/finance-substrate-matrix.toml
           printf 'trusted_substrate_matrix_blob_sha=%s\n' "${matrix_blob}" >> "${GITHUB_OUTPUT}"
+          matrix_status="$(python3 -c 'import tomllib; print(tomllib.load(open("/tmp/finance-substrate-matrix.toml","rb"))["status"])')"
+          printf 'trusted_substrate_status=%s\n' "${matrix_status}" >> "${GITHUB_OUTPUT}"
           sha256sum /tmp/finance-substrate-matrix.toml | awk '{print $1}' > /tmp/finance-substrate-matrix.sha256
 
       - name: Validate immutable verifier shape
@@ -313,7 +315,7 @@ jobs:
           trusted_workflow_ref=${{ steps.trusted.outputs.trusted_workflow_ref }}
           trusted_workflow_blob_sha=${{ steps.trusted.outputs.trusted_workflow_blob_sha }}
           trusted_substrate_matrix_blob_sha=${{ steps.substrate_policy.outputs.trusted_substrate_matrix_blob_sha }}
-          substrate_status=known-mismatch
+          substrate_status=${{ steps.substrate_policy.outputs.trusted_substrate_status }}
           substrate_intended_holochain=0.7
           substrate_implemented_holochain=0.6
           workflow_name=${{ github.workflow }}
