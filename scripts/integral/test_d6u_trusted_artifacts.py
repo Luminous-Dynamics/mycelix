@@ -174,6 +174,9 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"
     )
     assert policy["attestation_verification"]["predicate_schema"] == (
+        "d6u-trusted-runtime-evidence-attestation/v2"
+    )
+    assert policy["attestation_verification"]["canonical_predicate_schema"] == (
         "d6u-trusted-runtime-evidence/v1"
     )
     assert policy["attestation_verification"]["require_current_run_identity"] is True
