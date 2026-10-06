@@ -273,22 +273,17 @@ pub fn verify_fpm_eat_cose_sign1(
         reasons.insert(FpmEatCoseVerificationReason::UnsupportedProtectedHeader);
     }
 
-    // Missing kid, when any other protected-header structure is otherwise
-    // valid, is malformed profile evidence rather than a signed contextual
-    // mismatch; missing/invalid structural requirements therefore fail closed.
-    if sign1.protected.header.key_id.is_empty() || !reasons
-        .iter()
-        .all(|reason| matches!(
+    // Only authenticated application-context mismatches are allowed to
+    // proceed to signature verification. Structural/parser violations fail
+    // closed before any payload interpretation.
+    if reasons.iter().any(|reason| {
+        !matches!(
             reason,
             FpmEatCoseVerificationReason::KeyIdMismatch
                 | FpmEatCoseVerificationReason::ContentTypeMismatch
-        ))
-    {
-        if sign1.protected.header.key_id.is_empty()
-            || reasons.contains(&FpmEatCoseVerificationReason::UnsupportedProtectedHeader)
-        {
-            return invalid_result(evidence_digest, verification_key_digest, reasons, key_id);
-        }
+        )
+    }) {
+        return invalid_result(evidence_digest, verification_key_digest, reasons, key_id);
     }
 
     let Some(payload) = sign1.payload.clone() else {
@@ -746,6 +741,38 @@ mod tests {
         assert!(result
             .reasons
             .contains(&FpmEatCoseVerificationReason::EatProfileMismatch));
+    }
+
+    #[test]
+    fn wrong_content_type_conflicts_after_valid_signature() {
+        let protected = HeaderBuilder::new()
+            .algorithm(iana::Algorithm::ES256)
+            .key_id(b"fpm-key-1".to_vec())
+            .content_type(ContentType::Text("application/other".into()))
+            .build();
+        let token = CoseSign1Builder::new()
+            .protected(protected)
+            .payload(payload(
+                "source-1",
+                "fpm-verifier",
+                b"fresh-nonce-32-bytes-123456789012",
+            ))
+            .create_signature(&[], |data| signing_key().sign(data))
+            .build()
+            .to_tagged_vec()
+            .expect("COSE_Sign1");
+
+        let result = verify_fpm_eat_cose_sign1(&input(token));
+        assert_eq!(
+            result.status,
+            FpmEatCoseVerificationStatus::ConflictingEvidence
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmEatCoseVerificationReason::ContentTypeMismatch));
+        assert!(!result
+            .reasons
+            .contains(&FpmEatCoseVerificationReason::SignatureInvalid));
     }
 
     #[test]
