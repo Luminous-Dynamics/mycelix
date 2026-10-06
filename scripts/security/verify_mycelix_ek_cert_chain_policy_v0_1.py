@@ -1749,6 +1749,42 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "independent-crypto-exact-object-binding-mismatch")
     if path_exact != expected_cross_witness:
         return result("DENY", "openssl-path-exact-object-binding-mismatch")
+
+    independent_details = external_crypto["details"]
+    independent_certs = independent_details.get("certificate_signatures")
+    independent_crls = independent_details.get("crl_signatures")
+    if not isinstance(independent_certs, dict) or not isinstance(independent_crls, dict):
+        return result("DENY", "independent-crypto-signature-details-missing")
+    for label, embedded in (
+        ("leaf", crypto_receipt["certificate_signatures"]["leaf"]),
+        ("intermediate", crypto_receipt["certificate_signatures"]["intermediate"]),
+        ("root", crypto_receipt["certificate_signatures"]["root"]),
+    ):
+        observed = independent_certs.get(label)
+        if not isinstance(observed, dict):
+            return result("DENY", "independent-certificate-signature-missing", {"label": label})
+        for field in ("object_sha256", "tbs_sha256", "signature_sha256", "issuer_object_sha256"):
+            if observed.get(field) != embedded.get(field):
+                return result(
+                    "DENY",
+                    "independent-certificate-signature-binding-mismatch",
+                    {"label": label, "field": field},
+                )
+    for label, embedded in (
+        ("root", crypto_receipt["crl_signatures"]["root"]),
+        ("intermediate", crypto_receipt["crl_signatures"]["intermediate"]),
+    ):
+        observed = independent_crls.get(label)
+        if not isinstance(observed, dict):
+            return result("DENY", "independent-crl-signature-missing", {"label": label})
+        for field in ("object_sha256", "tbs_sha256", "signature_sha256", "issuer_object_sha256"):
+            if observed.get(field) != embedded.get(field):
+                return result(
+                    "DENY",
+                    "independent-crl-signature-binding-mismatch",
+                    {"label": label, "field": field},
+                )
+
     cross_witness = canonical_hash({
         "exact_input_objects": expected_cross_witness,
         "independent_crypto_verifier_source_sha256": external_crypto["source_sha256"],
