@@ -533,7 +533,7 @@ mod tests {
     #[test]
     fn baseline_requires_observations() {
         assert_eq!(
-            BaselineProfile::from_observations("1", &[]),
+            BaselineProfile::from_observations(&DetectorConfig::default(), &[]),
             Err(FpmError::EmptyBaseline)
         );
     }
@@ -551,7 +551,7 @@ mod tests {
     fn baseline_rejects_nonfinite_sensor_values() {
         let observations = vec![observation(0, f32::NAN)];
         assert_eq!(
-            BaselineProfile::from_observations("1", &observations),
+            BaselineProfile::from_observations(&DetectorConfig::default(), &observations),
             Err(FpmError::NonFiniteObservation { sequence: 0 })
         );
     }
