@@ -1043,7 +1043,7 @@ def run_path_verifier(
         "crl_bundle_pem_sha256": expected_input["crl_bundle_pem_sha256"],
         "verification_time_unix": expected_input["verification_time_unix"],
         "policy_argv": [
-            "openssl", "verify", "-CAfile", "root.pem",
+            "openssl", "verify", "-x509_strict", "-check_ss_sig", "-CAfile", "root.pem",
             "-untrusted", "intermediate.pem", "-CRLfile", "crl-bundle.pem",
             "-crl_check_all", "-attime", str(expected_input["verification_time_unix"]),
             "leaf.pem",
@@ -1786,7 +1786,7 @@ def refresh_path_validation(m: dict[str, Any]) -> None:
         "crl_bundle_pem_sha256": verifier_input["crl_bundle_pem_sha256"],
         "verification_time_unix": verifier_input["verification_time_unix"],
         "policy_argv": [
-            "openssl", "verify", "-CAfile", "root.pem",
+            "openssl", "verify", "-x509_strict", "-check_ss_sig", "-CAfile", "root.pem",
             "-untrusted", "intermediate.pem", "-CRLfile", "crl-bundle.pem",
             "-crl_check_all", "-attime", str(verifier_input["verification_time_unix"]),
             "leaf.pem",
