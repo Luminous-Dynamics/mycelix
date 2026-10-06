@@ -519,7 +519,7 @@
       "control": "non-canonical-key-usage-trailing-zero",
       "expected": "DENY"
     }
-  ],
+  ,
     {
       "id": "EKC-S14",
       "control": "critical-authority-information-access",
