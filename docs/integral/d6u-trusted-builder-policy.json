@@ -1,5 +1,5 @@
 {
-  "policy_version": 39,
+  "policy_version": 40,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "67eef5f76574c9b8c94b7bd7fb8195ad9519ecbf"
+    "blob_sha": "b5a8a723f00402d38e217eeb9e06f5019acc524a"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -277,7 +277,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-      "blob_sha": "5af55a277cf0817e8132bd613991d4f37d2dcb3b"
+      "blob_sha": "9a1f44c5805573bb0cad6752fcb95cdc272f8a98"
     },
     "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
       "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
@@ -285,7 +285,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
-      "blob_sha": "ff81b3c866fcc752e8d3f339fb7420471f7e4144"
+      "blob_sha": "508e0e626abf12d38bd8f1d73acb09ee427ddfe9"
     }
   },
   "trusted_actions": {
@@ -353,7 +353,7 @@
     "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "retain_canonical_predicate": true
   },
-  "attestation_integrity_revision": 39,
+  "attestation_integrity_revision": 40,
   "attestation_commitment": {
     "schema": "d6u-trusted-runtime-evidence-attestation/v2",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
@@ -382,5 +382,17 @@
     "require_current_run_context": true,
     "claim_ceiling": "ReferenceModelOnly"
   },
-  "workflow_default_permissions": {}
+  "workflow_default_permissions": {},
+  "attestation_trigger": {
+    "workflow_name": "D6U Exact-Head Runtime Executor",
+    "event": "workflow_run",
+    "types": [
+      "completed"
+    ],
+    "conclusion": "success",
+    "repository": "Luminous-Dynamics/mycelix",
+    "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+    "require_record_source_binding": true,
+    "require_record_executor_run_binding": true
+  }
 }
