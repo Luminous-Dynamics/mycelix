@@ -131,6 +131,8 @@ pub struct FpmAttestationChallenge {
     pub schema_version: String,
     pub subject_id: String,
     pub audience: String,
+    pub verification_key_id: Vec<u8>,
+    pub verification_key_digest: String,
     pub acquisition_root_action: ActionHash,
     pub acquisition_root_digest: String,
     pub verifier_agent: AgentPubKey,
@@ -420,7 +422,11 @@ fn validate_fpm_attestation_challenge(
         ));
     }
     if !valid_attestation_identifier(&challenge.subject_id, 128)
+        || !valid_attestation_identifier(&challenge.audience, 256)
         || !valid_attestation_identifier(&challenge.attestation_format, 128)
+        || challenge.verification_key_id.is_empty()
+        || challenge.verification_key_id.len() > 128
+        || !canonical_attestation_digest(&challenge.verification_key_digest)
         || !canonical_attestation_digest(&challenge.acquisition_root_digest)
         || !canonical_attestation_digest(&challenge.verifier_profile_digest)
         || !canonical_attestation_digest(&challenge.appraisal_policy_digest)
@@ -450,6 +456,8 @@ fn validate_fpm_source_attestation_anchor(
     let qualification = qualify_source_attestation(&FpmAttestationQualificationInput {
         expected_subject_id: anchor.claim.subject_id.clone(),
         expected_audience: anchor.claim.audience.clone(),
+        expected_verification_key_id: anchor.claim.verification_key_id.clone(),
+        expected_verification_key_digest: anchor.claim.verification_key_digest.clone(),
         expected_acquisition_root_digest: anchor.claim.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: anchor.claim.challenge_nonce_digest.clone(),
         expected_attestation_format: anchor.claim.attestation_format.clone(),
