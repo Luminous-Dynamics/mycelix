@@ -202,7 +202,10 @@ fn resolve_action_anchor(
         entry_hash,
         action_hash: Some(input.action_hash),
         author: Some(author),
-        timestamp: Some(*record.action().timestamp()),
+        signer: Some(signer),
+        timestamp: Some(record.action().timestamp()),
+        action_seq: Some(record.action().action_seq()),
+        prev_action: record.action().prev_action().cloned(),
         envelope: anchor.envelope,
     })
 }
@@ -1395,5 +1398,70 @@ mod tests {
 
         assert!(validate_resolved_anchor_envelope(&anchor, &digest.to_uppercase()).is_err());
     }
+
+
+    #[test]
+    fn authenticated_provenance_manifest_is_order_independent() {
+        fn action(byte: u8) -> ActionHash {
+            ActionHash::from_raw_36(vec![byte; 36])
+        }
+
+        fn resolved(byte: u8, witness_digest: &str) -> ResolvedFpmProvenanceAnchor {
+            let witness = AcquisitionLineageWitness {
+                node_id: format!("node-{byte}"),
+                source_id: format!("source-{byte}"),
+                modality: format!("modality-{byte}"),
+                source_observation_digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+                acquisition_root_digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+                parent_node_ids: vec![],
+            };
+
+            ResolvedFpmProvenanceAnchor {
+                provenance_action_hash: action(byte),
+                provenance_entry_hash: EntryHash::from_raw_36(vec![byte; 36]),
+                registration_anchor_action: action(9),
+                witness,
+                witness_digest: witness_digest.into(),
+                author: AgentPubKey::from_raw_36(vec![1u8; 36]),
+                signer: AgentPubKey::from_raw_36(vec![2u8; 36]),
+                timestamp: Timestamp::from_micros(1_000),
+                action_seq: byte as u32,
+                prev_action: None,
+            }
+        }
+
+        let a = resolved(1, "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+        let b = resolved(2, "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd");
+        assert_eq!(
+            authenticated_provenance_manifest_digest(&[a.clone(), b.clone()]),
+            authenticated_provenance_manifest_digest(&[b, a]),
+        );
+    }
+
+    #[test]
+    fn authenticated_provenance_qualification_digest_is_deterministic() {
+        let structural = ProvenanceQualification {
+            schema_version: FPM_PROVENANCE_QUALIFICATION_SCHEMA_VERSION.into(),
+            registration_envelope_digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            lineage_manifest_digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+            qualification_basis_digest: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
+            profile_id: FPM_PROVENANCE_PROFILE_ID.into(),
+            profile_version: FPM_PROVENANCE_PROFILE_VERSION.into(),
+            status: ProvenanceQualificationStatus::QualifiedForProfile,
+            reasons: vec![],
+        };
+        let qualification = AuthenticatedFpmProvenanceQualification {
+            schema_version: FPM_AUTHENTICATED_PROVENANCE_SCHEMA_VERSION.into(),
+            registration_anchor_action: ActionHash::from_raw_36(vec![7u8; 36]),
+            registration_envelope_digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            provenance_anchor_manifest_digest: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".into(),
+            structural_qualification: structural,
+            witnesses: vec![],
+        };
+
+        assert_eq!(qualification.digest(), qualification.digest());
+        assert_eq!(qualification.digest().len(), 64);
+    }
+
 
 }
