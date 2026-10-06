@@ -154,4 +154,22 @@ A downstream detector should consume multimodal evidence only after the registra
 ## Next research boundary
 
 The remaining work is empirical qualification of registration and detection against captured process traces, including clock skew, dropped/duplicated samples, calibration changes, context conflicts, and independent physical reference measurements. The current implementation remains a deterministic evidence contract, not a validated physical-defect detector.
+## Structural qualification boundary
 
+FPM now defines a narrowly scoped structural qualification profile. Its purpose is to let a verifier produce a deterministic, content-bound statement about the internal consistency of a registration envelope.
+
+The profile binds the qualification schema, profile identifier/version, verifier identity, exact registration digest, assessed registration state, outcome, and a final qualification digest.
+
+The positive outcome is deliberately named Qualified only in the sense of **qualified against the structural profile**. It does not establish source authenticity, sensor correctness, physical clock synchronization, calibration correctness, transform correctness, or physical part quality.
+
+Outcome mapping is fail-closed:
+
+- Consistent registration -> Qualified by the structural profile;
+- Unregistered or Unknown registration -> InsufficientEvidence;
+- Conflicting or Invalid registration -> Rejected.
+
+This mirrors the broader Mycelix evidence pattern of keeping an authored statement, its transparency/registration, an independent verifier result, and physical truth as distinct evidence layers.
+
+ISO/ASTM 52951:2026 strengthens the digital-thread rationale: its AM data-package model spans the workflow from design to acceptance and includes configuration management, production qualification, quality-control planning, and inspection requirements. FPM therefore treats the registration/qualification record as one evidence object within a larger part data package rather than as a standalone proof of manufacturing quality. citeturn832228search0turn832228search3
+
+Issue #4306 tracks the future transition from structural qualification to independently verified qualification. That transition requires an actual verifier and exact evidence inputs; the structural profile does not silently confer that stronger status.
