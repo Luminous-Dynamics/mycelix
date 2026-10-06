@@ -226,7 +226,7 @@
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-    "blob_sha": "9997a87ac5e422ba3ae405af474c2967edb6b973"
+    "blob_sha": "c107cbd0458ea1f35d6256b04918f509cd32c40f"
   },
   "trusted_permissions": {
     "verifier": {
@@ -277,7 +277,7 @@
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-      "blob_sha": "9997a87ac5e422ba3ae405af474c2967edb6b973"
+      "blob_sha": "c107cbd0458ea1f35d6256b04918f509cd32c40f"
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
