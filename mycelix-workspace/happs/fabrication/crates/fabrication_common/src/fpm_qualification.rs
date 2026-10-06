@@ -105,10 +105,10 @@ pub struct RegistrationQualification {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RegistrationQualificationProfile {
-    pub profile_id: &'static str,
-    pub profile_version: &'static str,
-    pub requires_consistent_registration: bool,
-    pub requires_exact_committed_artifacts: bool,
+    profile_id: &'static str,
+    profile_version: &'static str,
+    requires_consistent_registration: bool,
+    requires_exact_committed_artifacts: bool,
 }
 
 impl RegistrationQualificationProfile {
@@ -425,11 +425,11 @@ mod tests {
 
         assert_eq!(
             qualification.status,
-            RegistrationQualificationStatus::InvalidEvidence
+            RegistrationQualificationStatus::InsufficientEvidence
         );
         assert!(qualification
             .reasons
-            .contains(&RegistrationQualificationReason::UnexpectedArtifact));
+            .contains(&RegistrationQualificationReason::MissingCommittedArtifact));
     }
 
     #[test]
@@ -467,7 +467,7 @@ mod tests {
 
         assert_eq!(
             qualification.status,
-            RegistrationQualificationStatus::InsufficientEvidence
+            RegistrationQualificationStatus::InvalidEvidence
         );
         assert!(qualification
             .reasons
