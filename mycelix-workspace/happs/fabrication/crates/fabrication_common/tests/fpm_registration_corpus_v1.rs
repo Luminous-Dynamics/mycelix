@@ -14,6 +14,7 @@ fn sample(source: &str, modality: &str, sequence: u64) -> ModalityObservationRef
         modality: modality.into(),
         clock_domain: "ptp-domain-1".into(),
         source_sequence: sequence,
+        correlation_domain: "printer-frame-domain-1".into(),
         correlation_id: format!("frame-{sequence}"),
         source_timestamp_micros: Some(1_000_000),
         calibration_profile_digest: digest('a'),
@@ -46,6 +47,13 @@ fn correlation_id_mismatch_is_conflicting_even_with_equal_sequences() {
     let mut skewed = envelope(AlignmentMethod::ExactCorrelationId);
     skewed.related[0].correlation_id = "frame-11".into();
     assert_eq!(skewed.assess(), RegistrationState::Conflicting);
+}
+
+#[test]
+fn correlation_domain_mismatch_is_conflicting_even_with_equal_ids() {
+    let mut conflicting = envelope(AlignmentMethod::ExactCorrelationId);
+    conflicting.related[0].correlation_domain = "other-domain".into();
+    assert_eq!(conflicting.assess(), RegistrationState::Conflicting);
 }
 
 #[test]
