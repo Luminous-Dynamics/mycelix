@@ -102,11 +102,16 @@ def job_keys(lines_: list[str]) -> tuple[str, ...]:
 
 
 def step_names(lines_: list[str]) -> tuple[str, ...]:
-    return tuple(
-        match.group(1)
-        for line in lines_
-        if (match := re.fullmatch(r"\s{6}- name: (.+)", line))
-    )
+    names = []
+    for line in lines_:
+        step_item = re.fullmatch(r"\s{6}-\s+(.+)", line)
+        if not step_item:
+            continue
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if not match:
+            fail(f"workflow step item must use the closed-world '- name:' form: {line!r}")
+        names.append(match.group(1))
+    return tuple(names)
 
 
 def external_uses(lines_: list[str]) -> tuple[str, ...]:
