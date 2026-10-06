@@ -58,6 +58,8 @@ pub struct RegistrationQualificationInput {
     /// Exact digest expected for the serialized registration envelope.
     pub registration_envelope_digest: String,
     pub envelope: RegistrationEnvelope,
+    /// Optional externally resolved anchor binding. Required by anchored profiles.
+    pub registration_anchor: Option<RegistrationAnchorEvidence>,
     /// Exact bytes resolved for the commitments referenced by the envelope.
     pub artifacts: Vec<ResolvedEvidenceArtifact>,
 }
@@ -87,6 +89,8 @@ pub enum RegistrationQualificationReason {
     InvalidVerifierImplementationDigest,
     NonCanonicalDigestEncoding,
     EnvelopeDigestMismatch,
+    MissingRegistrationAnchor,
+    RegistrationAnchorMismatch,
     RegistrationUnregistered,
     RegistrationConflicting,
     RegistrationInvalid,
@@ -98,12 +102,52 @@ pub enum RegistrationQualificationReason {
     UnexpectedArtifact,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RegistrationAnchorKind {
+    HolochainEntry,
+    HolochainAction,
+    External,
+}
+
+impl RegistrationAnchorKind {
+    fn tag(self) -> &'static str {
+        match self {
+            Self::HolochainEntry => "holochain-entry",
+            Self::HolochainAction => "holochain-action",
+            Self::External => "external",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RegistrationAnchorEvidence {
+    /// Identifier of the immutable/external record from which this binding was
+    /// resolved. The qualification core does not authenticate the reference;
+    /// the resolver that supplied it must do so.
+    pub anchor_reference: String,
+    pub anchor_kind: RegistrationAnchorKind,
+    /// Digest of the exact registration envelope that this anchor claims to bind.
+    pub registration_envelope_digest: String,
+}
+
+impl RegistrationAnchorEvidence {
+    fn digest(&self) -> String {
+        let mut bytes = Vec::new();
+        append_field(&mut bytes, b"fpm.registration-anchor.v1");
+        append_field(&mut bytes, self.anchor_kind.tag().as_bytes());
+        append_field(&mut bytes, self.anchor_reference.as_bytes());
+        append_field(&mut bytes, self.registration_envelope_digest.as_bytes());
+        hex_digest(&bytes)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct RegistrationQualification {
     pub schema_version: String,
     pub registration_envelope_digest: String,
     pub evidence_manifest_digest: String,
     pub qualification_basis_digest: String,
+    pub registration_anchor_digest: Option<String>,
     pub verifier_id: String,
     pub verifier_version: String,
     pub verifier_implementation_digest: String,
@@ -120,6 +164,7 @@ pub struct RegistrationQualificationProfile {
     profile_version: &'static str,
     requires_consistent_registration: bool,
     requires_exact_committed_artifacts: bool,
+    requires_registration_anchor: bool,
 }
 
 impl RegistrationQualificationProfile {
@@ -128,6 +173,15 @@ impl RegistrationQualificationProfile {
         profile_version: FPM_REGISTRATION_QUALIFICATION_PROFILE_VERSION,
         requires_consistent_registration: true,
         requires_exact_committed_artifacts: true,
+        requires_registration_anchor: false,
+    };
+
+    pub const STRUCTURAL_ANCHORED_V1: Self = Self {
+        profile_id: "fpm.registration.anchored",
+        profile_version: "1",
+        requires_consistent_registration: true,
+        requires_exact_committed_artifacts: true,
+        requires_registration_anchor: true,
     };
 
     /// Deterministically commit to the declarative profile itself.
@@ -147,6 +201,14 @@ impl RegistrationQualificationProfile {
         append_field(
             &mut bytes,
             if self.requires_exact_committed_artifacts {
+                b"1"
+            } else {
+                b"0"
+            },
+        );
+        append_field(
+            &mut bytes,
+            if self.requires_registration_anchor {
                 b"1"
             } else {
                 b"0"
@@ -183,6 +245,22 @@ pub fn qualify_registration(
         }
         _ => {
             reasons.insert(RegistrationQualificationReason::EnvelopeDigestMismatch);
+        }
+    }
+
+    if profile.requires_registration_anchor {
+        match &input.registration_anchor {
+            None => {
+                reasons.insert(RegistrationQualificationReason::MissingRegistrationAnchor);
+            }
+            Some(anchor)
+                if !is_canonical_digest(&anchor.registration_envelope_digest)
+                    || anchor.registration_envelope_digest != input.registration_envelope_digest
+                    || anchor.anchor_reference.trim().is_empty() =>
+            {
+                reasons.insert(RegistrationQualificationReason::RegistrationAnchorMismatch);
+            }
+            Some(_) => {}
         }
     }
 
@@ -268,6 +346,8 @@ pub fn qualify_registration(
                 | RegistrationQualificationReason::InvalidVerifierImplementationDigest
                 | RegistrationQualificationReason::NonCanonicalDigestEncoding
                 | RegistrationQualificationReason::EnvelopeDigestMismatch
+                | RegistrationQualificationReason::MissingRegistrationAnchor
+                | RegistrationQualificationReason::RegistrationAnchorMismatch
                 | RegistrationQualificationReason::ArtifactDigestMismatch
                 | RegistrationQualificationReason::ArtifactBindingMismatch
                 | RegistrationQualificationReason::DuplicateArtifact
@@ -287,6 +367,7 @@ pub fn qualify_registration(
         registration_envelope_digest: input.registration_envelope_digest.clone(),
         evidence_manifest_digest,
         qualification_basis_digest,
+        registration_anchor_digest: input.registration_anchor.as_ref().map(RegistrationAnchorEvidence::digest),
         verifier_id: verifier.verifier_id.clone(),
         verifier_version: verifier.verifier_version.clone(),
         verifier_implementation_digest: verifier.verifier_implementation_digest.clone(),
@@ -523,6 +604,7 @@ mod tests {
         RegistrationQualificationInput {
             registration_envelope_digest,
             envelope,
+            registration_anchor: None,
             artifacts,
         }
     }
