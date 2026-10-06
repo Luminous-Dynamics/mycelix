@@ -651,6 +651,34 @@ mod tests {
     }
 
     #[test]
+    fn extreme_finite_mad_does_not_overflow_scale() {
+        let config = DetectorConfig {
+            robust_z_threshold: 0.5,
+            ..DetectorConfig::default()
+        };
+        let observations = (-5i32..5)
+            .map(|sequence| ProcessObservation {
+                sequence: sequence as u64,
+                sensor: sensor(
+                    if sequence < 0 { -f32::MAX } else { f32::MAX },
+                    60.0,
+                    1.0,
+                    0.05,
+                    None,
+                ),
+            })
+            .collect::<Vec<_>>();
+        let baseline = BaselineProfile::from_observations(&config, &observations)
+            .expect("extreme finite baseline");
+        let result = analyze(&config, &baseline, &observation(100, f32::MAX))
+            .expect("extreme finite observation");
+        assert_eq!(result.status, DetectionStatus::Anomalous);
+        assert!(result.evaluations.iter().all(|evaluation| {
+            evaluation.robust_z.is_none_or(f32::is_finite)
+        }));
+    }
+
+    #[test]
     fn extreme_deviation_keeps_robust_z_finite() {
         let mut observations = Vec::new();
         for sequence in 0..10 {
