@@ -24,6 +24,8 @@ env:
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "4de97e62dd81195c52750a5065631b08c092aac8"
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
   RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"
+  EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
+  EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "0a88de98aeda8732acabb0883665dcb9adc0fffd"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
   SOURCE_POLICY_VERIFIER_BLOB_SHA: "df2d13a39d84742b82f72b305c4d7253d2c9bacf"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
@@ -62,6 +64,10 @@ jobs:
           retention_reference_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$RETENTION_REFERENCE_VERIFIER_PATH" | awk '{print $3}')"
           printf "%s" "$retention_reference_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
           test "$retention_reference_verifier_blob_sha" = "$RETENTION_REFERENCE_VERIFIER_BLOB_SHA"
+          execution_reference_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$EXECUTION_REFERENCE_VERIFIER_PATH" | awk '{print $3}')"
+          printf "%s" "$execution_reference_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          test "$execution_reference_verifier_blob_sha" = "$EXECUTION_REFERENCE_VERIFIER_BLOB_SHA"
+          test -f "$EXECUTION_REFERENCE_VERIFIER_PATH"
           source_policy_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$SOURCE_POLICY_VERIFIER_PATH" | awk '{print $3}')"
           printf "%s" "$source_policy_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
           test "$source_policy_verifier_blob_sha" = "$SOURCE_POLICY_VERIFIER_BLOB_SHA"
@@ -537,6 +543,36 @@ jobs:
           evidence_binding_digest = hashlib.sha256(
               json.dumps(evidence_binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
           ).hexdigest()
+           execution_reference_input = dict(evidence_binding)
+           with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+               json.dump(execution_reference_input, handle, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+               execution_reference_path = handle.name
+           try:
+               execution_reference_output = subprocess.check_output(
+                   [
+                       "python3",
+                       os.path.join(os.environ["GITHUB_WORKSPACE"], os.environ["EXECUTION_REFERENCE_VERIFIER_PATH"]),
+                       execution_reference_path,
+                   ],
+                   text=True,
+                   stderr=subprocess.STDOUT,
+                   timeout=20,
+               )
+           except subprocess.CalledProcessError as exc:
+               raise AssertionError(f"independent execution reference verifier rejected binding: {exc.output!r}") from exc
+           finally:
+               os.unlink(execution_reference_path)
+           execution_reference_fields = {}
+           for line in execution_reference_output.splitlines():
+               assert "=" in line
+               key, value = line.split("=", 1)
+               assert key not in execution_reference_fields
+               execution_reference_fields[key] = value
+           assert set(execution_reference_fields) == {"schema", "reference_digest", "mutations_verified"}
+           assert execution_reference_fields["schema"] == "security-kernel-execution-binding-v2"
+           assert re.fullmatch(r"[0-9a-f]{64}", execution_reference_fields["reference_digest"])
+           assert execution_reference_fields["mutations_verified"] == str(len(evidence_binding) - 1)
+           execution_reference_binding_sha256 = execution_reference_fields["reference_digest"]
           for field, replacement in (
               ("artifact_name", expected_artifact_name + "-mutated"),
               ("artifact_id", evidence_binding["artifact_id"] + 1),
@@ -602,6 +638,7 @@ jobs:
               output.write(f"sandbox_negative_controls_log_sha256={receipt['sandbox_negative_controls_log_sha256']}\n")
               output.write(f"receipt_artifact_expires_at={receipt_expires_at}\n")
               output.write(f"source_policy_reference_result_sha256={source_policy_reference_result_sha256}\n")
+              output.write(f"execution_reference_binding_sha256={execution_reference_binding_sha256}\n")
           print("PASS: trusted metadata and artifact identity are ready for independent direct-file verification")
 
           print(json.dumps({
@@ -630,6 +667,7 @@ jobs:
                   "s1": os.environ["INDEPENDENT_WORKFLOW_PATH"],
                   "s2": ".github/workflows/security-kernel-trusted-result-verifier.yml",
                   "retention": os.environ["RETENTION_REFERENCE_VERIFIER_PATH"],
+                   "execution": os.environ["EXECUTION_REFERENCE_VERIFIER_PATH"],
                   "policy": os.environ["SOURCE_POLICY_VERIFIER_PATH"],
               }
               snapshot = {"schema": "security-kernel-source-policy-reference-v1", "files": {}}
@@ -663,7 +701,7 @@ jobs:
               assert result["schema"] == "security-kernel-source-policy-reference-v1"
               assert result["policy_result"] == "verified"
               assert result["workflow_file_count"] == 3
-              assert result["reference_file_count"] == 2
+              assert result["reference_file_count"] == 3
               assert result["action_pins_verified"] == 3
               assert result["exact_job_topologies_verified"] == 3
               assert result["exact_trigger_topologies_verified"] == 3
@@ -951,6 +989,7 @@ jobs:
           EXPECTED_NEGATIVE_CONTROLS_LOG_SHA256: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_content_sha256 }}
           EVIDENCE_RETENTION_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.evidence_retention_binding_sha256 }}
           SOURCE_POLICY_REFERENCE_RESULT_SHA256: ${{ steps.verify_result.outputs.source_policy_reference_result_sha256 }}
+          EXECUTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.execution_reference_binding_sha256 }}
           RETENTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.retention_reference_binding_sha256 }}
           EXPECTED_ARTIFACT_NAME: ${{ steps.verify_result.outputs.artifact_name }}
           EXPECTED_ARTIFACT_DIGEST: ${{ steps.verify_result.outputs.artifact_digest }}
@@ -998,8 +1037,9 @@ jobs:
           printf '%s\n' "$VERIFIER_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s\n' "$VERIFIER_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
           echo "PASS: official artifact client returned exactly one direct-file receipt with exact filename, size, and SHA-256"
+          printf "execution_reference_binding_sha256=%s\n" "$EXECUTION_REFERENCE_BINDING_SHA256"
           printf "retention_reference_binding_sha256=%s\n" "$RETENTION_REFERENCE_BINDING_SHA256"
           printf "evidence_retention_binding_sha256=%s\nnegative_controls_log_artifact_id=%s\nnegative_controls_log_artifact_name=%s\nnegative_controls_log_artifact_digest=%s\nnegative_controls_log_content_sha256=%s\n" "$EVIDENCE_RETENTION_BINDING_SHA256" "${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST" "$negative_controls_digest"
           printf "%s\n" "$EXECUTION_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
           printf "%s\n" "$EVIDENCE_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
-          printf 'candidate_sha=%s\ncandidate_pr=%s\ncandidate_repository=%s\ncandidate_repository_id=%s\ntrusted_dispatcher_workflow_sha=%s\ntrusted_dispatcher_workflow_blob_sha=%s\ntrusted_s1_workflow_blob_sha=%s\nexecution_binding_sha256=%s\nevidence_binding_sha256=%s\nretention_reference_binding_sha256=%s\nsource_policy_reference_result_sha256=%s\nverifier_workflow_sha=%s\nverifier_workflow_blob_sha=%s\nqualification_receipt_artifact_id=%s\nqualification_receipt_artifact_digest=%s\nqualification_receipt_content_sha256=%s\nindependent_qualification=verified-pass\nstatus_publication=deliberately-deferred-to-protected-status-plane\n' "$CANDIDATE_SHA" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$TRUSTED_WORKFLOW_SHA" "$S0_BLOB_SHA" "$S1_BLOB_SHA" "$EXECUTION_BINDING_SHA256" "$EVIDENCE_BINDING_SHA256" "$RETENTION_REFERENCE_BINDING_SHA256" "$SOURCE_POLICY_REFERENCE_RESULT_SHA256" "$VERIFIER_WORKFLOW_SHA" "$VERIFIER_BLOB_SHA" "$ARTIFACT_ID" "$EXPECTED_ARTIFACT_DIGEST" "$actual_digest"
+          printf 'candidate_sha=%s\ncandidate_pr=%s\ncandidate_repository=%s\ncandidate_repository_id=%s\ntrusted_dispatcher_workflow_sha=%s\ntrusted_dispatcher_workflow_blob_sha=%s\ntrusted_s1_workflow_blob_sha=%s\nexecution_binding_sha256=%s\nevidence_binding_sha256=%s\nexecution_reference_binding_sha256=%s\nretention_reference_binding_sha256=%s\nsource_policy_reference_result_sha256=%s\nverifier_workflow_sha=%s\nverifier_workflow_blob_sha=%s\nqualification_receipt_artifact_id=%s\nqualification_receipt_artifact_digest=%s\nqualification_receipt_content_sha256=%s\nindependent_qualification=verified-pass\nstatus_publication=deliberately-deferred-to-protected-status-plane\n' "$CANDIDATE_SHA" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$TRUSTED_WORKFLOW_SHA" "$S0_BLOB_SHA" "$S1_BLOB_SHA" "$EXECUTION_BINDING_SHA256" "$EVIDENCE_BINDING_SHA256" "$EXECUTION_REFERENCE_BINDING_SHA256" "$RETENTION_REFERENCE_BINDING_SHA256" "$SOURCE_POLICY_REFERENCE_RESULT_SHA256" "$VERIFIER_WORKFLOW_SHA" "$VERIFIER_BLOB_SHA" "$ARTIFACT_ID" "$EXPECTED_ARTIFACT_DIGEST" "$actual_digest"
