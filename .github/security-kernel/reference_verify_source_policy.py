@@ -31,6 +31,7 @@ RUST_IMAGE = "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8
 VENDOR_VOLUME_CREATE = "docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"
 VENDOR_VOLUME_RW = '--volume "$vendor_volume_name:/vendor:rw"'
 VENDOR_VOLUME_RO = '--volume "$VENDOR_VOLUME_NAME:/vendor:ro"'
+VENDOR_VOLUME_INSPECT = "vendor_volume_spec=\"$(docker volume inspect --format '{{.Driver}}|{{index .Options \"type\"}}|{{index .Options \"device\"}}|{{index .Options \"o\"}}' \"$vendor_volume_name\")\""
 
 S1_STEPS = (
     "Checkout trusted qualification root",
@@ -441,6 +442,10 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor acquisition must use one bounded Docker volume for writes")
     if exact_count(l, VENDOR_VOLUME_RO) != 3:
         fail("S1 bounded vendor volume read-only mount count mismatch")
+    if exact_count(l, VENDOR_VOLUME_INSPECT) != 1:
+        fail("S1 vendor volume instantiation must be independently inspected")
+    if 'test "$vendor_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"' not in joined:
+        fail("S1 vendor volume instantiated options mismatch")
     if '--volume "$vendor_root:/vendor:rw"' in joined or '--volume "$VENDOR_ROOT:/vendor:rw"' in joined:
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
     for required in ("vendor_volume_name=\"security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT\"", "vendor_observed_bytes=", "vendor_observed_files=", "vendor_observed_inodes=", "vendor_cleanup_on_failure", "docker volume rm \"$vendor_volume_name\"", "vendor volume remains after cleanup", "dependency_substrate=passed"):
@@ -667,6 +672,10 @@ def main() -> None:
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(VENDOR_VOLUME_CREATE.encode(), b'docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m', 1), s1_sha),
         "vendor tmpfs without inode ceiling",
+    )
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(VENDOR_VOLUME_INSPECT.encode(), b'vendor_volume_spec="wrong|volume|driver|options"', 1), s1_sha),
+        "vendor volume instantiated-option mismatch",
     )
 
 

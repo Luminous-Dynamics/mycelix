@@ -648,6 +648,8 @@ jobs:
           install -m 0600 /dev/null "$vendor_config"
           install -m 0600 /dev/null "$vendor_metrics"
           docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000 "$vendor_volume_name" >/dev/null
+          vendor_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$vendor_volume_name")"
+          test "$vendor_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"
           vendor_cleanup_on_failure() {
             local status=$?
             if [ "$status" -ne 0 ] && docker volume inspect "$vendor_volume_name" >/dev/null 2>&1; then
