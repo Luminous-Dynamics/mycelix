@@ -2457,7 +2457,7 @@ mod tests {
         invalid_yield.total_yield_kwh = -1.0;
 
         assert!(matches!(
-            validate_create_oracle_state(invalid_yield),
+            validate_oracle_state_shape(&invalid_yield),
             Ok(ValidateCallbackResult::Invalid(_))
         ));
     }
