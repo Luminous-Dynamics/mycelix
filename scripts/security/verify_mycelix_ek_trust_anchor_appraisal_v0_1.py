@@ -16,7 +16,7 @@ from typing import Any
 VERIFIER_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
 REFERENCE_ANCHOR_ID = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
-REFERENCE_REGISTRY_SOURCE_SHA256 = "893e37158367a5d0f82f84e4051ffdc1c1090dec966f0fb5d63f56c70bc6076d"
+REFERENCE_REGISTRY_SOURCE_SHA256 = "3bad61140bfe271c6495e6b7e58dfc5ae45cf4fff339bd891a9e04881b63a3ea"
 REFERENCE_AUTHORIZATION_RECEIPT_FILE = Path(__file__).resolve().parents[2] / "docs/security/mycelix-ek-trust-anchor-authorization-receipt-v0.1.json"
 REFERENCE_REGISTRY = {
     "registry_id": "mycelix.ek-trust-anchor-registry",
