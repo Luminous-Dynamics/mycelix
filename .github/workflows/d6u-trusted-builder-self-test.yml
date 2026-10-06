@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/d6u-trusted-evidence-attestation.yml"
+      - ".github/workflows/d6u-trusted-builder-self-test.yml"
       - ".github/workflows/d6u-exact-head-runtime-executor.yml"
       - "docs/integral/d6u-trusted-builder-policy.json"
       - "scripts/integral/verify_d6u_trusted_artifacts.py"
@@ -14,8 +15,7 @@ on:
       - "scripts/integral/verify_d6u_trusted_attestation_retention.py"
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: d6u-trusted-builder-self-test-${{ github.event.pull_request.number || github.ref }}
@@ -23,13 +23,23 @@ concurrency:
 
 jobs:
   self-test:
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Assert exact test head
+        env:
+          EXPECTED_TEST_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_TEST_HEAD"
 
       - name: Compile trusted verifier
         run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/verify_d6u_trusted_attestation_retention.py scripts/integral/test_d6u_trusted_artifacts.py
