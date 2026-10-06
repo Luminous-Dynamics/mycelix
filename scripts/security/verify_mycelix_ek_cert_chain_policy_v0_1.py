@@ -833,14 +833,15 @@ def self_test() -> int:
         )
         source = Path(__file__).read_text(encoding="utf-8")
         if "profile_override" in source:
-        print("caller profile override escape hatch: FAIL")
-        return 1
-    if "def verify_crl_sign_key_usage" not in source or '"CRL Sign"' not in source and '"crl sign"' not in source.lower():
-        print("explicit CRL issuer cRLSign enforcement: FAIL")
-        return 1
-    if '"-crl_check_all",' not in source:
+            print("caller profile override escape hatch: FAIL")
+            return 1
+        if "def verify_crl_sign_key_usage" not in source or "crl sign" not in source.lower():
+            print("explicit CRL issuer cRLSign enforcement: FAIL")
+            return 1
+        if '"-crl_check_all",' not in source:
             print("full-chain CRL verification command: FAIL")
             return 1
+
 
         cases = [
             ("canonical-valid", "PASS", lambda x: None),
@@ -859,9 +860,15 @@ def self_test() -> int:
             ("expired-reference-time", "DENY", lambda x: x.update({"verification_time_unix": EXPIRED_TIME_UNIX})),
             ("not-yet-valid-reference-time", "DENY", lambda x: x.update({"verification_time_unix": 0})),
             ("key-usage-profile-mismatch", "DENY", lambda x: mutate_leaf(x, fx["bad_usage"])),
-      ("profile-override-cannot-rescue-key-usage", "DENY", lambda x: (mutate_leaf(x, fx["bad_usage"]), x.update({"profile_override": {"authority_key_identifier_critical": False, "extended_key_usage_critical": False}}))),
+            ("profile-override-cannot-rescue-key-usage", "DENY", lambda x: (
+                mutate_leaf(x, fx["bad_usage"]),
+                x.update({"profile_override": {"authority_key_identifier_critical": False, "extended_key_usage_critical": False}})
+            )),
             ("eku-profile-mismatch", "DENY", lambda x: mutate_leaf(x, fx["bad_eku"])),
-      ("profile-override-cannot-rescue-eku", "DENY", lambda x: (mutate_leaf(x, fx["bad_eku"]), x.update({"profile_override": {"authority_key_identifier_critical": False, "extended_key_usage_critical": False}}))),
+            ("profile-override-cannot-rescue-eku", "DENY", lambda x: (
+                mutate_leaf(x, fx["bad_eku"]),
+                x.update({"profile_override": {"authority_key_identifier_critical": False, "extended_key_usage_critical": False}})
+            )),
             ("trust-anchor-source-substitution", "DENY", lambda x: mutate_trust_anchor_source(x)),
             ("root-self-consistent-source-substitution", "DENY", lambda x: mutate_root_authorization(x)),
             ("template-verifier-substitution", "DENY", lambda x: x["ek_template_binding"].update({"verifier_id": "other-verifier"})),
