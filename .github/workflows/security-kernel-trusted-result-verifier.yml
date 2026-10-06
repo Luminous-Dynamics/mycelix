@@ -503,7 +503,9 @@ jobs:
               "candidate_tree","candidate_source_tree_entry_count","candidate_source_file_count",
               "candidate_source_total_path_bytes","candidate_source_total_bytes","candidate_source_max_blob_bytes",
               "candidate_source_digest","candidate_cargo_lock_format","candidate_cargo_lock_sha256",
-              "candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges","vendor_digest",
+              "candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
+              "vendor_resource_profile","vendor_max_bytes","vendor_max_files","vendor_max_inodes",
+              "vendor_tmpfs_size","vendor_tmpfs_nr_inodes","vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","vendor_resource_measurement","vendor_digest",
               "sandbox_negative_controls","sandbox_negative_controls_log_sha256","dependency_substrate_postflight",
               "git_fetch_image","sandbox_image","sandbox_network","sandbox_rootfs","sandbox_user",
               "sandbox_capabilities","sandbox_no_new_privileges","source_event","trusted_dispatcher_workflow",
@@ -533,6 +535,13 @@ jobs:
               "sandbox_user": "non-root",
               "sandbox_capabilities": "all-dropped",
               "sandbox_no_new_privileges": "true",
+              "vendor_resource_profile": "v2",
+              "vendor_max_bytes": "1073741824",
+              "vendor_max_files": "100000",
+              "vendor_max_inodes": "150000",
+              "vendor_tmpfs_size": "1024m",
+              "vendor_tmpfs_nr_inodes": "150000",
+              "vendor_resource_measurement": "bounded-pass",
               "sandbox_negative_controls": "passed",
               "dependency_substrate_postflight": "passed",
               "qualification_pass": "true",
@@ -607,12 +616,24 @@ jobs:
           for key in (
               "candidate_source_tree_entry_count","candidate_source_file_count","candidate_source_total_path_bytes",
               "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count",
-              "candidate_cargo_lock_dependency_edges","s1_run_id","s1_run_attempt",
+              "candidate_cargo_lock_dependency_edges","vendor_max_bytes","vendor_max_files","vendor_max_inodes",
+              "vendor_tmpfs_nr_inodes","vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","s1_run_id","s1_run_attempt",
           ):
               assert re.fullmatch(r"[0-9]+", receipt.get(key, "")), (
                   f"qualification receipt field {key!r} is not a canonical non-negative integer"
               )
           assert receipt["candidate_cargo_lock_format"] == "v4"
+           assert receipt["vendor_resource_profile"] == "v2"
+           assert receipt["vendor_max_bytes"] == "1073741824"
+           assert receipt["vendor_max_files"] == "100000"
+           assert receipt["vendor_max_inodes"] == "150000"
+           assert receipt["vendor_tmpfs_size"] == "1024m"
+           assert receipt["vendor_tmpfs_nr_inodes"] == "150000"
+           assert receipt["vendor_resource_measurement"] == "bounded-pass"
+           assert 0 < int(receipt["vendor_observed_bytes"]) <= int(receipt["vendor_max_bytes"])
+           assert 0 < int(receipt["vendor_observed_files"]) <= int(receipt["vendor_max_files"])
+           assert 0 < int(receipt["vendor_observed_inodes"]) <= int(receipt["vendor_max_inodes"])
+
           assert receipt["source_event"] == "pull_request_target"
           assert receipt["trusted_dispatcher_workflow"] == run["workflow_ref"]
           assert receipt["trusted_workflow_ref"] == run["workflow_ref"]
