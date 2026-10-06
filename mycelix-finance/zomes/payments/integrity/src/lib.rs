@@ -5,9 +5,13 @@
 //! Payments Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
+use mycelix_bridge_entry_types::{
+    did_for_author, require_did_is_author, SapRedemptionAuthorization,
+};
 pub use mycelix_finance_types::{
-    AMBER_MAX_CAP_MICRO_SAP, AmberExemption, SapMintCapCounter, SapMintSource, SuccessionPreference,
+    compute_demurrage_with_exemption, AMBER_MAX_CAP_MICRO_SAP, AmberExemption,
+    SapMintCapCounter, SapMintSource, SuccessionPreference, DEMURRAGE_EXEMPT_FLOOR,
+    DEMURRAGE_RATE,
 };
 
 // =============================================================================
@@ -124,13 +128,13 @@ pub struct SapBalance {
     /// `#[serde(default)]` keeps pre-Amber balances deserializable.
     #[serde(default)]
     pub exemption: Option<AmberExemption>,
-    /// ActionHash of the immutable authorization that justifies this balance
-    /// transition. A positive delta MUST reference a `SapTransferClaim` or
-    /// `SapMintClaim`; a transfer debit MAY reference its `SapTransferIntent`.
+    /// ActionHash of the immutable authorization/provenance that justifies this
+    /// balance transition. Positive deltas require a transfer or mint claim;
+    /// negative deltas require a typed SapDebitRecord.
     ///
     /// The genesis balance is the sole owner-initialized zero state and carries
-    /// no justification. Every later positive monetary transition is therefore
-    /// tied to an addressable, immutable claim rather than a mutable reason string.
+    /// no justification. Every later monetary transition is therefore tied to an
+    /// addressable immutable authorization or debit provenance record.
     pub justified_by: Option<ActionHash>,
 }
 
@@ -193,6 +197,57 @@ pub struct SapTransferClaim {
     pub balance_before_action_hash: ActionHash,
     /// Source-chain publication time.
     pub claimed_at: Timestamp,
+}
+
+/// Immutable authorization/provenance for a SAP balance decrease.
+///
+/// Every negative personal SAP balance transition must consume exactly one of these
+/// records. The record is authored by the account owner and binds the debit to the
+/// exact predecessor balance ActionHash, so a negative delta cannot be justified by
+/// an untyped reason string or by an unrelated historical state.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct SapDebitRecord {
+    /// Account whose SAP balance is being reduced.
+    pub member_did: String,
+    /// Exact decrease in micro-SAP.
+    pub amount: u64,
+    /// Declared monetary transition class.
+    pub source: SapDebitSource,
+    /// Exact SAP balance action immediately before this debit.
+    pub balance_before_action_hash: ActionHash,
+    /// Source-chain publication time.
+    pub created_at: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum SapDebitSource {
+    /// Principal transfer debit; binds to the exact sender-authored intent.
+    Transfer {
+        intent_action_hash: ActionHash,
+    },
+    /// Fee charged for a transfer. The rate is captured at authorization time.
+    TransferFee {
+        transfer_id: String,
+        /// Exact SAP principal amount from which this fee was derived.
+        basis_amount: u64,
+        /// Fee rate returned by the canonical fee-authority boundary.
+        fee_rate: f64,
+    },
+    /// Deterministic demurrage deduction from the predecessor balance.
+    Demurrage,
+    /// Personal SAP moved into a named hearth pool.
+    HearthContribution {
+        hearth_did: String,
+    },
+    /// Explicit redemption/burn classes reserved for typed settlement adapters.
+    Redemption {
+        /// Exact immutable bridge authorization witness.
+        authorization_action_hash: ActionHash,
+    },
+    Burn {
+        burn_id: String,
+    },
 }
 
 /// Record of SAP minting — every SAP must trace to a provenance.
@@ -316,6 +371,7 @@ pub enum EntryTypes {
     SapBalance(SapBalance),
     SapTransferIntent(SapTransferIntent),
     SapTransferClaim(SapTransferClaim),
+    SapDebitRecord(SapDebitRecord),
     SapMintRecord(SapMintRecord),
     SapMintClaim(SapMintClaim),
     HearthSapPool(HearthSapPool),
@@ -341,6 +397,8 @@ pub enum LinkTypes {
     ChannelIdToChannel,
     PendingCompostQueue,
     MintCapCounterAnchor,
+    /// Immutable bridge redemption authorization → the SAP debit it consumed.
+    RedemptionAuthorizationToDebit,
 }
 
 /// Genesis self-check
@@ -382,6 +440,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         &claim,
                     )
                 }
+                EntryTypes::SapDebitRecord(debit) => {
+                    validate_create_sap_debit_record(
+                        EntryCreationAction::Create(action),
+                        &debit,
+                    )
+                }
                 EntryTypes::SapMintRecord(mint) => {
                     validate_create_sap_mint_record(
                         EntryCreationAction::Create(action),
@@ -419,6 +483,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     )),
                     EntryTypes::SapTransferClaim(_) => Ok(ValidateCallbackResult::Invalid(
                         "SAP transfer claims cannot be updated".into(),
+                    )),
+                    EntryTypes::SapDebitRecord(_) => Ok(ValidateCallbackResult::Invalid(
+                        "SAP debit records cannot be updated".into(),
                     )),
                     EntryTypes::SapMintRecord(_) => {
                         Ok(ValidateCallbackResult::Invalid(
@@ -658,6 +725,55 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         ));
                     }
                     Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::RedemptionAuthorizationToDebit => {
+                    let auth_hash = ActionHash::try_from(base_address.clone()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "RedemptionAuthorizationToDebit base must be an action hash".into(),
+                        ))
+                    })?;
+                    let debit_hash = ActionHash::try_from(target_address.clone()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "RedemptionAuthorizationToDebit target must be an action hash".into(),
+                        ))
+                    })?;
+                    let auth_record = must_get_valid_record(auth_hash.clone())?;
+                    let auth = auth_record
+                        .entry()
+                        .to_app_option::<SapRedemptionAuthorization>()
+                        .map_err(|_| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "RedemptionAuthorizationToDebit base is not an authorization".into(),
+                            ))
+                        })?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "RedemptionAuthorizationToDebit base authorization is missing".into(),
+                        )))?;
+                    let debit_record = must_get_valid_record(debit_hash)?;
+                    let debit = debit_record
+                        .entry()
+                        .to_app_option::<SapDebitRecord>()
+                        .map_err(|_| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "RedemptionAuthorizationToDebit target is not a debit".into(),
+                            ))
+                        })?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "RedemptionAuthorizationToDebit target debit is missing".into(),
+                        )))?;
+                    match debit.source {
+                        SapDebitSource::Redemption { authorization_action_hash }
+                            if authorization_action_hash == auth_hash
+                                && debit.member_did == auth.member_did
+                                && debit.amount == auth.sap_amount =>
+                        {
+                            Ok(ValidateCallbackResult::Valid)
+                        }
+                        _ => Ok(ValidateCallbackResult::Invalid(
+                            "RedemptionAuthorizationToDebit link does not bind an exact redemption debit"
+                                .into(),
+                        )),
+                    }
                 }
             }
         }
@@ -1087,6 +1203,189 @@ fn validate_create_sap_transfer_claim(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_create_sap_debit_record(
+    action: EntryCreationAction,
+    debit: &SapDebitRecord,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(msg) = validate_sap_balance_owner(
+        action.author(),
+        &SapBalance {
+            member_did: debit.member_did.clone(),
+            balance: 0,
+            last_demurrage_at: debit.created_at,
+            exemption: None,
+            justified_by: None,
+        },
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
+    if debit.amount == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP debit amount must be positive".into(),
+        ));
+    }
+    if debit.member_did.len() > MAX_DID_LEN || !debit.member_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP debit member DID is invalid".into(),
+        ));
+    }
+    if debit.created_at > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP debit created_at cannot be after the signed action timestamp".into(),
+        ));
+    }
+
+    // Inductive monetary conservation boundary: the debit can only consume the
+    // exact valid predecessor balance named by its own action hash. Because the
+    // dependency itself is validated before this record can validate, a fabricated
+    // reason or disconnected state cannot authorize a negative delta.
+    let balance_record = must_get_valid_record(debit.balance_before_action_hash.clone())?;
+    let balance = balance_record
+        .entry()
+        .to_app_option::<SapBalance>()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "SAP debit balance dependency could not be decoded as SapBalance".into(),
+        )))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "SAP debit balance dependency is missing SapBalance entry".into(),
+        )))?;
+
+    if balance.member_did != debit.member_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP debit must bind to the member's predecessor balance".into(),
+        ));
+    }
+    if debit.created_at < balance.last_demurrage_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP debit timestamp cannot precede the predecessor demurrage timestamp".into(),
+        ));
+    }
+
+    match &debit.source {
+        SapDebitSource::Transfer { intent_action_hash } => {
+            let intent_record = must_get_valid_record(intent_action_hash.clone())?;
+            let intent = intent_record
+                .entry()
+                .to_app_option::<SapTransferIntent>()
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                    "SAP transfer debit authorization could not be decoded".into(),
+                )))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SAP transfer debit authorization is missing SapTransferIntent entry".into(),
+                )))?;
+
+            if intent.from_did != debit.member_did
+                || intent.amount != debit.amount
+                || intent.balance_before_action_hash != debit.balance_before_action_hash
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP transfer debit does not exactly consume its sender authorization".into(),
+                ));
+            }
+        }
+        SapDebitSource::TransferFee {
+            transfer_id,
+            basis_amount,
+            fee_rate,
+        } => {
+            if transfer_id.is_empty() || transfer_id.len() > MAX_ID_LEN {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP transfer fee debit id must be 1-256 characters".into(),
+                ));
+            }
+            if *basis_amount == 0 {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP transfer fee basis amount must be positive".into(),
+                ));
+            }
+            if !fee_rate.is_finite() || *fee_rate <= 0.0 || *fee_rate > 1.0 {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP transfer fee debit rate is invalid".into(),
+                ));
+            }
+            let expected_fee = (*basis_amount as f64 * *fee_rate) as u64;
+            if expected_fee == 0 || expected_fee != debit.amount {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP transfer fee debit does not match its exact basis amount and rate".into(),
+                ));
+            }
+        }
+        SapDebitSource::Demurrage => {
+            let from_us = balance.last_demurrage_at.as_micros();
+            let to_us = debit.created_at.as_micros();
+            if to_us < from_us {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP demurrage debit cannot precede the predecessor demurrage timestamp".into(),
+                ));
+            }
+            let elapsed = ((to_us - from_us) / 1_000_000) as u64;
+            let now_secs = (to_us / 1_000_000).max(0) as u64;
+            let expected = compute_demurrage_with_exemption(
+                balance.balance,
+                balance.exemption.as_ref(),
+                now_secs,
+                DEMURRAGE_EXEMPT_FLOOR,
+                DEMURRAGE_RATE,
+                elapsed,
+            );
+            if expected == 0 || expected != debit.amount {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP demurrage debit does not match deterministic predecessor-state calculation".into(),
+                ));
+            }
+        }
+        SapDebitSource::HearthContribution { hearth_did } => {
+            if hearth_did.is_empty()
+                || hearth_did.len() > MAX_DID_LEN
+                || !hearth_did.starts_with("did:")
+                || hearth_did == &debit.member_did
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP hearth contribution target DID is invalid".into(),
+                ));
+            }
+        }
+        SapDebitSource::Redemption {
+            authorization_action_hash,
+        } => {
+            let auth_record = must_get_valid_record(authorization_action_hash.clone())?;
+            let auth = auth_record
+                .entry()
+                .to_app_option::<SapRedemptionAuthorization>()
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                    "SAP redemption authorization could not be decoded".into(),
+                )))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SAP redemption authorization witness is missing".into(),
+                )))?;
+
+            if auth.member_did != debit.member_did
+                || auth.sap_amount != debit.amount
+                || auth.redemption_id.is_empty()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP redemption debit does not exactly consume its bridge authorization".into(),
+                ));
+            }
+            if did_for_author(auth_record.action().author()) != debit.member_did {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP redemption debit must bind to an owner-authored bridge authorization".into(),
+                ));
+            }
+        }
+        SapDebitSource::Burn { burn_id } => {
+            if burn_id.is_empty() || burn_id.len() > MAX_ID_LEN {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP burn debit id must be 1-256 characters".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_create_sap_balance(
     action: EntryCreationAction,
     bal: &SapBalance,
@@ -1185,35 +1484,41 @@ fn validate_update_sap_balance(
             ));
         }
     } else if bal.balance < original.balance {
-        let delta = original.balance - bal.balance;
-        if let Some(justification_hash) = bal.justified_by.clone() {
-            let justification = must_get_valid_record(justification_hash)?;
-            if let Some(intent) = justification
-                .entry()
-                .to_app_option::<SapTransferIntent>()
-                .ok()
-                .flatten()
-            {
-                if intent.from_did != bal.member_did
-                    || intent.to_did == bal.member_did
-                    || intent.amount != delta
-                    || intent.balance_before_action_hash != action.original_action_address
-                {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "SAP transfer debit does not exactly consume its sender authorization"
-                            .into(),
-                    ));
-                }
-            } else {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "A SAP balance decrease carrying justification must reference a transfer intent"
-                        .into(),
-                ));
-            }
+        // All current negative SAP paths are owner-authorized source-chain actions.
+        // Requiring the debit transition itself to be authored by the account owner
+        // prevents a valid provenance witness from being replayed by another agent.
+        if did_for_author(action.author()) != bal.member_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP balance decrease must be authored by the account owner".into(),
+            ));
         }
-        // Unjustified decreases are reserved for existing owner-authenticated
-        // debit/demurrage paths. Dedicated hearth/redeem/fee provenance remains
-        // separately tracked by AC-117/AC-118.
+
+        let delta = original.balance - bal.balance;
+        let Some(justification_hash) = bal.justified_by.clone() else {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Every SAP balance decrease requires an immutable debit provenance record".into(),
+            ));
+        };
+
+        let justification = must_get_valid_record(justification_hash)?;
+        let debit = justification
+            .entry()
+            .to_app_option::<SapDebitRecord>()
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "SAP debit justification could not be decoded as SapDebitRecord".into(),
+            )))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "SAP balance decrease justification must be a SapDebitRecord".into(),
+            )))?;
+
+        if debit.member_did != bal.member_did
+            || debit.amount != delta
+            || debit.balance_before_action_hash != action.original_action_address
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP balance decrease does not exactly consume its debit provenance".into(),
+            ));
+        }
     }
 
     Ok(ValidateCallbackResult::Valid)

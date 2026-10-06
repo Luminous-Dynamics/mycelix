@@ -9,7 +9,7 @@
 //! and collateral bridge deposits for SAP minting.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::CrossClusterNotification;
+use mycelix_bridge_entry_types::{did_for_author, CrossClusterNotification, SapRedemptionAuthorization};
 
 // =============================================================================
 // STRING LENGTH LIMITS — Prevent DHT bloat attacks
@@ -247,6 +247,7 @@ pub enum EntryTypes {
     CollateralRegistration(CollateralRegistration),
     FinanceBridgeEvent(FinanceBridgeEvent),
     CollateralBridgeDeposit(CollateralBridgeDeposit),
+    SapRedemptionAuthorization(SapRedemptionAuthorization),
     Covenant(Covenant),
     CollateralHealth(CollateralHealth),
     FiatBridgeDeposit(FiatBridgeDeposit),
@@ -266,6 +267,8 @@ pub enum LinkTypes {
     RecentEvents,
     DidToDeposits,
     DepositIdToDeposit,
+    /// Stable redemption id → immutable SAP redemption authorization index.
+    RedemptionAuthorizationByDeposit,
     CollateralToCovenants,
     CollateralToHealth,
     FiatDepositRegistry,
@@ -307,6 +310,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_create_collateral_bridge_deposit(
                         EntryCreationAction::Create(action),
                         deposit,
+                    )
+                }
+                EntryTypes::SapRedemptionAuthorization(auth) => {
+                    validate_create_sap_redemption_authorization(
+                        EntryCreationAction::Create(action),
+                        auth,
                     )
                 }
                 EntryTypes::Covenant(covenant) => {
@@ -411,6 +420,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             LinkTypes::PaymentReferenceToPayment
             | LinkTypes::DepositIdToDeposit
+            | LinkTypes::RedemptionAuthorizationByDeposit
             | LinkTypes::CovenantIdToCovenant => {
                 if target_address.as_ref().len() != 39 {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -442,6 +452,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             // already-used identifier resolve differently on a later retry.
             LinkTypes::PaymentReferenceToPayment
             | LinkTypes::DepositIdToDeposit
+            | LinkTypes::RedemptionAuthorizationByDeposit
             | LinkTypes::CovenantIdToCovenant => Ok(ValidateCallbackResult::Invalid(
                 "Bridge identity indexes cannot be deleted".into(),
             )),
@@ -762,6 +773,77 @@ fn validate_create_collateral_bridge_deposit(
             "New collateral bridge deposits must start with Pending status".into(),
         ));
     }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_sap_redemption_authorization(
+    action: EntryCreationAction,
+    auth: SapRedemptionAuthorization,
+) -> ExternResult<ValidateCallbackResult> {
+    if auth.redemption_id.is_empty() || auth.redemption_id.len() > MAX_REFERENCE_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP redemption authorization id is invalid".into(),
+        ));
+    }
+    if !auth.member_did.starts_with("did:") || auth.member_did.len() > MAX_DID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP redemption authorization member DID is invalid".into(),
+        ));
+    }
+    if auth.sap_amount == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP redemption authorization amount must be positive".into(),
+        ));
+    }
+    if auth.created_at > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP redemption authorization timestamp is after the signed action".into(),
+        ));
+    }
+
+    let deposit_record = must_get_valid_record(auth.confirmed_deposit_action_hash.clone())?;
+    if deposit_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP redemption authorization must be created by the confirmed deposit owner".into(),
+        ));
+    }
+    let deposit = deposit_record
+        .entry()
+        .to_app_option::<CollateralBridgeDeposit>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "SAP redemption authorization deposit decode failed: {e:?}"
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "SAP redemption authorization deposit witness is missing".into(),
+        )))?;
+
+    if deposit.status != BridgeDepositStatus::Confirmed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP redemption authorization must reference a confirmed deposit".into(),
+        ));
+    }
+    if deposit.id != auth.redemption_id
+        || deposit.depositor_did != auth.member_did
+        || deposit.sap_minted != auth.sap_amount
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP redemption authorization does not match the confirmed deposit witness".into(),
+        ));
+    }
+    if deposit_record.action().timestamp() > auth.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP redemption authorization predates its confirmed deposit witness".into(),
+        ));
+    }
+
+    if did_for_author(action.author()) != auth.member_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP redemption authorization member DID must match its author".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 

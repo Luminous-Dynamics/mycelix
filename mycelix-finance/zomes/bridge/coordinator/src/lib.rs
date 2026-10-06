@@ -15,6 +15,7 @@ use finance_wire_types::{
 };
 use hdk::prelude::*;
 use mycelix_bridge_common::SovereignProfile;
+use mycelix_bridge_entry_types::SapRedemptionAuthorization;
 use mycelix_finance_shared::{
     anchor_hash, follow_update_chain, verify_caller_is_did, verify_citizen_tier,
     verify_participant_tier,
@@ -1057,33 +1058,87 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
         redeem_daily_limit_pct,
     )?;
 
-    let redeemed = CollateralBridgeDeposit {
-        status: BridgeDepositStatus::Redeemed,
-        completed_at: Some(now),
-        ..deposit.clone()
+    // Create (or deterministically reuse) one immutable bridge authorization
+    // for this exact confirmed deposit. This breaks the impossible circularity of
+    // requiring the SAP debit to point at a redemption update that does not exist yet.
+    let auth_anchor = anchor_hash(&format!("sap-redemption-auth:{}", deposit.id))?;
+    let auth_links = get_links(
+        LinkQuery::try_new(
+            auth_anchor.clone(),
+            LinkTypes::RedemptionAuthorizationByDeposit,
+        )?,
+        GetStrategy::default(),
+    )?;
+    if auth_links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Redemption authorization index is ambiguous".into(),
+        )));
+    }
+
+    let auth_action_hash = if let Some(link) = auth_links.into_iter().next() {
+        let hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Redemption authorization index has an invalid target".into(),
+            ))
+        })?;
+        let auth_record = must_get_valid_record(hash.clone())?;
+        let auth = auth_record
+            .entry()
+            .to_app_option::<SapRedemptionAuthorization>()
+            .map_err(|_| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Redemption authorization could not be decoded".into(),
+                ))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Redemption authorization entry is missing".into(),
+            )))?;
+        if auth.redemption_id != deposit.id
+            || auth.member_did != deposit.depositor_did
+            || auth.sap_amount != deposit.sap_minted
+            || auth.confirmed_deposit_action_hash != record.action_address().clone()
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Existing redemption authorization does not match the exact confirmed deposit head"
+                    .into(),
+            )));
+        }
+        hash
+    } else {
+        let auth = SapRedemptionAuthorization {
+            schema_version: 1,
+            redemption_id: deposit.id.clone(),
+            member_did: deposit.depositor_did.clone(),
+            sap_amount: deposit.sap_minted,
+            confirmed_deposit_action_hash: record.action_address().clone(),
+            created_at: now,
+        };
+        let hash = create_entry(&EntryTypes::SapRedemptionAuthorization(auth))?;
+        create_link(
+            auth_anchor,
+            hash.clone(),
+            LinkTypes::RedemptionAuthorizationByDeposit,
+            (),
+        )?;
+        hash
     };
 
-    let action_hash = update_entry(
-        record.action_address().clone(),
-        &EntryTypes::CollateralBridgeDeposit(redeemed),
-    )?;
-
-    // Debit SAP from depositor's balance via payments zome
+    // Debit SAP from the depositor's balance before marking collateral redeemed.
+    // The payment sink is idempotent against this exact authorization, so a retry
+    // after an interrupted deposit update cannot double-debit SAP.
     #[derive(Serialize, Debug)]
-    struct DebitSapPayload {
+    struct RedemptionSapDebitPayload {
         member_did: String,
-        amount: u64,
-        reason: String,
+        authorization_action_hash: ActionHash,
     }
     match call(
         CallTargetCell::Local,
         ZomeName::from("payments"),
-        FunctionName::from("debit_sap"),
+        FunctionName::from("debit_sap_for_redemption"),
         None,
-        DebitSapPayload {
+        RedemptionSapDebitPayload {
             member_did: deposit.depositor_did.clone(),
-            amount: deposit.sap_minted,
-            reason: format!("Collateral bridge redemption: {}", deposit.collateral_type),
+            authorization_action_hash: auth_action_hash.clone(),
         },
     ) {
         Ok(ZomeCallResponse::Ok(_)) => {}
@@ -1100,6 +1155,17 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
             ))));
         }
     }
+
+    let redeemed = CollateralBridgeDeposit {
+        status: BridgeDepositStatus::Redeemed,
+        completed_at: Some(now),
+        ..deposit.clone()
+    };
+
+    let action_hash = update_entry(
+        record.action_address().clone(),
+        &EntryTypes::CollateralBridgeDeposit(redeemed),
+    )?;
 
     // Broadcast the redemption event
     broadcast_finance_event(BroadcastFinanceEventInput {
