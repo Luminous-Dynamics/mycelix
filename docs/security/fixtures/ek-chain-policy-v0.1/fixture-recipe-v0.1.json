@@ -26,7 +26,8 @@
         {
           "serial": 57005,
           "revocation_date": "260101010000Z",
-          "reason_code": 1
+          "reason_code": 1,
+          "entry_identity_sha256": "cbeb820faa9b295bc7deeaada0dd757904a4db0151304a6a9c0f24fd923dcef3"
         }
       ]
     },
@@ -38,12 +39,14 @@
         {
           "serial": 4098,
           "revocation_date": "260101020000Z",
-          "reason_code": 1
+          "reason_code": 1,
+          "entry_identity_sha256": "a9155d989c9b9ea99815dc873feed360cdf1ee2a4192e535be7c2bf4c32684ff"
         },
         {
           "serial": 4099,
           "revocation_date": "260101030000Z",
-          "reason_code": 1
+          "reason_code": 1,
+          "entry_identity_sha256": "8e2d27701943e51fdf4e634af4a55b7535b361666da8718953b19ee8fa05e4eb"
         }
       ]
     }
