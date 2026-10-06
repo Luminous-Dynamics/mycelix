@@ -27,7 +27,7 @@ env:
   EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "18dca202667b1dc26f57c588efcab42087c8a49e"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "6e41beeb655be9f4ca32f9dadfcac0f7b8a792f1"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "c28eb9acea1e9364413022a4c4dd12e741488d4e"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
