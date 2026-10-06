@@ -464,6 +464,14 @@ jobs:
 
               assert candidate_permissions(workflow) == [("contents: read",)]
 
+              for structural_line in workflow_lines:
+                  if len(structural_line) - len(structural_line.lstrip(" ")) > 8:
+                      continue
+                  assert not re.search(
+                      r'(?:^|[{,]\s*)(?:"[^"\n]*"|\'[^\'\n]*\')\s*:',
+                      structural_line,
+                  ), f"candidate workflow contains quoted structural YAML key: {structural_line!r}"
+
               mutated_permissions = workflow.replace(
                   "  contents: read\n",
                   "  contents: read\n\n  security-events: write\n",
