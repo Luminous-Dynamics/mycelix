@@ -2036,6 +2036,18 @@ def self_test() -> int:
             print("CA=false pathLenConstraint acceptance: FAIL")
             return 1
 
+        key_usage_trailing_zero = copy.deepcopy(leaf_info)
+        key_usage_trailing_zero["extensions"]["2.5.29.15"]["extn_value"] = der_tlv(
+            0x03, b"\x00\x20\x00"
+        )
+        try:
+            leaf_profile_ok(key_usage_trailing_zero)
+        except ValueError:
+            pass
+        else:
+            print("non-canonical KeyUsage trailing zero acceptance: FAIL")
+            return 1
+
         empty_extensions = der_tlv(0x30, b"")
         try:
             parse_extensions(empty_extensions)
