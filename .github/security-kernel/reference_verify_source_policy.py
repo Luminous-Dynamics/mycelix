@@ -24,6 +24,8 @@ RETENTION = ".github/security-kernel/reference_verify_evidence_retention_binding
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 UPLOAD = "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
 DOWNLOAD = "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+GIT_FETCH_IMAGE = "docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329"
+RUST_IMAGE = "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
 
 S1_STEPS = (
     "Checkout trusted qualification root",
@@ -156,6 +158,23 @@ def require_no_escalation(lines_: list[str], description: str) -> None:
             fail(f"{description}: forbidden construct {fragment!r}")
 
 
+def require_no_fail_open_controls(lines_: list[str], description: str) -> None:
+    joined = "\n".join(lines_)
+    for fragment in ("continue-on-error:", "if: always()", "if: failure()", "if: cancelled()"):
+        if fragment in joined:
+            fail(f"{description}: forbidden fail-open control {fragment!r}")
+
+
+def require_following(lines_: list[str], step_name: str, expected_line: str, description: str) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    index = matches[0]
+    following = lines_[index + 1].strip() if index + 1 < len(lines_) else ""
+    if following != expected_line:
+        fail(f"{description}: expected {expected_line!r} immediately after {step_name!r}, found {following!r}")
+
+
 def require_exact_actions(actual: tuple[str, ...], expected: tuple[str, ...], description: str) -> None:
     normalized = tuple(
         value.split("#", 1)[0].rstrip()
@@ -199,6 +218,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 base repository ID mismatch")
     if exact_count(l, 'BASE_BRANCH: "main"') != 1:
         fail("S0 base branch mismatch")
+    require_no_fail_open_controls(l, "S0")
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
         fail("S0 must remain metadata-only")
@@ -228,9 +248,13 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     )
     if local_uses(l):
         fail(f"S1 unexpectedly contains local reusable workflow calls: {local_uses(l)!r}")
+    if exact_count(l, f'FETCH_IMAGE: "{GIT_FETCH_IMAGE}"') != 1:
+        fail("S1 fetch sandbox image digest pin mismatch")
+    if exact_count(l, f'SANDBOX_IMAGE: "{RUST_IMAGE}"') != 1:
+        fail("S1 candidate sandbox image digest pin mismatch")
     if exact_count(l, f'TRUSTED_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"') != 1:
         fail("S1 trusted workflow blob pin mismatch")
-    require_no_escalation(l, "S1")
+    require_no_fail_open_controls(l, "S1")
     for required in (
         "--network=bridge",
         "--network=none",
@@ -281,6 +305,11 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
             fail(f"S2 {key} mismatch")
     if exact_count(l, 'RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"') != 1:
         fail("S2 retention verifier path mismatch")
+    require_no_fail_open_controls(l, "S2")
+    require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
+    require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
+    require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: success()", "S2 transcript download gate")
+    require_following(l, "Verify official receipt transport and publish verified result", "if: success()", "S2 final witness gate")
     require_no_escalation(l, "S2")
 
 
