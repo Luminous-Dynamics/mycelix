@@ -152,8 +152,24 @@ pub struct FpmAttestationChallenge {
 pub struct FpmSourceAttestationAnchor {
     pub schema_version: String,
     pub challenge_action: ActionHash,
+    pub eat_cose_verification_action: ActionHash,
     pub claim: FpmSourceAttestationClaim,
     pub claim_digest: String,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FpmEatCoseVerificationAnchor {
+    pub schema_version: String,
+    pub challenge_action: ActionHash,
+    pub evidence_digest: String,
+    pub payload_digest: String,
+    pub subject_id: String,
+    pub audience: String,
+    pub nonce_digest: String,
+    pub eat_profile_uri: String,
+    pub key_id: Vec<u8>,
+    pub verification_key_digest: String,
 }
 
 #[hdk_entry_helper]
@@ -185,6 +201,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::FpmAcquisitionRootAnchor(a) => validate_fpm_acquisition_root_anchor(a),
             EntryTypes::FpmAttestationChallenge(a) => validate_fpm_attestation_challenge(a),
             EntryTypes::FpmSourceAttestationAnchor(a) => validate_fpm_source_attestation_anchor(a),
+            EntryTypes::FpmEatCoseVerificationAnchor(a) => validate_fpm_eat_cose_verification_anchor(a),
             EntryTypes::FpmAttestationChallengeUse(a) => validate_fpm_attestation_challenge_use(a),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
