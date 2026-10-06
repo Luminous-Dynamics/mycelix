@@ -16,7 +16,8 @@ jobs:
       github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
-      github.event.repository.full_name == github.repository
+      github.event.repository.full_name == github.repository &&
+      github.event.workflow_run.repository.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -181,7 +182,8 @@ EOF
       github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
-      github.event.repository.full_name == github.repository
+      github.event.repository.full_name == github.repository &&
+      github.event.workflow_run.repository.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -263,7 +265,8 @@ EOF
 
       github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
 
-      github.event.repository.full_name == github.repository
+      github.event.repository.full_name == github.repository &&
+      github.event.workflow_run.repository.full_name == github.repository
 
     runs-on: ubuntu-24.04
 
