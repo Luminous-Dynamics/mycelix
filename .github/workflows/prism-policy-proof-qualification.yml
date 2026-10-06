@@ -1,0 +1,43 @@
+name: Prism Policy Proof Qualification
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-prism/prism-bridge/src/policy_proof.rs"
+      - "mycelix-workspace/mycelix-prism/prism-bridge/src/seccomp.rs"
+      - "mycelix-workspace/mycelix-prism/prism-bridge/src/lib.rs"
+      - ".github/workflows/prism-policy-proof-qualification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust 1.96.0
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.96.0
+
+      - name: Verify exact source head
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          printf 'source_head=%s\n' "$(git rev-parse HEAD)"
+
+      - name: Format proof surface
+        working-directory: mycelix-workspace/mycelix-prism
+        run: cargo +1.96.0 fmt --all -- --check
+
+      - name: Policy proof tests
+        working-directory: mycelix-workspace/mycelix-prism
+        run: cargo +1.96.0 test --locked -p prism-bridge policy_proof:: --lib
+
+      - name: Policy proof release check
+        working-directory: mycelix-workspace/mycelix-prism
+        run: cargo +1.96.0 check --locked -p prism-bridge --release
