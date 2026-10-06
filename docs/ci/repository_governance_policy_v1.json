@@ -1,0 +1,60 @@
+{
+  "schema": "MYCELIX-REPOSITORY-GOVERNANCE-POLICY-V1",
+  "version": 1,
+  "repository": "Luminous-Dynamics/mycelix",
+  "repository_id": 1176351975,
+  "target_ref": "refs/heads/main",
+  "claim_scope": "trusted_verifier_control_plane",
+  "required_controls": {
+    "pull_request_required": true,
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews_on_push": true,
+    "require_last_push_approval": true,
+    "required_review_thread_resolution": true,
+    "block_force_push": true,
+    "block_deletion": true,
+    "bypass_actors_must_be_enumerated": true,
+    "bypass_set_must_be_minimized": true
+  },
+  "acceptable_control_planes": [
+    "github_repository_ruleset",
+    "github_branch_protection"
+  ],
+  "observation_contract": {
+    "live_control_plane_required": true,
+    "raw_payloads_required": true,
+    "raw_payload_sha256_required": true,
+    "admin_observation_required_for_verified": true,
+    "public_observation_may_establish": [
+      "target_ref_identity",
+      "branch_protected_boolean",
+      "repository_ruleset_identity",
+      "repository_ruleset_enforcement"
+    ],
+    "public_observation_must_not_establish": [
+      "complete_bypass_actor_set",
+      "administrator_bypass_prevention",
+      "complete_branch_protection_configuration"
+    ],
+    "admin_api_403_state": "UNVERIFIED",
+    "unknown_or_unobservable_state": "UNVERIFIED"
+  },
+  "result_states": [
+    "VERIFIED",
+    "MISMATCH",
+    "UNVERIFIED",
+    "NOT_RUN"
+  ],
+  "fail_closed": {
+    "verified_requires_all_required_controls": true,
+    "verified_requires_authoritative_admin_observation": true,
+    "mismatch_must_not_be_upgraded_by_missing_fields": true,
+    "unverified_must_not_be_treated_as_verified": true
+  },
+  "nonclaims": [
+    "The policy file is an expectation, not proof that GitHub currently enforces it.",
+    "A SHA-256 commitment proves policy or payload identity, not the truth of an administrator attestation.",
+    "This contract does not mutate branch protection or rulesets.",
+    "This contract does not establish semantic independence of the verifier."
+  ]
+}
