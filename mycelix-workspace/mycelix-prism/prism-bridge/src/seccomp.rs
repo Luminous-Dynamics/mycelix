@@ -2120,6 +2120,26 @@ mod linux {
             assert_ne!(policy.digest(), *legacy.finalize().as_bytes());
         }
 
+        #[cfg(target_endian = "big")]
+        #[test]
+        fn v2_compiler_rejects_big_endian_targets_before_architecture_selection() {
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, 0xff, 0x12).unwrap()],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                SeccompArchitecture::X86_64,
+                vec![rule],
+            )
+            .unwrap();
+
+            assert!(matches!(
+                compile_filter_v2(&policy),
+                Err(SeccompError::UnsupportedEndianness)
+            ));
+        }
+
         #[test]
         fn v2_disjunctive_clauses_are_canonical_and_model_is_explicit_or() {
             let arch = SeccompArchitecture::current().unwrap();
