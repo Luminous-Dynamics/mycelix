@@ -232,6 +232,96 @@ jobs:
           failed = {name: steps[name] for name in required if steps[name] != "success"}
           assert not failed, f"independent qualification gate failed: {failed}"
 
+          def execution_binding_document(
+              *,
+              repository_id, repository, candidate_repository_id, candidate_repository,
+              candidate_pr, candidate_sha, dispatcher_workflow_path, dispatcher_workflow_sha,
+              s1_workflow_path, s1_workflow_blob_sha, run_id, run_attempt, run_number,
+              resolver_job_id, s1_job_id,
+          ):
+              return {
+                  "schema": "security-kernel-execution-binding-v1",
+                  "repository_id": int(repository_id),
+                  "repository": str(repository),
+                  "candidate_repository_id": int(candidate_repository_id),
+                  "candidate_repository": str(candidate_repository),
+                  "candidate_pr": int(candidate_pr),
+                  "candidate_sha": str(candidate_sha),
+                  "dispatcher_workflow_path": str(dispatcher_workflow_path),
+                  "dispatcher_workflow_sha": str(dispatcher_workflow_sha),
+                  "s1_workflow_path": str(s1_workflow_path),
+                  "s1_workflow_blob_sha": str(s1_workflow_blob_sha),
+                  "run_id": int(run_id),
+                  "run_attempt": int(run_attempt),
+                  "run_number": int(run_number),
+                  "resolver_job_id": int(resolver_job_id),
+                  "s1_job_id": int(s1_job_id),
+              }
+
+          def execution_binding_digest(binding):
+              encoded = json.dumps(binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+              return hashlib.sha256(encoded).hexdigest()
+
+          binding = execution_binding_document(
+              repository_id=repository_obj["id"],
+              repository=repository_obj["full_name"],
+              candidate_repository_id=candidate_repo_id,
+              candidate_repository=candidate_repository,
+              candidate_pr=candidate_pr,
+              candidate_sha=candidate_sha,
+              dispatcher_workflow_path=os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"],
+              dispatcher_workflow_sha=workflow_sha,
+              s1_workflow_path=os.environ["INDEPENDENT_WORKFLOW_PATH"],
+              s1_workflow_blob_sha=s1_at_run["sha"],
+              run_id=run_id,
+              run_attempt=run_attempt,
+              run_number=run["run_number"],
+              resolver_job_id=resolver_job["id"],
+              s1_job_id=job["id"],
+          )
+          expected_binding = {
+              "repository_id": int(os.environ["BASE_REPOSITORY_ID"]),
+              "repository": repository_obj["full_name"],
+              "candidate_repository_id": candidate_repo_id,
+              "candidate_repository": candidate_repository,
+              "candidate_pr": candidate_pr,
+              "candidate_sha": candidate_sha,
+              "dispatcher_workflow_path": os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"],
+              "dispatcher_workflow_sha": workflow_sha,
+              "s1_workflow_path": os.environ["INDEPENDENT_WORKFLOW_PATH"],
+              "s1_workflow_blob_sha": s1_at_run["sha"],
+              "run_id": int(run_id),
+              "run_attempt": run_attempt,
+              "run_number": run["run_number"],
+              "resolver_job_id": resolver_job["id"],
+              "s1_job_id": job["id"],
+          }
+          assert binding == expected_binding, "sealed execution binding does not match independently observed identities"
+          binding_digest = execution_binding_digest(binding)
+
+          mutations = {
+              "repository_id": binding["repository_id"] + 1,
+              "repository": binding["repository"] + "-mutated",
+              "candidate_repository_id": binding["candidate_repository_id"] + 1,
+              "candidate_repository": binding["candidate_repository"] + "-mutated",
+              "candidate_pr": binding["candidate_pr"] + 1,
+              "candidate_sha": "0" * 40,
+              "dispatcher_workflow_path": binding["dispatcher_workflow_path"] + ".mutated",
+              "dispatcher_workflow_sha": "1" * 40,
+              "s1_workflow_path": binding["s1_workflow_path"] + ".mutated",
+              "s1_workflow_blob_sha": "2" * 40,
+              "run_id": binding["run_id"] + 1,
+              "run_attempt": binding["run_attempt"] + 1,
+              "run_number": binding["run_number"] + 1,
+              "resolver_job_id": binding["resolver_job_id"] + 1,
+              "s1_job_id": binding["s1_job_id"] + 1,
+          }
+          for field, replacement in mutations.items():
+              mutated = dict(binding)
+              mutated[field] = replacement
+              assert execution_binding_digest(mutated) != binding_digest, f"execution binding digest is invariant under mutation of {field}"
+          print(f"PASS: sealed S0/S1 execution binding SHA-256={binding_digest}")
+
           artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
           expected_artifact_name = f"security-kernel-independent-qualification-{candidate_sha}-attempt-{run_attempt}.txt"
           matching_artifacts = [a for a in artifacts if a.get("name") == expected_artifact_name]
