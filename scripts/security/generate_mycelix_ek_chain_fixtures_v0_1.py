@@ -304,13 +304,11 @@ def crl(
             seq(
                 *[
                     crl_entry(
-                        serial,
+                        int(entry["serial"]),
                         str(entry["revocation_date"]),
                         int(entry["reason_code"]),
                     )
-                    for serial, entry in zip(
-                        serials, revoked_entries, strict=True
-                    )
+                    for entry in revoked_entries
                 ]
             )
         )
