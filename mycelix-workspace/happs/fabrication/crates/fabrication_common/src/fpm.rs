@@ -316,13 +316,20 @@ impl BaselineProfile {
             }
         }
 
-        let mut profile = Self {
+        // Optional channels are only admitted into the baseline once they have
+        // enough observations to support a stable statistic. Their absence does not
+        // invalidate an otherwise sufficient required-channel baseline.
+        features.retain(|baseline| {
+            baseline.feature.required_for_baseline()
+                || baseline.sample_count as usize >= MIN_BASELINE_SAMPLES
+        });
+
+        let profile = Self {
             schema_version: FPM_SCHEMA_VERSION.to_string(),
             detector_version: detector_version.into(),
             source_observation_count: observations.len() as u64,
             features,
         };
-        profile.features.sort_by_key(|feature| feature.feature);
         Ok(profile)
     }
 
@@ -434,7 +441,9 @@ pub fn analyze(
         evaluations.push(evaluation);
     }
 
-    anomaly_types.sort_by_key(|kind| format!("{kind:?}"));
+    // Feature traversal above is fixed and deterministic, so anomaly_types
+    // already have a stable order. Avoid depending on Debug formatting for
+    // semantic ordering.
     Ok(ProcessDetection {
         status: if anomaly_types.is_empty() {
             DetectionStatus::Normal
