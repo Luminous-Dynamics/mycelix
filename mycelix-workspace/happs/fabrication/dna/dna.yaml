@@ -7,6 +7,9 @@ name: fabrication
 integrity:
   network_seed: ~
   properties:
+    # Immutable authority allowed to provision FPM verifier-key trust anchors.
+    # Leave unset until a deployment has explicitly chosen its trust root.
+    fpm_verifier_trust_authority: ~
     # HDC (Hyperdimensional Computing) Configuration
     hdc:
       dimensions: 16384

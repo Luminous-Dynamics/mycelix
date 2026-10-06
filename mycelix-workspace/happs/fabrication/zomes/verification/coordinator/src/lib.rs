@@ -98,13 +98,40 @@ pub struct ResolvedFpmAcquisitionRootAnchor {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CreateFpmAttestationChallengeInput {
-    pub acquisition_root_action: ActionHash,
-    pub audience: String,
+pub struct CreateFpmVerificationKeyTrustAnchorInput {
+    pub verifier_agent: AgentPubKey,
     pub verification_key_id: Vec<u8>,
+    pub public_key_sec1: Vec<u8>,
+    pub attestation_format: String,
+    pub verifier_profile_digest: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolveFpmVerificationKeyTrustAnchorInput {
+    pub action_hash: ActionHash,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolvedFpmVerificationKeyTrustAnchor {
+    pub action_hash: ActionHash,
+    pub entry_hash: EntryHash,
+    pub verifier_agent: AgentPubKey,
+    pub verification_key_id: Vec<u8>,
+    pub public_key_sec1: Vec<u8>,
     pub verification_key_digest: String,
     pub attestation_format: String,
     pub verifier_profile_digest: String,
+    pub authority_agent: AgentPubKey,
+    pub timestamp: Timestamp,
+    pub action_seq: u32,
+    pub prev_action: Option<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateFpmAttestationChallengeInput {
+    pub acquisition_root_action: ActionHash,
+    pub audience: String,
+    pub verification_key_trust_anchor_action: ActionHash,
     pub appraisal_policy_digest: String,
     pub reference_values_digest: String,
     pub endorsement_digest: String,
@@ -120,6 +147,7 @@ pub struct ResolvedFpmAttestationChallenge {
     pub action_hash: ActionHash,
     pub subject_id: String,
     pub audience: String,
+    pub verification_key_trust_anchor_action: ActionHash,
     pub verification_key_id: Vec<u8>,
     pub verification_key_digest: String,
     pub acquisition_root_action: ActionHash,
@@ -151,7 +179,6 @@ pub struct CreateFpmSourceAttestationAnchorInput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VerifyFpmEatCoseAgainstChallengeInput {
     pub challenge_action: ActionHash,
-    pub trusted_public_key_sec1: Vec<u8>,
     pub token_bytes: Vec<u8>,
     pub expected_evidence_digest: Option<String>,
 }
@@ -166,7 +193,6 @@ pub struct FpmChallengeEatCoseVerification {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateFpmEatCoseVerificationAnchorInput {
     pub challenge_action: ActionHash,
-    pub trusted_public_key_sec1: Vec<u8>,
     pub token_bytes: Vec<u8>,
     pub expected_evidence_digest: Option<String>,
 }
@@ -366,13 +392,18 @@ fn verify_fpm_eat_cose_against_challenge_impl(
         ));
     }
 
+    let trust = resolve_fpm_verification_key_trust_anchor_impl(
+        ResolveFpmVerificationKeyTrustAnchorInput {
+            action_hash: challenge.verification_key_trust_anchor_action.clone(),
+        },
+    )?;
     let verification = verify_fpm_eat_cose_sign1(&FpmEatCoseVerificationInput {
         expected_subject_id: challenge.subject_id.clone(),
         expected_audience: challenge.audience.clone(),
         expected_nonce: challenge.nonce.clone(),
-        expected_verification_key_id: challenge.verification_key_id.clone(),
-        expected_verification_key_digest: challenge.verification_key_digest.clone(),
-        trusted_public_key_sec1: input.trusted_public_key_sec1,
+        expected_verification_key_id: trust.verification_key_id.clone(),
+        expected_verification_key_digest: trust.verification_key_digest.clone(),
+        trusted_public_key_sec1: trust.public_key_sec1,
         expected_evidence_digest: input.expected_evidence_digest,
         token_bytes: input.token_bytes,
     });
@@ -403,7 +434,6 @@ fn create_fpm_eat_cose_verification_anchor_impl(
     let result = verify_fpm_eat_cose_against_challenge_impl(
         VerifyFpmEatCoseAgainstChallengeInput {
             challenge_action: input.challenge_action.clone(),
-            trusted_public_key_sec1: input.trusted_public_key_sec1,
             token_bytes: input.token_bytes,
             expected_evidence_digest: input.expected_evidence_digest,
         },
@@ -530,10 +560,27 @@ fn resolve_fpm_attestation_challenge_impl(
         ));
     }
 
+    let trust = resolve_fpm_verification_key_trust_anchor_impl(
+        ResolveFpmVerificationKeyTrustAnchorInput {
+            action_hash: challenge.verification_key_trust_anchor_action.clone(),
+        },
+    )?;
+    if trust.verifier_agent != challenge.verifier_agent
+        || trust.verification_key_id != challenge.verification_key_id
+        || trust.verification_key_digest != challenge.verification_key_digest
+        || trust.attestation_format != challenge.attestation_format
+        || trust.verifier_profile_digest != challenge.verifier_profile_digest
+    {
+        return Err(fpm_attestation_error(
+            "attestation challenge does not inherit its exact trusted verifier-key binding",
+        ));
+    }
+
     Ok(ResolvedFpmAttestationChallenge {
         action_hash: input.action_hash,
         subject_id: challenge.subject_id,
         audience: challenge.audience,
+        verification_key_trust_anchor_action: challenge.verification_key_trust_anchor_action,
         verification_key_id: challenge.verification_key_id,
         verification_key_digest: challenge.verification_key_digest,
         acquisition_root_action: challenge.acquisition_root_action,
@@ -788,6 +835,137 @@ fn resolve_fpm_source_attestation_anchor_impl(
     })
 }
 
+fn create_fpm_verification_key_trust_anchor_impl(
+    input: CreateFpmVerificationKeyTrustAnchorInput,
+) -> ExternResult<Record> {
+    let authority = FabricationDnaProperties::fpm_verifier_trust_authority()?;
+    let current_agent = agent_info()?.agent_initial_pubkey;
+    if current_agent != authority {
+        return Err(fpm_attestation_error(
+            "only the DNA-configured FPM trust authority may provision verifier keys",
+        ));
+    }
+
+    if input.verification_key_id.is_empty()
+        || input.verification_key_id.len() > 128
+        || !is_valid_fpm_p256_public_key(&input.public_key_sec1)
+        || !valid_attestation_identifier(&input.attestation_format, 128)
+        || !valid_fpm_digest(&input.verifier_profile_digest)
+    {
+        return Err(fpm_attestation_error(
+            "verifier-key trust anchor inputs are malformed",
+        ));
+    }
+
+    let verification_key_digest = fpm_verification_key_digest(&input.public_key_sec1);
+    let anchor = FpmVerificationKeyTrustAnchor {
+        schema_version: FPM_VERIFICATION_KEY_TRUST_ANCHOR_SCHEMA_VERSION.into(),
+        verifier_agent: input.verifier_agent,
+        key_id: input.verification_key_id,
+        public_key_sec1: input.public_key_sec1,
+        verification_key_digest,
+        attestation_format: input.attestation_format,
+        verifier_profile_digest: input.verifier_profile_digest,
+    };
+
+    let action_hash = create_entry(EntryTypes::FpmVerificationKeyTrustAnchor(anchor))?;
+    get(action_hash.clone(), GetOptions::default())?.ok_or_else(|| {
+        FabricationError::not_found("FpmVerificationKeyTrustAnchor", &action_hash)
+    })
+}
+
+fn resolve_fpm_verification_key_trust_anchor_impl(
+    input: ResolveFpmVerificationKeyTrustAnchorInput,
+) -> ExternResult<ResolvedFpmVerificationKeyTrustAnchor> {
+    let details = get_details(input.action_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| FabricationError::not_found(
+            "FpmVerificationKeyTrustAnchor",
+            &input.action_hash,
+        ))?;
+    let Details::Record(record_details) = details else {
+        return Err(fpm_attestation_error(
+            "verifier-key trust-anchor ActionHash did not resolve to record details",
+        ));
+    };
+    if record_details.validation_status != ValidationStatus::Valid
+        || !record_details.updates.is_empty()
+        || !record_details.deletes.is_empty()
+    {
+        return Err(fpm_attestation_error(
+            "verifier-key trust anchor is not currently valid and immutable",
+        ));
+    }
+
+    let record = record_details.record;
+    if record.action().action_type() != ActionType::Create {
+        return Err(fpm_attestation_error(
+            "verifier-key trust anchor must resolve to its original Create action",
+        ));
+    }
+    let expected_entry_type = EntryType::App(
+        UnitEntryTypes::FpmVerificationKeyTrustAnchor
+            .try_into()
+            .map_err(|_| fpm_attestation_error(
+                "could not construct FPM verifier-key trust-anchor entry type",
+            ))?,
+    );
+    if record.action().entry_type() != Some(&expected_entry_type) {
+        return Err(fpm_attestation_error(
+            "ActionHash does not reference an FPM verifier-key trust anchor",
+        ));
+    }
+
+    let authority = FabricationDnaProperties::fpm_verifier_trust_authority()?;
+    if *record.action().author() != authority {
+        return Err(fpm_attestation_error(
+            "verifier-key trust anchor was not provisioned by the DNA-configured authority",
+        ));
+    }
+
+    let anchor: FpmVerificationKeyTrustAnchor = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| fpm_attestation_error(format!(
+            "could not decode FPM verifier-key trust anchor: {e}"
+        )))?
+        .ok_or_else(|| fpm_attestation_error(
+            "record is not an FPM verifier-key trust anchor entry",
+        ))?;
+
+    if anchor.schema_version != FPM_VERIFICATION_KEY_TRUST_ANCHOR_SCHEMA_VERSION
+        || anchor.key_id.is_empty()
+        || anchor.key_id.len() > 128
+        || !is_valid_fpm_p256_public_key(&anchor.public_key_sec1)
+        || !valid_attestation_identifier(&anchor.attestation_format, 128)
+        || !valid_fpm_digest(&anchor.verification_key_digest)
+        || fpm_verification_key_digest(&anchor.public_key_sec1) != anchor.verification_key_digest
+        || !valid_fpm_digest(&anchor.verifier_profile_digest)
+    {
+        return Err(fpm_attestation_error(
+            "verifier-key trust anchor contains malformed or inconsistent commitments",
+        ));
+    }
+
+    let entry_hash = record.action().entry_hash().ok_or_else(|| {
+        fpm_attestation_error("verifier-key trust-anchor action has no entry hash")
+    })?.clone();
+
+    Ok(ResolvedFpmVerificationKeyTrustAnchor {
+        action_hash: input.action_hash,
+        entry_hash,
+        verifier_agent: anchor.verifier_agent,
+        verification_key_id: anchor.key_id,
+        public_key_sec1: anchor.public_key_sec1,
+        verification_key_digest: anchor.verification_key_digest,
+        attestation_format: anchor.attestation_format,
+        verifier_profile_digest: anchor.verifier_profile_digest,
+        authority_agent: authority,
+        timestamp: record.action().timestamp(),
+        action_seq: record.action().action_seq(),
+        prev_action: record.action().prev_action().cloned(),
+    })
+}
+
 fn create_fpm_attestation_challenge_impl(
     input: CreateFpmAttestationChallengeInput,
 ) -> ExternResult<Record> {
@@ -797,23 +975,28 @@ fn create_fpm_attestation_challenge_impl(
             expected_root_digest: None,
         },
     )?;
+    let trust = resolve_fpm_verification_key_trust_anchor_impl(
+        ResolveFpmVerificationKeyTrustAnchorInput {
+            action_hash: input.verification_key_trust_anchor_action.clone(),
+        },
+    )?;
+    let verifier_agent = agent_info()?.agent_initial_pubkey;
+    if verifier_agent != trust.verifier_agent {
+        return Err(fpm_attestation_error(
+            "only the verifier bound to the trusted key anchor may issue this challenge",
+        ));
+    }
 
     if !valid_attestation_identifier(&input.audience, 256)
-        || input.verification_key_id.is_empty()
-        || input.verification_key_id.len() > 128
-        || !valid_fpm_digest(&input.verification_key_digest)
-        || !valid_attestation_identifier(&input.attestation_format, 128)
-        || !valid_fpm_digest(&input.verifier_profile_digest)
         || !valid_fpm_digest(&input.appraisal_policy_digest)
         || !valid_fpm_digest(&input.reference_values_digest)
         || !valid_fpm_digest(&input.endorsement_digest)
     {
         return Err(fpm_attestation_error(
-            "attestation challenge verifier policy inputs are malformed",
+            "attestation challenge relying-party policy inputs are malformed",
         ));
     }
 
-    let verifier_agent = agent_info()?.agent_initial_pubkey;
     let nonce = random_bytes(32)
         .map_err(|e| fpm_attestation_error(format!(
             "cryptographic challenge nonce generation failed: {e}"
@@ -825,13 +1008,14 @@ fn create_fpm_attestation_challenge_impl(
         schema_version: FPM_ATTESTATION_CHALLENGE_SCHEMA_VERSION.into(),
         subject_id: root.source_system_id,
         audience: input.audience,
-        verification_key_id: input.verification_key_id,
-        verification_key_digest: input.verification_key_digest,
+        verification_key_trust_anchor_action: trust.action_hash,
+        verification_key_id: trust.verification_key_id,
+        verification_key_digest: trust.verification_key_digest,
         acquisition_root_action: input.acquisition_root_action,
         acquisition_root_digest: root.root_digest,
         verifier_agent,
-        attestation_format: input.attestation_format,
-        verifier_profile_digest: input.verifier_profile_digest,
+        attestation_format: trust.attestation_format,
+        verifier_profile_digest: trust.verifier_profile_digest,
         appraisal_policy_digest: input.appraisal_policy_digest,
         reference_values_digest: input.reference_values_digest,
         endorsement_digest: input.endorsement_digest,
@@ -1024,6 +1208,22 @@ fn qualify_fpm_source_attestation_impl(
         attestation_action: input.attestation_action,
         consumed: true,
     })
+}
+
+#[hdk_extern]
+pub fn create_fpm_verification_key_trust_anchor(
+    input: CreateFpmVerificationKeyTrustAnchorInput,
+) -> ExternResult<Record> {
+    rate_limit_caller()?;
+    create_fpm_verification_key_trust_anchor_impl(input)
+}
+
+#[hdk_extern]
+pub fn resolve_fpm_verification_key_trust_anchor(
+    input: ResolveFpmVerificationKeyTrustAnchorInput,
+) -> ExternResult<ResolvedFpmVerificationKeyTrustAnchor> {
+    rate_limit_caller()?;
+    resolve_fpm_verification_key_trust_anchor_impl(input)
 }
 
 #[hdk_extern]

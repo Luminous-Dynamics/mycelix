@@ -10,7 +10,10 @@ on:
       - "mycelix-workspace/happs/fabrication/**"
       - ".github/workflows/fabrication-ci.yml"
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - hardening/**
+      - research/**
     paths:
       - "mycelix-workspace/happs/fabrication/**"
       - ".github/workflows/fabrication-ci.yml"
@@ -31,6 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
