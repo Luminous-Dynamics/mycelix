@@ -226,7 +226,7 @@
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-    "blob_sha": "fafa0dbaf4f33755300359fcaf4a78b35291bdbf"
+    "blob_sha": "35d56afd3309c8a346f533f2a217140d01a8344b"
   },
   "trusted_permissions": {
     "verifier": {
