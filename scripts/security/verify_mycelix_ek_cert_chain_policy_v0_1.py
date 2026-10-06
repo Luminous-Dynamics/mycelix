@@ -21,6 +21,7 @@ TRUST_ANCHOR_APPRAISAL_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
 TRUST_ANCHOR_APPRAISAL_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_trust_anchor_appraisal_v0_1.py")
 TRUST_ANCHOR_REGISTRY_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-registry-v0.1.json"
 TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-authorization-receipt-v0.1.json"
+SPKI_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_cert_spki_binding_v0_1.py")
 FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
@@ -562,6 +563,96 @@ def run_trust_anchor_appraiser(
         return output
 
 
+def run_spki_verifier(
+    manifest: dict[str, Any],
+    binding: dict[str, Any],
+    leaf: bytes,
+    ek_public_wire: bytes,
+) -> dict[str, Any]:
+    if not SPKI_VERIFIER_SCRIPT.is_file():
+        return result("DENY", "spki-verifier-missing")
+    verifier_input = binding.get("verifier_input")
+    if not isinstance(verifier_input, dict):
+        return result("DENY", "spki-verifier-input-invalid")
+    expected_input = {
+        "profile_id": "mycelix.security.tpm.ek-cert-spki-binding",
+        "profile_version": "0.1.0",
+        "session_id": manifest["session_id"],
+        "tpm_identity_digest": manifest["tpm_identity_digest"],
+        "verification_mode": manifest["verification_mode"],
+        "claim_ceiling": "ReferenceModelOnly",
+        "certificate_der_hex": leaf.hex(),
+        "certificate_der_sha256": hashlib.sha256(leaf).hexdigest(),
+        "ek_public_format": "TPMT_PUBLIC",
+        "ek_public_wire_hex": ek_public.hex(),
+        "ek_public_wire_sha256": hashlib.sha256(ek_public_wire).hexdigest(),
+        "certificate_source_sha256": verifier_input.get("certificate_source_sha256"),
+        "ek_public_source_sha256": verifier_input.get("ek_public_source_sha256"),
+    }
+    expected_binding = canonical_hash({
+        "session_id": expected_input["session_id"],
+        "tpm_identity_digest": expected_input["tpm_identity_digest"],
+        "certificate_der_sha256": expected_input["certificate_der_sha256"],
+        "ek_public_wire_sha256": expected_input["ek_public_wire_sha256"],
+    })
+    expected_input["session_binding_sha256"] = expected_binding
+    if verifier_input != {
+        "certificate_source_sha256": expected_input["certificate_source_sha256"],
+        "ek_public_source_sha256": expected_input["ek_public_source_sha256"],
+    }:
+        return result("DENY", "spki-verifier-source-projection-mismatch")
+    if binding.get("session_binding_sha256") != expected_binding:
+        return result("DENY", "spki-verifier-session-binding-mismatch")
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-spki-compose-") as td:
+        work = Path(td)
+        input_path = work / "spki-input.json"
+        output_path = work / "spki-output.json"
+        input_path.write_text(
+            json.dumps(expected_input, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(SPKI_VERIFIER_SCRIPT),
+                "--verify",
+                str(input_path),
+                "--output",
+                str(output_path),
+            ],
+            cwd=work,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if proc.returncode not in (0, 1, 2):
+            return result("DENY", "spki-verifier-execution-error", {"stderr": proc.stderr})
+        if not output_path.is_file():
+            return result("DENY", "spki-verifier-produced-no-output")
+        try:
+            output = json.loads(output_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            return result("DENY", "spki-verifier-output-invalid", {"error": str(exc)})
+        if output.get("verifier_id") != SPKI_VERIFIER_ID:
+            return result("DENY", "spki-verifier-result-id-mismatch")
+        expected_input_sha = sha256_file(input_path)
+        expected_output_sha = sha256_file(output_path)
+        if binding.get("input_sha256") != expected_input_sha:
+            return result("DENY", "spki-verifier-input-digest-mismatch")
+        if binding.get("output_sha256") != expected_output_sha:
+            return result("DENY", "spki-verifier-output-digest-mismatch")
+        if not valid_hash(output.get("content_sha256")):
+            return result("DENY", "spki-verifier-output-content-digest-invalid")
+        if output["content_sha256"] != binding.get("output_content_sha256"):
+            return result("DENY", "spki-verifier-output-content-digest-mismatch")
+        if output["content_sha256"] != canonical_hash(
+            {key: value for key, value in output.items() if key != "content_sha256"}
+        ):
+            return result("DENY", "spki-verifier-output-content-invalid")
+        return output
+
+
 def validate_template_binding(manifest: dict[str, Any]) -> dict[str, Any]:
     template = manifest.get("ek_template_binding")
     if not isinstance(template, dict):
@@ -641,6 +732,11 @@ def session_binding(
             "spki_state": spki.get("state"),
             "spki_certificate_sha256": spki.get("certificate_sha256"),
             "spki_ek_public_wire_sha256": spki.get("ek_public_wire_sha256"),
+            "spki_source_sha256": spki.get("source_sha256"),
+            "spki_input_sha256": spki.get("input_sha256"),
+            "spki_output_sha256": spki.get("output_sha256"),
+            "spki_output_content_sha256": spki.get("output_content_sha256"),
+            "spki_session_binding_sha256": spki.get("session_binding_sha256"),
             "template_state": template.get("state"),
             "template_input_sha256": template.get("input_sha256"),
             "template_output_sha256": template.get("output_sha256"),
@@ -741,12 +837,44 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("INDETERMINATE", "spki-binding-indeterminate")
     if spki.get("state") != "PASS":
         return result("DENY", "spki-binding-not-pass")
-    if not valid_hash(spki.get("certificate_sha256")) or not valid_hash(spki.get("ek_public_wire_sha256")):
-        return result("DENY", "spki-binding-digest-invalid")
+    for field in (
+        "certificate_sha256", "ek_public_wire_sha256", "source_sha256",
+        "input_sha256", "output_sha256", "output_content_sha256",
+        "session_binding_sha256", "verifier_input",
+    ):
+        if field not in spki:
+            return result("DENY", "spki-binding-field-missing", {"field": field})
+    for field in (
+        "certificate_sha256", "ek_public_wire_sha256", "source_sha256",
+        "input_sha256", "output_sha256", "output_content_sha256",
+        "session_binding_sha256",
+    ):
+        if not valid_hash(spki[field]):
+            return result("DENY", "spki-binding-digest-invalid", {"field": field})
+    if spki["source_sha256"] != sha256_file(SPKI_VERIFIER_SCRIPT):
+        return result("DENY", "spki-verifier-source-mismatch")
     if spki["certificate_sha256"] != manifest["leaf_certificate_sha256"]:
         return result("DENY", "spki-certificate-digest-mismatch")
     if spki["ek_public_wire_sha256"] != manifest["ek_public_wire_sha256"]:
         return result("DENY", "spki-ek-public-wire-digest-mismatch")
+    try:
+        ek_public_wire_for_spki = hex_bytes(manifest["ek_public_wire_hex"], "ek_public_wire_hex")
+    except ValueError as exc:
+        return result("DENY", "ek-public-wire-hex-invalid", {"error": str(exc)})
+    if hashlib.sha256(ek_public_wire_for_spki).hexdigest() != manifest["ek_public_wire_sha256"]:
+        return result("DENY", "ek-public-wire-hex-digest-mismatch")
+    generated_spki = run_spki_verifier(manifest, spki, leaf, ek_public_wire_for_spki)
+    if generated_spki.get("verifier_id") != SPKI_VERIFIER_ID:
+        return generated_spki
+    if generated_spki.get("state") != "PASS":
+        return result("DENY", "spki-reexecution-not-pass")
+    spki_details = generated_spki.get("details")
+    if not isinstance(spki_details, dict):
+        return result("DENY", "spki-result-details-missing")
+    if spki_details.get("certificate_der_sha256") != manifest["leaf_certificate_sha256"]:
+        return result("DENY", "spki-result-certificate-digest-mismatch")
+    if spki_details.get("ek_public_wire_sha256") != manifest["ek_public_wire_sha256"]:
+        return result("DENY", "spki-result-ek-public-digest-mismatch")
 
     template_result = validate_template_binding(manifest)
     if template_result.get("state") != "PASS":
@@ -872,6 +1000,12 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "claim_ceiling": "ReferenceModelOnly",
         "session_id": "ek-chain-self-test",
         "tpm_identity_digest": "44" * 32,
+        "ek_public_wire_hex": (
+            bytes.fromhex("0001000b000300b2")
+            + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
+            + bytes.fromhex("00060080004300100800")
+            + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+        ).hex(),
         "ek_public_wire_sha256": hashlib.sha256(
             bytes.fromhex("0001000b000300b2")
             + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
@@ -969,6 +1103,20 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             "verifier_id": SPKI_VERIFIER_ID,
             "certificate_sha256": leaf_sha,
             "ek_public_wire_sha256": m["ek_public_wire_sha256"],
+            "source_sha256": sha256_file(SPKI_VERIFIER_SCRIPT),
+            "input_sha256": "",
+            "output_sha256": "",
+            "output_content_sha256": "",
+            "session_binding_sha256": canonical_hash({
+                "session_id": "ek-chain-self-test",
+                "tpm_identity_digest": "44" * 32,
+                "certificate_der_sha256": leaf_sha,
+                "ek_public_wire_sha256": m["ek_public_wire_sha256"],
+            }),
+            "verifier_input": {
+                "certificate_source_sha256": "11" * 32,
+                "ek_public_source_sha256": "22" * 32,
+            },
         },
     }
     m["session_binding_sha256"] = session_binding(m, leaf_sha, inter_sha, root_sha, crl_sha)
@@ -1011,6 +1159,55 @@ def refresh_trust_anchor_appraisal(m: dict[str, Any]) -> None:
         appraisal["verifier_source_sha256"] = sha256_file(TRUST_ANCHOR_APPRAISAL_SCRIPT)
         output = json.loads(op.read_text(encoding="utf-8"))
         appraisal["output_content_sha256"] = output["content_sha256"]
+
+def refresh_spki_binding(m: dict[str, Any]) -> None:
+    binding=m["spki_binding"]
+    leaf=unb64(m["leaf_certificate_der_base64"],"leaf_certificate_der_base64")
+    wire=bytes.fromhex(m["ek_public_wire_hex"])
+    binding["certificate_sha256"]=hashlib.sha256(leaf).hexdigest()
+    binding["ek_public_wire_sha256"]=hashlib.sha256(wire).hexdigest()
+    binding["source_sha256"]=sha256_file(SPKI_VERIFIER_SCRIPT)
+    verifier_input={
+        "certificate_source_sha256":"11"*32,
+        "ek_public_source_sha256":"22"*32,
+    }
+    binding["verifier_input"]=verifier_input
+    binding["session_binding_sha256"]=canonical_hash({
+        "session_id":m["session_id"],
+        "tpm_identity_digest":m["tpm_identity_digest"],
+        "certificate_der_sha256":hashlib.sha256(leaf).hexdigest(),
+        "ek_public_wire_sha256":hashlib.sha256(wire).hexdigest(),
+    })
+    composed_input={
+        "profile_id":"mycelix.security.tpm.ek-cert-spki-binding",
+        "profile_version":"0.1.0",
+        "session_id":m["session_id"],
+        "tpm_identity_digest":m["tpm_identity_digest"],
+        "verification_mode":m["verification_mode"],
+        "claim_ceiling":"ReferenceModelOnly",
+        "certificate_der_hex":leaf.hex(),
+        "certificate_der_sha256":hashlib.sha256(leaf).hexdigest(),
+        "ek_public_format":"TPMT_PUBLIC",
+        "ek_public_wire_hex":wire.hex(),
+        "ek_public_wire_sha256":hashlib.sha256(wire).hexdigest(),
+        "certificate_source_sha256":"11"*32,
+        "ek_public_source_sha256":"22"*32,
+    }
+    composed_input["session_binding_sha256"]=binding["session_binding_sha256"]
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-spki-refresh-") as td:
+        work=Path(td);ip=work/"input.json";op=work/"output.json"
+        ip.write_text(json.dumps(composed_input,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+        proc=subprocess.run(
+            [sys.executable,str(SPKI_VERIFIER_SCRIPT),"--verify",str(ip),"--output",str(op)],
+            cwd=work,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False
+        )
+        if proc.returncode!=0 or not op.is_file():
+            raise RuntimeError(f"SPKI fixture verifier failed: {proc.stderr}")
+        output=json.loads(op.read_text(encoding="utf-8"))
+        binding["input_sha256"]=hashlib.sha256(ip.read_bytes()).hexdigest()
+        binding["output_sha256"]=hashlib.sha256(op.read_bytes()).hexdigest()
+        binding["output_content_sha256"]=output["content_sha256"]
+
 
 def refresh_template_binding(m: dict[str, Any]) -> None:
     binding = m["ek_template_binding"]
@@ -1114,6 +1311,7 @@ def self_test() -> int:
         fx = load_fixture()
         base = make_manifest(fx)
         refresh_trust_anchor_appraisal(base)
+        refresh_spki_binding(base)
         refresh_template_binding(base)
         base["session_binding_sha256"] = session_binding(
             base,
@@ -1179,6 +1377,10 @@ def self_test() -> int:
             ("revocation-indeterminate", "INDETERMINATE", lambda x: x["revocation"].update({"state": "INDETERMINATE"})),
             ("root-crl-missing", "DENY", mutate_root_crl_missing),
             ("spki-certificate-substitution", "DENY", lambda x: x["spki_binding"].update({"certificate_sha256": "77" * 32})),
+            ("spki-verifier-source-substitution", "DENY", lambda x: x["spki_binding"].update({"source_sha256": "78" * 32})),
+            ("spki-input-substitution", "DENY", lambda x: x["spki_binding"].update({"input_sha256": "79" * 32})),
+            ("spki-output-substitution", "DENY", lambda x: x["spki_binding"].update({"output_sha256": "7a" * 32})),
+            ("spki-output-content-substitution", "DENY", lambda x: x["spki_binding"].update({"output_content_sha256": "7b" * 32})),
             ("spki-indeterminate", "INDETERMINATE", lambda x: x["spki_binding"].update({"state": "INDETERMINATE"})),
             ("spki-ek-public-digest-substitution", "DENY", lambda x: x["spki_binding"].update({"ek_public_wire_sha256": "77" * 32})),
             ("verification-time-binding-substitution", "DENY", lambda x: x.update({"verification_time_unix": x["verification_time_unix"] + 3600})),
@@ -1213,7 +1415,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("32 adversarial mutations plus canonical and key-order control: PASS")
+    print("36 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 

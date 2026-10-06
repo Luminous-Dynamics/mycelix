@@ -286,6 +286,26 @@
       "id": "EKC-V36",
       "mutation": "trust-anchor-appraisal-output-content-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V37",
+      "mutation": "spki-verifier-source-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V38",
+      "mutation": "spki-input-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V39",
+      "mutation": "spki-output-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V40",
+      "mutation": "spki-output-content-substitution",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -334,5 +354,21 @@
       "output_content_sha256"
     ],
     "rule": "The chain verifier re-executes the exact trust-anchor appraiser source over the exact reconstructed root/registry input and requires the verifier source digest, output file digest, and verifier-produced content digest to match the bound appraisal."
+  },
+  "spki_binding_composition": {
+    "verifier_id": "mycelix.tpm.ek-cert-spki-binding.v0.1",
+    "required_fields": [
+      "state",
+      "verifier_id",
+      "certificate_sha256",
+      "ek_public_wire_sha256",
+      "source_sha256",
+      "input_sha256",
+      "output_sha256",
+      "output_content_sha256",
+      "session_binding_sha256",
+      "verifier_input"
+    ],
+    "rule": "The EK chain verifier re-executes the SPKI verifier against the exact leaf certificate DER and exact EK TPMT_PUBLIC bytes already bound by the chain, and independently checks verifier source, input/output file digests, and verifier-produced content digest."
   }
 }
