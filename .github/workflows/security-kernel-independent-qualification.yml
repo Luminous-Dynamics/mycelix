@@ -328,6 +328,46 @@ jobs:
 
           candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
           test "${#candidate_tree}" -eq 40
+          source_copy_status=0
+          set -o pipefail
+          if ! timeout --signal=TERM --kill-after=20s 5m docker run --rm --platform=linux/amd64 --pull=never \
+            --network=none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges:true --security-opt=seccomp=default \
+            --pids-limit=256 --memory=1g --memory-swap=1g --cpus=2 \
+            --ulimit=nofile=4096:4096 --ulimit=core=0:0 --ipc=private --pid=private --cgroupns=private \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m \
+            --volume "$candidate_volume_name:/source:ro" \
+            "$FETCH_IMAGE" tar -C /source -cf - . | tar -C "$candidate_root" -xf - --no-same-owner; then
+            source_copy_status=1
+          fi
+          set -e
+          if [ "$source_copy_status" -ne 0 ]; then
+            echo "security-kernel bounded candidate-source staging copy failed" >&2
+            exit 1
+          fi
+          source_copy_bytes="$(du -sb "$candidate_root" | awk '{print $1}')"
+          source_copy_files="$(find "$candidate_root" -type f -print | wc -l)"
+          source_copy_inodes="$(find "$candidate_root" -mindepth 1 -print | wc -l)"
+          for value in "$source_copy_bytes" "$source_copy_files" "$source_copy_inodes"; do
+            printf "%s" "$value" | grep -Eq "^[0-9]+$"
+          done
+          test "$source_copy_bytes" -le "$SOURCE_MAX_BYTES"
+          test "$source_copy_files" -le 200000
+          test "$source_copy_inodes" -le "$SOURCE_MAX_INODES"
+          printf 'source_volume_name=%s\nsource_volume_spec=%s\nsource_copy_bytes=%s\nsource_copy_files=%s\nsource_copy_inodes=%s\n' "$candidate_volume_name" "$candidate_volume_spec" "$source_copy_bytes" "$source_copy_files" "$source_copy_inodes" >> "$GITHUB_OUTPUT"
+          if ! docker volume rm "$candidate_volume_name" >/dev/null 2>&1; then
+            echo "security-kernel candidate source volume cleanup failed" >&2
+            exit 1
+          fi
+          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then
+            echo "security-kernel candidate source volume inventory query failed after cleanup" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$candidate_volume_name"; then
+            echo "security-kernel candidate source volume remains after cleanup" >&2
+            exit 1
+          fi
+          trap - EXIT
           stats_file="$RUNNER_TEMP/security-kernel-source-tree-stats.txt"
           test -s "$stats_file"
           source_tree_entry_count="$(sed -n "s/^source_tree_entry_count=//p" "$stats_file")"
@@ -1143,6 +1183,16 @@ jobs:
           SOURCE_TOTAL_PATH_BYTES: ${{ steps.resolve_source.outputs.source_total_path_bytes }}
           SOURCE_TOTAL_BYTES: ${{ steps.resolve_source.outputs.source_total_bytes }}
           SOURCE_MAX_BLOB_BYTES: ${{ steps.resolve_source.outputs.source_max_blob_bytes }}
+          SOURCE_RESOURCE_PROFILE: ${{ env.SOURCE_RESOURCE_PROFILE }}
+          SOURCE_MAX_BYTES: ${{ env.SOURCE_MAX_BYTES }}
+          SOURCE_MAX_INODES: ${{ env.SOURCE_MAX_INODES }}
+          SOURCE_TMPFS_SIZE: ${{ env.SOURCE_TMPFS_SIZE }}
+          SOURCE_TMPFS_NR_INODES: ${{ env.SOURCE_TMPFS_NR_INODES }}
+          SOURCE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
+          SOURCE_VOLUME_SPEC: ${{ steps.resolve_source.outputs.source_volume_spec }}
+          SOURCE_COPY_BYTES: ${{ steps.resolve_source.outputs.source_copy_bytes }}
+          SOURCE_COPY_FILES: ${{ steps.resolve_source.outputs.source_copy_files }}
+          SOURCE_COPY_INODES: ${{ steps.resolve_source.outputs.source_copy_inodes }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
           LOCK_PACKAGE_COUNT: ${{ steps.locked_dependency_identity.outputs.lock_package_count }}
           LOCK_DEPENDENCY_EDGES: ${{ steps.locked_dependency_identity.outputs.lock_dependency_edges }}
@@ -1180,6 +1230,16 @@ jobs:
             echo "candidate_source_total_bytes=$SOURCE_TOTAL_BYTES"
             echo "candidate_source_max_blob_bytes=$SOURCE_MAX_BLOB_BYTES"
             echo "candidate_source_digest=$SOURCE_DIGEST"
+            echo "source_resource_profile=$SOURCE_RESOURCE_PROFILE"
+            echo "source_max_bytes=$SOURCE_MAX_BYTES"
+            echo "source_max_inodes=$SOURCE_MAX_INODES"
+            echo "source_tmpfs_size=$SOURCE_TMPFS_SIZE"
+            echo "source_tmpfs_nr_inodes=$SOURCE_TMPFS_NR_INODES"
+            echo "source_volume_name=$SOURCE_VOLUME_NAME"
+            echo "source_volume_spec=$SOURCE_VOLUME_SPEC"
+            echo "source_copy_bytes=$SOURCE_COPY_BYTES"
+            echo "source_copy_files=$SOURCE_COPY_FILES"
+            echo "source_copy_inodes=$SOURCE_COPY_INODES"
             echo "candidate_cargo_lock_format=v4"
             echo "candidate_cargo_lock_sha256=$CARGO_LOCK_DIGEST"
             echo "candidate_cargo_lock_package_count=$LOCK_PACKAGE_COUNT"
