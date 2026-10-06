@@ -388,6 +388,15 @@ def inject_masked_docker_cleanup(raw: bytes) -> bytes:
     return raw.replace(marker, replacement, 1)
 
 
+def require_no_quoted_structural_keys(lines_: list[str], description: str) -> None:
+    for line in lines_:
+        indentation = len(line) - len(line.lstrip(" "))
+        if indentation > 8:
+            continue
+        if re.search(r'(?:^|[{,]\s*)(?:"[^"\n]*"|\'[^\'\n]*\')\s*:', line):
+            fail(f"{description}: quoted YAML mapping keys are forbidden: {line!r}")
+
+
 def require_no_yaml_reuse_syntax(lines_: list[str], description: str) -> None:
     for line in lines_:
         # Block-scalar command bodies are intentionally excluded; only structural YAML
@@ -457,6 +466,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     if exact_count(l, 'BASE_BRANCH: "main"') != 1:
         fail("S0 base branch mismatch")
     require_no_fail_open_controls(l, "S0")
+    require_no_quoted_structural_keys(l, S0)
     require_no_yaml_reuse_syntax(l, S0)
     require_explicit_bash_for_run_steps(l, S0)
     require_no_duplicate_step_keys(l, S0)
@@ -533,6 +543,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     ):
         if required not in joined:
             fail(f"S1 fail-closed sandbox teardown control missing: {required!r}")
+    require_no_quoted_structural_keys(l, S1)
     require_no_yaml_reuse_syntax(l, S1)
     require_explicit_bash_for_run_steps(l, S1)
     require_no_duplicate_step_keys(l, S1)
@@ -633,6 +644,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         if required not in joined:
             fail(f"S2 artifact transport/decompression control missing: {required!r}")
     require_no_fail_open_controls(l, "S2")
+    require_no_quoted_structural_keys(l, S2)
     require_no_yaml_reuse_syntax(l, S2)
     require_explicit_bash_for_run_steps(l, S2)
     require_no_duplicate_step_keys(l, S2)
