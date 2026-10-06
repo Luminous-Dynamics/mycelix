@@ -759,11 +759,12 @@
       "cryptographic_binding_sha256",
       "cryptographic_binding_source_sha256",
       "cryptographic_binding_input_sha256",
-      "cryptographic_binding_output_sha256"
+      "cryptographic_binding_output_sha256",
+      "crl_applicability_sha256"
     ],
-    "rule": "The chain verifier computes an in-process exact-signature receipt including CRL time/extension/entry semantics and exact entry DER identities, and separately re-executes the independent cryptographic witness over the same exact DER/CRL projection. Both receipts must identify the same leaf/intermediate/root/CRL byte digests and the same semantic recipe digest; the witness source, input file, and output file are separately hash-bound. The chain verifier then compares those identities with the OpenSSL path verifier's exact input object digests before profile acceptance."
+    "rule": "The chain verifier computes an in-process exact-signature receipt including CRL time/extension/entry semantics and exact entry DER identities, and separately re-executes the independent cryptographic witness over the same exact DER/CRL projection. Both receipts must identify the same leaf/intermediate/root/CRL byte digests and the same semantic recipe digest; the witness source, input file, and output file are separately hash-bound. The chain verifier then compares those identities with the OpenSSL path verifier's exact input object digests before profile acceptance. The receipt also includes the exact certificate-to-CRL applicability projection, separately digest-bound from the CRL semantic recipe."
   },
-  "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, exact CRL semantic recipe, cryptographic binding receipt, and SPKI certificate/public-key identity",
+  "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, exact CRL semantic recipe, exact certificate-to-CRL applicability projection, cryptographic binding receipt, and SPKI certificate/public-key identity",
   "crl_semantics": {
     "root": {
       "crl_number": 1,
