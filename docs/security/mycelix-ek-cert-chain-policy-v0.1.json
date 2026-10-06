@@ -456,29 +456,54 @@
   "parser_structural_controls": [
     {
       "id": "EKC-S01",
-      "control": "duplicate-extension-wrapper",
+      "control": "duplicate-extension-oid",
       "expected": "DENY"
     },
     {
       "id": "EKC-S02",
-      "control": "explicit-false-extension-critical-boolean",
+      "control": "duplicate-extensions-wrapper",
       "expected": "DENY"
     },
     {
       "id": "EKC-S03",
-      "control": "non-canonical-oid-encoding",
+      "control": "explicit-false-extension-critical-boolean",
       "expected": "DENY"
     },
     {
       "id": "EKC-S04",
-      "control": "non-canonical-integer-encoding",
+      "control": "non-canonical-oid-encoding",
       "expected": "DENY"
     },
     {
       "id": "EKC-S05",
+      "control": "non-canonical-integer-encoding",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S06",
       "control": "tcg-san-missing-or-structurally-incomplete",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S07",
+      "control": "empty-extensions-wrapper",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S08",
+      "control": "malformed-authority-information-access",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S09",
+      "control": "malformed-crl-distribution-points",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S10",
+      "control": "malformed-subject-directory-attributes",
       "expected": "DENY"
     }
   ],
-  "parser_structural_control_count": 5
+  "parser_structural_control_count": 10
 }
