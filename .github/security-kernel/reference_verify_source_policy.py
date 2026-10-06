@@ -752,6 +752,72 @@ def main() -> None:
         "S2 blank-separated security-events: write",
     )
 
+    def inject_unregistered_top_level_key(raw: bytes) -> bytes:
+        marker = b"jobs:\n"
+        if marker not in raw:
+            fail("top-level-key regression fixture marker missing")
+        return raw.replace(marker, b"defaults:\n  run:\n    shell: bash\n" + marker, 1)
+
+    def inject_unapproved_conditional(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"conditional regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, b"        if: false\n" + marker, 1)
+
+    expect_rejection(
+        lambda: verify_s0(inject_unregistered_top_level_key(raw["s0"]), s1_sha),
+        "S0 unregistered top-level defaults",
+    )
+    expect_rejection(
+        lambda: verify_s1(inject_unregistered_top_level_key(raw["s1"]), s1_sha),
+        "S1 unregistered top-level defaults",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unregistered_top_level_key(raw["s2"]),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unregistered top-level defaults",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unapproved_conditional(
+                raw["s0"],
+                b"      - name: Verify trusted dispatcher context and exact PR identity\n",
+            ),
+            s1_sha,
+        ),
+        "S0 unapproved step conditional",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unapproved_conditional(
+                raw["s1"],
+                b"      - name: Execute candidate qualification in disposable networkless sandbox\n",
+            ),
+            s1_sha,
+        ),
+        "S1 unapproved step conditional",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unapproved_conditional(
+                raw["s2"],
+                b"      - name: Checkout exact verifier workflow commit\n",
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unapproved step conditional",
+    )
+
     print(json.dumps({
         "schema": SCHEMA,
         "policy_result": "verified",
