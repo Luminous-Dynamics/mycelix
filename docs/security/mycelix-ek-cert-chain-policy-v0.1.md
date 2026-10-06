@@ -14,15 +14,17 @@ The reference corpus is still ReferenceModelOnly. Reproducibility proves that th
 
 Caller-supplied certificate criticality overrides are not accepted. Certificate extensions are authoritative only when parsed from the exact DER certificate bytes.
 
-The parser now rejects duplicate Extensions wrappers, duplicate extension OIDs, non-canonical INTEGER/OID encodings, invalid BIT STRING padding, explicit FALSE extension-critical BOOLEAN encodings, malformed Authority Key Identifier structures, structurally incomplete TCG SubjectAltName data, empty Extensions, and malformed recognized AIA/CRL Distribution/Subject Directory Attributes values.
+The parser now rejects duplicate Extensions wrappers, duplicate extension OIDs, non-canonical INTEGER/OID encodings, invalid BIT STRING padding, explicit FALSE extension-critical BOOLEAN encodings, malformed Authority Key Identifier structures, structurally incomplete TCG SubjectAltName data, empty Extensions, malformed recognized AIA/CRL Distribution/Subject Directory Attributes values, and invalid CertificatePolicies criticality/structure. SAN criticality is checked against the subject-empty condition.
 
 For the leaf EK, the local 2.7 boundary includes critical BasicConstraints with CA=FALSE, critical Key Usage with RSA keyEncipherment, mandatory non-critical AKI with keyIdentifier, TCG SAN structure, non-critical SKI when present, and non-critical AIA/CRL Distribution/Subject Directory Attributes when present.
 
 ## Composed execution
 
-The EK chain does not consume child PASS metadata as authority. It re-executes the trust-anchor appraiser, SPKI verifier, and path verifier against exact reconstructed inputs, binding verifier source, input/output file digests, semantic output content digests, and execution-policy state into the composed session binding.
+The EK chain does not consume child PASS metadata as authority. It re-executes the trust-anchor appraiser, SPKI verifier, path verifier, and an independent certificate/CRL cryptographic witness against exact reconstructed inputs, binding verifier source, input/output file digests, semantic output content digests, and execution-policy state.
 
-The path theorem executes an explicit OpenSSL full-chain CRL policy at the deterministic verification time. Runtime OpenSSL evidence remains evidence about verifier execution, not manufacturer trust.
+The independent cryptographic witness verifies the exact DER-encoded TBS certificate/CRL bytes and signature bytes with the exact issuer public keys. The composed theorem then requires its object, TBS, signature, and issuer hashes to agree with the in-process structural witness and with the OpenSSL path verifier's exact input-object hashes. A mismatch is fail-closed.
+
+The path theorem executes an explicit OpenSSL full-chain CRL policy at the deterministic verification time, including strict RFC 5280 checks and explicit trust-anchor self-signature checking. Runtime OpenSSL evidence remains evidence about verifier execution, not manufacturer trust.
 
 ## Deliberate scope boundary
 
