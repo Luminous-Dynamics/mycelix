@@ -39,6 +39,13 @@ pub struct FpmSourceAttestationClaim {
     pub disposition: FpmAttestationDisposition,
 }
 
+pub fn fpm_attestation_nonce_digest(nonce: &[u8]) -> String {
+    let mut bytes = Vec::new();
+    append_field(&mut bytes, b"fpm.attestation-nonce.v1");
+    append_field(&mut bytes, nonce);
+    hex_digest(&bytes)
+}
+
 impl FpmSourceAttestationClaim {
     pub fn digest(&self) -> String {
         let mut bytes = Vec::new();
