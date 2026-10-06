@@ -1828,6 +1828,68 @@ def self_test() -> int:
             print("duplicate X.509 extension acceptance: FAIL")
             return 1
 
+        explicit_false_extension = der_tlv(
+            0x30,
+            der_tlv(0x06, bytes.fromhex("551d13"))
+            + der_tlv(0x01, b"\x00")
+            + der_tlv(0x04, der_tlv(0x30, b"")),
+        )
+        try:
+            parse_extensions(der_tlv(0x30, explicit_false_extension))
+        except ValueError:
+            pass
+        else:
+            print("explicit FALSE extension critical BOOLEAN acceptance: FAIL")
+            return 1
+
+        try:
+            oid_string(bytes.fromhex("2a800100"))
+        except ValueError:
+            pass
+        else:
+            print("non-canonical OID encoding acceptance: FAIL")
+            return 1
+
+        try:
+            der_integer_value(b"\x00\x01", "test")
+        except ValueError:
+            pass
+        else:
+            print("non-canonical INTEGER encoding acceptance: FAIL")
+            return 1
+
+        version = der_tlv(0xA0, der_tlv(0x02, b"\x02"))
+        serial = der_tlv(0x02, b"\x01")
+        algorithm = der_tlv(0x30, b"")
+        issuer = der_tlv(0x30, b"")
+        validity = der_tlv(
+            0x30,
+            der_tlv(0x17, b"260101000000Z") + der_tlv(0x17, b"270101000000Z"),
+        )
+        subject = der_tlv(0x30, b"")
+        spki = der_tlv(0x30, b"")
+        extensions = der_tlv(0xA3, der_tlv(0x30, b""))
+        synthetic_cert = der_tlv(
+            0x30,
+            der_tlv(0x30, version + serial + algorithm + issuer + validity + subject + spki + extensions + extensions)
+            + algorithm
+            + der_tlv(0x03, b"\x00"),
+        )
+        try:
+            parse_certificate_der(synthetic_cert)
+        except ValueError:
+            pass
+        else:
+            print("duplicate X.509 Extensions wrapper acceptance: FAIL")
+            return 1
+
+        missing_san = copy.deepcopy(leaf_info)
+        missing_san["extensions"].pop("2.5.29.17", None)
+        san_ok, _san_profile = leaf_profile_ok(missing_san)
+        if san_ok:
+            print("TCG SubjectAltName omission acceptance: FAIL")
+            return 1
+
 
         cases = [
             ("canonical-valid", "PASS", lambda x: None),
@@ -1910,7 +1972,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("43 adversarial mutations plus canonical and key-order control: PASS")
+    print("48 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
