@@ -99,6 +99,8 @@ jobs:
           assert isinstance(run.get("run_number"), int) and run["run_number"] >= 1
 
           workflow_sha = run.get("workflow_sha")
+          workflow_id = run.get("workflow_id")
+          assert isinstance(workflow_id, int) and workflow_id > 0, f"unexpected dispatcher workflow_id: {workflow_id!r}"
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected dispatcher workflow_sha: {workflow_sha!r}"
           verifier_file = get(f"/repos/{repo}/contents/.github/workflows/security-kernel-trusted-result-verifier.yml?ref={os.environ['GITHUB_WORKFLOW_SHA']}")
           assert verifier_file["type"] == "file"
@@ -236,7 +238,7 @@ jobs:
 
           def execution_binding_document(
               *,
-              repository_id, repository, candidate_repository_id, candidate_repository,
+              repository_id, repository, workflow_id, candidate_repository_id, candidate_repository,
               candidate_pr, candidate_sha, dispatcher_workflow_path, dispatcher_workflow_sha,
               s1_workflow_path, s1_workflow_blob_sha, run_id, run_attempt, run_number,
               resolver_job_id, s1_job_id,
@@ -245,6 +247,7 @@ jobs:
                   "schema": "security-kernel-execution-binding-v1",
                   "repository_id": int(repository_id),
                   "repository": str(repository),
+                  "workflow_id": int(workflow_id),
                   "candidate_repository_id": int(candidate_repository_id),
                   "candidate_repository": str(candidate_repository),
                   "candidate_pr": int(candidate_pr),
@@ -267,6 +270,7 @@ jobs:
           binding = execution_binding_document(
               repository_id=repository_obj["id"],
               repository=repository_obj["full_name"],
+              workflow_id=workflow_id,
               candidate_repository_id=candidate_repo_id,
               candidate_repository=candidate_repository,
               candidate_pr=candidate_pr,
@@ -284,6 +288,7 @@ jobs:
           expected_binding = {
               "repository_id": int(os.environ["BASE_REPOSITORY_ID"]),
               "repository": repository_obj["full_name"],
+              "workflow_id": workflow_id,
               "candidate_repository_id": candidate_repo_id,
               "candidate_repository": candidate_repository,
               "candidate_pr": candidate_pr,
@@ -304,6 +309,7 @@ jobs:
           mutations = {
               "repository_id": binding["repository_id"] + 1,
               "repository": binding["repository"] + "-mutated",
+              "workflow_id": binding["workflow_id"] + 1,
               "candidate_repository_id": binding["candidate_repository_id"] + 1,
               "candidate_repository": binding["candidate_repository"] + "-mutated",
               "candidate_pr": binding["candidate_pr"] + 1,
@@ -524,6 +530,7 @@ jobs:
               output.write(f"candidate_repository={candidate_repository}\n")
               output.write(f"candidate_repository_id={candidate_repo_id}\n")
               output.write(f"trusted_dispatcher_workflow_sha={workflow_sha}\n")
+              output.write(f"trusted_dispatcher_workflow_id={workflow_id}\n")
               output.write(f"trusted_dispatcher_workflow_blob_sha={dispatcher_at_run['sha']}\n")
               output.write(f"trusted_s1_workflow_blob_sha={s1_at_run['sha']}\n")
               output.write(f"trusted_dispatch_run_id={run_id}\n")
