@@ -22,21 +22,14 @@ TRUST_ANCHOR_APPRAISAL_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_trus
 TRUST_ANCHOR_REGISTRY_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-registry-v0.1.json"
 TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-authorization-receipt-v0.1.json"
 SPKI_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_cert_spki_binding_v0_1.py")
-FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
+FIXTURE_RECIPE_FILE = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
+FIXTURE_GENERATOR_SCRIPT = ROOT / "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
 REFERENCE_TIME_UNIX = 1791158400
 REFERENCE_EK_RSA_MODULUS = bytes.fromhex("6f24c46cf921615f74a3c7a6a01b73b3b06e7ae9b51d575cbac358ec03593f47d4b54110aff2589c1d9ac57e6c5b34bcdaa563550d294b06c8dd308cc466b4204901dad45fc012ec169a1224101108abe2da72b33c8e77c32f198b1fa9b95f26b85ee36a202a7102571ee51efd71e7618b94b931dcb05cfda6768d546f0a2256ce37707ef644da096a422caebf0e5c6698de39b2145fbdcaef529a6f53f6d2a81d151b63f1714d0f3e4c6702bb00051f33b2451302c18513b3620dca718927b2555c358fd40dad3d2f32e1fd8ca631955b9e5a569e6fb4b813d6da39cbe41e8d0458fbb865e646f0e5a81a4208c90917492bfda3befcab8eadaee1b20163e5b7")
 EXPIRED_TIME_UNIX = 4102444800
-FIXTURE_HASHES = {
-    "root.der": REFERENCE_ROOT_SHA256,
-    "intermediate.der": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
-    "leaf.der": "7448f84d763c2bee017ff33e18f1679b73f6db3f96bcfe2793c4b607b20a048b",
-    "bad-usage.der": "526a43a655e5a46d7e9176281a96820c4d15d932d0a18be507300d11d8598e9f",
-    "bad-eku.der": "45c32aac3237eabe9cecdc38cb9d49c359e52d9d68deacf62aee8d30c44ab62c",
-    "crl-bundle.pem": "6e0e1ea27ae4b5933d40e54368a8618a7aee98b45011962029a131c11b323abb",
-}
-TEMPLATE_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_template_appraisal_v0_1.py")
+ = Path(__file__).with_name("verify_mycelix_ek_template_appraisal_v0_1.py")
 PATH_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_cert_path_validation_v0_1.py")
 EK_CERT_EKU_OID = "2.23.133.8.1"
 
@@ -1207,26 +1200,41 @@ def load_fixture(output_dir: Path) -> dict[str, Any]:
         raise RuntimeError(f"missing EK fixture generator: {FIXTURE_GENERATOR_SCRIPT}")
     recipe = json.loads(FIXTURE_RECIPE_FILE.read_text(encoding="utf-8"))
     expected = recipe.get("expected_outputs")
-    if not isinstance(expected, dict) or set(expected) != {
-        "root.der", "intermediate.der", "leaf.der", "bad-usage.der", "bad-eku.der", "crl-bundle.pem"
-    }:
+    required_outputs = {
+        "root.der", "intermediate.der", "leaf.der",
+        "bad-usage.der", "bad-eku.der", "crl-bundle.pem",
+    }
+    if not isinstance(expected, dict) or set(expected) != required_outputs:
         raise RuntimeError("EK fixture recipe expected_outputs are incomplete")
     output_dir.mkdir(parents=True, exist_ok=True)
     proc = subprocess.run(
-        [sys.executable, str(FIXTURE_GENERATOR_SCRIPT), "--recipe", str(FIXTURE_RECIPE_FILE),
-         "--output-dir", str(output_dir), "--check"],
-        cwd=output_dir, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        [
+            sys.executable,
+            str(FIXTURE_GENERATOR_SCRIPT),
+            "--recipe",
+            str(FIXTURE_RECIPE_FILE),
+            "--output-dir",
+            str(output_dir),
+            "--check",
+        ],
+        cwd=output_dir,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
     )
     if proc.returncode != 0:
         raise RuntimeError(f"EK fixture generation/check failed: {proc.stdout}\n{proc.stderr}")
-    values = {}
+    values: dict[str, bytes] = {}
     for name, expected_sha in expected.items():
         path = output_dir / name
         if not path.is_file():
             raise RuntimeError(f"generator omitted expected fixture: {path}")
         observed = sha256_file(path)
         if observed != expected_sha:
-            raise RuntimeError(f"generated EK fixture digest mismatch for {name}: expected {expected_sha} got {observed}")
+            raise RuntimeError(
+                f"generated EK fixture digest mismatch for {name}: expected {expected_sha} got {observed}"
+            )
         values[name] = path.read_bytes()
     return {
         "root": values["root.der"],
@@ -1238,8 +1246,6 @@ def load_fixture(output_dir: Path) -> dict[str, Any]:
         "attime": REFERENCE_TIME_UNIX,
         "fixture_recipe_sha256": hashlib.sha256(FIXTURE_RECIPE_FILE.read_bytes()).hexdigest(),
     }
-
-
 
 
 def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
