@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 43
+    assert policy["policy_version"] == 44
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -581,6 +581,7 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert workflow.count("github.event.workflow_run.repository.full_name == github.repository") == 3
     assert workflow.count("github.event.workflow_run.head_repository.full_name == github.repository") == 3
     assert workflow.count("github.event.workflow_run.name == 'D6U Exact-Head Runtime Executor'") == 3
+    assert workflow.count("github.event.workflow_run.path == '.github/workflows/d6u-exact-head-runtime-executor.yml'") == 3
     assert "gh attestation verify" not in signer
     assert "uses: actions/download-artifact@" not in signer
 
