@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 29
+    assert policy["policy_version"] == 30
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -178,8 +178,8 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["attestation_verification"]["require_verified_tlog"] is True
 
     assert policy["attestation_retention"] == {
-        "schema": "d6u-attestation-retention/v1",
-        "expected_file_count": 8,
+        "schema": "d6u-attestation-retention/v2",
+        "expected_file_count": 14,
         "max_file_bytes": 4194304,
         "max_trusted_root_bytes": 2097152,
         "max_total_bytes": 18874368,
@@ -191,6 +191,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         ],
         "trusted_root_filename": "trusted_root.jsonl",
         "offline_verified": True,
+        "online_verified": True,
         "require_public_good_instance": True,
         "public_good_instance": "sigstore-public-good",
         "require_tlog": True,
@@ -199,6 +200,9 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
             "name_template": "d6u-trusted-attestation-retention-run-{run_id}-attempt-{run_attempt}",
             "retention_days": 90,
         },
+        "negative_control_schema": "d6u-no-public-good-control/v1",
+        "retain_online_verification": True,
+        "retain_negative_control": True,
     }
 
     workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
@@ -388,10 +392,13 @@ def test_retention_workflow_contains_offline_controls() -> None:
         "--no-public-good",
         "--deny-self-hosted-runners",
         "--format=json",
+        "d6u-runtime-evidence.online.json",
+        "d6u-runtime-evidence.no-public-good.json",
         "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
         "retention-days: 90",
-        "d6u-attestation-retention/v1",
-        '"public_good_instance": "sigstore-public-good",',
+        "d6u-attestation-retention/v2",
+        '"schema": "d6u-no-public-good-control/v1",',
+
     ]
     for fragment in required_fragments:
         assert fragment in workflow, f"retention workflow control missing: {fragment}"
@@ -931,6 +938,171 @@ def attestation_entry(
     }
 
 
+
+def _valid_negative_control_fixture():
+    import base64
+    import hashlib
+    import verify_d6u_trusted_attestation_retention as retention
+
+    tmp = tempfile.TemporaryDirectory()
+    root = Path(tmp.name)
+    evidence_root = root / "d6u-trusted-input"
+    evidence_root.mkdir()
+    subject = evidence_root / "d6u-runtime-evidence.txt"
+    subject.write_text("subject\n", encoding="utf-8")
+    bundle = root / "d6u-runtime-evidence.attestation.jsonl"
+    bundle.write_text("{}\n", encoding="utf-8")
+    offline = root / "d6u-runtime-evidence.offline.json"
+    offline.write_text("[]\n", encoding="utf-8")
+    trusted_root = root / "trusted_root.jsonl"
+    trusted_root.write_text("{}\n", encoding="utf-8")
+    raw = b"expected public-good rejection\n"
+
+    env = {
+        "RUNNER_TEMP": str(root),
+        "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+        "GITHUB_WORKFLOW_SHA": "c" * 40,
+        "GITHUB_SHA": "a" * 40,
+        "GITHUB_REF": "refs/heads/main",
+    }
+    with patch.dict(os.environ, env, clear=False):
+        command = retention.expected_verify_command(
+            str(subject),
+            env["GITHUB_REPOSITORY"],
+            root_path=str(trusted_root),
+            bundle_path=str(bundle),
+            no_public_good=True,
+        )
+    control = {
+        "schema": "d6u-no-public-good-control/v1",
+        "public_good_instance": "sigstore-public-good",
+        "subject_name": "d6u-runtime-evidence.txt",
+        "subject_path": str(subject),
+        "subject_sha256": hashlib.sha256(subject.read_bytes()).hexdigest(),
+        "bundle_filename": bundle.name,
+        "bundle_path": str(bundle),
+        "bundle_sha256": hashlib.sha256(bundle.read_bytes()).hexdigest(),
+        "trusted_root_filename": trusted_root.name,
+        "trusted_root_path": str(trusted_root),
+        "trusted_root_sha256": hashlib.sha256(trusted_root.read_bytes()).hexdigest(),
+        "baseline_offline_filename": offline.name,
+        "baseline_offline_path": str(offline),
+        "baseline_offline_sha256": hashlib.sha256(offline.read_bytes()).hexdigest(),
+        "command": command,
+        "exit_status": 1,
+        "combined_output_base64": base64.b64encode(raw).decode("ascii"),
+        "combined_output_bytes": len(raw),
+        "combined_output_sha256": hashlib.sha256(raw).hexdigest(),
+    }
+    return tmp, root, control, bundle, offline, trusted_root, retention
+
+
+def test_trusted_root_jsonl_line_limit_is_enforced() -> None:
+    import verify_d6u_trusted_attestation_retention as retention
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "trusted_root.jsonl"
+        path.write_text(("{}\n" * (retention.MAX_JSONL_LINES + 1)), encoding="utf-8")
+        assert_rejected(
+            lambda: retention.load_jsonl(path),
+            "trusted root JSONL line limit was not enforced",
+        )
+
+
+def test_negative_control_requires_nonzero_exit() -> None:
+    tmp, root, control, bundle, offline, trusted_root, retention = _valid_negative_control_fixture()
+    try:
+        control["exit_status"] = 0
+        path = root / "control.json"
+        path.write_text(json.dumps(control), encoding="utf-8")
+        with patch.dict(
+            os.environ,
+            {
+                "RUNNER_TEMP": str(root),
+                "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "GITHUB_WORKFLOW_SHA": "c" * 40,
+                "GITHUB_SHA": "a" * 40,
+                "GITHUB_REF": "refs/heads/main",
+            },
+            clear=False,
+        ):
+            assert_rejected(
+                lambda: retention.verify_no_public_good_control(
+                    path, root, "d6u-runtime-evidence.txt",
+                    control["subject_sha256"], bundle.name,
+                    control["bundle_sha256"], offline.name,
+                    control["baseline_offline_sha256"],
+                    control["trusted_root_sha256"],
+                ),
+                "successful --no-public-good control was accepted",
+            )
+    finally:
+        tmp.cleanup()
+
+
+def test_negative_control_command_must_disable_public_good() -> None:
+    tmp, root, control, bundle, offline, trusted_root, retention = _valid_negative_control_fixture()
+    try:
+        control["command"] = [item for item in control["command"] if item != "--no-public-good"]
+        path = root / "control.json"
+        path.write_text(json.dumps(control), encoding="utf-8")
+        with patch.dict(
+            os.environ,
+            {
+                "RUNNER_TEMP": str(root),
+                "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "GITHUB_WORKFLOW_SHA": "c" * 40,
+                "GITHUB_SHA": "a" * 40,
+                "GITHUB_REF": "refs/heads/main",
+            },
+            clear=False,
+        ):
+            assert_rejected(
+                lambda: retention.verify_no_public_good_control(
+                    path, root, "d6u-runtime-evidence.txt",
+                    control["subject_sha256"], bundle.name,
+                    control["bundle_sha256"], offline.name,
+                    control["baseline_offline_sha256"],
+                    control["trusted_root_sha256"],
+                ),
+                "negative control without --no-public-good was accepted",
+            )
+    finally:
+        tmp.cleanup()
+
+
+def test_negative_control_cross_link_mismatch_is_rejected() -> None:
+    tmp, root, control, bundle, offline, trusted_root, retention = _valid_negative_control_fixture()
+    try:
+        original = control["bundle_sha256"]
+        control["bundle_sha256"] = "b" * 64
+        path = root / "control.json"
+        path.write_text(json.dumps(control), encoding="utf-8")
+        with patch.dict(
+            os.environ,
+            {
+                "RUNNER_TEMP": str(root),
+                "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "GITHUB_WORKFLOW_SHA": "c" * 40,
+                "GITHUB_SHA": "a" * 40,
+                "GITHUB_REF": "refs/heads/main",
+            },
+            clear=False,
+        ):
+            assert_rejected(
+                lambda: retention.verify_no_public_good_control(
+                    path, root, "d6u-runtime-evidence.txt",
+                    control["subject_sha256"], bundle.name,
+                    original, offline.name,
+                    control["baseline_offline_sha256"],
+                    control["trusted_root_sha256"],
+                ),
+                "cross-linked negative control bundle identity was accepted",
+            )
+    finally:
+        tmp.cleanup()
+
+
 def test_retention_packet_rejects_extra_member() -> None:
     import verify_d6u_trusted_attestation_retention as retention
 
@@ -1383,6 +1555,10 @@ if __name__ == "__main__":
         test_custom_attestation_rejects_non_tlog_timestamp,
         test_custom_attestation_subject_set_is_order_independent_but_exact,
         test_retention_workflow_contains_offline_controls,
+        test_trusted_root_jsonl_line_limit_is_enforced,
+        test_negative_control_requires_nonzero_exit,
+        test_negative_control_command_must_disable_public_good,
+        test_negative_control_cross_link_mismatch_is_rejected,
         test_retention_packet_rejects_extra_member,
         test_custom_attestation_accepts_current_run_and_rejects_old_run,
         test_trusted_workflow_policy_shape_is_pinned,
