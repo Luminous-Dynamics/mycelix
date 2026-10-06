@@ -333,6 +333,6 @@
       "verifier_source_sha256",
       "output_content_sha256"
     ],
-    "rule": "The certificate-chain verifier re-executes the exact trust-anchor appraiser source against the exact reconstructed root/registry input and requires both the output file digest and verifier-produced content digest to match the bound appraisal."
+    "rule": "The chain verifier re-executes the exact trust-anchor appraiser source over the exact reconstructed root/registry input and requires the verifier source digest, output file digest, and verifier-produced content digest to match the bound appraisal."
   }
 }
