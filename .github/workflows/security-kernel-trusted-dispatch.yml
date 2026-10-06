@@ -36,7 +36,6 @@ jobs:
     steps:
       - name: Verify trusted dispatcher context and exact PR identity
         id: resolve
-        shell: bash
         env:
           TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
