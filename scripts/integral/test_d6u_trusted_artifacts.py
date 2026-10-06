@@ -575,10 +575,11 @@ def test_privileged_actions_are_exactly_pinned() -> None:
         for line in workflow_path.read_text(encoding="utf-8").splitlines()
         if line.strip().startswith("uses:")
     ]
-    assert set(uses) == {
-        "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0",
-        "actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2",
+    expected_uses = {
+        f"{name}@{config['ref']} # {config['version']}"
+        for name, config in policy["trusted_actions"].items()
     }
+    assert set(uses) == expected_uses
 
 
 def test_forbidden_cargo_config_is_rejected() -> None:
