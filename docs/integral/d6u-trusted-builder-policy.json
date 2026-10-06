@@ -1,5 +1,5 @@
 {
-  "policy_version": 32,
+  "policy_version": 33,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "646ec5ff5054844151e97fdfed82b054db52f8e8"
+    "blob_sha": "97fce0928725d880887f5b408754232a5030fde9"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -225,10 +225,16 @@
     "blob_sha": "a249c8f0b014beb07060b33b93382adbbc37eb96"
   },
   "trusted_permissions": {
-    "actions": "read",
-    "contents": "read",
-    "id-token": "write",
-    "attestations": "write"
+    "verifier": {
+      "actions": "read",
+      "contents": "read"
+    },
+    "signer": {
+      "actions": "read",
+      "contents": "read",
+      "id-token": "write",
+      "attestations": "write"
+    }
   },
   "attestation_verification": {
     "signer_workflow": "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml",
@@ -289,6 +295,10 @@
     "actions/upload-artifact": {
       "ref": "ea165f8d65b6e75b540449e92b4886f43607fa02",
       "version": "v4.6.2"
+    },
+    "actions/download-artifact": {
+      "ref": "d3f86a106a0bac45b974a628896c90dbdf5c8093",
+      "version": "v4.3.0"
     }
   },
   "trusted_cli": {
@@ -334,5 +344,23 @@
     "retain_negative_control": true,
     "max_attestations_per_verify": 8
   },
-  "attestation_integrity_revision": 32
+  "attestation_integrity_revision": 33,
+  "signer_handoff": {
+    "schema": "d6u-trusted-signer-handoff/v1",
+    "expected_file_count": 6,
+    "manifest_filename": "d6u-signer-handoff.manifest.sha256",
+    "context_filename": "d6u-signer-context.txt",
+    "predicate_filename": "d6u-trusted-evidence-predicate.json",
+    "subject_files": [
+      "d6u-runtime-evidence.txt",
+      "d6u-runtime-test.log",
+      "Cargo.lock"
+    ],
+    "artifact_name_template": "d6u-trusted-signer-handoff-run-{run_id}-attempt-{run_attempt}",
+    "retention_days": 1,
+    "require_exact_file_set": true,
+    "require_manifest_sha256": true,
+    "require_current_run_context": true,
+    "claim_ceiling": "ReferenceModelOnly"
+  }
 }
