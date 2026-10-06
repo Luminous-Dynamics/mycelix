@@ -489,7 +489,6 @@ fn validate_create_governance_registration(
     }
 
     let registered_agent = AgentPubKey::from_raw_36(registration.registered_agent.clone());
-
     let predecessor_raw = match registration.predecessor_registration {
         Some(predecessor_raw) => predecessor_raw,
         None => {
@@ -500,20 +499,27 @@ fn validate_create_governance_registration(
     };
 
     let predecessor = ActionHash::from_raw_36(predecessor_raw);
-            let predecessor_record = must_get_valid_record(predecessor.clone())?;
-            let expected_entry_type =
-                EntryType::App(UnitEntryTypes::GovernanceAgentRegistration.try_into()?);
-            if predecessor_record.action().entry_type() != Some(&expected_entry_type) {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Governance registration predecessor must be a witness in this integrity zome"
-                        .into(),
-                ));
-            }
-            let predecessor_registration =
-                decode_governance_registration(&predecessor_record)?;
+    let predecessor_record = must_get_valid_record(predecessor)?;
 
-            let predecessor_agent =
-                AgentPubKey::from_raw_36(predecessor_registration.registered_agent);
+    let expected_registration_type =
+        EntryType::App(UnitEntryTypes::GovernanceAgentRegistration.try_into()?);
+    let expected_root_type =
+        EntryType::App(UnitEntryTypes::GovernanceBootstrapRoot.try_into()?);
+    let predecessor_type = predecessor_record.action().entry_type();
+    if predecessor_type != Some(&expected_registration_type)
+        && predecessor_type != Some(&expected_root_type)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Governance registration predecessor must be a governance witness in this integrity zome"
+                .into(),
+        ));
+    }
+
+    let predecessor_registration =
+        decode_governance_registration(&predecessor_record)?;
+
+    let predecessor_agent =
+        AgentPubKey::from_raw_36(predecessor_registration.registered_agent);
 
     if predecessor_agent != action.author {
         return Ok(ValidateCallbackResult::Invalid(
@@ -522,7 +528,7 @@ fn validate_create_governance_registration(
         ));
     }
 
-    if registered_agent == action.author && registration.predecessor_registration.is_some() {
+    if registered_agent == action.author {
         return Ok(ValidateCallbackResult::Invalid(
             "A governance successor must register a distinct agent; self-registration is only valid as the bootstrap root"
                 .into(),
@@ -532,8 +538,7 @@ fn validate_create_governance_registration(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Integrity-level proof that a GovernanceAgents link points at a valid
-/// registration witness created by its author.
+
 fn validate_create_governance_link(
     action: TypedAction,
     base_address: AnyLinkableHash,
