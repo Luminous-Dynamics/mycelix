@@ -184,7 +184,7 @@ impl RegistrationEnvelope {
         }
     }
 
-    pub fn validate_for_use(&self) -> Result<(), RegistrationError> {
+    pub fn validate_consistency(&self) -> Result<(), RegistrationError> {
         match self.assess() {
             RegistrationState::Consistent => Ok(()),
             RegistrationState::Unregistered => Err(RegistrationError::InvalidField(
@@ -315,7 +315,7 @@ mod tests {
         let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.alignment_method = None;
         assert_eq!(envelope.assess(), RegistrationState::Unregistered);
-        assert!(envelope.validate_for_use().is_err());
+        assert!(envelope.validate_consistency().is_err());
     }
 
     #[test]
