@@ -816,6 +816,7 @@ jobs:
           overwrite: false
           retention-days: 90
       - name: Execute candidate qualification in disposable networkless sandbox
+        shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
