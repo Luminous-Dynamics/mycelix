@@ -164,6 +164,29 @@ impl RendererSessionManager {
     /// Admit a request only for the session that owns the renderer connection.
     /// This prevents an old socket from inheriting authority after the broker
     /// replaces the active session for the same OS process.
+    pub fn validate_request_for_session(
+        &self,
+        stream: &UnixStream,
+        generation: u64,
+        expected_session: RendererSessionId,
+        request_id: RequestId,
+    ) -> Result<(), RendererSessionManagerError> {
+        let peer = authenticate_peer(stream)?;
+        let session = self
+            .current
+            .as_ref()
+            .ok_or(RendererSessionManagerError::Session(
+                CapabilityError::SessionClosed,
+            ))?;
+        if session.session_id != expected_session {
+            return Err(RendererSessionManagerError::Session(
+                CapabilityError::PeerMismatch,
+            ));
+        }
+        session.validate_request(peer.peer_id, generation, request_id)?;
+        Ok(())
+    }
+
     pub fn accept_request_for_session(
         &mut self,
         stream: &UnixStream,
@@ -291,7 +314,7 @@ impl CapabilityIngress {
         payload: &[u8],
     ) -> Result<CapabilityRequest, CapabilityIngressError> {
         self.sessions
-            .accept_request_for_session(stream, generation, session_id, request_id)
+            .validate_request_for_session(stream, generation, session_id, request_id)
             .map_err(CapabilityIngressError::Session)?;
 
         let request: CapabilityRequest =
@@ -301,6 +324,11 @@ impl CapabilityIngress {
         }
 
         self.check_authoritative_binding(generation, authoritative, &request)?;
+
+        self.sessions
+            .accept_request_for_session(stream, generation, session_id, request_id)
+            .map_err(CapabilityIngressError::Session)?;
+
         Ok(request)
     }
 
@@ -313,9 +341,12 @@ impl CapabilityIngress {
         request: CapabilityRequest,
     ) -> Result<CapabilityRequest, CapabilityIngressError> {
         self.sessions
-            .accept_request(stream, generation, request_id)
+            .validate_request(stream, generation, request_id)
             .map_err(CapabilityIngressError::Session)?;
         self.check_authoritative_binding(generation, authoritative, &request)?;
+        self.sessions
+            .accept_request(stream, generation, request_id)
+            .map_err(CapabilityIngressError::Session)?;
         Ok(request)
     }
 
