@@ -2543,6 +2543,9 @@ def self_test() -> int:
                 mutate_leaf(x, fx["bad_eku"]),
                 x.update({"profile_override": {"authority_key_identifier_critical": False, "extended_key_usage_critical": False}})
             )),
+            ("forbidden-profile-override-on-valid-input", "DENY", lambda x: x.update({
+                "profile_override": {"authority_key_identifier_critical": False}
+            })),
             ("trust-anchor-source-substitution", "DENY", lambda x: mutate_trust_anchor_source(x)),
             ("root-self-consistent-source-substitution", "DENY", lambda x: mutate_root_authorization(x)),
             ("template-verifier-substitution", "DENY", lambda x: x["ek_template_binding"].update({"verifier_id": "other-verifier"})),
@@ -2598,7 +2601,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("47 contract vectors plus canonical/key-order control and 19 structural parser controls: PASS")
+    print("46 contract vectors plus 20 structural parser controls: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
