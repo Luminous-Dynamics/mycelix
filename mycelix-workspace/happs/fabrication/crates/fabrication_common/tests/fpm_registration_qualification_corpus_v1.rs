@@ -4,6 +4,7 @@ use fabrication_common::fpm_registration::{
 };
 use fabrication_common::fpm_registration_qualification::{
     qualify_registration_structure, StructuralQualificationOutcome,
+    FPM_QUALIFICATION_DIGEST_PROFILE_ID, FPM_REGISTRATION_DIGEST_PROFILE_ID,
 };
 use hdi::prelude::AgentPubKey;
 
@@ -48,6 +49,24 @@ fn structural_profile_qualifies_consistent_metadata_only() {
     .expect("qualification");
     assert_eq!(result.registration_state, RegistrationState::Consistent);
     assert_eq!(result.outcome, StructuralQualificationOutcome::Qualified);
+}
+
+#[test]
+fn qualification_records_exact_digest_profiles() {
+    let result =
+        qualify_registration_structure(
+            &envelope(AlignmentMethod::ExactCorrelationId),
+            &verifier(1),
+        )
+        .expect("qualification");
+    assert_eq!(
+        result.registration_digest_profile,
+        FPM_REGISTRATION_DIGEST_PROFILE_ID
+    );
+    assert_eq!(
+        result.qualification_digest_profile,
+        FPM_QUALIFICATION_DIGEST_PROFILE_ID
+    );
 }
 
 #[test]
