@@ -1919,6 +1919,41 @@ pub fn run_scenario(
             )
             .expect("verification statement must build");
 
+        statement.anchor_reference_schema_version = 99;
+        statement.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_binding(
+                anchor_reference_sha256,
+                verifier_report,
+                &statement,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceSchemaVersionMismatch
+            )
+        );
+
+        statement.anchor_reference_schema_version =
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION;
+        statement.anchor_reference_profile = "wrong-anchor-profile-v1".into();
+        statement.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_binding(
+                anchor_reference_sha256,
+                verifier_report,
+                &statement,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceProfileMismatch
+            )
+        );
+
+        statement.anchor_reference_profile =
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE.into();
+        statement.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+
         statement.anchor_reference_sha256 =
             "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into();
         statement.statement_sha256 =
