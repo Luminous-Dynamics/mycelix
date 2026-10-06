@@ -73,7 +73,7 @@
       "template_id",
       "verifier_input"
     ],
-    "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, and SPKI certificate/public-key identity",
+    "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, independent cryptographic witness source/input/output/receipt, and SPKI certificate/public-key identity",
     "path_validation": [
       "state",
       "verifier_id",
