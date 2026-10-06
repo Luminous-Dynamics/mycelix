@@ -496,7 +496,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
 
 def verify_execution(raw: bytes) -> None:
     text = raw.decode("utf-8")
-    if 'SCHEMA = "security-kernel-execution-binding-v2"' not in text:
+    if 'SCHEMA = "security-kernel-execution-binding-v3"' not in text:
         fail("execution oracle schema missing")
     if "urllib" in text or "requests" in text:
         fail("execution oracle unexpectedly contains network imports")
