@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 33
+    assert policy["policy_version"] == 34
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -454,6 +454,7 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0" in signer
     assert "actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2" in signer
     assert "sha256sum -c d6u-signer-handoff.manifest.sha256" in signer
+    assert 'cmp -s "$expected_context" "$handoff_dir/d6u-signer-context.txt"' in signer
     run_expr = "d6u-trusted-signer-handoff-run-${" + "{ github.run_id }}-attempt-${" + "{ github.run_attempt }}"
     assert run_expr in verifier
     assert run_expr in signer
