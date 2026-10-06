@@ -308,12 +308,17 @@ mod tests {
         let method = AlignmentMethod::DeclaredClockTransform {
             transform_digest: digest('d'),
         };
-        assert_eq!(registered(method).assess(), RegistrationState::Registered);
+        assert_eq!(registered(method).assess(), RegistrationState::Unknown);
 
         let invalid = AlignmentMethod::DeclaredClockTransform {
             transform_digest: "bad".into(),
         };
         assert_eq!(registered(invalid).assess(), RegistrationState::Invalid);
+
+        let external = AlignmentMethod::ExternalRegistrationEvidence {
+            evidence_digest: digest('e'),
+        };
+        assert_eq!(registered(external).assess(), RegistrationState::Unknown);
     }
 
     #[test]
