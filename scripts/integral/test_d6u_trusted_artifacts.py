@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 41
+    assert policy["policy_version"] == 42
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -438,6 +438,21 @@ def test_policy_pins_current_trusted_workflow() -> None:
         text=True,
     ).stdout.strip()
     assert policy["trusted_workflow"]["blob_sha"] == observed
+
+
+def test_trusted_python_programs_reject_optimized_mode() -> None:
+    root = Path(__file__).parents[2]
+    trusted_programs = [
+        "scripts/integral/verify_d6u_trusted_artifacts.py",
+        "scripts/integral/fetch_d6u_trusted_artifact.py",
+        "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
+        "scripts/integral/verify_d6u_trusted_attestation.py",
+        "scripts/integral/verify_d6u_trusted_attestation_retention.py",
+    ]
+    for relative in trusted_programs:
+        source = (root / relative).read_text(encoding="utf-8")
+        assert "if not __debug__:" in source
+        assert "trusted D6U program must not run with Python optimization enabled" in source
 
 
 def test_attestation_verifier_contains_no_optimization_sensitive_asserts() -> None:
