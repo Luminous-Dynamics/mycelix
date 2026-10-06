@@ -104,13 +104,6 @@ pub struct TendExchange {
     /// Status of the exchange
     pub status: ExchangeStatus,
 
-    /// Exact ActionHash of the one-time settlement claim bound to this exchange.
-    ///
-    /// The claim is an immutable authorization artifact at creation and may only
-    /// transition its completion flags. Once bound, a different claim cannot
-    /// replace it.
-    pub settlement_claim: Option<ActionHash>,
-
     /// Optional: when the service was actually performed (if different from recorded)
     pub service_date: Option<Timestamp>,
 }
@@ -867,8 +860,7 @@ fn validate_update_exchange(
     action: Update,
     exchange: TendExchange,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Only status and the one-time settlement-claim binding may change.
-    // Core exchange terms remain immutable.
+    // Only status can change. Core exchange data is immutable.
     if !exchange.hours.is_finite() || exchange.hours <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Hours must be a finite positive number".into(),
@@ -913,95 +905,6 @@ fn validate_update_exchange(
         return Ok(ValidateCallbackResult::Invalid(
             "Cannot change immutable exchange terms on an existing exchange".into(),
         ));
-    }
-
-    match (&original.settlement_claim, &exchange.settlement_claim) {
-        (Some(existing), Some(candidate)) if existing == candidate => {}
-        (Some(_), Some(_)) => {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Settlement claim is immutable once bound".into(),
-            ));
-        }
-        (Some(_), None) => {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Settlement claim cannot be cleared once bound".into(),
-            ));
-        }
-        (None, None) => {}
-        (None, Some(claim_hash)) => {
-            let claim_record = must_get_valid_record(claim_hash.clone())?;
-            let claim = claim_record
-                .entry()
-                .to_app_option::<PendingBalanceAdjustment>()
-                .map_err(|e| {
-                    wasm_error!(WasmErrorInner::Guest(format!(
-                        "Settlement claim deserialization error: {:?}",
-                        e
-                    )))
-                })?
-                .ok_or_else(|| {
-                    wasm_error!(WasmErrorInner::Guest(
-                        "Settlement claim does not resolve to PendingBalanceAdjustment".into()
-                    ))
-                })?;
-
-            if claim.exchange_action_hash != action.original_action_address {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Settlement claim is bound to a different exchange".into(),
-                ));
-            }
-            if claim.exchange_id != exchange.id
-                || claim.provider_did != exchange.provider_did
-                || claim.receiver_did != exchange.receiver_did
-                || claim.hours != exchange.hours as f64
-                || claim.currency_id != exchange.dao_did
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Settlement claim terms do not exactly match the exchange".into(),
-                ));
-            }
-            if claim.provider_completed || claim.receiver_completed {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "A settlement claim must be uncompleted when first bound".into(),
-                ));
-            }
-
-            let claim_author_did = did_for_author(claim_record.action().author());
-            if claim_author_did != exchange.receiver_did {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Settlement claim must be created by the exchange receiver".into(),
-                ));
-            }
-        }
-    }
-
-    // A terminal exchange may only be confirmed with its bound claim fully completed.
-    if exchange.status == ExchangeStatus::Confirmed {
-        let Some(claim_hash) = &exchange.settlement_claim else {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Confirmed exchange requires a bound settlement claim".into(),
-            ));
-        };
-        let claim_record = must_get_valid_record(claim_hash.clone())?;
-        let claim = claim_record
-            .entry()
-            .to_app_option::<PendingBalanceAdjustment>()
-            .map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Settlement claim deserialization error: {:?}",
-                    e
-                )))
-            })?
-            .ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Settlement claim does not resolve to PendingBalanceAdjustment".into()
-                ))
-            })?;
-        if !claim.provider_completed || !claim.receiver_completed {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Confirmed exchange requires both settlement claim sides to be completed".into(),
-            ));
-        }
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -1609,6 +1512,7 @@ fn validate_create_pending_balance_adjustment(
             "Settlement claim must target the original TendExchange create action".into(),
         ));
     }
+
     let exchange = exchange_record
         .entry()
         .to_app_option::<TendExchange>()
@@ -1624,11 +1528,12 @@ fn validate_create_pending_balance_adjustment(
             ))
         })?;
 
-    if exchange.status != ExchangeStatus::Proposed || exchange.settlement_claim.is_some() {
+    if exchange.status != ExchangeStatus::Proposed {
         return Ok(ValidateCallbackResult::Invalid(
-            "Settlement claim target must be an unbound Proposed exchange".into(),
+            "Settlement claim target must be a Proposed exchange".into(),
         ));
     }
+
     if exchange.id != adj.exchange_id
         || exchange.provider_did != adj.provider_did
         || exchange.receiver_did != adj.receiver_did
@@ -1851,7 +1756,6 @@ mod tests {
             dao_did: "did:mycelix:dao1".into(),
             timestamp: ts(1_000_000),
             status: ExchangeStatus::Proposed,
-            settlement_claim: None,
             service_date: None,
         }
     }
