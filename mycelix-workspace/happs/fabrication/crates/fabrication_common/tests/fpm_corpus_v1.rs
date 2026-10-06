@@ -101,9 +101,17 @@ fn fpm_corpus_v1_expected_results() {
         Err(FpmError::InvalidConfiguration(_))
     ));
 
-    let digest_a = analyze(&config, &baseline, &obs(108, sensor(210.0, 60.0, 1.0, 0.05, Some(100.0))))
+    let digest_a = analyze(
+        &config,
+        &baseline,
+        &obs(108, sensor(210.0, 60.0, 1.0, 0.05, Some(100.0))),
+    )
         .expect("digest A");
-    let digest_b = analyze(&config, &baseline, &obs(108, sensor(211.0, 60.0, 1.0, 0.05, Some(100.0))))
+    let digest_b = analyze(
+        &config,
+        &baseline,
+        &obs(108, sensor(211.0, 60.0, 1.0, 0.05, Some(100.0))),
+    )
         .expect("digest B");
     assert_ne!(digest_a.provenance.input_digest, digest_b.provenance.input_digest);
 }
