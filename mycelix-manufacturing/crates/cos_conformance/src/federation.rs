@@ -341,7 +341,7 @@ fn state_machine_trace_external_witness_artifact_sha256(bytes: &[u8]) -> String 
     format!("sha256:{digest:x}")
 }
 
-pub fn state_machine_trace_external_verifier_identity_sha256(bytes: &[u8]) -> String {
+pub pub fn state_machine_trace_external_verifier_identity_sha256(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     format!("sha256:{digest:x}")
 }
@@ -1154,6 +1154,11 @@ impl FederationExternalVerificationTrustPolicyV1 {
                 FederationExternalVerificationTrustPolicyViolation::VerifierIdentityBindingIncomplete
             );
         }
+        if identity_field_count == 3
+            && (self.required_witness_kind.is_none() || self.required_witness_profile.is_none())
+        {
+            return Err(FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete);
+        }
         if self
             .required_verifier_identity_profile
             .as_deref()
@@ -1242,6 +1247,9 @@ impl FederationExternalVerificationTrustPolicyV1 {
         verifier_identity_profile: impl Into<String>,
         verifier_identity_sha256: impl Into<String>,
     ) -> Result<Self, FederationExternalVerificationTrustPolicyViolation> {
+        if self.required_witness_kind.is_none() || self.required_witness_profile.is_none() {
+            return Err(FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete);
+        }
         let mut policy = self.clone();
         policy.required_verifier_identity_kind = Some(verifier_identity_kind);
         policy.required_verifier_identity_profile = Some(verifier_identity_profile.into());
@@ -3683,6 +3691,49 @@ mod tests {
         assert_eq!(left.accepted_verifier_profiles(), right.accepted_verifier_profiles());
         assert_eq!(left.accepted_claims(), right.accepted_claims());
         assert_eq!(left.policy_sha256().unwrap(), right.policy_sha256().unwrap());
+    }
+
+    #[test]
+    fn external_verification_policy_identity_is_part_of_content_address() {
+        let base = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
+            1,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("base policy must build");
+
+        let left = base
+            .try_new_bound_identity(
+                FederationExternalVerifierIdentityKind::Opaque,
+                "test-opaque-identity-v1",
+                state_machine_trace_external_verifier_identity_sha256(b"identity-A"),
+            )
+            .expect("left identity-bound policy must build");
+        let right = base
+            .try_new_bound_identity(
+                FederationExternalVerifierIdentityKind::Opaque,
+                "test-opaque-identity-v1",
+                state_machine_trace_external_verifier_identity_sha256(b"identity-B"),
+            )
+            .expect("right identity-bound policy must build");
+
+        assert_ne!(
+            left.required_verifier_identity_sha256(),
+            right.required_verifier_identity_sha256()
+        );
+        assert_ne!(left.policy_sha256().unwrap(), right.policy_sha256().unwrap());
+
+        let identity_only = FederationExternalVerificationTrustPolicyV1 {
+            required_witness_kind: None,
+            required_witness_profile: None,
+            ..left.clone()
+        };
+        assert_eq!(
+            identity_only.validate(),
+            Err(FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete)
+        );
     }
 
     #[test]
