@@ -8,6 +8,7 @@ use finance_wire_types::{
     SapBalanceResponse,
 };
 use hdk::prelude::*;
+use mycelix_bridge_entry_types::SapRedemptionAuthorization;
 use mycelix_finance_shared::{
     DEFAULT_RATE_LIMIT_PER_MINUTE, anchor_hash, follow_update_chain, links_to_records,
     rate_limit_anchor_key, validate_did_format, validate_id, verify_caller_is_did,
@@ -506,27 +507,138 @@ pub struct DebitSapInput {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RedemptionSapDebitInput {
     pub member_did: String,
-    pub amount: u64,
-    pub redemption_id: String,
-    pub redemption_action_hash: ActionHash,
+    pub authorization_action_hash: ActionHash,
 }
 
 #[hdk_extern]
 pub fn debit_sap_for_redemption(input: RedemptionSapDebitInput) -> ExternResult<Record> {
-    verify_caller_is_did(&input.member_did)?;
+    let auth_record = must_get_valid_record(input.authorization_action_hash.clone())?;
+    let auth = auth_record
+        .entry()
+        .to_app_option::<SapRedemptionAuthorization>()
+        .map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "SAP redemption authorization could not be decoded".into(),
+            ))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "SAP redemption authorization witness is missing".into(),
+        )))?;
 
-    if input.amount == 0 {
+    if auth.member_did.is_empty() || auth.sap_amount == 0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Redemption amount must be positive".into(),
+            "SAP redemption authorization is malformed".into(),
         )));
     }
-    if input.redemption_id.is_empty() || input.redemption_id.len() > 256 {
+    verify_caller_is_did(&auth.member_did)?;
+
+    // The exact owner/auth amount is supplied by the immutable bridge witness;
+    // clients cannot choose a fresh amount or redemption identifier here.
+    let link_query = LinkQuery::try_new(
+        input.authorization_action_hash.clone(),
+        LinkTypes::RedemptionAuthorizationToDebit,
+    )?;
+    let links = get_links(link_query, GetStrategy::default())?;
+    if links.len() > 1 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Redemption id must be 1-256 characters".into(),
+            "SAP redemption authorization has ambiguous debit provenance".into(),
         )));
     }
+    if let Some(link) = links.into_iter().next() {
+        let debit_hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "SAP redemption debit link has an invalid target".into(),
+            ))
+        })?;
+        let debit_record = must_get_valid_record(debit_hash.clone())?;
+        let debit = debit_record
+            .entry()
+            .to_app_option::<SapDebitRecord>()
+            .map_err(|_| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Existing SAP redemption debit could not be decoded".into(),
+                ))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Existing SAP redemption debit entry is missing".into(),
+            )))?;
+        match debit.source {
+            SapDebitSource::Redemption { authorization_action_hash }
+                if authorization_action_hash == input.authorization_action_hash
+                    && debit.member_did == auth.member_did
+                    && debit.amount == auth.sap_amount =>
+            {
+                let (current_record, current_bal) = get_sap_balance_inner(&auth.member_did)?;
 
-    let (record, bal) = get_sap_balance_inner(&input.member_did)?;
+                // Fully consumed already: the bridge can safely retry the
+                // redemption update without producing another SAP debit.
+                if current_bal.justified_by.as_ref() == Some(&debit_hash) {
+                    return Ok(current_record);
+                }
+
+                // The debit witness exists but its balance mutation did not
+                // complete. Only the exact predecessor may be repaired; if the
+                // account head advanced, the state is ambiguous and we fail closed.
+                if current_record.action_address()
+                    != &debit.balance_before_action_hash
+                {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Existing SAP redemption debit is not consumed and the account head advanced; manual reconciliation required"
+                            .into(),
+                    )));
+                }
+
+                let now = sys_time()?;
+                let elapsed = elapsed_seconds(current_bal.last_demurrage_at, now);
+                if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+                    let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+                    let pending = compute_demurrage_with_exemption(
+                        current_bal.balance,
+                        current_bal.exemption.as_ref(),
+                        now_secs,
+                        DEMURRAGE_EXEMPT_FLOOR,
+                        DEMURRAGE_RATE,
+                        elapsed,
+                    );
+                    if pending > 0 {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "Pending SAP demurrage blocks repair of an incomplete redemption debit"
+                                .into(),
+                        )));
+                    }
+                }
+                if auth.sap_amount > current_bal.balance {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Insufficient SAP balance to repair incomplete redemption debit".into(),
+                    )));
+                }
+
+                let updated = SapBalance {
+                    balance: current_bal.balance - auth.sap_amount,
+                    last_demurrage_at: now,
+                    justified_by: Some(debit_hash),
+                    ..current_bal
+                };
+                let repaired_hash = update_entry(
+                    current_record.action_address().clone(),
+                    &EntryTypes::SapBalance(updated),
+                )?;
+                return get(repaired_hash, GetOptions::default())?.ok_or(
+                    wasm_error!(WasmErrorInner::Guest(
+                        "Repaired SAP balance record not found".into(),
+                    )),
+                );
+            }
+            _ => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "SAP redemption authorization link points to conflicting debit provenance"
+                        .into(),
+                )));
+            }
+        }
+    }
+
+    let (record, bal) = get_sap_balance_inner(&auth.member_did)?;
     let now = sys_time()?;
     let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
     if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
@@ -545,26 +657,32 @@ pub fn debit_sap_for_redemption(input: RedemptionSapDebitInput) -> ExternResult<
             )));
         }
     }
-    if input.amount > bal.balance {
+    if auth.sap_amount > bal.balance {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Insufficient SAP balance for redemption: have {}, need {}",
-            bal.balance, input.amount
-        ))));
+            bal.balance, auth.sap_amount
+        )));
     }
 
     let debit = SapDebitRecord {
-        member_did: input.member_did.clone(),
-        amount: input.amount,
+        member_did: auth.member_did.clone(),
+        amount: auth.sap_amount,
         source: SapDebitSource::Redemption {
-            redemption_id: input.redemption_id,
-            redemption_action_hash: input.redemption_action_hash,
+            authorization_action_hash: input.authorization_action_hash.clone(),
         },
         balance_before_action_hash: record.action_address().clone(),
         created_at: now,
     };
     let debit_hash = create_entry(&EntryTypes::SapDebitRecord(debit))?;
+    create_link(
+        input.authorization_action_hash,
+        debit_hash.clone(),
+        LinkTypes::RedemptionAuthorizationToDebit,
+        (),
+    )?;
+
     let updated = SapBalance {
-        balance: bal.balance - input.amount,
+        balance: bal.balance - auth.sap_amount,
         last_demurrage_at: now,
         justified_by: Some(debit_hash),
         ..bal
