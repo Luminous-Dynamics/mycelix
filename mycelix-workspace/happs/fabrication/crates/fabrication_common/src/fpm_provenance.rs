@@ -124,10 +124,7 @@ pub fn qualify_provenance(
     let mut by_digest = BTreeMap::new();
 
     for witness in &input.lineage {
-        if witness.node_id.trim().is_empty()
-            || witness.node_id.len() > MAX_NODE_ID_BYTES
-            || witness.node_id != witness.node_id.trim()
-        {
+        if !valid_node_id(&witness.node_id) {
             reasons.insert(ProvenanceQualificationReason::InvalidNodeId);
         }
         if !is_canonical_digest(&witness.source_observation_digest)
@@ -141,6 +138,12 @@ pub fn qualify_provenance(
         let unique_parents = witness.parent_node_ids.iter().collect::<BTreeSet<_>>();
         if unique_parents.len() != witness.parent_node_ids.len() {
             reasons.insert(ProvenanceQualificationReason::DuplicateParentEdge);
+        }
+        if !witness.parent_node_ids.iter().all(|parent| valid_node_id(parent)) {
+            reasons.insert(ProvenanceQualificationReason::InvalidNodeId);
+        }
+        if !valid_node_id(&witness.source_id) || !valid_node_id(&witness.modality) {
+            reasons.insert(ProvenanceQualificationReason::InvalidNodeId);
         }
 
         let node_digest = witness.digest();
@@ -256,6 +259,7 @@ pub fn qualify_provenance(
         ProvenanceQualificationStatus::InvalidEvidence
     } else if reasons.contains(&ProvenanceQualificationReason::SharedAcquisitionRoot)
         || reasons.contains(&ProvenanceQualificationReason::SharedAncestry)
+        || reasons.contains(&ProvenanceQualificationReason::CrossParticipantDerivation)
     {
         ProvenanceQualificationStatus::ConflictingProvenance
     } else {
@@ -401,6 +405,13 @@ impl ProvenanceQualification {
         append_field(&mut preimage, &bytes);
         hex_digest(&preimage)
     }
+}
+
+fn valid_node_id(value: &str) -> bool {
+    !value.is_empty()
+        && value == value.trim()
+        && value.len() <= MAX_NODE_ID_BYTES
+        && !value.chars().any(char::is_control)
 }
 
 fn is_canonical_digest(value: &str) -> bool {
