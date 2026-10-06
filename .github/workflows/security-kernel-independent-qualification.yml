@@ -678,15 +678,15 @@ jobs:
       - name: Prepare locked dependency subject
         id: dependency_subject
         env:
-          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
         shell: bash
         run: |
           set -euo pipefail
           dependency_root="$RUNNER_TEMP/security-kernel-dependency-subject"
           rm -rf "$dependency_root"
           mkdir -p "$dependency_root"
-          install -m 0444 "$CANDIDATE_VOLUME_NAME/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"
-          install -m 0444 "$CANDIDATE_VOLUME_NAME/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"
+          install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"
+          install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"
           printf 'dependency_root=%s\n' "$dependency_root" >> "$GITHUB_OUTPUT"
           echo "PASS: only the committed Cargo manifest and lockfile enter dependency acquisition"
 
