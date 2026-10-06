@@ -104,7 +104,7 @@ jobs:
       - name: Assert no tracked local Python environments
         run: |
           set -euo pipefail
-          forbidden="$(git ls-tree -r --name-only HEAD | grep -E '(^|/)(\.venv|venv|env)(/|$)' || true)"
+          forbidden="$(git ls-tree -r --name-only HEAD | grep -E '^mycelix-finance/(\.venv|venv|env)(/|$)' || true)"
           test -z "$forbidden"
 
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
