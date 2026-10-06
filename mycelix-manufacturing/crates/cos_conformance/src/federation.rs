@@ -190,6 +190,20 @@ struct FederationExternalVerificationTrustPolicyHashView {
     accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
 }
 
+/// Local policy admission of an externally asserted verification result.
+///
+/// This object means only that the supplied verifier profile/schema/claim satisfied
+/// the explicitly configured local policy. It is not a cryptographic proof,
+/// not a verifier trust root, and not execution authority.
+///
+/// It is intentionally one-way and cannot be deserialized into an authority-bearing
+/// object by callers.
+///
+/// ```compile_fail
+/// use serde_json::from_str;
+/// # use cos_conformance::federation::FederationExternalVerificationPolicyAdmissionV1;
+/// let _: FederationExternalVerificationPolicyAdmissionV1 = from_str("{}").unwrap();
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationExternalVerificationPolicyAdmissionV1 {
     policy_sha256: String,
@@ -2395,8 +2409,22 @@ mod tests {
             resealed.anchor_reference_sha256(),
             first.anchor_reference_sha256()
         );
-    }
 
+        let policy = FederationExternalVerificationTrustPolicyV1::try_new(
+            1,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("policy must build");
+        let admission = first
+            .admit_under_policy(&policy)
+            .expect("policy should admit the exact verifier claim");
+        assert_eq!(admission.policy_sha256(), policy.policy_sha256().unwrap());
+        assert_eq!(admission.verifier_profile(), first.verifier_profile());
+        assert_eq!(admission.verifier_schema_version(), first.verifier_schema_version());
+        assert_eq!(admission.claim(), first.claim());
+        assert_eq!(admission.statement_sha256(), first.statement_sha256());
+    }
 
     #[test]
     fn external_verification_policy_admission_preserves_exact_denial_reason() {
