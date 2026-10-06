@@ -1,0 +1,141 @@
+name: D6U Trusted Evidence Attestation
+
+on:
+  workflow_run:
+    workflows: ["D6U Exact-Head Runtime Executor"]
+    types: [completed]
+    branches:
+      - main
+
+jobs:
+  trusted-attestation:
+    name: D6U trusted evidence attestation
+    if: >-
+      github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      GH_CONFIG_DIR: ${{ runner.temp }}/d6u-gh-config
+    steps:
+      - name: Checkout trusted policy root
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Assert trusted workflow root
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
+          test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
+
+      - name: Assert trusted policy root cohesion
+        env:
+          TRUSTED_POLICY_VERSION: "26"
+        run: |
+          set -euo pipefail
+          policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
+          test "$policy_version" = "$TRUSTED_POLICY_VERSION"
+          expected_blob=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["trusted_workflow"]["blob_sha"])')
+          observed_blob=$(git hash-object .github/workflows/d6u-trusted-evidence-attestation.yml)
+          test "$observed_blob" = "$expected_blob"
+
+      - name: Assert trusted program identities
+        run: |
+          set -euo pipefail
+          trusted_programs=(
+            scripts/integral/verify_d6u_trusted_artifacts.py
+            scripts/integral/fetch_d6u_trusted_artifact.py
+            scripts/integral/verify_d6u_trusted_attestation.py
+            scripts/integral/emit_d6u_trusted_attestation_predicate.py
+          )
+          for path in "${trusted_programs[@]}"; do
+            expected=$(python3 -c 'import json, sys; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["trusted_programs"][sys.argv[1]]["blob_sha"])' "$path")
+            index_record=$(git ls-files --stage -- "$path")
+            test -n "$index_record"
+            mode=$(printf '%s
+' "$index_record" | awk '{print $1}')
+            observed=$(printf '%s
+' "$index_record" | awk '{print $2}')
+            test "$mode" = "100644" || test "$mode" = "100755"
+            test "$observed" = "$expected"
+          done
+
+      - name: Preflight trusted verifier
+        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py
+
+      - name: Fetch and safely extract exact D6U artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/fetch_d6u_trusted_artifact.py "${{ runner.temp }}/d6u-trusted-input"
+
+      - name: Verify untrusted D6U evidence as data
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/integral/verify_d6u_trusted_artifacts.py "${{ runner.temp }}/d6u-trusted-input"
+
+      - name: Emit canonical D6U evidence predicate
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/emit_d6u_trusted_attestation_predicate.py \
+            "${{ runner.temp }}/d6u-trusted-input" \
+            "$RUNNER_TEMP/d6u-trusted-evidence-predicate.json"
+
+      - name: Attest trusted D6U evidence
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            ${{ runner.temp }}/d6u-trusted-input/d6u-runtime-evidence.txt
+            ${{ runner.temp }}/d6u-trusted-input/d6u-runtime-test.log
+            ${{ runner.temp }}/d6u-trusted-input/Cargo.lock
+          predicate-type: https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1
+          predicate-path: ${{ runner.temp }}/d6u-trusted-evidence-predicate.json
+
+      - name: Assert GitHub CLI verification environment
+        run: |
+          set -euo pipefail
+          rm -rf "$GH_CONFIG_DIR"
+          mkdir -p "$GH_CONFIG_DIR"
+          test -z "$(find "$GH_CONFIG_DIR" -mindepth 1 -maxdepth 1 -print -quit)"
+          test "$(gh version | sed -n '1s/^gh version \([^ ]*\).*/\1/p')" = "2.101.0"
+          for variable in GH_HOST GH_ENTERPRISE_TOKEN GH_REPO; do
+            if [ -n "${!variable:-}" ]; then
+              echo "unexpected ambient GitHub CLI override: $variable"
+              exit 1
+            fi
+          done
+
+      - name: Verify trusted D6U attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for subject in             "${{ runner.temp }}/d6u-trusted-input/d6u-runtime-evidence.txt"             "${{ runner.temp }}/d6u-trusted-input/d6u-runtime-test.log"             "${{ runner.temp }}/d6u-trusted-input/Cargo.lock"; do
+            report="$RUNNER_TEMP/d6u-attestation-$(basename "$subject").json"
+            gh attestation verify "$subject" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml" \
+              --signer-digest "$GITHUB_WORKFLOW_SHA" \
+              --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main" \
+              --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
+              --source-digest "$GITHUB_SHA" \
+              --source-ref "$GITHUB_REF" \
+              --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1" \
+              --deny-self-hosted-runners \
+              --format=json > "$report"
+            D6U_ATTESTATION_SUBJECT="$subject" \
+            D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
+            D6U_TRUSTED_POLICY_VERSION="26" \
+              python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
+            rm -f "$report"
+          done

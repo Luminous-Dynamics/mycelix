@@ -1,0 +1,296 @@
+{
+  "policy_version": 26,
+  "workflow_name": "D6U Exact-Head Runtime Executor",
+  "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+  "artifact_name_prefix": "d6u-runtime-evidence-",
+  "claim_ceiling": "ReferenceModelOnly",
+  "runtime": {
+    "holochain": "0.7.0",
+    "hdk": "0.7.0",
+    "hdi": "0.8.0"
+  },
+  "unsupported_reference_cases": [
+    "wire-signature-valid",
+    "nonce-stale",
+    "payload-mutation"
+  ],
+  "record_fields": [
+    "status",
+    "source_commit",
+    "source_branch",
+    "source_repository",
+    "trigger_workflow_run_id",
+    "trigger_workflow_run_attempt",
+    "trigger_workflow_name",
+    "trigger_workflow_path",
+    "trigger_workflow_blob_sha",
+    "executor_run_id",
+    "executor_run_attempt",
+    "executor_workflow_commit_sha",
+    "executor_workflow_ref",
+    "executor_workflow_file_path",
+    "executor_workflow_repository",
+    "attestation_status",
+    "d6s2_manifest_git_blob_sha",
+    "d6s2_fixture_git_blob_sha",
+    "d6s2_authority_ledger_schema",
+    "d6s1_corpus_sha256",
+    "test_log_sha256",
+    "manifest_version",
+    "manifest_git_blob_sha",
+    "evidence_verifier_git_blob_sha",
+    "lock_verifier_git_blob_sha",
+    "case_coverage",
+    "supplemental_coverage",
+    "application_check_coverage",
+    "case_outcome_classes",
+    "runtime",
+    "hdk",
+    "hdi",
+    "rust",
+    "rust_verbose_commit",
+    "cargo",
+    "cargo_lock_sha256",
+    "test",
+    "supported_cases",
+    "unsupported_cases",
+    "claim_ceiling"
+  ],
+  "cases": {
+    "canonical-payload-accepted": {
+      "outcome": "accepted",
+      "zome_reached": true
+    },
+    "authorized-semantic-rejection": {
+      "outcome": "semantic-rejected",
+      "zome_reached": true
+    },
+    "wire-signature-invalid": {
+      "outcome": "authentication-failed",
+      "zome_reached": false
+    },
+    "author-grant": {
+      "outcome": "accepted",
+      "zome_reached": true
+    },
+    "valid-capability": {
+      "outcome": "accepted",
+      "zome_reached": true
+    },
+    "wrong-capability": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "revoked-capability": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "provenance-mismatch": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "nonce-replay": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "expired-invocation": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "wrong-zome": {
+      "outcome": "routing-failed",
+      "zome_reached": false
+    },
+    "wrong-function": {
+      "outcome": "routing-failed",
+      "zome_reached": false
+    },
+    "wrong-cell": {
+      "outcome": "routing-failed",
+      "zome_reached": false
+    },
+    "blocked-provenance": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    }
+  },
+  "supplemental_substrate": {
+    "future-expiry-rejection": "Future",
+    "wrong-zome-routing": "Zome not found: Zome 'wrong-zome' not found",
+    "wrong-function-routing": "Attempted to call a zome function that doesn't exist: Zome: coordinator Fn no_such_function",
+    "wrong-cell-routing": "CellMissing("
+  },
+  "application_check": {
+    "id": "probe-local-d6s-commitment-mutation",
+    "fragment": "result=d6s-commitment-mismatch;zome-reached=true"
+  },
+  "lock_packages": {
+    "holochain": "0.7.0",
+    "hdk": "0.7.0",
+    "hdi": "0.8.0",
+    "holochain_keystore": "0.7.0",
+    "holochain_nonce": "0.7.0",
+    "holochain_serialized_bytes": "0.0.57",
+    "holochain_types": "0.7.0"
+  },
+  "lock_source": "registry+https://github.com/rust-lang/crates.io-index",
+  "manifest_version": 11,
+  "d6s2_authority_ledger_schema": "v1",
+  "d6s2_manifest_git_blob_sha": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
+  "d6s2_fixture_git_blob_sha": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
+  "d6s1_corpus_sha256": "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d",
+  "expected_case_coverage": "14-of-14",
+  "expected_supplemental_coverage": "4-of-4",
+  "expected_application_check_coverage": "1-of-1",
+  "expected_case_outcome_classes": [
+    "accepted",
+    "semantic-rejected",
+    "d6s-commitment-mismatch",
+    "authentication-failed",
+    "authorization-failed",
+    "routing-failed"
+  ],
+  "origin_policy": "same-repository-only",
+  "trigger_workflow_name": "D6S Canonical Qualification",
+  "trigger_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
+  "caller_workflow_name": "D6S Canonical Qualification",
+  "caller_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
+  "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
+  "trigger_workflow": {
+    "name": "D6S Canonical Qualification",
+    "path": ".github/workflows/d6s-canonical-qualification.yml"
+  },
+  "executor_workflow": {
+    "name": "D6U Exact-Head Runtime Executor",
+    "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+    "blob_sha": "24aeb2c1f1edc2c9f6814fdcaf5ec024a5f18098",
+    "ref": "refs/heads/main"
+  },
+  "required_source_blobs": {
+    "docs/integral/d6u-runtime-manifest.json": "7cb9fbe547bc5e0c3512224712ceca7b5e30b7c2",
+    "d6u-runtime-harness/Cargo.toml": "919927360b4c2b8d79efb336297b8834c7ff12e0",
+    "d6u-runtime-harness/rust-toolchain.toml": "69719934f101c996e1cecfc572f8bc61441018f2",
+    "d6u-runtime-harness/src/lib.rs": "d20684b30b7567742b1f4af5cd592e25d4e8a163",
+    "d6u-runtime-harness/tests/d6u_authority_boundary.rs": "45149b5f2cb4042f643af26623358c51fffb0d04",
+    "scripts/integral/verify_d6u_runtime_manifest.py": "f94848988e7f7d6a80826401d78db9e98f01a17d",
+    "scripts/integral/verify_d6u_runtime_evidence.py": "f35aad81943cdf35a17c83827b01bbd7e0597e93",
+    "scripts/integral/verify_d6u_runtime_lock.py": "16607cb0830be451b37116b2612b46693423a377",
+    "scripts/integral/verify_d6u_runtime_record.py": "3527dc4757163e8fed7edf734ecb99190e2c24ce",
+    "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
+    "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
+    ".github/workflows/d6s-canonical-qualification.yml": "6d06f3cbefa17ac2eb55b778791a2d3a4a593eda",
+    "docs/integral/d6s-canon-1-manifest.json": "53d88a67c48c8adbf783d1df290b3c591cd15566",
+    "docs/integral/d6s-canon-1-golden-vectors.json": "5e359549623101fe5997d0cfe8c7acb9c50cd57b",
+    "scripts/integral/verify_d6s_canon_1.py": "fad033cb88ca88b0b6a116dfadd799ac73e1233e",
+    "scripts/integral/verify_d6s_canon_2_authority_boundary.py": "12d5fdb955769aa5294d3de0be6fb8a2c6ca6016"
+  },
+  "artifact_name_template": "d6u-runtime-evidence-run-{executor_run_id}-attempt-{executor_run_attempt}",
+  "forbidden_cargo_config_paths": [
+    ".cargo/config",
+    ".cargo/config.toml",
+    "d6u-runtime-harness/.cargo/config",
+    "d6u-runtime-harness/.cargo/config.toml"
+  ],
+  "d6u_harness_tracked_files": [
+    "d6u-runtime-harness/Cargo.toml",
+    "d6u-runtime-harness/README.md",
+    "d6u-runtime-harness/rust-toolchain.toml",
+    "d6u-runtime-harness/src/lib.rs",
+    "d6u-runtime-harness/tests/d6u_authority_boundary.rs"
+  ],
+  "artifact_max_bytes": {
+    "d6u-runtime-evidence.txt": 262144,
+    "d6u-runtime-test.log": 8388608,
+    "Cargo.lock": 4194304
+  },
+  "artifact_max_total_bytes": 12582912,
+  "trusted_workflow": {
+    "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
+    "blob_sha": "e1fc28cc508e6f9bcf97ad6b07167b55f3765f5a"
+  },
+  "artifact_max_entries": 32,
+  "artifact_integrity": {
+    "algorithm": "sha256",
+    "source": "github-artifact-api",
+    "require_match_after_download": true,
+    "archive_format": "zip",
+    "extraction_mode": "bounded-members",
+    "reject_encrypted_members": true,
+    "reject_symlink_members": true,
+    "expected_member_count": 3,
+    "policy_revision": 26
+  },
+  "trusted_artifact_fetcher": {
+    "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
+    "blob_sha": "a249c8f0b014beb07060b33b93382adbbc37eb96"
+  },
+  "trusted_permissions": {
+    "actions": "read",
+    "contents": "read",
+    "id-token": "write",
+    "attestations": "write"
+  },
+  "attestation_verification": {
+    "signer_workflow": "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml",
+    "signer_digest_source": "GITHUB_WORKFLOW_SHA",
+    "certificate_identity": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main",
+    "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
+    "deny_self_hosted_runners": true,
+    "source_digest_source": "GITHUB_SHA",
+    "source_ref_source": "GITHUB_REF",
+    "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+    "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+    "current_run_identity": {
+      "certificate_field": "runInvocationURI",
+      "template": "https://github.com/{repository}/actions/runs/{run_id}/attempts/{run_attempt}"
+    },
+    "require_current_run_identity": true,
+    "require_subject_digest_match": true,
+    "subject_set_exact": true,
+    "require_signed_predicate_subject_binding": true,
+    "require_verified_timestamp": true
+  },
+  "trusted_attestation_verifier": {
+    "path": "scripts/integral/verify_d6u_trusted_attestation.py",
+    "blob_sha": "c7f36ab104197e8deaac94a5fdcdf967a315e467"
+  },
+  "trusted_programs": {
+    "scripts/integral/verify_d6u_trusted_artifacts.py": {
+      "path": "scripts/integral/verify_d6u_trusted_artifacts.py",
+      "blob_sha": "f7e99b89732b89927c0006e488753e89e8476c89"
+    },
+    "scripts/integral/fetch_d6u_trusted_artifact.py": {
+      "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
+      "blob_sha": "a249c8f0b014beb07060b33b93382adbbc37eb96"
+    },
+    "scripts/integral/verify_d6u_trusted_attestation.py": {
+      "path": "scripts/integral/verify_d6u_trusted_attestation.py",
+      "blob_sha": "c7f36ab104197e8deaac94a5fdcdf967a315e467"
+    },
+    "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
+      "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
+      "blob_sha": "77eb6d7869b85d7f8444131ae9c8899770b79c7e"
+    }
+  },
+  "trusted_actions": {
+    "actions/checkout": {
+      "ref": "fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+      "version": "v5.1.0"
+    },
+    "actions/attest": {
+      "ref": "1e69f48acb82d1966a394da916b4c169aa569d6",
+      "version": "v4.2.2"
+    }
+  },
+  "trusted_cli": {
+    "name": "gh",
+    "version": "2.101.0",
+    "configuration_directory": "${{ runner.temp }}/d6u-gh-config",
+    "required_fresh_configuration": true,
+    "forbidden_environment_overrides": [
+      "GH_HOST",
+      "GH_ENTERPRISE_TOKEN",
+      "GH_REPO"
+    ]
+  }
+}
