@@ -101,6 +101,8 @@ pub struct ResolvedFpmAcquisitionRootAnchor {
 pub struct CreateFpmAttestationChallengeInput {
     pub acquisition_root_action: ActionHash,
     pub audience: String,
+    pub verification_key_id: Vec<u8>,
+    pub verification_key_digest: String,
     pub attestation_format: String,
     pub verifier_profile_digest: String,
     pub appraisal_policy_digest: String,
@@ -118,6 +120,8 @@ pub struct ResolvedFpmAttestationChallenge {
     pub action_hash: ActionHash,
     pub subject_id: String,
     pub audience: String,
+    pub verification_key_id: Vec<u8>,
+    pub verification_key_digest: String,
     pub acquisition_root_action: ActionHash,
     pub acquisition_root_digest: String,
     pub verifier_agent: AgentPubKey,
@@ -261,6 +265,8 @@ fn resolve_fpm_attestation_challenge_impl(
         action_hash: input.action_hash,
         subject_id: challenge.subject_id,
         audience: challenge.audience,
+        verification_key_id: challenge.verification_key_id,
+        verification_key_digest: challenge.verification_key_digest,
         acquisition_root_action: challenge.acquisition_root_action,
         acquisition_root_digest: challenge.acquisition_root_digest,
         verifier_agent: challenge.verifier_agent,
@@ -378,6 +384,8 @@ fn validate_attestation_claim_against_challenge(
     Ok(qualify_source_attestation(&FpmAttestationQualificationInput {
         expected_subject_id: challenge.subject_id.clone(),
         expected_audience: challenge.audience.clone(),
+        expected_verification_key_id: challenge.verification_key_id.clone(),
+        expected_verification_key_digest: challenge.verification_key_digest.clone(),
         expected_acquisition_root_digest: challenge.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: challenge.nonce_digest.clone(),
         expected_attestation_format: challenge.attestation_format.clone(),
@@ -507,6 +515,9 @@ fn create_fpm_attestation_challenge_impl(
     )?;
 
     if !valid_attestation_identifier(&input.audience, 256)
+        || input.verification_key_id.is_empty()
+        || input.verification_key_id.len() > 128
+        || !valid_fpm_digest(&input.verification_key_digest)
         || !valid_attestation_identifier(&input.attestation_format, 128)
         || !valid_fpm_digest(&input.verifier_profile_digest)
         || !valid_fpm_digest(&input.appraisal_policy_digest)
@@ -530,6 +541,8 @@ fn create_fpm_attestation_challenge_impl(
         schema_version: FPM_ATTESTATION_CHALLENGE_SCHEMA_VERSION.into(),
         subject_id: root.source_system_id,
         audience: input.audience,
+        verification_key_id: input.verification_key_id,
+        verification_key_digest: input.verification_key_digest,
         acquisition_root_action: input.acquisition_root_action,
         acquisition_root_digest: root.root_digest,
         verifier_agent,
@@ -590,6 +603,8 @@ fn create_fpm_source_attestation_anchor_impl(
     let claim = FpmSourceAttestationClaim {
         subject_id: challenge.subject_id.clone(),
         audience: challenge.audience.clone(),
+        verification_key_id: challenge.verification_key_id.clone(),
+        verification_key_digest: challenge.verification_key_digest.clone(),
         acquisition_root_digest: challenge.acquisition_root_digest.clone(),
         challenge_nonce_digest: challenge.nonce_digest.clone(),
         evidence_digest: input.evidence_digest,
