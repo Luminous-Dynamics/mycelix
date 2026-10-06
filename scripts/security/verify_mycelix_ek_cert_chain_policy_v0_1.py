@@ -15,6 +15,9 @@ from typing import Any
 VERIFIER_ID = "mycelix.tpm.ek-cert-chain-policy.v0.1"
 SPKI_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
 PATH_VERIFIER_ID = "mycelix.tpm.ek-cert-path-validation.v0.1"
+CRYPTO_BINDING_ID = "mycelix.tpm.ek-fixture-signatures.v0.1"
+SHA256_WITH_RSA_OID = "1.2.840.113549.1.1.11"
+RSA_ENCRYPTION_OID = "1.2.840.113549.1.1.1"
 TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
 ROOT = Path(__file__).resolve().parents[2]
 TRUST_ANCHOR_APPRAISAL_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
@@ -255,6 +258,16 @@ def oid_base128_value(content: bytes, offset: int, field: str) -> tuple[int, int
             return value, offset
 
 
+def algorithm_identifier_oid(raw: bytes, field: str) -> str:
+    tag, content, _raw, end = der_tlv(raw, 0)
+    if tag != 0x30 or end != len(raw):
+        raise ValueError(f"{field} AlgorithmIdentifier malformed")
+    children = der_children(content)
+    if len(children) != 2 or children[0][0] != 0x06 or children[1][0] != 0x05 or children[1][1] != b"":
+        raise ValueError(f"{field} AlgorithmIdentifier must contain OID and explicit NULL parameters")
+    return oid_string(children[0][1])
+
+
 def oid_string(content: bytes) -> str:
     if not content:
         raise ValueError("DER OID empty")
@@ -348,13 +361,16 @@ def parse_certificate_der(der: bytes) -> dict[str, Any]:
     tag, tbs_content, _tbs_raw, cert_cursor = der_tlv(cert_content, 0)
     if tag != 0x30:
         raise ValueError("X.509 TBSCertificate is not a SEQUENCE")
-    sig_alg_tag, _sig_alg_content, _sig_alg_raw, cert_cursor = der_tlv(cert_content, cert_cursor)
+    sig_alg_tag, sig_alg_content, sig_alg_raw, cert_cursor = der_tlv(cert_content, cert_cursor)
     if sig_alg_tag != 0x30:
         raise ValueError("X.509 certificate signatureAlgorithm is not a SEQUENCE")
     sig_value_tag, sig_value_content, _sig_value_raw, cert_end = der_tlv(cert_content, cert_cursor)
     if sig_value_tag != 0x03 or cert_end != len(cert_content):
         raise ValueError("X.509 certificate signatureValue is malformed")
+    if sig_value_content[:1] != b"\x00":
+        raise ValueError("X.509 certificate signatureValue must have zero unused bits")
     bit_string_has(sig_value_content, 0)
+    signature_algorithm_oid = algorithm_identifier_oid(sig_alg_raw, "X.509.signatureAlgorithm")
 
     cursor = 0
     version = 1
@@ -429,6 +445,10 @@ def parse_certificate_der(der: bytes) -> dict[str, Any]:
         "spki_der": spki_raw,
         "subject_empty": subject_content == b"",
         "extensions": extensions,
+        "tbs_der": tbs_raw,
+        "signature_der": sig_value_content[1:],
+        "signature_algorithm_der": sig_alg_raw,
+        "signature_algorithm_oid": signature_algorithm_oid,
     }
 
 
