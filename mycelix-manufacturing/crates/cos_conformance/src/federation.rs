@@ -1720,6 +1720,21 @@ pub fn run_scenario(
             state_machine_trace_external_evidence_anchor_reference(
                 FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
                 FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+                "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                FederationStateMachineTraceExternalWitnessKind::Other,
+                "external-v1",
+                b"witness",
+                0,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidSubjectDigest
+            )
+        );
+
+        assert_eq!(
+            state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 FederationStateMachineTraceExternalWitnessKind::Other,
                 "external-v1",
@@ -4640,7 +4655,10 @@ mod tests {
         let Some(hex) = value.strip_prefix("sha256:") else {
             return false;
         };
-        hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+        hex.len() == 64
+            && hex
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
     }
 
     fn state_machine_trace_external_evidence_anchor_reference_sha256(
