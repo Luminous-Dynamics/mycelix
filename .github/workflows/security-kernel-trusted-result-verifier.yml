@@ -46,7 +46,6 @@ jobs:
 
       - name: Verify trusted dispatcher, reusable S1, and qualification gates
         id: verify_result
-        shell: bash
         env:
           TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
@@ -720,7 +719,6 @@ jobs:
       - name: Verify retained negative-control evidence binding
         if: success()
         id: verify_negative_controls_log
-        shell: bash
         env:
           TOKEN: ${{ github.token }}
           BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
@@ -981,7 +979,6 @@ jobs:
 
       - name: Verify official receipt transport and publish verified result
         if: success()
-        shell: bash
         env:
           RECEIPT_ROOT: ${{ runner.temp }}/security-kernel-official-receipt
           NEGATIVE_CONTROLS_ROOT: ${{ runner.temp }}/security-kernel-official-negative-controls
