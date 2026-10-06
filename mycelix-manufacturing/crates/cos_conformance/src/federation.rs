@@ -173,6 +173,8 @@ pub enum FederationExternalVerificationPolicyAdmissionViolation {
     RejectedClaim,
     VerifierSchemaTooOld,
     VerifierProfileNotAdmitted,
+    WitnessKindNotAdmitted,
+    WitnessProfileNotAdmitted,
     VerificationClaimNotAdmitted,
     PolicyInvalid(FederationExternalVerificationTrustPolicyViolation),
 }
@@ -387,6 +389,24 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
         &self,
         policy: &FederationExternalVerificationTrustPolicyV1,
     ) -> Result<FederationExternalVerificationPolicyAdmissionV1, FederationExternalVerificationPolicyAdmissionViolation> {
+        let (required_witness_kind, required_witness_profile) = match (
+            policy.required_witness_kind(),
+            policy.required_witness_profile(),
+        ) {
+            (Some(kind), Some(profile)) => (kind, profile),
+            _ => {
+                return Err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid(
+                    FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete,
+                ))
+            }
+        };
+        if required_witness_kind != self.witness_kind() {
+            return Err(FederationExternalVerificationPolicyAdmissionViolation::WitnessKindNotAdmitted);
+        }
+        if required_witness_profile != self.witness_profile() {
+            return Err(FederationExternalVerificationPolicyAdmissionViolation::WitnessProfileNotAdmitted);
+        }
+
         let decision = policy
             .classify(self.verifier_schema_version(), self.verifier_profile(), self.claim())
             .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?;
@@ -2473,7 +2493,9 @@ mod tests {
             first.anchor_reference_sha256()
         );
 
-        let policy = FederationExternalVerificationTrustPolicyV1::try_new(
+        let policy = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
             1,
             ["rfc3161-verifier-v1"],
             [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
@@ -2483,10 +2505,34 @@ mod tests {
             .admit_under_policy(&policy)
             .expect("policy should admit the exact verifier claim");
         assert_eq!(admission.policy_sha256(), policy.policy_sha256().unwrap());
+        assert_eq!(admission.witness_kind(), first.witness_kind());
+        assert_eq!(admission.witness_profile(), first.witness_profile());
         assert_eq!(admission.verifier_profile(), first.verifier_profile());
         assert_eq!(admission.verifier_schema_version(), first.verifier_schema_version());
         assert_eq!(admission.claim(), first.claim());
         assert_eq!(admission.statement_sha256(), first.statement_sha256());
+
+        let mut wrong_kind = first.clone();
+        wrong_kind.witness_kind =
+            FederationStateMachineTraceExternalWitnessKind::TransparencyLogHead;
+        wrong_kind.witness_profile = "ct-log-sth-v2".into();
+        assert_eq!(
+            wrong_kind.admit_under_policy(&policy),
+            Err(FederationExternalVerificationPolicyAdmissionViolation::WitnessKindNotAdmitted)
+        );
+
+        let unbound_policy = FederationExternalVerificationTrustPolicyV1::try_new(
+            1,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("unbound policy must be structurally valid");
+        assert_eq!(
+            first.admit_under_policy(&unbound_policy),
+            Err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid(
+                FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete
+            ))
+        );
     }
 
     #[test]
@@ -2596,7 +2642,9 @@ mod tests {
             )
             .expect("binding chain must validate");
 
-        let policy = FederationExternalVerificationTrustPolicyV1::try_new(
+        let policy = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
             2,
             ["rfc3161-verifier-v1"],
             [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
