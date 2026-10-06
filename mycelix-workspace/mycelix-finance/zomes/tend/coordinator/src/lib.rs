@@ -2850,6 +2850,39 @@ pub struct RecordCrossDAOExchangeInput {
     pub hours: f32,
 }
 
+fn classify_bilateral_balance_roots(
+    mut roots: Vec<ActionHash>,
+) -> ExternResult<Option<ActionHash>> {
+    roots.sort();
+    roots.dedup();
+    match roots.len() {
+        0 => Ok(None),
+        1 => Ok(roots.into_iter().next()),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Conflicting BilateralBalance roots exist for this DAO pair".into(),
+        ))),
+    }
+}
+
+fn resolve_bilateral_balance_root(anchor_key: &str) -> ExternResult<Option<ActionHash>> {
+    let links = get_links(
+        LinkQuery::try_new(anchor_hash(anchor_key)?, LinkTypes::DaoToBilateralBalance)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut roots = Vec::with_capacity(links.len());
+    for link in links {
+        let target = link.target.into_action_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "BilateralBalance link target is not an ActionHash".into(),
+            ))
+        })?;
+        roots.push(target);
+    }
+
+    classify_bilateral_balance_roots(roots)
+}
+
 /// Record an inter-DAO TEND exchange by updating the bilateral balance.
 ///
 /// Provider's DAO gains credit, receiver's DAO gains debt.
@@ -2883,33 +2916,36 @@ pub fn record_cross_dao_exchange(
     let now = sys_time()?;
     let delta = (input.hours.round() as i32) * direction;
 
-    // Try to find existing bilateral balance
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(&anchor_key)?, LinkTypes::DaoToBilateralBalance)?,
-        GetStrategy::default(),
-    )?;
-
-    if let Some(link) = links.first() {
-        if let Some(link_hash) = link.target.clone().into_action_hash() {
+    // Resolve the canonical bilateral-balance root.
+    //
+    // Zero roots is the explicit bootstrap/uninitialized state and permits
+    // creation below. One root follows its exact update chain. Multiple
+    // distinct roots are a conflict and must never be selected by link order.
+    match resolve_bilateral_balance_root(&anchor_key)? {
+        Some(link_hash) => {
             let record = follow_update_chain(link_hash)?;
-            if let Some(mut bal) =
-                record
-                    .entry()
-                    .to_app_option::<BilateralBalance>()
-                    .map_err(|e| {
-                        wasm_error!(WasmErrorInner::Guest(format!(
-                            "BilateralBalance deserialization error: {:?}",
-                            e
-                        )))
-                    })?
-            {
-                bal.net_balance += delta;
-                bal.total_exchanges += 1;
-                bal.last_updated_at = now;
-                update_entry(record.action_address().clone(), &bal)?;
-                return Ok(bal);
-            }
+            let mut bal = record
+                .entry()
+                .to_app_option::<BilateralBalance>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "BilateralBalance deserialization error: {:?}",
+                        e
+                    )))
+                })?
+                .ok_or_else(|| {
+                    wasm_error!(WasmErrorInner::Guest(
+                        "Resolved BilateralBalance root is missing its entry".into(),
+                    ))
+                })?;
+
+            bal.net_balance += delta;
+            bal.total_exchanges += 1;
+            bal.last_updated_at = now;
+            update_entry(record.action_address().clone(), &bal)?;
+            return Ok(bal);
         }
+        None => {}
     }
 
     // Create new bilateral balance
@@ -2943,26 +2979,21 @@ pub fn get_bilateral_balance(input: GetBilateralInput) -> ExternResult<Option<Bi
     };
 
     let anchor_key = format!("bilateral:{}:{}", dao_a, dao_b);
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(&anchor_key)?, LinkTypes::DaoToBilateralBalance)?,
-        GetStrategy::default(),
-    )?;
 
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            return record
-                .entry()
-                .to_app_option::<BilateralBalance>()
-                .map_err(|e| {
-                    wasm_error!(WasmErrorInner::Guest(format!(
-                        "BilateralBalance deserialization error: {:?}",
-                        e
-                    )))
-                });
-        }
-    }
-    Ok(None)
+    let Some(action_hash) = resolve_bilateral_balance_root(&anchor_key)? else {
+        return Ok(None);
+    };
+
+    let record = follow_update_chain(action_hash)?;
+    record
+        .entry()
+        .to_app_option::<BilateralBalance>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "BilateralBalance deserialization error: {:?}",
+                e
+            )))
+        })
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -3018,35 +3049,29 @@ pub fn settle_bilateral_balance(input: SettleBilateralInput) -> ExternResult<Rec
     let anchor_key = format!("bilateral:{}:{}", dao_a, dao_b);
     let now = sys_time()?;
 
-    // Step 1: Find the bilateral balance
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(&anchor_key)?, LinkTypes::DaoToBilateralBalance)?,
-        GetStrategy::default(),
-    )?;
-
-    let (balance_action_hash, bal) =
-        {
-            let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-                "No bilateral balance found between these DAOs".into()
-            )))?;
-            let link_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
-                WasmErrorInner::Guest("Invalid bilateral balance link target".into())
-            ))?;
-            let record = follow_update_chain(link_hash)?;
-            let bal = record
-                .entry()
-                .to_app_option::<BilateralBalance>()
-                .map_err(|e| {
-                    wasm_error!(WasmErrorInner::Guest(format!(
-                        "BilateralBalance deserialization error: {:?}",
-                        e
-                    )))
-                })?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Bilateral balance entry missing".into()
-                )))?;
-            (record.action_address().clone(), bal)
-        };
+    // Step 1: Resolve the single canonical bilateral balance root.
+    let balance_action_hash = resolve_bilateral_balance_root(&anchor_key)?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "No bilateral balance found between these DAOs".into(),
+            ))
+        })?;
+    let record = follow_update_chain(balance_action_hash.clone())?;
+    let bal = record
+        .entry()
+        .to_app_option::<BilateralBalance>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "BilateralBalance deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Resolved bilateral balance entry missing".into(),
+            ))
+        })?;
+    let balance_action_hash = record.action_address().clone();
 
     if bal.net_balance == 0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -3490,6 +3515,39 @@ mod tests {
             receiver_completed: false,
             created_at: ts(),
         }
+    }
+
+    #[test]
+    fn bilateral_balance_root_resolution_uninitialized() {
+        assert!(classify_bilateral_balance_roots(Vec::new())
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn bilateral_balance_root_resolution_dedupes_identical_targets() {
+        let root = ActionHash::from_raw_36(vec![7; 36]);
+        let duplicate = vec![root.clone(), root.clone(), root.clone()];
+        assert_eq!(
+            classify_bilateral_balance_roots(duplicate).unwrap(),
+            Some(root)
+        );
+    }
+
+    #[test]
+    fn bilateral_balance_root_resolution_accepts_one_distinct_root() {
+        let root = ActionHash::from_raw_36(vec![8; 36]);
+        assert_eq!(
+            classify_bilateral_balance_roots(vec![root.clone()]).unwrap(),
+            Some(root)
+        );
+    }
+
+    #[test]
+    fn bilateral_balance_root_resolution_rejects_conflicting_roots() {
+        let a = ActionHash::from_raw_36(vec![1; 36]);
+        let b = ActionHash::from_raw_36(vec![2; 36]);
+        assert!(classify_bilateral_balance_roots(vec![a, b]).is_err());
     }
 
     #[test]
