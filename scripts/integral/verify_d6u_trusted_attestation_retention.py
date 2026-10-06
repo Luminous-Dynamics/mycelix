@@ -325,6 +325,11 @@ def main() -> None:
         "run_id",
         "run_attempt",
         "run_invocation_uri",
+        "triggered_repository",
+        "triggered_head_branch",
+        "triggered_head_sha",
+        "triggered_run_id",
+        "triggered_run_attempt",
         "cli_version",
         "predicate_type",
         "predicate_schema",
@@ -361,6 +366,11 @@ def main() -> None:
     assert transcript["certificate_oidc_issuer"] == CERT_OIDC_ISSUER
     assert str(transcript["run_id"]) == os.environ["GITHUB_RUN_ID"]
     assert str(transcript["run_attempt"]) == os.environ["GITHUB_RUN_ATTEMPT"]
+    assert transcript["triggered_repository"] == os.environ["D6U_TRIGGER_REPOSITORY"]
+    assert transcript["triggered_head_branch"] == os.environ["D6U_TRIGGER_HEAD_BRANCH"]
+    assert transcript["triggered_head_sha"] == os.environ["D6U_TRIGGER_HEAD_SHA"]
+    assert str(transcript["triggered_run_id"]) == os.environ["D6U_TRIGGER_RUN_ID"]
+    assert str(transcript["triggered_run_attempt"]) == os.environ["D6U_TRIGGER_RUN_ATTEMPT"]
     assert transcript["run_invocation_uri"] == current_run_uri(
         os.environ["GITHUB_REPOSITORY"],
         os.environ["GITHUB_RUN_ID"],
@@ -414,6 +424,13 @@ def main() -> None:
     assert isinstance(source, dict)
     assert set(source) == {"branch", "commit", "repository"}
     assert source["repository"] == transcript["repository"]
+    assert source["repository"] == transcript["triggered_repository"]
+    assert source["branch"] == transcript["triggered_head_branch"]
+    assert source["commit"] == transcript["triggered_head_sha"]
+    executor = canonical_predicate["executor"]
+    assert isinstance(executor, dict)
+    assert executor.get("run_id") == transcript["triggered_run_id"]
+    assert executor.get("run_attempt") == transcript["triggered_run_attempt"]
     assert isinstance(source["branch"], str) and source["branch"]
     assert isinstance(source["commit"], str) and len(source["commit"]) == 40
     assert all(ch in "0123456789abcdef" for ch in source["commit"])
