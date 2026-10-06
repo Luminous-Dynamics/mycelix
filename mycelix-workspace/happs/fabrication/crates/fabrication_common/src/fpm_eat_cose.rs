@@ -10,7 +10,7 @@
 //! establish physical sensor truth. Trust-root/key provisioning remains an
 //! external verifier-policy responsibility.
 
-use coset::{iana, CborSerializable, CoseSign1, ContentType};
+use coset::{iana, CborSerializable, CoseSign1, ContentType, TaggedCborSerializable};
 use p256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -118,13 +118,13 @@ fn valid_label(value: &str, max_len: usize) -> bool {
 }
 
 fn value_for_claim<'a>(
-    map: &'a [(coset::cbor::Value, coset::cbor::Value)],
+    map: &'a [(coset::cbor::value::Value, coset::cbor::value::Value)],
     key: i64,
     seen: &mut BTreeSet<String>,
-) -> Result<Option<&'a coset::cbor::Value>, FpmEatCoseVerificationReason> {
+) -> Result<Option<&'a coset::cbor::value::Value>, FpmEatCoseVerificationReason> {
     let mut found = None;
     for (claim_key, value) in map {
-        let matches = *claim_key == coset::cbor::Value::Integer(key.into());
+        let matches = *claim_key == coset::cbor::value::Value::Integer(key.into());
         if matches {
             let marker = key.to_string();
             if !seen.insert(marker) {
@@ -137,7 +137,7 @@ fn value_for_claim<'a>(
 }
 
 fn required_text_claim(
-    map: &[(coset::cbor::Value, coset::cbor::Value)],
+    map: &[(coset::cbor::value::Value, coset::cbor::value::Value)],
     key: i64,
     missing: FpmEatCoseVerificationReason,
     seen: &mut BTreeSet<String>,
@@ -146,7 +146,7 @@ fn required_text_claim(
         return Err(missing);
     };
     match value {
-        coset::cbor::Value::Text(text) => Ok(text.clone()),
+        coset::cbor::value::Value::Text(text) => Ok(text.clone()),
         _ => Err(FpmEatCoseVerificationReason::UnsupportedClaimType),
     }
 }
@@ -299,8 +299,8 @@ pub fn verify_fpm_eat_cose_sign1(
     }
 
     let payload_digest = hex_digest(&payload);
-    let claims = match coset::cbor::Value::from_slice(&payload) {
-        Ok(coset::cbor::Value::Map(map)) => map,
+    let claims = match coset::cbor::value::Value::from_slice(&payload) {
+        Ok(coset::cbor::value::Value::Map(map)) => map,
         Ok(_) | Err(_) => {
             reasons.insert(FpmEatCoseVerificationReason::MalformedEatPayload);
             return invalid_result_with_payload(
@@ -314,7 +314,7 @@ pub fn verify_fpm_eat_cose_sign1(
     };
 
     for (claim_key, _) in &claims {
-        if !matches!(claim_key, coset::cbor::Value::Integer(_)) {
+        if !matches!(claim_key, coset::cbor::value::Value::Integer(_)) {
             reasons.insert(FpmEatCoseVerificationReason::NonIntegerClaimKey);
         }
     }
@@ -368,7 +368,7 @@ pub fn verify_fpm_eat_cose_sign1(
     };
 
     let nonce = match value_for_claim(&claims, CLAIM_NONCE, &mut seen) {
-        Ok(Some(coset::cbor::Value::Bytes(value))) => value.clone(),
+        Ok(Some(coset::cbor::value::Value::Bytes(value))) => value.clone(),
         Ok(Some(_)) => {
             reasons.insert(FpmEatCoseVerificationReason::UnsupportedClaimType);
             return invalid_result_with_payload(
@@ -536,22 +536,22 @@ mod tests {
         audience: &str,
         nonce: &[u8],
     ) -> Vec<u8> {
-        let claims = coset::cbor::Value::Map(vec![
+        let claims = coset::cbor::value::Value::Map(vec![
             (
-                coset::cbor::Value::Integer(CLAIM_SUB.into()),
-                coset::cbor::Value::Text(subject.into()),
+                coset::cbor::value::Value::Integer(CLAIM_SUB.into()),
+                coset::cbor::value::Value::Text(subject.into()),
             ),
             (
-                coset::cbor::Value::Integer(CLAIM_AUD.into()),
-                coset::cbor::Value::Text(audience.into()),
+                coset::cbor::value::Value::Integer(CLAIM_AUD.into()),
+                coset::cbor::value::Value::Text(audience.into()),
             ),
             (
-                coset::cbor::Value::Integer(CLAIM_NONCE.into()),
-                coset::cbor::Value::Bytes(nonce.into()),
+                coset::cbor::value::Value::Integer(CLAIM_NONCE.into()),
+                coset::cbor::value::Value::Bytes(nonce.into()),
             ),
             (
-                coset::cbor::Value::Integer(CLAIM_EAT_PROFILE.into()),
-                coset::cbor::Value::Text(FPM_EAT_PROFILE_URI.into()),
+                coset::cbor::value::Value::Integer(CLAIM_EAT_PROFILE.into()),
+                coset::cbor::value::Value::Text(FPM_EAT_PROFILE_URI.into()),
             ),
         ]);
         claims.to_vec().expect("CBOR payload")
@@ -618,11 +618,11 @@ mod tests {
     #[test]
     fn non_integer_claim_key_is_invalid() {
         let nonce = b"fresh-nonce-32-bytes-123456789012";
-        let claims = coset::cbor::Value::Map(vec![
-            (coset::cbor::Value::Text("sub".into()), coset::cbor::Value::Text("source-1".into())),
-            (coset::cbor::Value::Integer(CLAIM_AUD.into()), coset::cbor::Value::Text("fpm-verifier".into())),
-            (coset::cbor::Value::Integer(CLAIM_NONCE.into()), coset::cbor::Value::Bytes(nonce.to_vec())),
-            (coset::cbor::Value::Integer(CLAIM_EAT_PROFILE.into()), coset::cbor::Value::Text(FPM_EAT_PROFILE_URI.into())),
+        let claims = coset::cbor::value::Value::Map(vec![
+            (coset::cbor::value::Value::Text("sub".into()), coset::cbor::value::Value::Text("source-1".into())),
+            (coset::cbor::value::Value::Integer(CLAIM_AUD.into()), coset::cbor::value::Value::Text("fpm-verifier".into())),
+            (coset::cbor::value::Value::Integer(CLAIM_NONCE.into()), coset::cbor::value::Value::Bytes(nonce.to_vec())),
+            (coset::cbor::value::Value::Integer(CLAIM_EAT_PROFILE.into()), coset::cbor::value::Value::Text(FPM_EAT_PROFILE_URI.into())),
         ]);
         let payload = claims.to_vec().expect("CBOR payload");
         let protected = HeaderBuilder::new()
@@ -666,11 +666,11 @@ mod tests {
     #[test]
     fn profile_substitution_conflicts_after_valid_signature() {
         let nonce = b"fresh-nonce-32-bytes-123456789012";
-        let claims = coset::cbor::Value::Map(vec![
-            (coset::cbor::Value::Integer(CLAIM_SUB.into()), coset::cbor::Value::Text("source-1".into())),
-            (coset::cbor::Value::Integer(CLAIM_AUD.into()), coset::cbor::Value::Text("fpm-verifier".into())),
-            (coset::cbor::Value::Integer(CLAIM_NONCE.into()), coset::cbor::Value::Bytes(nonce.to_vec())),
-            (coset::cbor::Value::Integer(CLAIM_EAT_PROFILE.into()), coset::cbor::Value::Text("tag:luminousdynamics.org,2026:other-profile".into())),
+        let claims = coset::cbor::value::Value::Map(vec![
+            (coset::cbor::value::Value::Integer(CLAIM_SUB.into()), coset::cbor::value::Value::Text("source-1".into())),
+            (coset::cbor::value::Value::Integer(CLAIM_AUD.into()), coset::cbor::value::Value::Text("fpm-verifier".into())),
+            (coset::cbor::value::Value::Integer(CLAIM_NONCE.into()), coset::cbor::value::Value::Bytes(nonce.to_vec())),
+            (coset::cbor::value::Value::Integer(CLAIM_EAT_PROFILE.into()), coset::cbor::value::Value::Text("tag:luminousdynamics.org,2026:other-profile".into())),
         ]);
         let payload = claims.to_vec().expect("CBOR payload");
         let protected = HeaderBuilder::new()
