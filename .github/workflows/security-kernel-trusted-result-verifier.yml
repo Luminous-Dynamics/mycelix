@@ -330,6 +330,19 @@ jobs:
           )
           artifact = matching_artifacts[0]
           assert artifact.get("expired") is False, "qualification receipt artifact is expired"
+          artifact_run = artifact.get("workflow_run") or {}
+          assert artifact_run.get("repository_id") == run["repository"]["id"], (
+              "qualification receipt artifact repository identity differs from triggering workflow run"
+          )
+          assert artifact_run.get("head_repository_id") == run.get("head_repository_id"), (
+              "qualification receipt artifact head repository identity differs from triggering workflow run"
+          )
+          assert artifact_run.get("head_branch") == run.get("head_branch"), (
+              "qualification receipt artifact head branch differs from triggering workflow run"
+          )
+          assert artifact_run.get("head_sha") == run.get("head_sha"), (
+              "qualification receipt artifact head SHA differs from triggering workflow run"
+          )
           assert artifact.get("workflow_run", {}).get("id") == int(run_id), (
               "qualification receipt artifact is not bound to the exact trusted dispatcher run"
           )
