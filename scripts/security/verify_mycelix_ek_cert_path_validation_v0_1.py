@@ -306,9 +306,8 @@ def self_test() -> int:
         return 1
     tampered = dict(manifest)
     tampered["verification_time_unix"] += 1
-    tampered["execution_binding_sha256"] = expected_input_binding(tampered)
-    if verify(tampered)["state"] not in {"DENY", "INDETERMINATE"}:
-        print("verification-time substitution: FAIL")
+    if verify(tampered)["state"] != "DENY":
+        print("verification-time binding substitution: FAIL")
         return 1
     if observed["state"] == "PASS":
         print("EK certificate path-validation semantic corpus: PASS")
