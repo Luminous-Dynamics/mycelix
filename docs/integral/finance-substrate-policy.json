@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "purpose": "Finance exact-head qualification substrate identity",
+  "families": {
+    "holochain-0.6": {
+      "hdk_major_minor": "0.6",
+      "hdi_major_minor": "0.7",
+      "holo_hash_major_minor": "0.6",
+      "holochain_integrity_types_major_minor": "0.6",
+      "holochain_zome_types_major_minor": "0.6",
+      "hdk_derive_major_minor": "0.6"
+    },
+    "holochain-0.7": {
+      "hdk_exact": "0.7.0",
+      "hdi_exact": "0.8.0",
+      "holo_hash_exact": "0.7.0",
+      "holochain_integrity_types_exact": "0.7.0",
+      "holochain_zome_types_exact": "0.7.0",
+      "hdk_derive_exact": "0.7.0"
+    }
+  }
+}
