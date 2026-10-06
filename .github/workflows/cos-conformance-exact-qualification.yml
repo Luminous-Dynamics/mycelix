@@ -1,0 +1,91 @@
+name: COS Conformance Exact-Head Qualification
+
+on:
+  pull_request:
+    branches:
+      - myc-int-demo-d6e-heterogeneous-federation
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-manufacturing/crates/cos_conformance/**'
+      - 'mycelix-manufacturing/Cargo.toml'
+      - 'mycelix-manufacturing/Cargo.lock'
+      - 'docs/integral/heterogeneous-federation-reference-v1.md'
+      - '.github/workflows/cos-conformance-exact-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: mycelix-manufacturing/Cargo.toml
+  HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  qualify:
+    name: Exact PR-head COS conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Prove checkout is exact requested head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$HEAD_SHA"
+          echo "Exact head: $actual"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format COS conformance
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Test COS conformance
+        run: cargo test --manifest-path "$MANIFEST" -p cos_conformance
+
+      - name: Clippy COS conformance
+        run: cargo clippy --manifest-path "$MANIFEST" -p cos_conformance --all-targets -- -D warnings
+
+      - name: Enforce exact external-verification boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='mycelix-manufacturing/crates/cos_conformance/src/federation.rs'
+
+          grep -Fq '//! Claim ceiling: ReferenceModelOnly.' "$source"
+          grep -Fq 'pub enum FederationExternalVerifierIdentityKind' "$source"
+          grep -Fq 'pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source"
+          grep -Fq 'pub struct FederationExternalVerificationPolicyAdmissionV1' "$source"
+          grep -Fq 'pub fn validate_state_machine_trace_external_evidence_anchor_reference' "$source"
+          grep -Fq 'pub fn validate_state_machine_trace_external_evidence_verification_statement_binding' "$source"
+          grep -Fq 'pub fn validate_state_machine_trace_external_evidence_verification_statement_chain' "$source"
+          grep -Fq 'pub fn state_machine_trace_external_verifier_identity_sha256' "$source"
+          grep -Fq 'pub fn try_new_bound_identity' "$source"
+          grep -Fq 'required_identity_sha256 != self.verifier_identity_sha256()' "$source"
+          grep -Fq 'WitnessBindingIncomplete' "$source"
+          grep -Fq 'VerifierIdentityBindingIncomplete' "$source"
+
+          if grep -Eq '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source"; then
+            echo 'External verification result must remain non-deserializable.'
+            exit 1
+          fi
+
+          if grep -Eq '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*pub struct FederationExternalVerificationPolicyAdmissionV1' "$source"; then
+            echo 'Policy admission must remain non-deserializable.'
+            exit 1
+          fi
+
+          if grep -Eq 'reqwest::|hyper::|tonic::|TcpStream|UdpSocket|AdminWebsocket' "$source"; then
+            echo 'COS reference verification boundary must remain transport-neutral.'
+            exit 1
+          fi
