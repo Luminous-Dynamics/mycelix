@@ -231,6 +231,17 @@ fn resolve_entry_anchor(
         return Err(fpm_anchor_error("resolved record entry hash does not match requested EntryHash"));
     }
 
+    let expected_entry_type = EntryType::App(
+        UnitEntryTypes::FpmRegistrationAnchor
+            .try_into()
+            .map_err(|_| fpm_anchor_error("could not construct FPM registration anchor entry type"))?,
+    );
+    if record.action().entry_type() != Some(&expected_entry_type) {
+        return Err(fpm_anchor_error(
+            "EntryHash does not resolve to the FPM registration anchor entry type",
+        ));
+    }
+
     let anchor: FpmRegistrationAnchor = record
         .entry()
         .to_app_option()
