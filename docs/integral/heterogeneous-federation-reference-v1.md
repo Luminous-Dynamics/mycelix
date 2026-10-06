@@ -185,6 +185,8 @@ Two independently supplied publication collections can now be reconciled without
 
 The reconciliation result is permutation-invariant and itself domain-separated/digest-bound. Exact duplicate publications remain idempotent, while changing either collection scope changes its committed root and therefore the reconciliation artifact. This is a gossip-like semantic primitive, not a proof of observer independence: the reference model can prove that two supplied collections agree or disagree, but it cannot prove who retained them, when they were retained, or that two observers were operationally independent.
 
+The receipt also distinguishes set containment from historical continuity. A strict publication-digest subset is only labeled `LeftStrictPrefix` or `RightStrictPrefix` when both supplied collections form validated, genesis-anchored, contiguous publication lineages and the shorter chain is an exact prefix of the longer chain. Two such lineages that share a root and then select different successors are `DivergentAfterCommonPrefix`. A collection that overlaps another but is missing an ancestor or otherwise cannot establish a complete anchored chain is `NotComparable`, preventing incomplete retention from being presented as a valid older checkpoint view.
+
 This follows RFC 9162's security discussion: different clients comparing their published log views can detect conflicting views ("gossip"), but the mechanism itself is not fully specified there. The present layer makes the comparison and resulting evidence deterministic without importing a production gossip protocol or a trust root. citeturn923870view0
 
 
