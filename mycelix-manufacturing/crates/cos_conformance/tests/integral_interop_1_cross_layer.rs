@@ -369,6 +369,8 @@ fn actual_d6p_fixture() -> (
         profile_commitment: "integral-d6n-profile-commitment".into(),
         claim_ceiling: cos_conformance::contestable_finality::CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
     };
+    let expected_finality_profile_commitment = d6n_profile.recomputed_commitment();
+    d6n_profile.profile_commitment = expected_finality_profile_commitment.clone();
     let d6n_set = ExternalObservationSetV1 {
         set_id: "integral-d6n-set-1".into(),
         effect_id: effect.effect_id.clone(),
@@ -386,6 +388,7 @@ fn actual_d6p_fixture() -> (
         set_commitment: "integral-d6n-set-commitment".into(),
         claim_ceiling: cos_conformance::contestable_finality::CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
     };
+    d6n_set.set_commitment = d6n_set.recomputed_commitment();
     assert!(cos_conformance::contestable_finality::verify_observation_set_provenance(
         &d6n_set,
         &effect,
@@ -471,11 +474,13 @@ fn actual_d6p_fixture() -> (
         &effect,
         &route,
         &d6n_profile,
+        &expected_finality_profile_commitment,
         &d6n_set,
         &d6n_assessment,
         std::slice::from_ref(&d6m_evidence),
         std::slice::from_ref(&d6o_receipt),
         &lifecycle_profile,
+        &lifecycle_profile.profile_commitment,
         &d6o_ledger,
         "integral-frontier-1",
         &effect.generation_id,
