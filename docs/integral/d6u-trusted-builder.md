@@ -40,6 +40,8 @@ Before signing, the trusted verifier obtains the complete Git tree for the trigg
 
 ## Artifact boundary
 
+The trusted GitHub API readers bound JSON response bodies to 8 MiB before parsing; this accommodates the current Git tree recursive API ceiling while preventing an unexpectedly large API response from becoming an unbounded verifier input. See the policy's `trusted_network.github_api_response_max_bytes` value.
+
 The downloaded artifact is treated as inert data. The trusted workflow first requires exactly one non-expired artifact with the expected run-specific name and a total archive size within policy. It independently downloads the immutable artifact archive, compares its SHA-256 digest to GitHub's artifact API digest, rejects encrypted/symlink/directory/duplicate/unexpected ZIP members, enforces compressed-download and uncompressed-member bounds, and only then extracts exactly three root files:
 
 - `d6u-runtime-evidence.txt`
@@ -75,4 +77,4 @@ The trusted attestation workflow is deliberately not branch-executable. GitHub d
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v44.
+Current trusted policy revision: v45.
