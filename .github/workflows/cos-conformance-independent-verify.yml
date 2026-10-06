@@ -179,6 +179,8 @@ jobs:
       tested_commit_sha: ${{ steps.target_checkout.outputs.tested_commit_sha }}
       conformance_test_outcome: ${{ steps.conformance_test.outcome }}
       report_generation_outcome: ${{ steps.generate_report.outcome }}
+      execution_artifact_id: ${{ steps.execution_artifact.outputs.artifact-id }}
+      execution_artifact_digest: ${{ steps.execution_artifact.outputs.artifact-digest }}
     steps:
       - name: Checkout exact PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -383,6 +385,8 @@ jobs:
             "conformance_test_outcome": "${{ needs.execute.outputs.conformance_test_outcome }}",
             "conformance_test_exit_code": ${test_exit_code},
             "report_generation_outcome": "${{ needs.execute.outputs.report_generation_outcome }}",
+            "raw_execution_artifact_id": "${{ needs.execute.outputs.execution_artifact_id }}",
+            "raw_execution_artifact_digest": "${{ needs.execute.outputs.execution_artifact_digest }}",
             "raw_evidence_download_outcome": "${{ steps.download_execution.outcome }}",
             "raw_evidence_validation_outcome": "${{ steps.validate_raw.outcome }}",
             "report_validation_outcome": "${{ steps.validate_report.outcome }}",
@@ -416,6 +420,8 @@ jobs:
           assert envelope["trusted_workflow_sha"] == envelope["trusted_workflow_checked_out_sha"]
           assert sha40.fullmatch(envelope["trusted_workflow_file_blob_sha"])
           assert sha64.fullmatch(envelope["tested_lock_sha256"])
+          assert envelope["raw_execution_artifact_id"].isdigit()
+          assert sha64.fullmatch(envelope["raw_execution_artifact_digest"])
           assert envelope["pr_number"].isdigit()
           assert envelope["head_repository"] == envelope["repository"]
           assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
