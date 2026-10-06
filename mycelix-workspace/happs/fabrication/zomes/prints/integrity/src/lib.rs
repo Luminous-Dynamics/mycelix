@@ -206,8 +206,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(op_update) => match op_update {
             OpUpdate::Entry {
                 action,
-                app_entry: EntryTypes::PrintJob(_),
-            } => validate_print_job_update_authorization(action),
+                app_entry: EntryTypes::PrintJob(updated_job),
+            } => validate_print_job_update_authorization(action, &updated_job),
             OpUpdate::Entry { action, .. }
             | OpUpdate::PrivateEntry { action, .. }
             | OpUpdate::Agent { action, .. }
@@ -242,6 +242,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 /// valid and deterministic, rather than trusting a coordinator call path.
 fn validate_print_job_update_authorization(
     action: Update,
+    updated_job: &PrintJob,
 ) -> ExternResult<ValidateCallbackResult> {
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original_job: PrintJob = original_record
@@ -253,6 +254,11 @@ fn validate_print_job_update_authorization(
                 "PrintJob update references a non-PrintJob entry".to_string(),
             ))
         })?;
+
+    let lifecycle_result = validate_print_job_lifecycle_update(&original_job, updated_job);
+    if !matches!(&lifecycle_result, ValidateCallbackResult::Valid) {
+        return Ok(lifecycle_result);
+    }
 
     let printer_record = must_get_valid_record(original_job.printer_hash.clone())?;
     let printer: PrinterInfo = printer_record
@@ -281,6 +287,108 @@ fn print_job_update_authorized(
     printer_owner: &AgentPubKey,
 ) -> bool {
     author == requester || author == printer_owner
+}
+
+/// Validate a PrintJob update against the currently supported coordinator lifecycle.
+///
+/// The coordinator has five PrintJob update paths:
+/// - Pending -> Accepted
+/// - Accepted|Queued -> Printing
+/// - Printing -> Printing (progress)
+/// - Printing -> Completed|Failed
+/// - non-terminal state -> Cancelled
+///
+/// Only the fields touched by those coordinator paths may change. All identity,
+/// routing, creation, and configuration fields remain immutable.
+fn validate_print_job_lifecycle_update(
+    original: &PrintJob,
+    updated: &PrintJob,
+) -> ValidateCallbackResult {
+    if original.id != updated.id
+        || original.design_hash != updated.design_hash
+        || original.printer_hash != updated.printer_hash
+        || original.requester != updated.requester
+        || original.settings != updated.settings
+        || original.grounding_certificate != updated.grounding_certificate
+        || original.energy_source != updated.energy_source
+        || original.material_passport != updated.material_passport
+        || original.cincinnati_session != updated.cincinnati_session
+        || original.quality_predictions != updated.quality_predictions
+        || original.estimated_time_minutes != updated.estimated_time_minutes
+        || original.created_at != updated.created_at
+    {
+        return ValidateCallbackResult::Invalid(
+            "PrintJob identity or configuration fields are immutable".into(),
+        );
+    }
+
+    let allowed_transition = match (&original.status, &updated.status) {
+        (PrintJobStatus::Pending, PrintJobStatus::Accepted) => {
+            original.started_at == updated.started_at
+                && original.completed_at == updated.completed_at
+                && original.actual_time_minutes == updated.actual_time_minutes
+                && original.material_used_grams == updated.material_used_grams
+        }
+        (PrintJobStatus::Accepted, PrintJobStatus::Printing)
+        | (PrintJobStatus::Queued, PrintJobStatus::Printing) => {
+            original.started_at.is_none()
+                && updated.started_at.is_some()
+                && original.completed_at == updated.completed_at
+                && original.actual_time_minutes == updated.actual_time_minutes
+                && original.material_used_grams == updated.material_used_grams
+                && updated
+                    .started_at
+                    .as_ref()
+                    .is_some_and(|started| *started >= original.created_at)
+        }
+        (PrintJobStatus::Printing, PrintJobStatus::Printing) => {
+            original.started_at == updated.started_at
+                && original.completed_at == updated.completed_at
+                && original.actual_time_minutes == updated.actual_time_minutes
+        }
+        (PrintJobStatus::Printing, PrintJobStatus::Completed)
+        | (PrintJobStatus::Printing, PrintJobStatus::Failed) => {
+            original.started_at == updated.started_at
+                && original.completed_at.is_none()
+                && updated.completed_at.is_some()
+                && original.actual_time_minutes.is_none()
+                && updated.actual_time_minutes.is_some()
+                && original.material_used_grams == updated.material_used_grams
+                && original
+                    .started_at
+                    .as_ref()
+                    .and_then(|started| updated.completed_at.as_ref().map(|completed| completed >= started))
+                    .unwrap_or(false)
+        }
+        (PrintJobStatus::Pending, PrintJobStatus::Cancelled)
+        | (PrintJobStatus::Accepted, PrintJobStatus::Cancelled)
+        | (PrintJobStatus::Queued, PrintJobStatus::Cancelled)
+        | (PrintJobStatus::Printing, PrintJobStatus::Cancelled) => {
+            original.actual_time_minutes == updated.actual_time_minutes
+                && original.material_used_grams == updated.material_used_grams
+                && original.completed_at.is_none()
+                && updated.completed_at.is_some()
+                && original
+                    .started_at
+                    .as_ref()
+                    .map(|started| {
+                        updated
+                            .completed_at
+                            .as_ref()
+                            .is_some_and(|completed| completed >= started)
+                    })
+                    .unwrap_or(true)
+        }
+        _ => false,
+    };
+
+    if allowed_transition {
+        ValidateCallbackResult::Valid
+    } else {
+        ValidateCallbackResult::Invalid(
+            "PrintJob status transition or mutable fields are not permitted".into(),
+        )
+    }
 }
 
 /// Validate entry creation
@@ -652,6 +760,108 @@ mod tests {
             &unrelated,
             &requester,
             &printer_owner,
+        ));
+    }
+
+    // =========================================================================
+    // PrintJob lifecycle update tests
+    // =========================================================================
+
+    fn job_with_status(status: PrintJobStatus) -> PrintJob {
+        let mut job = valid_print_job();
+        job.status = status;
+        job
+    }
+
+    #[test]
+    fn test_print_job_pending_to_accepted_allowed() {
+        let original = job_with_status(PrintJobStatus::Pending);
+        let mut updated = original.clone();
+        updated.status = PrintJobStatus::Accepted;
+        assert!(matches!(
+            validate_print_job_lifecycle_update(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn test_print_job_pending_to_completed_rejected() {
+        let original = job_with_status(PrintJobStatus::Pending);
+        let mut updated = original.clone();
+        updated.status = PrintJobStatus::Completed;
+        assert!(matches!(
+            validate_print_job_lifecycle_update(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_print_job_accepted_to_printing_requires_start_time() {
+        let original = job_with_status(PrintJobStatus::Accepted);
+        let mut updated = original.clone();
+        updated.status = PrintJobStatus::Printing;
+        assert!(matches!(
+            validate_print_job_lifecycle_update(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        updated.started_at = Some(Timestamp::from_micros(2_000_000));
+        assert!(matches!(
+            validate_print_job_lifecycle_update(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn test_print_job_printing_progress_allows_only_material_change() {
+        let mut original = job_with_status(PrintJobStatus::Printing);
+        original.started_at = Some(Timestamp::from_micros(2_000_000));
+        let mut updated = original.clone();
+        updated.material_used_grams = Some(75.0);
+        assert!(matches!(
+            validate_print_job_lifecycle_update(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+
+        updated.requester = AgentPubKey::from_raw_36(vec![9u8; 36]);
+        assert!(matches!(
+            validate_print_job_lifecycle_update(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_print_job_terminal_reentry_rejected() {
+        let original = job_with_status(PrintJobStatus::Completed);
+        let mut updated = original.clone();
+        updated.status = PrintJobStatus::Printing;
+        assert!(matches!(
+            validate_print_job_lifecycle_update(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_print_job_printer_identity_cannot_change() {
+        let original = job_with_status(PrintJobStatus::Pending);
+        let mut updated = original.clone();
+        updated.status = PrintJobStatus::Accepted;
+        updated.printer_hash = ActionHash::from_raw_36(vec![7u8; 36]);
+        assert!(matches!(
+            validate_print_job_lifecycle_update(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_print_job_created_at_cannot_move_forward() {
+        let original = job_with_status(PrintJobStatus::Pending);
+        let mut updated = original.clone();
+        updated.status = PrintJobStatus::Accepted;
+        updated.created_at = Timestamp::from_micros(2_000_000);
+        assert!(matches!(
+            validate_print_job_lifecycle_update(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
         ));
     }
 
