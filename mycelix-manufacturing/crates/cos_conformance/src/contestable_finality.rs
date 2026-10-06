@@ -636,6 +636,7 @@ pub fn verify_observation_set_provenance(
     let mut has_target_support = false;
     for item in evidence {
         if !item.structurally_valid()
+            || !item.observation.commitment_matches()
             || !set.observation_ids.contains(&item.observation.observation_id)
             || !observation_matches(item, set)
         {
@@ -1225,6 +1226,28 @@ mod tests {
             &route(),
             &profile(),
             &evidence,
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
+    fn authoritative_set_provenance_rejects_self_inconsistent_observation_commitment() {
+        let mut item = evidence(
+            "obs-1",
+            observer("obs-1", "evidence-1", "custody-1"),
+            ExternalObservedStateV1::Applied,
+        );
+        item.observation.observation_commitment = "forged-observation-commitment".into();
+
+        assert!(item.observation.structurally_valid());
+        assert!(!item.observation.commitment_matches());
+        assert!(!verify_observation_set_provenance(
+            &set(&["obs-1"]),
+            &effect(),
+            &route(),
+            &profile(),
+            &[item],
             "frontier-1",
             "generation-1",
         ));
