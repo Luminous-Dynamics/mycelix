@@ -131,41 +131,49 @@ def verify_commitment_entry(
     repo = os.environ["GITHUB_REPOSITORY"]
     run_id = os.environ["GITHUB_RUN_ID"]
     run_attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+    expected_policy_version = int(os.environ["D6U_TRUSTED_POLICY_VERSION"])
+    expected_source_digest = os.environ["GITHUB_SHA"]
     expected_san = "https://github.com/" + repo + "/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
     expected_run_uri = "https://github.com/" + repo + "/actions/runs/" + run_id + "/attempts/" + run_attempt
-    result = entry.get("verificationResult", {})
-    certificate = result.get("signature", {}).get("certificate", {})
-    statement = result.get("statement", {})
-    predicate = statement.get("predicate", {})
-    statement_subjects = statement.get("subject", [])
-    verified_timestamps = result.get("verifiedTimestamps", [])
-    assert statement.get("predicateType") == PREDICATE_TYPE
-    assert isinstance(predicate, dict)
-    assert set(predicate) == {
-        "attestation_kind",
-        "canonical_predicate_sha256",
-        "claim_ceiling",
-        "policy_version",
-        "schema",
-    }
-    assert predicate.get("schema") == ATTESTATION_PREDICATE_SCHEMA
-    assert predicate.get("attestation_kind") == "verified-runtime-evidence"
-    assert predicate.get("claim_ceiling") == record["claim_ceiling"]
-    assert predicate.get("policy_version") == int(os.environ["D6U_TRUSTED_POLICY_VERSION"])
-    digest = predicate.get("canonical_predicate_sha256")
-    assert isinstance(digest, str) and len(digest) == 64
-    assert all(ch in "0123456789abcdef" for ch in digest)
-    assert digest == canonical_predicate_sha256
-    assert certificate.get("subjectAlternativeName") == expected_san
-    assert certificate.get("issuer") == "https://token.actions.githubusercontent.com"
-    assert certificate.get("githubWorkflowRepository") == repo
-    assert certificate.get("githubWorkflowRef") == "refs/heads/main"
-    assert certificate.get("sourceRepositoryURI") == "https://github.com/" + repo
-    assert certificate.get("sourceRepositoryDigest") == os.environ["GITHUB_SHA"]
-    assert certificate.get("runnerEnvironment") == "github-hosted"
-    assert certificate.get("runInvocationURI") == expected_run_uri
-    assert any(isinstance(timestamp, dict) and timestamp.get("type") == "Tlog" for timestamp in verified_timestamps)
-    assert canonical_subjects(statement_subjects) == canonical_subjects(subjects)
+    try:
+        result = entry.get("verificationResult", {})
+        certificate = result.get("signature", {}).get("certificate", {})
+        statement = result.get("statement", {})
+        predicate = statement.get("predicate", {})
+        statement_subjects = statement.get("subject", [])
+        verified_timestamps = result.get("verifiedTimestamps", [])
+        assert statement.get("predicateType") == PREDICATE_TYPE
+        assert isinstance(predicate, dict)
+        assert set(predicate) == {
+            "attestation_kind",
+            "canonical_predicate_sha256",
+            "claim_ceiling",
+            "policy_version",
+            "schema",
+        }
+        assert predicate.get("schema") == ATTESTATION_PREDICATE_SCHEMA
+        assert predicate.get("attestation_kind") == "verified-runtime-evidence"
+        assert predicate.get("claim_ceiling") == record["claim_ceiling"]
+        assert predicate.get("policy_version") == expected_policy_version
+        digest = predicate.get("canonical_predicate_sha256")
+        assert isinstance(digest, str) and len(digest) == 64
+        assert all(ch in "0123456789abcdef" for ch in digest)
+        assert digest == canonical_predicate_sha256
+        assert certificate.get("subjectAlternativeName") == expected_san
+        assert certificate.get("issuer") == "https://token.actions.githubusercontent.com"
+        assert certificate.get("githubWorkflowRepository") == repo
+        assert certificate.get("githubWorkflowRef") == "refs/heads/main"
+        assert certificate.get("sourceRepositoryURI") == "https://github.com/" + repo
+        assert certificate.get("sourceRepositoryDigest") == expected_source_digest
+        assert certificate.get("runnerEnvironment") == "github-hosted"
+        assert certificate.get("runInvocationURI") == expected_run_uri
+        assert any(
+            isinstance(timestamp, dict) and timestamp.get("type") == "Tlog"
+            for timestamp in verified_timestamps
+        )
+        assert canonical_subjects(statement_subjects) == canonical_subjects(subjects)
+    except (AssertionError, KeyError, TypeError, ValueError):
+        return False
     return True
 
 def main() -> None:
