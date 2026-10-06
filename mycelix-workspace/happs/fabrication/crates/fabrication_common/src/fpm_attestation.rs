@@ -26,6 +26,7 @@ pub enum FpmAttestationDisposition {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct FpmSourceAttestationClaim {
     pub subject_id: String,
+    pub audience: String,
     pub acquisition_root_digest: String,
     pub challenge_nonce_digest: String,
     pub evidence_digest: String,
@@ -51,6 +52,7 @@ impl FpmSourceAttestationClaim {
         let mut bytes = Vec::new();
         append_field(&mut bytes, b"fpm.source-attestation-claim.v1");
         append_field(&mut bytes, self.subject_id.as_bytes());
+        append_field(&mut bytes, self.audience.as_bytes());
         append_field(&mut bytes, self.acquisition_root_digest.as_bytes());
         append_field(&mut bytes, self.challenge_nonce_digest.as_bytes());
         append_field(&mut bytes, self.evidence_digest.as_bytes());
@@ -75,6 +77,7 @@ impl FpmSourceAttestationClaim {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct FpmAttestationQualificationInput {
     pub expected_subject_id: String,
+    pub expected_audience: String,
     pub expected_acquisition_root_digest: String,
     pub expected_challenge_nonce_digest: String,
     pub expected_attestation_format: String,
@@ -98,6 +101,7 @@ pub enum FpmAttestationQualificationReason {
     InvalidIdentifier,
     InvalidDigestEncoding,
     SubjectMismatch,
+    AudienceMismatch,
     AcquisitionRootMismatch,
     ChallengeNonceMismatch,
     EvidenceDigestMismatch,
@@ -132,6 +136,8 @@ pub fn qualify_source_attestation(
     for value in [
         &input.expected_subject_id,
         &input.claim.subject_id,
+        &input.expected_audience,
+        &input.claim.audience,
         &input.expected_attestation_format,
     ] {
         if !valid_label(value) {
@@ -161,6 +167,9 @@ pub fn qualify_source_attestation(
 
     if input.claim.subject_id != input.expected_subject_id {
         reasons.insert(FpmAttestationQualificationReason::SubjectMismatch);
+    }
+    if input.claim.audience != input.expected_audience {
+        reasons.insert(FpmAttestationQualificationReason::AudienceMismatch);
     }
     if input.claim.acquisition_root_digest != input.expected_acquisition_root_digest {
         reasons.insert(FpmAttestationQualificationReason::AcquisitionRootMismatch);
@@ -205,6 +214,7 @@ pub fn qualify_source_attestation(
     let status = if reasons.is_empty() {
         FpmAttestationQualificationStatus::QualifiedForProfile
     } else if reasons.contains(&FpmAttestationQualificationReason::SubjectMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::AudienceMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AcquisitionRootMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::ChallengeNonceMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AttestationFormatMismatch)
@@ -279,6 +289,7 @@ mod tests {
     fn claim() -> FpmSourceAttestationClaim {
         FpmSourceAttestationClaim {
             subject_id: "source-1".into(),
+            audience: "fpm.example.consumer".into(),
             acquisition_root_digest: digest('a'),
             challenge_nonce_digest: digest('b'),
             evidence_digest: digest('c'),
@@ -297,6 +308,7 @@ mod tests {
         let claim = claim();
         FpmAttestationQualificationInput {
             expected_subject_id: claim.subject_id.clone(),
+            expected_audience: claim.audience.clone(),
             expected_acquisition_root_digest: claim.acquisition_root_digest.clone(),
             expected_challenge_nonce_digest: claim.challenge_nonce_digest.clone(),
             expected_appraisal_policy_digest: claim.appraisal_policy_digest.clone(),
