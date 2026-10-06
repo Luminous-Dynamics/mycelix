@@ -247,7 +247,7 @@ def signed_object(der: bytes, kind: str) -> dict[str, Any]:
     if not sig_bits or sig_bits[0] != 0:
         raise ValueError(f"{kind} signature BIT STRING has unused bits")
     signature = sig_bits[1:]
-    if alg != SHA256_RSA_OID or parts[1][2] != parts[1][2]:
+    if alg != SHA256_RSA_OID:
         raise ValueError(f"{kind} signature algorithm unsupported")
     ttag, tcontent, _traw, tend = tlv(tbs)
     if ttag != 0x30 or tend != len(tbs):
@@ -532,6 +532,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         for pem, der in crl_blocks(crl_bundle):
             parsed = signed_object(der, "crl")
             crls.append((pem, parsed))
+        crl_map: dict[str, dict[str, Any]] = {}
         crl_results: dict[str, Any] = {}
         for pem, crl in crls:
             if crl["issuer"] == r["subject"]:
@@ -543,6 +544,25 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             if label in crl_results:
                 return result("DENY", "duplicate-crl-issuer")
             verify_signature(crl["tbs"], crl["signature"], issuer["n"], issuer["e"])
+            crl_map[label] = crl
+            entries = []
+            for entry in crl["revoked_entries"]:
+                entry_extensions = entry["extensions"]
+                reason = parse_reason_code(entry_extensions["2.5.29.21"]["extn_value"])
+                entries.append({
+                    "entry_identity_sha256": entry["entry_identity_sha256"],
+                    "serial": entry["serial"],
+                    "revocation_date": entry["revocation_date"]["text"],
+                    "reason_code": reason,
+                })
+            aki = parse_crl_authority_key_identifier(
+                crl["crl_extensions"]["2.5.29.35"]["extn_value"]
+            )
+            number_tag, number_content, _number_raw, number_end = tlv(
+                crl["crl_extensions"]["2.5.29.20"]["extn_value"]
+            )
+            if number_tag != 0x02 or number_end != len(crl["crl_extensions"]["2.5.29.20"]["extn_value"]):
+                return result("DENY", "crl-number-malformed")
             crl_results[label] = {
                 "object_sha256": crl["object_sha256"],
                 "pem_block_sha256": hashlib.sha256(pem).hexdigest(),
@@ -551,9 +571,27 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
                 "signature_algorithm_oid": crl["signature_algorithm_oid"],
                 "issuer_name_sha256": hashlib.sha256(crl["issuer"]).hexdigest(),
                 "issuer_object_sha256": issuer["object_sha256"],
+                "issuer_ski_sha256": hashlib.sha256(issuer["subject_key_identifier"]).hexdigest(),
+                "authority_key_identifier_sha256": hashlib.sha256(aki).hexdigest(),
+                "crl_number": integer(number_content, f"{label}.cRLNumber"),
+                "this_update": crl["this_update"],
+                "next_update": crl["next_update"],
+                "revoked_entries": entries,
             }
         if set(crl_results) != {"root", "intermediate"}:
             return result("DENY", "crl-set-incomplete")
+        try:
+            recipe_path = Path(__file__).resolve().parents[2] / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
+            recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+            expected_crl_semantics_check(
+                crl_map,
+                {"root": r, "intermediate": i, "leaf": l},
+                recipe["crl_semantics"],
+                int(manifest["verification_time_unix"]),
+            )
+            crl_semantics_sha256 = canonical_hash(recipe["crl_semantics"])
+        except (KeyError, ValueError, OSError, json.JSONDecodeError) as exc:
+            return result("DENY", "crl-semantics-verification-failed", {"error": str(exc)})
         details = {
             "exact_input_objects": {
                 "leaf_certificate_sha256": l["object_sha256"],
@@ -582,6 +620,19 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
                 },
             },
             "crl_signatures": crl_results,
+            "crl_semantics_sha256": crl_semantics_sha256,
+            "crl_semantics": {
+                label: {
+                    "object_sha256": crl_results[label]["object_sha256"],
+                    "tbs_sha256": crl_results[label]["tbs_sha256"],
+                    "this_update": crl_results[label]["this_update"]["text"],
+                    "next_update": crl_results[label]["next_update"]["text"],
+                    "crl_number": crl_results[label]["crl_number"],
+                    "authority_key_identifier_sha256": crl_results[label]["authority_key_identifier_sha256"],
+                    "revoked_entries": crl_results[label]["revoked_entries"],
+                }
+                for label in ("root", "intermediate")
+            },
             "exact_relationships": {
                 "leaf_to_intermediate_subject_exact": True,
                 "intermediate_to_root_subject_exact": True,
@@ -615,6 +666,7 @@ def self_test() -> int:
             "trust_anchor_root_sha256": hashlib.sha256((out/"root.der").read_bytes()).hexdigest(),
             "crl_bundle_pem_base64": base64.b64encode((out/"crl-bundle.pem").read_bytes()).decode(),
             "crl_bundle_pem_sha256": hashlib.sha256((out/"crl-bundle.pem").read_bytes()).hexdigest(),
+            "verification_time_unix": 1791158400,
         }
         good = verify(m)
         if good["state"] != "PASS":
