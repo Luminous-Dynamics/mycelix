@@ -655,6 +655,46 @@ def main() -> None:
         "S2 blank-separated security-events: write",
     )
 
+    def inject_unnamed_step(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"unnamed-step regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, b"      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n" + marker, 1)
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unnamed_step(
+                raw["s0"],
+                b"      - name: Verify trusted dispatcher context and exact PR identity\n",
+            ),
+            s1_sha,
+        ),
+        "S0 unnamed uses step",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unnamed_step(
+                raw["s1"],
+                b"      - name: Checkout trusted qualification root\n",
+            ),
+            s1_sha,
+        ),
+        "S1 unnamed uses step",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unnamed_step(
+                raw["s2"],
+                b"      - name: Verify trusted dispatcher, reusable S1, and qualification gates\n",
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unnamed uses step",
+    )
+
     print(json.dumps({
         "schema": SCHEMA,
         "policy_result": "verified",
