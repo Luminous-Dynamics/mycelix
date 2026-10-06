@@ -1017,6 +1017,43 @@ def attestation_entry(
 
 
 
+def synthetic_commitment_attestation_entry(subjects: list[dict], canonical_sha256: str, run_id: str) -> dict:
+    repo = "Luminous-Dynamics/mycelix"
+    return {
+        "verificationResult": {
+            "signature": {
+                "certificate": {
+                    "subjectAlternativeName": (
+                        "https://github.com/" + repo + "/.github/workflows/"
+                        "d6u-trusted-evidence-attestation.yml@refs/heads/main"
+                    ),
+                    "issuer": "https://token.actions.githubusercontent.com",
+                    "githubWorkflowRepository": repo,
+                    "githubWorkflowRef": "refs/heads/main",
+                    "sourceRepositoryURI": "https://github.com/" + repo,
+                    "sourceRepositoryDigest": "a" * 40,
+                    "runnerEnvironment": "github-hosted",
+                    "runInvocationURI": (
+                        "https://github.com/" + repo + "/actions/runs/" + run_id + "/attempts/3"
+                    ),
+                }
+            },
+            "verifiedTimestamps": [{"type": "Tlog"}],
+            "statement": {
+                "predicateType": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+                "subject": subjects,
+                "predicate": {
+                    "schema": "d6u-trusted-runtime-evidence-attestation/v2",
+                    "attestation_kind": "verified-runtime-evidence",
+                    "claim_ceiling": "ReferenceModelOnly",
+                    "policy_version": 22,
+                    "canonical_predicate_sha256": canonical_sha256,
+                },
+            },
+        }
+    }
+
+
 def _valid_negative_control_fixture():
     import base64
     import hashlib
@@ -1420,11 +1457,56 @@ def write_synthetic_attestation_fixture(evidence_dir: Path) -> list[dict]:
     )
     (evidence_dir / "d6u-runtime-test.log").write_text("synthetic log\n", encoding="utf-8")
     (evidence_dir / "Cargo.lock").write_text("version = 3\n", encoding="utf-8")
-    return [
+    subjects = [
         {"name": name, "digest": {"sha256": hashlib.sha256((evidence_dir / name).read_bytes()).hexdigest()}}
         for name in ("d6u-runtime-evidence.txt", "d6u-runtime-test.log", "Cargo.lock")
     ]
-
+    predicate = {
+        "schema": "d6u-trusted-runtime-evidence/v1",
+        "attestation_kind": "verified-runtime-evidence",
+        "claim_ceiling": record["claim_ceiling"],
+        "policy_version": 22,
+        "source": {
+            "repository": record["source_repository"],
+            "branch": record["source_branch"],
+            "commit": record["source_commit"],
+        },
+        "trigger": {
+            "workflow_name": record["trigger_workflow_name"],
+            "workflow_path": record["trigger_workflow_path"],
+            "run_id": int(record["trigger_workflow_run_id"]),
+            "run_attempt": int(record["trigger_workflow_run_attempt"]),
+        },
+        "executor": {
+            "workflow_name": "D6U Exact-Head Runtime Executor",
+            "workflow_path": record["executor_workflow_file_path"],
+            "run_id": int(record["executor_run_id"]),
+            "run_attempt": int(record["executor_run_attempt"]),
+            "workflow_commit": record["executor_workflow_commit_sha"],
+        },
+        "subjects": subjects,
+        "evidence": {
+            "case_coverage": record["case_coverage"],
+            "supplemental_coverage": record["supplemental_coverage"],
+            "application_check_coverage": record["application_check_coverage"],
+            "case_outcome_classes": record["case_outcome_classes"].split(","),
+            "runtime": record["runtime"],
+            "hdk": record["hdk"],
+            "hdi": record["hdi"],
+            "unsupported_cases": record["unsupported_cases"].split(","),
+        },
+        "nonclaims": [
+            "semantic-truth",
+            "production-safety",
+            "legal-authority",
+            "actuation-authority",
+        ],
+    }
+    (evidence_dir / "d6u-trusted-evidence-predicate.json").write_text(
+        json.dumps(predicate, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return subjects
 
 def test_attestation_verifier_accepts_current_run() -> None:
     subjects = None
@@ -1433,7 +1515,7 @@ def test_attestation_verifier_accepts_current_run() -> None:
         subjects = write_synthetic_attestation_fixture(evidence_dir)
         report = Path(tmp) / "attestation.json"
         report.write_text(
-            json.dumps([synthetic_attestation_entry(subjects, "42")]),
+            json.dumps([synthetic_commitment_attestation_entry(subjects, hashlib.sha256((evidence_dir / "d6u-trusted-evidence-predicate.json").read_bytes()).hexdigest(), "42")]),
             encoding="utf-8",
         )
         with patch.dict(
@@ -1460,7 +1542,7 @@ def test_attestation_verifier_rejects_old_run() -> None:
         subjects = write_synthetic_attestation_fixture(evidence_dir)
         report = Path(tmp) / "attestation.json"
         report.write_text(
-            json.dumps([synthetic_attestation_entry(subjects, "41")]),
+            json.dumps([synthetic_commitment_attestation_entry(subjects, hashlib.sha256((evidence_dir / "d6u-trusted-evidence-predicate.json").read_bytes()).hexdigest(), "41")]),
             encoding="utf-8",
         )
         with patch.dict(
@@ -1483,6 +1565,52 @@ def test_attestation_verifier_rejects_old_run() -> None:
                 "historical attestation was accepted as the current trusted run",
             )
 
+
+def test_commitment_attestation_rejects_canonical_predicate_tampering() -> None:
+    import verify_d6u_trusted_attestation as verifier
+
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        canonical = evidence_dir / "d6u-trusted-evidence-predicate.json"
+        canonical_hash = hashlib.sha256(canonical.read_bytes()).hexdigest()
+        report = Path(tmp) / "attestation.json"
+        report.write_text(json.dumps([synthetic_commitment_attestation_entry(subjects, canonical_hash, "42")]), encoding="utf-8")
+        original = canonical.read_bytes()
+        canonical.write_text(canonical.read_text(encoding="utf-8").replace("14-of-14", "13-of-14"), encoding="utf-8")
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_WORKFLOW_SHA": "c" * 40,
+            "GITHUB_REF": "refs/heads/main",
+            "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
+            "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
+            "D6U_TRUSTED_POLICY_VERSION": "22",
+        }, clear=False), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
+            assert_rejected(lambda: verifier.main(), "tampered canonical predicate was accepted")
+
+def test_commitment_attestation_rejects_hash_mismatch() -> None:
+    import verify_d6u_trusted_attestation as verifier
+
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        report = Path(tmp) / "attestation.json"
+        report.write_text(json.dumps([synthetic_commitment_attestation_entry(subjects, "b" * 64, "42")]), encoding="utf-8")
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_WORKFLOW_SHA": "c" * 40,
+            "GITHUB_REF": "refs/heads/main",
+            "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
+            "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
+            "D6U_TRUSTED_POLICY_VERSION": "22",
+        }, clear=False), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
+            assert_rejected(lambda: verifier.main(), "attestation hash mismatch was accepted")
 
 def test_custom_attestation_requires_verified_timestamp() -> None:
     import verify_d6u_trusted_attestation as verifier
@@ -1693,6 +1821,8 @@ if __name__ == "__main__":
         test_trusted_zip_rejects_unexpected_member_path,
         test_attestation_verifier_accepts_current_run,
         test_attestation_verifier_rejects_old_run,
+        test_commitment_attestation_rejects_canonical_predicate_tampering,
+        test_commitment_attestation_rejects_hash_mismatch,
         test_custom_attestation_requires_verified_timestamp,
         test_custom_attestation_rejects_non_tlog_timestamp,
         test_custom_attestation_subject_set_is_order_independent_but_exact,
