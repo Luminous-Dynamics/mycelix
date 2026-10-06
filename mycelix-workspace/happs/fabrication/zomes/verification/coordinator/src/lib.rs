@@ -282,6 +282,7 @@ fn validate_attestation_claim_against_challenge(
         expected_subject_id: challenge.subject_id.clone(),
         expected_acquisition_root_digest: challenge.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: challenge.nonce_digest.clone(),
+        expected_attestation_format: challenge.attestation_format.clone(),
         expected_verifier_profile_digest: challenge.verifier_profile_digest.clone(),
         expected_appraisal_policy_digest: challenge.appraisal_policy_digest.clone(),
         expected_reference_values_digest: challenge.reference_values_digest.clone(),
