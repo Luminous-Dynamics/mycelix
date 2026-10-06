@@ -1925,7 +1925,9 @@ pub fn run_scenario(
                 &statement,
             ),
             Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceDigestMismatch
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceInvalid(
+                    FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessDigestMismatch
+                )
             )
         );
 
@@ -5962,6 +5964,7 @@ builder gates remove        if !state_machine_trace_is_sha256_digest(anchor_refe
         UnsupportedHashAlgorithm,
         UnsupportedHashEncoding,
         InvalidAnchorReferenceDigest,
+        AnchorReferenceInvalid(FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation),
         AnchorReferenceSchemaVersionMismatch,
         AnchorReferenceProfileMismatch,
         AnchorReferenceDigestMismatch,
@@ -6112,9 +6115,9 @@ builder gates remove        if !state_machine_trace_is_sha256_digest(anchor_refe
             anchor_witness_artifact,
             anchor_reference,
         )
-        .map_err(|_| {
-            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceDigestMismatch
-        })?;
+        .map_err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceInvalid,
+        )?;
         validate_state_machine_trace_external_evidence_verification_statement_binding(
             &anchor_reference.anchor_reference_sha256,
             verifier_report,
