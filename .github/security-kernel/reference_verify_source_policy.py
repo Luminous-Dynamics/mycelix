@@ -56,6 +56,7 @@ S1_STEPS = (
     "Upload sandbox negative-control transcript",
     "Execute candidate qualification in disposable networkless sandbox",
     "Verify candidate source immutability",
+    "Cleanup candidate source substrate",
     "Verify dependency substrate immutability",
     "Emit qualification receipt",
     "Upload qualification receipt",
