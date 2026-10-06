@@ -133,9 +133,9 @@ Context binding is necessary but not sufficient for multimodal registration or p
 The next research layer is therefore a separately versioned multimodal registration contract covering source-local clocks, alignment, calibration/profile identity, and explicit handling of missing or conflicting context. It should not silently convert alignment uncertainty into a normal or healthy result.
 ## Multimodal registration evidence
 
-FPM now has a separate registration layer for heterogeneous sensor evidence. A `RegistrationEnvelope` binds source identity, modality, source-local sequence/timestamp, clock domain, calibration-profile commitment, process-context commitment, source-data digest, and an explicit alignment method.
+FPM now has a separate registration layer for heterogeneous sensor evidence. A `RegistrationEnvelope` binds source identity, modality, source-local sequence/timestamp, clock domain, an explicit correlation domain and producer-assigned correlation ID, calibration-profile commitment, process-context commitment, source-data digest, and an explicit alignment method.
 
-Registration state is derived from the envelope rather than accepted as a caller-supplied field:
+Registration state is derived from the envelope rather than accepted as a caller-supplied field. Correlation IDs are namespace-bound so an opaque ID reused by unrelated acquisition systems cannot by itself imply shared frame identity:
 
 - **Registered** — explicit alignment evidence passes the deterministic checks;
 - **Unregistered** — required registration/alignment evidence is absent;
@@ -143,7 +143,7 @@ Registration state is derived from the envelope rather than accepted as a caller
 - **Invalid** — the envelope/schema/digest is malformed;
 - **Unknown** — evidence is insufficient to establish the requested alignment.
 
-The first exact methods are correlation-ID alignment and shared-clock exact source timestamp. A correlation ID is a producer-assigned identifier for the same acquisition frame; source-local sequence counters are not assumed comparable across modalities. Cross-clock registration requires an explicit committed transform or external registration-evidence digest. The presence of such a commitment records an explicit registration claim; it does not independently prove the transform, sensor calibration, or physical truth.
+The first exact methods are correlation-ID alignment and shared-clock exact source timestamp. A correlation ID is a producer-assigned identifier for the same acquisition frame within an explicit correlation domain; source-local sequence counters are not assumed comparable across modalities. Cross-clock registration requires an explicit committed transform or external registration-evidence digest. The presence of such a commitment records an explicit registration claim; it does not independently prove the transform, sensor calibration, or physical truth.
 
 This distinction follows established industrial data semantics: OPC UA preserves a source timestamp assigned at the data source and distinguishes it from server receipt time; it also calls for synchronized source clocks where sources are redundant. IEEE 1588/PTP is a standard mechanism for synchronizing clocks in networked measurement and control systems. citeturn106905search0turn106905search3turn106905search6
 
