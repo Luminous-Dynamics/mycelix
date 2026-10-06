@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 32
+    assert policy["policy_version"] == 33
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -238,23 +238,50 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert set(uses) == expected_uses
 
     assert policy["trusted_permissions"] == {
-        "actions": "read",
-        "contents": "read",
-        "id-token": "write",
-        "attestations": "write",
+        "verifier": {
+            "actions": "read",
+            "contents": "read",
+        },
+        "signer": {
+            "actions": "read",
+            "contents": "read",
+            "id-token": "write",
+            "attestations": "write",
+        },
     }
     workflow_path = Path(__file__).parents[2] / policy["trusted_workflow"]["path"]
     workflow_text = workflow_path.read_text(encoding="utf-8")
-    assert "artifact-metadata: write" not in workflow_text
+    verifier_section, signer_section = workflow_text.split("\n  signer:\n", 1)
+    assert "id-token: write" not in verifier_section
+    assert "attestations: write" not in verifier_section
+    assert "id-token: write" in signer_section
+    assert "attestations: write" in signer_section
     assert "actions: write" not in workflow_text
     assert "contents: write" not in workflow_text
-    assert "attestations: write" in workflow_text
-    assert "id-token: write" in workflow_text
-    assert "actions: read" in workflow_text
-    assert "contents: read" in workflow_text
+    assert "artifact-metadata: write" not in workflow_text
+    assert "uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0" in workflow_text
+    assert "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2" in workflow_text
 
-    assert policy["artifact_integrity"] == {
-        "algorithm": "sha256",
+    assert policy["signer_handoff"] == {
+        "schema": "d6u-trusted-signer-handoff/v1",
+        "expected_file_count": 6,
+        "manifest_filename": "d6u-signer-handoff.manifest.sha256",
+        "context_filename": "d6u-signer-context.txt",
+        "predicate_filename": "d6u-trusted-evidence-predicate.json",
+        "subject_files": [
+            "d6u-runtime-evidence.txt",
+            "d6u-runtime-test.log",
+            "Cargo.lock",
+        ],
+        "artifact_name_template": "d6u-trusted-signer-handoff-run-{run_id}-attempt-{run_attempt}",
+        "retention_days": 1,
+        "require_exact_file_set": True,
+        "require_manifest_sha256": True,
+        "require_current_run_context": True,
+        "claim_ceiling": "ReferenceModelOnly",
+    }
+
+    assert policy["artifact_integrity"] == {        "algorithm": "sha256",
         "source": "github-artifact-api",
         "require_match_after_download": True,
         "archive_format": "zip",
