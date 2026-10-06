@@ -226,7 +226,7 @@
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-    "blob_sha": "c107cbd0458ea1f35d6256b04918f509cd32c40f"
+    "blob_sha": "7230be5d4d97e19c8214b3e63ee5d7bbbed4c95a"
   },
   "trusted_permissions": {
     "verifier": {
@@ -402,7 +402,11 @@
     "reject_encrypted_members": true,
     "reject_symlink_members": true,
     "reject_zip64": true,
-    "eocd_entry_count_preflight": true
+    "eocd_entry_count_preflight": true,
+    "allowed_compression_methods": [
+      "stored",
+      "deflate"
+    ]
   },
   "workflow_default_permissions": {},
   "attestation_trigger": {
