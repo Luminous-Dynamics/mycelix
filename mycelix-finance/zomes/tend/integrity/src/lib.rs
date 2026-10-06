@@ -651,26 +651,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         validate_create_oracle_state(EntryCreationAction::Create(action), state)
                     }
                     EntryTypes::BilateralBalance(bal) => {
-                        if bal.dao_a_did.len() > MAX_DID_LEN || bal.dao_b_did.len() > MAX_DID_LEN {
-                            return Ok(ValidateCallbackResult::Invalid(
-                                "DID exceeds maximum length".into(),
-                            ));
-                        }
-                        if !bal.dao_a_did.starts_with("did:") || !bal.dao_b_did.starts_with("did:")
-                        {
-                            Ok(ValidateCallbackResult::Invalid(
-                                "DAO DIDs must be valid".into(),
-                            ))
-                        } else if bal.dao_a_did >= bal.dao_b_did {
-                            Ok(ValidateCallbackResult::Invalid(
-                                "dao_a_did must be alphabetically before dao_b_did (canonical ordering)".into(),
-                            ))
-                        } else {
-                            Ok(ValidateCallbackResult::Valid)
-                        }
+                        validate_create_bilateral_balance(EntryCreationAction::Create(action), bal)
                     }
                     EntryTypes::BilateralSettlement(settlement) => {
-                        validate_create_bilateral_settlement(settlement)
+                        validate_create_bilateral_settlement(
+                            EntryCreationAction::Create(action),
+                            settlement,
+                        )
                     }
                     EntryTypes::HearthTendBalance(bal) => validate_create_hearth_balance(bal),
                     EntryTypes::CurrencyAliasEntry(alias) => validate_create_currency_alias(alias),
@@ -1357,6 +1344,7 @@ fn validate_create_dispute_case(
 }
 
 fn validate_create_bilateral_settlement(
+    action: EntryCreationAction,
     settlement: BilateralSettlement,
 ) -> ExternResult<ValidateCallbackResult> {
     // String length checks — prevent DHT bloat
@@ -1406,6 +1394,14 @@ fn validate_create_bilateral_settlement(
         ));
     }
 
+    if let ValidateCallbackResult::Invalid(msg) = validate_action_timestamp(
+        "BilateralSettlement created_at",
+        action.timestamp(),
+        &settlement.created_at,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -1426,16 +1422,28 @@ fn validate_oracle_state_shape(state: &OracleState) -> ValidateCallbackResult {
     ValidateCallbackResult::Valid
 }
 
+fn validate_action_timestamp(
+    field: &str,
+    action_timestamp: &Timestamp,
+    entry_timestamp: &Timestamp,
+) -> ValidateCallbackResult {
+    if action_timestamp != entry_timestamp {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} must equal the Holochain action timestamp"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_oracle_state_timestamp(
     action_timestamp: &Timestamp,
     state_timestamp: &Timestamp,
 ) -> ValidateCallbackResult {
-    if action_timestamp != state_timestamp {
-        return ValidateCallbackResult::Invalid(
-            "OracleState updated_at must equal the Holochain action timestamp".into(),
-        );
-    }
-    ValidateCallbackResult::Valid
+    validate_action_timestamp(
+        "OracleState updated_at",
+        action_timestamp,
+        state_timestamp,
+    )
 }
 
 fn validate_create_oracle_state(
@@ -1504,6 +1512,35 @@ fn validate_oracle_state_transition(
     ValidateCallbackResult::Valid
 }
 
+fn validate_create_bilateral_balance(
+    action: EntryCreationAction,
+    bal: BilateralBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    if bal.dao_a_did.len() > MAX_DID_LEN || bal.dao_b_did.len() > MAX_DID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DID exceeds maximum length".into(),
+        ));
+    }
+    if !bal.dao_a_did.starts_with("did:") || !bal.dao_b_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DAO DIDs must be valid".into(),
+        ));
+    }
+    if bal.dao_a_did >= bal.dao_b_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "dao_a_did must be alphabetically before dao_b_did (canonical ordering)".into(),
+        ));
+    }
+    if bal.last_settled_at != *action.timestamp()
+        || bal.last_updated_at != *action.timestamp()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New BilateralBalance timestamps must equal the Holochain action timestamp".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_update_bilateral_balance(
     action: Update,
     balance: BilateralBalance,
@@ -1524,12 +1561,17 @@ fn validate_update_bilateral_balance(
             ))
         })?;
 
-    Ok(validate_bilateral_balance_state_transition(&original, &balance))
+    Ok(validate_bilateral_balance_state_transition(
+        &original,
+        &balance,
+        &action.timestamp,
+    ))
 }
 
 fn validate_bilateral_balance_state_transition(
     original: &BilateralBalance,
     updated: &BilateralBalance,
+    action_timestamp: &Timestamp,
 ) -> ValidateCallbackResult {
     if updated.dao_a_did != original.dao_a_did {
         return ValidateCallbackResult::Invalid(
@@ -1568,6 +1610,25 @@ fn validate_bilateral_balance_state_transition(
             "BilateralBalance last_updated_at cannot move backwards".into(),
         );
     }
+    if updated.last_updated_at != *action_timestamp {
+        return ValidateCallbackResult::Invalid(
+            "BilateralBalance last_updated_at must equal the Holochain action timestamp".into(),
+        );
+    }
+    if updated.last_settled_at > *action_timestamp {
+        return ValidateCallbackResult::Invalid(
+            "BilateralBalance last_settled_at cannot be in the future relative to the action"
+                .into(),
+        );
+    }
+    if updated.last_settled_at != original.last_settled_at
+        && updated.last_settled_at != *action_timestamp
+    {
+        return ValidateCallbackResult::Invalid(
+            "Changed BilateralBalance last_settled_at must equal the Holochain action timestamp"
+                .into(),
+        );
+    }
 
     ValidateCallbackResult::Valid
 }
@@ -1592,12 +1653,17 @@ fn validate_update_bilateral_settlement(
             ))
         })?;
 
-    Ok(validate_bilateral_settlement_transition(&original, &settlement))
+    Ok(validate_bilateral_settlement_transition(
+        &original,
+        &settlement,
+        &action.timestamp,
+    ))
 }
 
 fn validate_bilateral_settlement_transition(
     original: &BilateralSettlement,
     updated: &BilateralSettlement,
+    action_timestamp: &Timestamp,
 ) -> ValidateCallbackResult {
     if original.status != SettlementStatus::Pending {
         return ValidateCallbackResult::Invalid(
@@ -1648,6 +1714,13 @@ fn validate_bilateral_settlement_transition(
     if completed_at < original.created_at {
         return ValidateCallbackResult::Invalid(
             "completed_at cannot precede created_at".into(),
+        );
+    }
+
+    if completed_at != *action_timestamp {
+        return ValidateCallbackResult::Invalid(
+            "BilateralSettlement completed_at must equal the Holochain action timestamp"
+                .into(),
         );
     }
 
@@ -2221,7 +2294,11 @@ mod tests {
         updated.completed_at = Some(ts(2_000_000));
 
         assert!(matches!(
-            validate_bilateral_settlement_transition(&original, &updated),
+            validate_bilateral_settlement_transition(
+                &original,
+                &updated,
+                &updated.completed_at.unwrap_or(ts(0)),
+            ),
             ValidateCallbackResult::Valid
         ));
     }
@@ -2256,7 +2333,7 @@ mod tests {
         let mut missing_time = original.clone();
         missing_time.status = SettlementStatus::Completed;
         assert!(matches!(
-            validate_bilateral_settlement_transition(&original, &missing_time),
+            validate_bilateral_settlement_transition(&original, &missing_time, &ts(2_000_000)),
             ValidateCallbackResult::Invalid(_)
         ));
 
@@ -2264,7 +2341,7 @@ mod tests {
         backwards_time.status = SettlementStatus::Failed;
         backwards_time.completed_at = Some(ts(500_000));
         assert!(matches!(
-            validate_bilateral_settlement_transition(&original, &backwards_time),
+            validate_bilateral_settlement_transition(&original, &backwards_time, &ts(500_000)),
             ValidateCallbackResult::Invalid(_)
         ));
     }
@@ -2281,6 +2358,95 @@ mod tests {
         assert!(matches!(
             validate_bilateral_settlement_transition(&original, &updated),
             ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn bilateral_balance_create_requires_action_timestamps() {
+        let action_time = ts(2_000_000);
+        let mut action = make_create();
+        action.timestamp = action_time;
+        let mut balance = valid_bilateral_balance();
+        balance.last_settled_at = action_time;
+        balance.last_updated_at = action_time;
+
+        assert!(matches!(
+            validate_create_bilateral_balance(
+                EntryCreationAction::Create(action),
+                balance,
+            ),
+            Ok(ValidateCallbackResult::Valid)
+        ));
+
+        let mut future_balance = valid_bilateral_balance();
+        future_balance.last_settled_at = ts(2_000_001);
+        future_balance.last_updated_at = action_time;
+        let mut future_action = make_create();
+        future_action.timestamp = action_time;
+        assert!(matches!(
+            validate_create_bilateral_balance(
+                EntryCreationAction::Create(future_action),
+                future_balance,
+            ),
+            Ok(ValidateCallbackResult::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn bilateral_settlement_create_requires_action_timestamp() {
+        let action_time = ts(2_000_000);
+        let mut action = make_create();
+        action.timestamp = action_time;
+        let mut settlement = valid_settlement();
+        settlement.created_at = action_time;
+
+        assert!(matches!(
+            validate_create_bilateral_settlement(
+                EntryCreationAction::Create(action),
+                settlement,
+            ),
+            Ok(ValidateCallbackResult::Valid)
+        ));
+
+        let mut future = valid_settlement();
+        future.created_at = ts(2_000_001);
+        let mut future_action = make_create();
+        future_action.timestamp = action_time;
+        assert!(matches!(
+            validate_create_bilateral_settlement(
+                EntryCreationAction::Create(future_action),
+                future,
+            ),
+            Ok(ValidateCallbackResult::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn bilateral_settlement_completion_requires_action_timestamp() {
+        let original = valid_settlement();
+        let mut updated = original.clone();
+        updated.status = SettlementStatus::Completed;
+
+        for completed_at in [ts(1_999_999), ts(2_000_001)] {
+            updated.completed_at = Some(completed_at);
+            assert!(matches!(
+                validate_bilateral_settlement_transition(
+                    &original,
+                    &updated,
+                    &ts(2_000_000),
+                ),
+                ValidateCallbackResult::Invalid(_)
+            ));
+        }
+
+        updated.completed_at = Some(ts(2_000_000));
+        assert!(matches!(
+            validate_bilateral_settlement_transition(
+                &original,
+                &updated,
+                &ts(2_000_000),
+            ),
+            ValidateCallbackResult::Valid
         ));
     }
 
@@ -2479,11 +2645,15 @@ mod tests {
         let mut updated = original.clone();
         updated.net_balance = 5;
         updated.total_exchanges = 4;
-        updated.last_settled_at = ts(2_000_000);
+        updated.last_settled_at = ts(3_000_000);
         updated.last_updated_at = ts(3_000_000);
 
         assert!(matches!(
-            validate_bilateral_balance_state_transition(&original, &updated),
+            validate_bilateral_balance_state_transition(
+                &original,
+                &updated,
+                &updated.last_updated_at,
+            ),
             ValidateCallbackResult::Valid
         ));
     }
@@ -2495,14 +2665,22 @@ mod tests {
         let mut swap_a = original.clone();
         swap_a.dao_a_did = "did:mycelix:attacker".into();
         assert!(matches!(
-            validate_bilateral_balance_state_transition(&original, &swap_a),
+            validate_bilateral_balance_state_transition(
+                &original,
+                &swap_a,
+                &swap_a.last_updated_at,
+            ),
             ValidateCallbackResult::Invalid(_)
         ));
 
         let mut swap_b = original.clone();
         swap_b.dao_b_did = "did:mycelix:attacker".into();
         assert!(matches!(
-            validate_bilateral_balance_state_transition(&original, &swap_b),
+            validate_bilateral_balance_state_transition(
+                &original,
+                &swap_b,
+                &swap_b.last_updated_at,
+            ),
             ValidateCallbackResult::Invalid(_)
         ));
     }
@@ -2514,14 +2692,22 @@ mod tests {
         let mut exchanges = original.clone();
         exchanges.total_exchanges = 2;
         assert!(matches!(
-            validate_bilateral_balance_state_transition(&original, &exchanges),
+            validate_bilateral_balance_state_transition(
+                &original,
+                &exchanges,
+                &exchanges.last_updated_at,
+            ),
             ValidateCallbackResult::Invalid(_)
         ));
 
         let mut settled = original.clone();
         settled.last_settled_at = ts(500_000);
         assert!(matches!(
-            validate_bilateral_balance_state_transition(&original, &settled),
+            validate_bilateral_balance_state_transition(
+                &original,
+                &settled,
+                &settled.last_updated_at,
+            ),
             ValidateCallbackResult::Invalid(_)
         ));
 
@@ -3000,7 +3186,10 @@ mod tests {
 
     #[test]
     fn test_settlement_create_valid() {
-        let result = validate_create_bilateral_settlement(valid_settlement()).unwrap();
+        let result = validate_create_bilateral_settlement(
+            EntryCreationAction::Create(make_create()),
+            valid_settlement(),
+        ).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
@@ -3008,7 +3197,10 @@ mod tests {
     fn test_settlement_rejects_zero_amount() {
         let mut s = valid_settlement();
         s.amount = 0;
-        let result = validate_create_bilateral_settlement(s).unwrap();
+        let result = validate_create_bilateral_settlement(
+            EntryCreationAction::Create(make_create()),
+            s,
+        ).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -3016,7 +3208,10 @@ mod tests {
     fn test_settlement_rejects_non_pending_status() {
         let mut s = valid_settlement();
         s.status = SettlementStatus::Completed;
-        let result = validate_create_bilateral_settlement(s).unwrap();
+        let result = validate_create_bilateral_settlement(
+            EntryCreationAction::Create(make_create()),
+            s,
+        ).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
