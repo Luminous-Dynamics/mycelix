@@ -162,6 +162,10 @@ def split_pem_crls(bundle: bytes) -> list[bytes]:
         if end < 0:
             raise ValueError("CRL PEM block missing END marker")
         end += len(end_marker)
+        if bundle[end:end + 2] == b"\r\n":
+            end += 2
+        elif bundle[end:end + 1] == b"\n":
+            end += 1
         blocks.append(bundle[start:end])
         cursor = end
     if not blocks:
@@ -2721,6 +2725,9 @@ def self_test() -> int:
             return 1
 
         crl_blocks_for_crypto = split_pem_crls(fx["crl_bundle_pem"])
+        if b"".join(crl_blocks_for_crypto) != fx["crl_bundle_pem"]:
+            print("CRL PEM block segmentation loses supplied bytes: FAIL")
+            return 1
         root_crl_der = crl_pem_to_der(crl_blocks_for_crypto[0])
         tampered_crl_info = parse_crl_der_for_crypto(tamper_signed_der(root_crl_der))
         try:
