@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 35
+    assert policy["policy_version"] == 37
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -117,7 +117,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "source_digest_source": "GITHUB_SHA",
         "source_ref_source": "GITHUB_REF",
         "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
-        "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+        "predicate_schema": "d6u-trusted-runtime-evidence-attestation/v2",
         "current_run_identity": {
             "certificate_field": "runInvocationURI",
             "template": "https://github.com/{repository}/actions/runs/{run_id}/attempts/{run_attempt}",
@@ -179,7 +179,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
 
     assert policy["attestation_retention"] == {
         "schema": "d6u-attestation-retention/v2",
-        "expected_file_count": 14,
+        "expected_file_count": 15,
         "max_file_bytes": 4194304,
         "max_trusted_root_bytes": 2097152,
         "max_total_bytes": 18874368,
@@ -204,6 +204,10 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "retain_online_verification": True,
         "retain_negative_control": True,
         "max_attestations_per_verify": 8,
+        "predicate_schema": "d6u-trusted-runtime-evidence-attestation/v2",
+        "canonical_predicate_filename": "d6u-trusted-evidence-predicate.json",
+        "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
+        "retain_canonical_predicate": True,
     }
 
     workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
@@ -271,18 +275,18 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert "uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0" in workflow_text
     assert "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2" in workflow_text
 
-    assert policy["signer_handoff"] == {
-        "schema": "d6u-trusted-signer-handoff/v1",
+    assert policy["auditor_handoff"] == {
+        "schema": "d6u-trusted-auditor-handoff/v1",
         "expected_file_count": 6,
-        "manifest_filename": "d6u-signer-handoff.manifest.sha256",
-        "context_filename": "d6u-signer-context.txt",
+        "manifest_filename": "d6u-auditor-handoff.manifest.sha256",
+        "context_filename": "d6u-auditor-context.txt",
         "predicate_filename": "d6u-trusted-evidence-predicate.json",
         "subject_files": [
             "d6u-runtime-evidence.txt",
             "d6u-runtime-test.log",
             "Cargo.lock",
         ],
-        "artifact_name_template": "d6u-trusted-signer-handoff-run-{run_id}-attempt-{run_attempt}",
+        "artifact_name_template": "d6u-trusted-auditor-handoff-run-{run_id}-attempt-{run_attempt}",
         "retention_days": 1,
         "require_exact_file_set": True,
         "require_manifest_sha256": True,
@@ -290,6 +294,16 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "claim_ceiling": "ReferenceModelOnly",
     }
 
+    assert policy["attestation_commitment"] == {
+        "schema": "d6u-trusted-runtime-evidence-attestation/v2",
+        "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+        "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
+        "canonical_predicate_filename": "d6u-trusted-evidence-predicate.json",
+        "subject_source": "verifier_job_outputs",
+        "signing_mode": "digest-only-subject-checksums",
+        "signer_must_not_receive_original_subject_files": True,
+        "signer_must_not_download_auditor_handoff": True,
+    }
     assert policy["artifact_integrity"] == {        "algorithm": "sha256",
         "source": "github-artifact-api",
         "require_match_after_download": True,
