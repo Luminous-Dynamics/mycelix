@@ -1365,84 +1365,6 @@ def test_trusted_zip_rejects_unexpected_member_path() -> None:
 
 
 
-def synthetic_attestation_entry(subjects: list[dict], run_id: str) -> dict:
-    repo = "Luminous-Dynamics/mycelix"
-    return {
-        "verificationResult": {
-            "signature": {
-                "certificate": {
-                    "subjectAlternativeName": (
-                        f"https://github.com/{repo}/.github/workflows/"
-                        "d6u-trusted-evidence-attestation.yml@refs/heads/main"
-                    ),
-                    "issuer": "https://token.actions.githubusercontent.com",
-                    "githubWorkflowRepository": repo,
-                    "githubWorkflowRef": "refs/heads/main",
-                    "sourceRepositoryURI": f"https://github.com/{repo}",
-                    "sourceRepositoryDigest": "a" * 40,
-                    "runnerEnvironment": "github-hosted",
-                    "runInvocationURI": (
-                        f"https://github.com/{repo}/actions/runs/{run_id}/attempts/3"
-                    ),
-                }
-            },
-            "statement": {
-                "predicateType": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
-                "subject": subjects,
-                "predicate": {
-                    "schema": "d6u-trusted-runtime-evidence/v1",
-                    "attestation_kind": "verified-runtime-evidence",
-                    "claim_ceiling": "ReferenceModelOnly",
-                    "policy_version": 22,
-                    "source": {
-                        "repository": repo,
-                        "branch": "myc-int-demo-d6u-holochain-07-runtime",
-                        "commit": "b" * 40,
-                    },
-                    "trigger": {
-                        "workflow_name": "D6S Canonical Qualification",
-                        "workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
-                        "run_id": 77,
-                        "run_attempt": 2,
-                    },
-                    "executor": {
-                        "workflow_name": "D6U Exact-Head Runtime Executor",
-                        "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
-                        "run_id": 42,
-                        "run_attempt": 3,
-                        "workflow_commit": "c" * 40,
-                    },
-                    "subjects": subjects,
-                    "evidence": {
-                        "case_coverage": "14-of-14",
-                        "supplemental_coverage": "4-of-4",
-                        "application_check_coverage": "1-of-1",
-                        "case_outcome_classes": [
-                            "accepted",
-                            "semantic-rejected",
-                            "authentication-failed",
-                        ],
-                        "runtime": "holochain-0.7.0",
-                        "hdk": "0.7.0",
-                        "hdi": "0.8.0",
-                        "unsupported_cases": [
-                            "wire-signature-valid",
-                            "nonce-stale",
-                            "payload-mutation",
-                        ],
-                    },
-                    "nonclaims": [
-                        "semantic-truth",
-                        "production-safety",
-                        "legal-authority",
-                        "actuation-authority",
-                    ],
-                },
-            },
-        }
-    }
-
-
 def synthetic_record() -> dict[str, str]:
     return {
         "claim_ceiling": "ReferenceModelOnly",
@@ -1808,9 +1730,9 @@ if __name__ == "__main__":
         test_attestation_verifier_rejects_old_run,
         test_commitment_attestation_rejects_canonical_predicate_tampering,
         test_commitment_attestation_rejects_hash_mismatch,
-        test_custom_attestation_requires_verified_timestamp,
-        test_custom_attestation_rejects_non_tlog_timestamp,
-        test_custom_attestation_subject_set_is_order_independent_but_exact,
+        test_commitment_attestation_requires_verified_timestamp,
+        test_commitment_attestation_rejects_non_tlog_timestamp,
+        test_commitment_attestation_subject_set_is_order_independent_but_exact,
         test_retention_workflow_contains_offline_controls,
         test_trusted_root_jsonl_line_limit_is_enforced,
         test_negative_control_requires_nonzero_exit,
@@ -1818,7 +1740,7 @@ if __name__ == "__main__":
         test_negative_control_cross_link_mismatch_is_rejected,
         test_retained_report_identity_and_predicate_are_bound,
         test_retention_packet_rejects_extra_member,
-        test_custom_attestation_accepts_current_run_and_rejects_old_run,
+        test_commitment_attestation_accepts_current_run_and_rejects_old_run,
         test_trusted_workflow_policy_shape_is_pinned,
         test_artifact_layout_rejects_symlink,
     ]
