@@ -62,7 +62,7 @@ Neither event upgrades the D6S claim ceiling beyond `ReferenceModelOnly`.
 
 ## Fail-closed self-test boundary
 
-The read-only trusted-verifier suite contains thirty-seven deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; regular-file artifact-layout symlink rejection; artifact size-limit enforcement; artifact entry-count enforcement; trusted-workflow policy-shape enforcement; policy binding to the current trusted workflow blob; executor run-head binding to the reviewed executor workflow blob; bounded ZIP extraction adversaries for exact-member, duplicate-member, symlink-member, and traversal-path rejection; and current-run versus historical-attestation identity checks.
+The read-only trusted-verifier suite contains forty-six deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; regular-file artifact-layout symlink rejection; artifact size-limit enforcement; artifact entry-count enforcement; trusted-workflow policy-shape enforcement; policy binding to the current trusted workflow blob; executor run-head binding to the reviewed executor workflow blob; bounded ZIP extraction adversaries for exact-member, duplicate-member, symlink-member, and traversal-path rejection; and current-run versus historical-attestation identity checks.
 
 The self-test has no signing permissions and is not itself an authority root. Its policy-shape test pins the retention verifier, upload Action revision, public Tlog requirement, and retained packet limits; dedicated regressions cover the offline workflow controls and unexpected retention-packet members.
 
@@ -75,4 +75,4 @@ The trusted attestation workflow is deliberately not branch-executable. GitHub d
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v29.
+Current trusted policy revision: v40.
