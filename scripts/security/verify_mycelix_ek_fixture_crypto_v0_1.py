@@ -457,6 +457,8 @@ def expected_crl_semantics_check(
             raise ValueError(f"CRL semantics missing {label}")
         if crl["version"] != 2:
             raise ValueError(f"{label} CRL version mismatch")
+        if "this_update" not in crl or "next_update" not in crl:
+            raise ValueError(f"{label} CRL thisUpdate/nextUpdate are required")
         if crl["this_update"]["unix"] > verification_time_unix or verification_time_unix >= crl["next_update"]["unix"]:
             raise ValueError(f"{label} CRL is outside its modeled validity window")
         extensions = crl["crl_extensions"]
