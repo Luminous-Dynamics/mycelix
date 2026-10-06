@@ -2067,6 +2067,26 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
         observed = expected_artifact("Luminous-Dynamics/mycelix", event, policy)
     assert observed["id"] == 9100
 
+    for event_field, bad_value, message in [
+        ("head_branch", "main", "trigger event branch mismatch was accepted"),
+        ("head_sha", "c" * 40, "trigger event SHA mismatch was accepted"),
+    ]:
+        bad_event = json.loads(json.dumps(event))
+        bad_event["workflow_run"][event_field] = bad_value
+        with patch.dict(
+            os.environ,
+            {
+                "GITHUB_TOKEN": "token",
+                "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+                "D6U_TRIGGER_HEAD_SHA": "a" * 40,
+            },
+            clear=False,
+        ):
+            assert_rejected(
+                lambda: expected_artifact("Luminous-Dynamics/mycelix", bad_event, policy),
+                message,
+            )
+
     for field, bad_value, message in [
         ("head_branch", "main", "executor artifact with mismatched trigger branch was accepted"),
         ("head_sha", "c" * 40, "executor artifact with mismatched trigger SHA was accepted"),
@@ -2130,8 +2150,8 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
                 "id": 501,
                 "repository_id": 9001,
                 "head_repository_id": 9001,
-                "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
-                "head_sha": "a" * 40,
+                "head_branch": "main",
+                "head_sha": "d" * 40,
             },
         }]
     }
