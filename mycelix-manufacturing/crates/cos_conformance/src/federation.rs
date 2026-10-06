@@ -778,6 +778,11 @@ pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementViolati
     AnchorReferenceDigestMismatch,
     InvalidVerifierReportSchemaVersion,
     EmptyVerifierProfile,
+    EmptyVerifierIdentityProfile,
+    EmptyVerifierIdentityDigest,
+    InvalidVerifierIdentityDigest,
+    VerifierIdentityHashAlgorithmMismatch,
+    VerifierIdentityHashEncodingMismatch,
     VerifierReportHashAlgorithmMismatch,
     VerifierReportHashEncodingMismatch,
     EmptyVerifierReportDigest,
@@ -856,6 +861,35 @@ pub fn validate_state_machine_trace_external_evidence_verification_statement_bin
     if statement.verifier_profile.is_empty() {
         return Err(
             FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::EmptyVerifierProfile
+        );
+    }
+    if statement.verifier_identity_profile.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::EmptyVerifierIdentityProfile
+        );
+    }
+    if statement.verifier_identity_hash_algorithm
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_VERIFIER_IDENTITY_HASH_ALGORITHM
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierIdentityHashAlgorithmMismatch
+        );
+    }
+    if statement.verifier_identity_hash_encoding
+        != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_VERIFIER_IDENTITY_HASH_ENCODING
+    {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierIdentityHashEncodingMismatch
+        );
+    }
+    if statement.verifier_identity_sha256.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::EmptyVerifierIdentityDigest
+        );
+    }
+    if !state_machine_trace_is_sha256_digest(&statement.verifier_identity_sha256) {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidVerifierIdentityDigest
         );
     }
     if statement.verifier_report_hash_algorithm
