@@ -277,18 +277,21 @@ jobs:
               resolved_tree="$(git -C /tmp/repository rev-parse "$resolved^{tree}")"
               test "$resolved_tree" = "$CANDIDATE_TREE"
               timeout --signal=TERM --kill-after=10s 3m git -C /tmp/repository fsck --full --strict "$resolved"
-              if git -C /tmp/repository ls-tree -r "$resolved" | grep -q "^160000 "; then
+              tree_entries="$(git -C /tmp/repository ls-tree -r "$resolved")"
+              if printf "%s\n" "$tree_entries" | grep -q "^160000 "; then
                 echo "candidate source contains a gitlink/submodule; qualification requires a self-contained source tree" >&2
                 exit 1
               fi
               git -C /tmp/repository archive --format=tar "$resolved" |
                 tar -xf - -C /output --no-same-owner
 
-              if find /output -type l -print -quit | grep -q .; then
+              symlink_entry="$(find /output -type l -print -quit)"
+              if [ -n "$symlink_entry" ]; then
                 echo "candidate source contains forbidden symlink" >&2
                 exit 1
               fi
-              if find /output ! -type f ! -type d -print -quit | grep -q .; then
+              non_regular_entry="$(find /output ! -type f ! -type d -print -quit)"
+              if [ -n "$non_regular_entry" ]; then
                 echo "candidate source contains forbidden non-regular file" >&2
                 exit 1
               fi
@@ -732,7 +735,11 @@ jobs:
           chmod 0444 "$sentinel"
           sentinel_digest="$(sha256sum "$sentinel" | awk '{print $1}')"
           container_name="security-kernel-negative-controls-$RANDOM"
-          if docker ps -aq --filter "name=^/${container_name}$" | grep -q .; then
+          if ! existing_containers="$(docker ps -aq --filter "name=^/${container_name}$")"; then
+            echo "security-kernel negative-control container inventory query failed" >&2
+            exit 1
+          fi
+          if [ -n "$existing_containers" ]; then
             echo "security-kernel negative-control container name collision" >&2
             exit 1
           fi
@@ -809,7 +816,11 @@ jobs:
           } > "$RUNNER_TEMP/security-kernel-negative-controls.log" 2>&1
           test -s "$RUNNER_TEMP/security-kernel-negative-controls.log"
           cat "$RUNNER_TEMP/security-kernel-negative-controls.log"
-          test -z "$(docker ps -aq --filter "name=^/${container_name}$")"
+          if ! remaining_containers="$(docker ps -aq --filter "name=^/${container_name}$")"; then
+            echo "security-kernel negative-control container inventory query failed after run" >&2
+            exit 1
+          fi
+          test -z "$remaining_containers"
           test "$(sha256sum "$sentinel" | awk '{print $1}')" = "$sentinel_digest"
           rm -f "$sentinel"
           negative_controls_log_digest="$(sha256sum "$RUNNER_TEMP/security-kernel-negative-controls.log" | awk '{print $1}')"
@@ -841,9 +852,13 @@ jobs:
           runner_gid="$(id -g)"
           vendor_cleanup_on_failure() {
             local status=$?
-            if [ "$status" -ne 0 ] && docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then
-              if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null; then status=1; fi
-              if docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
+            if [ "$status" -ne 0 ]; then
+              if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
+              if ! remaining_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
+                status=1
+              elif printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then
+                status=1
+              fi
             fi
             trap - EXIT
             exit "$status"
@@ -854,7 +869,11 @@ jobs:
             local wall="$1"
             local script="$2"
             local name="security-kernel-sandbox-$BASHPID"
-            if docker ps -aq --filter "name=^/${name}$" | grep -q .; then
+            if ! existing_containers="$(docker ps -aq --filter "name=^/${name}$")"; then
+              echo "security-kernel sandbox container inventory query failed" >&2
+              return 1
+            fi
+            if [ -n "$existing_containers" ]; then
               echo "security-kernel sandbox container name collision" >&2
               return 1
             fi
@@ -913,14 +932,20 @@ jobs:
             local status=$?
             set -e
             local remaining
-            remaining="$(docker ps -aq --filter "name=^/${name}$")"
+            if ! remaining="$(docker ps -aq --filter "name=^/${name}$")"; then
+              echo "security-kernel sandbox container inventory query failed while checking cleanup" >&2
+              return 1
+            fi
             if [ -n "$remaining" ]; then
               if ! docker rm -f "$name" >/dev/null 2>&1; then
                 echo "security-kernel sandbox cleanup failed" >&2
                 return 1
               fi
             fi
-            remaining="$(docker ps -aq --filter "name=^/${name}$")"
+            if ! remaining="$(docker ps -aq --filter "name=^/${name}$")"; then
+              echo "security-kernel sandbox container inventory query failed while checking cleanup" >&2
+              return 1
+            fi
             if [ -n "$remaining" ]; then
               echo "security-kernel sandbox container remains after cleanup" >&2
               return 1
@@ -1026,9 +1051,13 @@ jobs:
           runner_gid="$(id -g)"
           vendor_cleanup_on_failure() {
             local status=$?
-            if [ "$status" -ne 0 ] && docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then
-              if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null; then status=1; fi
-              if docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
+            if [ "$status" -ne 0 ]; then
+              if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
+              if ! remaining_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
+                status=1
+              elif printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then
+                status=1
+              fi
             fi
             trap - EXIT
             exit "$status"
@@ -1061,7 +1090,11 @@ jobs:
             echo "security-kernel vendor volume cleanup failed" >&2
             exit 1
           fi
-          if docker volume inspect "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then
+          if ! remaining_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
+            echo "security-kernel vendor volume inventory query failed after cleanup" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then
             echo "security-kernel vendor volume remains after cleanup" >&2
             exit 1
           fi

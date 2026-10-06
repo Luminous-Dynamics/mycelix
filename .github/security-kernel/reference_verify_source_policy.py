@@ -204,6 +204,12 @@ def require_no_fail_open_controls(lines_: list[str], description: str) -> None:
             fail(f"{description}: forbidden fail-open control {fragment!r}")
 
 
+def require_no_fail_open_probe_conditions(lines_: list[str], description: str) -> None:
+    for line in lines_:
+        if re.match(r"\s*if\s+(?:docker|git|find)\b.*\|\s*grep\b", line):
+            fail(f"{description}: external probe failure is masked by an if-pipeline: {line!r}")
+
+
 def require_explicit_bash_for_run_steps(lines_: list[str], description: str) -> None:
     current = None
     in_run_block = False
@@ -435,6 +441,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         if exact_count(l, f'  {key}: "{expected}"') != 1:
             fail(f"S1 vendor resource profile mismatch: {key}")
     require_no_fail_open_controls(l, "S1")
+    require_no_fail_open_probe_conditions(l, "S1")
     joined = "\n".join(l)
     if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
         fail("S1 vendor resource volume create profile mismatch")
@@ -656,6 +663,18 @@ def main() -> None:
         ),
         "run step missing explicit shell",
     )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'              tree_entries="$(git -C /tmp/repository ls-tree -r "$resolved")"',
+                b'              if git -C /tmp/repository ls-tree -r "$resolved" | grep -q "^160000 "; then',
+                1,
+            ),
+            s1_sha,
+        ),
+        "unchecked git pipeline inside conditional",
+    )
+
 
     expect_rejection(
         lambda: verify_s1(
