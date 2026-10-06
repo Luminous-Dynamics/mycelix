@@ -8,9 +8,191 @@
 //! Claim ceiling: ReferenceModelOnly.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const FEDERATION_PROFILE_ID: &str = "INTEGRAL-FED-REF-001";
+pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 1;
+pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE: &str =
+    "integral-federation-external-verification-trust-policy-v1";
+pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN: &str =
+    "integral-federation-external-verification-trust-policy-sha256-v1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationExternalVerificationPolicyDecision {
+    Admitted,
+    RejectedClaim,
+    VerifierSchemaTooOld,
+    VerifierProfileNotAdmitted,
+    VerificationClaimNotAdmitted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationExternalVerificationTrustPolicyViolation {
+    UnsupportedSchemaVersion,
+    UnsupportedPolicyProfile,
+    InvalidMinimumVerifierSchemaVersion,
+    EmptyVerifierProfile,
+    DuplicateVerifierProfile,
+    EmptyVerifierProfileEntry,
+    NoAcceptedVerifierProfiles,
+    AcceptedClaimsContainRejected,
+    NoAcceptedClaims,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FederationExternalVerificationTrustPolicyV1 {
+    schema_version: u16,
+    policy_profile: String,
+    minimum_verifier_schema_version: u16,
+    accepted_verifier_profiles: Vec<String>,
+    accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FederationExternalVerificationPolicyAdmissionV1 {
+    policy_sha256: String,
+    verifier_profile: String,
+    verifier_schema_version: u16,
+    claim: FederationStateMachineTraceExternalVerificationClaim,
+    statement_sha256: String,
+}
+
+impl FederationExternalVerificationTrustPolicyV1 {
+    pub fn try_new(
+        minimum_verifier_schema_version: u16,
+        accepted_verifier_profiles: impl IntoIterator<Item = impl Into<String>>,
+        accepted_claims: impl IntoIterator<Item = FederationStateMachineTraceExternalVerificationClaim>,
+    ) -> Result<Self, FederationExternalVerificationTrustPolicyViolation> {
+        let accepted_verifier_profiles = accepted_verifier_profiles
+            .into_iter()
+            .map(Into::into)
+            .collect::<Vec<_>>();
+        let accepted_claims = accepted_claims.into_iter().collect::<Vec<_>>();
+        let policy = Self {
+            schema_version: FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION,
+            policy_profile: FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE.into(),
+            minimum_verifier_schema_version,
+            accepted_verifier_profiles,
+            accepted_claims,
+        };
+        policy.validate()?;
+        Ok(policy)
+    }
+
+    pub fn validate(&self) -> Result<(), FederationExternalVerificationTrustPolicyViolation> {
+        if self.schema_version != FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION {
+            return Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedSchemaVersion);
+        }
+        if self.policy_profile != FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE {
+            return Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedPolicyProfile);
+        }
+        if self.minimum_verifier_schema_version == 0 {
+            return Err(FederationExternalVerificationTrustPolicyViolation::InvalidMinimumVerifierSchemaVersion);
+        }
+        if self.accepted_verifier_profiles.is_empty() {
+            return Err(FederationExternalVerificationTrustPolicyViolation::NoAcceptedVerifierProfiles);
+        }
+        if self.accepted_verifier_profiles.iter().any(String::is_empty) {
+            return Err(FederationExternalVerificationTrustPolicyViolation::EmptyVerifierProfileEntry);
+        }
+        if self.accepted_verifier_profiles.iter().collect::<BTreeSet<_>>().len()
+            != self.accepted_verifier_profiles.len()
+        {
+            return Err(FederationExternalVerificationTrustPolicyViolation::DuplicateVerifierProfile);
+        }
+        if self.accepted_claims.is_empty() {
+            return Err(FederationExternalVerificationTrustPolicyViolation::NoAcceptedClaims);
+        }
+        if self
+            .accepted_claims
+            .iter()
+            .any(|claim| *claim == FederationStateMachineTraceExternalVerificationClaim::Rejected)
+        {
+            return Err(FederationExternalVerificationTrustPolicyViolation::AcceptedClaimsContainRejected);
+        }
+        Ok(())
+    }
+
+    pub fn schema_version(&self) -> u16 { self.schema_version }
+    pub fn policy_profile(&self) -> &str { &self.policy_profile }
+    pub fn minimum_verifier_schema_version(&self) -> u16 { self.minimum_verifier_schema_version }
+    pub fn accepted_verifier_profiles(&self) -> &[String] { &self.accepted_verifier_profiles }
+    pub fn accepted_claims(&self) -> &[FederationStateMachineTraceExternalVerificationClaim] { &self.accepted_claims }
+
+    pub fn policy_sha256(&self) -> Result<String, FederationExternalVerificationTrustPolicyViolation> {
+        self.validate()?;
+        let mut profiles = self.accepted_verifier_profiles.clone();
+        profiles.sort();
+        let mut claims = self.accepted_claims.clone();
+        claims.sort();
+        let bytes = serde_json::to_vec(&(
+            self.schema_version,
+            self.policy_profile.as_str(),
+            self.minimum_verifier_schema_version,
+            profiles,
+            claims,
+        )).expect("external verification policy hash view is serializable");
+        let input = [
+            FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN.as_bytes(),
+            bytes.as_slice(),
+        ].concat();
+        let digest = Sha256::digest(input);
+        Ok(format!("sha256:{digest:x}"))
+    }
+
+    pub fn classify(
+        &self,
+        verifier_schema_version: u16,
+        verifier_profile: &str,
+        claim: FederationStateMachineTraceExternalVerificationClaim,
+    ) -> Result<FederationExternalVerificationPolicyDecision, FederationExternalVerificationTrustPolicyViolation> {
+        self.validate()?;
+        if claim == FederationStateMachineTraceExternalVerificationClaim::Rejected {
+            return Ok(FederationExternalVerificationPolicyDecision::RejectedClaim);
+        }
+        if verifier_schema_version < self.minimum_verifier_schema_version {
+            return Ok(FederationExternalVerificationPolicyDecision::VerifierSchemaTooOld);
+        }
+        if !self.accepted_verifier_profiles.iter().any(|profile| profile == verifier_profile) {
+            return Ok(FederationExternalVerificationPolicyDecision::VerifierProfileNotAdmitted);
+        }
+        if !self.accepted_claims.contains(&claim) {
+            return Ok(FederationExternalVerificationPolicyDecision::VerificationClaimNotAdmitted);
+        }
+        Ok(FederationExternalVerificationPolicyDecision::Admitted)
+    }
+}
+
+impl FederationStateMachineTraceExternalEvidenceVerificationResult {
+    pub(crate) fn admit_under_policy(
+        &self,
+        policy: &FederationExternalVerificationTrustPolicyV1,
+    ) -> Result<FederationExternalVerificationPolicyAdmissionV1, FederationExternalVerificationTrustPolicyViolation> {
+        if policy.classify(self.verifier_schema_version(), self.verifier_profile(), self.claim())?
+            != FederationExternalVerificationPolicyDecision::Admitted
+        {
+            return Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedPolicyProfile);
+        }
+        Ok(FederationExternalVerificationPolicyAdmissionV1 {
+            policy_sha256: policy.policy_sha256()?,
+            verifier_profile: self.verifier_profile().into(),
+            verifier_schema_version: self.verifier_schema_version(),
+            claim: self.claim(),
+            statement_sha256: self.statement_sha256().into(),
+        })
+    }
+}
+
+impl FederationExternalVerificationPolicyAdmissionV1 {
+    pub fn policy_sha256(&self) -> &str { &self.policy_sha256 }
+    pub fn verifier_profile(&self) -> &str { &self.verifier_profile }
+    pub fn verifier_schema_version(&self) -> u16 { self.verifier_schema_version }
+    pub fn claim(&self) -> FederationStateMachineTraceExternalVerificationClaim { self.claim }
+    pub fn statement_sha256(&self) -> &str { &self.statement_sha256 }
+}
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2053,6 +2235,69 @@ mod tests {
             resealed.anchor_reference_sha256(),
             first.anchor_reference_sha256()
         );
+    }
+
+
+    #[test]
+    fn external_verification_policy_is_explicit_and_fail_closed() {
+        let policy = FederationExternalVerificationTrustPolicyV1::try_new(
+            2,
+            ["rfc3161-verifier-v1", "ct-auditor-v1"],
+            [
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                FederationStateMachineTraceExternalVerificationClaim::TransparencyConsistencyVerified,
+            ],
+        )
+        .expect("valid policy must build");
+
+        assert_eq!(
+            policy.classify(
+                2,
+                "rfc3161-verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            ),
+            Ok(FederationExternalVerificationPolicyDecision::Admitted)
+        );
+        assert_eq!(
+            policy.classify(
+                1,
+                "rfc3161-verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            ),
+            Ok(FederationExternalVerificationPolicyDecision::VerifierSchemaTooOld)
+        );
+        assert_eq!(
+            policy.classify(
+                2,
+                "unadmitted-verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            ),
+            Ok(FederationExternalVerificationPolicyDecision::VerifierProfileNotAdmitted)
+        );
+        assert_eq!(
+            policy.classify(
+                2,
+                "rfc3161-verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
+            ),
+            Ok(FederationExternalVerificationPolicyDecision::VerificationClaimNotAdmitted)
+        );
+        assert_eq!(
+            policy.classify(
+                2,
+                "rfc3161-verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::Rejected,
+            ),
+            Ok(FederationExternalVerificationPolicyDecision::RejectedClaim)
+        );
+        assert!(matches!(
+            FederationExternalVerificationTrustPolicyV1::try_new(
+                1,
+                ["rfc3161-verifier-v1"],
+                [FederationStateMachineTraceExternalVerificationClaim::Rejected],
+            ),
+            Err(FederationExternalVerificationTrustPolicyViolation::AcceptedClaimsContainRejected)
+        ));
     }
 
     #[test]
@@ -4261,120 +4506,6 @@ mod tests {
         claimed_observed_at_unix_seconds: u64,
     }
 
-    /// An externally supplied verifier's claim about an anchor reference.
-    ///
-    /// This is a statement record, not a proof result. The reference model can
-    /// verify the exact binding of the statement to the anchor reference and
-    /// verifier-report bytes, but it does not verify the external claim itself.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    pub enum FederationStateMachineTraceExternalVerificationClaim {
-        CryptographicSignatureVerified,
-        TimestampTokenVerified,
-        TransparencyConsistencyVerified,
-        ArchiveEvidenceVerified,
-        Rejected,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct FederationStateMachineTraceExternalEvidenceVerificationStatement {
-        schema_version: u16,
-        statement_profile: String,
-        hash_algorithm: String,
-        hash_encoding: String,
-        anchor_reference_schema_version: u16,
-        anchor_reference_profile: String,
-        anchor_reference_sha256: String,
-        verifier_schema_version: u16,
-        verifier_profile: String,
-        verification_claim: FederationStateMachineTraceExternalVerificationClaim,
-        verifier_report_hash_algorithm: String,
-        verifier_report_hash_encoding: String,
-        verifier_report_sha256: String,
-        claimed_verified_at_unix_seconds: u64,
-        statement_sha256: String,
-    }
-
-    /// Typed read-only projection produced only after the external-evidence binding chain validates.
-    ///
-    /// This is an externally asserted verification result, not a locally verified proof or authority.
-    /// It intentionally omits `Deserialize`, private-key/trust-root fields, and authority fields.
-    ///
-    /// It is constructed only by the validated statement/anchor chain.
-    ///
-    /// ```compile_fail
-    /// use serde_json::from_str;
-    /// # use cos_conformance::federation::FederationStateMachineTraceExternalEvidenceVerificationResult;
-    /// let _: FederationStateMachineTraceExternalEvidenceVerificationResult = from_str("{}").unwrap();
-    /// ```
-    ///
-    /// ```compile_fail
-    /// # use cos_conformance::federation::{
-    /// #     FederationStateMachineTraceExternalEvidenceVerificationResult,
-    /// #     FederationStateMachineTraceExternalVerificationClaim,
-    /// # };
-    /// let _ = FederationStateMachineTraceExternalEvidenceVerificationResult {
-    ///     anchor_reference_sha256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
-    ///     anchor_reference_schema_version: 1,
-    ///     anchor_reference_profile: "anchor-v1".into(),
-    ///     verifier_schema_version: 1,
-    ///     verifier_profile: "verifier-v1".into(),
-    ///     claim: FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
-    ///     verifier_report_sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
-    ///     claimed_verified_at_unix_seconds: 1,
-    ///     statement_sha256: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
-    /// };
-    /// ```
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-    pub struct FederationStateMachineTraceExternalEvidenceVerificationResult {
-        anchor_reference_sha256: String,
-        anchor_reference_schema_version: u16,
-        anchor_reference_profile: String,
-        verifier_schema_version: u16,
-        verifier_profile: String,
-        claim: FederationStateMachineTraceExternalVerificationClaim,
-        verifier_report_sha256: String,
-        claimed_verified_at_unix_seconds: u64,
-        statement_sha256: String,
-    }
-
-    impl FederationStateMachineTraceExternalEvidenceVerificationResult {
-        pub fn anchor_reference_sha256(&self) -> &str {
-            &self.anchor_reference_sha256
-        }
-
-        pub fn anchor_reference_schema_version(&self) -> u16 {
-            self.anchor_reference_schema_version
-        }
-
-        pub fn anchor_reference_profile(&self) -> &str {
-            &self.anchor_reference_profile
-        }
-
-        pub fn verifier_schema_version(&self) -> u16 {
-            self.verifier_schema_version
-        }
-
-        pub fn verifier_profile(&self) -> &str {
-            &self.verifier_profile
-        }
-
-        pub fn claim(&self) -> FederationStateMachineTraceExternalVerificationClaim {
-            self.claim
-        }
-
-        pub fn verifier_report_sha256(&self) -> &str {
-            &self.verifier_report_sha256
-        }
-
-        pub fn claimed_verified_at_unix_seconds(&self) -> u64 {
-            self.claimed_verified_at_unix_seconds
-        }
-
-        pub fn statement_sha256(&self) -> &str {
-            &self.statement_sha256
-        }
-    }
     #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
     struct FederationStateMachineTraceExternalEvidenceVerificationStatementHashView {
         hash_domain: String,
