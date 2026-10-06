@@ -130,6 +130,7 @@ pub const FPM_ATTESTATION_CHALLENGE_USE_SCHEMA_VERSION: &str =
 pub struct FpmAttestationChallenge {
     pub schema_version: String,
     pub subject_id: String,
+    pub audience: String,
     pub acquisition_root_action: ActionHash,
     pub acquisition_root_digest: String,
     pub verifier_agent: AgentPubKey,
