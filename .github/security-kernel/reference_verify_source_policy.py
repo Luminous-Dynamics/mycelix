@@ -185,7 +185,7 @@ def verify_s2(raw: bytes, expected_policy_blob_sha: str) -> None:
     require_exact(lines, 'CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"', "S2 causal oracle path")
     require_exact(lines, 'SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"', "S2 policy oracle path")
     require_exact(lines, 'REFERENCE_VERIFIER_BLOB_SHA: "24b5ea20e3a5946b106c22ece9fedcdb85e9c7db"', "S2 binding oracle pin")
-    require_exact(lines, 'CAUSAL_JOIN_VERIFIER_BLOB_SHA: "2c9d4d48dab41255944e48300893a62c668b5d4a"', "S2 causal oracle pin")
+    require_exact(lines, 'CAUSAL_JOIN_VERIFIER_BLOB_SHA: "23033164c0f9f73fcea4976a02029977538b68e0"', "S2 causal oracle pin")
     require_exact(lines, f'SOURCE_POLICY_VERIFIER_BLOB_SHA: "{expected_policy_blob_sha}"', "S2 policy oracle self-pin")
     forbid(lines, ("actions: write", "contents: write", "pull-requests: write", "id-token:", "actions/upload-artifact@", "docker run ", "docker exec "), "S2 read-only verifier boundary")
     verify_action_pins(lines, {"actions/checkout": CHECKOUT_SHA})
