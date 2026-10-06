@@ -21,7 +21,7 @@ use hdk::prelude::*;
 use mycelix_finance_shared::{
     DEFAULT_RATE_LIMIT_PER_MINUTE, GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain,
     pick_race_winner, rate_limit_anchor_key, verify_governance_or_bootstrap_from_links,
-    verify_participant_tier,
+    verify_governance_registration_from_links, verify_participant_tier,
 };
 use mycelix_zome_helpers as _;
 
@@ -43,11 +43,23 @@ fn verify_governance_or_bootstrap() -> ExternResult<()> {
     verify_governance_or_bootstrap_from_links(gov_links)
 }
 
+fn verify_governance_registration_authority() -> ExternResult<()> {
+    let gov_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::GovernanceAgents,
+        )?,
+        GetStrategy::default(),
+    )?;
+    verify_governance_registration_from_links(gov_links)
+}
+
+
 /// Register a governance agent. Only existing governance agents can register
 /// new ones (or anyone during bootstrap when no agents exist yet).
 #[hdk_extern]
 pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
-    verify_governance_or_bootstrap()?;
+    verify_governance_registration_authority()?;
     create_link(
         anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
         agent,
