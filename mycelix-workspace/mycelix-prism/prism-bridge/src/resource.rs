@@ -55,7 +55,7 @@ impl ResourceIdentity {
 pub enum ResourceScopeV1 {
     ExactUrl(String),
     Origin(String),
-    Host(String),
+    Host { origin: String, host: String },
     PathPrefix { origin: String, path: String },
 }
 
@@ -72,7 +72,10 @@ impl ResourceScopeV1 {
 
     pub fn host(value: &str) -> Result<Self, ResourceError> {
         let identity = ResourceIdentity::parse_url(value)?;
-        Ok(Self::Host(identity.host().ok_or(ResourceError::MissingHost)?.to_owned()))
+        Ok(Self::Host {
+            origin: identity.origin(),
+            host: identity.host().ok_or(ResourceError::MissingHost)?.to_owned(),
+        })
     }
 
     pub fn path_prefix(origin: &str, path: &str) -> Result<Self, ResourceError> {
@@ -105,7 +108,9 @@ impl ResourceScopeV1 {
         match self {
             Self::ExactUrl(expected) => resource.as_url().to_string() == *expected,
             Self::Origin(expected) => resource.origin() == *expected,
-            Self::Host(expected) => resource.host() == Some(expected.as_str()),
+            Self::Host { origin, host } => {
+                resource.origin() == *origin && resource.host() == Some(host.as_str())
+            },
             Self::PathPrefix { origin, path } => {
                 resource.origin() == *origin
                     && (resource.path() == path
@@ -113,6 +118,116 @@ impl ResourceScopeV1 {
                             && (path.ends_with('/')
                                 || resource.path()[path.len()..].starts_with('/'))))
             }
+        }
+    }
+}
+
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NetworkAddressClassV1 {
+    Global,
+    Loopback,
+    LinkLocal,
+    Private,
+    Multicast,
+    Unspecified,
+    Reserved,
+}
+
+impl NetworkAddressClassV1 {
+    pub fn from_ip(ip: std::net::IpAddr) -> Self {
+        match ip {
+            std::net::IpAddr::V4(ip) => {
+                let octets = ip.octets();
+                if ip.is_loopback() {
+                    Self::Loopback
+                } else if ip.is_link_local() {
+                    Self::LinkLocal
+                } else if ip.is_private()
+                    || (octets[0] == 100 && (64..=127).contains(&octets[1]))
+                {
+                    Self::Private
+                } else if ip.is_multicast() {
+                    Self::Multicast
+                } else if ip.is_unspecified() {
+                    Self::Unspecified
+                } else if (octets[0] == 192 && octets[1] == 0 && octets[2] == 0)
+                    || (octets[0] == 192 && octets[1] == 0 && octets[2] == 2)
+                    || (octets[0] == 192 && octets[1] == 88 && octets[2] == 99)
+                    || (octets[0] == 198 && octets[1] == 18)
+                    || (octets[0] == 198 && octets[1] == 51 && octets[2] == 100)
+                    || (octets[0] == 203 && octets[1] == 0 && octets[2] == 113)
+                {
+                    Self::Reserved
+                } else {
+                    Self::Global
+                }
+            }
+            std::net::IpAddr::V6(ip) => {
+                let segments = ip.segments();
+                if let Some(mapped) = ip.to_ipv4_mapped() {
+                    return Self::from_ip(std::net::IpAddr::V4(mapped));
+                }
+                if ip.is_loopback() {
+                    Self::Loopback
+                } else if ip.is_unspecified() {
+                    Self::Unspecified
+                } else if ip.is_multicast() {
+                    Self::Multicast
+                } else if (segments[0] & 0xfe00) == 0xfc00 {
+                    Self::Private
+                } else if (segments[0] & 0xffc0) == 0xfe80 {
+                    Self::LinkLocal
+                } else if segments[0] == 0x2001
+                    && (segments[1] == 0x0db8)
+                {
+                    Self::Reserved
+                } else {
+                    Self::Global
+                }
+            }
+        }
+    }
+
+    pub fn allowed_for_public_web(self) -> bool {
+        matches!(self, Self::Global)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NetworkTargetPolicyV1 {
+    pub allow_private: bool,
+    pub allow_loopback: bool,
+    pub allow_link_local: bool,
+    pub allow_multicast: bool,
+    pub allow_unspecified: bool,
+    pub allow_reserved: bool,
+}
+
+impl Default for NetworkTargetPolicyV1 {
+    fn default() -> Self {
+        Self {
+            allow_private: false,
+            allow_loopback: false,
+            allow_link_local: false,
+            allow_multicast: false,
+            allow_unspecified: false,
+            allow_reserved: false,
+        }
+    }
+}
+
+impl NetworkTargetPolicyV1 {
+    pub fn allows(self, class: NetworkAddressClassV1) -> bool {
+        match class {
+            NetworkAddressClassV1::Global => true,
+            NetworkAddressClassV1::Private => self.allow_private,
+            NetworkAddressClassV1::Loopback => self.allow_loopback,
+            NetworkAddressClassV1::LinkLocal => self.allow_link_local,
+            NetworkAddressClassV1::Multicast => self.allow_multicast,
+            NetworkAddressClassV1::Unspecified => self.allow_unspecified,
+            NetworkAddressClassV1::Reserved => self.allow_reserved,
         }
     }
 }
@@ -146,10 +261,20 @@ mod tests {
     }
 
     #[test]
-    fn host_scope_does_not_match_a_suffix_attacker() {
+    fn host_scope_binds_scheme_and_effective_port() {
         let scope = ResourceScopeV1::host("https://cdn.example.com").unwrap();
-        assert!(scope.allows(&ResourceIdentity::parse_url("https://cdn.example.com/a").unwrap()));
-        assert!(!scope.allows(&ResourceIdentity::parse_url("https://cdn.example.com.attacker.invalid/a").unwrap()));
+        assert!(scope.allows(&ResourceIdentity::parse_url(
+            "https://cdn.example.com/a"
+        ).unwrap()));
+        assert!(!scope.allows(&ResourceIdentity::parse_url(
+            "http://cdn.example.com/a"
+        ).unwrap()));
+        assert!(!scope.allows(&ResourceIdentity::parse_url(
+            "https://cdn.example.com:8443/a"
+        ).unwrap()));
+        assert!(!scope.allows(&ResourceIdentity::parse_url(
+            "https://cdn.example.com.attacker.invalid/a"
+        ).unwrap()));
     }
 
     #[test]
@@ -185,6 +310,76 @@ mod tests {
         assert_eq!(
             ResourceIdentity::parse_url("https://user:secret@example.com/a"),
             Err(ResourceError::UserinfoNotAllowed)
+        );
+    }
+
+    #[test]
+    fn network_address_policy_denies_local_classes_by_default() {
+        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+        let policy = NetworkTargetPolicyV1::default();
+        assert!(policy.allows(NetworkAddressClassV1::from_ip(
+            IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34))
+        )));
+        assert!(!policy.allows(NetworkAddressClassV1::from_ip(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
+        )));
+        assert!(!policy.allows(NetworkAddressClassV1::from_ip(
+            IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1))
+        )));
+        assert!(!policy.allows(NetworkAddressClassV1::from_ip(
+            IpAddr::V6(Ipv6Addr::LOCALHOST)
+        )));
+    }
+
+    #[test]
+    fn ipv4_shared_and_mapped_addresses_are_not_global() {
+        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V4(Ipv4Addr::new(100, 64, 0, 1))),
+            NetworkAddressClassV1::Private
+        );
+        let mapped = "::ffff:10.0.0.1".parse::<Ipv6Addr>().unwrap();
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V6(mapped)),
+            NetworkAddressClassV1::Private
+        );
+    }
+
+    #[test]
+    fn documentation_and_benchmark_ranges_are_not_global() {
+        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1))),
+            NetworkAddressClassV1::Reserved
+        );
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 1))),
+            NetworkAddressClassV1::Reserved
+        );
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V6("2001:db8::1".parse::<Ipv6Addr>().unwrap())),
+            NetworkAddressClassV1::Reserved
+        );
+    }
+
+    #[test]
+    fn network_address_classification_is_explicit_for_ipv6_ula_and_link_local() {
+        use std::net::{IpAddr, Ipv6Addr};
+
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V6(
+                "fc00::1".parse::<Ipv6Addr>().unwrap()
+            )),
+            NetworkAddressClassV1::Private
+        );
+        assert_eq!(
+            NetworkAddressClassV1::from_ip(IpAddr::V6(
+                "fe80::1".parse::<Ipv6Addr>().unwrap()
+            )),
+            NetworkAddressClassV1::LinkLocal
         );
     }
 
