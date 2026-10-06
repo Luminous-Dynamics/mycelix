@@ -258,14 +258,62 @@ def certificate(
     return seq(tbs, SHA256_WITH_RSA, bit_string(rsa_sign(tbs, signer["n"], signer["d"])))
 
 
-def crl(issuer: str, signer: dict[str, int]) -> bytes:
-    tbs = seq(
+def crl_entry(serial: int, revocation_date: str, reason_code: int) -> bytes:
+    if serial <= 0:
+        raise ValueError("CRL revoked serial must be positive")
+    if reason_code not in {0, 1, 2, 3, 4, 5, 6, 8, 9, 10}:
+        raise ValueError("unsupported RFC 5280 CRLReason")
+    reason_extension = extension(
+        "2.5.29.21",
+        tlv(0x0A, bytes([reason_code])),
+    )
+    return seq(
+        integer(serial),
+        utc_time(revocation_date),
+        seq(reason_extension),
+    )
+
+
+def crl(
+    issuer: str,
+    signer: dict[str, int],
+    *,
+    crl_number: int,
+    this_update: str,
+    next_update: str,
+    revoked_entries: list[dict],
+) -> bytes:
+    if crl_number < 0:
+        raise ValueError("CRL number must be non-negative")
+    crl_extensions = seq(
+        extension("2.5.29.35", seq(tlv(0x80, ski(signer["n"], signer["e"])))),
+        extension("2.5.29.20", integer(crl_number)),
+    )
+    tbs_parts = [
         integer(1),
         SHA256_WITH_RSA,
         name(issuer),
-        utc_time("260101000000Z"),
-        utc_time("270101000000Z"),
-    )
+        utc_time(this_update),
+        utc_time(next_update),
+    ]
+    if revoked_entries:
+        serials = [int(entry["serial"]) for entry in revoked_entries]
+        if serials != sorted(set(serials)):
+            raise ValueError("CRL revoked serials must be strictly increasing")
+        tbs_parts.append(
+            seq(
+                *[
+                    crl_entry(
+                        int(entry["serial"]),
+                        str(entry["revocation_date"]),
+                        int(entry["reason_code"]),
+                    )
+                    for entry in revoked_entries
+                ]
+            )
+        )
+    tbs_parts.append(explicit(0, crl_extensions))
+    tbs = seq(*tbs_parts)
     return seq(tbs, SHA256_WITH_RSA, bit_string(rsa_sign(tbs, signer["n"], signer["d"])))
 
 
@@ -324,12 +372,25 @@ def generate(recipe: dict, output_dir: Path) -> None:
         ),
     }
 
+    crl_specs = recipe.get("crl_semantics")
+    if not isinstance(crl_specs, dict):
+        raise ValueError("recipe is missing crl_semantics")
     crl_bundle = b""
-    for issuer, signer in (
-        ("Mycelix Synthetic EK Root", root),
-        ("Mycelix Synthetic EK CA", intermediate),
+    for issuer_name, key_name in (
+        ("Mycelix Synthetic EK Root", "root"),
+        ("Mycelix Synthetic EK CA", "intermediate"),
     ):
-        der = crl(issuer, signer)
+        spec = crl_specs.get(key_name)
+        if not isinstance(spec, dict):
+            raise ValueError(f"missing CRL semantics for {key_name}")
+        der = crl(
+            issuer_name,
+            keys[key_name],
+            crl_number=int(spec["crl_number"]),
+            this_update=str(spec["this_update"]),
+            next_update=str(spec["next_update"]),
+            revoked_entries=list(spec["revoked_entries"]),
+        )
         crl_bundle += (
             b"-----BEGIN X509 CRL-----\n"
             + base64.b64encode(der)

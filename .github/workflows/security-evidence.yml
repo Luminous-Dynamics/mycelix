@@ -65,6 +65,7 @@ jobs:
           ak_attributes = json.loads(Path("docs/security/mycelix-ak-public-attributes-coherence-v0.1.json").read_text())
           ek_template = json.loads(Path("docs/security/mycelix-ek-template-appraisal-v0.1.json").read_text())
           cert_chain = json.loads(Path("docs/security/mycelix-ek-cert-chain-policy-v0.1.json").read_text())
+          fixture_recipe = json.loads(Path("docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json").read_text())
           trust_anchor_contract = json.loads(Path("docs/security/mycelix-ek-trust-anchor-appraisal-v0.1.json").read_text())
           assert trust_anchor_contract["profile_id"] == "mycelix.security.tpm.ek-trust-anchor-appraisal"
           assert trust_anchor_contract["claim_ceiling"] == "ReferenceModelOnly"
@@ -111,16 +112,27 @@ jobs:
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_chain["vectors"]) == 48
+          assert len(cert_chain["vectors"]) == 56
           assert cert_chain["parser_structural_control_count"] == 20
+          assert cert_chain["crl_semantics_control_count"] == 8
           assert [entry["id"] for entry in cert_chain["parser_structural_controls"]] == [
               "EKC-S01", "EKC-S02", "EKC-S03", "EKC-S04", "EKC-S05", "EKC-S06",
               "EKC-S07", "EKC-S08", "EKC-S09", "EKC-S10", "EKC-S11", "EKC-S12",
               "EKC-S13", "EKC-S14", "EKC-S15", "EKC-S16", "EKC-S17", "EKC-S18", "EKC-S19", "EKC-S20",
           ]
           assert all(entry["expected"] == "DENY" for entry in cert_chain["parser_structural_controls"])
+          assert [entry["id"] for entry in cert_chain["crl_semantics_controls"]] == [
+              "CRL-S01", "CRL-S02", "CRL-S03", "CRL-S04",
+              "CRL-S05", "CRL-S06", "CRL-S07", "CRL-S08",
+          ]
+          assert all(entry["expected"] == "DENY" for entry in cert_chain["crl_semantics_controls"])
           assert cert_chain["cryptographic_binding_composition"]["verifier_id"] == "mycelix.tpm.ek-fixture-crypto.v0.1"
-          assert cert_chain["cryptographic_binding_composition"]["required_fields"] == ["cryptographic_binding_sha256"]
+          assert cert_chain["cryptographic_binding_composition"]["required_fields"] == [
+              "cryptographic_binding_sha256",
+              "cryptographic_binding_source_sha256",
+              "cryptographic_binding_input_sha256",
+              "cryptographic_binding_output_sha256",
+          ]
           rf = cert_chain["reference_fixture"]
           assert rf["generation_mode"] == "deterministic-generated-synthetic"
           assert rf["fixture_paths"] == [
@@ -131,6 +143,12 @@ jobs:
           assert Path(rf["generator_path"]).is_file(), "missing EK fixture generator"
           import hashlib
           assert hashlib.sha256(Path(rf["recipe_path"]).read_bytes()).hexdigest() == rf["recipe_sha256"]
+          semantic_bytes = json.dumps(fixture_recipe["crl_semantics"], sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+          assert hashlib.sha256(semantic_bytes).hexdigest() == rf["crl_semantics_sha256"]
+          assert cert_chain["crl_semantics"] == fixture_recipe["crl_semantics"]
+          assert rf["crl_bundle_pem_sha256"] == fixture_recipe["expected_outputs"]["crl-bundle.pem"]
+          assert rf["root_crl_der_sha256"] == "2909c633b414913ff031e1224d41bfdc58d74c91f84d6c7705bd13194ab27b4e"
+          assert rf["intermediate_crl_der_sha256"] == "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8"
           assert rf["previous_frozen_fixture_status"].startswith("not-recoverable-from-Git-history")
           PY
 
