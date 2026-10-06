@@ -41,19 +41,19 @@ fn fpm_corpus_v1_expected_results() {
 
     let bed = analyze(&config, &baseline, &obs(102, sensor(210.0, 90.0, 1.0, 0.05, Some(100.0))))
         .expect("bed case should analyze");
-    assert!(bed.anomaly_types.contains(&ProcessAnomalyType::TemperatureDeviation));
+    assert!(bed.anomaly_types.contains(&ProcessProcessAnomalyType::TemperatureDeviation));
 
     let extruder = analyze(&config, &baseline, &obs(103, sensor(210.0, 60.0, 2.0, 0.05, Some(100.0))))
         .expect("extruder case should analyze");
-    assert!(extruder.anomaly_types.contains(&ProcessAnomalyType::ExtrusionInconsistency));
+    assert!(extruder.anomaly_types.contains(&ProcessProcessAnomalyType::ExtrusionInconsistency));
 
     let vibration = analyze(&config, &baseline, &obs(104, sensor(210.0, 60.0, 1.0, 0.5, Some(100.0))))
         .expect("vibration case should analyze");
-    assert!(vibration.anomaly_types.contains(&ProcessAnomalyType::VibrationAnomaly));
+    assert!(vibration.anomaly_types.contains(&ProcessProcessAnomalyType::VibrationAnomaly));
 
     let filament = analyze(&config, &baseline, &obs(105, sensor(210.0, 60.0, 1.0, 0.05, Some(500.0))))
         .expect("filament case should analyze");
-    assert!(filament.anomaly_types.contains(&ProcessAnomalyType::FilamentSlip));
+    assert!(filament.anomaly_types.contains(&ProcessProcessAnomalyType::FilamentSlip));
 
     let mut nonfinite = obs(106, sensor(210.0, 60.0, 1.0, 0.05, Some(100.0)));
     nonfinite.sensor.vibration_rms = f32::NAN;
