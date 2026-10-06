@@ -72,6 +72,8 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     assert workflow_run["repository"]["full_name"] == repo
     assert workflow_run["head_repository"]["full_name"] == repo
     assert workflow_run["head_branch"] == policy["source_branch"]
+    assert workflow_run["head_branch"] == os.environ["D6U_TRIGGER_HEAD_BRANCH"]
+    assert workflow_run["head_sha"] == os.environ["D6U_TRIGGER_HEAD_SHA"]
 
     run_id = workflow_run["id"]
     run_attempt = workflow_run["run_attempt"]
@@ -438,9 +440,10 @@ def main() -> None:
         maximum_total = int(policy["auditor_handoff"]["artifact_max_total_bytes"])
         maximum_archive = int(policy["auditor_handoff"]["artifact_max_archive_bytes"])
     else:
-        event = json.loads(
-            pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8")
-        )
+        event_path = pathlib.Path(os.environ["GITHUB_EVENT_PATH"])
+        event_bytes = event_path.read_bytes()
+        assert len(event_bytes) <= MAX_GITHUB_JSON_BYTES
+        event = json.loads(event_bytes)
         artifact = expected_artifact(repo, event, policy)
         maximums = policy["artifact_max_bytes"]
         expected_files = EXPECTED_FILES
