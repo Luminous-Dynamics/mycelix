@@ -24,6 +24,8 @@ env:
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "4de97e62dd81195c52750a5065631b08c092aac8"
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
   RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"
+  SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "9335c34b821214e663bb7118c0bc67f1790252fc"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -60,12 +62,18 @@ jobs:
           retention_reference_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$RETENTION_REFERENCE_VERIFIER_PATH" | awk '{print $3}')"
           printf "%s" "$retention_reference_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
           test "$retention_reference_verifier_blob_sha" = "$RETENTION_REFERENCE_VERIFIER_BLOB_SHA"
+          source_policy_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$SOURCE_POLICY_VERIFIER_PATH" | awk '{print $3}')"
+          printf "%s" "$source_policy_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          test "$source_policy_verifier_blob_sha" = "$SOURCE_POLICY_VERIFIER_BLOB_SHA"
+          test -f "$SOURCE_POLICY_VERIFIER_PATH"
+          export SOURCE_POLICY_VERIFIER_BLOB_SHA="$source_policy_verifier_blob_sha"
           test -f "$RETENTION_REFERENCE_VERIFIER_PATH"
           git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
           git merge-base --is-ancestor "$GITHUB_WORKFLOW_SHA" "refs/remotes/origin/main"
 
           export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
           python3 - <<'PY'
+          import base64 as _source_policy_base64
           import base64, datetime, hashlib, io, json, os, re, subprocess, urllib.error, urllib.parse, urllib.request, zipfile
 
           base = "https://api.github.com"
@@ -605,6 +613,57 @@ jobs:
               "independent_qualification": "metadata-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
+          def run_reference_source_policy():
+              expected = {
+                  "s0": os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"],
+                  "s1": os.environ["INDEPENDENT_WORKFLOW_PATH"],
+                  "s2": ".github/workflows/security-kernel-trusted-result-verifier.yml",
+                  "retention": os.environ["RETENTION_REFERENCE_VERIFIER_PATH"],
+                  "policy": os.environ["SOURCE_POLICY_VERIFIER_PATH"],
+              }
+              snapshot = {"schema": "security-kernel-source-policy-reference-v1", "files": {}}
+              for name, file_path in expected.items():
+                  blob_sha = subprocess.check_output(
+                      ["git", "ls-tree", os.environ["GITHUB_WORKFLOW_SHA"], "--", file_path],
+                      text=True,
+                  ).strip().split()[2]
+                  raw = subprocess.check_output(["git", "show", f"{os.environ['GITHUB_WORKFLOW_SHA']}:{file_path}"])
+                  assert hashlib.sha1(f"blob {len(raw)}\\0".encode("ascii") + raw).hexdigest() == blob_sha
+                  snapshot["files"][name] = {
+                      "path": file_path,
+                      "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                      "sha": blob_sha,
+                      "encoding": "base64",
+                      "content": _source_policy_base64.b64encode(raw).decode("ascii"),
+                  }
+              verifier = os.path.join(os.environ["GITHUB_WORKSPACE"], os.environ["SOURCE_POLICY_VERIFIER_PATH"])
+              with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+                  json.dump(snapshot, handle, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+                  snapshot_path = handle.name
+              try:
+                  output = subprocess.check_output(["python3", verifier, snapshot_path], text=True, stderr=subprocess.STDOUT, timeout=20)
+              except subprocess.CalledProcessError as exc:
+                  raise AssertionError(f"independent source-policy verifier rejected raw snapshot: {exc.output!r}") from exc
+              finally:
+                  os.unlink(snapshot_path)
+              result = json.loads(output)
+              expected_keys = {"schema", "policy_result", "workflow_file_count", "reference_file_count", "action_pins_verified", "exact_job_topologies_verified", "exact_trigger_topologies_verified", "exact_step_topologies_verified"}
+              assert set(result) == expected_keys, "source-policy reference result schema drift"
+              assert result["schema"] == "security-kernel-source-policy-reference-v1"
+              assert result["policy_result"] == "verified"
+              assert result["workflow_file_count"] == 3
+              assert result["reference_file_count"] == 2
+              assert result["action_pins_verified"] == 3
+              assert result["exact_job_topologies_verified"] == 3
+              assert result["exact_trigger_topologies_verified"] == 3
+              assert result["exact_step_topologies_verified"] == 3
+              return result
+
+          source_policy_reference_result = run_reference_source_policy()
+          source_policy_reference_result_sha256 = hashlib.sha256(
+              json.dumps(source_policy_reference_result, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+          ).hexdigest()
+          assert re.fullmatch(r"[0-9a-f]{64}", source_policy_reference_result_sha256)
           PY
 
 
