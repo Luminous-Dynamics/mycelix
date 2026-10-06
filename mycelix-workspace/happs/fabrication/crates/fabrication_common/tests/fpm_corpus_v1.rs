@@ -1,5 +1,5 @@
-use fabrication_common::fpm::{analyze, BaselineProfile, DetectorConfig, DetectionStatus, FpmError, ProcessObservation};
-use fabrication_common::{SensorSnapshot};
+use fabrication_common::fpm::{analyze, BaselineProfile, DetectorConfig, DetectionStatus, FpmError, ProcessAnomalyType, ProcessObservation};
+use fabrication_common::SensorSnapshot;
 
 fn sensor(hotend: f32, bed: f32, extruder: f32, vibration: f32, filament: Option<f32>) -> SensorSnapshot {
     SensorSnapshot {
@@ -37,23 +37,23 @@ fn fpm_corpus_v1_expected_results() {
     let hotend = analyze(&config, &baseline, &obs(101, sensor(250.0, 60.0, 1.0, 0.05, Some(100.0))))
         .expect("hotend case should analyze");
     assert_eq!(hotend.status, DetectionStatus::Anomalous);
-    assert!(hotend.anomaly_types.contains(&fabrication_common::fpm::ProcessAnomalyType::TemperatureDeviation));
+    assert!(hotend.anomaly_types.contains(&ProcessProcessAnomalyType::TemperatureDeviation));
 
     let bed = analyze(&config, &baseline, &obs(102, sensor(210.0, 90.0, 1.0, 0.05, Some(100.0))))
         .expect("bed case should analyze");
-    assert!(bed.anomaly_types.contains(&AnomalyType::TemperatureDeviation));
+    assert!(bed.anomaly_types.contains(&ProcessAnomalyType::TemperatureDeviation));
 
     let extruder = analyze(&config, &baseline, &obs(103, sensor(210.0, 60.0, 2.0, 0.05, Some(100.0))))
         .expect("extruder case should analyze");
-    assert!(extruder.anomaly_types.contains(&AnomalyType::ExtrusionInconsistency));
+    assert!(extruder.anomaly_types.contains(&ProcessAnomalyType::ExtrusionInconsistency));
 
     let vibration = analyze(&config, &baseline, &obs(104, sensor(210.0, 60.0, 1.0, 0.5, Some(100.0))))
         .expect("vibration case should analyze");
-    assert!(vibration.anomaly_types.contains(&AnomalyType::VibrationAnomaly));
+    assert!(vibration.anomaly_types.contains(&ProcessAnomalyType::VibrationAnomaly));
 
     let filament = analyze(&config, &baseline, &obs(105, sensor(210.0, 60.0, 1.0, 0.05, Some(500.0))))
         .expect("filament case should analyze");
-    assert!(filament.anomaly_types.contains(&AnomalyType::FilamentSlip));
+    assert!(filament.anomaly_types.contains(&ProcessAnomalyType::FilamentSlip));
 
     let mut nonfinite = obs(106, sensor(210.0, 60.0, 1.0, 0.05, Some(100.0)));
     nonfinite.sensor.vibration_rms = f32::NAN;
