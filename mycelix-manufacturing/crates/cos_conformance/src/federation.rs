@@ -341,7 +341,7 @@ fn state_machine_trace_external_witness_artifact_sha256(bytes: &[u8]) -> String 
     format!("sha256:{digest:x}")
 }
 
-fn state_machine_trace_external_verifier_identity_sha256(bytes: &[u8]) -> String {
+pub fn state_machine_trace_external_verifier_identity_sha256(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     format!("sha256:{digest:x}")
 }
@@ -3475,6 +3475,21 @@ mod tests {
         assert_eq!(admission.claim(), first.claim());
         assert_eq!(admission.statement_sha256(), first.statement_sha256());
 
+        let mut wrong_identity_digest = first.clone();
+        wrong_identity_digest.verifier_identity_sha256 =
+            state_machine_trace_external_verifier_identity_sha256(b"attacker-identity");
+        assert_eq!(
+            wrong_identity_digest.admit_under_policy(&policy),
+            Err(FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityDigestNotAdmitted)
+        );
+
+        let mut wrong_identity_profile = first.clone();
+        wrong_identity_profile.verifier_identity_profile = "different-identity-profile-v2".into();
+        assert_eq!(
+            wrong_identity_profile.admit_under_policy(&policy),
+            Err(FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityProfileNotAdmitted)
+        );
+
         let mut wrong_kind = first.clone();
         wrong_kind.witness_kind =
             FederationStateMachineTraceExternalWitnessKind::TransparencyLogHead;
@@ -3496,6 +3511,70 @@ mod tests {
                 FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete
             ))
         );
+    }
+
+    #[test]
+    fn external_verification_statement_identity_is_digest_bound() {
+        let subject_schema_version =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION;
+        let subject_profile =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE;
+        let subject_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let witness_artifact = b"identity-anchor";
+        let anchor_reference = state_machine_trace_external_evidence_anchor_reference(
+            subject_schema_version,
+            subject_profile,
+            subject_sha256,
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            witness_artifact,
+            1_791_002_000,
+        )
+        .expect("anchor reference must build");
+        let report = b"identity-report";
+
+        let left = state_machine_trace_external_evidence_verification_statement(
+            &anchor_reference.anchor_reference_sha256,
+            1,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"identity-A",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            report,
+            1_791_002_001,
+        )
+        .expect("left statement must build");
+        let right = state_machine_trace_external_evidence_verification_statement(
+            &anchor_reference.anchor_reference_sha256,
+            1,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"identity-B",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            report,
+            1_791_002_001,
+        )
+        .expect("right statement must build");
+
+        assert_ne!(left.verifier_identity_sha256(), right.verifier_identity_sha256());
+        assert_ne!(left.statement_sha256(), right.statement_sha256());
+
+        validate_state_machine_trace_external_evidence_verification_statement_binding(
+            &anchor_reference.anchor_reference_sha256,
+            report,
+            &left,
+        )
+        .expect("left structural binding must validate");
+        validate_state_machine_trace_external_evidence_verification_statement_binding(
+            &anchor_reference.anchor_reference_sha256,
+            report,
+            &right,
+        )
+        .expect("right structural binding must validate");
     }
 
     #[test]
