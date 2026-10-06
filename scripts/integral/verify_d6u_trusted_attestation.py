@@ -23,6 +23,10 @@ NONCLAIMS = [
 ]
 
 
+
+if not __debug__:
+    raise RuntimeError("trusted D6U program must not run with Python optimization enabled")
+
 def require(condition: bool, message: str = "verification invariant failed") -> None:
     if not condition:
         raise AssertionError(message)
