@@ -105,6 +105,14 @@ jobs:
           assert "api_base_ref" in text
           assert "git rev-parse HEAD^{tree}" in text
           assert "git status --porcelain --untracked-files=no" in text
+          assert "git archive --format=tar" in text
+          assert "mycelix-finance crates" in text
+          assert "finance-qualification-test" in text
+          assert "chmod 0555" in text
+          assert "env -i" in text
+          assert "CARGO_TARGET_DIR" in text
+          assert "CARGO_HOME" in text
+          assert "GITHUB_TOKEN" not in text
           PY
 
       - name: Resolve exact qualification subject
@@ -188,15 +196,114 @@ jobs:
           test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
           test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
 
-      - name: Check Finance formatting
+      - name: Prepare isolated Finance execution identity
+        id: isolation
+        run: |
+          set -euo pipefail
+
+          subject_dir="/tmp/mycelix-finance-qualification-${GITHUB_RUN_ID}"
+          cargo_home="/tmp/mycelix-finance-cargo-${GITHUB_RUN_ID}"
+          cargo_target="/tmp/mycelix-finance-target-${GITHUB_RUN_ID}"
+          test_home="/tmp/mycelix-finance-home-${GITHUB_RUN_ID}"
+
+          rm -rf "${subject_dir}" "${cargo_home}" "${cargo_target}" "${test_home}"
+          mkdir -p "${subject_dir}" "${cargo_home}" "${cargo_target}" "${test_home}"
+
+          # Candidate code never executes from the trusted Git worktree.
+          # Export only Finance and its local crate dependency closure from
+          # the exact already-verified candidate commit.
+          git archive --format=tar "${{ steps.checkout.outputs.tested_head_sha }}" \
+            mycelix-finance crates | tar -xf - -C "${subject_dir}"
+
+          # Reject committed symlinks in the executed source closure so a
+          # candidate path cannot redirect outside the immutable root.
+          test -z "$(find "${subject_dir}" -type l -print -quit)"
+
+          finance_tree_sha="$(git rev-parse "${{ steps.checkout.outputs.tested_head_sha }}:mycelix-finance")"
+          crates_tree_sha="$(git rev-parse "${{ steps.checkout.outputs.tested_head_sha }}:crates")"
+
+          sudo chown -R root:root "${subject_dir}"
+          sudo find "${subject_dir}" -type d -exec chmod 0555 {} +
+          sudo find "${subject_dir}" -type f -exec chmod 0444 {} +
+
+          if id finance-qualification-test >/dev/null 2>&1; then
+            sudo userdel finance-qualification-test || true
+          fi
+          sudo useradd --system --no-create-home --shell /usr/sbin/nologin finance-qualification-test
+
+          rust_bin="$(rustup which rustc --toolchain 1.96.1)"
+          cargo_bin="$(rustup which cargo --toolchain 1.96.1)"
+          rustdoc_bin="$(rustup which rustdoc --toolchain 1.96.1)"
+          rust_dir="$(dirname "${rust_bin}")"
+
+          sudo chown -R finance-qualification-test:finance-qualification-test \
+            "${cargo_home}" "${cargo_target}" "${test_home}"
+
+          {
+            printf 'subject_dir=%s\\n' "${subject_dir}"
+            printf 'cargo_home=%s\\n' "${cargo_home}"
+            printf 'cargo_target=%s\\n' "${cargo_target}"
+            printf 'test_home=%s\\n' "${test_home}"
+            printf 'rust_bin=%s\\n' "${rust_bin}"
+            printf 'cargo_bin=%s\\n' "${cargo_bin}"
+            printf 'rustdoc_bin=%s\\n' "${rustdoc_bin}"
+            printf 'rust_dir=%s\\n' "${rust_dir}"
+            printf 'finance_tree_sha=%s\\n' "${finance_tree_sha}"
+            printf 'crates_tree_sha=%s\\n' "${crates_tree_sha}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Check Finance formatting as isolated test identity
         id: fmt
-        run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
+        run: |
+          set -euo pipefail
+          test_user=finance-qualification-test
 
-      - name: Run Finance workspace tests
+          sudo -u "${test_user}" env -i \
+            HOME="${{ steps.isolation.outputs.test_home }}" \
+            PATH="${{ steps.isolation.outputs.rust_dir }}:/usr/bin:/bin" \
+            CARGO_HOME="${{ steps.isolation.outputs.cargo_home }}" \
+            CARGO_TARGET_DIR="${{ steps.isolation.outputs.cargo_target }}" \
+            CARGO_TERM_COLOR=never \
+            RUSTC="${{ steps.isolation.outputs.rust_bin }}" \
+            RUSTDOC="${{ steps.isolation.outputs.rustdoc_bin }}" \
+            TMPDIR="${{ steps.isolation.outputs.test_home }}" \
+            "${{ steps.isolation.outputs.cargo_bin }}" \
+              fmt --manifest-path "${{ steps.isolation.outputs.subject_dir }}/mycelix-finance/Cargo.toml" \
+              --all -- --check
+
+      - name: Run Finance workspace tests as isolated test identity
         id: tests
-        run: cargo test --workspace --manifest-path mycelix-finance/Cargo.toml --locked
+        run: |
+          set -euo pipefail
+          test_user=finance-qualification-test
 
-      - name: Assert executed worktree remained immutable
+          sudo -u "${test_user}" env -i \
+            HOME="${{ steps.isolation.outputs.test_home }}" \
+            PATH="${{ steps.isolation.outputs.rust_dir }}:/usr/bin:/bin" \
+            CARGO_HOME="${{ steps.isolation.outputs.cargo_home }}" \
+            CARGO_TARGET_DIR="${{ steps.isolation.outputs.cargo_target }}" \
+            CARGO_TERM_COLOR=never \
+            RUSTC="${{ steps.isolation.outputs.rust_bin }}" \
+            RUSTDOC="${{ steps.isolation.outputs.rustdoc_bin }}" \
+            TMPDIR="${{ steps.isolation.outputs.test_home }}" \
+            "${{ steps.isolation.outputs.cargo_bin }}" \
+              test --workspace --manifest-path "${{ steps.isolation.outputs.subject_dir }}/mycelix-finance/Cargo.toml" --locked
+
+      - name: Assert isolated candidate source remained immutable
+        id: source_immutability
+        if: always()
+        run: |
+          set -euo pipefail
+          source_dir="${{ steps.isolation.outputs.subject_dir }}"
+          test -d "${source_dir}"
+          test -z "$(sudo find "${source_dir}" -type f -writable -print)"
+          test -z "$(sudo find "${source_dir}" -type d -writable -print)"
+          test -z "$(sudo find "${source_dir}" -type l -print -quit)"
+          test -n "${{ steps.isolation.outputs.test_home }}"
+          test -n "${{ steps.isolation.outputs.cargo_home }}"
+          test -n "${{ steps.isolation.outputs.cargo_target }}"
+
+      - name: Assert trusted worktree remained immutable
         id: tree_immutability
         if: always()
         run: |
@@ -215,6 +322,7 @@ jobs:
           if [ "${{ steps.fmt.outcome }}" = "success" ] &&
              [ "${{ steps.tests.outcome }}" = "success" ] &&
              [ "${{ steps.artifact_guard.outcome }}" = "success" ] &&
+             [ "${{ steps.source_immutability.outcome }}" = "success" ] &&
              [ "${{ steps.tree_immutability.outcome }}" = "success" ]; then
             result=PASS
           fi
@@ -231,6 +339,14 @@ jobs:
           head_repository=${{ steps.subject.outputs.head_repository }}
           base_repository=${{ steps.subject.outputs.base_repository }}
           resolution_mode=${{ steps.subject.outputs.resolution_mode }}
+          candidate_execution_identity=finance-qualification-test
+          candidate_source_snapshot=${{ steps.isolation.outputs.subject_dir || '' }}
+          candidate_source_read_only=true
+          candidate_build_state=${{ steps.isolation.outputs.cargo_target || '' }}
+          candidate_cargo_home=${{ steps.isolation.outputs.cargo_home || '' }}
+          finance_source_tree_sha=${{ steps.isolation.outputs.finance_tree_sha || '' }}
+          crates_source_tree_sha=${{ steps.isolation.outputs.crates_tree_sha || '' }}
+          qualification_source_roots=mycelix-finance,crates
           upstream_request_run_id=${{ github.event.workflow_run.id || '' }}
           upstream_request_run_attempt=${{ github.event.workflow_run.run_attempt || '' }}
           workflow_run_id=${{ github.run_id }}
