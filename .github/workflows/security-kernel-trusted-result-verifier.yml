@@ -19,7 +19,7 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "84d3f4cc3d8244f863fd8be1f6bf5b70315ad26b"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "36b4c854d558f477ca3d7881f0d01f16be54e863"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "d9b1663e7824011e4b21fef0fa9e76d991cccbbd"
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
