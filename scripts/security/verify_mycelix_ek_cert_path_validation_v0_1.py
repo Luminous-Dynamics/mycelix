@@ -179,11 +179,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-path-") as td:
         work = Path(td)
-        (work / "leaf.pem").write_bytes(
-            b"-----BEGIN CERTIFICATE-----\n"
-            + base64.encodebytes(leaf).replace(b"\n", b"")
-        )
-        # Use openssl's DER -> PEM conversion so generated PEM is unambiguous and
+        # Use OpenSSL's DER -> PEM conversion so generated PEM is unambiguous;
         # the path verifier remains authoritative over the exact input DER.
         for name, raw in (
             ("leaf", leaf),
@@ -297,6 +293,22 @@ def self_test() -> int:
     observed = verify(manifest)
     if observed["state"] not in {"PASS", "DENY", "INDETERMINATE"}:
         print("canonical path-validation state: FAIL")
+        return 1
+    tampered = dict(manifest)
+    tampered["execution_binding_sha256"] = "aa" * 32
+    if verify(tampered)["state"] != "DENY":
+        print("execution-binding substitution: FAIL")
+        return 1
+    tampered = dict(manifest)
+    tampered["leaf_certificate_sha256"] = "bb" * 32
+    if verify(tampered)["state"] != "DENY":
+        print("certificate digest substitution: FAIL")
+        return 1
+    tampered = dict(manifest)
+    tampered["verification_time_unix"] += 1
+    tampered["execution_binding_sha256"] = expected_input_binding(tampered)
+    if verify(tampered)["state"] not in {"DENY", "INDETERMINATE"}:
+        print("verification-time substitution: FAIL")
         return 1
     if observed["state"] == "PASS":
         print("EK certificate path-validation semantic corpus: PASS")
