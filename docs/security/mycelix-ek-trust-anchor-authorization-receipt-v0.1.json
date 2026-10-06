@@ -1,0 +1,11 @@
+{
+  "receipt_id": "mycelix.synthetic-ek-root-authorization.v0.1",
+  "receipt_version": "0.1.0",
+  "registry_id": "mycelix.ek-trust-anchor-registry",
+  "registry_file_sha256": "75fed8d2a006eb6cbc32517ee4053c08c7dfe7162e9a0eb197c9f26b6721a376",
+  "root_certificate_sha256": "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab",
+  "authorization_state": "PASS",
+  "authorization_class": "synthetic-reference-fixture",
+  "claim_ceiling": "ReferenceModelOnly",
+  "notes": "Synthetic authorization receipt for deterministic reference-model testing; it is not an out-of-band manufacturer trust authorization."
+}
