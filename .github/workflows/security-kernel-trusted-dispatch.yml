@@ -114,59 +114,11 @@ jobs:
           s1_blob_sha = s1_file["sha"]
           dispatcher_text = decode_file(dispatcher_file)
           registered_s1 = re.findall(
-              r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"candidate_pr={pr_number}\n")
-              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
-              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
-              output.write(f"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\n")
-          PY
-
-  qualify:
-    name: Execute exact candidate qualification
-    needs: resolve
-    permissions:
-      actions: read
-      contents: read
-      pull-requests: read
-    cache-mode: none
-    uses: ./.github/workflows/security-kernel-independent-qualification.yml
-    with:
-      candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
-      candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
-      candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
-      candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
-      trusted_workflow_blob_sha: "4de97e62dd81195c52750a5065631b08c092aac8"
-
-,
+              r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*$',
               dispatcher_text,
           )
           delegated_s1 = re.findall(
-              r'(?m)^\s*trusted_workflow_blob_sha:\s*"([0-9a-f]{40})"\s*          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"candidate_pr={pr_number}\n")
-              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
-              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
-              output.write(f"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\n")
-          PY
-
-  qualify:
-    name: Execute exact candidate qualification
-    needs: resolve
-    permissions:
-      actions: read
-      contents: read
-      pull-requests: read
-    cache-mode: none
-    uses: ./.github/workflows/security-kernel-independent-qualification.yml
-    with:
-      candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
-      candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
-      candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
-      candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
-      trusted_workflow_blob_sha: "4de97e62dd81195c52750a5065631b08c092aac8"
-
-,
+              r'(?m)^\s*trusted_workflow_blob_sha:\s*"([0-9a-f]{40})"\s*$',
               dispatcher_text,
           )
           assert len(registered_s1) == 1, f"expected exactly one registered S1 blob pin, found {len(registered_s1)}"
@@ -178,7 +130,6 @@ jobs:
               "S0 reusable-workflow input pin is stale or does not match the S1 workflow at the executing commit"
           )
           print("PASS: S0 registered S1 trust pin and delegated S1 input both match the exact S1 workflow blob")
-
           print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"candidate_pr={pr_number}\n")
