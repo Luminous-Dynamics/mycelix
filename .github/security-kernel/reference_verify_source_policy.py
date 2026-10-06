@@ -210,6 +210,40 @@ def require_explicit_bash_for_run_steps(lines_: list[str], description: str) -> 
             fail(f"{description}: every trusted run step must explicitly declare shell: bash")
 
 
+def require_step_execution_modes(lines_: list[str], description: str) -> None:
+    steps = []
+    current = None
+    def flush() -> None:
+        if current is None:
+            return
+        modes = current["run"] + current["uses"]
+        if len(modes) != 1:
+            fail(f"{description}: step {current['name']!r} must contain exactly one run/uses execution mode")
+        if current["run"] and len(current["shell"]) != 1:
+            fail(f"{description}: run step {current['name']!r} must contain exactly one shell: bash")
+        if current["run"] and current["shell"] != ["bash"]:
+            fail(f"{description}: run step {current['name']!r} must explicitly use shell: bash")
+        if current["uses"] and current["shell"]:
+            fail(f"{description}: uses step {current['name']!r} must not declare a shell")
+
+    for line in lines_:
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if match:
+            flush()
+            current = {"name": match.group(1), "run": [], "uses": [], "shell": []}
+            steps.append(current)
+            continue
+        if current is None:
+            continue
+        if re.fullmatch(r"\s{8}run:\s*\|?\s*", line):
+            current["run"].append(line)
+        elif re.fullmatch(r"\s{8}uses:\s+.+", line):
+            current["uses"].append(line)
+        elif re.fullmatch(r"\s{8}shell:\s+(.+)\s*", line):
+            current["shell"].append(re.fullmatch(r"\s{8}shell:\s+(.+)\s*", line).group(1))
+    flush()
+
+
 def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
     current_name = None
     counts = {}
@@ -310,6 +344,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_no_yaml_reuse_syntax(l, S0)
     require_explicit_bash_for_run_steps(l, S0)
     require_no_duplicate_step_keys(l, S0)
+    require_step_execution_modes(l, S0)
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
         fail("S0 must remain metadata-only")
@@ -349,6 +384,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_yaml_reuse_syntax(l, S1)
     require_explicit_bash_for_run_steps(l, S1)
     require_no_duplicate_step_keys(l, S1)
+    require_step_execution_modes(l, S1)
     for required in (
         "--network=bridge",
         "--network=none",
@@ -424,6 +460,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_no_yaml_reuse_syntax(l, S2)
     require_explicit_bash_for_run_steps(l, S2)
     require_no_duplicate_step_keys(l, S2)
+    require_step_execution_modes(l, S2)
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
     require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: success()", "S2 transcript download gate")
