@@ -170,7 +170,7 @@ def parse_extensions(wrapper: bytes) -> dict[str, dict[str, Any]]:
         critical = False
         next_tag, next_content, _next_raw, next_offset = tlv(ext_content, offset)
         if next_tag == 0x01:
-            if next_content != b"\\xff":
+            if next_content != b"\xff":
                 raise ValueError("X.509 Extension critical BOOLEAN must encode TRUE")
             critical = True
             next_tag, next_content, _next_raw, next_offset = tlv(ext_content, next_offset)
@@ -401,9 +401,9 @@ def verify_signature(tbs: bytes, signature: bytes, issuer_n: int, issuer_e: int)
         raise ValueError("signature representative out of range")
     encoded = pow(s, issuer_e, issuer_n).to_bytes(width, "big")
     digest = SHA256_DI + hashlib.sha256(tbs).digest()
-    if not encoded.startswith(b"\\x00\\x01"):
+    if not encoded.startswith(b"\x00\x01"):
         raise ValueError("PKCS#1 v1.5 header invalid")
-    zero = encoded.find(b"\\x00", 2)
+    zero = encoded.find(b"\x00", 2)
     if zero < 10 or any(b != 0xFF for b in encoded[2:zero]) or encoded[zero+1:] != digest:
         raise ValueError("RSA/SHA-256 signature invalid")
 
