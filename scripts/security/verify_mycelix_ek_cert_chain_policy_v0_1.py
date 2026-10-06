@@ -207,7 +207,11 @@ def der_tlv(data: bytes, offset: int) -> tuple[int, bytes, bytes, int]:
             raise ValueError("DER indefinite length forbidden")
         if count > 4 or offset + count > len(data):
             raise ValueError("DER length invalid")
+        if data[offset] == 0:
+            raise ValueError("DER non-canonical length")
         length = int.from_bytes(data[offset : offset + count], "big")
+        if length < 128:
+            raise ValueError("DER long-form length used for short value")
         offset += count
     end = offset + length
     if end > len(data):
@@ -1632,6 +1636,13 @@ def self_test() -> int:
             return 1
         if "x509_text(" in implementation_source or "x509_scalar(" in implementation_source or "extension(leaf_text" in implementation_source:
             print("human-readable certificate text remains security-authoritative: FAIL")
+            return 1
+        try:
+            der_tlv(b"\x04\x81\x01\x00", 0)
+        except ValueError:
+            pass
+        else:
+            print("non-canonical DER length acceptance: FAIL")
             return 1
         duplicate_extension = der_tlv(
             0x30,
