@@ -509,6 +509,16 @@ def expected_crl_semantics_check(
 
 def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     try:
+        recipe_path = Path(__file__).resolve().parents[2] / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
+        recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+        expected_recipe_semantics = recipe["crl_semantics"]
+        if manifest.get("expected_crl_semantics") != expected_recipe_semantics:
+            return result("DENY", "crl-semantics-recipe-projection-mismatch")
+        expected_semantics_sha = canonical_hash(expected_recipe_semantics)
+        if manifest.get("expected_crl_semantics_sha256") != expected_semantics_sha:
+            return result("DENY", "crl-semantics-recipe-digest-mismatch")
+        if manifest.get("verification_time_unix") is None:
+            return result("DENY", "verification-time-missing")
         leaf = base64.b64decode(manifest["leaf_certificate_der_base64"], validate=True)
         intermediate = base64.b64decode(manifest["intermediate_certificate_der_base64"], validate=True)
         root = base64.b64decode(manifest["trust_anchor_root_der_base64"], validate=True)
@@ -622,6 +632,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             },
             "crl_signatures": crl_results,
             "crl_semantics_sha256": crl_semantics_sha256,
+            "crl_semantics_recipe": expected_crl_semantics,
             "crl_semantics": {
                 label: {
                     "object_sha256": crl_results[label]["object_sha256"],
