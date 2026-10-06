@@ -53,7 +53,6 @@ jobs:
           persist-credentials: false
 
       - name: Verify trusted pull-request-target invocation
-        shell: bash
         env:
           TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.run_id }}
