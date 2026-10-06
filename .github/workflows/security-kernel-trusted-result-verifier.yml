@@ -24,7 +24,7 @@ env:
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
-  REFERENCE_VERIFIER_BLOB_SHA: "4cdb9ec315014114cbe4137a9339db515d89d2fd"
+  REFERENCE_VERIFIER_BLOB_SHA: "0bacbb041d980e5eafdf82ccf1d86e321bc369cc"
 
 jobs:
   verify:
@@ -101,8 +101,8 @@ jobs:
           assert run["repository"]["full_name"] == repo
           assert run["repository"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
           assert run["workflow_ref"] == f"{repo}/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}@refs/heads/main"
-          assert run.get("run_attempt") == run_attempt
-          assert isinstance(run.get("run_number"), int) and run["run_number"] >= 1
+          assert type(run.get("run_attempt")) is int and run["run_attempt"] == run_attempt
+          assert type(run.get("run_number")) is int and run["run_number"] >= 1
 
           workflow_sha = run.get("workflow_sha")
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected dispatcher workflow_sha: {workflow_sha!r}"
@@ -421,7 +421,9 @@ jobs:
           assert artifact_by_id.get("workflow_run") == artifact_run, (
               "artifact workflow_run provenance changed between exact-name list and exact-ID lookup"
           )
-          assert int(artifact.get("size_in_bytes", 0)) > 0, "qualification receipt artifact is empty"
+          assert type(artifact.get("size_in_bytes")) is int and artifact["size_in_bytes"] > 0, (
+              "qualification receipt artifact has an invalid or empty size"
+          )
           artifact_digest = artifact.get("digest")
           assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest or ""), (
               f"unexpected qualification receipt artifact digest: {artifact_digest!r}"
