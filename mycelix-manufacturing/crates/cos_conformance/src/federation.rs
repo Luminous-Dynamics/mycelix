@@ -1867,6 +1867,84 @@ pub fn run_scenario(
         );
     }
 
+
+    #[test]
+    fn external_evidence_verification_statement_chain_validates_end_to_end_binding() {
+        let subject_schema_version =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION;
+        let subject_profile =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE;
+        let subject_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let anchor_witness = b"externally-retained-anchor-record";
+        let anchor_reference =
+            state_machine_trace_external_evidence_anchor_reference(
+                subject_schema_version,
+                subject_profile,
+                subject_sha256,
+                FederationStateMachineTraceExternalWitnessKind::ArchiveEvidenceRecord,
+                1,
+                "external-archive-evidence-record-v1",
+                anchor_witness,
+                1_791_000_600,
+            )
+            .expect("anchor reference must build");
+        let verifier_report = b"external-verifier-report-v1";
+        let statement =
+            state_machine_trace_external_evidence_verification_statement(
+                &anchor_reference.anchor_reference_sha256,
+                1,
+                "archive-verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
+                verifier_report,
+                1_791_000_601,
+            )
+            .expect("verification statement must build");
+
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_chain(
+                subject_schema_version,
+                subject_profile,
+                subject_sha256,
+                anchor_witness,
+                &anchor_reference,
+                verifier_report,
+                &statement,
+            ),
+            Ok(())
+        );
+
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_chain(
+                subject_schema_version,
+                subject_profile,
+                subject_sha256,
+                b"changed-anchor-record",
+                &anchor_reference,
+                verifier_report,
+                &statement,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceDigestMismatch
+            )
+        );
+
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_chain(
+                subject_schema_version,
+                subject_profile,
+                subject_sha256,
+                anchor_witness,
+                &anchor_reference,
+                b"changed-verifier-report",
+                &statement,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportDigestMismatch
+            )
+        );
+    }
+
     #[test]
     fn external_evidence_verification_statement_binds_anchor_and_verifier_report() {
         let anchor_reference_sha256 =
@@ -6013,6 +6091,35 @@ builder gates remove        if !state_machine_trace_is_sha256_digest(anchor_refe
             );
         }
         Ok(())
+    }
+
+    fn validate_state_machine_trace_external_evidence_verification_statement_chain(
+        subject_schema_version: u16,
+        subject_profile: &str,
+        subject_sha256: &str,
+        anchor_witness_artifact: &[u8],
+        anchor_reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
+        verifier_report: &[u8],
+        statement: &FederationStateMachineTraceExternalEvidenceVerificationStatement,
+    ) -> Result<
+        (),
+        FederationStateMachineTraceExternalEvidenceVerificationStatementViolation,
+    > {
+        validate_state_machine_trace_external_evidence_anchor_reference(
+            subject_schema_version,
+            subject_profile,
+            subject_sha256,
+            anchor_witness_artifact,
+            anchor_reference,
+        )
+        .map_err(|_| {
+            FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceDigestMismatch
+        })?;
+        validate_state_machine_trace_external_evidence_verification_statement_binding(
+            &anchor_reference.anchor_reference_sha256,
+            verifier_report,
+            statement,
+        )
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
