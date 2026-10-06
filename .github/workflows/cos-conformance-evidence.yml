@@ -141,6 +141,7 @@ jobs:
           cargo run -q -p cos_conformance --bin cos-report > ../evidence/cos-conformance-report.json
 
       - name: Validate evidence report
+        id: validate_evidence_report
         run: |
           python - <<'PY'
           import json
@@ -158,6 +159,13 @@ jobs:
 
       - name: Write run envelope
         if: always()
+        env:
+          TRIGGER_SHA: ${{ github.sha }}
+          REQUESTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          CONFORMANCE_TEST_OUTCOME: ${{ steps.conformance_test.outcome || 'skipped' }}
+          REPORT_VALIDATION_OUTCOME: ${{ steps.validate_evidence_report.outcome || 'skipped' }}
         run: |
           test_exit_code="null"
           if [[ -f evidence/cargo-test.exit-code ]]; then
@@ -175,16 +183,27 @@ jobs:
           if [[ -f evidence/cargo-lock-sha256.txt ]]; then
             dependency_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
           fi
+          case "${CONFORMANCE_TEST_OUTCOME}:${REPORT_VALIDATION_OUTCOME}" in
+            success:success)
+              qualification_result="passed"
+              ;;
+            skipped:skipped|cancelled:skipped|skipped:cancelled|cancelled:cancelled)
+              qualification_result="not_run"
+              ;;
+            *)
+              qualification_result="failed"
+              ;;
+          esac
           cat > evidence/run-envelope.json <<JSON
           {
             "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1",
             "claim_ceiling": "ReferenceModelOnly",
-            "repository": "${{ github.repository }}",
-            "trigger_sha": "${{ github.sha }}",
-            "requested_head_sha": "${{ github.event.pull_request.head.sha || github.sha }}",
+            "repository": "$HEAD_REPOSITORY",
+            "trigger_sha": "$TRIGGER_SHA",
+            "requested_head_sha": "$REQUESTED_HEAD_SHA",
             "tested_commit_sha": "$tested_commit_sha",
-            "head_repository": "${{ github.event.pull_request.head.repo.full_name || github.repository }}",
-            "workflow": "${{ github.workflow }}",
+            "head_repository": "$HEAD_REPOSITORY",
+            "workflow": "$WORKFLOW_NAME",
             "executing_workflow_sha": "$(cat evidence/executing-workflow-sha.txt 2>/dev/null || printf %s null)",
             "executing_workflow_ref": "$(cat evidence/executing-workflow-ref.txt 2>/dev/null || printf %s null)",
             "checked_out_workflow_file_blob_sha": "$(cat evidence/checked-out-workflow-file-blob-sha.txt 2>/dev/null || printf %s null)",
@@ -195,8 +214,10 @@ jobs:
             "run_attempt": ${{ github.run_attempt }},
             "event": "${{ github.event_name }}",
             "runner_os": "${{ runner.os }}",
-            "conformance_test_outcome": "${{ steps.conformance_test.outcome }}",
-            "conformance_test_exit_code": $test_exit_code
+            "qualification_result": "$qualification_result",
+            "conformance_test_outcome": "$CONFORMANCE_TEST_OUTCOME",
+            "conformance_test_exit_code": $test_exit_code,
+            "report_validation_outcome": "$REPORT_VALIDATION_OUTCOME"
           }
           JSON
 
@@ -226,9 +247,28 @@ jobs:
           assert git_sha_re.fullmatch(envelope["checked_out_workflow_file_blob_sha"])
           assert all(git_sha_re.fullmatch(sha) for sha in envelope["workflow_action_refs"].values())
           assert envelope["requested_head_sha"] == envelope["tested_commit_sha"]
-          assert envelope["conformance_test_exit_code"] is None or isinstance(
-              envelope["conformance_test_exit_code"], int
-          )
+          assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
+          allowed_outcomes = {"success", "failure", "cancelled", "skipped"}
+          assert envelope["conformance_test_outcome"] in allowed_outcomes
+          assert envelope["report_validation_outcome"] in allowed_outcomes
+          exit_code = envelope["conformance_test_exit_code"]
+          if envelope["conformance_test_outcome"] == "success":
+              assert exit_code == 0
+          elif envelope["conformance_test_outcome"] == "failure":
+              assert isinstance(exit_code, int) and exit_code != 0
+          else:
+              assert exit_code is None
+          if envelope["qualification_result"] == "passed":
+              assert envelope["conformance_test_outcome"] == "success"
+              assert envelope["report_validation_outcome"] == "success"
+          elif envelope["qualification_result"] == "not_run":
+              assert envelope["conformance_test_outcome"] in {"skipped", "cancelled"}
+              assert envelope["report_validation_outcome"] in {"skipped", "cancelled"}
+          else:
+              assert (
+                  envelope["conformance_test_outcome"] != "success"
+                  or envelope["report_validation_outcome"] != "success"
+              )
           PY
 
           (
