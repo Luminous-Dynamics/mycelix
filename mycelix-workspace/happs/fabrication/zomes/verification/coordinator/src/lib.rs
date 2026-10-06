@@ -849,9 +849,18 @@ pub fn qualify_authenticated_fpm_provenance(
         .iter()
         .map(|item| item.witness.acquisition_root_digest.clone())
         .collect::<std::collections::BTreeSet<_>>();
-    let resolved_root_digests = roots
+    let mut resolved_root_digest_list = roots
         .iter()
         .map(|root| root.root_digest.clone())
+        .collect::<Vec<_>>();
+    resolved_root_digest_list.sort_unstable();
+    if resolved_root_digest_list.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(fpm_root_anchor_error(
+            "duplicate authenticated acquisition-root commitment",
+        ));
+    }
+    let resolved_root_digests = resolved_root_digest_list
+        .into_iter()
         .collect::<std::collections::BTreeSet<_>>();
 
     if witness_root_digests != resolved_root_digests {
@@ -1723,6 +1732,41 @@ mod tests {
             ordered,
             authenticated_provenance_manifest_digest(&[a, scoped]),
             "manifest must bind provenance witnesses to registration-anchor scope",
+        );
+    }
+
+    #[test]
+    fn authenticated_root_manifest_is_order_independent_and_scope_bound() {
+        fn root(byte: u8) -> ResolvedFpmAcquisitionRootAnchor {
+            ResolvedFpmAcquisitionRootAnchor {
+                action_hash: ActionHash::from_raw_36(vec![byte; 36]),
+                entry_hash: EntryHash::from_raw_36(vec![byte; 36]),
+                root_digest: format!("{byte:064x}"),
+                source_system_id: format!("system-{byte}"),
+                capture_reference: format!("capture-{byte}"),
+                artifact_digest: format!("{:064x}", byte as u64),
+                author: AgentPubKey::from_raw_36(vec![1u8; 36]),
+                signer: AgentPubKey::from_raw_36(vec![2u8; 36]),
+                timestamp: Timestamp::from_micros(1_000),
+                action_seq: byte as u32,
+                prev_action: None,
+            }
+        }
+
+        let a = root(1);
+        let b = root(2);
+        let ordered = authenticated_acquisition_root_manifest_digest(&[a.clone(), b.clone()]);
+        assert_eq!(
+            ordered,
+            authenticated_acquisition_root_manifest_digest(&[b.clone(), a.clone()]),
+        );
+
+        let mut scoped = b;
+        scoped.root_digest = format!("{:064x}", 3u8 as u64);
+        assert_ne!(
+            ordered,
+            authenticated_acquisition_root_manifest_digest(&[a, scoped]),
+            "root manifest must commit the root declaration identity",
         );
     }
 
