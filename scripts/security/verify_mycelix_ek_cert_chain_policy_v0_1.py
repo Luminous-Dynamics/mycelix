@@ -1411,6 +1411,7 @@ def session_binding(
             "path_output_sha256": manifest["path_validation"].get("output_sha256"),
             "path_output_content_sha256": manifest["path_validation"].get("output_content_sha256"),
             "path_execution_binding_sha256": manifest["path_validation"].get("execution_binding_sha256"),
+            "cryptographic_binding_sha256": manifest.get("cryptographic_binding_sha256"),
             "spki_state": spki.get("state"),
             "spki_certificate_sha256": spki.get("certificate_sha256"),
             "spki_ek_public_wire_sha256": spki.get("ek_public_wire_sha256"),
@@ -1437,7 +1438,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_der_base64", "trust_anchor_root_sha256",
         "trust_anchor_state", "trust_anchor_source_sha256", "trust_anchor_appraisal",
         "verification_time_unix", "revocation", "path_validation", "spki_binding", "ek_template_binding",
-        "session_binding_sha256",
+        "cryptographic_binding_sha256", "session_binding_sha256",
     }
     missing = sorted(required - set(manifest))
     if missing:
@@ -1453,7 +1454,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(manifest["session_id"], str) or not manifest["session_id"]:
         return result("DENY", "session-id-invalid")
     for field in ("tpm_identity_digest", "ek_public_wire_sha256", "leaf_certificate_sha256", "intermediate_certificate_sha256",
-                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "session_binding_sha256"):
+                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "cryptographic_binding_sha256", "session_binding_sha256"):
         if not valid_hash(manifest[field]):
             return result("DENY", "digest-invalid", {"field": field})
 
@@ -1606,6 +1607,21 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         intermediate_info = parse_certificate_der(intermediate)
         root_info = parse_certificate_der(root)
         crl_issuers = crl_issuer_names_from_pem_bundle(crl_bundle_pem)
+        crypto_receipt = cryptographic_binding_receipt(
+            leaf_info, intermediate_info, root_info, crl_bundle_pem
+        )
+        expected_crypto_binding_sha256 = canonical_hash(crypto_receipt)
+    except (ValueError, OSError) as exc:
+        return result("DENY", "certificate-parse-error", {"error": str(exc)})
+    if manifest["cryptographic_binding_sha256"] != expected_crypto_binding_sha256:
+        return result(
+            "DENY",
+            "cryptographic-binding-receipt-mismatch",
+            {
+                "expected_sha256": expected_crypto_binding_sha256,
+                "supplied_sha256": manifest["cryptographic_binding_sha256"],
+            },
+        )
     except (ValueError, OSError) as exc:
         return result("DENY", "certificate-parse-error", {"error": str(exc)})
 
@@ -1675,6 +1691,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             "revocation_crl_bundle_pem_sha256": rev["crl_bundle_pem_sha256"],
             "spki_certificate_sha256": spki["certificate_sha256"],
             "spki_ek_public_wire_sha256": spki["ek_public_wire_sha256"],
+            "cryptographic_binding_sha256": manifest["cryptographic_binding_sha256"],
+            "cryptographic_binding": crypto_receipt,
         },
     )
 
@@ -1767,6 +1785,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_state": "PASS",
         "trust_anchor_source_sha256": "3bad61140bfe271c6495e6b7e58dfc5ae45cf4fff339bd891a9e04881b63a3ea",
         "verification_time_unix": fx["attime"],
+        "cryptographic_binding_sha256": "",
         "path_validation": {
             "state": "PASS",
             "verifier_id": PATH_VERIFIER_ID,
@@ -2020,6 +2039,19 @@ def refresh_path_validation(m: dict[str, Any]) -> None:
         binding["output_content_sha256"] = output["content_sha256"]
 
 
+def refresh_cryptographic_binding(m: dict[str, Any]) -> None:
+    leaf = parse_certificate_der(unb64(m["leaf_certificate_der_base64"], "leaf_certificate_der_base64"))
+    intermediate = parse_certificate_der(
+        unb64(m["intermediate_certificate_der_base64"], "intermediate_certificate_der_base64")
+    )
+    root = parse_certificate_der(
+        unb64(m["trust_anchor_root_der_base64"], "trust_anchor_root_der_base64")
+    )
+    crl_bundle = unb64(m["revocation"]["crl_bundle_pem_base64"], "revocation.crl_bundle_pem_base64")
+    receipt = cryptographic_binding_receipt(leaf, intermediate, root, crl_bundle)
+    m["cryptographic_binding_sha256"] = canonical_hash(receipt)
+
+
 def refresh_template_binding(m: dict[str, Any]) -> None:
     binding = m["ek_template_binding"]
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-template-refresh-") as td:
@@ -2125,6 +2157,7 @@ def self_test() -> int:
         refresh_spki_binding(base)
         refresh_path_validation(base)
         refresh_template_binding(base)
+        refresh_cryptographic_binding(base)
         base["session_binding_sha256"] = session_binding(
             base,
             base["leaf_certificate_sha256"],
