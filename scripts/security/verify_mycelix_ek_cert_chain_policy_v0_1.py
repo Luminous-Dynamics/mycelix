@@ -850,6 +850,8 @@ def rsa_public_key_from_spki(spki_der: bytes) -> tuple[int, int]:
         raise ValueError("SubjectPublicKeyInfo structure invalid")
     if algorithm_identifier_oid(children[0][2], "SubjectPublicKeyInfo") != RSA_ENCRYPTION_OID:
         raise ValueError("SubjectPublicKeyInfo algorithm is not rsaEncryption")
+    # Reference corpus keys are RSA-2048; reject weaker issuer keys in the
+    # independent cryptographic witness rather than leaving this only to OpenSSL.
     key_bits = children[1][1]
     if not key_bits or key_bits[0] != 0:
         raise ValueError("SubjectPublicKeyInfo RSA BIT STRING must have zero unused bits")
@@ -862,6 +864,10 @@ def rsa_public_key_from_spki(spki_der: bytes) -> tuple[int, int]:
         raise ValueError("RSA public key must contain modulus and exponent")
     modulus = der_integer_value(rsa_children[0][1], "RSA.modulus", positive=True)
     exponent = der_integer_value(rsa_children[1][1], "RSA.exponent", positive=True)
+    if modulus.bit_length() != 2048 or modulus % 2 != 1:
+        raise ValueError("reference issuer RSA modulus must be odd RSA-2048")
+    if exponent < 3 or exponent % 2 == 0:
+        raise ValueError("reference issuer RSA exponent is invalid")
     return modulus, exponent
 
 
@@ -1009,6 +1015,7 @@ def cryptographic_binding_receipt(
 
     return {
         "verifier_id": CRYPTO_BINDING_ID,
+        "verifier_source_sha256": sha256_file(Path(__file__)),
         "state": "PASS",
         "certificate_signatures": certificate_signatures,
         "crl_signatures": crl_signatures,
