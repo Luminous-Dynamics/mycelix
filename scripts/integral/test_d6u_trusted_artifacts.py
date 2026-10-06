@@ -449,10 +449,25 @@ def test_trusted_python_programs_reject_optimized_mode() -> None:
         "scripts/integral/verify_d6u_trusted_attestation.py",
         "scripts/integral/verify_d6u_trusted_attestation_retention.py",
     ]
+    probe = (
+        "import runpy, sys; "
+        "runpy.run_path(sys.argv[1], run_name='__trusted_opt_test__')"
+    )
     for relative in trusted_programs:
         source = (root / relative).read_text(encoding="utf-8")
         assert "if not __debug__:" in source
         assert "trusted D6U program must not run with Python optimization enabled" in source
+        completed = subprocess.run(
+            [sys.executable, "-O", "-c", probe, str(root / relative)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert completed.returncode != 0
+        assert (
+            "trusted D6U program must not run with Python optimization enabled"
+            in completed.stderr
+        )
 
 
 def test_attestation_verifier_contains_no_optimization_sensitive_asserts() -> None:
