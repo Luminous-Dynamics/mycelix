@@ -2889,6 +2889,9 @@ def self_test() -> int:
         if "openssl" not in implementation_source or "-check_ss_sig" not in implementation_source:
             print("strict OpenSSL path composition: FAIL")
             return 1
+        if "def validate_crl_applicability" not in implementation_source or "crl_applicability_sha256" not in implementation_source:
+            print("certificate-to-CRL applicability composition: FAIL")
+            return 1
         if "def parse_certificate_der" not in implementation_source or "leaf_profile_ok(leaf_info)" not in implementation_source:
             print("binary DER certificate semantics: FAIL")
             return 1
