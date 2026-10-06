@@ -57,11 +57,11 @@ fn fpm_corpus_v1_expected_results() {
     let hotend = analyze(&config, &baseline, &obs(101, sensor(250.0, 60.0, 1.0, 0.05, Some(100.0))))
         .expect("hotend case should analyze");
     assert_eq!(hotend.status, DetectionStatus::Anomalous);
-    assert!(hotend.anomaly_types.contains(&ProcessProcessAnomalyType::TemperatureDeviation));
+    assert!(hotend.anomaly_types.contains(&ProcessAnomalyType::TemperatureDeviation));
 
     let bed = analyze(&config, &baseline, &obs(102, sensor(210.0, 90.0, 1.0, 0.05, Some(100.0))))
         .expect("bed case should analyze");
-    assert!(bed.anomaly_types.contains(&ProcessProcessAnomalyType::TemperatureDeviation));
+    assert!(bed.anomaly_types.contains(&ProcessAnomalyType::TemperatureDeviation));
 
     let extruder = analyze(
         &config,
@@ -69,7 +69,7 @@ fn fpm_corpus_v1_expected_results() {
         &obs(103, sensor(210.0, 60.0, 2.0, 0.05, Some(100.0))),
     )
         .expect("extruder case should analyze");
-    assert!(extruder.anomaly_types.contains(&ProcessProcessAnomalyType::ExtrusionInconsistency));
+    assert!(extruder.anomaly_types.contains(&ProcessAnomalyType::ExtrusionInconsistency));
 
     let vibration = analyze(
         &config,
@@ -77,7 +77,7 @@ fn fpm_corpus_v1_expected_results() {
         &obs(104, sensor(210.0, 60.0, 1.0, 0.5, Some(100.0))),
     )
         .expect("vibration case should analyze");
-    assert!(vibration.anomaly_types.contains(&ProcessProcessAnomalyType::VibrationAnomaly));
+    assert!(vibration.anomaly_types.contains(&ProcessAnomalyType::VibrationAnomaly));
 
     let filament = analyze(
         &config,
@@ -85,7 +85,7 @@ fn fpm_corpus_v1_expected_results() {
         &obs(105, sensor(210.0, 60.0, 1.0, 0.05, Some(500.0))),
     )
         .expect("filament case should analyze");
-    assert!(filament.anomaly_types.contains(&ProcessProcessAnomalyType::FilamentSlip));
+    assert!(filament.anomaly_types.contains(&ProcessAnomalyType::FilamentSlip));
 
     let mut nonfinite = obs(106, sensor(210.0, 60.0, 1.0, 0.05, Some(100.0)));
     nonfinite.sensor.vibration_rms = f32::NAN;
