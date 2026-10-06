@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 #[allow(clippy::result_unit_err)]
 pub mod fpm_context;
+pub mod fpm_registration;
 
 pub mod validation {
     use hdi::prelude::{ValidateCallbackResult, LinkTag};
