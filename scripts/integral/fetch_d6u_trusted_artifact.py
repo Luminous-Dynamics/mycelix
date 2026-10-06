@@ -114,15 +114,30 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
 def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     run_id = int(os.environ["GITHUB_RUN_ID"])
     run_attempt = int(os.environ["GITHUB_RUN_ATTEMPT"])
+    token = os.environ["GITHUB_TOKEN"]
     expected_name = policy["auditor_handoff"]["artifact_name_template"].format(
         run_id=run_id,
         run_attempt=run_attempt,
     )
+
+    current_run = github_get(
+        repo,
+        f"/actions/runs/{run_id}",
+        token,
+    )
+    assert current_run["id"] == run_id
+    assert current_run["run_attempt"] == run_attempt
+    assert current_run["repository"]["full_name"] == repo
+    assert current_run["head_repository"]["full_name"] == repo
+    expected_ref = f"refs/heads/{current_run['head_branch']}"
+    assert os.environ["GITHUB_REF"] == expected_ref
+    assert current_run["head_sha"] == os.environ["GITHUB_SHA"]
+
     query = urllib.parse.urlencode({"name": expected_name})
     payload = github_get(
         repo,
         f"/actions/runs/{run_id}/artifacts?{query}",
-        os.environ["GITHUB_TOKEN"],
+        token,
     )
     artifacts = payload.get("artifacts", [])
     assert len(artifacts) == 1, (
@@ -133,10 +148,10 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     assert artifact["expired"] is False
     workflow_artifact_run = artifact["workflow_run"]
     assert workflow_artifact_run["id"] == run_id
-    assert workflow_artifact_run["head_branch"] == current_run["head_branch"]
-    assert workflow_artifact_run["head_sha"] == current_run["head_sha"]
     assert workflow_artifact_run["repository_id"] == current_run["repository"]["id"]
     assert workflow_artifact_run["head_repository_id"] == current_run["head_repository"]["id"]
+    assert workflow_artifact_run["head_branch"] == current_run["head_branch"]
+    assert workflow_artifact_run["head_sha"] == current_run["head_sha"]
     digest = artifact.get("digest", "")
     assert digest.startswith("sha256:") and len(digest) == 71, (
         f"missing or malformed GitHub artifact digest: {digest!r}"
@@ -225,6 +240,7 @@ def verify_zip_members(
     maximums: dict[str, int] | None = None,
     maximum_entries: int | None = None,
     maximum_total: int | None = None,
+    allowed_compression_methods: list[str] | None = None,
 ) -> list:
     expected = set(EXPECTED_FILES if expected_files is None else expected_files)
     maximums = policy["artifact_max_bytes"] if maximums is None else maximums
@@ -269,9 +285,14 @@ def verify_zip_members(
                 f"trusted artifact contains encrypted member: {info.filename!r}"
             )
             compression_codes = {"stored": 0, "deflate": 8}
-            allowed_compression_methods = policy["artifact_integrity"]["allowed_compression_methods"]
+            configured_compression_methods = (
+                policy["artifact_integrity"]["allowed_compression_methods"]
+                if allowed_compression_methods is None
+                else allowed_compression_methods
+            )
+            assert set(configured_compression_methods) <= set(compression_codes)
             allowed_compression_codes = {
-                compression_codes[name] for name in allowed_compression_methods
+                compression_codes[name] for name in configured_compression_methods
             }
             assert info.compress_type in allowed_compression_codes, (
                 f"trusted artifact contains unsupported ZIP compression method: "
@@ -383,6 +404,11 @@ def main() -> None:
             maximums=maximums,
             maximum_entries=maximum_entries,
             maximum_total=maximum_total,
+            allowed_compression_methods=(
+                policy["auditor_handoff"]["allowed_compression_methods"]
+                if current_run_handoff
+                else policy["artifact_integrity"]["allowed_compression_methods"]
+            ),
         )
         extract_members(
             archive_path,
