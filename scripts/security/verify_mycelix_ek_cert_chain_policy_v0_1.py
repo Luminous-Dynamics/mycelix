@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 TRUST_ANCHOR_APPRAISAL_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
 TRUST_ANCHOR_APPRAISAL_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_trust_anchor_appraisal_v0_1.py")
 TRUST_ANCHOR_REGISTRY_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-registry-v0.1.json"
+TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-authorization-receipt-v0.1.json"
 FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
@@ -455,6 +456,17 @@ def run_trust_anchor_appraiser(
         return result("DENY", "trust-anchor-appraisal-verifier-missing")
     if not TRUST_ANCHOR_REGISTRY_FILE.is_file():
         return result("DENY", "trust-anchor-registry-missing")
+    if not TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE.is_file():
+        return result("DENY", "trust-anchor-authorization-receipt-missing")
+    try:
+        receipt = json.loads(TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return result("DENY", "trust-anchor-authorization-receipt-invalid", {"error": str(exc)})
+    receipt_sha = hashlib.sha256(TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE.read_bytes()).hexdigest()
+    if appraisal.get("registry_source_sha256") != receipt_sha:
+        return result("DENY", "trust-anchor-authorization-receipt-digest-mismatch")
+    if receipt.get("registry_file_sha256") != hashlib.sha256(TRUST_ANCHOR_REGISTRY_FILE.read_bytes()).hexdigest():
+        return result("DENY", "trust-anchor-receipt-registry-file-mismatch")
     try:
         registry = json.loads(TRUST_ANCHOR_REGISTRY_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
