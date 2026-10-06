@@ -463,8 +463,10 @@ fn validate_create_governance_bootstrap_root(
     // The current root action is excluded by starting at its predecessor.
     let root_entry_type =
         EntryType::App(UnitEntryTypes::GovernanceBootstrapRoot.try_into()?);
-    let prior_activity =
-        must_get_agent_activity(action.author.clone(), ChainFilter::new(action.prev_action.clone()))?;
+    let prior_activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
     if prior_activity
         .iter()
         .any(|activity| activity.action.hashed.content.entry_type() == Some(&root_entry_type))
@@ -497,9 +499,7 @@ fn validate_create_governance_registration(
         }
     };
 
-    {
-
-            let predecessor = ActionHash::from_raw_36(predecessor_raw);
+    let predecessor = ActionHash::from_raw_36(predecessor_raw);
             let predecessor_record = must_get_valid_record(predecessor.clone())?;
             let expected_entry_type =
                 EntryType::App(UnitEntryTypes::GovernanceAgentRegistration.try_into()?);
@@ -515,12 +515,11 @@ fn validate_create_governance_registration(
             let predecessor_agent =
                 AgentPubKey::from_raw_36(predecessor_registration.registered_agent);
 
-            if predecessor_agent != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Governance registration predecessor must name the author of the new witness"
-                        .into(),
-                ));
-            }
+    if predecessor_agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Governance registration predecessor must name the author of the new witness"
+                .into(),
+        ));
     }
 
     if registered_agent == action.author && registration.predecessor_registration.is_some() {
