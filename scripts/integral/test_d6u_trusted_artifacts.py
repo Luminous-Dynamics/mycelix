@@ -227,9 +227,20 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["attestation_trigger"]["require_record_source_binding"] is True
     assert policy["attestation_trigger"]["require_record_executor_run_binding"] is True
     workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
-    assert workflow_text.count("TRUSTED_POLICY_VERSION:") == 1
-    assert "TRUSTED_POLICY_VERSION: \"%d\"" % policy["policy_version"] in workflow_text
-    assert "D6U_TRUSTED_POLICY_VERSION=\"%d\"" % policy["policy_version"] in workflow_text
+    trust_policy_versions = [
+        line.split(":", 1)[1].strip().strip('"')
+        for line in workflow_text.splitlines()
+        if line.strip().startswith("TRUSTED_POLICY_VERSION:")
+    ]
+    assert len(trust_policy_versions) >= 2
+    assert all(version == str(policy["policy_version"]) for version in trust_policy_versions)
+    trusted_policy_env_versions = [
+        line.split("D6U_TRUSTED_POLICY_VERSION=", 1)[1].strip().strip('"')
+        for line in workflow_text.splitlines()
+        if "D6U_TRUSTED_POLICY_VERSION=" in line
+    ]
+    assert len(trusted_policy_env_versions) >= 2
+    assert all(version == str(policy["policy_version"]) for version in trusted_policy_env_versions)
     _, signer_section = workflow_text.split("\n  signer:\n", 1)
     assert '"policy_version": %d,' % policy["policy_version"] in signer_section
     assert '"policy_version": 37,' not in signer_section
