@@ -177,6 +177,12 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     if exact_count(l, "types: [opened, synchronize, reopened, ready_for_review]") != 1:
         fail("S0 trigger types mismatch")
     require_permissions(l, 2)
+    if exact_count(l, "cache-mode: none") != 1:
+        fail("S0 must declare exactly one cache-mode: none gate")
+    if exact_count(l, 'test "$GITHUB_REF_PROTECTED" = "true"') != 1:
+        fail("S0 must contain exactly one protected-ref runtime guard")
+    if exact_count(l, 'test "$GITHUB_EVENT_NAME" = "pull_request_target"') != 1:
+        fail("S0 must contain exactly one pull_request_target runtime guard")
     if job_keys(l) != ("resolve", "qualify"):
         fail("S0 job topology mismatch")
     if step_names(l) != ("Verify trusted dispatcher context and exact PR identity",):
@@ -205,6 +211,12 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if top_level_keys_after(l, "on:") != ("workflow_call",):
         fail("S1 trigger topology mismatch")
     require_permissions(l, 1)
+    if exact_count(l, "cache-mode: none") != 1:
+        fail("S1 must declare exactly one cache-mode: none gate")
+    if exact_count(l, 'test "$GITHUB_REF_PROTECTED" = "true"') != 1:
+        fail("S1 must contain exactly one protected-ref runtime guard")
+    if exact_count(l, 'test "$GITHUB_EVENT_NAME" = "pull_request_target"') != 1:
+        fail("S1 must contain exactly one pull_request_target runtime guard")
     if job_keys(l) != ("qualify",):
         fail("S1 job topology mismatch")
     if tuple(step_names(l)) != S1_STEPS:
@@ -243,6 +255,12 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     if exact_count(l, "types: [completed]") != 1:
         fail("S2 trigger type mismatch")
     require_permissions(l, 1)
+    if exact_count(l, "cache-mode: none") != 1:
+        fail("S2 must declare exactly one cache-mode: none gate")
+    if exact_count(l, 'test "$GITHUB_REF_PROTECTED" = "true"') != 1:
+        fail("S2 must contain exactly one protected-ref runtime guard")
+    if exact_count(l, 'test "$GITHUB_REF" = "refs/heads/main"') != 1:
+        fail("S2 must contain exactly one main-ref runtime guard")
     if job_keys(l) != ("verify",):
         fail("S2 job topology mismatch")
     if tuple(step_names(l)) != S2_STEPS:
