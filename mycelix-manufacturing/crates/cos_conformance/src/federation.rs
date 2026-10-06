@@ -7027,6 +7027,34 @@ mod tests {
                 .expect("exact publication replay must remain idempotent");
         assert_eq!(replay_set, set);
 
+        let unrelated_capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(
+                &state_machine_trace_capsule(49, 8),
+            )
+            .expect("unrelated capsule must deserialize");
+        let unrelated_publication = state_machine_trace_checkpoint_publication(
+            &unrelated_capsule,
+            8,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let mut extended_collection = collection.clone();
+        extended_collection.push((&unrelated_capsule, &unrelated_publication));
+        let extended_set =
+            state_machine_trace_publication_equivocation_witness_set(&extended_collection)
+                .expect("extended qualified collection must produce a witness set");
+        assert_eq!(extended_set.witnesses, set.witnesses);
+        assert_eq!(extended_set.collection_size, 5);
+        assert_ne!(extended_set.collection_sha256, set.collection_sha256);
+        assert_ne!(extended_set.set_sha256, set.set_sha256);
+        assert_eq!(
+            validate_state_machine_trace_publication_equivocation_witness_set(
+                &extended_collection, &set
+            ),
+            Err(
+                FederationStateMachineTracePublicationEquivocationWitnessSetViolation::CollectionSizeMismatch
+            )
+        );
+
         let mut reversed = collection.clone();
         reversed.reverse();
         let reversed_set =
