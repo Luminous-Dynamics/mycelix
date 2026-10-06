@@ -520,5 +520,26 @@
       "expected": "DENY"
     }
   ],
-  "parser_structural_control_count": 13
+    {
+      "id": "EKC-S14",
+      "control": "critical-authority-information-access",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S15",
+      "control": "critical-crl-distribution-points",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S16",
+      "control": "critical-subject-directory-attributes",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S17",
+      "control": "unsupported-aia-access-method",
+      "expected": "DENY"
+    }
+  ],
+  "parser_structural_control_count": 17
 }
