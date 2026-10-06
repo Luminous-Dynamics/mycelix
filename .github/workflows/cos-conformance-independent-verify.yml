@@ -182,32 +182,6 @@ jobs:
               assert trigger_repository == os.environ["GITHUB_REPOSITORY"]
           PY
 
-          test "${EXPECTED_ARTIFACT_ID}" != ""
-          test "${EXPECTED_ARTIFACT_DIGEST}" != ""
-
-          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.id')"
-          artifact_name="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.name')"
-          artifact_expired="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.expired')"
-          artifact_size="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.size_in_bytes')"
-          artifact_digest="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.digest')"
-          artifact_run_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.id')"
-          artifact_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.repository_id')"
-          artifact_head_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.head_repository_id')"
-
-          test "${artifact_id}" = "${EXPECTED_ARTIFACT_ID}"
-          test "${artifact_name}" = "${EXPECTED_ARTIFACT_NAME}"
-          test "${artifact_expired}" = "false"
-          test "${artifact_size}" -gt 0
-          test "${artifact_run_id}" = "${GITHUB_RUN_ID}"
-          repository_id="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.id')"
-          test "${artifact_repository_id}" = "${repository_id}"
-          test "${artifact_head_repository_id}" = "${repository_id}"
-
-          expected_digest="${EXPECTED_ARTIFACT_DIGEST#sha256:}"
-          recorded_digest="${artifact_digest#sha256:}"
-          printf "%s\n" "${expected_digest}" | grep -Eq "^[0-9a-f]{64}$"
-          printf "%s\n" "${recorded_digest}" | grep -Eq "^[0-9a-f]{64}$"
-          test "${recorded_digest}" = "${expected_digest}"
 
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
@@ -365,6 +339,33 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+
+          test "${EXPECTED_ARTIFACT_ID}" != ""
+          test "${EXPECTED_ARTIFACT_DIGEST}" != ""
+
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.id')"
+          artifact_name="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.name')"
+          artifact_expired="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.expired')"
+          artifact_size="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.size_in_bytes')"
+          artifact_digest="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.digest')"
+          artifact_run_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.id')"
+          artifact_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.repository_id')"
+          artifact_head_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.head_repository_id')"
+
+          test "${artifact_id}" = "${EXPECTED_ARTIFACT_ID}"
+          test "${artifact_name}" = "${EXPECTED_ARTIFACT_NAME}"
+          test "${artifact_expired}" = "false"
+          test "${artifact_size}" -gt 0
+          test "${artifact_run_id}" = "${GITHUB_RUN_ID}"
+          repository_id="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.id')"
+          test "${artifact_repository_id}" = "${repository_id}"
+          test "${artifact_head_repository_id}" = "${repository_id}"
+
+          expected_digest="${EXPECTED_ARTIFACT_DIGEST#sha256:}"
+          recorded_digest="${artifact_digest#sha256:}"
+          printf "%s\n" "${expected_digest}" | grep -Eq "^[0-9a-f]{64}$"
+          printf "%s\n" "${recorded_digest}" | grep -Eq "^[0-9a-f]{64}$"
+          test "${recorded_digest}" = "${expected_digest}"
 
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
