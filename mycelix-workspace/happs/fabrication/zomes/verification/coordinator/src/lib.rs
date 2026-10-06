@@ -848,8 +848,7 @@ fn create_fpm_verification_key_trust_anchor_impl(
 
     if input.verification_key_id.is_empty()
         || input.verification_key_id.len() > 128
-        || input.public_key_sec1.len() != 65
-        || input.public_key_sec1.first() != Some(&0x04)
+        || !is_valid_fpm_p256_public_key(&input.public_key_sec1)
         || !valid_attestation_identifier(&input.attestation_format, 128)
         || !valid_fpm_digest(&input.verifier_profile_digest)
     {
@@ -936,8 +935,7 @@ fn resolve_fpm_verification_key_trust_anchor_impl(
     if anchor.schema_version != FPM_VERIFICATION_KEY_TRUST_ANCHOR_SCHEMA_VERSION
         || anchor.key_id.is_empty()
         || anchor.key_id.len() > 128
-        || anchor.public_key_sec1.len() != 65
-        || anchor.public_key_sec1.first() != Some(&0x04)
+        || !is_valid_fpm_p256_public_key(&anchor.public_key_sec1)
         || !valid_attestation_identifier(&anchor.attestation_format, 128)
         || !valid_fpm_digest(&anchor.verification_key_digest)
         || fpm_verification_key_digest(&anchor.public_key_sec1) != anchor.verification_key_digest
