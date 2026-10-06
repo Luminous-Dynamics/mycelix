@@ -19,6 +19,8 @@ pub enum EntryTypes {
     SafetyClaim(SafetyClaim),
     #[entry_type(visibility = "public")]
     VerificationRequest(VerificationRequest),
+    #[entry_type(visibility = "public")]
+    FpmRegistrationAnchor(FpmRegistrationAnchor),
 }
 
 #[hdk_link_types]
@@ -71,6 +73,16 @@ pub struct VerificationRequest {
     pub created_at: Timestamp,
 }
 
+pub const FPM_REGISTRATION_ANCHOR_SCHEMA_VERSION: &str = "fpm.registration.anchor.v1";
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FpmRegistrationAnchor {
+    pub schema_version: String,
+    pub envelope: RegistrationEnvelope,
+    pub envelope_digest: String,
+}
+
 #[hdk_extern]
 pub fn genesis_self_check(_: GenesisSelfCheckData) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
@@ -86,6 +98,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::DesignVerification(v) => validate_verification(v),
             EntryTypes::SafetyClaim(c) => validate_safety_claim(c),
             EntryTypes::VerificationRequest(r) => validate_verification_request(r),
+            EntryTypes::FpmRegistrationAnchor(a) => validate_fpm_registration_anchor(a),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterCreateLink { link_type, tag, .. } => {
@@ -225,6 +238,28 @@ fn validate_safety_claim(c: SafetyClaim) -> ExternResult<ValidateCallbackResult>
         check!(validation::require_max_len(ev, 256, "supporting evidence item"));
     }
 
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate a VerificationRequest entry.
+fn validate_fpm_registration_anchor(
+    anchor: FpmRegistrationAnchor,
+) -> ExternResult<ValidateCallbackResult> {
+    if anchor.schema_version != FPM_REGISTRATION_ANCHOR_SCHEMA_VERSION {
+        return Ok(ValidateCallbackResult::Invalid(
+            "unsupported FPM registration anchor schema".into(),
+        ));
+    }
+    let computed_digest = anchor.envelope.digest().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "failed to hash FPM registration anchor envelope: {e}"
+        )))
+    })?;
+    if computed_digest != anchor.envelope_digest {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM registration anchor envelope digest mismatch".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
