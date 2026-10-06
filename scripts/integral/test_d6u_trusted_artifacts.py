@@ -149,6 +149,9 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         ch in "0123456789abcdef"
         for ch in policy["trusted_artifact_fetcher"]["blob_sha"]
     )
+    assert policy["trusted_artifact_fetcher"]["blob_sha"] == policy["trusted_programs"][
+        "scripts/integral/fetch_d6u_trusted_artifact.py"
+    ]["blob_sha"]
     assert set(policy["trusted_programs"]) == {
         "scripts/integral/verify_d6u_trusted_artifacts.py",
         "scripts/integral/fetch_d6u_trusted_artifact.py",
@@ -2358,6 +2361,29 @@ def test_artifact_redirect_strips_authorization_header() -> None:
     )
     assert redirected is not None
     assert redirected.headers.get("Authorization") is None
+
+    assert_rejected(
+        lambda: fetcher.NoAuthorizationRedirectHandler().redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "http://objects.githubusercontent.com/example/archive.zip",
+        ),
+        "plaintext artifact redirect was accepted",
+    )
+    assert_rejected(
+        lambda: fetcher.NoAuthorizationRedirectHandler().redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://user:secret@objects.githubusercontent.com/example/archive.zip",
+        ),
+        "credential-bearing artifact redirect URL was accepted",
+    )
 
 
 def test_trusted_zip_entry_count_is_preflighted_before_zip_parsing() -> None:
