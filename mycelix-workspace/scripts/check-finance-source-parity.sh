@@ -37,25 +37,43 @@ while IFS= read -r rel; do
   [ -n "$rel" ] || continue
 
   common_count=$((common_count + 1))
-  canonical_blob="$(git rev-parse "HEAD:$canonical_root/$rel")"
-  projection_blob="$(git rev-parse "HEAD:$projection_root/$rel")"
+  canonical_entry="$(git ls-tree HEAD -- "$canonical_root/$rel")"
+  projection_entry="$(git ls-tree HEAD -- "$projection_root/$rel")"
+
+  test -n "$canonical_entry"
+  test -n "$projection_entry"
+
+  # Bind the complete Git tree entry, not just blob contents. This prevents
+  # mode-only/type-only substitutions from escaping provenance checks.
+  canonical_object="${canonical_entry%%$'\t'*}"
+  projection_object="${projection_entry%%$'\t'*}"
 
   if [ "$rel" = "flake.nix" ]; then
+    canonical_mode_type="$(printf '%s\n' "$canonical_object" | awk '{print $1, $2}')"
+    projection_mode_type="$(printf '%s\n' "$projection_object" | awk '{print $1, $2}')"
+
+    if [ "$canonical_mode_type" != "$projection_mode_type" ]; then
+      printf 'SOURCE_PARITY_MISMATCH %s tree_entry canonical=%s projection=%s\n'         "$rel" "$canonical_mode_type" "$projection_mode_type"
+      mismatch_count=$((mismatch_count + 1))
+      continue
+    fi
+
     # The projection may change only the one relative path required by the
-    # standalone directory layout. Compare its exact blob against the
-    # canonical file after that deterministic transformation.
+    # standalone directory layout. Hash the transformed canonical file as a
+    # raw byte stream so trailing newlines remain part of the identity.
     expected_blob="$(
       git show "HEAD:$canonical_root/$rel" |
         sed 's#\.\./\.\./nix/modules/holochain-base\.nix#../nix/modules/holochain-base.nix#g' |
         git hash-object --stdin
     )"
+    projection_blob="$(printf '%s\n' "$projection_object" | awk '{print $3}')"
 
     if [ "$projection_blob" != "$expected_blob" ]; then
-      printf 'SOURCE_PARITY_MISMATCH %s canonical=%s expected_projection=%s actual_projection=%s\n'         "$rel" "$canonical_blob" "$expected_blob" "$projection_blob"
+      printf 'SOURCE_PARITY_MISMATCH %s expected_projection_blob=%s actual_projection_blob=%s\n'         "$rel" "$expected_blob" "$projection_blob"
       mismatch_count=$((mismatch_count + 1))
     fi
-  elif [ "$canonical_blob" != "$projection_blob" ]; then
-    printf 'SOURCE_PARITY_MISMATCH %s canonical=%s projection=%s\n'       "$rel" "$canonical_blob" "$projection_blob"
+  elif [ "$canonical_object" != "$projection_object" ]; then
+    printf 'SOURCE_PARITY_MISMATCH %s tree_entry canonical=%s projection=%s\n'       "$rel" "$canonical_object" "$projection_object"
     mismatch_count=$((mismatch_count + 1))
   fi
 done < <(comm -12 <(printf '%s\n' "${canonical_paths[@]}") <(printf '%s\n' "${projection_paths[@]}"))
