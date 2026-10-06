@@ -101,6 +101,9 @@ jobs:
           assert "allow-unsafe-pr-checkout: true" not in text
           assert text.count("actions/checkout@") == 2
           assert text.count("persist-credentials: false") == 2
+          assert text.count("digest-mismatch: error") == 1
+          assert text.count("artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}") == 1
+          assert "name: cos-conformance-independent-execution-" in text
 
           expected = {
               "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
@@ -275,7 +278,8 @@ jobs:
         id: execution_artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}
+          digest-mismatch: error
           path: evidence/
           if-no-files-found: warn
           retention-days: 30
