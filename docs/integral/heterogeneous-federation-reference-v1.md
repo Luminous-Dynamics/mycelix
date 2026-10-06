@@ -266,7 +266,7 @@ protocol adapter
 
 Local policy admission now has a stronger optional mode: a policy can require an exact verifier identity **and** an exact identity-use method/profile. In that mode, `admit_under_policy_at()` fails closed rather than silently falling back to identity-only admission; the stronger `admit_under_policy_with_identity_use_at()` path requires the raw identity material, verifier report, use-evidence bytes, and typed identity-use statement.
 
-The resulting admission record preserves the identity-use method/profile, statement digest, and use-evidence digest. A weak policy remains weak by construction: merely supplying an identity-use statement cannot upgrade an unconfigured policy.
+The resulting admission record preserves the identity-use method/profile, statement digest, and use-evidence digest. The strong identity-use admission API itself fails closed when the supplied policy has not explicitly configured an identity-use requirement, so callers cannot accidentally mistake extra evidence for a stronger policy decision. A weak policy remains weak by construction: merely supplying an identity-use statement cannot upgrade an unconfigured policy.
 
 This follows the same separation used by the external standards. RFC 5035's `SigningCertificateV2` cryptographically links the certificate intended for validation to signed material, helping detect certificate substitution. RFC 9162 likewise defines immutable log parameters including the public key and Log ID that are used to verify log artifacts. citeturn967539search4turn967539search0
 

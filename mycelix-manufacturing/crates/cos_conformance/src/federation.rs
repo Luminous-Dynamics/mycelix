@@ -1394,6 +1394,7 @@ pub enum FederationExternalVerificationPolicyAdmissionViolation {
     VerifierIdentityProfileNotAdmitted,
     VerifierIdentityDigestNotAdmitted,
     VerifierIdentityUseBindingRequired,
+    VerifierIdentityUsePolicyNotConfigured,
     VerifierIdentityUseMethodNotAdmitted,
     VerifierIdentityUseProfileNotAdmitted,
     VerifierIdentityUseInvalid(FederationExternalVerifierIdentityUseStatementViolation),
@@ -1825,6 +1826,11 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
         FederationExternalVerificationPolicyAdmissionV1,
         FederationExternalVerificationPolicyAdmissionViolation,
     > {
+        if policy.required_verifier_identity_use_method().is_none() {
+            return Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUsePolicyNotConfigured,
+            );
+        }
         self.admit_under_policy_at_internal(
             policy,
             evaluated_at_unix_seconds,
@@ -4832,6 +4838,62 @@ mod tests {
         assert_eq!(
             method_only.validate(),
             Err(FederationExternalVerificationTrustPolicyViolation::VerifierIdentityUseBindingIncomplete)
+        );
+    }
+
+    #[test]
+    fn external_verification_strong_identity_use_api_rejects_weak_policy() {
+        let policy = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
+            2,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("weak policy must build")
+        .with_maximum_verification_age_seconds(60)
+        .expect("freshness policy must build");
+
+        let result = FederationStateMachineTraceExternalEvidenceVerificationResult {
+            anchor_reference_sha256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            anchor_reference_schema_version: 1,
+            anchor_reference_profile: "anchor-v1".into(),
+            witness_kind: FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            witness_profile: "tsa-token-v1".into(),
+            verifier_schema_version: 2,
+            verifier_profile: "rfc3161-verifier-v1".into(),
+            verifier_identity_kind: FederationExternalVerifierIdentityKind::Opaque,
+            verifier_identity_profile: "opaque-v1".into(),
+            verifier_identity_sha256: state_machine_trace_external_verifier_identity_sha256(b"identity"),
+            claim: FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            verifier_report_sha256: state_machine_trace_external_witness_artifact_sha256(b"report"),
+            claimed_verified_at_unix_seconds: 1_791_006_000,
+            statement_sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+        };
+
+        let identity_use = federation_external_verifier_identity_use_statement(
+            FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
+            "rfc3161-signed-report-binding-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "opaque-v1",
+            b"identity",
+            b"report",
+            b"evidence",
+        )
+        .expect("identity-use statement must build");
+
+        assert_eq!(
+            result.admit_under_policy_with_identity_use_at(
+                &policy,
+                1_791_006_001,
+                b"identity",
+                b"report",
+                b"evidence",
+                &identity_use,
+            ),
+            Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUsePolicyNotConfigured
+            )
         );
     }
 
