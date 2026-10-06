@@ -61,6 +61,7 @@ S1_STEPS = (
     "Emit qualification receipt",
     "Upload qualification receipt",
     "Verify retained qualification receipt",
+    "Final teardown barrier",
 )
 
 S2_STEPS = (
@@ -475,6 +476,26 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 post-execution source-volume identity verification missing")
     if "actual bounded candidate source volume remained immutable" not in joined:
         fail("S1 source immutability check must target the actual bounded source volume")
+    if "Final teardown barrier" not in joined or "if: ${{ !cancelled() }}" not in joined:
+        fail("S1 final teardown barrier missing or cancellation semantics weakened")
+    if 'candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"' not in joined:
+        fail("S1 final teardown candidate volume identity missing")
+    if 'vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"' not in joined:
+        fail("S1 final teardown vendor volume identity missing")
+    if 'if ! existing_volumes="$(docker volume ls --format \'{{.Name}}\')"; then' not in joined:
+        fail("S1 final teardown must inventory volumes fail-closed")
+    if 'if ! docker volume rm "$volume_name" >/dev/null 2>&1; then' not in joined:
+        fail("S1 final teardown volume removal must be fail-closed")
+    if 'if ! remaining_volumes="$(docker volume ls --format \'{{.Name}}\')"; then' not in joined:
+        fail("S1 final teardown must re-inventory after removal")
+    if 'test "$candidate_root" = "${RUNNER_TEMP}/security-kernel-candidate-root"' not in joined:
+        fail("S1 final teardown host root identity missing")
+    if 'rm -rf -- "$candidate_root"' not in joined:
+        fail("S1 final teardown host root removal missing")
+    if 'printf "%s\\n" "$existing_volumes" | grep -Fxq "$volume_name"' not in joined:
+        fail("S1 final teardown ownership gate missing")
+    if "final teardown volume remains" not in joined:
+        fail("S1 final teardown volume disappearance check missing")
     if "Cleanup candidate source substrate" not in joined or "!cancelled()" not in joined:
         fail("S1 candidate source cleanup lifecycle missing")
     if "steps.resolve_source.outcome" not in joined:
