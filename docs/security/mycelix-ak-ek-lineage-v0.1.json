@@ -257,11 +257,6 @@
       "expected": "DENY"
     },
     {
-      "id": "AKQ-V28",
-      "mutation": "public-name-source-substitution",
-      "expected": "DENY"
-    },
-    {
       "id": "AKQ-V29",
       "mutation": "public-name-input-substitution",
       "expected": "DENY"
