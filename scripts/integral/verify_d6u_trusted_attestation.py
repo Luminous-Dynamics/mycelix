@@ -143,6 +143,7 @@ def verify_commitment_entry(
     expected_san = "https://github.com/" + repo + "/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
     expected_run_uri = "https://github.com/" + repo + "/actions/runs/" + run_id + "/attempts/" + run_attempt
     try:
+        require(isinstance(entry, dict))
         result = entry.get("verificationResult", {})
         certificate = result.get("signature", {}).get("certificate", {})
         statement = result.get("statement", {})
@@ -183,7 +184,7 @@ def verify_commitment_entry(
             )
         )
         require(canonical_subjects(statement_subjects) == canonical_subjects(subjects))
-    except (AssertionError, KeyError, TypeError, ValueError):
+    except (AssertionError, AttributeError, KeyError, TypeError, ValueError):
         return False
     return True
 
