@@ -104,12 +104,14 @@ def verify(m:dict[str,Any])->dict[str,Any]:
     try:
         pub_wire=hex_bytes(m["ak_public_wire_hex"],"ak_public_wire_hex")
         name=hex_bytes(m["ak_name_hex"],"ak_name_hex")
+        public_key_bytes=m["ak_public_key_pem"].encode("utf-8")
         with tempfile.TemporaryDirectory(prefix="mycelix-ak-key-") as td:
             ak_spki,_=canonicalize_pem(m["ak_public_key_pem"],Path(td))
             modulus,exponent,_attrs=parse_tpm_rsa(pub_wire)
     except (ValueError,RuntimeError) as exc:return result("DENY","key-material-invalid",{"error":str(exc)})
     if hashlib.sha256(pub_wire).hexdigest()!=m["ak_public_wire_sha256"]:return result("DENY","ak-public-wire-digest-mismatch")
-    if hashlib.sha256(ak_spki).hexdigest()!=m["ak_public_key_sha256"]:return result("DENY","ak-public-key-digest-mismatch")
+    if hashlib.sha256(ak_spki).hexdigest()!=m["ak_public_key_sha256"]:return result("DENY","ak-public-key-spki-digest-mismatch")
+    if hashlib.sha256(public_key_bytes).hexdigest()!=m["ak_public_source_sha256"]:return result("DENY","ak-public-source-digest-mismatch")
     expected_name=SHA256_ID+hashlib.sha256(pub_wire).digest()
     if name!=expected_name:return result("DENY","ak-name-does-not-match-public-area")
     tpm_spki=rsa_spki(modulus,exponent)
@@ -167,8 +169,8 @@ def generate_fixture()->dict[str,Any]:
             "claim_ceiling":"ReferenceModelOnly",
             "session_id":"ak-quote-self-test",
             "ak_public_key_pem":pem.read_text(encoding="utf-8"),
-            "ak_public_key_sha256":public_rep_sha,
-            "ak_public_source_sha256":"11"*32,
+            "ak_public_key_sha256":spki_sha,
+            "ak_public_source_sha256":public_rep_sha,
             "ak_public_wire_hex":wire.hex(),
             "ak_public_wire_sha256":hashlib.sha256(wire).hexdigest(),
             "ak_name_hex":name,
@@ -200,6 +202,7 @@ def self_test()->int:
     cases=[
         ("canonical-valid","PASS",lambda x:x),
         ("public-key-digest-substitution","DENY",lambda x:x.update({"ak_public_key_sha256":"44"*32})),
+        ("public-source-digest-substitution","DENY",lambda x:x.update({"ak_public_source_sha256":"55"*32})),
         ("public-wire-digest-substitution","DENY",lambda x:x.update({"ak_public_wire_sha256":"55"*32})),
         ("public-wire-substitution","DENY",lambda x:mutate_wire_byte(x,17)),
         ("name-substitution","DENY",lambda x:x.update({"ak_name_hex":"000b"+"66"*32})),
