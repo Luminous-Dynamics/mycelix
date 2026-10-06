@@ -249,12 +249,18 @@ pub fn verify_fpm_eat_cose_sign1(
         Some(sign1.protected.header.key_id.clone())
     };
     if key_id.as_deref() != Some(input.expected_verification_key_id.as_slice()) {
+        // A mismatched kid is still cryptographically testable against the
+        // challenge-bound trusted key. Defer classification until after
+        // signature verification so a signed-but-wrong-context token is
+        // distinguishable from malformed evidence.
         reasons.insert(FpmEatCoseVerificationReason::KeyIdMismatch);
     }
 
     if sign1.protected.header.content_type
         != Some(ContentType::Text(FPM_EAT_MEDIA_TYPE.to_string()))
     {
+        // Content type is authenticated by the protected header and therefore
+        // can likewise be classified as a signed context conflict.
         reasons.insert(FpmEatCoseVerificationReason::ContentTypeMismatch);
     }
 
@@ -267,8 +273,22 @@ pub fn verify_fpm_eat_cose_sign1(
         reasons.insert(FpmEatCoseVerificationReason::UnsupportedProtectedHeader);
     }
 
-    if !reasons.is_empty() {
-        return invalid_result(evidence_digest, verification_key_digest, reasons, key_id);
+    // Missing kid, when any other protected-header structure is otherwise
+    // valid, is malformed profile evidence rather than a signed contextual
+    // mismatch; missing/invalid structural requirements therefore fail closed.
+    if sign1.protected.header.key_id.is_empty() || !reasons
+        .iter()
+        .all(|reason| matches!(
+            reason,
+            FpmEatCoseVerificationReason::KeyIdMismatch
+                | FpmEatCoseVerificationReason::ContentTypeMismatch
+        ))
+    {
+        if sign1.protected.header.key_id.is_empty()
+            || reasons.contains(&FpmEatCoseVerificationReason::UnsupportedProtectedHeader)
+        {
+            return invalid_result(evidence_digest, verification_key_digest, reasons, key_id);
+        }
     }
 
     let Some(payload) = sign1.payload.clone() else {
