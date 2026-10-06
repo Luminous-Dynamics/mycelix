@@ -3088,7 +3088,7 @@ def self_test() -> int:
             ("crl-semantics-digest-substitution", "DENY", lambda x: x.update({"crl_semantics_sha256": "91" * 32})),
             ("crl-this-update-substitution", "DENY", lambda x: x["crl_semantics"]["root"].update({"this_update": "250101000000Z"})),
             ("crl-next-update-expiry", "DENY", lambda x: x["crl_semantics"]["root"].update({"next_update": "260101000000Z"})),
-            ("crl-authority-key-identifier-substitution", "DENY", lambda x: x["crl_semantics"]["root"].update({"crl_number": 99})),
+            ("crl-revocation-entry-serial-substitution", "DENY", lambda x: x["crl_semantics"]["intermediate"]["revoked_entries"][1].update({"serial": 4100})),
             ("crl-number-substitution", "DENY", lambda x: x["crl_semantics"]["intermediate"].update({"crl_number": 99})),
             ("crl-revocation-entry-identity-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["revoked_entries"][0].update({"entry_identity_sha256": "00" * 32})),
             ("crl-revocation-entry-reason-substitution", "DENY", lambda x: x["crl_semantics"]["intermediate"]["revoked_entries"][0].update({"reason_code": 2})),
