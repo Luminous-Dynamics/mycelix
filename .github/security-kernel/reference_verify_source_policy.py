@@ -174,6 +174,35 @@ def require_exact_job_keys(
         fail(f"{description}: job key census mismatch: expected {expected!r}, found {actual!r}")
 
 
+def require_exact_root_mapping(
+    lines_: list[str],
+    mapping_name: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    indexes = [
+        i
+        for i, line in enumerate(lines_)
+        if line.strip() == f"{mapping_name}:" and not line.startswith((" ", "\t"))
+    ]
+    if len(indexes) != 1:
+        fail(f"{description}: expected exactly one root {mapping_name!r} mapping")
+    index = indexes[0]
+    actual = []
+    for line in lines_[index + 1:]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= 0:
+            break
+        if indent != 2:
+            fail(f"{description}: unexpected {mapping_name} indentation: {line!r}")
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):\s+(.+)", line.strip())
+        if not match:
+            fail(f"{description}: malformed {mapping_name} entry: {line!r}")
+        actual.append(f"{match.group(1)}: {match.group(2)}")
+    if tuple(actual) != expected:
+        fail(f"{description}: {mapping_name} mismatch: expected {expected!r}, found {tuple(actual)!r}")
 def require_exact_job_mapping(
     lines_: list[str],
     job_name: str,
@@ -202,7 +231,7 @@ def require_exact_job_mapping(
             break
         if indent != 6:
             fail(f"{description}: unexpected {mapping_name} indentation: {line!r}")
-        match = re.fullmatch(r"([A-Za-z0-9_-]+):\\s+(.+)", line.strip())
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):\s+(.+)", line.strip())
         if not match:
             fail(f"{description}: malformed {mapping_name} entry: {line!r}")
         actual.append(f"{match.group(1)}: {match.group(2)}")
@@ -616,6 +645,19 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail(f"S0 external action census mismatch: {external_uses(l)!r}")
     if local_uses(l) != ("./.github/workflows/security-kernel-independent-qualification.yml",):
         fail("S0 local reusable workflow census mismatch")
+    require_exact_root_mapping(
+        l,
+        "env",
+        (
+            'BASE_REPOSITORY: "Luminous-Dynamics/mycelix"',
+            'BASE_REPOSITORY_ID: "1176351975"',
+            'BASE_BRANCH: "main"',
+            'TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"',
+            'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "156f00beeb50f269847a1d3cd9bbb50aa8ec5514"',
+            'TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"',
+        ),
+        "S0",
+    )
     require_exact_job_mapping(
         l,
         "qualify",
@@ -676,6 +718,21 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         l,
         (("qualify", ("name", "runs-on", "timeout-minutes", "steps")),),
         S1,
+    )
+    require_exact_root_mapping(
+        l,
+        "env",
+        (
+            'BASE_REPOSITORY: "Luminous-Dynamics/mycelix"',
+            'BASE_REPOSITORY_ID: "1176351975"',
+            'VENDOR_RESOURCE_PROFILE: "v2"',
+            'VENDOR_MAX_BYTES: "1073741824"',
+            'VENDOR_MAX_FILES: "100000"',
+            'VENDOR_MAX_INODES: "150000"',
+            'VENDOR_TMPFS_SIZE: "1024m"',
+            'VENDOR_TMPFS_NR_INODES: "150000"',
+        ),
+        "S1",
     )
     if tuple(step_names(l)) != S1_STEPS:
         fail("S1 step topology mismatch")
@@ -915,6 +972,27 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         ),
         S2,
     )
+    require_exact_root_mapping(
+        l,
+        "env",
+        (
+            'BASE_REPOSITORY: "Luminous-Dynamics/mycelix"',
+            'BASE_REPOSITORY_ID: "1176351975"',
+            'BASE_BRANCH: "main"',
+            'TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"',
+            'TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "66e8adb99be391aad73e41d94c11c2434861f1c1"',
+            'INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"',
+            'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "156f00beeb50f269847a1d3cd9bbb50aa8ec5514"',
+            'RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"',
+            'RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"',
+            'EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"',
+            'EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "18dca202667b1dc26f57c588efcab42087c8a49e"',
+            'SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"',
+            'SOURCE_POLICY_VERIFIER_BLOB_SHA: "9819e583b17fed8f35b425d3f0d1222ff8d86db6"',
+            'EXPECTED_JOB_NAME: "Independent Security Kernel"',
+        ),
+        "S2",
+    )
     if local_uses(l):
         fail("S2 unexpectedly contains local reusable workflow calls")
     for key, expected in (
@@ -1133,6 +1211,44 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 blank-separated security-events: write",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'  BASE_REPOSITORY_ID: "1176351975"\n',
+                b'  BASE_REPOSITORY_ID: "1176351976"\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 root env repository ID drift",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'  VENDOR_MAX_INODES: "150000"\n',
+                b'  VENDOR_MAX_INODES: "149999"\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 root env vendor inode ceiling drift",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'  EXPECTED_JOB_NAME: "Independent Security Kernel"\n',
+                b'  EXPECTED_JOB_NAME: "Different Security Kernel"\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 root env expected job-name drift",
     )
 
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
