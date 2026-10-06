@@ -84,7 +84,10 @@
       "execution_binding_sha256",
       "verifier_input"
     ],
-    "cryptographic_binding_sha256": "canonical hash of the verifier-computed exact certificate/CRL signature binding receipt"
+    "cryptographic_binding_sha256": "canonical hash of the in-process exact certificate/CRL cryptographic receipt",
+    "cryptographic_binding_source_sha256": "SHA-256 of the independently executed cryptographic witness source",
+    "cryptographic_binding_input_sha256": "SHA-256 of the exact cryptographic witness input projection",
+    "cryptographic_binding_output_sha256": "SHA-256 of the independently executed cryptographic witness output"
   },
   "profile_rules": {
     "version": 3,
@@ -573,9 +576,12 @@
   "cryptographic_binding_composition": {
     "verifier_id": "mycelix.tpm.ek-fixture-signatures.v0.1",
     "required_fields": [
-      "cryptographic_binding_sha256"
+      "cryptographic_binding_sha256",
+      "cryptographic_binding_source_sha256",
+      "cryptographic_binding_input_sha256",
+      "cryptographic_binding_output_sha256"
     ],
-    "rule": "The chain verifier parses the exact supplied leaf/intermediate/root DER and exact CRL bundle, verifies leaf-to-intermediate, intermediate-to-root, root self-signature, and both issuer CRL signatures directly from exact TBS/signature bytes using the exact issuer SubjectPublicKeyInfo, records object/TBS/signature/issuer hashes and its own verifier source SHA-256, and rejects any receipt hash mismatch before profile acceptance."
+    "rule": "The chain verifier computes an in-process exact-signature receipt and separately re-executes the independent cryptographic witness over the same exact DER/CRL projection. Both receipts must identify the same leaf/intermediate/root/CRL byte digests; the witness source, input file, and output file are separately hash-bound. The chain verifier then compares those identities with the OpenSSL path verifier's exact input object digests before profile acceptance."
   },
   "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, cryptographic binding receipt, and SPKI certificate/public-key identity"
 }
