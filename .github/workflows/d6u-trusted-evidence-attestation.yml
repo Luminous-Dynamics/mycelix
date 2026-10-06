@@ -37,7 +37,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "33"
+          TRUSTED_POLICY_VERSION: "34"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -94,7 +94,7 @@ jobs:
 
       - name: Prepare inert trusted signer handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "33"
+          D6U_TRUSTED_POLICY_VERSION: "34"
         run: |
           set -euo pipefail
           handoff_dir="$RUNNER_TEMP/d6u-signer-handoff"
@@ -168,7 +168,7 @@ EOF
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "33"
+          TRUSTED_POLICY_VERSION: "34"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -211,7 +211,7 @@ EOF
 
       - name: Assert inert trusted signer handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "33"
+          D6U_TRUSTED_POLICY_VERSION: "34"
         run: |
           set -euo pipefail
           handoff_dir="$RUNNER_TEMP/d6u-signer-handoff"
@@ -241,14 +241,19 @@ EOF
           )
           test "$(wc -l < "$handoff_dir/d6u-signer-handoff.manifest.sha256")" -eq 5
           test "$(awk '{print $2}' "$handoff_dir/d6u-signer-handoff.manifest.sha256" | sort | paste -sd, -)" = "Cargo.lock,d6u-runtime-evidence.txt,d6u-runtime-test.log,d6u-signer-context.txt,d6u-trusted-evidence-predicate.json"
-          grep -Fxq 'schema=d6u-trusted-signer-handoff/v1' "$handoff_dir/d6u-signer-context.txt"
-          grep -Fxq "repository=$GITHUB_REPOSITORY" "$handoff_dir/d6u-signer-context.txt"
-          grep -Fxq "source_digest=$GITHUB_SHA" "$handoff_dir/d6u-signer-context.txt"
-          grep -Fxq "trusted_workflow_digest=$GITHUB_WORKFLOW_SHA" "$handoff_dir/d6u-signer-context.txt"
-          grep -Fxq "run_id=$GITHUB_RUN_ID" "$handoff_dir/d6u-signer-context.txt"
-          grep -Fxq "run_attempt=$GITHUB_RUN_ATTEMPT" "$handoff_dir/d6u-signer-context.txt"
-          grep -Fxq 'verifier_job=verifier' "$handoff_dir/d6u-signer-context.txt"
-          grep -Fxq 'claim_ceiling=ReferenceModelOnly' "$handoff_dir/d6u-signer-context.txt"
+          expected_context="$RUNNER_TEMP/expected-d6u-signer-context.txt"
+          cat > "$expected_context" <<EOF
+schema=d6u-trusted-signer-handoff/v1
+repository=$GITHUB_REPOSITORY
+source_digest=$GITHUB_SHA
+trusted_workflow_digest=$GITHUB_WORKFLOW_SHA
+run_id=$GITHUB_RUN_ID
+run_attempt=$GITHUB_RUN_ATTEMPT
+verifier_job=verifier
+claim_ceiling=ReferenceModelOnly
+EOF
+          cmp -s "$expected_context" "$handoff_dir/d6u-signer-context.txt"
+          rm -f "$expected_context"
           test "$(sha256sum "$handoff_dir/d6u-runtime-evidence.txt" | awk '{print $1}')" = "$(sha256sum "$RUNNER_TEMP/d6u-signer-handoff/d6u-runtime-evidence.txt" | awk '{print $1}')"
 
       - name: Emit signer handoff identity
@@ -311,7 +316,7 @@ EOF
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
-            D6U_TRUSTED_POLICY_VERSION="33" \
+            D6U_TRUSTED_POLICY_VERSION="34" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
@@ -321,7 +326,7 @@ EOF
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "33"
+          D6U_TRUSTED_POLICY_VERSION: "34"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"
