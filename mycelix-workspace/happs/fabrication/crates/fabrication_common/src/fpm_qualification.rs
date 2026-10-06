@@ -20,6 +20,7 @@ pub const FPM_REGISTRATION_QUALIFICATION_PROFILE_ID: &str =
 pub const FPM_REGISTRATION_QUALIFICATION_PROFILE_VERSION: &str = "1";
 
 const SHA256_HEX_LEN: usize = 64;
+const MAX_RESOLVED_ARTIFACTS: usize = 512;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EvidenceKind {
@@ -97,6 +98,7 @@ pub enum RegistrationQualificationReason {
     EnvelopeDigestMismatch,
     MissingRegistrationAnchor,
     RegistrationAnchorMismatch,
+    TooManyResolvedArtifacts,
     RegistrationUnregistered,
     RegistrationConflicting,
     RegistrationInvalid,
@@ -300,6 +302,10 @@ pub fn qualify_registration(
     let expected = expected_artifacts(&input.envelope);
     let mut seen = BTreeSet::new();
 
+    if input.artifacts.len() > MAX_RESOLVED_ARTIFACTS {
+        reasons.insert(RegistrationQualificationReason::TooManyResolvedArtifacts);
+    }
+
     for artifact in &input.artifacts {
         let key = (artifact.kind, artifact.declared_digest.clone());
         if !seen.insert(key.clone()) {
@@ -368,6 +374,7 @@ pub fn qualify_registration(
                 | RegistrationQualificationReason::EnvelopeDigestMismatch
                 | RegistrationQualificationReason::RegistrationAnchorMismatch
                 | RegistrationQualificationReason::InvalidRegistrationAnchorReference
+                | RegistrationQualificationReason::TooManyResolvedArtifacts
                 | RegistrationQualificationReason::ArtifactDigestMismatch
                 | RegistrationQualificationReason::ArtifactBindingMismatch
                 | RegistrationQualificationReason::DuplicateArtifact
@@ -887,6 +894,24 @@ mod tests {
             evidence_manifest_digest(&input.artifacts),
             evidence_manifest_digest(&reversed)
         );
+    }
+
+    #[test]
+    fn too_many_resolved_artifacts_cannot_qualify() {
+        let mut input = input_with_exact_artifacts();
+        let extra = input.artifacts[0].clone();
+        input.artifacts.resize(MAX_RESOLVED_ARTIFACTS + 1, extra);
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier(), &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InvalidEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::TooManyResolvedArtifacts));
     }
 
     #[test]
