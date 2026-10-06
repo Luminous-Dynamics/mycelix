@@ -8,35 +8,59 @@ use crate::seccomp::{SeccompSyscallPolicyV2, SeccompSyscallRuleV2};
 use blake3::Hasher;
 use std::collections::BTreeSet;
 
-pub const MAX_TEXT_LEN: usize = 256;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+pub enum CapabilityClassV1 {
+    Network = 1,
+    Storage = 2,
+    Clipboard = 3,
+    Device = 4,
+    Process = 5,
+    Runtime = 6,
+    Graphics = 7,
+    Ipc = 8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+pub enum PolicySubsystemV1 {
+    RendererIpc = 1,
+    NetworkBroker = 2,
+    StorageBroker = 3,
+    Runtime = 4,
+    Compositor = 5,
+    BrowserCore = 6,
+    SandboxBootstrap = 7,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+pub enum JustificationCodeV1 {
+    RequiredRuntimeOperation = 1,
+    ExplicitCapabilitySurface = 2,
+    InterprocessTransport = 3,
+    KernelAbiRequirement = 4,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PolicyAtomV1 {
     pub syscall: i64,
     pub clause_digest: [u8; 32],
-    pub capability: String,
-    pub subsystem: String,
-    pub rationale: String,
+    pub capability: CapabilityClassV1,
+    pub subsystem: PolicySubsystemV1,
+    pub rationale: JustificationCodeV1,
 }
 
 impl PolicyAtomV1 {
     pub fn new(
         syscall: i64,
         clause_digest: [u8; 32],
-        capability: impl Into<String>,
-        subsystem: impl Into<String>,
-        rationale: impl Into<String>,
+        capability: CapabilityClassV1,
+        subsystem: PolicySubsystemV1,
+        rationale: JustificationCodeV1,
     ) -> Result<Self, PolicyProofError> {
         if syscall < 0 || syscall > i32::MAX as i64 || clause_digest == [0; 32] {
             return Err(PolicyProofError::InvalidAtom);
-        }
-        let capability = capability.into();
-        let subsystem = subsystem.into();
-        let rationale = rationale.into();
-        for value in [&capability, &subsystem, &rationale] {
-            if value.is_empty() || value.len() > MAX_TEXT_LEN || !value.is_ascii() {
-                return Err(PolicyProofError::InvalidAtom);
-            }
         }
         Ok(Self { syscall, clause_digest, capability, subsystem, rationale })
     }
@@ -50,9 +74,9 @@ impl PolicyAtomV1 {
         field(&mut out, b"prism-policy-atom-v1");
         field(&mut out, &self.syscall.to_be_bytes());
         field(&mut out, &self.clause_digest);
-        field(&mut out, self.capability.as_bytes());
-        field(&mut out, self.subsystem.as_bytes());
-        field(&mut out, self.rationale.as_bytes());
+        field(&mut out, &[self.capability as u8]);
+        field(&mut out, &[self.subsystem as u8]);
+        field(&mut out, &[self.rationale as u8]);
         out
     }
 }
@@ -170,9 +194,9 @@ mod tests {
                     PolicyAtomV1::new(
                         rule.syscall(),
                         digest,
-                        "network.socket",
-                        "renderer-network",
-                        "socket capability requires controlled domain",
+                        CapabilityClassV1::Network,
+                        PolicySubsystemV1::NetworkBroker,
+                        JustificationCodeV1::ExplicitCapabilitySurface,
                     )
                     .unwrap()
                 })
@@ -228,9 +252,9 @@ mod tests {
         let atom = PolicyAtomV1::new(
             libc::SYS_read as i64,
             [7; 32],
-            "file.read",
-            "renderer-storage",
-            "not actually derived from policy",
+            CapabilityClassV1::Storage,
+            PolicySubsystemV1::StorageBroker,
+            JustificationCodeV1::ExplicitCapabilitySurface,
         ).unwrap();
         assert_eq!(
             PolicyJustificationSetV1::new(&policy, vec![atom]),
@@ -254,8 +278,8 @@ mod tests {
         let mut atoms = atoms_for(&policy);
         let first = atoms[0].clone();
         let changed = PolicyAtomV1::new(
-            first.syscall, first.clause_digest, first.capability.clone(),
-            first.subsystem.clone(), "different rationale"
+            first.syscall, first.clause_digest, first.capability,
+            first.subsystem, JustificationCodeV1::KernelAbiRequirement
         ).unwrap();
         atoms[0] = changed;
         let a = PolicyJustificationSetV1::new(&policy, atoms_for(&policy)).unwrap();
