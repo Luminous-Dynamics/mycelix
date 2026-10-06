@@ -459,6 +459,16 @@
       "id": "EKC-V61",
       "mutation": "crl-number-progression-claim-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V62",
+      "mutation": "crl-delta-indicator-extension-injection",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V63",
+      "mutation": "crl-issuing-distribution-point-extension-injection",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -560,7 +570,8 @@
       "exact reference CRL v2 thisUpdate/nextUpdate semantics bound to the modeled verification time",
       "exact non-critical CRL AuthorityKeyIdentifier and cRLNumber extension presence and encoding",
       "CRL AuthorityKeyIdentifier keyIdentifier exact match to the signing certificate SubjectKeyIdentifier",
-      "exact revoked-entry serial, revocationDate, reasonCode, and raw DER identity binding"
+      "exact revoked-entry serial, revocationDate, reasonCode, and raw DER identity binding",
+      "delta CRL indicator and indirect/issuing-distribution-point CRL semantics are explicitly outside the reference model"
     ],
     "conditional_pqc_requirements": "EKCredentialAlgorithmList and TPMPQCVersion are intentionally outside this v0.1 reference theorem because their correctness depends on issuer-issued PQC credentials and firmware-at-manufacturing/current-firmware evidence not present in this synthetic reference fixture.",
     "claim_ceiling": "ReferenceModelOnly"
@@ -794,7 +805,17 @@
       "id": "CRL-S13",
       "control": "crl-number-progression-claim-explicitly-not-modeled",
       "expected": "DENY"
+    },
+    {
+      "id": "CRL-S14",
+      "control": "crl-delta-crl-indicator-rejected",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S15",
+      "control": "crl-issuing-distribution-point-rejected",
+      "expected": "DENY"
     }
   ],
-  "crl_semantics_control_count": 13
+  "crl_semantics_control_count": 15
 }
