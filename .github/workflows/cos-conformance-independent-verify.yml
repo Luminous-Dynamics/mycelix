@@ -16,26 +16,31 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
-  pull-requests: read
-
-# Trusted verification runs are never superseded: every upstream Evidence
-# completion remains independently addressable by its exact head SHA.
+# The verifier is a trusted control plane. PR execution is isolated into its
+# own job; only immutable job outputs and artifact data cross into validation.
 concurrency:
   group: cos-conformance-independent-verify-${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:
-  verify:
+  prepare:
+    name: Prepare trusted verification target
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    env:
-      PR_NUMBER: ${{ inputs.pr_number || github.event.workflow_run.pull_requests[0].number }}
-      EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
-      TRIGGER_RUN_ID: ${{ github.event.workflow_run.id || 0 }}
-      TRIGGER_EVENT: ${{ github.event.workflow_run.event || 'workflow_dispatch' }}
-      TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion || 'manual' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      pr_number: ${{ steps.target_binding.outputs.pr_number }}
+      expected_head_sha: ${{ steps.target_binding.outputs.expected_head_sha }}
+      head_repository: ${{ steps.target_binding.outputs.head_repository }}
+      trigger_run_id: ${{ steps.target_binding.outputs.trigger_run_id }}
+      trigger_event: ${{ steps.target_binding.outputs.trigger_event }}
+      trigger_conclusion: ${{ steps.target_binding.outputs.trigger_conclusion }}
+      trusted_workflow_sha: ${{ steps.trusted_identity.outputs.trusted_workflow_sha }}
+      trusted_workflow_ref: ${{ steps.trusted_identity.outputs.trusted_workflow_ref }}
+      trusted_workflow_checked_out_sha: ${{ steps.trusted_identity.outputs.trusted_workflow_checked_out_sha }}
+      trusted_workflow_file_blob_sha: ${{ steps.trusted_identity.outputs.trusted_workflow_file_blob_sha }}
     steps:
       - name: Assert trusted workflow control plane
         env:
@@ -51,15 +56,24 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
+          clean: true
           persist-credentials: false
 
       - name: Capture trusted verifier identity
+        id: trusted_identity
         run: |
-          mkdir -p evidence
-          printf '%s\n' "${{ github.workflow_sha }}" > evidence/trusted-workflow-sha.txt
-          printf '%s\n' "${{ github.workflow_ref }}" > evidence/trusted-workflow-ref.txt
-          git rev-parse HEAD > evidence/trusted-workflow-checked-out-sha.txt
-          git rev-parse HEAD:.github/workflows/cos-conformance-independent-verify.yml > evidence/trusted-workflow-file-blob-sha.txt
+          actual_trusted_sha="$(git rev-parse HEAD)"
+          trusted_file_blob="$(git rev-parse HEAD:.github/workflows/cos-conformance-independent-verify.yml)"
+          test "${actual_trusted_sha}" = "${{ github.workflow_sha }}" || {
+            echo "trusted verifier checkout drift: expected ${{ github.workflow_sha }}, got ${actual_trusted_sha}" >&2
+            exit 1
+          }
+          {
+            printf 'trusted_workflow_sha=%s\n' "${{ github.workflow_sha }}"
+            printf 'trusted_workflow_ref=%s\n' "${{ github.workflow_ref }}"
+            printf 'trusted_workflow_checked_out_sha=%s\n' "${actual_trusted_sha}"
+            printf 'trusted_workflow_file_blob_sha=%s\n' "${trusted_file_blob}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Validate immutable verifier action pins
         run: |
@@ -70,12 +84,13 @@ jobs:
           path = Path(".github/workflows/cos-conformance-independent-verify.yml")
           expected = {
               "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
               "dtolnay/rust-toolchain": "7e38f4b43b4db5c8dd498af069a4f6196df1d067",
               "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
           }
           refs = {}
           pattern = re.compile(
-              r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
+              r"^s*(?:-s+)?uses:s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:s+#.*)?$"
           )
           for line in path.read_text().splitlines():
               stripped = line.lstrip()
@@ -83,14 +98,14 @@ jobs:
                   continue
               match = pattern.fullmatch(line)
               assert match, f"workflow action is not pinned to a full SHA: {line!r}"
-              action, sha = match.groups()
+              action, ref = match.groups()
               if action in refs:
-                  assert refs[action] == sha, (
+                  assert refs[action] == ref, (
                       f"action {action} is reused with conflicting immutable refs: "
-                      f"{refs[action]} vs {sha}"
+                      f"{refs[action]} vs {ref}"
                   )
               else:
-                  refs[action] = sha
+                  refs[action] = ref
 
           assert refs == expected, (
               f"verifier action pin set drifted: expected={expected!r} actual={refs!r}"
@@ -98,6 +113,14 @@ jobs:
           PY
 
       - name: Validate verification target
+        id: target_binding
+        env:
+          PR_NUMBER: ${{ inputs.pr_number || github.event.workflow_run.pull_requests[0].number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
+          TRIGGER_RUN_ID: ${{ github.event.workflow_run.id || 0 }}
+          TRIGGER_EVENT: ${{ github.event.workflow_run.event || 'workflow_dispatch' }}
+          TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion || 'manual' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           TRIGGER_EVENT="${TRIGGER_EVENT}"           TRIGGER_RUN_ID="${TRIGGER_RUN_ID}"           PR_NUMBER="${PR_NUMBER}"           EXPECTED_HEAD_SHA="${EXPECTED_HEAD_SHA}"           python - <<'PY'
           import os
@@ -127,7 +150,7 @@ jobs:
             exit 1
           }
           test "${head_repository}" = "${GITHUB_REPOSITORY}" || {
-            echo "independent verifier currently accepts same-repository PR heads only: ${head_repository}" >&2
+            echo "independent verifier accepts same-repository PR heads only: ${head_repository}" >&2
             exit 1
           }
           test "${pull_request_state}" = "open" || {
@@ -135,45 +158,62 @@ jobs:
             exit 1
           }
 
-          mkdir -p evidence
-          printf '%s\n' "${PR_NUMBER}" > evidence/pr-number.txt
-          printf '%s\n' "${EXPECTED_HEAD_SHA}" > evidence/expected-head-sha.txt
-          printf '%s\n' "${head_repository}" > evidence/head-repository.txt
-          printf '%s\n' "${TRIGGER_RUN_ID}" > evidence/trigger-run-id.txt
-          printf '%s\n' "${TRIGGER_EVENT}" > evidence/trigger-event.txt
-          printf '%s\n' "${TRIGGER_CONCLUSION}" > evidence/trigger-conclusion.txt
+          {
+            printf 'pr_number=%s\n' "${PR_NUMBER}"
+            printf 'expected_head_sha=%s\n' "${EXPECTED_HEAD_SHA}"
+            printf 'head_repository=%s\n' "${head_repository}"
+            printf 'trigger_run_id=%s\n' "${TRIGGER_RUN_ID}"
+            printf 'trigger_event=%s\n' "${TRIGGER_EVENT}"
+            printf 'trigger_conclusion=%s\n' "${TRIGGER_CONCLUSION}"
+          } >> "${GITHUB_OUTPUT}"
 
-      - name: Checkout exact PR head for unprivileged verification
+  execute:
+    name: Execute exact PR head
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    outputs:
+      target_checkout_outcome: ${{ steps.target_checkout.outcome }}
+      tested_commit_sha: ${{ steps.target_checkout.outputs.tested_commit_sha }}
+      conformance_test_outcome: ${{ steps.conformance_test.outcome }}
+      report_generation_outcome: ${{ steps.generate_report.outcome }}
+    steps:
+      - name: Checkout exact PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
+          ref: ${{ needs.prepare.outputs.expected_head_sha }}
           submodules: recursive
+          clean: true
           persist-credentials: false
 
       - name: Assert exact PR-head checkout
         id: target_checkout
         run: |
           actual_head_sha="$(git rev-parse HEAD)"
-          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
-            echo "PR-head checkout drift: expected ${EXPECTED_HEAD_SHA}, got ${actual_head_sha}" >&2
+          test "${actual_head_sha}" = "${{ needs.prepare.outputs.expected_head_sha }}" || {
+            echo "PR-head checkout drift: expected ${{ needs.prepare.outputs.expected_head_sha }}, got ${actual_head_sha}" >&2
             exit 1
           }
+          printf 'tested_commit_sha=%s\n' "${actual_head_sha}" >> "${GITHUB_OUTPUT}"
+          mkdir -p evidence
           printf '%s\n' "${actual_head_sha}" > evidence/tested-commit-sha.txt
+
+      - name: Capture exact dependency lock
+        run: |
+          if [[ ! -f mycelix-manufacturing/Cargo.lock ]]; then
+            echo "Cargo.lock missing from tested revision" >&2
+            exit 1
+          fi
+          mkdir -p evidence
+          cp mycelix-manufacturing/Cargo.lock evidence/Cargo.lock
+          sha256sum evidence/Cargo.lock | awk '{print $1}' > evidence/cargo-lock-sha256.txt
 
       - name: Set up pinned Rust toolchain
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # pinned action commit
         with:
           toolchain: 1.99.0
-
-      - name: Capture tested dependency lock
-        if: steps.target_checkout.outcome == 'success'
-        run: |
-          if [[ ! -f mycelix-manufacturing/Cargo.lock ]]; then
-            echo "Cargo.lock missing from tested revision" > evidence/dependency-lock-error.txt
-            exit 1
-          fi
-          cp mycelix-manufacturing/Cargo.lock evidence/Cargo.lock
-          sha256sum evidence/Cargo.lock | awk '{print $1}' > evidence/cargo-lock-sha256.txt
 
       - name: Test COS conformance harness
         id: conformance_test
@@ -195,8 +235,89 @@ jobs:
           cd mycelix-manufacturing
           cargo run -q -p cos_conformance --bin cos-report > ../evidence/cos-conformance-report.json
 
-      - name: Validate evidence report
-        id: validate_evidence_report
+      - name: Record execution outcomes
+        if: always()
+        run: |
+          cat > evidence/execution-outcomes.json <<JSON
+          {
+            "tested_commit_sha": "${{ steps.target_checkout.outputs.tested_commit_sha || '' }}",
+            "target_checkout_outcome": "${{ steps.target_checkout.outcome || 'skipped' }}",
+            "conformance_test_outcome": "${{ steps.conformance_test.outcome || 'skipped' }}",
+            "report_generation_outcome": "${{ steps.generate_report.outcome || 'skipped' }}"
+          }
+          JSON
+
+      - name: Preserve raw PR execution evidence
+        if: always()
+        id: execution_artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+  validate:
+    name: Validate execution from fresh trusted runner
+    needs: [prepare, execute]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    steps:
+      - name: Download raw execution evidence
+        id: download_execution
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          path: evidence
+
+      - name: Validate live PR binding and raw evidence
+        id: validate_raw
+        continue-on-error: true
+        env:
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.prepare.outputs.expected_head_sha }}
+          EXPECTED_HEAD_REPOSITORY: ${{ needs.prepare.outputs.head_repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
+          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}"
+          test "${head_repository}" = "${EXPECTED_HEAD_REPOSITORY}"
+          test "${head_repository}" = "${GITHUB_REPOSITORY}"
+          test "${pull_request_state}" = "open"
+
+          test "${{ needs.execute.result }}" = "success"
+          test "${{ needs.execute.outputs.target_checkout_outcome }}" = "success"
+          test "${{ needs.execute.outputs.tested_commit_sha }}" = "${EXPECTED_HEAD_SHA}"
+
+          test -s evidence/tested-commit-sha.txt
+          test "$(cat evidence/tested-commit-sha.txt)" = "${EXPECTED_HEAD_SHA}"
+          test -s evidence/Cargo.lock
+          test -s evidence/cargo-lock-sha256.txt
+          recorded_lock_sha="$(cat evidence/cargo-lock-sha256.txt)"
+          printf '%s\n' "${recorded_lock_sha}" | grep -Eq '^[0-9a-f]{64}$'
+          sha256sum -c <(printf '%s  %s\n' "${recorded_lock_sha}" evidence/Cargo.lock)
+
+          expected_lock_b64="$(gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/Cargo.lock?ref=${EXPECTED_HEAD_SHA}" --jq '.content' | tr -d '
+')"
+          printf '%s' "${expected_lock_b64}" | base64 --decode > expected-Cargo.lock
+          cmp -s expected-Cargo.lock evidence/Cargo.lock
+
+          test -s evidence/cos-conformance-report.json
+          test -s evidence/cargo-test.log
+          test -s evidence/cargo-test.exit-code
+
+      - name: Validate machine-readable conformance report
+        id: validate_report
         continue-on-error: true
         run: |
           python - <<'PY'
@@ -216,59 +337,58 @@ jobs:
       - name: Write independent verification envelope
         if: always()
         run: |
-          test_exit_code="null"
-          if [[ -f evidence/cargo-test.exit-code ]]; then
-            test_exit_code="$(cat evidence/cargo-test.exit-code)"
-          fi
-          tested_commit_sha="null"
-          if [[ -f evidence/tested-commit-sha.txt ]]; then
-            tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
-          fi
-          dependency_lock_sha256="null"
-          if [[ -f evidence/cargo-lock-sha256.txt ]]; then
-            dependency_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
-          fi
-          report_path_present=false
-          if [[ -s evidence/cos-conformance-report.json ]]; then
-            report_path_present=true
+          mkdir -p evidence
+          qualification_result="failed"
+          if [[ "${{ needs.execute.result }}" == "success"              && "${{ needs.execute.outputs.target_checkout_outcome }}" == "success"              && "${{ needs.execute.outputs.conformance_test_outcome }}" == "success"              && "${{ needs.execute.outputs.report_generation_outcome }}" == "success"              && "${{ steps.download_execution.outcome }}" == "success"              && "${{ steps.validate_raw.outcome }}" == "success"              && "${{ steps.validate_report.outcome }}" == "success" ]]; then
+            qualification_result="passed"
+          elif [[ "${{ needs.execute.result }}" == "cancelled"                || "${{ needs.execute.result }}" == "skipped" ]]; then
+            qualification_result="not_run"
           fi
 
-          case "${{ steps.conformance_test.outcome || 'skipped' }}:${{ steps.generate_report.outcome || 'skipped' }}:${{ steps.validate_evidence_report.outcome || 'skipped' }}" in
-            success:success:success)
-              qualification_result="passed"
-              ;;
-            skipped:*|cancelled:*|*:skipped|*:cancelled)
-              qualification_result="not_run"
-              ;;
-            *)
-              qualification_result="failed"
-              ;;
-          esac
+          test_exit_code="null"
+          if [[ -f evidence/cargo-test.exit-code ]] && [[ "${{ steps.validate_raw.outcome }}" == "success" ]]; then
+            candidate_exit="$(cat evidence/cargo-test.exit-code)"
+            if [[ "${candidate_exit}" =~ ^[0-9]+$ ]]; then
+              test_exit_code="${candidate_exit}"
+            fi
+          fi
+          tested_commit_sha="${{ needs.execute.outputs.tested_commit_sha || '' }}"
+          if [[ -z "${tested_commit_sha}" && -f evidence/tested-commit-sha.txt ]]; then
+            tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
+          fi
+          tested_lock_sha256=""
+          if [[ -f evidence/cargo-lock-sha256.txt ]]; then
+            tested_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
+          fi
 
           cat > evidence/independent-run-envelope.json <<JSON
           {
-            "schema": "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V1",
+            "schema": "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2",
             "claim_ceiling": "ReferenceModelOnly",
             "repository": "${GITHUB_REPOSITORY}",
-            "pr_number": "${PR_NUMBER}",
-            "expected_head_sha": "${EXPECTED_HEAD_SHA}",
+            "pr_number": "${{ needs.prepare.outputs.pr_number }}",
+            "expected_head_sha": "${{ needs.prepare.outputs.expected_head_sha }}",
             "tested_commit_sha": "${tested_commit_sha}",
-            "trusted_workflow_sha": "${{ github.workflow_sha }}",
-            "trusted_workflow_ref": "${{ github.workflow_ref }}",
-            "trusted_workflow_checked_out_sha": "$(cat evidence/trusted-workflow-checked-out-sha.txt 2>/dev/null || printf %s null)",
-            "trusted_workflow_file_blob_sha": "$(cat evidence/trusted-workflow-file-blob-sha.txt 2>/dev/null || printf %s null)",
-            "tested_lock_sha256": "${dependency_lock_sha256}",
-            "trigger_run_id": ${TRIGGER_RUN_ID},
-            "trigger_event": "${TRIGGER_EVENT}",
-            "trigger_conclusion": "${TRIGGER_CONCLUSION}",
+            "head_repository": "${{ needs.prepare.outputs.head_repository }}",
+            "trusted_workflow_sha": "${{ needs.prepare.outputs.trusted_workflow_sha }}",
+            "trusted_workflow_ref": "${{ needs.prepare.outputs.trusted_workflow_ref }}",
+            "trusted_workflow_checked_out_sha": "${{ needs.prepare.outputs.trusted_workflow_checked_out_sha }}",
+            "trusted_workflow_file_blob_sha": "${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}",
+            "tested_lock_sha256": "${tested_lock_sha256}",
+            "trigger_run_id": ${{ needs.prepare.outputs.trigger_run_id }},
+            "trigger_event": "${{ needs.prepare.outputs.trigger_event }}",
+            "trigger_conclusion": "${{ needs.prepare.outputs.trigger_conclusion }}",
+            "executor_job_result": "${{ needs.execute.result }}",
+            "target_checkout_outcome": "${{ needs.execute.outputs.target_checkout_outcome }}",
+            "conformance_test_outcome": "${{ needs.execute.outputs.conformance_test_outcome }}",
+            "conformance_test_exit_code": ${test_exit_code},
+            "report_generation_outcome": "${{ needs.execute.outputs.report_generation_outcome }}",
+            "raw_evidence_download_outcome": "${{ steps.download_execution.outcome }}",
+            "raw_evidence_validation_outcome": "${{ steps.validate_raw.outcome }}",
+            "report_validation_outcome": "${{ steps.validate_report.outcome }}",
             "run_id": ${{ github.run_id }},
             "run_attempt": ${{ github.run_attempt }},
             "qualification_result": "${qualification_result}",
-            "conformance_test_outcome": "${{ steps.conformance_test.outcome || 'skipped' }}",
-            "conformance_test_exit_code": ${test_exit_code},
-            "report_generation_outcome": "${{ steps.generate_report.outcome || 'skipped' }}",
-            "report_validation_outcome": "${{ steps.validate_evidence_report.outcome || 'skipped' }}",
-            "report_present": ${report_path_present},
             "runner_os": "${{ runner.os }}"
           }
           JSON
@@ -286,7 +406,7 @@ jobs:
           sha40 = re.compile(r"^[0-9a-f]{40}$")
           sha64 = re.compile(r"^[0-9a-f]{64}$")
 
-          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V1"
+          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2"
           assert envelope["claim_ceiling"] == "ReferenceModelOnly"
           assert sha40.fullmatch(envelope["expected_head_sha"])
           assert sha40.fullmatch(envelope["tested_commit_sha"])
@@ -296,15 +416,22 @@ jobs:
           assert envelope["trusted_workflow_sha"] == envelope["trusted_workflow_checked_out_sha"]
           assert sha40.fullmatch(envelope["trusted_workflow_file_blob_sha"])
           assert sha64.fullmatch(envelope["tested_lock_sha256"])
-          assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
           assert envelope["pr_number"].isdigit()
-          assert isinstance(envelope["trigger_run_id"], int) and envelope["trigger_run_id"] >= 0
+          assert envelope["head_repository"] == envelope["repository"]
+          assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
           assert envelope["trigger_event"] in {"pull_request", "workflow_dispatch"}
           assert envelope["trigger_conclusion"]
           allowed = {"success", "failure", "cancelled", "skipped"}
-          assert envelope["conformance_test_outcome"] in allowed
-          assert envelope["report_generation_outcome"] in allowed
-          assert envelope["report_validation_outcome"] in allowed
+          for key in (
+              "executor_job_result",
+              "target_checkout_outcome",
+              "conformance_test_outcome",
+              "report_generation_outcome",
+              "raw_evidence_download_outcome",
+              "raw_evidence_validation_outcome",
+              "report_validation_outcome",
+          ):
+              assert envelope[key] in allowed
 
           exit_code = envelope["conformance_test_exit_code"]
           if envelope["conformance_test_outcome"] == "success":
@@ -315,24 +442,20 @@ jobs:
               assert exit_code is None
 
           if envelope["qualification_result"] == "passed":
-              assert (
-                  envelope["conformance_test_outcome"]
-                  == envelope["report_generation_outcome"]
-                  == envelope["report_validation_outcome"]
-                  == "success"
-              )
+              assert envelope["executor_job_result"] == "success"
+              assert envelope["target_checkout_outcome"] == "success"
+              assert envelope["conformance_test_outcome"] == "success"
+              assert envelope["report_generation_outcome"] == "success"
+              assert envelope["raw_evidence_download_outcome"] == "success"
+              assert envelope["raw_evidence_validation_outcome"] == "success"
+              assert envelope["report_validation_outcome"] == "success"
           elif envelope["qualification_result"] == "not_run":
-              assert (
-                  envelope["conformance_test_outcome"] in {"skipped", "cancelled"}
-                  or envelope["report_generation_outcome"] in {"skipped", "cancelled"}
-                  or envelope["report_validation_outcome"] in {"skipped", "cancelled"}
-              )
+              assert envelope["executor_job_result"] in {"cancelled", "skipped"}
           else:
-              assert (
-                  envelope["conformance_test_outcome"] != "success"
-                  or envelope["report_generation_outcome"] != "success"
-                  or envelope["report_validation_outcome"] != "success"
-              )
+              assert envelope["qualification_result"] == "failed"
+
+          if envelope["report_validation_outcome"] == "success":
+              assert envelope["raw_evidence_validation_outcome"] == "success"
           PY
 
           (
@@ -340,14 +463,14 @@ jobs:
             LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
           ) > evidence/SHA256SUMS
 
-      - name: Preserve independent evidence
+      - name: Preserve validated independent evidence
         if: always()
         id: evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cos-conformance-independent-evidence-${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
+          name: cos-conformance-independent-evidence-${{ needs.prepare.outputs.expected_head_sha }}
           path: evidence/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
 
       - name: Enforce independent qualification result
