@@ -16,10 +16,10 @@ from typing import Any
 VERIFIER_ID = "mycelix.tpm.ek-cert-chain-policy.v0.1"
 SPKI_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
 TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
+ROOT = Path(__file__).resolve().parents[2]
 TRUST_ANCHOR_APPRAISAL_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
 TRUST_ANCHOR_APPRAISAL_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_trust_anchor_appraisal_v0_1.py")
 TRUST_ANCHOR_REGISTRY_FILE = ROOT / "docs/security/mycelix-ek-trust-anchor-registry-v0.1.json"
-ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
@@ -852,7 +852,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_der_base64": b64(fx["root"]),
         "trust_anchor_root_sha256": root_sha,
         "trust_anchor_state": "PASS",
-        "trust_anchor_source_sha256": reference_root_source_hash(root_sha),
+        "trust_anchor_source_sha256": "52" * 32,
         "verification_time_unix": fx["attime"],
         "revocation": {
             "state": "PASS",
