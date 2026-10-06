@@ -241,7 +241,7 @@ fn validate_safety_claim(c: SafetyClaim) -> ExternResult<ValidateCallbackResult>
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate a VerificationRequest entry.
+/// Validate an FPM registration anchor entry.
 fn validate_fpm_registration_anchor(
     anchor: FpmRegistrationAnchor,
 ) -> ExternResult<ValidateCallbackResult> {
