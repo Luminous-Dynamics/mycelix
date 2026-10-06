@@ -92,6 +92,24 @@ def top_level_keys_after(lines_: list[str], heading: str) -> tuple[str, ...]:
     return tuple(found)
 
 
+def top_level_keys(lines_: list[str]) -> tuple[str, ...]:
+    return tuple(
+        match.group(1)
+        for line in lines_
+        if (match := re.fullmatch(r"([A-Za-z0-9_-]+):\s*", line))
+    )
+
+
+def require_exact_top_level_keys(
+    lines_: list[str],
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    actual = top_level_keys(lines_)
+    if actual != expected:
+        fail(f"{description}: top-level key census mismatch: expected {expected!r}, found {actual!r}")
+
+
 def job_keys(lines_: list[str]) -> tuple[str, ...]:
     try:
         start = next(i for i, line in enumerate(lines_) if line.strip() == "jobs:")
@@ -99,6 +117,8 @@ def job_keys(lines_: list[str]) -> tuple[str, ...]:
         fail("missing jobs block")
     found = []
     for line in lines_[start + 1 :]:
+        if line and not line.startswith((" ", "\t")):
+            break
         match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", line)
         if match:
             found.append(match.group(1))
@@ -106,11 +126,15 @@ def job_keys(lines_: list[str]) -> tuple[str, ...]:
 
 
 def step_names(lines_: list[str]) -> tuple[str, ...]:
-    return tuple(
-        match.group(1)
-        for line in lines_
-        if (match := re.fullmatch(r"\s{6}- name: (.+)", line))
-    )
+    names = []
+    for line in lines_:
+        if not re.fullmatch(r"\s{6}-\s+(.+)", line):
+            continue
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if not match:
+            fail(f"workflow step item must use the closed-world '- name:' form: {line!r}")
+        names.append(match.group(1))
+    return tuple(names)
 
 
 def external_uses(lines_: list[str]) -> tuple[str, ...]:
@@ -231,6 +255,40 @@ def require_explicit_bash_for_run_steps(lines_: list[str], description: str) -> 
             in_run_block = True
         elif re.fullmatch(r"\s{8}shell:\s+bash\s*", line):
             current["shell"].append("bash")
+
+
+def require_exact_step_conditionals(
+    lines_: list[str],
+    expected: tuple[tuple[str, str | None], ...],
+    description: str,
+) -> None:
+    actual = []
+    current_name = None
+    current_conditionals = []
+
+    def flush() -> None:
+        if current_name is None:
+            return
+        if len(current_conditionals) > 1:
+            fail(f"{description}: step {current_name!r} contains duplicate if mappings")
+        actual.append((current_name, current_conditionals[0] if current_conditionals else None))
+
+    for line in lines_:
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if match:
+            flush()
+            current_name = match.group(1)
+            current_conditionals = []
+            continue
+        if current_name is None:
+            continue
+        match = re.fullmatch(r"\s{8}if:\s*(.+)", line)
+        if match:
+            current_conditionals.append(match.group(1).strip())
+
+    flush()
+    if tuple(actual) != expected:
+        fail(f"{description}: step conditional census mismatch: expected {expected!r}, found {actual!r}")
 
 
 def require_step_execution_modes(lines_: list[str], description: str) -> None:
