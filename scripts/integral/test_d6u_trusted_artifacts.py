@@ -1574,6 +1574,30 @@ def test_attestation_verifier_rejects_old_run() -> None:
             )
 
 
+def test_commitment_attestation_rejects_malformed_entry_types() -> None:
+    import verify_d6u_trusted_attestation as verifier
+
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        canonical_sha = hashlib.sha256(
+            (evidence_dir / "d6u-trusted-evidence-predicate.json").read_bytes()
+        ).hexdigest()
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "D6U_TRUSTED_POLICY_VERSION": "22",
+        }, clear=False):
+            assert verifier.verify_commitment_entry(
+                [],
+                synthetic_record(),
+                subjects,
+                canonical_sha,
+            ) is False
+
+
 def test_commitment_attestation_rejects_canonical_predicate_tampering() -> None:
     import verify_d6u_trusted_attestation as verifier
 
