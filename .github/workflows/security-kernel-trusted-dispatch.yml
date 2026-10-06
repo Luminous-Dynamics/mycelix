@@ -64,7 +64,7 @@ jobs:
           test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
           test -n "$HEAD_REPOSITORY"
           python3 - <<'PY'
-          import json, os, urllib.request
+          import json, os, re, urllib.request
           repo=os.environ["BASE_REPOSITORY"]
           pr_number=int(os.environ["PR_NUMBER"])
           req=urllib.request.Request(
@@ -84,6 +84,101 @@ jobs:
           assert pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
           assert pr["head"]["repo"]["id"] == int(os.environ["HEAD_REPOSITORY_ID"])
           assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
+
+          workflow_sha = os.environ["GITHUB_WORKFLOW_SHA"]
+          headers = {
+              "Accept":"application/vnd.github+json",
+              "Authorization":f"Bearer {os.environ['TOKEN']}",
+              "X-GitHub-Api-Version":"2022-11-28",
+          }
+
+          def fetch_file(path):
+              request = urllib.request.Request(
+                  f"https://api.github.com/repos/{repo}/contents/{path}?ref={workflow_sha}",
+                  headers=headers,
+              )
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  return json.load(response)
+
+          def decode_file(document):
+              import base64
+              assert document.get("type") == "file"
+              assert document.get("encoding") == "base64"
+              return base64.b64decode(document["content"]).decode("utf-8")
+
+          dispatcher_file = fetch_file(".github/workflows/security-kernel-trusted-dispatch.yml")
+          s1_file = fetch_file(os.environ["TRUSTED_INDEPENDENT_WORKFLOW_PATH"])
+          assert dispatcher_file["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
+          assert re.fullmatch(r"[0-9a-f]{40}", dispatcher_file.get("sha", ""))
+          assert re.fullmatch(r"[0-9a-f]{40}", s1_file.get("sha", ""))
+          s1_blob_sha = s1_file["sha"]
+          dispatcher_text = decode_file(dispatcher_file)
+          registered_s1 = re.findall(
+              r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"candidate_pr={pr_number}\n")
+              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
+              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
+              output.write(f"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\n")
+          PY
+
+  qualify:
+    name: Execute exact candidate qualification
+    needs: resolve
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    cache-mode: none
+    uses: ./.github/workflows/security-kernel-independent-qualification.yml
+    with:
+      candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
+      candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
+      candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
+      candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
+      trusted_workflow_blob_sha: "4de97e62dd81195c52750a5065631b08c092aac8"
+
+,
+              dispatcher_text,
+          )
+          delegated_s1 = re.findall(
+              r'(?m)^\s*trusted_workflow_blob_sha:\s*"([0-9a-f]{40})"\s*          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"candidate_pr={pr_number}\n")
+              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
+              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
+              output.write(f"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\n")
+          PY
+
+  qualify:
+    name: Execute exact candidate qualification
+    needs: resolve
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    cache-mode: none
+    uses: ./.github/workflows/security-kernel-independent-qualification.yml
+    with:
+      candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
+      candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
+      candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
+      candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
+      trusted_workflow_blob_sha: "4de97e62dd81195c52750a5065631b08c092aac8"
+
+,
+              dispatcher_text,
+          )
+          assert len(registered_s1) == 1, f"expected exactly one registered S1 blob pin, found {len(registered_s1)}"
+          assert len(delegated_s1) == 1, f"expected exactly one delegated S1 blob pin, found {len(delegated_s1)}"
+          assert registered_s1[0] == s1_blob_sha, (
+              "S0 registered S1 blob pin is stale or does not match the S1 workflow at the executing commit"
+          )
+          assert delegated_s1[0] == s1_blob_sha, (
+              "S0 reusable-workflow input pin is stale or does not match the S1 workflow at the executing commit"
+          )
+          print("PASS: S0 registered S1 trust pin and delegated S1 input both match the exact S1 workflow blob")
+
           print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"candidate_pr={pr_number}\n")
@@ -106,5 +201,5 @@ jobs:
       candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
       candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
-      trusted_workflow_blob_sha: "42b9bfe548a90475ce1a4dc531c76991facd2111"
+      trusted_workflow_blob_sha: "4de97e62dd81195c52750a5065631b08c092aac8"
 
