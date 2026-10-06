@@ -216,7 +216,7 @@ jobs:
           from pathlib import Path
           import sys
 
-          out, raw_path, subject, bundle, trusted_root, offline = map(Path, sys.argv[1:6])
+          out, raw_path, subject, bundle, trusted_root, offline = map(Path, sys.argv[1:7])
           raw = raw_path.read_bytes()
           command = [
               "gh", "attestation", "verify", str(subject),
