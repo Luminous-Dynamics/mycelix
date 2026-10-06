@@ -417,6 +417,7 @@ def generate(recipe: dict, output_dir: Path) -> None:
     if dp["reasons_present"] is not False or dp["crl_issuer_present"] is not False:
         raise ValueError("CRL applicability reason/cRLIssuer semantics are outside reference model")
     crl_bundle = b""
+    generated_crl_digests: dict[str, str] = {}
     for issuer_name, key_name in (
         ("Mycelix Synthetic EK Root", "root"),
         ("Mycelix Synthetic EK CA", "intermediate"),
@@ -450,12 +451,15 @@ def generate(recipe: dict, output_dir: Path) -> None:
         )
         if selection["crl_der_sha256"] != hashlib.sha256(der).hexdigest():
             raise ValueError(f"{key_name} CRL selection DER hash does not match generated CRL")
+        generated_crl_digests[key_name] = hashlib.sha256(der).hexdigest()
         crl_bundle += (
             b"-----BEGIN X509 CRL-----\n"
             + base64.b64encode(der)
             + b"\n-----END X509 CRL-----\n"
         )
     files["crl-bundle.pem"] = crl_bundle
+    if applicability["selected_crl_der_sha256"] != generated_crl_digests["intermediate"]:
+        raise ValueError("CRL applicability selected CRL hash does not match generated intermediate CRL")
 
     for name, content in files.items():
         (output_dir / name).write_bytes(content)
