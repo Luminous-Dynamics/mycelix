@@ -1,5 +1,5 @@
 {
-  "policy_version": 41,
+  "policy_version": 42,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "ffaa23d8c6c67178079ab54e1c384ab0d45ec61f"
+    "blob_sha": "cea7a2ecc43f94204184d09156a2c24534ee0c83"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -269,11 +269,11 @@
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
       "path": "scripts/integral/verify_d6u_trusted_artifacts.py",
-      "blob_sha": "f7e99b89732b89927c0006e488753e89e8476c89"
+      "blob_sha": "cc16511c4f4702efd611c3a11bacc24f0c21ba1e"
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-      "blob_sha": "a249c8f0b014beb07060b33b93382adbbc37eb96"
+      "blob_sha": "183c0cd7a54d6ff417f85d6d2bbb2ebda9e4845d"
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
@@ -281,11 +281,11 @@
     },
     "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
       "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
-      "blob_sha": "77eb6d7869b85d7f8444131ae9c8899770b79c7e"
+      "blob_sha": "ce32e161d3f45918ba8ea5545d02e233af331ead"
     },
     "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
-      "blob_sha": "508e0e626abf12d38bd8f1d73acb09ee427ddfe9"
+      "blob_sha": "df1e4fd9ba3c924037ef7ae97d087751ac8e122f"
     }
   },
   "trusted_actions": {
@@ -353,7 +353,7 @@
     "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "retain_canonical_predicate": true
   },
-  "attestation_integrity_revision": 41,
+  "attestation_integrity_revision": 42,
   "attestation_commitment": {
     "schema": "d6u-trusted-runtime-evidence-attestation/v2",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
