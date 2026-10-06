@@ -133,7 +133,10 @@ pub struct FpmAttestationChallenge {
     pub acquisition_root_action: ActionHash,
     pub acquisition_root_digest: String,
     pub verifier_agent: AgentPubKey,
+    pub verifier_profile_digest: String,
     pub appraisal_policy_digest: String,
+    pub reference_values_digest: String,
+    pub endorsement_digest: String,
     pub nonce: Vec<u8>,
 }
 
@@ -417,7 +420,10 @@ fn validate_fpm_attestation_challenge(
     }
     if !valid_attestation_identifier(&challenge.subject_id, 128)
         || !canonical_attestation_digest(&challenge.acquisition_root_digest)
+        || !canonical_attestation_digest(&challenge.verifier_profile_digest)
         || !canonical_attestation_digest(&challenge.appraisal_policy_digest)
+        || !canonical_attestation_digest(&challenge.reference_values_digest)
+        || !canonical_attestation_digest(&challenge.endorsement_digest)
     {
         return Ok(ValidateCallbackResult::Invalid(
             "malformed FPM attestation challenge binding".into(),
@@ -487,6 +493,18 @@ fn validate_fpm_attestation_challenge_use(
     if *challenge.author() != use_entry.author {
         return Ok(ValidateCallbackResult::Invalid(
             "attestation challenge-use author does not match challenge verifier".into(),
+        ));
+    }
+    let expected_attestation_type = EntryType::App(
+        UnitEntryTypes::FpmSourceAttestationAnchor
+            .try_into()
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "could not construct FPM source attestation entry type".into()
+            )))?,
+    );
+    if attestation.entry_type() != Some(&expected_attestation_type) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "attestation challenge-use must reference an FPM source attestation".into(),
         ));
     }
     if *attestation.author() != use_entry.author {
