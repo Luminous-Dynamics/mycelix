@@ -449,6 +449,7 @@ fn validate_fpm_source_attestation_anchor(
     }
     let qualification = qualify_source_attestation(&FpmAttestationQualificationInput {
         expected_subject_id: anchor.claim.subject_id.clone(),
+        expected_audience: anchor.claim.audience.clone(),
         expected_acquisition_root_digest: anchor.claim.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: anchor.claim.challenge_nonce_digest.clone(),
         expected_attestation_format: anchor.claim.attestation_format.clone(),
