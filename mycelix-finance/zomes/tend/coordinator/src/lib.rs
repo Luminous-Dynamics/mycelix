@@ -69,7 +69,10 @@ pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash>
         registered_agent: agent.get_raw_36().to_vec(),
         predecessor_registration: predecessor.map(|hash| hash.get_raw_36().to_vec()),
     };
-    let witness_hash = create_entry(&EntryTypes::GovernanceAgentRegistration(witness))?;
+    let witness_hash = match predecessor {
+        None => create_entry(&EntryTypes::GovernanceBootstrapRoot(witness))?,
+        Some(_) => create_entry(&EntryTypes::GovernanceAgentRegistration(witness))?,
+    };
     create_link(
         anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
         witness_hash.clone(),

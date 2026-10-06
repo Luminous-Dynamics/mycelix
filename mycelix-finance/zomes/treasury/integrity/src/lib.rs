@@ -129,6 +129,8 @@ pub enum EntryTypes {
     CompostReceival(CompostReceival),
     /// Immutable governance membership witness.
     GovernanceAgentRegistration(GovernanceAgentRegistration),
+    /// Singleton bootstrap root witness. A DNA may contain at most one.
+    GovernanceBootstrapRoot(GovernanceAgentRegistration),
 }
 
 #[hdk_link_types]
@@ -204,6 +206,52 @@ fn decode_governance_registration(record: &Record) -> ExternResult<GovernanceAge
     Ok(registration)
 }
 
+/// Prove that the configured bootstrap authority can create at most one
+/// immutable bootstrap root on its contiguous source chain.
+fn validate_create_governance_bootstrap_root(
+    action: Create,
+    registration: GovernanceAgentRegistration,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(e) = registration.validate_shape() {
+        return Ok(ValidateCallbackResult::Invalid(e.into()));
+    }
+
+    if registration.predecessor_registration.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Bootstrap root witness must not contain a predecessor".into(),
+        ));
+    }
+
+    let authority = governance_bootstrap_authority()?;
+    if action.author != authority {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Root governance registration must be authored by the configured DNA bootstrap authority"
+                .into(),
+        ));
+    }
+
+    // The current root action is excluded by starting at its predecessor.
+    // must_get_agent_activity is deterministic and fails closed if the
+    // authority's chain segment cannot be established.
+    let root_entry_type =
+        EntryType::App(UnitEntryTypes::GovernanceBootstrapRoot.try_into()?);
+    let prior_activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    if prior_activity
+        .iter()
+        .any(|activity| activity.action.hashed.content.entry_type() == Some(&root_entry_type))
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "A governance bootstrap root already exists on the configured authority chain"
+                .into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Prove governance membership structurally at the integrity boundary.
 ///
 /// A root witness is authorized only by the immutable DNA bootstrap authority.
@@ -218,44 +266,46 @@ fn validate_create_governance_registration(
     }
 
     let registered_agent = AgentPubKey::from_raw_36(registration.registered_agent.clone());
-
-    match registration.predecessor_registration {
+    let predecessor_raw = match registration.predecessor_registration {
+        Some(predecessor_raw) => predecessor_raw,
         None => {
-            let authority = governance_bootstrap_authority()?;
-            if action.author != authority {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Root governance registration must be authored by the configured DNA bootstrap authority"
-                        .into(),
-                ));
-            }
+            return Ok(ValidateCallbackResult::Invalid(
+                "Successor governance registration must reference a predecessor witness".into(),
+            ));
         }
-        Some(predecessor_raw) => {
-            let predecessor = ActionHash::from_raw_36(predecessor_raw);
-            let predecessor_record = must_get_valid_record(predecessor)?;
-            let expected_entry_type =
-                EntryType::App(UnitEntryTypes::GovernanceAgentRegistration.try_into()?);
-            if predecessor_record.action().entry_type() != Some(&expected_entry_type) {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Governance registration predecessor must be a witness in this integrity zome"
-                        .into(),
-                ));
-            }
-            let predecessor_registration =
-                decode_governance_registration(&predecessor_record)?;
+    };
 
-            let predecessor_agent =
-                AgentPubKey::from_raw_36(predecessor_registration.registered_agent);
+    let predecessor = ActionHash::from_raw_36(predecessor_raw);
+    let predecessor_record = must_get_valid_record(predecessor)?;
 
-            if predecessor_agent != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Governance registration predecessor must name the author of the new witness"
-                        .into(),
-                ));
-            }
-        }
+    let expected_registration_type =
+        EntryType::App(UnitEntryTypes::GovernanceAgentRegistration.try_into()?);
+    let expected_root_type =
+        EntryType::App(UnitEntryTypes::GovernanceBootstrapRoot.try_into()?);
+    let predecessor_type = predecessor_record.action().entry_type();
+    if predecessor_type != Some(&expected_registration_type)
+        && predecessor_type != Some(&expected_root_type)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Governance registration predecessor must be a governance witness in this integrity zome"
+                .into(),
+        ));
     }
 
-    if registered_agent == action.author && registration.predecessor_registration.is_some() {
+    let predecessor_registration =
+        decode_governance_registration(&predecessor_record)?;
+
+    let predecessor_agent =
+        AgentPubKey::from_raw_36(predecessor_registration.registered_agent);
+
+    if predecessor_agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Governance registration predecessor must name the author of the new witness"
+                .into(),
+        ));
+    }
+
+    if registered_agent == action.author {
         return Ok(ValidateCallbackResult::Invalid(
             "A governance successor must register a distinct agent; self-registration is only valid as the bootstrap root"
                 .into(),
@@ -264,6 +314,7 @@ fn validate_create_governance_registration(
 
     Ok(ValidateCallbackResult::Valid)
 }
+
 
 /// Prove that a GovernanceAgents link addresses a valid registration witness
 /// created by the same agent that created the link.
@@ -291,11 +342,16 @@ fn validate_create_governance_link(
 
     let witness_record = must_get_valid_record(target)?;
     let _witness = decode_governance_registration(&witness_record)?;
-    let expected_entry_type =
+    let expected_registration_type =
         EntryType::App(UnitEntryTypes::GovernanceAgentRegistration.try_into()?);
-    if witness_record.action().entry_type() != Some(&expected_entry_type) {
+    let expected_root_type =
+        EntryType::App(UnitEntryTypes::GovernanceBootstrapRoot.try_into()?);
+    let witness_type = witness_record.action().entry_type();
+    if witness_type != Some(&expected_registration_type)
+        && witness_type != Some(&expected_root_type)
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Governance registry target must be a GovernanceAgentRegistration entry".into(),
+            "Governance registry target must be a governance witness entry".into(),
         ));
     }
 
@@ -329,6 +385,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::CommonsPool(pool) => {
                     validate_create_commons_pool(EntryCreationAction::Create(action), pool)
                 }
+                EntryTypes::GovernanceBootstrapRoot(registration) => {
+                    validate_create_governance_bootstrap_root(action, registration)
+                }
                 EntryTypes::GovernanceAgentRegistration(registration) => {
                     validate_create_governance_registration(action, registration)
                 }
@@ -339,9 +398,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpEntry::UpdateEntry {
                 app_entry, action, ..
             } => match app_entry {
-                    EntryTypes::GovernanceAgentRegistration(_) => Ok(ValidateCallbackResult::Invalid(
-                        "Governance registration witnesses are immutable".into(),
-                    )),
+                    EntryTypes::GovernanceBootstrapRoot(_)
+                    | EntryTypes::GovernanceAgentRegistration(_) => Ok(
+                        ValidateCallbackResult::Invalid(
+                            "Governance registration witnesses are immutable".into(),
+                        ),
+                    ),
                 EntryTypes::Treasury(treasury) => validate_update_treasury(action, treasury),
                 EntryTypes::Contribution(_) => Ok(ValidateCallbackResult::Invalid(
                     "Contributions cannot be updated".into(),
