@@ -186,6 +186,7 @@ pub struct UpdateMaterialInput {
 
 #[hdk_extern]
 pub fn update_material(input: UpdateMaterialInput) -> ExternResult<Record> {
+    rate_limit_caller()?;
     let original = get(input.original_action_hash.clone(), GetOptions::default())?
         .ok_or(FabricationError::not_found("Material", &input.original_action_hash))?;
 
@@ -208,6 +209,7 @@ pub fn update_material(input: UpdateMaterialInput) -> ExternResult<Record> {
 
 #[hdk_extern]
 pub fn delete_material(hash: ActionHash) -> ExternResult<ActionHash> {
+    rate_limit_caller()?;
     let _ = get(hash.clone(), GetOptions::default())?
         .ok_or(FabricationError::not_found("Material", &hash))?;
     delete_entry(hash)
