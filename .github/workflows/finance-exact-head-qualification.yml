@@ -106,6 +106,7 @@ jobs:
           assert "git rev-parse HEAD^{tree}" in text
           assert "git status --porcelain --untracked-files=no" in text
           assert "git archive --format=tar" in text
+          assert "mycelix-finance crates" in text
           assert "finance-qualification-test" in text
           assert "chmod 0555" in text
           assert "env -i" in text
@@ -200,25 +201,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          subject_dir="${RUNNER_TEMP}/finance-subject"
-          cargo_home="${RUNNER_TEMP}/finance-test-cargo-home"
-          cargo_target="${RUNNER_TEMP}/finance-test-target"
-          test_home="${RUNNER_TEMP}/finance-test-home"
+          subject_dir="/tmp/mycelix-finance-qualification-${GITHUB_RUN_ID}"
+          cargo_home="/tmp/mycelix-finance-cargo-${GITHUB_RUN_ID}"
+          cargo_target="/tmp/mycelix-finance-target-${GITHUB_RUN_ID}"
+          test_home="/tmp/mycelix-finance-home-${GITHUB_RUN_ID}"
 
           rm -rf "${subject_dir}" "${cargo_home}" "${cargo_target}" "${test_home}"
           mkdir -p "${subject_dir}" "${cargo_home}" "${cargo_target}" "${test_home}"
 
-          if git ls-tree -r HEAD -- mycelix-finance \
-              | awk -F'\\t' '$1 ~ /^120000 / { bad=1 } END { exit bad+0 }'; then
-            :
-          else
-            echo "Finance qualification subject contains a symlink under mycelix-finance/" >&2
-            git ls-tree -r HEAD -- mycelix-finance | awk -F'\\t' '$1 ~ /^120000 / { print }'
-            exit 1
-          fi
-
+          # Candidate code never executes from the trusted Git worktree.
+          # Export only Finance and its local crate dependency closure from
+          # the exact already-verified candidate commit.
           git archive --format=tar "${{ steps.checkout.outputs.tested_head_sha }}" \
-            | tar -xf - -C "${subject_dir}"
+            mycelix-finance crates | tar -xf - -C "${subject_dir}"
+
+          # Reject committed symlinks in the executed source closure so a
+          # candidate path cannot redirect outside the immutable root.
+          test -z "$(find "${subject_dir}" -type l -print -quit)"
+
+          finance_tree_sha="$(git rev-parse "${{ steps.checkout.outputs.tested_head_sha }}:mycelix-finance")"
+          crates_tree_sha="$(git rev-parse "${{ steps.checkout.outputs.tested_head_sha }}:crates")"
 
           sudo chown -R root:root "${subject_dir}"
           sudo find "${subject_dir}" -type d -exec chmod 0555 {} +
@@ -246,6 +248,8 @@ jobs:
             printf 'cargo_bin=%s\\n' "${cargo_bin}"
             printf 'rustdoc_bin=%s\\n' "${rustdoc_bin}"
             printf 'rust_dir=%s\\n' "${rust_dir}"
+            printf 'finance_tree_sha=%s\\n' "${finance_tree_sha}"
+            printf 'crates_tree_sha=%s\\n' "${crates_tree_sha}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Check Finance formatting as isolated test identity
@@ -294,7 +298,7 @@ jobs:
           test -d "${source_dir}"
           test -z "$(sudo find "${source_dir}" -type f -writable -print)"
           test -z "$(sudo find "${source_dir}" -type d -writable -print)"
-          test -z "$(sudo find "${source_dir}/mycelix-finance" -type l -print -quit)"
+          test -z "$(sudo find "${source_dir}" -type l -print -quit)"
           test -n "${{ steps.isolation.outputs.test_home }}"
           test -n "${{ steps.isolation.outputs.cargo_home }}"
           test -n "${{ steps.isolation.outputs.cargo_target }}"
@@ -340,6 +344,9 @@ jobs:
           candidate_source_read_only=true
           candidate_build_state=${{ steps.isolation.outputs.cargo_target || '' }}
           candidate_cargo_home=${{ steps.isolation.outputs.cargo_home || '' }}
+          finance_source_tree_sha=${{ steps.isolation.outputs.finance_tree_sha || '' }}
+          crates_source_tree_sha=${{ steps.isolation.outputs.crates_tree_sha || '' }}
+          qualification_source_roots=mycelix-finance,crates
           upstream_request_run_id=${{ github.event.workflow_run.id || '' }}
           upstream_request_run_attempt=${{ github.event.workflow_run.run_attempt || '' }}
           workflow_run_id=${{ github.run_id }}
