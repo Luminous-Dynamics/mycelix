@@ -356,11 +356,9 @@ mod tests {
 
     #[test]
     fn deterministic_contextual_baseline() {
-        let config = DetectorConfig::default();
         let a = baseline(context());
         let b = baseline(context());
         assert_eq!(a, b);
         assert_eq!(a.digest().expect("a"), b.digest().expect("b"));
-        let _ = config;
     }
 }
