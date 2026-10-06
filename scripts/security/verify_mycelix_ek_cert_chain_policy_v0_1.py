@@ -397,9 +397,16 @@ def parse_certificate_der(der: bytes) -> dict[str, Any]:
         raise ValueError("X.509 serial is not INTEGER")
     serial = der_integer_value(serial_content, "X.509.serial", positive=True)
 
-    sig_tag, _sig_content, _sig_raw, cursor = der_tlv(tbs_content, cursor)
+    sig_tag, _sig_content, sig_raw, cursor = der_tlv(tbs_content, cursor)
     if sig_tag != 0x30:
         raise ValueError("X.509 TBSCertificate signature is not a SEQUENCE")
+    tbs_signature_algorithm_oid = algorithm_identifier_oid(
+        sig_raw, "X.509.TBSCertificate.signature"
+    )
+    if sig_raw != sig_alg_raw:
+        raise ValueError("X.509 outer and TBSCertificate signatureAlgorithm encodings differ")
+    if tbs_signature_algorithm_oid != SHA256_WITH_RSA_OID or signature_algorithm_oid != SHA256_WITH_RSA_OID:
+        raise ValueError("synthetic EK certificate signature algorithm must be SHA256withRSA")
 
     issuer_tag, _issuer_content, issuer_raw, cursor = der_tlv(tbs_content, cursor)
     if issuer_tag != 0x30:
@@ -1629,8 +1636,6 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
                 "supplied_sha256": manifest["cryptographic_binding_sha256"],
             },
         )
-    except (ValueError, OSError) as exc:
-        return result("DENY", "certificate-parse-error", {"error": str(exc)})
 
     profile_ok, profile = leaf_profile_ok(leaf_info)
     profile["leaf_issuer_name_sha256"] = hashlib.sha256(leaf_info["issuer_der"]).hexdigest()
