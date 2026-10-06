@@ -1,5 +1,5 @@
 {
-  "policy_version": 34,
+  "policy_version": 35,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "861208b4d4736398b6abf17732cc22a30a2d77cc"
+    "blob_sha": "3af0e220fe66a429d250f33fd0a272fa9c5b710a"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -234,6 +234,11 @@
       "contents": "read",
       "id-token": "write",
       "attestations": "write"
+    },
+    "auditor": {
+      "actions": "read",
+      "contents": "read",
+      "attestations": "read"
     }
   },
   "attestation_verification": {
@@ -344,7 +349,7 @@
     "retain_negative_control": true,
     "max_attestations_per_verify": 8
   },
-  "attestation_integrity_revision": 34,
+  "attestation_integrity_revision": 35,
   "signer_handoff": {
     "schema": "d6u-trusted-signer-handoff/v1",
     "expected_file_count": 6,
