@@ -491,6 +491,8 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "d6u-attestation-commitment.json" in signer
     assert "attestations: write" in signer
     assert "uses: actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2" in signer
+    assert "branches:\n      - myc-int-demo-d6u-holochain-07-runtime" in workflow
+    assert workflow.count("github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime'") == 3
     assert "gh attestation verify" not in signer
     assert "uses: actions/download-artifact@" not in signer
 
