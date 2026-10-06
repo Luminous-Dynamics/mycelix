@@ -77,7 +77,10 @@ pub struct FpmAttestationQualificationInput {
     pub expected_subject_id: String,
     pub expected_acquisition_root_digest: String,
     pub expected_challenge_nonce_digest: String,
+    pub expected_verifier_profile_digest: String,
     pub expected_appraisal_policy_digest: String,
+    pub expected_reference_values_digest: String,
+    pub expected_endorsement_digest: String,
     pub claim: FpmSourceAttestationClaim,
 }
 
@@ -131,7 +134,10 @@ pub fn qualify_source_attestation(
     for value in [
         &input.expected_acquisition_root_digest,
         &input.expected_challenge_nonce_digest,
+        &input.expected_verifier_profile_digest,
         &input.expected_appraisal_policy_digest,
+        &input.expected_reference_values_digest,
+        &input.expected_endorsement_digest,
         &input.claim.acquisition_root_digest,
         &input.claim.challenge_nonce_digest,
         &input.claim.evidence_digest,
@@ -154,8 +160,17 @@ pub fn qualify_source_attestation(
     if input.claim.challenge_nonce_digest != input.expected_challenge_nonce_digest {
         reasons.insert(FpmAttestationQualificationReason::ChallengeNonceMismatch);
     }
+    if input.claim.verifier_profile_digest != input.expected_verifier_profile_digest {
+        reasons.insert(FpmAttestationQualificationReason::VerifierProfileMismatch);
+    }
     if input.claim.appraisal_policy_digest != input.expected_appraisal_policy_digest {
         reasons.insert(FpmAttestationQualificationReason::AppraisalPolicyMismatch);
+    }
+    if input.claim.reference_values_digest != input.expected_reference_values_digest {
+        reasons.insert(FpmAttestationQualificationReason::ReferenceValuesMissing);
+    }
+    if input.claim.endorsement_digest != input.expected_endorsement_digest {
+        reasons.insert(FpmAttestationQualificationReason::EndorsementMissing);
     }
     if !valid_label(&input.claim.attestation_format) {
         reasons.insert(FpmAttestationQualificationReason::InvalidEvidenceFormat);
@@ -297,6 +312,36 @@ mod tests {
         assert!(result
             .reasons
             .contains(&FpmAttestationQualificationReason::SubjectMismatch));
+    }
+
+    #[test]
+    fn verifier_profile_substitution_conflicts() {
+        let mut input = input();
+        input.claim.verifier_profile_digest = digest('9');
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::VerifierProfileMismatch));
+    }
+
+    #[test]
+    fn policy_support_substitution_conflicts() {
+        let mut input = input();
+        input.claim.reference_values_digest = digest('9');
+        let result = qualify_source_attestation(&input);
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::ReferenceValuesMissing));
+        input = input();
+        input.claim.endorsement_digest = digest('9');
+        let result = qualify_source_attestation(&input);
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::EndorsementMissing));
     }
 
     #[test]
