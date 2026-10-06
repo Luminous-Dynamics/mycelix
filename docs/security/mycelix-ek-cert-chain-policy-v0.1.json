@@ -276,6 +276,16 @@
       "id": "EKC-V34",
       "mutation": "key-order-permutation",
       "expected": "PASS"
+    },
+    {
+      "id": "EKC-V35",
+      "mutation": "trust-anchor-appraisal-verifier-source-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V36",
+      "mutation": "trust-anchor-appraisal-output-content-substitution",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -294,5 +304,35 @@
       "docs/security/fixtures/ek-chain-policy-v0.1/bad-eku.der",
       "docs/security/fixtures/ek-chain-policy-v0.1/crl-bundle.pem"
     ]
+  },
+  "required_input_trust_anchor_appraisal": [
+    "state",
+    "verifier_id",
+    "anchor_id",
+    "authorization_state",
+    "registry_sha256",
+    "registry_source_sha256",
+    "receipt_root_sha256",
+    "input_sha256",
+    "output_sha256",
+    "verifier_source_sha256",
+    "output_content_sha256"
+  ],
+  "trust_anchor_appraisal_binding": {
+    "verifier_id": "mycelix.tpm.ek-trust-anchor-appraisal.v0.1",
+    "required_fields": [
+      "state",
+      "verifier_id",
+      "anchor_id",
+      "authorization_state",
+      "registry_sha256",
+      "registry_source_sha256",
+      "receipt_root_sha256",
+      "input_sha256",
+      "output_sha256",
+      "verifier_source_sha256",
+      "output_content_sha256"
+    ],
+    "rule": "The certificate-chain verifier re-executes the exact trust-anchor appraiser source against the exact reconstructed root/registry input and requires both the output file digest and verifier-produced content digest to match the bound appraisal."
   }
 }
