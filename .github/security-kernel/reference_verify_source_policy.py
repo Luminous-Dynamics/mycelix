@@ -100,7 +100,7 @@ def verify_s1(raw: bytes) -> None:
     require_exact(lines, "cache-mode: none", "S1 cache mode")
     require_exact(lines, "uses: actions/checkout@" + CHECKOUT_SHA, "S1 pinned checkout")
     require_exact(lines, "persist-credentials: false", "S1 checkout credentials")
-    require_exact(lines, 'GIT_FETCH_IMAGE: "' + GIT_FETCH_IMAGE + '"', "S1 pinned git image")
+    require_exact(lines, 'FETCH_IMAGE: "' + GIT_FETCH_IMAGE + '"', "S1 pinned git image")
     require_exact(lines, '"' + RUST_IMAGE + '"', "S1 pinned Rust image")
     require(lines, "--network=bridge", "S1 fetch sandbox network")
     require(lines, "--network=none", "S1 execution sandbox network")
