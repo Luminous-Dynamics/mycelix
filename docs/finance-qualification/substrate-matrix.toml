@@ -1,0 +1,39 @@
+schema = "MYCELIX-FINANCE-SUBSTRATE-MATRIX-V1"
+matrix_version = 1
+
+# Trusted qualification policy. This records the current substrate mismatch
+# explicitly instead of implying Holochain 0.7 compatibility.
+status = "known-mismatch"
+
+intended_holochain_family = "0.7"
+implemented_holochain_family = "0.6"
+
+[cargo]
+hdk = "0.6.1"
+hdi = "0.7.1"
+holochain_zome_types = "0.6.1"
+holochain_integrity_types = "0.6.1"
+holo_hash = "0.6.1"
+hdk_derive = "0.6.1"
+holochain_serialized_bytes = "0.0.57"
+
+[holonix]
+commit = "d21b3543"
+holochain = "0.6.0"
+rust = "1.88.0"
+
+[qualification]
+rust = "1.96.1"
+rust_commit_hash = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+
+[dna]
+manifest_version = "0"
+compatibility_statement = "Finance DNA currently builds against the documented 0.6-era API family; no Holochain 0.7 compatibility claim is established."
+
+[js]
+status = "not-present-in-finance-source-tree"
+client = ""
+
+[claim_ceiling]
+known_mismatch_is_pass = false
+holochain_07_claim_requires_reconciled_substrate = true
