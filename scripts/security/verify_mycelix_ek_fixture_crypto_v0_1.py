@@ -888,6 +888,11 @@ def self_test() -> int:
                     + der_encode_tlv(0x81, b"\x00\x80"),
                 )),
             })),
+            ("certificate-cdp-reasons-only", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30, der_encode_tlv(
+                    0x30, der_encode_tlv(0x81, b"\x00\x80")
+                )),
+            })),
             ("certificate-cdp-crl-issuer-present", lambda x: x["extensions"]["2.5.29.31"].update({
                 "extn_value": der_encode_tlv(0x30, der_encode_tlv(
                     0x30,
@@ -895,11 +900,21 @@ def self_test() -> int:
                     + der_encode_tlv(0xA2, der_encode_tlv(0x82, b"attacker.invalid")),
                 )),
             })),
+            ("certificate-cdp-crl-issuer-only", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30, der_encode_tlv(
+                    0x30, der_encode_tlv(0xA2, der_encode_tlv(0x82, b"attacker.invalid"))
+                )),
+            })),
             ("certificate-cdp-multiple-points", lambda x: x["extensions"]["2.5.29.31"].update({
                 "extn_value": der_encode_tlv(0x30,
                     der_encode_tlv(0x30, der_encode_tlv(0xA0, der_encode_tlv(0xA0, der_encode_tlv(0x86, b"https://example.invalid/ek.crl"))))
                     + der_encode_tlv(0x30, der_encode_tlv(0xA0, der_encode_tlv(0xA0, der_encode_tlv(0x86, b"https://example.invalid/ek.crl"))))
                 ),
+            })),
+            ("certificate-cdp-relative-name", lambda x: x["extensions"]["2.5.29.31"].update({
+                "extn_value": der_encode_tlv(0x30, der_encode_tlv(
+                    0x30, der_encode_tlv(0xA0, der_encode_tlv(0xA1, der_encode_tlv(0x16, b"relative")))
+                )),
             })),
             ("certificate-cdp-uri-substitution", lambda x: x["extensions"]["2.5.29.31"].update({
                 "extn_value": der_encode_tlv(0x30, der_encode_tlv(
