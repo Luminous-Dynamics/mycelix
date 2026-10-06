@@ -240,6 +240,8 @@ FPM now adds a separate authenticated provenance layer:
 
 The resulting qualification preserves each provenance anchor's ActionHash, author, signer, timestamp, source-chain sequence, previous-action hash, and witness commitment as separate evidence. The complete authenticated qualification also receives its own deterministic manifest and record digest.
 
+The challenge additionally binds a relying-party audience. This prevents an otherwise-valid attestation result from being transplanted between FPM consumers that use different trust contexts. A valid nonce alone is therefore insufficient: subject, audience, acquisition root, attestation format, verifier profile, appraisal policy, reference values, and endorsements are all frozen by the challenge.
+
 This establishes **authenticated provenance declarations**: who committed which lineage statement, which registration anchor it referenced, and whether the declaration remains valid in the resolver's Holochain view. It does not establish that the declared sensor lineage is physically true, that the source device is honest, or that two sources are physically independent.
 
 This distinction mirrors supply-chain provenance systems such as in-toto/SLSA, where a provenance statement identifies a subject and describes production lineage but still depends on the trustworthiness of the attesting builder/platform. citeturn173650search0turn173650search6
