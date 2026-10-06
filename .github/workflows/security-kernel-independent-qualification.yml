@@ -1378,7 +1378,40 @@ jobs:
           assert int(artifact.get("size_in_bytes", 0)) > 0
           print("PASS: retained qualification receipt artifact is bound to this exact workflow run and upload digest")
           PY
-
-
-          printf 'negative_controls=passed\nsentinel_digest=%s\nnegative_controls_log_digest=%s\n' "$sentinel_digest" "$negative_controls_log_digest" >> "$GITHUB_OUTPUT"
-          echo "PASS: trusted sandbox negative-control matrix passed"
+      - name: Final teardown barrier
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          for volume_name in "$candidate_volume_name" "$vendor_volume_name"; do
+            if ! existing_volumes="$(docker volume ls --format '{{.Name}}')"; then
+              echo "security-kernel final teardown volume inventory query failed" >&2
+              exit 1
+            fi
+            if printf "%s\n" "$existing_volumes" | grep -Fxq "$volume_name"; then
+              if ! docker volume rm "$volume_name" >/dev/null 2>&1; then
+                echo "security-kernel final teardown volume removal failed: $volume_name" >&2
+                exit 1
+              fi
+              if ! remaining_volumes="$(docker volume ls --format '{{.Name}}')"; then
+                echo "security-kernel final teardown volume inventory query failed after removal" >&2
+                exit 1
+              fi
+              if printf "%s\n" "$remaining_volumes" | grep -Fxq "$volume_name"; then
+                echo "security-kernel final teardown volume remains: $volume_name" >&2
+                exit 1
+              fi
+            fi
+          done
+          candidate_root="$RUNNER_TEMP/security-kernel-candidate-root"
+          test "$candidate_root" = "${RUNNER_TEMP}/security-kernel-candidate-root"
+          if [ -e "$candidate_root" ] || [ -L "$candidate_root" ]; then
+            rm -rf -- "$candidate_root"
+          fi
+          if [ -e "$candidate_root" ] || [ -L "$candidate_root" ]; then
+            echo "security-kernel final teardown host staging root remains" >&2
+            exit 1
+          fi
+          echo "PASS: final non-cancelled teardown left no owned source/vendor volume or candidate staging root"
