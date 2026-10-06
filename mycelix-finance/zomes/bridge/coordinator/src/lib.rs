@@ -583,7 +583,7 @@ pub fn deposit_collateral(input: DepositCollateralInput) -> ExternResult<Record>
     let sap_minted = (input.collateral_amount as f64 * input.oracle_rate) as u64;
 
     // Tier-scaled daily rate limit: higher consciousness tiers get larger limits
-    let mycel_score = fetch_mycel_score(&input.depositor_did);
+    let mycel_score = fetch_mycel_score(&input.depositor_did)?;
     let tier = FeeTier::from_mycel(mycel_score);
     let daily_limit_pct = match tier {
         FeeTier::Newcomer => 1, // 1% for newcomers (shouldn't reach here due to tier gate, but defense in depth)
@@ -781,7 +781,7 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
 
     // Enforce tier-scaled rate limit on redemption
     let now = sys_time()?;
-    let mycel_score = fetch_mycel_score(&deposit.depositor_did);
+    let mycel_score = fetch_mycel_score(&deposit.depositor_did)?;
     let redeem_tier = FeeTier::from_mycel(mycel_score);
     let redeem_daily_limit_pct = match redeem_tier {
         FeeTier::Newcomer => 1,
@@ -866,7 +866,7 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
 /// what fee rate a member should pay. Fetches MYCEL from recognition zome.
 #[hdk_extern]
 pub fn get_member_fee_tier(member_did: String) -> ExternResult<FeeTierResponse> {
-    let mycel_score = fetch_mycel_score(&member_did);
+    let mycel_score = fetch_mycel_score(&member_did)?;
     let tier = FeeTier::from_mycel(mycel_score);
 
     // Create a sovereign profile placeholder for the response
@@ -897,7 +897,7 @@ pub fn get_member_fee_tier(member_did: String) -> ExternResult<FeeTierResponse> 
 #[hdk_extern]
 pub fn get_member_tend_limit(member_did: String) -> ExternResult<TendLimitResponse> {
     // Fetch current vitality from tend oracle
-    let vitality = fetch_oracle_vitality();
+    let vitality = fetch_oracle_vitality()?;
     let tier = TendLimitTier::from_vitality(vitality);
     let limit = tier.limit();
 
@@ -917,9 +917,22 @@ pub struct TendLimitResponse {
     pub effective_limit: i32,
 }
 
+/// Validate a recognition score before it is used as financial policy input.
+fn validate_mycel_score(score: f64) -> ExternResult<f64> {
+    if !score.is_finite() || !(0.0..=1.0).contains(&score) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition returned an invalid MYCEL score: {score:?}"
+        ))));
+    }
+    Ok(score)
+}
+
 /// Fetch MYCEL score via cross-zome call to recognition.
-/// Falls back to 0.0 (Newcomer tier) if unavailable.
-fn fetch_mycel_score(member_did: &str) -> f64 {
+///
+/// MYCEL is policy-bearing here because callers derive fee and rate-limit tiers
+/// from it. Missing, malformed, non-finite, or out-of-range authority data is
+/// therefore an error rather than a synthetic Newcomer score.
+fn fetch_mycel_score(member_did: &str) -> ExternResult<f64> {
     match call(
         CallTargetCell::Local,
         ZomeName::from("recognition"),
@@ -932,44 +945,30 @@ fn fetch_mycel_score(member_did: &str) -> f64 {
             struct MycelState {
                 mycel_score: f64,
             }
-            match result.decode::<MycelState>() {
-                Ok(state) if state.mycel_score.is_finite() => state.mycel_score,
-                Ok(state) => {
-                    debug!(
-                        "fetch_mycel_score: non-finite MYCEL score {:?} for {}, defaulting to 0.0",
-                        state.mycel_score, member_did
-                    );
-                    0.0
-                }
-                Err(e) => {
-                    debug!(
-                        "fetch_mycel_score: decode error for {}: {:?}, defaulting to 0.0",
-                        member_did, e
-                    );
-                    0.0
-                }
-            }
+            let state = result.decode::<MycelState>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Recognition MYCEL score response was malformed for {}: {:?}",
+                    member_did, e
+                )))
+            })?;
+            validate_mycel_score(state.mycel_score)
         }
-        Ok(other) => {
-            debug!(
-                "fetch_mycel_score: recognition zome returned {:?} for {}, defaulting to 0.0",
-                other, member_did
-            );
-            0.0
-        }
-        Err(e) => {
-            debug!(
-                "fetch_mycel_score: recognition zome unreachable for {}: {:?}, defaulting to 0.0",
-                member_did, e
-            );
-            0.0
-        }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition MYCEL score authority returned unexpected response for {}: {:?}",
+            member_did, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition MYCEL score authority unavailable for {}: {:?}",
+            member_did, e
+        )))),
     }
 }
 
 /// Fetch current oracle vitality via cross-zome call to tend.
-/// Falls back to 50 (Normal tier) if unavailable.
-fn fetch_oracle_vitality() -> u32 {
+///
+/// Vitality determines the effective TEND policy limit, so authority failure
+/// must remain distinguishable from a real normal-vitality reading.
+fn fetch_oracle_vitality() -> ExternResult<u32> {
     match call(
         CallTargetCell::Local,
         ZomeName::from("tend"),
@@ -982,31 +981,21 @@ fn fetch_oracle_vitality() -> u32 {
             struct OracleResp {
                 vitality: u32,
             }
-            match result.decode::<OracleResp>() {
-                Ok(state) => state.vitality,
-                Err(e) => {
-                    debug!(
-                        "fetch_oracle_vitality: decode error: {:?}, defaulting to 50 (Normal tier)",
-                        e
-                    );
-                    50
-                }
-            }
+            result.decode::<OracleResp>().map(|state| state.vitality).map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "TEND oracle vitality response was malformed: {:?}",
+                    e
+                )))
+            })
         }
-        Ok(other) => {
-            debug!(
-                "fetch_oracle_vitality: tend zome returned {:?}, defaulting to 50 (Normal tier)",
-                other
-            );
-            50
-        }
-        Err(e) => {
-            debug!(
-                "fetch_oracle_vitality: tend zome unreachable: {:?}, defaulting to 50 (Normal tier)",
-                e
-            );
-            50
-        }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "TEND oracle vitality authority returned unexpected response: {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "TEND oracle vitality authority unavailable: {:?}",
+            e
+        )))),
     }
 }
 
@@ -1177,14 +1166,16 @@ pub fn query_tend_balance(member_did: String) -> ExternResult<TendBalanceRespons
             struct TendBalance {
                 balance: i32,
             }
-            let balance = result
-                .decode::<TendBalance>()
-                .map(|b| b.balance)
-                .unwrap_or(0);
-            let tier = fetch_mycel_score(&member_did);
+            let balance = result.decode::<TendBalance>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "TEND balance response was malformed for {}: {:?}",
+                    member_did, e
+                )))
+            })?;
+            let tier = fetch_mycel_score(&member_did)?;
             Ok(TendBalanceResponse {
                 member_did,
-                balance,
+                balance: balance.balance,
                 mycel_score: tier,
                 available: true,
             })
@@ -1714,7 +1705,7 @@ pub fn update_collateral_health(input: UpdateCollateralHealthInput) -> ExternRes
     let now = sys_time()?;
 
     // Fetch current collateral value from oracle
-    let current_value = fetch_collateral_value(&input.collateral_id);
+    let current_value = fetch_collateral_value(&input.collateral_id)?;
 
     let ltv_ratio = if current_value > 0 {
         input.obligation_amount as f64 / current_value as f64
@@ -1784,8 +1775,10 @@ fn map_wire_asset_type(asset_type: finance_wire_types::AssetType) -> AssetType {
 }
 
 /// Fetch current value for a collateral position from the price oracle.
-/// Falls back to 0 if oracle is unreachable.
-fn fetch_collateral_value(collateral_id: &str) -> u64 {
+///
+/// Collateral health is policy/state, so an unavailable oracle is not a valid
+/// zero valuation.
+fn fetch_collateral_value(collateral_id: &str) -> ExternResult<u64> {
     #[derive(Serialize, Debug)]
     struct GetValueInput {
         collateral_id: String,
@@ -1804,16 +1797,23 @@ fn fetch_collateral_value(collateral_id: &str) -> u64 {
             collateral_id: collateral_id.to_string(),
         },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => {
-            result.decode::<ValueResult>().map(|v| v.value).unwrap_or(0)
-        }
-        _ => {
-            debug!(
-                "fetch_collateral_value: oracle unreachable for {}, defaulting to 0",
-                collateral_id
-            );
-            0
-        }
+        Ok(ZomeCallResponse::Ok(result)) => result
+            .decode::<ValueResult>()
+            .map(|v| v.value)
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Collateral value response was malformed for {}: {:?}",
+                    collateral_id, e
+                )))
+            }),
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Collateral value authority returned unexpected response for {}: {:?}",
+            collateral_id, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Collateral value authority unavailable for {}: {:?}",
+            collateral_id, e
+        )))),
     }
 }
 
@@ -2577,6 +2577,23 @@ pub fn get_unread_count(_: ()) -> ExternResult<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mycel_score_accepts_documented_range() {
+        assert_eq!(validate_mycel_score(0.0).unwrap(), 0.0);
+        assert_eq!(validate_mycel_score(0.3).unwrap(), 0.3);
+        assert_eq!(validate_mycel_score(1.0).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn mycel_score_rejects_non_finite_or_out_of_range_values() {
+        for score in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.01, 1.01] {
+            assert!(
+                validate_mycel_score(score).is_err(),
+                "invalid MYCEL score must fail closed: {score:?}"
+            );
+        }
+    }
 
     #[test]
     fn runtime_default_dao_did_uses_first_known_context() {
