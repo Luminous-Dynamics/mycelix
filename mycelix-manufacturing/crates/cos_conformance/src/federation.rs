@@ -1581,6 +1581,45 @@ pub fn run_scenario(
             )
             .expect("external anchor reference must build");
 
+        reference.subject_hash_algorithm = "sha-512".into();
+        reference.anchor_reference_sha256 =
+            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                subject_profile,
+                subject_digest,
+                witness_artifact,
+                &reference,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectHashAlgorithmMismatch
+            )
+        );
+
+        reference.subject_hash_algorithm =
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM.into();
+        reference.witness_hash_encoding = "raw-bytes-v1".into();
+        reference.anchor_reference_sha256 =
+            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                subject_profile,
+                subject_digest,
+                witness_artifact,
+                &reference,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessHashEncodingMismatch
+            )
+        );
+
+        reference.witness_hash_encoding =
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING.into();
+        reference.anchor_reference_sha256 =
+            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+
         reference.subject_sha256 =
             "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into();
         reference.anchor_reference_sha256 =
@@ -5229,8 +5268,12 @@ mod tests {
         EmptySubjectProfile,
         EmptySubjectDigest,
         InvalidSubjectDigest,
+        SubjectHashAlgorithmMismatch,
+        SubjectHashEncodingMismatch,
         EmptyWitnessProfile,
         EmptyWitnessDigest,
+        WitnessHashAlgorithmMismatch,
+        WitnessHashEncodingMismatch,
         EmptyWitnessArtifact,
         SubjectSchemaVersionMismatch,
         SubjectProfileMismatch,
@@ -5318,6 +5361,20 @@ mod tests {
                 FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectSchemaVersionMismatch
             );
         }
+        if reference.subject_hash_algorithm
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ALGORITHM
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectHashAlgorithmMismatch
+            );
+        }
+        if reference.subject_hash_encoding
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SUBJECT_HASH_ENCODING
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectHashEncodingMismatch
+            );
+        }
         if reference.subject_profile != subject_profile {
             return Err(
                 FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectProfileMismatch
@@ -5326,6 +5383,20 @@ mod tests {
         if reference.subject_sha256 != subject_sha256 {
             return Err(
                 FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectDigestMismatch
+            );
+        }
+        if reference.witness_hash_algorithm
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ALGORITHM
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessHashAlgorithmMismatch
+            );
+        }
+        if reference.witness_hash_encoding
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessHashEncodingMismatch
             );
         }
         let expected_witness_sha256 =
