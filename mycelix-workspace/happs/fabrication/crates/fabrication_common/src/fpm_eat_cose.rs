@@ -37,7 +37,6 @@ pub struct FpmEatCoseVerificationInput {
     pub expected_nonce: Vec<u8>,
     pub expected_verification_key_id: Vec<u8>,
     pub expected_verification_key_digest: String,
-    pub expected_key_id: Vec<u8>,
     pub trusted_public_key_sec1: Vec<u8>,
     pub expected_evidence_digest: Option<String>,
     pub token_bytes: Vec<u8>,
@@ -176,13 +175,15 @@ pub fn verify_fpm_eat_cose_sign1(
             reasons.insert(FpmEatCoseVerificationReason::EvidenceDigestMismatch);
         }
     }
-    if input.expected_key_id.is_empty() || input.expected_key_id.len() > 128 {
+    if input.expected_verification_key_id.is_empty()
+        || input.expected_verification_key_id.len() > 128
+    {
         reasons.insert(FpmEatCoseVerificationReason::KeyIdMismatch);
     }
     if !canonical_digest(&input.expected_verification_key_digest)
         || input.expected_verification_key_digest != verification_key_digest
     {
-        reasons.insert(FpmEatCoseVerificationReason::EvidenceDigestMismatch);
+        reasons.insert(FpmEatCoseVerificationReason::VerificationKeyDigestMismatch);
     }
     if input.trusted_public_key_sec1.len() != P256_SEC1_UNCOMPRESSED_BYTES
         || input.trusted_public_key_sec1.first() != Some(&0x04)
@@ -246,13 +247,8 @@ pub fn verify_fpm_eat_cose_sign1(
     } else {
         Some(sign1.protected.header.key_id.clone())
     };
-    if key_id.as_deref() != Some(input.expected_key_id.as_slice()) {
+    if key_id.as_deref() != Some(input.expected_verification_key_id.as_slice()) {
         reasons.insert(FpmEatCoseVerificationReason::KeyIdMismatch);
-    }
-    if let Some(key_id) = &key_id {
-        if key_id.as_slice() != input.expected_verification_key_id.as_slice() {
-            reasons.insert(FpmEatCoseVerificationReason::KeyIdMismatch);
-        }
     }
 
     if sign1.protected.header.content_type
@@ -569,7 +565,6 @@ mod tests {
             expected_nonce: nonce.to_vec(),
             expected_verification_key_id: b"fpm-key-1".to_vec(),
             expected_verification_key_digest: hex_digest(&verification_key_sec1()),
-            expected_key_id: b"fpm-key-1".to_vec(),
             trusted_public_key_sec1: verification_key_sec1(),
             expected_evidence_digest: Some(hex_digest(&token_bytes)),
             token_bytes,
