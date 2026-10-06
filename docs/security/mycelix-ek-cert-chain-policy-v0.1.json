@@ -62,8 +62,13 @@
     "basic_constraints": "critical CA:false",
     "key_usage": "critical keyEncipherment for RSA storage EK",
     "extended_key_usage": "optional; if present it should contain 2.23.133.8.1",
-    "authority_key_identifier": "matches issuing CA SubjectKeyIdentifier"
+    "authority_key_identifier": "matches issuing CA SubjectKeyIdentifier",
+    "crl_issuer_key_usage": "every certificate acting as a CRL issuer must have critical Key Usage with cRLSign set"
   },
+  "forbidden_inputs": [
+    "profile_override",
+    "caller-supplied certificate criticality overrides"
+  ],
   "authorization_rules": {
     "trust_anchor_source": "trust_anchor_source_sha256 must equal SHA-256(canonical JSON {source_tag: synthetic-ek-root-fixture-v0.1, root_sha256: trust_anchor_root_sha256}) for the reference fixture",
     "root_authority": "the synthetic root is authorized only inside ReferenceModelOnly; a physical deployment must replace this with independently authorized real-root provenance"
