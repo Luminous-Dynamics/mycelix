@@ -174,6 +174,16 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     return artifact
 
 
+class NoAuthorizationRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Never forward the GitHub Actions bearer token across a redirect."""
+
+    def redirect_request(self, req, fp, code, msg, hdrs, newurl):
+        redirected = super().redirect_request(req, fp, code, msg, hdrs, newurl)
+        if redirected is not None:
+            redirected.remove_header("Authorization")
+        return redirected
+
+
 def download_archive(repo: str, artifact_id: int, expected_digest: str, destination: pathlib.Path, maximum: int) -> None:
     request = urllib.request.Request(
         f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip",
@@ -181,7 +191,8 @@ def download_archive(repo: str, artifact_id: int, expected_digest: str, destinat
     )
     observed = hashlib.sha256()
     written = 0
-    with urllib.request.urlopen(request, timeout=120) as response, destination.open("wb") as output:
+    opener = urllib.request.build_opener(NoAuthorizationRedirectHandler())
+    with opener.open(request, timeout=120) as response, destination.open("wb") as output:
         while chunk := response.read(1024 * 1024):
             written += len(chunk)
             assert written <= maximum, (
