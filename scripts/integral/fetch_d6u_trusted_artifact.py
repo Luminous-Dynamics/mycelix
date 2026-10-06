@@ -237,6 +237,49 @@ def preflight_zip_entry_count(archive_path: pathlib.Path, maximum_entries: int) 
     assert total_entries != 0xFFFF, (
         "trusted artifact ZIP Zip64 entry counts are not permitted"
     )
+    central_directory_size = struct.unpack_from("<I", tail, end + 12)[0]
+    central_directory_offset = struct.unpack_from("<I", tail, end + 16)[0]
+    assert central_directory_size != 0xFFFFFFFF, (
+        "trusted artifact ZIP Zip64 central-directory size is not permitted"
+    )
+    assert central_directory_offset != 0xFFFFFFFF, (
+        "trusted artifact ZIP Zip64 central-directory offset is not permitted"
+    )
+
+    locator_marker = b"PK\x06\x07"
+    tail_base = max(0, archive_size - MAX_ZIP_EOCD_SEARCH_BYTES)
+    cursor = 0
+    with archive_path.open("rb") as handle:
+        while True:
+            position = tail.find(locator_marker, cursor)
+            if position < 0:
+                break
+            cursor = position + 1
+            if position + 20 > len(tail):
+                continue
+            disk_number = struct.unpack_from("<I", tail, position + 4)[0]
+            zip64_offset = struct.unpack_from("<Q", tail, position + 8)[0]
+            total_disks = struct.unpack_from("<I", tail, position + 16)[0]
+            absolute_locator = tail_base + position
+            if disk_number != 0 or total_disks != 1:
+                continue
+            if zip64_offset >= absolute_locator or zip64_offset + 56 > archive_size:
+                continue
+            handle.seek(zip64_offset)
+            zip64_header = handle.read(12)
+            if len(zip64_header) != 12 or zip64_header[:4] != b"PK\x06\x06":
+                continue
+            zip64_record_size = struct.unpack_from("<Q", zip64_header, 4)[0]
+            assert zip64_record_size >= 44, (
+                "trusted artifact ZIP has malformed Zip64 EOCD metadata"
+            )
+            assert zip64_offset + 12 + zip64_record_size <= absolute_locator, (
+                "trusted artifact ZIP has malformed Zip64 EOCD placement"
+            )
+            raise AssertionError(
+                "trusted artifact ZIP Zip64 records are not permitted"
+            )
+
     assert total_entries <= maximum_entries, (
         f"trusted artifact ZIP entry count exceeds trusted maximum: "
         f"{total_entries} > {maximum_entries}"
