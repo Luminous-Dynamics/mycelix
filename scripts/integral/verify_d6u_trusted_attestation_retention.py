@@ -183,6 +183,13 @@ def verify_report(
 
         predicate = statement.get("predicate")
         assert isinstance(predicate, dict)
+        assert set(predicate) == {
+            "attestation_kind",
+            "canonical_predicate_sha256",
+            "claim_ceiling",
+            "policy_version",
+            "schema",
+        }
         assert predicate.get("schema") == expected_context["predicate_schema"]
         assert predicate.get("canonical_predicate_sha256") == expected_context["canonical_predicate_sha256"]
         assert predicate.get("policy_version") == int(expected_context["policy_version"])
