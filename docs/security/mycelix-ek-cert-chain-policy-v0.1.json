@@ -12,7 +12,7 @@
     "INDETERMINATE"
   ],
   "theorem": {
-    "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, the exact certificate and issuer signatures and both issuer CRL signatures verify from the exact DER/TBS bytes, each issuer CRL is v2 with exact thisUpdate/nextUpdate semantics, non-critical authorityKeyIdentifier and cRLNumber extensions bound to the signing CA, and exact revoked-entry serial/date/reason identities matching the committed reference recipe, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
+    "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, the exact certificate and issuer signatures and both issuer CRL signatures verify from the exact DER/TBS bytes, each issuer CRL is v2 with exact thisUpdate/nextUpdate semantics, non-critical authorityKeyIdentifier and cRLNumber extensions bound to the exact signer certificate and exact CRL DER object selected by the committed reference recipe, and exact revoked-entry serial/date/reason identities matching the committed reference recipe, with complete-single-CA scope and delta/indirect CRL semantics explicitly outside the model, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
     "scope": "The reference trust anchor is synthetic. This theorem is a deterministic policy model and does not assert real manufacturer authenticity."
   },
   "required_input": {
@@ -110,7 +110,7 @@
     "subject_key_identifier": "if present, MUST be non-critical",
     "der_canonicality": "certificate outer structure, unique-ID/Extensions wrapper cardinality, INTEGER encodings, OID base-128 encodings, BIT STRING padding, and extension critical BOOLEAN encodings are validated from exact DER",
     "certificate_policies": "if present, MUST be non-critical and contain at least one PolicyIdentifier; policy qualifiers are outside this reference profile",
-    "crl_semantics": "Reference-model CRLs MUST be v2, carry nextUpdate, carry exactly non-critical AuthorityKeyIdentifier and cRLNumber extensions, bind the CRL AKI keyIdentifier exactly to the signing certificate SubjectKeyIdentifier, use the committed thisUpdate/nextUpdate and cRLNumber values, and bind every revoked entry by exact serial, revocationDate, reasonCode, and entry DER identity. The modeled validity window is thisUpdate <= verification_time < nextUpdate; this is deterministic fixture semantics and does not claim live revocation authority."
+    "crl_semantics": "Reference-model CRLs MUST be v2, carry nextUpdate, carry exactly non-critical AuthorityKeyIdentifier and cRLNumber extensions, bind the CRL AKI keyIdentifier exactly to the signing certificate SubjectKeyIdentifier, bind the exact CRL DER object and exact issuer certificate object selected by the committed recipe, declare complete-single-CA scope, explicitly disable delta and indirect CRL semantics, use the committed thisUpdate/nextUpdate and cRLNumber values, and bind every revoked entry by exact serial, revocationDate, reasonCode, and entry DER identity. cRLNumber is bound to the single current reference object; historical monotonic progression is explicitly not modeled. The modeled validity window is thisUpdate <= verification_time < nextUpdate; this is deterministic fixture semantics and does not claim live revocation authority."
   },
   "forbidden_inputs": [
     "profile_override",
@@ -434,6 +434,31 @@
       "id": "EKC-V56",
       "mutation": "crl-revocation-entry-reason-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V57",
+      "mutation": "crl-authoritative-object-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V58",
+      "mutation": "crl-authoritative-issuer-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V59",
+      "mutation": "crl-scope-completeness-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V60",
+      "mutation": "crl-delta-indirect-semantics-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V61",
+      "mutation": "crl-number-progression-claim-substitution",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -451,12 +476,12 @@
     "generation_mode": "deterministic-generated-synthetic",
     "recipe_path": "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json",
     "generator_path": "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py",
-    "recipe_sha256": "acc659408938d13e29e097386b8ba7a11ce18ea893987208aaecc6f8b3b65a82",
+    "recipe_sha256": "75bf614beff67d2fc77def78e4706fd5a1e2dfb5ee5891c746e85cd935904e5a",
     "previous_frozen_fixture_status": "not-recoverable-from-Git-history; not fabricated",
     "generator_contract": "generator --recipe fixture-recipe-v0.1.json --output-dir <temp> --check",
     "root_crl_der_sha256": "2909c633b414913ff031e1224d41bfdc58d74c91f84d6c7705bd13194ab27b4e",
     "intermediate_crl_der_sha256": "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8",
-    "crl_semantics_sha256": "eb553753eb20691ba17af3fa6e0d53fede63b21f1659b9b47c9e4254c78eb1f5"
+    "crl_semantics_sha256": "1c86eae16de62a645881c94e22518bb1c4fb84a465a1341c6026b1a66d4493e7"
   },
   "required_input_trust_anchor_appraisal": [
     "state",
@@ -666,7 +691,15 @@
           "reason_code": 1,
           "entry_identity_sha256": "b7970bf76ddd41318f1ff60990cf9390746da9770a4035a0a1a5a54b2160bfa4"
         }
-      ]
+      ],
+      "selection": {
+        "issuer_certificate_sha256": "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556",
+        "crl_der_sha256": "2909c633b414913ff031e1224d41bfdc58d74c91f84d6c7705bd13194ab27b4e",
+        "scope": "all-certificates-issued-by-issuer",
+        "delta_crl_supported": false,
+        "indirect_crl_supported": false,
+        "crl_number_lineage": "single-current-reference-no-history"
+      }
     },
     "intermediate": {
       "crl_number": 1,
@@ -685,7 +718,15 @@
           "reason_code": 1,
           "entry_identity_sha256": "e5effaea9a2e8fc7b296bb1a52b1a1f55cfa952af69cca814d188b9ae0946d12"
         }
-      ]
+      ],
+      "selection": {
+        "issuer_certificate_sha256": "9c92d8c6362a2fbe24a324c36f525bec0c0619cb7527e68456d72189ac6fdfb8",
+        "crl_der_sha256": "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8",
+        "scope": "all-certificates-issued-by-issuer",
+        "delta_crl_supported": false,
+        "indirect_crl_supported": false,
+        "crl_number_lineage": "single-current-reference-no-history"
+      }
     }
   },
   "crl_semantics_controls": [
@@ -728,7 +769,32 @@
       "id": "CRL-S08",
       "control": "crl-revocation-date-not-after-this-update",
       "expected": "DENY"
+    },
+    {
+      "id": "CRL-S09",
+      "control": "crl-authoritative-object-identity",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S10",
+      "control": "crl-authoritative-issuer-certificate-identity",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S11",
+      "control": "crl-scope-explicitly-complete-single-ca",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S12",
+      "control": "crl-delta-and-indirect-semantics-explicitly-forbidden",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S13",
+      "control": "crl-number-progression-claim-explicitly-not-modeled",
+      "expected": "DENY"
     }
   ],
-  "crl_semantics_control_count": 8
+  "crl_semantics_control_count": 13
 }
