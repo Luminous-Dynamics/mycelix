@@ -478,6 +478,7 @@ fn authenticated_provenance_manifest_digest(
         .iter()
         .map(|item| {
             (
+                item.registration_anchor_action.to_string(),
                 item.provenance_action_hash.to_string(),
                 item.witness_digest.clone(),
             )
@@ -487,7 +488,8 @@ fn authenticated_provenance_manifest_digest(
 
     let mut bytes = Vec::new();
     append_length_prefixed(&mut bytes, b"fpm.authenticated-provenance-manifest.v1");
-    for (action_hash, witness_digest) in entries {
+    for (registration_hash, action_hash, witness_digest) in entries {
+        append_length_prefixed(&mut bytes, registration_hash.as_bytes());
         append_length_prefixed(&mut bytes, action_hash.as_bytes());
         append_length_prefixed(&mut bytes, witness_digest.as_bytes());
     }
