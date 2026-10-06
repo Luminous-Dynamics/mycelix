@@ -1633,6 +1633,18 @@ mod tests {
         }
     }
 
+    fn valid_initial_balance() -> TendBalance {
+        TendBalance {
+            member_did: "did:mycelix:alice".into(),
+            dao_did: "did:mycelix:dao1".into(),
+            balance: 0,
+            total_provided: 0.0,
+            total_received: 0.0,
+            exchange_count: 0,
+            last_activity: ts(1_000_000),
+        }
+    }
+
     fn valid_balance() -> TendBalance {
         TendBalance {
             member_did: "did:mycelix:alice".into(),
@@ -1838,10 +1850,31 @@ mod tests {
     // ---- Balance creation ----
 
     #[test]
+    fn test_balance_rejects_preseeded_value_or_history() {
+        let mut bal = valid_initial_balance();
+        bal.balance = 1;
+        assert!(matches!(
+            validate_create_balance(EntryCreationAction::Create(make_create()), bal).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut historic = valid_initial_balance();
+        historic.total_provided = 1.0;
+        historic.exchange_count = 1;
+        assert!(matches!(
+            validate_create_balance(EntryCreationAction::Create(make_create()), historic).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
     fn test_balance_create_valid() {
         let result =
-            validate_create_balance(EntryCreationAction::Create(make_create()), valid_balance())
-                .unwrap();
+            validate_create_balance(
+                EntryCreationAction::Create(make_create()),
+                valid_initial_balance(),
+            )
+            .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
