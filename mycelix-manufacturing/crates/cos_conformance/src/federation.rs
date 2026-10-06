@@ -13,6 +13,19 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const FEDERATION_PROFILE_ID: &str = "INTEGRAL-FED-REF-001";
 
+/// Descriptive kind of an externally supplied witness artifact.
+///
+/// The reference model does not interpret or authenticate these artifact
+/// formats; it only binds the supplied bytes and metadata into an explicit
+/// evidence-of-evidence reference.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationStateMachineTraceExternalWitnessKind {
+    TimestampToken,
+    TransparencyLogHead,
+    ArchiveEvidenceRecord,
+    Other,
+}
+
 /// An externally supplied verifier's claim about an anchor reference.
 ///
 /// This is a statement record, not a proof result. The reference model can
@@ -82,6 +95,8 @@ pub struct FederationStateMachineTraceExternalEvidenceVerificationResult {
     anchor_reference_sha256: String,
     anchor_reference_schema_version: u16,
     anchor_reference_profile: String,
+    witness_kind: FederationStateMachineTraceExternalWitnessKind,
+    witness_profile: String,
     verifier_schema_version: u16,
     verifier_profile: String,
     claim: FederationStateMachineTraceExternalVerificationClaim,
@@ -101,6 +116,14 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
 
     pub fn anchor_reference_profile(&self) -> &str {
         &self.anchor_reference_profile
+    }
+
+    pub fn witness_kind(&self) -> FederationStateMachineTraceExternalWitnessKind {
+        self.witness_kind
+    }
+
+    pub fn witness_profile(&self) -> &str {
+        &self.witness_profile
     }
 
     pub fn verifier_schema_version(&self) -> u16 {
@@ -176,6 +199,8 @@ pub struct FederationExternalVerificationTrustPolicyV1 {
     minimum_verifier_schema_version: u16,
     accepted_verifier_profiles: Vec<String>,
     accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
+    required_witness_kind: Option<FederationStateMachineTraceExternalWitnessKind>,
+    required_witness_profile: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -188,6 +213,8 @@ struct FederationExternalVerificationTrustPolicyHashView {
     minimum_verifier_schema_version: u16,
     accepted_verifier_profiles: Vec<String>,
     accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
+    required_witness_kind: Option<FederationStateMachineTraceExternalWitnessKind>,
+    required_witness_profile: Option<String>,
 }
 
 /// Local policy admission of an externally asserted verification result.
@@ -207,6 +234,8 @@ struct FederationExternalVerificationTrustPolicyHashView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationExternalVerificationPolicyAdmissionV1 {
     policy_sha256: String,
+    witness_kind: FederationStateMachineTraceExternalWitnessKind,
+    witness_profile: String,
     verifier_profile: String,
     verifier_schema_version: u16,
     claim: FederationStateMachineTraceExternalVerificationClaim,
@@ -232,6 +261,8 @@ impl FederationExternalVerificationTrustPolicyV1 {
             minimum_verifier_schema_version,
             accepted_verifier_profiles,
             accepted_claims,
+            required_witness_kind: None,
+            required_witness_profile: None,
         };
         policy.validate()?;
         Ok(policy)
@@ -246,6 +277,12 @@ impl FederationExternalVerificationTrustPolicyV1 {
         }
         if self.minimum_verifier_schema_version == 0 {
             return Err(FederationExternalVerificationTrustPolicyViolation::InvalidMinimumVerifierSchemaVersion);
+        }
+        if self.required_witness_profile.is_some() != self.required_witness_kind.is_some() {
+            return Err(FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete);
+        }
+        if self.required_witness_profile.as_deref().is_some_and(str::is_empty) {
+            return Err(FederationExternalVerificationTrustPolicyViolation::EmptyWitnessProfile);
         }
         if self.accepted_verifier_profiles.is_empty() {
             return Err(FederationExternalVerificationTrustPolicyViolation::NoAcceptedVerifierProfiles);
@@ -281,6 +318,26 @@ impl FederationExternalVerificationTrustPolicyV1 {
     pub fn minimum_verifier_schema_version(&self) -> u16 { self.minimum_verifier_schema_version }
     pub fn accepted_verifier_profiles(&self) -> &[String] { &self.accepted_verifier_profiles }
     pub fn accepted_claims(&self) -> &[FederationStateMachineTraceExternalVerificationClaim] { &self.accepted_claims }
+    pub fn required_witness_kind(&self) -> Option<FederationStateMachineTraceExternalWitnessKind> { self.required_witness_kind }
+    pub fn required_witness_profile(&self) -> Option<&str> { self.required_witness_profile.as_deref() }
+
+    pub fn try_new_bound(
+        witness_kind: FederationStateMachineTraceExternalWitnessKind,
+        witness_profile: impl Into<String>,
+        minimum_verifier_schema_version: u16,
+        accepted_verifier_profiles: impl IntoIterator<Item = impl Into<String>>,
+        accepted_claims: impl IntoIterator<Item = FederationStateMachineTraceExternalVerificationClaim>,
+    ) -> Result<Self, FederationExternalVerificationTrustPolicyViolation> {
+        let mut policy = Self::try_new(
+            minimum_verifier_schema_version,
+            accepted_verifier_profiles,
+            accepted_claims,
+        )?;
+        policy.required_witness_kind = Some(witness_kind);
+        policy.required_witness_profile = Some(witness_profile.into());
+        policy.validate()?;
+        Ok(policy)
+    }
 
     pub fn policy_sha256(&self) -> Result<String, FederationExternalVerificationTrustPolicyViolation> {
         self.validate()?;
@@ -293,6 +350,8 @@ impl FederationExternalVerificationTrustPolicyV1 {
             minimum_verifier_schema_version: self.minimum_verifier_schema_version,
             accepted_verifier_profiles: self.accepted_verifier_profiles.clone(),
             accepted_claims: self.accepted_claims.clone(),
+            required_witness_kind: self.required_witness_kind,
+            required_witness_profile: self.required_witness_profile.clone(),
         };
         let bytes = serde_json::to_vec(&view)
             .expect("external verification policy hash view is serializable");
@@ -351,6 +410,8 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             policy_sha256: policy
                 .policy_sha256()
                 .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?,
+            witness_kind: self.witness_kind(),
+            witness_profile: self.witness_profile().into(),
             verifier_profile: self.verifier_profile().into(),
             verifier_schema_version: self.verifier_schema_version(),
             claim: self.claim(),
@@ -361,6 +422,8 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
 
 impl FederationExternalVerificationPolicyAdmissionV1 {
     pub fn policy_sha256(&self) -> &str { &self.policy_sha256 }
+    pub fn witness_kind(&self) -> FederationStateMachineTraceExternalWitnessKind { self.witness_kind }
+    pub fn witness_profile(&self) -> &str { &self.witness_profile }
     pub fn verifier_profile(&self) -> &str { &self.verifier_profile }
     pub fn verifier_schema_version(&self) -> u16 { self.verifier_schema_version }
     pub fn claim(&self) -> FederationStateMachineTraceExternalVerificationClaim { self.claim }
@@ -4763,19 +4826,6 @@ mod tests {
         NotComparable,
     }
 
-    /// Descriptive kind of an externally supplied witness artifact.
-    ///
-    /// The reference model does not interpret or authenticate these artifact
-    /// formats; it only binds the supplied bytes and metadata into an explicit
-    /// evidence-of-evidence reference.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    enum FederationStateMachineTraceExternalWitnessKind {
-        TimestampToken,
-        TransparencyLogHead,
-        ArchiveEvidenceRecord,
-        Other,
-    }
-
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceExternalEvidenceAnchorReference {
@@ -6756,6 +6806,8 @@ mod tests {
             anchor_reference_sha256: statement.anchor_reference_sha256.clone(),
             anchor_reference_schema_version: statement.anchor_reference_schema_version,
             anchor_reference_profile: statement.anchor_reference_profile.clone(),
+            witness_kind: anchor_reference.witness_kind,
+            witness_profile: anchor_reference.witness_profile.clone(),
             verifier_schema_version: statement.verifier_schema_version,
             verifier_profile: statement.verifier_profile.clone(),
             claim: statement.verification_claim,
