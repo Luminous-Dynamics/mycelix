@@ -44,6 +44,12 @@ env:
   VENDOR_MAX_INODES: "150000"
   VENDOR_TMPFS_SIZE: "1024m"
   VENDOR_TMPFS_NR_INODES: "150000"
+  SOURCE_RESOURCE_PROFILE: "v1"
+  SOURCE_MAX_BYTES: "1073741824"
+  SOURCE_MAX_INODES: "300000"
+  SOURCE_TMPFS_SIZE: "1024m"
+  SOURCE_TMPFS_NR_INODES: "300000"
+  SOURCE_AUDIT_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
 
 jobs:
   qualify:
@@ -161,9 +167,31 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          candidate_root="$RUNNER_TEMP/security-kernel-candidate-src"
-          rm -rf "$candidate_root"
-          mkdir -p "$candidate_root"
+          candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          source_resource_metrics="$RUNNER_TEMP/security-kernel-source-resource-metrics.txt"
+          if ! existing_source_volumes="$(docker volume ls --format '{{.Name}}')"; then
+            echo "security-kernel candidate source volume inventory query failed" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$existing_source_volumes" | grep -Fxq "$candidate_volume_name"; then
+            echo "security-kernel candidate source volume name collision" >&2
+            exit 1
+          fi
+          rm -f "$source_resource_metrics"
+          docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000 "$candidate_volume_name" >/dev/null
+          candidate_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$candidate_volume_name")"
+          test "$candidate_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
+          source_volume_cleanup_on_failure() {
+            local status=$?
+            if [ "$status" -ne 0 ]; then
+              if ! docker volume rm "$candidate_volume_name" >/dev/null 2>&1; then status=1; fi
+              if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then status=1
+              elif printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$candidate_volume_name"; then status=1; fi
+            fi
+            trap - EXIT
+            exit "$status"
+          }
+          trap source_volume_cleanup_on_failure EXIT
 
           python3 - "$CANDIDATE_REPOSITORY" "$CANDIDATE_SHA" <<'PY' > "$RUNNER_TEMP/security-kernel-candidate-tree.env"
           import json, os, sys, urllib.parse, urllib.request
@@ -262,7 +290,7 @@ jobs:
 
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
-          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --env CANDIDATE_TREE="$candidate_tree"             --volume "$candidate_root:/output:rw"             "$FETCH_IMAGE" /bin/bash -euc '
+          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --env CANDIDATE_TREE="$candidate_tree"             --volume "$candidate_volume_name:/output:rw"             "$FETCH_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               set -euo pipefail
               export XDG_CONFIG_HOME=/tmp/config
               mkdir -p /tmp/config /tmp/repository
@@ -318,7 +346,7 @@ jobs:
           printf 'candidate_tree=%s\nsource_tree_entry_count=%s\nsource_file_count=%s\nsource_total_path_bytes=%s\nsource_total_bytes=%s\nsource_max_blob_bytes=%s\nfetch_image=%s\n' \
             "$candidate_tree" "$source_tree_entry_count" "$source_file_count" "$source_total_path_bytes" "$source_total_bytes" "$source_max_blob_bytes" "$FETCH_IMAGE" >> "$GITHUB_OUTPUT"
 
-          python3 - "$candidate_root" <<'PY'
+          python3 - "$candidate_volume_name" <<'PY'
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           digest=hashlib.sha256()
@@ -345,7 +373,7 @@ jobs:
 
       - name: Static trust-surface audit
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
@@ -492,11 +520,11 @@ jobs:
       - name: Snapshot exact candidate source identity
         id: snapshot_source
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$CANDIDATE_ROOT" <<'PY' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"
+          python3 - "$CANDIDATE_VOLUME_NAME" <<'PY' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           digest=hashlib.sha256()
@@ -526,11 +554,11 @@ jobs:
       - name: Snapshot locked dependency identity
         id: locked_dependency_identity
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
-          lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"
+          lock_path="$CANDIDATE_VOLUME_NAME/crates/mycelix-bridge-common/Cargo.lock"
           lock_digest="$(sha256sum "$lock_path" | awk '{print $1}')"
           test "${#lock_digest}" -eq 64
           lock_package_count="$(grep -c '^\[\[package\]\]$' "$lock_path")"
@@ -580,7 +608,7 @@ jobs:
             --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
             --env ACTIONS_ID_TOKEN_REQUEST_URL= \
             --env ACTIONS_RUNTIME_TOKEN= \
-            "$SANDBOX_IMAGE" /bin/bash -euc '
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               test "$(id -u)" -ne 0
               grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
               grep -Eq "^Seccomp:[[:space:]]+2$" /proc/self/status
@@ -618,15 +646,15 @@ jobs:
       - name: Prepare locked dependency subject
         id: dependency_subject
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
           dependency_root="$RUNNER_TEMP/security-kernel-dependency-subject"
           rm -rf "$dependency_root"
           mkdir -p "$dependency_root"
-          install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"
-          install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"
+          install -m 0444 "$CANDIDATE_VOLUME_NAME/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"
+          install -m 0444 "$CANDIDATE_VOLUME_NAME/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"
           printf 'dependency_root=%s\n' "$dependency_root" >> "$GITHUB_OUTPUT"
           echo "PASS: only the committed Cargo manifest and lockfile enter dependency acquisition"
 
@@ -679,7 +707,7 @@ jobs:
             --env HOME=/cargo-home --env CARGO_HOME=/cargo-home \
             --env VENDOR_MAX_BYTES="$VENDOR_MAX_BYTES" --env VENDOR_MAX_FILES="$VENDOR_MAX_FILES" --env VENDOR_MAX_INODES="$VENDOR_MAX_INODES" \
             --env GITHUB_TOKEN= --env GH_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_URL= --env ACTIONS_RUNTIME_TOKEN= \
-            "$SANDBOX_IMAGE" /bin/bash -euc '
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               set -euo pipefail
               /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config
               python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" /vendor /vendor-metrics <<\PY
@@ -721,7 +749,7 @@ jobs:
       - name: Execute sandbox negative controls
         id: sandbox_negative_controls
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
           VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
@@ -763,7 +791,7 @@ jobs:
             --pid=private \
             --cgroupns=private \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
-            --volume "$CANDIDATE_ROOT:/source:ro" \
+            --volume "$CANDIDATE_VOLUME_NAME:/source:ro" \
             --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
             --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
             --volume "$sentinel:/trusted-sentinel:ro" \
@@ -772,7 +800,7 @@ jobs:
             --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
             --env ACTIONS_ID_TOKEN_REQUEST_URL= \
             --env ACTIONS_RUNTIME_TOKEN= \
-            "$SANDBOX_IMAGE" /bin/bash -euc '
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               set -euo pipefail
               must_fail() {
                 if "$@" >/tmp/negative-control-output 2>&1; then
@@ -842,7 +870,7 @@ jobs:
       - name: Execute candidate qualification in disposable networkless sandbox
         shell: bash
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
           VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
@@ -899,7 +927,7 @@ jobs:
               --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m \
               --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m \
               --tmpfs /target:rw,nosuid,nodev,size=8g \
-              --volume "$CANDIDATE_ROOT:/source:ro" \
+              --volume "$CANDIDATE_VOLUME_NAME:/source:ro" \
               --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
               --workdir /source/crates/mycelix-bridge-common \
               --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
@@ -1006,12 +1034,12 @@ jobs:
 
       - name: Verify candidate source immutability
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
           EXPECTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$CANDIDATE_ROOT" "$EXPECTED_SOURCE_DIGEST" <<'PY'
+          python3 - "$CANDIDATE_VOLUME_NAME" "$EXPECTED_SOURCE_DIGEST" <<'PY'
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           expected=sys.argv[2].strip()
@@ -1071,7 +1099,7 @@ jobs:
             --user "$runner_uid:$runner_gid" --ipc=private --pid=private --cgroupns=private \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
             --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
-            "$SANDBOX_IMAGE" /bin/bash -euc '
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               python3 - "$EXPECTED_VENDOR_DIGEST" /vendor <<\PY
               import hashlib, pathlib, stat, sys
               expected=sys.argv[1]; vendor=pathlib.Path(sys.argv[2]); digest=hashlib.sha256()
