@@ -147,191 +147,296 @@ def result(state: str, reason: str, details: dict[str, Any] | None = None) -> di
     return out
 
 
-def x509_text(der: bytes, work: Path, name: str) -> str:
-    path = work / f"{name}.der"
-    path.write_bytes(der)
-    proc = run(["openssl", "x509", "-inform", "DER", "-in", str(path), "-noout", "-text"], work)
-    if proc.returncode != 0:
-        raise ValueError(f"openssl x509 parse failed: {proc.stderr.strip()}")
-    return proc.stdout
+def der_tlv(data: bytes, offset: int) -> tuple[int, bytes, bytes, int]:
+    if offset >= len(data):
+        raise ValueError("DER truncated at tag")
+    start = offset
+    tag = data[offset]
+    offset += 1
+    if offset >= len(data):
+        raise ValueError("DER truncated at length")
+    first = data[offset]
+    offset += 1
+    if first & 0x80 == 0:
+        length = first
+    else:
+        count = first & 0x7F
+        if count == 0:
+            raise ValueError("DER indefinite length forbidden")
+        if count > 4 or offset + count > len(data):
+            raise ValueError("DER length invalid")
+        length = int.from_bytes(data[offset : offset + count], "big")
+        offset += count
+    end = offset + length
+    if end > len(data):
+        raise ValueError("DER value truncated")
+    return tag, data[offset:end], data[start:end], end
 
 
-def x509_scalar(der: bytes, work: Path, name: str, flag: str) -> str:
-    path = work / f"{name}-scalar.der"
-    path.write_bytes(der)
-    proc = run(["openssl", "x509", "-inform", "DER", "-in", str(path), "-noout", flag], work)
-    if proc.returncode != 0:
-        raise ValueError(f"openssl x509 {flag} failed: {proc.stderr.strip()}")
-    line = proc.stdout.strip()
-    return line.split("=", 1)[1].strip() if "=" in line else line
+def der_children(sequence_content: bytes) -> list[tuple[int, bytes, bytes]]:
+    children: list[tuple[int, bytes, bytes]] = []
+    offset = 0
+    while offset < len(sequence_content):
+        tag, content, raw, end = der_tlv(sequence_content, offset)
+        children.append((tag, content, raw))
+        offset = end
+    if offset != len(sequence_content):
+        raise ValueError("DER sequence trailing bytes")
+    return children
 
 
-def crl_scalar(der: bytes, work: Path, name: str, flag: str) -> str:
-    path = work / f"{name}-crl.der"
-    path.write_bytes(der)
-    proc = run(["openssl", "crl", "-inform", "DER", "-in", str(path), "-noout", "-nameopt", "RFC2253", flag], work)
-    if proc.returncode != 0:
-        raise ValueError(f"openssl crl {flag} failed: {proc.stderr.strip()}")
-    line = proc.stdout.strip()
-    return line.split("=", 1)[1].strip() if "=" in line else line
+def oid_string(content: bytes) -> str:
+    if not content:
+        raise ValueError("DER OID empty")
+    first = content[0]
+    first_arc = min(first // 40, 2)
+    second_arc = first - (40 * first_arc)
+    arcs = [first_arc, second_arc]
+    value = 0
+    have = False
+    for byte in content[1:]:
+        have = True
+        value = (value << 7) | (byte & 0x7F)
+        if byte & 0x80 == 0:
+            arcs.append(value)
+            value = 0
+            have = False
+    if have:
+        raise ValueError("DER OID unterminated")
+    return ".".join(str(x) for x in arcs)
 
 
-def extension(text: str, name: str) -> tuple[bool, str | None]:
-    lines = text.splitlines()
-    wanted = f"X509v3 {name}"
-    for index, line in enumerate(lines):
-        if wanted.lower() in line.lower():
-            critical = "critical" in line.lower()
-            for value_line in lines[index + 1 : index + 4]:
-                stripped = value_line.strip()
-                if stripped and not stripped.startswith("X509v3 "):
-                    return critical, stripped
-    return False, None
+def bit_string_has(bit_string_content: bytes, bit_number: int) -> bool:
+    if not bit_string_content:
+        raise ValueError("DER BIT STRING empty")
+    unused = bit_string_content[0]
+    payload = bit_string_content[1:]
+    if unused > 7:
+        raise ValueError("DER BIT STRING invalid unused-bit count")
+    byte_index = bit_number // 8
+    bit_mask = 0x80 >> (bit_number % 8)
+    return byte_index < len(payload) and bool(payload[byte_index] & bit_mask)
 
 
-def parse_key_id(value: str | None) -> str:
-    if not value:
-        return ""
-    lower = value.lower()
-    if "keyid:" in lower:
-        value = value[lower.index("keyid:") + len("keyid:") :]
-    value = value.replace(":", "").replace(" ", "")
-    return value.lower()
+def parse_extensions(extension_wrapper: bytes) -> dict[str, dict[str, Any]]:
+    tag, content, _raw, end = der_tlv(extension_wrapper, 0)
+    if tag != 0x30 or end != len(extension_wrapper):
+        raise ValueError("X.509 Extensions must be a SEQUENCE")
+    extensions: dict[str, dict[str, Any]] = {}
+    for ext_tag, ext_content, _ext_raw in der_children(content):
+        if ext_tag != 0x30:
+            raise ValueError("X.509 Extension is not a SEQUENCE")
+        offset = 0
+        oid_tag, oid_content, _oid_raw, offset = der_tlv(ext_content, offset)
+        if oid_tag != 0x06:
+            raise ValueError("X.509 Extension missing OID")
+        critical = False
+        next_tag, next_content, _next_raw, next_offset = der_tlv(ext_content, offset)
+        if next_tag == 0x01:
+            if len(next_content) != 1 or next_content not in (b"\x00", b"\xff"):
+                raise ValueError("X.509 Extension critical BOOLEAN invalid")
+            critical = next_content != b"\x00"
+            next_tag, next_content, _next_raw, next_offset = der_tlv(ext_content, next_offset)
+        if next_tag != 0x04 or next_offset != len(ext_content):
+            raise ValueError("X.509 Extension missing extnValue")
+        extensions[oid_string(oid_content)] = {
+            "critical": critical,
+            "extn_value": next_content,
+        }
+    return extensions
 
 
-def split_pem_crls(bundle: bytes) -> list[bytes]:
-    start_marker = b"-----BEGIN X509 CRL-----"
-    end_marker = b"-----END X509 CRL-----"
-    blocks: list[bytes] = []
+def parse_certificate_der(der: bytes) -> dict[str, Any]:
+    tag, cert_content, _cert_raw, cert_end = der_tlv(der, 0)
+    if tag != 0x30 or cert_end != len(der):
+        raise ValueError("X.509 Certificate is not a single DER SEQUENCE")
+    tag, tbs_content, _tbs_raw, tbs_end = der_tlv(cert_content, 0)
+    if tag != 0x30:
+        raise ValueError("X.509 TBSCertificate is not a SEQUENCE")
     cursor = 0
-    while True:
-        start = bundle.find(start_marker, cursor)
-        if start < 0:
-            break
-        end = bundle.find(end_marker, start)
-        if end < 0:
-            raise ValueError("truncated PEM CRL block")
-        end += len(end_marker)
-        blocks.append(bundle[start:end] + b"\n")
-        cursor = end
-    if len(blocks) < 2:
-        raise ValueError("CRL bundle does not contain at least two PEM CRLs")
-    return blocks
+    version = 1
+    tag, content, raw, next_cursor = der_tlv(tbs_content, cursor)
+    if tag == 0xA0:
+        inner_tag, inner_content, _inner_raw, inner_end = der_tlv(content, 0)
+        if inner_tag != 0x02 or inner_end != len(content):
+            raise ValueError("X.509 version field invalid")
+        version = int.from_bytes(inner_content, "big") + 1
+        cursor = next_cursor
+    else:
+        cursor = 0
+    tag, serial_content, _serial_raw, cursor = der_tlv(tbs_content, cursor)
+    if tag != 0x02 or not serial_content:
+        raise ValueError("X.509 serial invalid")
+    serial = int.from_bytes(serial_content, "big")
+    _tag, _sig_content, _sig_raw, cursor = der_tlv(tbs_content, cursor)
+    issuer_tag, issuer_content, issuer_raw, cursor = der_tlv(tbs_content, cursor)
+    if issuer_tag not in (0x30, 0xA0, 0xA1, 0xA2, 0xA3):
+        raise ValueError("X.509 issuer Name invalid")
+    _tag, _validity_content, _validity_raw, cursor = der_tlv(tbs_content, cursor)
+    subject_tag, _subject_content, subject_raw, cursor = der_tlv(tbs_content, cursor)
+    if subject_tag not in (0x30, 0xA0, 0xA1, 0xA2, 0xA3):
+        raise ValueError("X.509 subject Name invalid")
+    _tag, _spki_content, spki_raw, cursor = der_tlv(tbs_content, cursor)
 
-
-def crl_issuers_from_pem_bundle(bundle: bytes, work: Path) -> list[str]:
-    issuers: list[str] = []
-    for index, block in enumerate(split_pem_crls(bundle)):
-        path = work / f"crl-{index}.pem"
-        path.write_bytes(block)
-        proc = run(
-            ["openssl", "crl", "-in", str(path), "-noout", "-issuer", "-nameopt", "RFC2253"],
-            work,
-        )
-        if proc.returncode != 0:
-            raise ValueError(
-                f"openssl crl block {index} parse failed: {proc.stderr.strip()}"
-            )
-        for line in proc.stdout.splitlines():
-            if line.startswith("issuer="):
-                issuers.append(line.split("=", 1)[1].strip())
-    return issuers
-
-
-def verify_crl_sign_key_usage(cert_text: str) -> bool:
-    critical, usage = extension(cert_text, "Key Usage")
-    if not critical or usage is None:
-        return False
-    normalized = usage.lower().replace("-", " ")
-    return "crl sign" in normalized
-
-def verify_aki_ski(leaf_text: str, intermediate_text: str) -> bool:
-    _aki_critical, aki = extension(leaf_text, "Authority Key Identifier")
-    _ski_critical, ski = extension(intermediate_text, "Subject Key Identifier")
-    return bool(parse_key_id(aki) and parse_key_id(ski) and parse_key_id(aki) == parse_key_id(ski))
-
-
-def verify_chain(
-    leaf: bytes,
-    intermediate: bytes,
-    root: bytes,
-    crl_bundle_pem: bytes,
-    attime: int,
-    work: Path,
-) -> tuple[bool, str]:
-    paths = {
-        "leaf.der": leaf,
-        "inter.der": intermediate,
-        "root.der": root,
+    extensions: dict[str, dict[str, Any]] = {}
+    while cursor < len(tbs_content):
+        tag, content, raw, cursor = der_tlv(tbs_content, cursor)
+        if tag == 0xA3:
+            extensions = parse_extensions(content)
+    if cursor != len(tbs_content):
+        raise ValueError("X.509 TBSCertificate trailing bytes")
+    return {
+        "version": version,
+        "serial": serial,
+        "issuer_der": issuer_raw,
+        "subject_der": subject_raw,
+        "spki_der": spki_raw,
+        "extensions": extensions,
     }
-    for name, data in paths.items():
-        (work / name).write_bytes(data)
-
-    crl_path = work / "crl-bundle.pem"
-    crl_path.write_bytes(crl_bundle_pem)
-
-    conversions = [
-        ["openssl", "x509", "-inform", "DER", "-in", str(work / "leaf.der"), "-out", str(work / "leaf.pem")],
-        ["openssl", "x509", "-inform", "DER", "-in", str(work / "inter.der"), "-out", str(work / "inter.pem")],
-        ["openssl", "x509", "-inform", "DER", "-in", str(work / "root.der"), "-out", str(work / "root.pem")],
-    ]
-    for command in conversions:
-        proc = run(command, work)
-        if proc.returncode != 0:
-            return False, proc.stderr.strip()
-
-    proc = run(
-        [
-            "openssl", "verify",
-            "-CAfile", str(work / "root.pem"),
-            "-untrusted", str(work / "inter.pem"),
-            "-x509_strict",
-            "-check_ss_sig",
-            "-crl_check_all",
-            "-CRLfile", str(crl_path),
-            "-attime", str(attime),
-            str(work / "leaf.pem"),
-        ],
-        work,
-    )
-    return proc.returncode == 0, (proc.stdout + proc.stderr).strip()
 
 
-def leaf_profile_ok(text: str) -> tuple[bool, dict[str, Any]]:
-    version_ok = "Version: 3 (0x2)" in text
-    basic_critical, basic = extension(text, "Basic Constraints")
-    usage_critical, usage = extension(text, "Key Usage")
-    eku_critical, eku = extension(text, "Extended Key Usage")
-    aki_critical, aki = extension(text, "Authority Key Identifier")
+def extension_value(info: dict[str, Any], oid: str) -> tuple[bool, bytes | None]:
+    extension = info["extensions"].get(oid)
+    if not extension:
+        return False, None
+    return bool(extension["critical"]), extension["extn_value"]
+
+
+def basic_constraints(info: dict[str, Any]) -> tuple[bool, bool]:
+    critical, value = extension_value(info, "2.5.29.19")
+    if value is None:
+        return critical, False
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x30 or end != len(value):
+        raise ValueError("BasicConstraints extension malformed")
+    children = der_children(content)
+    if not children or children[0][0] != 0x01 or len(children[0][1]) != 1:
+        return critical, False
+    return critical, children[0][1] == b"\x00"
+
+
+def key_usage_bits(info: dict[str, Any]) -> tuple[bool, bool, bool]:
+    critical, value = extension_value(info, "2.5.29.15")
+    if value is None:
+        return critical, False, False
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x03 or end != len(value):
+        raise ValueError("KeyUsage extension malformed")
+    return critical, bit_string_has(content, 2), bit_string_has(content, 6)
+
+
+def eku_oids(info: dict[str, Any]) -> tuple[bool, list[str]]:
+    critical, value = extension_value(info, "2.5.29.37")
+    if value is None:
+        return critical, []
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x30 or end != len(value):
+        raise ValueError("ExtendedKeyUsage extension malformed")
+    oids: list[str] = []
+    for child_tag, child_content, _raw in der_children(content):
+        if child_tag != 0x06:
+            raise ValueError("ExtendedKeyUsage contains non-OID")
+        oids.append(oid_string(child_content))
+    return critical, oids
+
+
+def authority_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
+    critical, value = extension_value(info, "2.5.29.35")
+    if value is None:
+        return critical, None
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x30 or end != len(value):
+        raise ValueError("AuthorityKeyIdentifier extension malformed")
+    for child_tag, child_content, _raw in der_children(content):
+        if child_tag == 0x80:
+            return critical, child_content
+    return critical, None
+
+
+def subject_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
+    critical, value = extension_value(info, "2.5.29.14")
+    if value is None:
+        return critical, None
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x04 or end != len(value):
+        raise ValueError("SubjectKeyIdentifier extension malformed")
+    return critical, content
+
+
+def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+    bc_critical, ca_false = basic_constraints(info)
+    ku_critical, key_encipherment, _crl_sign = key_usage_bits(info)
+    eku_critical, eku = eku_oids(info)
+    aki_critical, aki = authority_key_id(info)
     profile = {
-        "version_3": version_ok,
-        "basic_constraints_critical": basic_critical,
-        "basic_constraints": basic,
-        "key_usage_critical": usage_critical,
-        "key_usage": usage,
-        "extended_key_usage": eku,
+        "version_3": info["version"] == 3,
+        "serial_positive": info["serial"] > 0,
+        "basic_constraints_critical": bc_critical,
+        "basic_constraints_ca_false": ca_false,
+        "key_usage_critical": ku_critical,
+        "key_encipherment_set": key_encipherment,
+        "extended_key_usage_oids": eku,
         "extended_key_usage_critical": eku_critical,
-        "authority_key_identifier": aki,
+        "authority_key_identifier_present": aki is not None,
         "authority_key_identifier_critical": aki_critical,
-        "eku_noncritical_if_present": eku is None or not eku_critical,
     }
-    eku_ok = eku is None or EK_CERT_EKU_OID in eku or "Endorsement Key Certificate" in eku
-    eku_critical_ok = eku is None or not eku_critical
+    eku_ok = not eku or EK_CERT_EKU_OID in eku
+    eku_critical_ok = not eku_critical
     aki_critical_ok = not aki_critical
     ok = (
-        version_ok
-        and basic_critical
-        and basic is not None
-        and basic.upper() == "CA:FALSE"
-        and usage_critical
-        and usage is not None
-        and "Key Encipherment" in usage
+        profile["version_3"]
+        and profile["serial_positive"]
+        and bc_critical
+        and ca_false
+        and ku_critical
+        and key_encipherment
         and eku_ok
         and eku_critical_ok
         and aki_critical_ok
-        and parse_key_id(aki) != ""
+        and aki is not None
     )
     return ok, profile
+
+
+def verify_crl_sign_key_usage(info: dict[str, Any]) -> bool:
+    critical, _key_encipherment, crl_sign = key_usage_bits(info)
+    return critical and crl_sign
+
+
+def crl_issuer_names_from_pem_bundle(bundle: bytes, work: Path) -> list[bytes]:
+    issuers: list[bytes] = []
+    for index, block in enumerate(split_pem_crls(bundle)):
+        path = work / f"crl-{index}.pem"
+        path.write_bytes(block)
+        der_path = work / f"crl-{index}.der"
+        proc = run(
+            ["openssl", "crl", "-in", str(path), "-outform", "DER", "-out", str(der_path)],
+            work,
+        )
+        if proc.returncode != 0:
+            raise ValueError(f"openssl crl block {index} conversion failed: {proc.stderr.strip()}")
+        tag, crl_content, _raw, end = der_tlv(der_path.read_bytes(), 0)
+        if tag != 0x30 or end != der_path.stat().st_size:
+            raise ValueError("CRL is not a single DER sequence")
+        tbs_tag, tbs_content, _tbs_raw, _ = der_tlv(crl_content, 0)
+        if tbs_tag != 0x30:
+            raise ValueError("CRL TBSCertList is not a sequence")
+        offset = 0
+        first_tag, _first_content, _first_raw, first_end = der_tlv(tbs_content, offset)
+        if first_tag == 0x02:
+            offset = first_end
+        _sig_tag, _sig_content, _sig_raw, offset = der_tlv(tbs_content, offset)
+        issuer_tag, _issuer_content, issuer_raw, _ = der_tlv(tbs_content, offset)
+        if issuer_tag != 0x30:
+            raise ValueError("CRL issuer Name malformed")
+        issuers.append(issuer_raw)
+    return issuers
+
+
+def verify_aki_ski(leaf: dict[str, Any], intermediate: dict[str, Any]) -> bool:
+    _aki_critical, aki = authority_key_id(leaf)
+    _ski_critical, ski = subject_key_id(intermediate)
+    return bool(aki and ski and aki == ski)
 
 
 def validate_template_binding(manifest: dict[str, Any]) -> dict[str, Any]:
@@ -527,14 +632,10 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             chain_ok, chain_detail = verify_chain(
                 leaf, intermediate, root, crl_bundle_pem, manifest["verification_time_unix"], work
             )
-            leaf_text = x509_text(leaf, work, "leaf-profile")
-            intermediate_text = x509_text(intermediate, work, "intermediate-profile")
-            root_text = x509_text(root, work, "root-profile")
-            serial = int(x509_scalar(leaf, work, "leaf", "-serial"), 16)
-            subject = x509_scalar(leaf, work, "leaf-subject", "-subject")
-            issuer = x509_scalar(leaf, work, "leaf-issuer", "-issuer")
-            intermediate_subject = x509_scalar(intermediate, work, "intermediate-subject", "-subject")
-            crl_issuers = crl_issuers_from_pem_bundle(crl_bundle_pem, work)
+            leaf_info = parse_certificate_der(leaf)
+            intermediate_info = parse_certificate_der(intermediate)
+            root_info = parse_certificate_der(root)
+            crl_issuers = crl_issuer_names_from_pem_bundle(crl_bundle_pem, work)
             openssl_version = run(["openssl", "version"], work).stdout.strip()
         except (ValueError, OSError) as exc:
             return result("DENY", "openssl-parse-error", {"error": str(exc)})
@@ -542,39 +643,44 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     if not chain_ok:
         return result("DENY", "certificate-path-validation-failed", {"openssl": chain_detail})
 
-    profile_ok, profile = leaf_profile_ok(leaf_text)
-    profile["serial_positive"] = serial > 0
-    profile["subject"] = subject
-    profile["issuer"] = issuer
+    profile_ok, profile = leaf_profile_ok(leaf_info)
+    profile["leaf_issuer_name_sha256"] = hashlib.sha256(leaf_info["issuer_der"]).hexdigest()
+    profile["leaf_subject_name_sha256"] = hashlib.sha256(leaf_info["subject_der"]).hexdigest()
+    profile["intermediate_subject_name_sha256"] = hashlib.sha256(intermediate_info["subject_der"]).hexdigest()
+    profile["root_subject_name_sha256"] = hashlib.sha256(root_info["subject_der"]).hexdigest()
     profile["openssl_version"] = openssl_version
-    if serial <= 0:
+    if leaf_info["serial"] <= 0:
         return result("DENY", "leaf-serial-invalid", profile)
     if not profile_ok:
         return result("DENY", "ek-leaf-profile-requirements-failed", profile)
-    if issuer != intermediate_subject:
+    if leaf_info["issuer_der"] != intermediate_info["subject_der"]:
         return result(
             "DENY",
             "leaf-issuer-does-not-match-intermediate-subject",
-            {**profile, "intermediate_subject": intermediate_subject},
+            {**profile, "intermediate_subject_name_sha256": hashlib.sha256(intermediate_info["subject_der"]).hexdigest()},
         )
-    if intermediate_subject not in crl_issuers:
+    if intermediate_info["subject_der"] not in crl_issuers:
         return result(
             "DENY",
             "crl-bundle-missing-leaf-issuer",
-            {**profile, "crl_issuers": crl_issuers, "required_issuer": intermediate_subject},
+            {**profile, "crl_issuer_name_match": False},
         )
-    if root_subject not in crl_issuers:
+    if root_info["subject_der"] not in crl_issuers:
         return result(
             "DENY",
             "crl-bundle-missing-intermediate-issuer",
-            {**profile, "crl_issuers": crl_issuers, "required_issuer": root_subject},
+            {**profile, "crl_root_issuer_name_match": False},
         )
     root_subject = x509_scalar(root, work, "root-subject", "-subject")
     if not verify_crl_sign_key_usage(intermediate_text):
         return result("DENY", "intermediate-crl-issuer-missing-crlSign", profile)
     if not verify_crl_sign_key_usage(root_text):
         return result("DENY", "root-crl-issuer-missing-crlSign", profile)
-    if not verify_aki_ski(leaf_text, intermediate_text):
+    if not verify_crl_sign_key_usage(intermediate_info):
+        return result("DENY", "intermediate-crl-issuer-missing-crlSign", profile)
+    if not verify_crl_sign_key_usage(root_info):
+        return result("DENY", "root-crl-issuer-missing-crlSign", profile)
+    if not verify_aki_ski(leaf_info, intermediate_info):
         return result("DENY", "authority-key-identifier-does-not-match-intermediate-ski", profile)
 
     if manifest["verification_mode"] != "ReferenceModelOnly":
@@ -832,7 +938,7 @@ def self_test() -> int:
             base["revocation"]["crl_bundle_pem_sha256"],
         )
         source = Path(__file__).read_text(encoding="utf-8")
-        if "profile_override" in source:
+        if 'manifest.get("profile_override")' in source or 'override = manifest.get("profile_override")' in source:
             print("caller profile override escape hatch: FAIL")
             return 1
         if "def verify_crl_sign_key_usage" not in source or "crl sign" not in source.lower():
@@ -840,6 +946,12 @@ def self_test() -> int:
             return 1
         if '"-crl_check_all",' not in source:
             print("full-chain CRL verification command: FAIL")
+            return 1
+        if "def parse_certificate_der" not in source or "leaf_profile_ok(leaf_info)" not in source:
+            print("binary DER certificate semantics: FAIL")
+            return 1
+        if "x509_text(" in source or "extension(leaf_text" in source:
+            print("human-readable certificate text remains security-authoritative: FAIL")
             return 1
 
 
