@@ -264,6 +264,11 @@ fn validate_fpm_registration_anchor(
             "unsupported FPM registration anchor schema".into(),
         ));
     }
+    anchor.envelope.validate_consistency().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "FPM registration anchor envelope is not consistent: {e}"
+        )))
+    })?;
     let computed_digest = anchor.envelope.digest().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "failed to hash FPM registration anchor envelope: {e}"
