@@ -238,7 +238,8 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     trust_policy_versions = [
         line.split(":", 1)[1].strip().strip('"')
         for line in workflow_text.splitlines()
-        if line.strip().startswith("TRUSTED_POLICY_VERSION:")
+        if line.strip().startswith("D6U_TRUSTED_POLICY_VERSION:")
+        or line.strip().startswith("TRUSTED_POLICY_VERSION:")
     ]
     assert len(trust_policy_versions) >= 2
     assert all(version == str(policy["policy_version"]) for version in trust_policy_versions)
