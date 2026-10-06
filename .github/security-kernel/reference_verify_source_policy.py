@@ -95,6 +95,8 @@ def job_keys(lines_: list[str]) -> tuple[str, ...]:
         fail("missing jobs block")
     found = []
     for line in lines_[start + 1 :]:
+        if line and not line.startswith((" ", "\t")):
+            break
         match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", line)
         if match:
             found.append(match.group(1))
