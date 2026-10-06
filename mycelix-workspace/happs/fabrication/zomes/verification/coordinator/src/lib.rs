@@ -142,10 +142,33 @@ pub struct ResolvedFpmAttestationChallenge {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateFpmSourceAttestationAnchorInput {
     pub challenge_action: ActionHash,
-    pub evidence_digest: String,
+    pub eat_cose_verification_action: ActionHash,
     pub verifier_id: String,
     pub verifier_version: String,
     pub disposition: FpmAttestationDisposition,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VerifyFpmEatCoseAgainstChallengeInput {
+    pub challenge_action: ActionHash,
+    pub trusted_public_key_sec1: Vec<u8>,
+    pub token_bytes: Vec<u8>,
+    pub expected_evidence_digest: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FpmChallengeEatCoseVerification {
+    pub challenge_action: ActionHash,
+    pub acquisition_root_action: ActionHash,
+    pub verification: FpmVerifiedEatCoseEvidence,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateFpmEatCoseVerificationAnchorInput {
+    pub challenge_action: ActionHash,
+    pub trusted_public_key_sec1: Vec<u8>,
+    pub token_bytes: Vec<u8>,
+    pub expected_evidence_digest: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -158,6 +181,7 @@ pub struct ResolvedFpmSourceAttestationAnchor {
     pub action_hash: ActionHash,
     pub entry_hash: EntryHash,
     pub challenge_action: ActionHash,
+    pub eat_cose_verification_action: ActionHash,
     pub claim: FpmSourceAttestationClaim,
     pub claim_digest: String,
     pub author: AgentPubKey,
