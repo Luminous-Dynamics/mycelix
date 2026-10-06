@@ -24,27 +24,6 @@ use mycelix_zome_helpers as _;
 
 const FINANCE_HAPP_ID: &str = "mycelix-finance";
 
-/// When true, cross-cluster bridge calls that fail to reach the governance
-/// cluster will return errors instead of permissive defaults.
-///
-/// **Security tradeoff**:
-/// - `false` (default): Operations proceed when governance is unreachable
-///   (bootstrap, standalone, network partition). This prioritizes availability
-///   — the integrity zome still enforces zero-sum and constitutional limits.
-/// - `true`: All governance-dependent operations fail-closed when the governance
-///   cluster is unreachable. This is stricter but can block legitimate operations
-///   during network partitions or bootstrapping.
-///
-/// Set to `true` for high-security deployments where governance availability
-/// is guaranteed and any gap in oversight is unacceptable.
-///
-/// SECURITY: Changed from `false` to `true` — financial operations must not
-/// proceed without governance verification. The permissive default allowed
-/// currency creation and proposal verification to bypass governance during
-/// network partitions, which is unacceptable for production deployments.
-const STRICT_GOVERNANCE_MODE: bool = true;
-
-/// 24 hours in microseconds
 const DAY_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
 
 // =============================================================================
@@ -1042,7 +1021,8 @@ fn fetch_oracle_vitality() -> u32 {
 /// Queries the identity/governance cluster via cross-role call.
 #[hdk_extern]
 pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
-    // Try cross-cluster call to governance for membership roster
+    // Governance membership is authorization-bearing state. Never substitute a
+    // synthetic zero when the governance authority is absent or malformed.
     match call(
         CallTargetCell::OtherRole("governance".into()),
         ZomeName::from("governance_bridge"),
@@ -1050,46 +1030,23 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
         None,
         dao_did.clone(),
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => Ok(result.decode::<u32>().unwrap_or(0)),
-        Ok(other) => {
-            // SECURITY NOTE: Returning 0 members is PERMISSIVE — it means the governance
-            // proposal requirement (>10 members) will be skipped. This is deliberate:
-            // when the governance cluster is unreachable (bootstrap, standalone, or network
-            // partition), we allow small-community operations to proceed rather than blocking
-            // all currency creation/amendment. The integrity zome still enforces zero-sum
-            // and constitutional limits regardless of governance gate.
-            //
-            // When STRICT_GOVERNANCE_MODE is true, this returns an error instead,
-            // blocking the operation until governance is reachable.
-            if STRICT_GOVERNANCE_MODE {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Circuit breaker: governance cluster unavailable for {}, operation suspended: {:?}",
-                    dao_did, other
-                ))));
-            }
-            debug!(
-                "get_community_member_count: governance returned {:?} for {}, defaulting to 0 (permissive)",
-                other, dao_did
-            );
-            Ok(0)
-        }
-        Err(e) => {
-            // SECURITY NOTE: Same permissive default as above — see comment.
-            // When STRICT_GOVERNANCE_MODE is true, fail-closed instead.
-            if STRICT_GOVERNANCE_MODE {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Circuit breaker: governance cluster unreachable for {}, operation suspended: {:?}",
-                    dao_did, e
-                ))));
-            }
-            debug!(
-                "get_community_member_count: governance unreachable for {}: {:?}, defaulting to 0 (permissive)",
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<u32>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Governance member-count response was malformed for {}: {:?}",
                 dao_did, e
-            );
-            Ok(0)
-        }
+            )))
+        }),
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance member-count authority returned unexpected response for {}: {:?}",
+            dao_did, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance member-count authority unavailable for {}: {:?}",
+            dao_did, e
+        )))),
     }
 }
+
 
 /// Verify that a governance proposal exists and is in Approved/Executed state.
 ///
@@ -1112,33 +1069,29 @@ pub fn verify_governance_proposal(proposal_id: String) -> ExternResult<bool> {
         proposal_id.clone(),
     ) {
         Ok(ZomeCallResponse::Ok(result)) => {
-            // Expect a string status like "Approved", "Executed", "Pending", "Rejected"
-            let status = result.decode::<String>().unwrap_or_default();
+            let status = result.decode::<String>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance proposal status response was malformed for {}: {:?}",
+                    proposal_id, e
+                )))
+            })?;
             Ok(status == "Approved" || status == "Executed")
         }
-        Ok(_other) => {
-            // Governance returned non-Ok — proposal likely doesn't exist
+        Ok(other) => {
+            // A non-success response is not evidence of approval.
+            debug!(
+                "verify_governance_proposal: governance returned {:?} for {}",
+                other, proposal_id
+            );
             Ok(false)
         }
-        Err(e) => {
-            // Circuit breaker: When governance cluster is unreachable, behavior depends
-            // on STRICT_GOVERNANCE_MODE. In strict mode we fail-closed (return error),
-            // blocking operations that need governance approval. In permissive mode
-            // we return true, relying on local verify_governance_agent as a fallback.
-            if STRICT_GOVERNANCE_MODE {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Circuit breaker: governance cluster unreachable for proposal {}, operation suspended: {:?}",
-                    proposal_id, e
-                ))));
-            }
-            debug!(
-                "verify_governance_proposal: governance unreachable for {}, defaulting to true (permissive): {:?}",
-                proposal_id, e
-            );
-            Ok(true)
-        }
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance proposal authority unavailable for {}: {:?}",
+            proposal_id, e
+        )))),
     }
 }
+
 
 // ---------------------------------------------------------------------------
 // Cross-Cluster Dispatch Handlers (incoming calls from other clusters)
@@ -1162,16 +1115,26 @@ pub fn query_sap_balance(member_did: String) -> ExternResult<BalanceResponse> {
             struct SapBalance {
                 balance: u64,
             }
-            let balance = result
-                .decode::<SapBalance>()
-                .map(|b| b.balance)
-                .unwrap_or(0);
-            Ok(BalanceResponse {
-                member_did,
-                currency: "SAP".into(),
-                balance,
-                available: true,
-            })
+            match result.decode::<SapBalance>() {
+                Ok(balance) => Ok(BalanceResponse {
+                    member_did,
+                    currency: "SAP".into(),
+                    balance: balance.balance,
+                    available: true,
+                }),
+                Err(e) => {
+                    debug!(
+                        "query_sap_balance: malformed payments response for {}: {:?}",
+                        member_did, e
+                    );
+                    Ok(BalanceResponse {
+                        member_did,
+                        currency: "SAP".into(),
+                        balance: 0,
+                        available: false,
+                    })
+                }
+            }
         }
         Ok(other) => {
             debug!(
