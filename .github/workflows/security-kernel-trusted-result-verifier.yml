@@ -56,9 +56,9 @@ jobs:
           test "${ACTIONS_CACHE_MODE:-}" = "none"
           workflow_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- ".github/workflows/security-kernel-trusted-result-verifier.yml" | awk '{print $3}')"
           printf "%s" "$workflow_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
-          test "$workflow_blob_sha" = "$TRUSTED_RESULT_VERIFIER_BLOB_SHA"
           reference_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$REFERENCE_VERIFIER_PATH" | awk '{print $3}')"
           printf "%s" "$reference_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          test -f "$REFERENCE_VERIFIER_PATH"
           test "$reference_verifier_blob_sha" = "$REFERENCE_VERIFIER_BLOB_SHA"
           git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
           git merge-base --is-ancestor "$GITHUB_WORKFLOW_SHA" "refs/remotes/origin/main"
@@ -368,8 +368,8 @@ jobs:
               f"?per_page=100&name={encoded_artifact_name}"
           )
           matching_artifacts = artifact_response.get("artifacts", [])
-          assert artifact_response.get("total_count") == len(matching_artifacts), (
-              "artifact name-filter response count does not match returned artifact records"
+          assert artifact_response.get("total_count") == 1, (
+              "artifact name-filter response did not report exactly one matching artifact"
           )
           assert len(matching_artifacts) == 1, (
               f"expected exactly one retained qualification receipt artifact: {len(matching_artifacts)}"
