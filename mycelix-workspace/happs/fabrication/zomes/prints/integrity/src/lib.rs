@@ -255,11 +255,9 @@ fn validate_print_job_update_authorization(
             ))
         })?;
 
-    if !matches!(
-        validate_print_job_lifecycle_update(&original_job, updated_job),
-        ValidateCallbackResult::Valid
-    ) {
-        return Ok(validate_print_job_lifecycle_update(&original_job, updated_job));
+    let lifecycle_result = validate_print_job_lifecycle_update(&original_job, updated_job);
+    if !matches!(&lifecycle_result, ValidateCallbackResult::Valid) {
+        return Ok(lifecycle_result);
     }
 
     let printer_record = must_get_valid_record(original_job.printer_hash.clone())?;
