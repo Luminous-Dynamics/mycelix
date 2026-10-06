@@ -3393,6 +3393,16 @@ mod tests {
         Disjoint,
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTracePublicationCollectionHistoryRelationship {
+        ExactMatch,
+        LeftStrictPrefix,
+        RightStrictPrefix,
+        DivergentAfterCommonPrefix,
+        Disjoint,
+        NotComparable,
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineTracePublicationCollectionReconciliationReceipt {
@@ -3413,6 +3423,8 @@ mod tests {
         right_collection_size: usize,
         right_collection_sha256: String,
         relationship: FederationStateMachineTracePublicationCollectionRelationship,
+        history_relationship:
+            FederationStateMachineTracePublicationCollectionHistoryRelationship,
         shared_publication_sha256s: Vec<String>,
         left_only_publication_sha256s: Vec<String>,
         right_only_publication_sha256s: Vec<String>,
@@ -3440,6 +3452,8 @@ mod tests {
         right_collection_size: usize,
         right_collection_sha256: String,
         relationship: FederationStateMachineTracePublicationCollectionRelationship,
+        history_relationship:
+            FederationStateMachineTracePublicationCollectionHistoryRelationship,
         shared_publication_sha256s: Vec<String>,
         left_only_publication_sha256s: Vec<String>,
         right_only_publication_sha256s: Vec<String>,
@@ -4045,6 +4059,119 @@ mod tests {
         ))
     }
 
+    fn state_machine_trace_publication_collection_history_chain(
+        snapshots: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+    ) -> Result<Option<Vec<String>>, FederationStateMachineTraceCheckpointPublicationViolation> {
+        if snapshots.is_empty() {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationCollectionEmpty
+            );
+        }
+        if validate_state_machine_trace_checkpoint_publication_lineage(snapshots).is_err() {
+            return Ok(None);
+        }
+        let mut publications = BTreeMap::<
+            &str,
+            &FederationStateMachineTraceCheckpointPublication,
+        >::new();
+        for (_, publication) in snapshots {
+            publications.entry(publication.publication_sha256.as_str()).or_insert(publication);
+        }
+        let root = publications
+            .values()
+            .find(|publication| {
+                publication.previous_publication_sha256
+                    == FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS
+            })
+            .expect("validated lineage must have a root");
+        let mut successor_by_predecessor = BTreeMap::<&str, &str>::new();
+        for publication in publications.values() {
+            if publication.previous_publication_sha256
+                != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS
+            {
+                successor_by_predecessor.insert(
+                    publication.previous_publication_sha256.as_str(),
+                    publication.publication_sha256.as_str(),
+                );
+            }
+        }
+        let mut chain = Vec::with_capacity(publications.len());
+        let mut current = root.publication_sha256.as_str();
+        loop {
+            chain.push(current.to_owned());
+            let Some(successor) = successor_by_predecessor.get(current).copied() else {
+                break;
+            };
+            current = successor;
+        }
+        Ok(Some(chain))
+    }
+
+    fn state_machine_trace_publication_collection_history_relationship<'a>(
+        left: &[(
+            &'a FederationStateMachineTraceCapsule,
+            &'a FederationStateMachineTraceCheckpointPublication,
+        )],
+        right: &[(
+            &'a FederationStateMachineTraceCapsule,
+            &'a FederationStateMachineTraceCheckpointPublication,
+        )],
+    ) -> Result<
+        FederationStateMachineTracePublicationCollectionHistoryRelationship,
+        FederationStateMachineTraceCheckpointPublicationViolation,
+    > {
+        let left_digests = state_machine_trace_publication_collection_digest_list(left)?;
+        let right_digests = state_machine_trace_publication_collection_digest_list(right)?;
+        let left_set = left_digests.iter().cloned().collect::<BTreeSet<_>>();
+        let right_set = right_digests.iter().cloned().collect::<BTreeSet<_>>();
+
+        if left_set == right_set {
+            return Ok(
+                FederationStateMachineTracePublicationCollectionHistoryRelationship::ExactMatch
+            );
+        }
+        if left_set.is_disjoint(&right_set) {
+            return Ok(
+                FederationStateMachineTracePublicationCollectionHistoryRelationship::Disjoint
+            );
+        }
+
+        let left_chain = state_machine_trace_publication_collection_history_chain(left)?;
+        let right_chain = state_machine_trace_publication_collection_history_chain(right)?;
+
+        match (left_chain, right_chain) {
+            (Some(left_chain), Some(right_chain))
+                if left_chain.len() < right_chain.len()
+                    && right_chain.starts_with(&left_chain) =>
+            {
+                Ok(
+                    FederationStateMachineTracePublicationCollectionHistoryRelationship::LeftStrictPrefix
+                )
+            }
+            (Some(left_chain), Some(right_chain))
+                if right_chain.len() < left_chain.len()
+                    && left_chain.starts_with(&right_chain) =>
+            {
+                Ok(
+                    FederationStateMachineTracePublicationCollectionHistoryRelationship::RightStrictPrefix
+                )
+            }
+            (Some(left_chain), Some(right_chain))
+                if left_chain.first() == right_chain.first() =>
+            {
+                Ok(
+                    FederationStateMachineTracePublicationCollectionHistoryRelationship::DivergentAfterCommonPrefix
+                )
+            }
+            _ => Ok(
+                FederationStateMachineTracePublicationCollectionHistoryRelationship::NotComparable
+            ),
+        }
+    }
+
     fn state_machine_trace_publication_collection_relationship(
         left: &[String],
         right: &[String],
@@ -4612,6 +4739,11 @@ mod tests {
             right_collection_size: right_size,
             right_collection_sha256: right_collection_sha256,
             relationship,
+            history_relationship:
+                state_machine_trace_publication_collection_history_relationship(left, right)
+                    .map_err(
+                        FederationStateMachineTracePublicationCollectionReconciliationBuildViolation::UnionCollectionInvalid,
+                    )?,
             shared_publication_sha256s: shared,
             left_only_publication_sha256s: left_only,
             right_only_publication_sha256s: right_only,
@@ -4839,6 +4971,7 @@ mod tests {
         RightCollectionSizeMismatch,
         RightCollectionDigestMismatch,
         RelationshipMismatch,
+        HistoryRelationshipMismatch,
         SharedPublicationSetMismatch,
         LeftOnlyPublicationSetMismatch,
         RightOnlyPublicationSetMismatch,
@@ -4998,6 +5131,16 @@ mod tests {
         if receipt.relationship != relationship {
             return Err(
                 FederationStateMachineTracePublicationCollectionReconciliationViolation::RelationshipMismatch
+            );
+        }
+        let expected_history_relationship =
+            state_machine_trace_publication_collection_history_relationship(left, right)
+                .map_err(
+                    FederationStateMachineTracePublicationCollectionReconciliationViolation::UnionCollectionInvalid,
+                )?;
+        if receipt.history_relationship != expected_history_relationship {
+            return Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::HistoryRelationshipMismatch
             );
         }
         if receipt.shared_publication_sha256s != shared {
@@ -7847,6 +7990,20 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionDigestMismatch
+            )
+        );
+
+        let mut bad_history = receipt.clone();
+        bad_history.history_relationship =
+            FederationStateMachineTracePublicationCollectionHistoryRelationship::ExactMatch;
+        bad_history.reconciliation_sha256 =
+            state_machine_trace_publication_collection_reconciliation_sha256(&bad_history);
+        assert_eq!(
+            validate_state_machine_trace_publication_collection_reconciliation(
+                &left, &right, &bad_history
+            ),
+            Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::HistoryRelationshipMismatch
             )
         );
 
