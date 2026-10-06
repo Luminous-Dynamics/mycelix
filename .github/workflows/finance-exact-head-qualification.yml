@@ -91,6 +91,8 @@ jobs:
           assert text.count("id: tree_immutability") == 1
           assert text.count("name: Emit qualification receipt") == 1
           assert text.count("name: Upload immutable qualification evidence") == 1
+          assert "docs/integral/finance-substrate-policy.json" in text
+          assert text.count("name: Classify exact Finance substrate") == 1
           assert "cancel-in-progress: false" in text
           PY
 
@@ -199,6 +201,108 @@ jobs:
           test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
           test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
 
+      - name: Classify exact Finance substrate
+        id: substrate
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import tomllib
+          from pathlib import Path
+
+          lock_path = Path("mycelix-finance/Cargo.lock")
+          policy_path = Path("docs/integral/finance-substrate-policy.json")
+
+          policy = json.loads(policy_path.read_text(encoding="utf-8"))
+          assert policy["schema_version"] == 1
+          assert set(policy["families"]) == {"holochain-0.6", "holochain-0.7"}
+
+          lock = tomllib.loads(lock_path.read_text(encoding="utf-8"))
+          versions = {}
+          for package in lock["package"]:
+              name = package["name"]
+              if name in {
+                  "hdk",
+                  "hdi",
+                  "hdk_derive",
+                  "holo_hash",
+                  "holochain_integrity_types",
+                  "holochain_zome_types",
+                  "holochain_serialized_bytes",
+              } and name not in versions:
+                  versions[name] = package["version"]
+
+          required = {
+              "hdk",
+              "hdi",
+              "hdk_derive",
+              "holo_hash",
+              "holochain_integrity_types",
+              "holochain_zome_types",
+              "holochain_serialized_bytes",
+          }
+          missing = sorted(required - versions.keys())
+          assert not missing, f"Finance substrate lock missing packages: {missing}"
+
+          hdk = versions["hdk"]
+          hdi = versions["hdi"]
+          holo_hash = versions["holo_hash"]
+          integrity = versions["holochain_integrity_types"]
+          zome = versions["holochain_zome_types"]
+          derive = versions["hdk_derive"]
+
+          family = None
+          if (
+              hdk.startswith("0.6.") and
+              hdi.startswith("0.7.") and
+              holo_hash.startswith("0.6.") and
+              integrity.startswith("0.6.") and
+              zome.startswith("0.6.") and
+              derive.startswith("0.6.")
+          ):
+              family = "holochain-0.6"
+          elif (
+              hdk == "0.7.0" and
+              hdi == "0.8.0" and
+              holo_hash == "0.7.0" and
+              integrity == "0.7.0" and
+              zome == "0.7.0" and
+              derive == "0.7.0"
+          ):
+              family = "holochain-0.7"
+
+          assert family is not None, (
+              "Finance Cargo.lock does not resolve to a supported coherent "
+              "Holochain substrate family"
+          )
+
+          digest = hashlib.sha256(lock_path.read_bytes()).hexdigest()
+          print(f"substrate_family={family}")
+          print(f"hdk_version={hdk}")
+          print(f"hdi_version={hdi}")
+          print(f"hdk_derive_version={derive}")
+          print(f"holo_hash_version={holo_hash}")
+          print(f"holochain_integrity_types_version={integrity}")
+          print(f"holochain_zome_types_version={zome}")
+          print(f"holochain_serialized_bytes_version={versions['holochain_serialized_bytes']}")
+          print(f"cargo_lock_sha256={digest}")
+
+          with open("${GITHUB_OUTPUT}", "a", encoding="utf-8") as out:
+              out.write(f"substrate_family={family}\n")
+              out.write(f"hdk_version={hdk}\n")
+              out.write(f"hdi_version={hdi}\n")
+              out.write(f"hdk_derive_version={derive}\n")
+              out.write(f"holo_hash_version={holo_hash}\n")
+              out.write(f"holochain_integrity_types_version={integrity}\n")
+              out.write(f"holochain_zome_types_version={zome}\n")
+              out.write(
+                  "holochain_serialized_bytes_version="
+                  f"{versions['holochain_serialized_bytes']}\n"
+              )
+              out.write(f"cargo_lock_sha256={digest}\n")
+          PY
+
       - name: Check Finance formatting
         id: fmt
         run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
@@ -247,6 +351,15 @@ jobs:
           workflow_name=${{ github.workflow }}
           workflow_ref=${{ github.workflow_ref }}
           workflow_event=${{ github.event_name }}
+          substrate_family=${{ steps.substrate.outputs.substrate_family || '' }}
+          hdk_version=${{ steps.substrate.outputs.hdk_version || '' }}
+          hdi_version=${{ steps.substrate.outputs.hdi_version || '' }}
+          hdk_derive_version=${{ steps.substrate.outputs.hdk_derive_version || '' }}
+          holo_hash_version=${{ steps.substrate.outputs.holo_hash_version || '' }}
+          holochain_integrity_types_version=${{ steps.substrate.outputs.holochain_integrity_types_version || '' }}
+          holochain_zome_types_version=${{ steps.substrate.outputs.holochain_zome_types_version || '' }}
+          holochain_serialized_bytes_version=${{ steps.substrate.outputs.holochain_serialized_bytes_version || '' }}
+          cargo_lock_sha256=${{ steps.substrate.outputs.cargo_lock_sha256 || '' }}
           live_pr_head_sha=${{ steps.live_pr.outputs.live_head_sha || '' }}
           live_pr_state=${{ steps.live_pr.outputs.live_state || '' }}
           live_pr_draft=${{ steps.live_pr.outputs.live_draft || '' }}
