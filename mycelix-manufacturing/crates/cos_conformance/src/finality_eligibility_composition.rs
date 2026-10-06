@@ -1014,13 +1014,10 @@ pub fn compose_finality_eligibility(
     for item in evidence {
         if item.structurally_valid() {
             let id = item.observation.observation_id.clone();
-            if let Some(existing) = evidence_by_id.get(&id) {
-                if *existing != item {
-                    return empty(FinalityEligibilityDispositionV1::BlockedBinding);
-                }
-            } else {
-                evidence_by_id.insert(id.clone(), item);
+            if evidence_by_id.contains_key(&id) {
+                return empty(FinalityEligibilityDispositionV1::BlockedBinding);
             }
+            evidence_by_id.insert(id, item);
         }
     }
 
@@ -1028,13 +1025,10 @@ pub fn compose_finality_eligibility(
     for receipt in eligibility_receipts {
         if receipt.structurally_valid() {
             let id = receipt.observation_id.clone();
-            if let Some(existing) = receipt_by_id.get(&id) {
-                if *existing != receipt {
-                    return empty(FinalityEligibilityDispositionV1::BlockedBinding);
-                }
-            } else {
-                receipt_by_id.insert(id.clone(), receipt);
+            if receipt_by_id.contains_key(&id) {
+                return empty(FinalityEligibilityDispositionV1::BlockedBinding);
             }
+            receipt_by_id.insert(id, receipt);
         }
     }
 
@@ -1292,13 +1286,10 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
             continue;
         }
         let id = item.observation.observation_id.clone();
-        if let Some(existing) = evidence_by_id.get(&id) {
-            if *existing != item {
-                return None;
-            }
-        } else {
-            evidence_by_id.insert(id, item);
+        if evidence_by_id.contains_key(&id) {
+            return None;
         }
+        evidence_by_id.insert(id, item);
     }
 
     let mut receipt_by_id = BTreeMap::new();
@@ -1307,13 +1298,10 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
             continue;
         }
         let id = receipt.observation_id.clone();
-        if let Some(existing) = receipt_by_id.get(&id) {
-            if *existing != receipt {
-                return None;
-            }
-        } else {
-            receipt_by_id.insert(id, receipt);
+        if receipt_by_id.contains_key(&id) {
+            return None;
         }
+        receipt_by_id.insert(id, receipt);
     }
 
     let mut authoritative_receipts = Vec::new();
@@ -1566,6 +1554,113 @@ mod tests {
         );
 
         assert!(result.is_none(), "conflicting same-ID evidence must not be resolved by arrival order");
+    }
+
+    #[test]
+    fn duplicate_identical_evidence_identity_is_rejected() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+
+        let result = compose_finality_eligibility_from_authoritative_d6o(
+            &s,
+            &a,
+            &[e.clone(), e],
+            &[r],
+            &ObserverLifecycleProfileV1 {
+                profile_id: "life-profile-1".into(),
+                semantic_environment_root: "env-1".into(),
+                observation_profile_id: "obs-profile-1".into(),
+                allowed_roles: BTreeSet::new(),
+                current_frontier_required: true,
+                historical_evidence_allowed: true,
+                profile_commitment: "life-profile-commitment".into(),
+                claim_ceiling: crate::observer_lifecycle::OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+            },
+            &ObserverLifecycleLedgerV1::default(),
+            "frontier-1",
+            1,
+        );
+
+        assert!(result.is_none(), "identical duplicate evidence identities must not be collapsed");
+    }
+
+    #[test]
+    fn duplicate_identical_eligibility_receipt_identity_is_rejected() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+
+        let result = compose_finality_eligibility_from_authoritative_d6o(
+            &s,
+            &a,
+            &[],
+            &[r.clone(), r],
+            &ObserverLifecycleProfileV1 {
+                profile_id: "life-profile-1".into(),
+                semantic_environment_root: "env-1".into(),
+                observation_profile_id: "obs-profile-1".into(),
+                allowed_roles: BTreeSet::new(),
+                current_frontier_required: true,
+                historical_evidence_allowed: true,
+                profile_commitment: "life-profile-commitment".into(),
+                claim_ceiling: crate::observer_lifecycle::OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+            },
+            &ObserverLifecycleLedgerV1::default(),
+            "frontier-1",
+            1,
+        );
+
+        assert!(result.is_none(), "identical duplicate eligibility identities must not be collapsed");
+    }
+
+    #[test]
+    fn generic_composition_rejects_identical_duplicate_evidence_identity() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+
+        let result = compose_finality_eligibility(
+            &s,
+            &a,
+            &[e.clone(), e],
+            &[r],
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+
+        assert_eq!(
+            result.disposition,
+            FinalityEligibilityDispositionV1::BlockedBinding
+        );
     }
 
     #[test]
