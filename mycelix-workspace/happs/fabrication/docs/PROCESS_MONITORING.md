@@ -173,7 +173,7 @@ The qualification core is deterministic: it does not read wall-clock time, query
 
 The original structural qualification profile (`fpm.registration.structural`) proves exact internal consistency and exact commitment closure, but it is intentionally **not** an authority or anti-replay proof. A caller who supplies a different self-consistent envelope and recomputes its digest can produce a new structural qualification.
 
-The anchored profile (`fpm.registration.anchored`) therefore requires an externally resolved registration anchor whose committed envelope digest exactly matches the evaluated envelope. The pure qualification core still does not authenticate that anchor reference; that responsibility belongs to the Holochain/external resolver.
+The anchored profile (`fpm.registration.anchored`) therefore requires an external registration-anchor binding whose committed envelope digest exactly matches the evaluated envelope. This makes the dependency explicit, but it is **not itself an authority or anti-replay proof**: the pure qualification core still does not authenticate the anchor reference. That responsibility belongs to the Holochain/external resolver tracked in #4354.
 
 For Holochain integrations, preserve the distinction between:
 - `EntryHash`: content identity for the registration entry;
