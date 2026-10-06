@@ -3454,13 +3454,22 @@ mod tests {
             ["rfc3161-verifier-v1"],
             [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
         )
-        .expect("policy must build");
+        .expect("policy must build")
+        .try_new_bound_identity(
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            state_machine_trace_external_verifier_identity_sha256(b"test-rfc3161-verifier-v1-identity"),
+        )
+        .expect("identity-bound policy must build");
         let admission = first
             .admit_under_policy(&policy)
             .expect("policy should admit the exact verifier claim");
         assert_eq!(admission.policy_sha256(), policy.policy_sha256().unwrap());
         assert_eq!(admission.witness_kind(), first.witness_kind());
         assert_eq!(admission.witness_profile(), first.witness_profile());
+        assert_eq!(admission.verifier_identity_kind(), first.verifier_identity_kind());
+        assert_eq!(admission.verifier_identity_profile(), first.verifier_identity_profile());
+        assert_eq!(admission.verifier_identity_sha256(), first.verifier_identity_sha256());
         assert_eq!(admission.verifier_profile(), first.verifier_profile());
         assert_eq!(admission.verifier_schema_version(), first.verifier_schema_version());
         assert_eq!(admission.claim(), first.claim());
@@ -3606,13 +3615,22 @@ mod tests {
             ["rfc3161-verifier-v1"],
             [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
         )
-        .expect("policy must build");
+        .expect("policy must build")
+        .try_new_bound_identity(
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            state_machine_trace_external_verifier_identity_sha256(b"test-rfc3161-verifier-v1-identity"),
+        )
+        .expect("identity-bound policy must build");
 
         let admission = result
             .admit_under_policy(&policy)
             .expect("policy should admit exact external result");
 
         assert_eq!(admission.policy_sha256(), policy.policy_sha256().unwrap());
+        assert_eq!(admission.verifier_identity_kind(), result.verifier_identity_kind());
+        assert_eq!(admission.verifier_identity_profile(), result.verifier_identity_profile());
+        assert_eq!(admission.verifier_identity_sha256(), result.verifier_identity_sha256());
         assert_eq!(admission.verifier_profile(), result.verifier_profile());
         assert_eq!(admission.verifier_schema_version(), result.verifier_schema_version());
         assert_eq!(admission.claim(), result.claim());
