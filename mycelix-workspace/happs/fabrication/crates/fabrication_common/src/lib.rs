@@ -19,6 +19,13 @@ use sha2::{Digest, Sha256};
 // VALIDATION HELPERS
 // =============================================================================
 
+/// Return whether bytes encode a valid uncompressed P-256 SEC1 public key.
+pub fn is_valid_fpm_p256_public_key(public_key_sec1: &[u8]) -> bool {
+    public_key_sec1.len() == 65
+        && public_key_sec1.first() == Some(&0x04)
+        && p256::ecdsa::VerifyingKey::from_sec1_bytes(public_key_sec1).is_ok()
+}
+
 /// Compute the canonical SHA-256 commitment for an FPM verifier public key.
 /// The digest covers the exact encoded key bytes used for cryptographic verification.
 pub fn fpm_verification_key_digest(public_key_sec1: &[u8]) -> String {
