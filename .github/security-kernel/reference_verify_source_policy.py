@@ -200,6 +200,16 @@ def require_no_fail_open_controls(lines_: list[str], description: str) -> None:
             fail(f"{description}: forbidden fail-open control {fragment!r}")
 
 
+def require_explicit_bash_for_run_steps(lines_: list[str], description: str) -> None:
+    run_indices = [
+        i for i, line in enumerate(lines_)
+        if re.fullmatch(r"\s{8}run:\s*\|?\s*", line)
+    ]
+    for index in run_indices:
+        if index == 0 or not re.fullmatch(r"\s{8}shell:\s+bash\s*", lines_[index - 1]):
+            fail(f"{description}: every trusted run step must explicitly declare shell: bash")
+
+
 def require_no_yaml_reuse_syntax(lines_: list[str], description: str) -> None:
     for line in lines_:
         # Block-scalar command bodies are intentionally excluded; only structural YAML
@@ -269,6 +279,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 base branch mismatch")
     require_no_fail_open_controls(l, "S0")
     require_no_yaml_reuse_syntax(l, S0)
+    require_explicit_bash_for_run_steps(l, S0)
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
         fail("S0 must remain metadata-only")
@@ -306,6 +317,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 trusted workflow blob pin mismatch")
     require_no_fail_open_controls(l, "S1")
     require_no_yaml_reuse_syntax(l, S1)
+    require_explicit_bash_for_run_steps(l, S1)
     for required in (
         "--network=bridge",
         "--network=none",
@@ -379,6 +391,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
             fail(f"S2 artifact transport/decompression control missing: {required!r}")
     require_no_fail_open_controls(l, "S2")
     require_no_yaml_reuse_syntax(l, S2)
+    require_explicit_bash_for_run_steps(l, S2)
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
     require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: success()", "S2 transcript download gate")
