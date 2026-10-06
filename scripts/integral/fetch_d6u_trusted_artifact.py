@@ -63,6 +63,16 @@ def github_get(repo: str, api_path: str, token: str) -> dict:
 
 def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     workflow_run = event["workflow_run"]
+    event_repo = event["repository"]
+    assert event_repo["full_name"] == repo
+    assert workflow_run["event"] == "workflow_run"
+    assert workflow_run["name"] == policy["workflow_name"]
+    assert workflow_run["path"] == policy["workflow_path"]
+    assert workflow_run["conclusion"] == "success"
+    assert workflow_run["repository"]["full_name"] == repo
+    assert workflow_run["head_repository"]["full_name"] == repo
+    assert workflow_run["head_branch"] == policy["source_branch"]
+
     run_id = workflow_run["id"]
     run_attempt = workflow_run["run_attempt"]
     expected_name = (
