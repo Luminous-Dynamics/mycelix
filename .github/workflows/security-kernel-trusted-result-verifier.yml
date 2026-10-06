@@ -25,6 +25,8 @@ env:
   EXPECTED_JOB_NAME: "Independent Security Kernel"
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   REFERENCE_VERIFIER_BLOB_SHA: "0bacbb041d980e5eafdf82ccf1d86e321bc369cc"
+  CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
+  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "ede9954ac40943292bed97a231357737324aa91a"
 
 jobs:
   verify:
@@ -60,11 +62,16 @@ jobs:
           printf "%s" "$reference_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
           test -f "$REFERENCE_VERIFIER_PATH"
           test "$reference_verifier_blob_sha" = "$REFERENCE_VERIFIER_BLOB_SHA"
+          causal_join_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$CAUSAL_JOIN_VERIFIER_PATH" | awk '{print $3}')"
+          printf "%s" "$causal_join_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          test -f "$CAUSAL_JOIN_VERIFIER_PATH"
+          test "$causal_join_verifier_blob_sha" = "$CAUSAL_JOIN_VERIFIER_BLOB_SHA"
           git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
           git merge-base --is-ancestor "$GITHUB_WORKFLOW_SHA" "refs/remotes/origin/main"
 
           export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
           export REFERENCE_VERIFIER_BLOB_SHA="$reference_verifier_blob_sha"
+          export CAUSAL_JOIN_VERIFIER_BLOB_SHA="$causal_join_verifier_blob_sha"
           python3 - <<'PY'
           import hashlib, io, json, os, re, subprocess, tempfile, urllib.error, urllib.parse, urllib.request, zipfile
 
@@ -228,6 +235,7 @@ jobs:
               candidate_pr, candidate_sha, dispatcher_workflow_path, dispatcher_workflow_sha,
               s1_workflow_path, s1_workflow_blob_sha, run_id, run_attempt, run_number,
               resolver_job_id, s1_job_id, reference_verifier_path, reference_verifier_blob_sha,
+              causal_join_verifier_path, causal_join_verifier_blob_sha,
           ):
               return {
                   "schema": "security-kernel-execution-binding-v1",
@@ -248,6 +256,8 @@ jobs:
                   "s1_job_id": int(s1_job_id),
                   "reference_verifier_path": str(reference_verifier_path),
                   "reference_verifier_blob_sha": str(reference_verifier_blob_sha),
+                  "causal_join_verifier_path": str(causal_join_verifier_path),
+                  "causal_join_verifier_blob_sha": str(causal_join_verifier_blob_sha),
               }
 
           def execution_binding_digest(binding):
@@ -274,6 +284,8 @@ jobs:
               s1_job_id=job["id"],
               reference_verifier_path=os.environ["REFERENCE_VERIFIER_PATH"],
               reference_verifier_blob_sha=os.environ["REFERENCE_VERIFIER_BLOB_SHA"],
+              causal_join_verifier_path=os.environ["CAUSAL_JOIN_VERIFIER_PATH"],
+              causal_join_verifier_blob_sha=os.environ["CAUSAL_JOIN_VERIFIER_BLOB_SHA"],
           )
           expected_execution_binding_keys = {
               "schema", "repository_id", "repository", "candidate_repository_id",
@@ -282,6 +294,7 @@ jobs:
               "s1_workflow_path", "s1_workflow_blob_sha", "run_id", "run_attempt",
               "run_number", "resolver_job_id", "s1_job_id",
               "reference_verifier_path", "reference_verifier_blob_sha",
+              "causal_join_verifier_path", "causal_join_verifier_blob_sha",
           }
           assert set(binding) == expected_execution_binding_keys, "execution binding schema drift"
           assert binding["repository_id"] == int(os.environ["BASE_REPOSITORY_ID"])
@@ -317,6 +330,8 @@ jobs:
               "s1_workflow_blob_sha": "2" * 40,
               "reference_verifier_path": binding["reference_verifier_path"] + ".mutated",
               "reference_verifier_blob_sha": "5" * 40,
+              "causal_join_verifier_path": binding["causal_join_verifier_path"] + ".mutated",
+              "causal_join_verifier_blob_sha": "6" * 40,
               "run_id": binding["run_id"] + 1,
               "run_attempt": binding["run_attempt"] + 1,
               "run_number": binding["run_number"] + 1,
@@ -579,6 +594,64 @@ jobs:
                   f"qualification receipt field {key!r} is not a SHA-256 digest"
               )
 
+
+          def run_reference_causal_join():
+              workspace = os.environ["GITHUB_WORKSPACE"]
+              verifier_path = os.path.join(workspace, os.environ["CAUSAL_JOIN_VERIFIER_PATH"])
+              snapshot = {
+                  "schema": "security-kernel-causal-join-reference-v1",
+                  "event": {"run_id": int(run_id), "run_attempt": run_attempt},
+                  "repository": repository_obj,
+                  "run": run,
+                  "pull_request": pr,
+                  "jobs": jobs,
+                  "artifact_list_view": artifact,
+                  "artifact_id_view": artifact_by_id,
+                  "receipt_text": receipt_text,
+                  "main_sha": main_sha,
+                  "dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
+                  "s1_workflow_blob_sha": s1_at_run["sha"],
+              }
+              with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+                  json.dump(snapshot, handle, sort_keys=True, separators=(",", ":"))
+                  snapshot_path = handle.name
+              try:
+                  output = subprocess.check_output(
+                      ["python3", verifier_path, snapshot_path],
+                      text=True,
+                      stderr=subprocess.STDOUT,
+                      timeout=20,
+                  )
+              except subprocess.CalledProcessError as exc:
+                  raise AssertionError(f"independent causal-join verifier rejected raw snapshot: {exc.output!r}") from exc
+              finally:
+                  os.unlink(snapshot_path)
+              result = json.loads(output)
+              expected_keys = {
+                  "schema", "candidate_repository", "candidate_repository_id", "candidate_pr",
+                  "candidate_sha", "run_id", "run_attempt", "run_number", "resolver_job_id",
+                  "s1_job_id", "artifact_id", "artifact_name", "artifact_digest",
+                  "receipt_content_sha256", "reference_result", "snapshot_sha256",
+              }
+              assert set(result) == expected_keys, "causal reference verifier result schema drift"
+              assert result["schema"] == "security-kernel-causal-join-reference-v1"
+              assert result["reference_result"] == "verified"
+              assert re.fullmatch(r"[0-9a-f]{64}", result["snapshot_sha256"])
+              assert result["candidate_repository"] == candidate_repository
+              assert result["candidate_repository_id"] == candidate_repo_id
+              assert result["candidate_pr"] == candidate_pr
+              assert result["candidate_sha"] == candidate_sha
+              assert result["run_id"] == int(run_id)
+              assert result["run_attempt"] == run_attempt
+              assert result["artifact_id"] == artifact["id"]
+              assert result["artifact_name"] == expected_artifact_name
+              assert result["artifact_digest"] == artifact_digest
+              assert result["receipt_content_sha256"] == receipt_content_sha256
+              return result
+
+          causal_reference_result = run_reference_causal_join()
+          causal_reference_snapshot_sha256 = causal_reference_result["snapshot_sha256"]
+
           evidence_binding = dict(binding)
           evidence_binding["schema"] = "security-kernel-execution-binding-v2"
           evidence_binding["artifact_name"] = expected_artifact_name
@@ -660,6 +733,8 @@ jobs:
               "evidence_binding": evidence_binding,
               "evidence_binding_sha256": evidence_digest,
               "evidence_binding_reference_sha256": reference_evidence_binding_digest,
+              "causal_reference_result": causal_reference_result,
+              "causal_reference_snapshot_sha256": causal_reference_snapshot_sha256,
               "independent_qualification": "verified-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
