@@ -118,6 +118,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "source_ref_source": "GITHUB_REF",
         "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
         "predicate_schema": "d6u-trusted-runtime-evidence-attestation/v2",
+        "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
         "current_run_identity": {
             "certificate_field": "runInvocationURI",
             "template": "https://github.com/{repository}/actions/runs/{run_id}/attempts/{run_attempt}",
@@ -166,6 +167,9 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "scripts/integral/verify_d6u_trusted_attestation.py"
     )
     assert len(policy["trusted_attestation_verifier"]["blob_sha"]) == 40
+    assert policy["trusted_attestation_verifier"]["blob_sha"] == policy["trusted_programs"][
+        "scripts/integral/verify_d6u_trusted_attestation.py"
+    ]["blob_sha"]
     assert policy["attestation_verification"]["predicate_type"] == (
         "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"
     )
@@ -223,6 +227,9 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert workflow_text.count("TRUSTED_POLICY_VERSION:") == 1
     assert "TRUSTED_POLICY_VERSION: \"%d\"" % policy["policy_version"] in workflow_text
     assert "D6U_TRUSTED_POLICY_VERSION=\"%d\"" % policy["policy_version"] in workflow_text
+    _, signer_section = workflow_text.split("\n  signer:\n", 1)
+    assert '"policy_version": %d,' % policy["policy_version"] in signer_section
+    assert '"policy_version": 37,' not in signer_section
 
     assert policy["trusted_actions"] == {
         "actions/checkout": {
