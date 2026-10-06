@@ -62,7 +62,8 @@ jobs:
               r"^\s*-?\s*uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
           )
           for line in path.read_text().splitlines():
-              if "uses:" not in line:
+              stripped = line.lstrip()
+              if not (stripped.startswith("- uses:") or stripped.startswith("uses:")):
                   continue
               match = pattern.fullmatch(line)
               assert match, f"CI action is not pinned to a full SHA: {line!r}"
