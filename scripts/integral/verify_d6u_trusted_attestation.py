@@ -63,43 +63,17 @@ def canonical_subjects(value: list[dict]) -> tuple[tuple[str, str], ...]:
     assert len(set(normalized)) == len(normalized)
     return tuple(sorted(normalized))
 
-def verify_entry(entry: dict, record: dict[str, str], subjects: list[dict]) -> bool:
-    repo = os.environ["GITHUB_REPOSITORY"]
-    run_id = os.environ["GITHUB_RUN_ID"]
-    run_attempt = os.environ["GITHUB_RUN_ATTEMPT"]
-    source_sha = os.environ["GITHUB_SHA"]
-    expected_san = (
-        f"https://github.com/{repo}/.github/workflows/"
-        f"d6u-trusted-evidence-attestation.yml@refs/heads/main"
-    )
-    expected_run_uri = (
-        f"https://github.com/{repo}/actions/runs/{run_id}/attempts/{run_attempt}"
-    )
-
-    result = entry.get("verificationResult", {})
-    certificate = result.get("signature", {}).get("certificate", {})
-    statement = result.get("statement", {})
-    predicate = statement.get("predicate", {})
-    statement_subjects = statement.get("subject", [])
-    verified_timestamps = result.get("verifiedTimestamps", [])
-
-    certificate_ok = (
-        certificate.get("subjectAlternativeName") == expected_san
-        and certificate.get("issuer") == "https://token.actions.githubusercontent.com"
-        and certificate.get("githubWorkflowRepository") == repo
-        and certificate.get("githubWorkflowRef") == "refs/heads/main"
-        and certificate.get("sourceRepositoryURI") == f"https://github.com/{repo}"
-        and certificate.get("sourceRepositoryDigest") == source_sha
-        and certificate.get("runnerEnvironment") == "github-hosted"
-        and certificate.get("runInvocationURI") == expected_run_uri
-    )
-
-    predicate_ok = (
-        statement.get("predicateType") == PREDICATE_TYPE
-        and predicate.get("schema") == PREDICATE_SCHEMA
+def verify_canonical_predicate(
+    predicate: dict,
+    record: dict[str, str],
+    subjects: list[dict],
+    expected_policy_version: int,
+) -> bool:
+    return (
+        predicate.get("schema") == CANONICAL_PREDICATE_SCHEMA
         and predicate.get("attestation_kind") == "verified-runtime-evidence"
         and predicate.get("claim_ceiling") == record["claim_ceiling"]
-        and predicate.get("policy_version") == int(os.environ["D6U_TRUSTED_POLICY_VERSION"])
+        and predicate.get("policy_version") == expected_policy_version
         and predicate.get("source") == {
             "repository": record["source_repository"],
             "branch": record["source_branch"],
@@ -132,17 +106,98 @@ def verify_entry(entry: dict, record: dict[str, str], subjects: list[dict]) -> b
         and predicate.get("nonclaims") == NONCLAIMS
     )
 
-    return (
-        certificate_ok
-        and any(
-            isinstance(timestamp, dict) and timestamp.get("type") == "Tlog"
-            for timestamp in verified_timestamps
+
+def verify_commitment_entry(
+    entry: dict,
+    record: dict[str, str],
+    subjects: list[dict],
+    canonical_predicate_sha256: str,
+) -> bool:
+    repo = os.environ["GITHUB_REPOSITORY"]
+    run_id = os.environ["GITHUB_RUN_ID"]
+    run_attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+    expected_san = "https://github.com/" + repo + "/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
+    expected_run_uri = "https://github.com/" + repo + "/actions/runs/" + run_id + "/attempts/" + run_attempt
+    result = entry.get("verificationResult", {})
+    certificate = result.get("signature", {}).get("certificate", {})
+    statement = result.get("statement", {})
+    predicate = statement.get("predicate", {})
+    statement_subjects = statement.get("subject", [])
+    verified_timestamps = result.get("verifiedTimestamps", [])
+    assert statement.get("predicateType") == PREDICATE_TYPE
+    assert predicate.get("schema") == ATTESTATION_PREDICATE_SCHEMA
+    assert predicate.get("attestation_kind") == "verified-runtime-evidence"
+    assert predicate.get("claim_ceiling") == record["claim_ceiling"]
+    assert predicate.get("policy_version") == int(os.environ["D6U_TRUSTED_POLICY_VERSION"])
+    digest = predicate.get("canonical_predicate_sha256")
+    assert isinstance(digest, str) and len(digest) == 64
+    assert all(ch in "0123456789abcdef" for ch in digest)
+    assert digest == canonical_predicate_sha256
+    assert certificate.get("subjectAlternativeName") == expected_san
+    assert certificate.get("issuer") == "https://token.actions.githubusercontent.com"
+    assert certificate.get("githubWorkflowRepository") == repo
+    assert certificate.get("githubWorkflowRef") == "refs/heads/main"
+    assert certificate.get("sourceRepositoryURI") == "https://github.com/" + repo
+    assert certificate.get("sourceRepositoryDigest") == os.environ["GITHUB_SHA"]
+    assert certificate.get("runnerEnvironment") == "github-hosted"
+    assert certificate.get("runInvocationURI") == expected_run_uri
+    assert any(isinstance(timestamp, dict) and timestamp.get("type") == "Tlog" for timestamp in verified_timestamps)
+    assert canonical_subjects(statement_subjects) == canonical_subjects(subjects)
+    return True
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        raise SystemExit("usage: verify_d6u_trusted_attestation.py ATTESTATION_JSON")
+
+    report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    assert isinstance(report, list) and report, "attestation verification returned no results"
+
+    evidence_dir = Path(os.environ["D6U_TRUSTED_EVIDENCE_DIR"])
+    subject_path = Path(os.environ["D6U_ATTESTATION_SUBJECT"])
+    record = load_record(evidence_dir / "d6u-runtime-evidence.txt")
+    subjects = expected_subjects(evidence_dir)
+    subject_digest = sha256(subject_path)
+    canonical_path = evidence_dir / "d6u-trusted-evidence-predicate.json"
+    canonical_predicate = json.loads(canonical_path.read_text(encoding="utf-8"))
+    assert isinstance(canonical_predicate, dict)
+    assert verify_canonical_predicate(
+        canonical_predicate,
+        record,
+        subjects,
+        int(os.environ["D6U_TRUSTED_POLICY_VERSION"]),
+    )
+    canonical_predicate_sha256 = sha256(canonical_path)
+
+    matches = [
+        entry
+        for entry in report
+        if verify_commitment_entry(
+            entry,
+            record,
+            subjects,
+            canonical_predicate_sha256,
         )
-        and predicate_ok
-        and canonical_subjects(statement_subjects) == canonical_subjects(subjects)
+        and any(
+            subject.get("digest", {}).get("sha256") == subject_digest
+            for subject in entry.get("verificationResult", {})
+            .get("statement", {})
+            .get("subject", [])
+        )
+    ]
+
+    assert len(matches) == 1, (
+        f"expected exactly one current-run D6U evidence attestation: {len(matches)}"
+    )
+    print(
+        "verified D6U trusted evidence attestation: "
+        f"subject={subject_digest}, run={os.environ['GITHUB_RUN_ID']}, "
+        f"attempt={os.environ['GITHUB_RUN_ATTEMPT']}, "
+        f"policy=v{os.environ['D6U_TRUSTED_POLICY_VERSION']}"
     )
 
 
+if __name__ == "__main__":
+    main()
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: verify_d6u_trusted_attestation.py ATTESTATION_JSON")
