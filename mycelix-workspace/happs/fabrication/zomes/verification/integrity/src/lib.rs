@@ -318,6 +318,29 @@ fn validate_fpm_provenance_anchor(
             "FPM provenance witness has too many parents".into(),
         ));
     }
+    if anchor.witness.parent_node_ids.iter().any(|parent| {
+        parent.is_empty()
+            || parent != parent.trim()
+            || parent.len() > 128
+            || parent.chars().any(char::is_control)
+    }) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "invalid FPM provenance witness parent node id".into(),
+        ));
+    }
+    if anchor.witness.source_id.trim().is_empty()
+        || anchor.witness.modality.trim().is_empty()
+        || anchor.witness.source_id != anchor.witness.source_id.trim()
+        || anchor.witness.modality != anchor.witness.modality.trim()
+        || anchor.witness.source_id.len() > 128
+        || anchor.witness.modality.len() > 128
+        || anchor.witness.source_id.chars().any(char::is_control)
+        || anchor.witness.modality.chars().any(char::is_control)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "invalid FPM provenance witness participant identifier".into(),
+        ));
+    }
     if anchor.witness_digest != anchor.witness.digest() {
         return Ok(ValidateCallbackResult::Invalid(
             "FPM provenance witness digest mismatch".into(),
