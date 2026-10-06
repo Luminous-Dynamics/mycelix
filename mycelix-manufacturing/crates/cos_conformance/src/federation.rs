@@ -4475,6 +4475,14 @@ mod tests {
             statement.use_method(),
             FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport
         );
+        assert_eq!(
+            statement.schema_version(),
+            FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            statement.verification_statement_sha256(),
+            TEST_VERIFICATION_STATEMENT_SHA256
+        );
     }
 
     #[test]
@@ -4613,6 +4621,21 @@ mod tests {
         )
         .expect("identity-use evidence must match the typed result");
 
+        let mut wrong_context = identity_use.clone();
+        wrong_context.verification_statement_sha256 =
+            "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into();
+        wrong_context.statement_sha256 =
+            state_machine_trace_external_verifier_identity_use_statement_sha256(&wrong_context);
+        assert_eq!(
+            validate_federation_external_verifier_identity_use_statement_against_result(
+                &result,
+                &wrong_context,
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementViolation::ResultVerificationStatementDigestMismatch
+            )
+        );
+
         let mut mismatched = identity_use.clone();
         mismatched.verifier_report_sha256 =
             state_machine_trace_external_witness_artifact_sha256(b"other-report");
@@ -4728,7 +4751,6 @@ mod tests {
                 valid_identity,
                 valid_report,
                 valid_evidence,
-                TEST_VERIFICATION_STATEMENT_SHA256,
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerificationStatementDigest
@@ -4744,7 +4766,6 @@ mod tests {
                 valid_identity,
                 valid_report,
                 valid_evidence,
-                TEST_VERIFICATION_STATEMENT_SHA256,
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::InvalidVerificationStatementDigest

@@ -74,6 +74,9 @@ jobs:
           grep -Fq 'required_verifier_identity_use_method' "$source"
           grep -Fq 'required_verifier_identity_use_profile' "$source"
           grep -Fq 'FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 3' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION: u16 = 2' "$source"
+          grep -Fq 'verification_statement_sha256' "$source"
+          grep -Fq 'ResultVerificationStatementDigestMismatch' "$source"
           grep -Fq 'FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE' "$source"
           grep -Fq 'VerifierIdentityUsePolicyNotConfigured' "$source"
           if grep -Fq 'pub pub fn' "$source"; then
