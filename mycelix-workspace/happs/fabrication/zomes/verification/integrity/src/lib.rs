@@ -26,6 +26,8 @@ pub enum EntryTypes {
     #[entry_type(visibility = "public")]
     FpmAcquisitionRootAnchor(FpmAcquisitionRootAnchor),
     #[entry_type(visibility = "public")]
+    FpmVerificationKeyTrustAnchor(FpmVerificationKeyTrustAnchor),
+    #[entry_type(visibility = "public")]
     FpmAttestationChallenge(FpmAttestationChallenge),
     #[entry_type(visibility = "public")]
     FpmSourceAttestationAnchor(FpmSourceAttestationAnchor),
@@ -120,6 +122,21 @@ pub struct FpmAcquisitionRootAnchor {
     pub root_digest: String,
 }
 
+pub const FPM_VERIFICATION_KEY_TRUST_ANCHOR_SCHEMA_VERSION: &str =
+    "fpm.attestation.verification-key-trust-anchor.v1";
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FpmVerificationKeyTrustAnchor {
+    pub schema_version: String,
+    pub verifier_agent: AgentPubKey,
+    pub key_id: Vec<u8>,
+    pub public_key_sec1: Vec<u8>,
+    pub verification_key_digest: String,
+    pub attestation_format: String,
+    pub verifier_profile_digest: String,
+}
+
 pub const FPM_ATTESTATION_CHALLENGE_SCHEMA_VERSION: &str =
     "fpm.attestation.challenge.v1";
 pub const FPM_SOURCE_ATTESTATION_ANCHOR_SCHEMA_VERSION: &str =
@@ -139,6 +156,7 @@ pub struct FpmAttestationChallenge {
     pub verification_key_digest: String,
     pub acquisition_root_action: ActionHash,
     pub acquisition_root_digest: String,
+    pub verification_key_trust_anchor_action: ActionHash,
     pub verifier_agent: AgentPubKey,
     pub attestation_format: String,
     pub verifier_profile_digest: String,
