@@ -35,7 +35,7 @@ fn envelope(method: AlignmentMethod) -> RegistrationEnvelope {
 #[test]
 fn registered_requires_explicit_alignment_evidence() {
     let exact = envelope(AlignmentMethod::ExactCorrelationId);
-    assert_eq!(exact.assess(), RegistrationState::Registered);
+    assert_eq!(exact.assess(), RegistrationState::Consistent);
 
     let mut missing = exact;
     missing.alignment_method = None;
@@ -60,7 +60,7 @@ fn correlation_domain_mismatch_is_conflicting_even_with_equal_ids() {
 fn independent_source_sequences_may_differ_when_shared_correlation_is_explicit() {
     let mut registered = envelope(AlignmentMethod::ExactCorrelationId);
     registered.related[0].source_sequence = 11;
-    assert_eq!(registered.assess(), RegistrationState::Registered);
+    assert_eq!(registered.assess(), RegistrationState::Consistent);
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn calibration_conflict_is_not_registered() {
 #[test]
 fn timestamp_alignment_requires_source_timestamps() {
     let exact = envelope(AlignmentMethod::ExactSourceTimestampMicros);
-    assert_eq!(exact.assess(), RegistrationState::Registered);
+    assert_eq!(exact.assess(), RegistrationState::Consistent);
 
     let mut unknown = exact;
     unknown.reference.source_timestamp_micros = None;
@@ -92,6 +92,14 @@ fn malformed_digest_is_invalid() {
     let mut invalid = envelope(AlignmentMethod::ExactCorrelationId);
     invalid.related[0].source_data_digest = "not-a-digest".into();
     assert_eq!(invalid.assess(), RegistrationState::Invalid);
+}
+
+#[test]
+fn consistency_is_not_independent_verification() {
+    let envelope = envelope(AlignmentMethod::ExactCorrelationId);
+    assert_eq!(envelope.assess(), RegistrationState::Consistent);
+    // Consistent is a mechanically derived metadata state; there is no
+    // independent source or clock verifier in this corpus.
 }
 
 #[test]
@@ -120,5 +128,5 @@ fn context_digest_can_bind_to_fpm_process_context() {
     registration.reference.process_context_digest = context_digest.clone();
     registration.related[0].process_context_digest = context_digest;
 
-    assert_eq!(registration.assess(), RegistrationState::Registered);
+    assert_eq!(registration.assess(), RegistrationState::Consistent);
 }
