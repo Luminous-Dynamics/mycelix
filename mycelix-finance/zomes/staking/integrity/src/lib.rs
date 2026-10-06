@@ -995,6 +995,131 @@ mod tests {
         }
     }
 
+    // ---- Stake update hardening ----
+
+    #[test]
+    fn stake_active_refresh_requires_original_staker_author() {
+        let original = valid_stake();
+        let mut updated = original.clone();
+        updated.mycel_score = 0.8;
+        updated.stake_weight = 1.8;
+
+        let other_author = AgentPubKey::from_raw_36(vec![1; 36]);
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &other_author,
+            &original,
+            &updated,
+        );
+
+        assert!(matches!(
+            result,
+            ValidateCallbackResult::Invalid(msg) if msg.contains("original staker")
+        ));
+    }
+
+    #[test]
+    fn stake_active_refresh_allows_owner_and_rebinds_weight() {
+        let original = valid_stake();
+        let mut updated = original.clone();
+        updated.mycel_score = 0.8;
+        updated.stake_weight = 1.8;
+
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &original,
+            &updated,
+        );
+
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn stake_update_rejects_identity_or_collateral_mutation() {
+        let original = valid_stake();
+
+        let mut cases = Vec::new();
+
+        let mut changed_id = original.clone();
+        changed_id.id.push_str("-mutated");
+        cases.push(changed_id);
+
+        let mut changed_did = original.clone();
+        changed_did.staker_did = "did:mycelix:other".into();
+        cases.push(changed_did);
+
+        let mut changed_amount = original.clone();
+        changed_amount.sap_amount += 1;
+        cases.push(changed_amount);
+
+        let mut changed_time = original.clone();
+        changed_time.staked_at = ts(2_000_000);
+        cases.push(changed_time);
+
+        for updated in cases {
+            let result = validate_stake_update_terms(
+                &AgentPubKey::from_raw_36(vec![0; 36]),
+                &AgentPubKey::from_raw_36(vec![0; 36]),
+                &original,
+                &updated,
+            );
+            assert!(
+                matches!(result, ValidateCallbackResult::Invalid(_)),
+                "semantic predecessor binding must reject mutated stake terms"
+            );
+        }
+    }
+
+    #[test]
+    fn active_to_unbonding_requires_one_new_deadline_and_preserves_collateral() {
+        let original = valid_stake();
+        let mut updated = original.clone();
+        updated.status = StakeStatus::Unbonding;
+        updated.unbonding_until = Some(ts(3_000_000));
+
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &original,
+            &updated,
+        );
+
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn withdrawal_terminalization_requires_zero_remaining_stake() {
+        let mut original = valid_stake();
+        original.status = StakeStatus::Unbonding;
+        original.unbonding_until = Some(ts(3_000_000));
+
+        let mut updated = original.clone();
+        updated.status = StakeStatus::Withdrawn;
+
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &original,
+            &updated,
+        );
+
+        assert!(!matches!(result, ValidateCallbackResult::Invalid(_)));
+
+        updated.sap_amount = 1;
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &original,
+            &updated,
+        );
+
+        assert!(matches!(
+            result,
+            ValidateCallbackResult::Invalid(msg) if msg.contains("sap_amount")
+        ));
+    }
+
     // ---- Stake creation ----
 
     #[test]
