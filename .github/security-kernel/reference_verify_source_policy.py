@@ -271,7 +271,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             fail(f"S1 isolation control missing: {required!r}")
 
 
-def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str) -> None:
+def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_policy_sha: str) -> None:
     l = lines(raw)
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
         fail("S2 name mismatch")
@@ -308,6 +308,10 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
             fail(f"S2 {key} mismatch")
     if exact_count(l, 'RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"') != 1:
         fail("S2 retention verifier path mismatch")
+    if exact_count(l, 'SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"') != 1:
+        fail("S2 source-policy verifier path mismatch")
+    if exact_count(l, f'SOURCE_POLICY_VERIFIER_BLOB_SHA: "{expected_policy_sha}"') != 1:
+        fail("S2 source-policy verifier self-pin mismatch")
     joined = "\n".join(l)
     for required in (
         'parsed_download_url = urllib.parse.urlparse(download_url)',
@@ -377,13 +381,13 @@ def main() -> None:
     retention_sha = files["retention"]["sha"]
     verify_s0(raw["s0"], s1_sha)
     verify_s1(raw["s1"], s1_sha)
-    verify_s2(raw["s2"], s0_sha, s1_sha, retention_sha)
+    verify_s2(raw["s2"], s0_sha, s1_sha, retention_sha, files["policy"]["sha"])
     verify_retention(raw["retention"])
     print(json.dumps({
         "schema": SCHEMA,
         "policy_result": "verified",
         "workflow_file_count": 3,
-        "reference_file_count": 1,
+        "reference_file_count": 2,
         "action_pins_verified": 3,
         "exact_job_topologies_verified": 3,
         "exact_trigger_topologies_verified": 3,
