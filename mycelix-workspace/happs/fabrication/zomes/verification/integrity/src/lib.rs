@@ -477,9 +477,10 @@ fn validate_fpm_eat_cose_verification_anchor(
     if !valid_attestation_identifier(&anchor.subject_id, 128)
         || !valid_attestation_identifier(&anchor.audience, 256)
         || !valid_attestation_identifier(&anchor.eat_profile_uri, 512)
+        || anchor.eat_profile_uri != FPM_EAT_PROFILE_URI
     {
         return Ok(ValidateCallbackResult::Invalid(
-            "invalid FPM EAT/COSE verification anchor identifiers".into(),
+            "invalid or unsupported FPM EAT/COSE verification profile".into(),
         ));
     }
     for (name, value) in [
