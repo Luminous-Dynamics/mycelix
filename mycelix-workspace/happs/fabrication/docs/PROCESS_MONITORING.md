@@ -190,6 +190,20 @@ This adapter is still not a claim of physical truth or universal authority: Holo
 
 Verifier identity is treated similarly. `verifier_id`, `verifier_version`, and `declared_verifier_implementation_digest` are captured declarations in the pure core, not proof of the binary that executed. Authenticated build/execution identity is a separate boundary tracked in #4355.
 
+## Authenticated acquisition roots
+
+The authenticated provenance layer now requires each distinct `acquisition_root_digest` to resolve to its own typed Holochain acquisition-root anchor.
+
+An acquisition-root anchor binds:
+- a source-system identifier;
+- an immutable capture reference;
+- an artifact digest;
+- a deterministic root commitment derived from those fields.
+
+Resolution requires a valid original Create action, no updates or deletes, the exact acquisition-root entry type, canonical commitments, and recomputation of the root commitment. Authenticated provenance qualification rejects missing root coverage, extra root anchors, and duplicate root commitments.
+
+This is intentionally a bounded trust step rather than a physical-truth claim. The root anchor proves that a particular Holochain action committed a particular capture-reference/artifact-digest declaration. It does not independently verify the referenced artifact, the honesty of the source system, or the physical independence of the acquisition device. Those require a separate source-system or metrological trust root.
+
 ## Authenticated provenance
 
 The provenance-disjointness qualifier evaluates the supplied lineage graph, but a producer could still fabricate that graph unless the individual provenance declarations have an independent integrity anchor.
