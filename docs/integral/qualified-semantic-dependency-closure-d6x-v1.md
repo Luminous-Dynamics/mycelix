@@ -240,21 +240,25 @@ The evidence concurrency group and artifact name are keyed from the exact pull-r
 
 ## Independent verification control-plane boundary
 
-A separate `main`-branch-controlled workflow, `.github/workflows/cos-conformance-independent-verify.yml`, provides an independent execution path for an exact PR head. It is manually dispatched with the PR number and exact expected head SHA.
+A separate `main`-branch-controlled workflow, `.github/workflows/cos-conformance-independent-verify.yml`, provides an independent execution path for an exact PR head. It supports both explicit `workflow_dispatch` and automatic `workflow_run` triggering after the COS Conformance Evidence workflow completes.
 
-The workflow first requires its own workflow reference to be the `main` branch, records `github.workflow_sha`, checks the live PR head through the read-only GitHub API, and then checks out the exact requested head. The PR code is executed only with `contents: read` and `pull-requests: read` permissions; no PR-controlled secrets or write-capable credentials are exposed.
+For automatic verification, the trusted workflow derives the exact head SHA and associated PR number from the completed Evidence run, then checks the live PR through read-only API access before testing. For manual verification, the operator supplies both values explicitly. In both modes, the verifier first asserts that its own workflow reference is `refs/heads/main`, records `github.workflow_sha`, audits its immutable action pins, and only then checks out the PR head.
 
-The verifier therefore separates three identities:
+The verifier uses only `contents: read` and `pull-requests: read`. It never uses `pull_request_target`, PR-provided secrets, or write-capable credentials. The tested PR tree therefore cannot control the verifier's workflow definition or its action-pin audit.
+
+The resulting evidence separates:
 
 ```
-trusted verifier workflow on main
+trusted main workflow identity
+    !=
+upstream Evidence run identity
     !=
 PR head under test
     !=
-artifact/result produced by that execution
+independent verification result
 ```
 
-Its resulting envelope records the trusted workflow SHA, tested commit SHA, report/test outcomes, and explicit `passed` / `failed` / `not_run` state. Artifact preservation is diagnostic evidence, not itself a qualification decision. This is still a ReferenceModelOnly execution layer; trust in `main` and its branch-governance controls remains an external repository-governance assumption.
+This is still a ReferenceModelOnly execution layer. Trust in the `main` branch and its branch-governance controls remains an external repository-governance assumption.
 
 ## Runtime resolution adapter boundary
 
