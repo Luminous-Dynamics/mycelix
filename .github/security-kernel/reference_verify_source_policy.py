@@ -20,6 +20,7 @@ S0 = ".github/workflows/security-kernel-trusted-dispatch.yml"
 S1 = ".github/workflows/security-kernel-independent-qualification.yml"
 S2 = ".github/workflows/security-kernel-trusted-result-verifier.yml"
 RETENTION = ".github/security-kernel/reference_verify_evidence_retention_binding.py"
+POLICY = ".github/security-kernel/reference_verify_source_policy.py"
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 UPLOAD = "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
@@ -212,6 +213,8 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 local reusable workflow census mismatch")
     if exact_count(l, f'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"') != 1:
         fail("S0 registered S1 blob pin mismatch")
+    if exact_count(l, f'trusted_workflow_blob_sha: "{expected_s1_sha}"') != 1:
+        fail("S0 delegated S1 workflow input pin mismatch")
     if exact_count(l, 'BASE_REPOSITORY: "Luminous-Dynamics/mycelix"') != 1:
         fail("S0 base repository mismatch")
     if exact_count(l, 'BASE_REPOSITORY_ID: "1176351975"') != 1:
@@ -305,6 +308,19 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
             fail(f"S2 {key} mismatch")
     if exact_count(l, 'RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"') != 1:
         fail("S2 retention verifier path mismatch")
+    joined = "\n".join(l)
+    for required in (
+        'parsed_download_url = urllib.parse.urlparse(download_url)',
+        'assert parsed_download_url.scheme == "https"',
+        'assert not parsed_download_url.username and not parsed_download_url.password',
+        'assert parsed_download_url.port in (None, 443)',
+        'unexpected second HTTP redirect/status',
+        'infos = archive.infolist()',
+        'file_size <= 1024 * 1024',
+        'compress_size <= 1024 * 1024',
+    ):
+        if required not in joined:
+            fail(f"S2 artifact transport/decompression control missing: {required!r}")
     require_no_fail_open_controls(l, "S2")
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
@@ -349,7 +365,7 @@ def main() -> None:
     if set(snapshot) != {"schema", "files"} or snapshot["schema"] != SCHEMA:
         fail("source-policy snapshot schema mismatch")
     files = snapshot["files"]
-    expected = {"s0": S0, "s1": S1, "s2": S2, "retention": RETENTION}
+    expected = {"s0": S0, "s1": S1, "s2": S2, "retention": RETENTION, "policy": POLICY}
     if set(files) != set(expected):
         fail("source-policy file census mismatch")
     raw = {

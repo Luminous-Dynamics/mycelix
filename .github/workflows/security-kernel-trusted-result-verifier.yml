@@ -74,7 +74,7 @@ jobs:
           export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
           python3 - <<'PY'
           import base64 as _source_policy_base64
-          import base64, datetime, hashlib, io, json, os, re, subprocess, urllib.error, urllib.parse, urllib.request, zipfile
+          import base64, datetime, hashlib, io, json, os, re, subprocess, tempfile, urllib.error, urllib.parse, urllib.request, zipfile
 
           base = "https://api.github.com"
           token = os.environ["TOKEN"]
@@ -432,8 +432,18 @@ jobs:
               download_url = error.headers.get("Location")
               assert isinstance(download_url, str) and download_url, "artifact download redirect did not provide a Location"
 
-          with urllib.request.urlopen(download_url, timeout=30) as response:
-              artifact_bytes = response.read(1024 * 1024 + 1)
+          parsed_download_url = urllib.parse.urlparse(download_url)
+          assert parsed_download_url.scheme == "https", "qualification receipt redirect URL must use HTTPS"
+          assert not parsed_download_url.username and not parsed_download_url.password, "qualification receipt redirect URL must not contain userinfo"
+          assert parsed_download_url.port in (None, 443), "qualification receipt redirect URL must not use a non-standard port"
+          try:
+              with urllib.request.build_opener(NoRedirect).open(download_url, timeout=30) as response:
+                  assert response.status == 200, f"qualification receipt redirect target returned HTTP {response.status}"
+                  artifact_bytes = response.read(1024 * 1024 + 1)
+          except urllib.error.HTTPError as error:
+              raise AssertionError(
+                  f"qualification receipt redirect target performed an unexpected second HTTP redirect/status: {error.code}"
+              ) from error
           assert artifact_bytes, "qualification receipt artifact download is empty"
           assert len(artifact_bytes) <= 1024 * 1024, "qualification receipt artifact exceeds 1 MiB verifier bound"
           assert "sha256:" + hashlib.sha256(artifact_bytes).hexdigest() == artifact_digest, (
@@ -773,8 +783,18 @@ jobs:
               download_url = error.headers.get("Location")
               assert isinstance(download_url, str) and download_url, "negative-control transcript redirect omitted Location"
 
-          with urllib.request.urlopen(download_url, timeout=30) as response:
-              downloaded = response.read(1024 * 1024 + 1)
+          parsed_download_url = urllib.parse.urlparse(download_url)
+          assert parsed_download_url.scheme == "https", "negative-control transcript redirect URL must use HTTPS"
+          assert not parsed_download_url.username and not parsed_download_url.password, "negative-control transcript redirect URL must not contain userinfo"
+          assert parsed_download_url.port in (None, 443), "negative-control transcript redirect URL must not use a non-standard port"
+          try:
+              with urllib.request.build_opener(NoRedirect).open(download_url, timeout=30) as response:
+                  assert response.status == 200, f"negative-control transcript redirect target returned HTTP {response.status}"
+                  downloaded = response.read(1024 * 1024 + 1)
+          except urllib.error.HTTPError as error:
+              raise AssertionError(
+                  f"negative-control transcript redirect target performed an unexpected second HTTP redirect/status: {error.code}"
+              ) from error
           assert downloaded, "negative-control transcript download is empty"
           assert len(downloaded) <= 1024 * 1024, "negative-control transcript download exceeds verifier bound"
           assert artifact_digest == "sha256:" + hashlib.sha256(downloaded).hexdigest(), "transcript download does not match GitHub artifact digest"
