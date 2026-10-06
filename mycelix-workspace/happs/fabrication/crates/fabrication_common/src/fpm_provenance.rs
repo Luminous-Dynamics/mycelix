@@ -539,7 +539,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn acquisition_root_binding_digest_is_deterministic() {
         let a = acquisition_root_binding_digest(
             "capture-device-1",
