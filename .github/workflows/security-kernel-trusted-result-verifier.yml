@@ -415,6 +415,22 @@ jobs:
               assert key not in receipt, f"qualification receipt contains duplicate key: {key!r}"
               receipt[key] = value
 
+          expected_receipt_keys = {
+              "schema","candidate_repository","candidate_repository_id","candidate_pr","candidate_sha",
+              "candidate_tree","candidate_source_tree_entry_count","candidate_source_file_count",
+              "candidate_source_total_path_bytes","candidate_source_total_bytes","candidate_source_max_blob_bytes",
+              "candidate_source_digest","candidate_cargo_lock_format","candidate_cargo_lock_sha256",
+              "candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges","vendor_digest",
+              "sandbox_negative_controls","sandbox_negative_controls_log_sha256","dependency_substrate_postflight",
+              "git_fetch_image","sandbox_image","sandbox_network","sandbox_rootfs","sandbox_user",
+              "sandbox_capabilities","sandbox_no_new_privileges","source_event","trusted_dispatcher_workflow",
+              "trusted_workflow_ref","trusted_workflow_sha","trusted_workflow_name","trusted_repository_id",
+              "trusted_workflow_repository","trusted_workflow_file_path","trusted_ref_protected","cache_mode",
+              "registered_s1_workflow_blob_sha","called_workflow_ref","called_workflow_sha","s1_run_id",
+              "s1_run_attempt","rust_version","rust_commit","qualification_pass",
+              "trusted_dispatcher_workflow_sha","trusted_dispatcher_workflow_name",
+          }
+
           exact_receipt = {
               "schema": "security-kernel-independent-qualification-v1",
               "candidate_repository": candidate_repository,
@@ -439,11 +455,39 @@ jobs:
               "dependency_substrate_postflight": "passed",
               "qualification_pass": "true",
           }
+          assert set(receipt) == expected_receipt_keys, (
+              "qualification receipt schema drift: expected exact closed-world key set"
+          )
           for key, expected_value in exact_receipt.items():
               assert receipt.get(key) == expected_value, (
                   f"qualification receipt field {key!r} mismatch: "
                   f"{receipt.get(key)!r} != {expected_value!r}"
               )
+          evidence_binding = dict(binding)
+          evidence_binding["schema"] = "security-kernel-execution-binding-v2"
+          evidence_binding["artifact_name"] = expected_artifact_name
+          evidence_binding["artifact_id"] = int(artifact["id"])
+          evidence_binding["artifact_digest"] = artifact_digest
+          evidence_binding["receipt_content_sha256"] = receipt_content_sha256
+
+          evidence_binding_digest = hashlib.sha256(
+              json.dumps(evidence_binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+          ).hexdigest()
+          for field, replacement in (
+              ("artifact_name", expected_artifact_name + "-mutated"),
+              ("artifact_id", evidence_binding["artifact_id"] + 1),
+              ("artifact_digest", "sha256:" + "3" * 64),
+              ("receipt_content_sha256", "4" * 64),
+          ):
+              mutated = dict(evidence_binding)
+              mutated[field] = replacement
+              assert hashlib.sha256(
+                  json.dumps(mutated, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+              ).hexdigest() != evidence_binding_digest, (
+                  f"final evidence binding digest is invariant under mutation of {field}"
+              )
+          print(f"PASS: final retained-evidence binding SHA-256={evidence_binding_digest}")
+
           for key in ("candidate_cargo_lock_sha256", "candidate_source_digest", "vendor_digest"):
               assert re.fullmatch(r"[0-9a-f]{64}", receipt.get(key, "")), (
                   f"qualification receipt field {key!r} is not a SHA-256 digest"
@@ -479,6 +523,10 @@ jobs:
               "trusted_dispatcher_workflow_sha": workflow_sha,
               "trusted_dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
               "trusted_s1_workflow_blob_sha": s1_at_run["sha"],
+              "execution_binding": binding,
+              "execution_binding_sha256": binding_digest,
+              "evidence_binding": evidence_binding,
+              "evidence_binding_sha256": evidence_binding_digest,
               "verifier_workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
               "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
               "qualification_receipt_artifact_id": artifact["id"],
