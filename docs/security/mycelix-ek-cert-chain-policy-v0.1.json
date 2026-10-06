@@ -23,6 +23,7 @@
       "authorization_state",
       "registry_sha256",
       "registry_source_sha256",
+      "receipt_root_sha256",
       "input_sha256",
       "output_sha256"
     ],
@@ -268,6 +269,11 @@
     },
     {
       "id": "EKC-V33",
+      "mutation": "trust-anchor-appraisal-receipt-root-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V34",
       "mutation": "key-order-permutation",
       "expected": "PASS"
     }
