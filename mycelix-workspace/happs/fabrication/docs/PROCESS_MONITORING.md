@@ -179,7 +179,14 @@ For Holochain integrations, preserve the distinction between:
 - `EntryHash`: content identity for the registration entry;
 - `ActionHash`: identity of the authored entry instance, carrying source-chain/timestamp context.
 
-The authority-resolution layer should retrieve the referenced record, reconstruct the exact registration envelope, and fail closed when the resolved record does not match the committed digest or expected authoring context. Holochain documents these as distinct address semantics. citeturn450877search0turn450877search1
+The authority-resolution layer now has concrete verification entry points in the Verification coordinator:
+- `create_fpm_registration_anchor` stores a typed public registration-anchor entry containing the exact envelope plus its recomputed digest;
+- `resolve_fpm_registration_action_anchor` retrieves `get_details(ActionHash, network)`, requires `ValidationStatus::Valid`, rejects updates/deletes, requires the addressed action itself to be `Create`, decodes the typed anchor, and recomputes the envelope digest before returning author/timestamp evidence;
+- `resolve_fpm_registration_entry_anchor` retrieves `get_details(EntryHash, network)`, requires a live entry with no rejected creation actions, updates, or deletes, confirms the returned record still carries the requested `EntryHash`, and recomputes the envelope digest.
+
+The EntryHash resolver intentionally returns no author/timestamp claim: an `EntryHash` is content identity, whereas an `ActionHash` identifies an authored instance and carries source-chain/timestamp context. A caller that needs authorship must therefore use the ActionHash path and may bind an expected author explicitly. Holochain documents these as distinct address semantics. citeturn832284search0turn832284search1turn642137search0
+
+This adapter is still not a claim of physical truth or universal authority: Holochain `get` only establishes that the local/returned view considers the resolved record valid, and other validators can have different information. The resolver consequently treats validation state, deletion/update metadata, typed entry decoding, and exact envelope commitment as separate predicates rather than collapsing them into a single “trusted” bit. citeturn832284search0
 
 Verifier identity is treated similarly. `verifier_id`, `verifier_version`, and `declared_verifier_implementation_digest` are captured declarations in the pure core, not proof of the binary that executed. Authenticated build/execution identity is a separate boundary tracked in #4355.
 
