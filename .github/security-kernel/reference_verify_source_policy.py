@@ -137,6 +137,38 @@ def step_names(lines_: list[str]) -> tuple[str, ...]:
     return tuple(names)
 
 
+def require_exact_step_keys(
+    lines_: list[str],
+    expected: tuple[tuple[str, tuple[str, ...]], ...],
+    description: str,
+) -> None:
+    actual = []
+    current_name = None
+    current_keys = []
+
+    def flush() -> None:
+        if current_name is None:
+            return
+        actual.append((current_name, tuple(current_keys)))
+
+    for line in lines_:
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if match:
+            flush()
+            current_name = match.group(1)
+            current_keys = ["name"]
+            continue
+        if current_name is None:
+            continue
+        match = re.fullmatch(r"\s{8}([A-Za-z0-9_-]+):(?:\s+.*)?", line)
+        if match:
+            current_keys.append(match.group(1))
+
+    flush()
+    if tuple(actual) != expected:
+        fail(f"{description}: step key census mismatch: expected {expected!r}, found {actual!r}")
+
+
 def external_uses(lines_: list[str]) -> tuple[str, ...]:
     return tuple(
         match.group(1).strip()
@@ -471,6 +503,11 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_explicit_bash_for_run_steps(l, S0)
     require_no_duplicate_step_keys(l, S0)
     require_step_execution_modes(l, S0)
+    require_exact_step_keys(
+        l,
+        (("Verify trusted dispatcher context and exact PR identity", ("name", "id", "env", "shell", "run")),),
+        S0,
+    )
     require_exact_step_conditionals(l, (("Verify trusted dispatcher context and exact PR identity", None),), S0)
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
@@ -548,6 +585,29 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_explicit_bash_for_run_steps(l, S1)
     require_no_duplicate_step_keys(l, S1)
     require_step_execution_modes(l, S1)
+    require_exact_step_keys(
+        l,
+        (
+            ("Checkout trusted qualification root", ("name", "uses", "with")),
+            ("Verify trusted pull-request-target invocation", ("name", "env", "shell", "run")),
+            ("Resolve exact candidate source", ("name", "id", "env", "shell", "run")),
+            ("Static trust-surface audit", ("name", "env", "shell", "run")),
+            ("Snapshot exact candidate source identity", ("name", "id", "env", "shell", "run")),
+            ("Snapshot locked dependency identity", ("name", "id", "env", "shell", "run")),
+            ("Pull and preflight pinned sandbox image", ("name", "id", "env", "shell", "run")),
+            ("Prepare locked dependency subject", ("name", "id", "env", "shell", "run")),
+            ("Vendor locked dependency closure in fetch sandbox", ("name", "id", "env", "shell", "run")),
+            ("Execute sandbox negative controls", ("name", "id", "env", "shell", "run")),
+            ("Upload sandbox negative-control transcript", ("name", "if", "id", "uses", "with")),
+            ("Execute candidate qualification in disposable networkless sandbox", ("name", "shell", "env", "run")),
+            ("Verify candidate source immutability", ("name", "env", "shell", "run")),
+            ("Verify dependency substrate immutability", ("name", "id", "env", "shell", "run")),
+            ("Emit qualification receipt", ("name", "env", "shell", "run")),
+            ("Upload qualification receipt", ("name", "if", "id", "uses", "with")),
+            ("Verify retained qualification receipt", ("name", "if", "env", "shell", "run")),
+        ),
+        S1,
+    )
     require_exact_step_conditionals(
         l,
         (
@@ -649,6 +709,18 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_explicit_bash_for_run_steps(l, S2)
     require_no_duplicate_step_keys(l, S2)
     require_step_execution_modes(l, S2)
+    require_exact_step_keys(
+        l,
+        (
+            ("Checkout exact verifier workflow commit", ("name", "uses", "with")),
+            ("Verify trusted dispatcher, reusable S1, and qualification gates", ("name", "id", "env", "shell", "run")),
+            ("Verify retained negative-control evidence binding", ("name", "if", "id", "env", "shell", "run")),
+            ("Download retained qualification receipt through official artifact client", ("name", "if", "uses", "with")),
+            ("Download retained sandbox negative-control transcript through official artifact client", ("name", "if", "uses", "with")),
+            ("Verify official receipt transport and publish verified result", ("name", "if", "env", "shell", "run")),
+        ),
+        S2,
+    )
     require_exact_step_conditionals(
         l,
         (
