@@ -15,6 +15,8 @@ from typing import Any
 VERIFIER_ID = "mycelix.tpm.ak-ek-lineage.v0.1"
 ATTRIBUTES_VERIFIER_ID = "mycelix.tpm.ak-public-attributes.v0.1"
 ATTRIBUTES_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ak_public_attributes_v0_1.py")
+PUBLIC_NAME_VERIFIER_ID = "mycelix.tpm.public-name-coherence.v0.1"
+PUBLIC_NAME_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_tpm_public_name_coherence_v0_1.py")
 SHA256_NAME_ALG = "sha256"
 SHA256_ALG_ID = bytes.fromhex("000b")
 
@@ -60,6 +62,53 @@ def expected_qname(parent_qname: bytes, object_name: bytes) -> bytes:
 
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def run_public_name_verifier(binding: dict[str, Any]) -> dict[str, Any]:
+    verifier_input = binding.get("verifier_input")
+    if not isinstance(verifier_input, dict):
+        return result("DENY", "ak-public-name-verifier-input-missing")
+    if not PUBLIC_NAME_VERIFIER_SCRIPT.is_file():
+        return result("DENY", "ak-public-name-verifier-missing")
+    with tempfile.TemporaryDirectory(prefix="mycelix-public-name-") as td:
+        root = Path(td)
+        input_path = root / "public-name-input.json"
+        output_path = root / "public-name-output.json"
+        input_path.write_text(
+            json.dumps(verifier_input, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(PUBLIC_NAME_VERIFIER_SCRIPT),
+                "--verify",
+                str(input_path),
+                "--output",
+                str(output_path),
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if proc.returncode not in (0, 1, 2):
+            return result("DENY", "ak-public-name-verifier-execution-error", {"stderr": proc.stderr})
+        if not output_path.is_file():
+            return result("DENY", "ak-public-name-verifier-produced-no-output")
+        try:
+            generated = json.loads(output_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            return result("DENY", "ak-public-name-verifier-output-invalid", {"error": str(exc)})
+        if generated.get("verifier_id") != PUBLIC_NAME_VERIFIER_ID:
+            return result("DENY", "ak-public-name-result-verifier-id-mismatch")
+        expected_input_sha = sha256_file(input_path)
+        expected_output_sha = sha256_file(output_path)
+        if binding.get("input_sha256") != expected_input_sha:
+            return result("DENY", "ak-public-name-verifier-input-digest-mismatch")
+        if binding.get("output_sha256") != expected_output_sha:
+            return result("DENY", "ak-public-name-verifier-output-digest-mismatch")
+        return generated
 
 
 def run_public_attributes_verifier(binding: dict[str, Any]) -> dict[str, Any]:
@@ -187,6 +236,44 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     if ak["name_alg"] != SHA256_NAME_ALG:
         return result("DENY", "unsupported-ak-name-algorithm")
 
+    public_name = manifest["public_name_binding"]
+    if not isinstance(public_name, dict):
+        return result("DENY", "public-name-binding-invalid")
+    for field in (
+        "state", "method", "verifier_id", "public_sha256", "name_sha256",
+        "public_area_sha256", "source_sha256", "input_sha256", "output_sha256",
+        "verifier_input",
+    ):
+        if field not in public_name:
+            return result("DENY", "missing-field", {"field": f"public_name_binding.{field}"})
+    if public_name["verifier_id"] != PUBLIC_NAME_VERIFIER_ID:
+        return result("DENY", "ak-public-name-verifier-id-mismatch")
+    if public_name["state"] not in {"PASS", "INDETERMINATE"}:
+        return result("DENY", "public-name-state-invalid")
+    for field in ("public_sha256", "name_sha256", "public_area_sha256", "source_sha256", "input_sha256", "output_sha256"):
+        if not valid_hash(public_name[field]):
+            return result("DENY", "public-name-digest-invalid", {"field": field})
+    if public_name["source_sha256"] != sha256_file(PUBLIC_NAME_VERIFIER_SCRIPT):
+        return result("DENY", "public-name-verifier-source-mismatch")
+    if public_name["method"] != "same-tpm-readpublic-context":
+        return result("DENY", "ak-public-name-binding-method-invalid")
+    if public_name["state"] == "INDETERMINATE":
+        return result("INDETERMINATE", "ak-public-name-binding-indeterminate")
+    generated_public_name = run_public_name_verifier(public_name)
+    if generated_public_name.get("verifier_id") != PUBLIC_NAME_VERIFIER_ID:
+        return generated_public_name
+    if generated_public_name.get("state") != "PASS":
+        return result("DENY", "ak-public-name-reexecution-not-pass")
+    public_name_details = generated_public_name.get("details")
+    if not isinstance(public_name_details, dict):
+        return result("DENY", "ak-public-name-result-details-missing")
+    if public_name_details.get("public_area_sha256") != public_name["public_area_sha256"]:
+        return result("DENY", "ak-public-name-result-area-mismatch")
+    if public_name_details.get("public_area_sha256") != manifest["ak"]["public_area_sha256"]:
+        return result("DENY", "ak-public-name-result-ak-area-mismatch")
+    if public_name_details.get("name_hex") != manifest["ak"]["name_hex"]:
+        return result("DENY", "ak-public-name-result-name-mismatch")
+
     attributes_binding = manifest["public_attributes_binding"]
     if not isinstance(attributes_binding, dict):
         return result("DENY", "public-attributes-binding-invalid")
@@ -257,10 +344,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             },
         )
 
-    if public_name.get("verifier_id") != "mycelix.tpm.public-name-coherence.v0.1":
-        return result("DENY", "ak-public-name-verifier-id-mismatch")
-    if public_name.get("public_area_sha256") != ak["public_area_sha256"]:
-        return result("DENY", "ak-public-name-area-digest-mismatch")
+    if public_name.get("public_sha256") != ak["public_sha256"]:
+        return result("DENY", "ak-public-name-binding-public-digest-mismatch")
     if not valid_hash(public_name.get("public_sha256")) or public_name["public_sha256"] != ak["public_sha256"]:
         return result("DENY", "ak-public-name-binding-public-digest-mismatch")
 
@@ -456,7 +541,25 @@ def fixture() -> dict[str, Any]:
             "public_area_sha256": hashlib.sha256(
                 bytes.fromhex("0001000b00000032") + bytes(64)
             ).hexdigest(),
-            "verifier_id": "mycelix.tpm.public-name-coherence.v0.1",
+            "verifier_id": PUBLIC_NAME_VERIFIER_ID,
+            "source_sha256": sha256_file(PUBLIC_NAME_VERIFIER_SCRIPT),
+            "input_sha256": "",
+            "output_sha256": "",
+            "verifier_input": {
+                "profile_id": "mycelix.security.tpm.public-name-coherence",
+                "profile_version": "0.1.0",
+                "verification_mode": "ReferenceModelOnly",
+                "claim_ceiling": "ReferenceModelOnly",
+                "object_role": "AK",
+                "public_format": "TPMT_PUBLIC",
+                "public_wire_hex": (bytes.fromhex("0001000b00000032") + bytes(64)).hex(),
+                "public_wire_sha256": hashlib.sha256(
+                    bytes.fromhex("0001000b00000032") + bytes(64)
+                ).hexdigest(),
+                "name_hex": ak_name.hex(),
+                "readpublic_state": "PASS",
+                "readpublic_source_sha256": "aa" * 32,
+            },
         },
         "public_attributes_binding": {
             "state": "PASS",
@@ -511,6 +614,47 @@ def fixture() -> dict[str, Any]:
     }
 
 
+def refresh_public_name_binding(value: dict[str, Any]) -> None:
+    binding = value["public_name_binding"]
+    with tempfile.TemporaryDirectory(prefix="mycelix-public-name-refresh-") as td:
+        work = Path(td)
+        input_path = work / "input.json"
+        output_path = work / "output.json"
+        input_path.write_text(
+            json.dumps(binding["verifier_input"], indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(PUBLIC_NAME_VERIFIER_SCRIPT),
+                "--verify",
+                str(input_path),
+                "--output",
+                str(output_path),
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"public-name verifier fixture failed: {proc.stderr}")
+        binding["input_sha256"] = sha256_file(input_path)
+        binding["output_sha256"] = sha256_file(output_path)
+
+
+def mutate_public_name_input(value: dict[str, Any]) -> None:
+    verifier_input = value["public_name_binding"]["verifier_input"]
+    body = bytearray(hex_bytes(verifier_input["public_wire_hex"], "public_wire_hex"))
+    body[-1] ^= 0xFF
+    verifier_input["public_wire_hex"] = bytes(body).hex()
+    verifier_input["public_wire_sha256"] = hashlib.sha256(body).hexdigest()
+    verifier_input["name_hex"] = (
+        SHA256_ALG_ID + hashlib.sha256(body).digest()
+    ).hex()
+
+
 def mutate_attribute_input(value: dict[str, Any], attrs: int) -> None:
     body = bytearray(
         hex_bytes(
@@ -543,6 +687,7 @@ def mutate_attribute_wire_tail(value: dict[str, Any]) -> None:
 
 def self_test() -> int:
     base = fixture()
+    refresh_public_name_binding(base)
     cases: list[tuple[str, str, Any]] = [
         ("canonical-valid", "PASS", lambda x: x),
         ("ak-qualified-name-substitution", "DENY", lambda x: x["ak"].update({"qualified_name_hex": "000b" + "ff" * 32})),
@@ -555,6 +700,8 @@ def self_test() -> int:
         ("public-name-name-substitution", "DENY", lambda x: x["public_name_binding"].update({"name_sha256": "cc" * 32})),
         ("public-name-binding-indeterminate", "INDETERMINATE", lambda x: x["public_name_binding"].update({"state": "INDETERMINATE"})),
         ("public-name-verifier-substitution", "DENY", lambda x: x["public_name_binding"].update({"verifier_id": "other-verifier"})),
+        ("public-name-source-substitution", "DENY", lambda x: x["public_name_binding"].update({"source_sha256": "12" * 32})),
+        ("public-name-input-substitution", "DENY", lambda x: mutate_public_name_input(x)),
         ("public-name-area-substitution", "DENY", lambda x: x["public_name_binding"].update({"public_area_sha256": "13" * 32})),
         ("ek-credential-binding-substitution", "DENY", lambda x: x["ek_credential"].update({"bound_ek_public_sha256": "dd" * 32})),
         ("ek-credential-unavailable", "INDETERMINATE", lambda x: x["ek_credential"].update({"state": "INDETERMINATE"})),
@@ -588,7 +735,7 @@ def self_test() -> int:
         return 1
 
     print("AK/EK lineage semantic corpus: PASS")
-    print("26 adversarial mutations plus canonical case: PASS")
+    print("28 adversarial mutations plus canonical and key-order controls: PASS")
     print("Live/offline activation remains explicitly bounded")
     return 0
 
