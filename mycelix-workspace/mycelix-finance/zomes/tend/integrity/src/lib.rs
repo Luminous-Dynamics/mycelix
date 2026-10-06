@@ -647,15 +647,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::DisputeCase(dispute) => {
                         validate_create_dispute_case(EntryCreationAction::Create(action), dispute)
                     }
-                    EntryTypes::OracleState(state) => {
-                        if state.vitality > 100 {
-                            Ok(ValidateCallbackResult::Invalid(
-                                "Vitality must be 0-100".into(),
-                            ))
-                        } else {
-                            Ok(ValidateCallbackResult::Valid)
-                        }
-                    }
+                    EntryTypes::OracleState(state) => validate_create_oracle_state(state)
                     EntryTypes::BilateralBalance(bal) => {
                         if bal.dao_a_did.len() > MAX_DID_LEN || bal.dao_b_did.len() > MAX_DID_LEN {
                             return Ok(ValidateCallbackResult::Invalid(
@@ -709,15 +701,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::DisputeCase(dispute) => {
                         validate_update_dispute_case(action, dispute)
                     }
-                    EntryTypes::OracleState(state) => {
-                        if state.vitality > 100 {
-                            Ok(ValidateCallbackResult::Invalid(
-                                "Vitality must be 0-100".into(),
-                            ))
-                        } else {
-                            Ok(ValidateCallbackResult::Valid)
-                        }
-                    }
+                    EntryTypes::OracleState(state) => validate_update_oracle_state(action, state)
                     EntryTypes::BilateralBalance(balance) => {
                         validate_update_bilateral_balance(action, balance)
                     }
@@ -1421,6 +1405,73 @@ fn validate_create_bilateral_settlement(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_oracle_state(
+    state: OracleState,
+) -> ExternResult<ValidateCallbackResult> {
+    if state.vitality > 100 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Vitality must be 0-100".into(),
+        ));
+    }
+    if !state.total_yield_kwh.is_finite() || state.total_yield_kwh < 0.0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Total oracle yield must be finite and non-negative".into(),
+        ));
+    }
+    if state.tier != OracleState::tier_from_vitality(state.vitality) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "OracleState tier must equal the tier derived from vitality".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_oracle_state(
+    action: Update,
+    state: OracleState,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address)?;
+    let original = original_record
+        .entry()
+        .to_app_option::<OracleState>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "OracleState predecessor deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "OracleState update predecessor is not an OracleState".into()
+            ))
+        })?;
+
+    validate_create_oracle_state(state.clone())?;
+    Ok(validate_oracle_state_transition(&original, &state))
+}
+
+fn validate_oracle_state_transition(
+    original: &OracleState,
+    updated: &OracleState,
+) -> ValidateCallbackResult {
+    if updated.tier != OracleState::tier_from_vitality(updated.vitality) {
+        return ValidateCallbackResult::Invalid(
+            "OracleState tier must equal the tier derived from vitality".into(),
+        );
+    }
+    if updated.updated_at < original.updated_at {
+        return ValidateCallbackResult::Invalid(
+            "OracleState updated_at cannot move backwards".into(),
+        );
+    }
+    if !updated.total_yield_kwh.is_finite() || updated.total_yield_kwh < 0.0 {
+        return ValidateCallbackResult::Invalid(
+            "Total oracle yield must be finite and non-negative".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
 }
 
 fn validate_update_bilateral_balance(
@@ -2280,6 +2331,66 @@ mod tests {
         assert!(matches!(
             validate_hearth_balance_state_transition(&original, &time),
             ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    fn valid_oracle_state() -> OracleState {
+        OracleState {
+            vitality: 50,
+            total_yield_kwh: 100.0,
+            tier: OracleState::tier_from_vitality(50),
+            updated_at: ts(1_000_000),
+        }
+    }
+
+    #[test]
+    fn oracle_state_transition_accepts_derived_tier_and_monotonic_time() {
+        let original = valid_oracle_state();
+        let mut updated = original.clone();
+        updated.vitality = 20;
+        updated.total_yield_kwh = 120.0;
+        updated.tier = OracleState::tier_from_vitality(updated.vitality);
+        updated.updated_at = ts(2_000_000);
+
+        assert!(matches!(
+            validate_oracle_state_transition(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn oracle_state_transition_rejects_tier_mismatch() {
+        let original = valid_oracle_state();
+        let mut updated = original.clone();
+        updated.vitality = 10;
+        updated.updated_at = ts(2_000_000);
+
+        assert!(matches!(
+            validate_oracle_state_transition(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn oracle_state_transition_rejects_time_regression() {
+        let original = valid_oracle_state();
+        let mut updated = original.clone();
+        updated.updated_at = ts(500_000);
+
+        assert!(matches!(
+            validate_oracle_state_transition(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn oracle_state_create_rejects_invalid_yield() {
+        let mut invalid_yield = valid_oracle_state();
+        invalid_yield.total_yield_kwh = -1.0;
+
+        assert!(matches!(
+            validate_create_oracle_state(invalid_yield),
+            Ok(ValidateCallbackResult::Invalid(_))
         ));
     }
 
