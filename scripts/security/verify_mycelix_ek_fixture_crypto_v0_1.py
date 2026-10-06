@@ -910,7 +910,7 @@ def self_test() -> int:
             mutate(candidate_leaf)
             try:
                 expected_crl_applicability_check(
-                    candidate_leaf, intermediate_info, crl_map["intermediate"], m["expected_crl_applicability"]
+                    candidate_leaf, intermediate_info, observed_crls["intermediate"], m["expected_crl_applicability"]
                 )
             except (ValueError, KeyError):
                 pass
@@ -928,7 +928,7 @@ def self_test() -> int:
             mutate(candidate)
             try:
                 expected_crl_applicability_check(
-                    leaf_info, intermediate_info, crl_map["intermediate"], candidate
+                    leaf_info, intermediate_info, observed_crls["intermediate"], candidate
                 )
             except (ValueError, KeyError):
                 pass
