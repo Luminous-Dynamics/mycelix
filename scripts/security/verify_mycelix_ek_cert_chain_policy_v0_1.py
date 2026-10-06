@@ -24,9 +24,9 @@ TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE = ROOT / "docs/security/mycelix-ek-trust
 SPKI_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_cert_spki_binding_v0_1.py")
 FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
-REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
+REFERENCE_ROOT_SHA256 = "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556"
 REFERENCE_TIME_UNIX = 1791158400
-REFERENCE_EK_RSA_MODULUS = bytes.fromhex("d019fb7bdf2679af2d0bf1d5438dae19f73cad698d171a5e3292506bcd05d8b85b7753f35b9c174105fab4613ccc54a67f43fa97c6ef9330a101897b39c3d0f730ee8001b0b53511846de96731104c242781a1fedee583b72c1205a8ace27bcea878ca22c3be355abd7989a3b8e0f9a384a0b6f3e3a8d8bfc35048d93fc07cf45957a52083ed2a49ce01016dcbbb66d4a39569de30285318f4f5a9ff364a80858cf16e84ee4182de3a282c972b6545ee7aa62d48202043cd006e2a5c84c575499b750226ad19c0a3faea19eb0b813a5e31907fb541ea11e3d3a05a39b120ba3b944dd87da4cb89c3e548d0a05e7b538b5e97c1ecd34290d0b0d2e413e369e657")
+REFERENCE_EK_RSA_MODULUS = bytes.fromhex("6f24c46cf921615f74a3c7a6a01b73b3b06e7ae9b51d575cbac358ec03593f47d4b54110aff2589c1d9ac57e6c5b34bcdaa563550d294b06c8dd308cc466b4204901dad45fc012ec169a1224101108abe2da72b33c8e77c32f198b1fa9b95f26b85ee36a202a7102571ee51efd71e7618b94b931dcb05cfda6768d546f0a2256ce37707ef644da096a422caebf0e5c6698de39b2145fbdcaef529a6f53f6d2a81d151b63f1714d0f3e4c6702bb00051f33b2451302c18513b3620dca718927b2555c358fd40dad3d2f32e1fd8ca631955b9e5a569e6fb4b813d6da39cbe41e8d0458fbb865e646f0e5a81a4208c90917492bfda3befcab8eadaee1b20163e5b7")
 EXPIRED_TIME_UNIX = 4102444800
 FIXTURE_HASHES = {
     "root.der": REFERENCE_ROOT_SHA256,
@@ -545,6 +545,8 @@ def run_trust_anchor_appraiser(
     receipt_sha = hashlib.sha256(TRUST_ANCHOR_AUTHORIZATION_RECEIPT_FILE.read_bytes()).hexdigest()
     if appraisal.get("registry_source_sha256") != receipt_sha:
         return result("DENY", "trust-anchor-authorization-receipt-digest-mismatch")
+    if appraisal.get("receipt_root_sha256") != receipt.get("root_certificate_sha256"):
+        return result("DENY", "trust-anchor-appraisal-receipt-root-mismatch")
     if receipt.get("registry_file_sha256") != hashlib.sha256(TRUST_ANCHOR_REGISTRY_FILE.read_bytes()).hexdigest():
         return result("DENY", "trust-anchor-receipt-registry-file-mismatch")
     if receipt.get("root_certificate_sha256") != hashlib.sha256(root_der).hexdigest():
@@ -1198,27 +1200,45 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def load_fixture() -> dict[str, Any]:
-    if not FIXTURE_DIR.is_dir():
-        raise RuntimeError(f"missing frozen EK certificate fixture directory: {FIXTURE_DIR}")
-    for name, expected in FIXTURE_HASHES.items():
-        path = FIXTURE_DIR / name
+def load_fixture(output_dir: Path) -> dict[str, Any]:
+    if not FIXTURE_RECIPE_FILE.is_file():
+        raise RuntimeError(f"missing EK fixture recipe: {FIXTURE_RECIPE_FILE}")
+    if not FIXTURE_GENERATOR_SCRIPT.is_file():
+        raise RuntimeError(f"missing EK fixture generator: {FIXTURE_GENERATOR_SCRIPT}")
+    recipe = json.loads(FIXTURE_RECIPE_FILE.read_text(encoding="utf-8"))
+    expected = recipe.get("expected_outputs")
+    if not isinstance(expected, dict) or set(expected) != {
+        "root.der", "intermediate.der", "leaf.der", "bad-usage.der", "bad-eku.der", "crl-bundle.pem"
+    }:
+        raise RuntimeError("EK fixture recipe expected_outputs are incomplete")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    proc = subprocess.run(
+        [sys.executable, str(FIXTURE_GENERATOR_SCRIPT), "--recipe", str(FIXTURE_RECIPE_FILE),
+         "--output-dir", str(output_dir), "--check"],
+        cwd=output_dir, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"EK fixture generation/check failed: {proc.stdout}\n{proc.stderr}")
+    values = {}
+    for name, expected_sha in expected.items():
+        path = output_dir / name
         if not path.is_file():
-            raise RuntimeError(f"missing frozen EK certificate fixture: {path}")
+            raise RuntimeError(f"generator omitted expected fixture: {path}")
         observed = sha256_file(path)
-        if observed != expected:
-            raise RuntimeError(
-                f"frozen EK fixture digest mismatch for {name}: expected {expected} got {observed}"
-            )
+        if observed != expected_sha:
+            raise RuntimeError(f"generated EK fixture digest mismatch for {name}: expected {expected_sha} got {observed}")
+        values[name] = path.read_bytes()
     return {
-        "root": (FIXTURE_DIR / "root.der").read_bytes(),
-        "intermediate": (FIXTURE_DIR / "intermediate.der").read_bytes(),
-        "leaf": (FIXTURE_DIR / "leaf.der").read_bytes(),
-        "bad_usage": (FIXTURE_DIR / "bad-usage.der").read_bytes(),
-        "bad_eku": (FIXTURE_DIR / "bad-eku.der").read_bytes(),
-        "crl_bundle_pem": (FIXTURE_DIR / "crl-bundle.pem").read_bytes(),
+        "root": values["root.der"],
+        "intermediate": values["intermediate.der"],
+        "leaf": values["leaf.der"],
+        "bad_usage": values["bad-usage.der"],
+        "bad_eku": values["bad-eku.der"],
+        "crl_bundle_pem": values["crl-bundle.pem"],
         "attime": REFERENCE_TIME_UNIX,
+        "fixture_recipe_sha256": hashlib.sha256(FIXTURE_RECIPE_FILE.read_bytes()).hexdigest(),
     }
+
 
 
 
@@ -1253,7 +1273,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_der_base64": b64(fx["root"]),
         "trust_anchor_root_sha256": root_sha,
         "trust_anchor_state": "PASS",
-        "trust_anchor_source_sha256": "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591",
+        "trust_anchor_source_sha256": "3bad61140bfe271c6495e6b7e58dfc5ae45cf4fff339bd891a9e04881b63a3ea",
         "verification_time_unix": fx["attime"],
         "path_validation": {
             "state": "PASS",
@@ -1278,7 +1298,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             "anchor_id": "mycelix.synthetic-ek-root.v0.1",
             "authorization_state": "PASS",
             "registry_sha256": "",
-            "registry_source_sha256": "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591",
+            "registry_source_sha256": "3bad61140bfe271c6495e6b7e58dfc5ae45cf4fff339bd891a9e04881b63a3ea",
             "receipt_root_sha256": REFERENCE_ROOT_SHA256,
             "input_sha256": "",
             "output_sha256": "",
@@ -1607,7 +1627,7 @@ def mutate_leaf(m: dict[str, Any], leaf: bytes) -> None:
 
 def self_test() -> int:
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-chain-fixture-") as td:
-        fx = load_fixture()
+        fx = load_fixture(Path(td) / "generated")
         base = make_manifest(fx)
         refresh_trust_anchor_appraisal(base)
         refresh_spki_binding(base)
