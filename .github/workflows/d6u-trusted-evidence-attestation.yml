@@ -193,7 +193,7 @@ jobs:
             test -s "$bundle"
 
             online_report="$retention_dir/$safe.online.json"
-            gh attestation verify "$subject"               --repo "$GITHUB_REPOSITORY"               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml"               --signer-digest "$GITHUB_WORKFLOW_SHA"               --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"               --cert-oidc-issuer "https://token.actions.githubusercontent.com"               --source-digest "$GITHUB_SHA"               --source-ref "$GITHUB_REF"               --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"               --deny-self-hosted-runners               --format=json > "$online_report"
+            gh attestation verify "$subject"               --repo "$GITHUB_REPOSITORY"               --limit 8               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml"               --signer-digest "$GITHUB_WORKFLOW_SHA"               --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"               --cert-oidc-issuer "https://token.actions.githubusercontent.com"               --source-digest "$GITHUB_SHA"               --source-ref "$GITHUB_REF"               --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"               --deny-self-hosted-runners               --format=json > "$online_report"
             test -s "$online_report"
 
             offline_report="$retention_dir/$safe.offline.json"
