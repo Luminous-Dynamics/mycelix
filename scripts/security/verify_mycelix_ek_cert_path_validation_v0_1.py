@@ -8,6 +8,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -179,8 +180,9 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-path-") as td:
         work = Path(td)
-        # Use OpenSSL's DER -> PEM conversion so generated PEM is unambiguous;
-        # the path verifier remains authoritative over the exact input DER.
+        # Encode the exact supplied DER bytes directly in PEM. OpenSSL therefore
+        # parses the same DER object whose digest was bound above, rather than a
+        # potentially re-serialized certificate emitted by an intermediate step.
         for name, raw in (
             ("leaf", leaf),
             ("intermediate", intermediate),
@@ -189,137 +191,100 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             der = work / f"{name}.der"
             pem = work / f"{name}.pem"
             der.write_bytes(raw)
-            proc = subprocess.run(
-                [openssl, "x509", "-inform", "DER", "-in", str(der), "-out", str(pem)],
-                cwd=work,
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=False,
+            pem.write_bytes(
+                b"-----BEGIN CERTIFICATE-----\n"
+                + base64.b64encode(raw)
+                + b"\n-----END CERTIFICATE-----\n"
             )
-            if proc.returncode != 0:
-                return result(
-                    "DENY",
-                    f"{name}-certificate-pem-conversion-failed",
-                    {"stderr": proc.stderr.strip(), "returncode": proc.returncode},
-                )
+            pem_lines = pem.read_bytes().splitlines()
+            if len(pem_lines) != 3 or base64.b64decode(pem_lines[1], validate=True) != raw:
+                return result("DENY", f"{name}-pem-der-binding-failed")
 
         (work / "crl-bundle.pem").write_bytes(crl_bundle)
-        version_proc = subprocess.run(
-            [openssl, "version"],
-            cwd=work,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-        if version_proc.returncode != 0:
-            return result(
-                "INDETERMINATE",
-                "openssl-version-unavailable",
-                {"stderr": version_proc.stderr.strip()},
-            )
-        openssl_version = version_proc.stdout.strip()
-        proc = subprocess.run(
-            [
-                openssl,
-                "verify",
-                "-CAfile",
-                str(work / "root.pem"),
-                "-untrusted",
-                str(work / "intermediate.pem"),
-                "-CRLfile",
-                str(work / "crl-bundle.pem"),
-                "-crl_check_all",
-                "-attime",
-                str(manifest["verification_time_unix"]),
-                str(work / "leaf.pem"),
-            ],
-            cwd=work,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-        details = {
-            "leaf_certificate_sha256": manifest["leaf_certificate_sha256"],
-            "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
-            "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
-            "crl_bundle_pem_sha256": manifest["crl_bundle_pem_sha256"],
-            "verification_time_unix": manifest["verification_time_unix"],
-            "policy_argv": policy_argv,
-            "openssl_path_basename": Path(openssl).name,
-            "openssl_version": openssl_version,
-            "returncode": proc.returncode,
-            "stdout_sha256": hashlib.sha256(proc.stdout.encode()).hexdigest(),
-            "stderr_sha256": hashlib.sha256(proc.stderr.encode()).hexdigest(),
-            "execution_binding_sha256": expected_binding,
-        }
-        if proc.returncode == 0:
-            return result("PASS", "certificate-path-validation-succeeded", details)
-        return result("DENY", "certificate-path-validation-failed", details)
 
 
 def self_test() -> int:
-    fixture = Path(__file__).resolve().parents[2] / "docs/security/fixtures/ek-chain-policy-v0.1"
-    paths = {
-        "leaf": fixture / "leaf.der",
-        "intermediate": fixture / "intermediate.der",
-        "root": fixture / "root.der",
-        "crl": fixture / "crl-bundle.pem",
-    }
-    if not all(path.is_file() for path in paths.values()):
-        print("EK path-validation fixture files: INDETERMINATE")
-        return 2
-    values = {name: path.read_bytes() for name, path in paths.items()}
-    manifest = {
-        "profile_id": PROFILE_ID,
-        "profile_version": PROFILE_VERSION,
-        "verification_mode": "ReferenceModelOnly",
-        "claim_ceiling": "ReferenceModelOnly",
-        "session_id": "ek-path-self-test",
-        "tpm_identity_digest": "55" * 32,
-        "leaf_certificate_der_base64": b64(values["leaf"]),
-        "leaf_certificate_sha256": hashlib.sha256(values["leaf"]).hexdigest(),
-        "intermediate_certificate_der_base64": b64(values["intermediate"]),
-        "intermediate_certificate_sha256": hashlib.sha256(values["intermediate"]).hexdigest(),
-        "trust_anchor_root_der_base64": b64(values["root"]),
-        "trust_anchor_root_sha256": hashlib.sha256(values["root"]).hexdigest(),
-        "crl_bundle_pem_base64": b64(values["crl"]),
-        "crl_bundle_pem_sha256": hashlib.sha256(values["crl"]).hexdigest(),
-        "verification_time_unix": 1791158400,
-    }
-    manifest["execution_binding_sha256"] = expected_input_binding(manifest)
-    observed = verify(manifest)
-    if observed["state"] not in {"PASS", "DENY", "INDETERMINATE"}:
-        print("canonical path-validation state: FAIL")
+    root = Path(__file__).resolve().parents[2]
+    generator = root / "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py"
+    recipe = root / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
+    if not generator.is_file() or not recipe.is_file():
+        print("EK path-validation generator provenance: FAIL")
         return 1
-    tampered = dict(manifest)
-    tampered["execution_binding_sha256"] = "aa" * 32
-    if verify(tampered)["state"] != "DENY":
-        print("execution-binding substitution: FAIL")
-        return 1
-    tampered = dict(manifest)
-    tampered["leaf_certificate_sha256"] = "bb" * 32
-    if verify(tampered)["state"] != "DENY":
-        print("certificate digest substitution: FAIL")
-        return 1
-    tampered = dict(manifest)
-    tampered["verification_time_unix"] += 1
-    if verify(tampered)["state"] != "DENY":
-        print("verification-time binding substitution: FAIL")
-        return 1
-    if observed["state"] == "PASS":
-        print("EK certificate path-validation semantic corpus: PASS")
-        print("explicit OpenSSL full-chain CRL policy: PASS")
-        return 0
-    if observed["state"] == "INDETERMINATE":
-        print("EK certificate path-validation semantic corpus: INDETERMINATE")
-        return 2
-    print("EK certificate path-validation semantic corpus: FAIL")
-    print(observed["reason"])
-    return 1
 
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-path-fixtures-") as td:
+        fixture = Path(td)
+        proc = subprocess.run(
+            [sys.executable, str(generator), "--recipe", str(recipe), "--output-dir", str(fixture), "--check"],
+            cwd=fixture, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        if proc.returncode != 0:
+            print("EK path-validation deterministic fixture generation: FAIL")
+            print(proc.stderr or proc.stdout)
+            return 1
+
+        paths = {
+            "leaf": fixture / "leaf.der",
+            "intermediate": fixture / "intermediate.der",
+            "root": fixture / "root.der",
+            "crl": fixture / "crl-bundle.pem",
+        }
+        if not all(path.is_file() for path in paths.values()):
+            print("EK path-validation generated fixture set: FAIL")
+            return 1
+        values = {name: path.read_bytes() for name, path in paths.items()}
+
+        manifest = {
+            "profile_id": PROFILE_ID,
+            "profile_version": PROFILE_VERSION,
+            "verification_mode": "ReferenceModelOnly",
+            "claim_ceiling": "ReferenceModelOnly",
+            "session_id": "ek-path-self-test",
+            "tpm_identity_digest": "55" * 32,
+            "leaf_certificate_der_base64": b64(values["leaf"]),
+            "leaf_certificate_sha256": hashlib.sha256(values["leaf"]).hexdigest(),
+            "intermediate_certificate_der_base64": b64(values["intermediate"]),
+            "intermediate_certificate_sha256": hashlib.sha256(values["intermediate"]).hexdigest(),
+            "trust_anchor_root_der_base64": b64(values["root"]),
+            "trust_anchor_root_sha256": hashlib.sha256(values["root"]).hexdigest(),
+            "crl_bundle_pem_base64": b64(values["crl"]),
+            "crl_bundle_pem_sha256": hashlib.sha256(values["crl"]).hexdigest(),
+            "verification_time_unix": 1791158400,
+        }
+        manifest["execution_binding_sha256"] = expected_input_binding(manifest)
+        observed = verify(manifest)
+        if observed["state"] not in {"PASS", "DENY", "INDETERMINATE"}:
+            print("canonical path-validation state: FAIL")
+            return 1
+
+        tampered = dict(manifest)
+        tampered["execution_binding_sha256"] = "aa" * 32
+        if verify(tampered)["state"] != "DENY":
+            print("execution-binding substitution: FAIL")
+            return 1
+
+        tampered = dict(manifest)
+        tampered["leaf_certificate_sha256"] = "bb" * 32
+        if verify(tampered)["state"] != "DENY":
+            print("certificate digest substitution: FAIL")
+            return 1
+
+        tampered = dict(manifest)
+        tampered["verification_time_unix"] += 1
+        if verify(tampered)["state"] != "DENY":
+            print("verification-time binding substitution: FAIL")
+            return 1
+
+        if observed["state"] == "PASS":
+            print("EK certificate path-validation semantic corpus: PASS")
+            print("explicit OpenSSL full-chain CRL policy: PASS")
+            print("exact DER-to-OpenSSL PEM binding: PASS")
+            return 0
+        if observed["state"] == "INDETERMINATE":
+            print("EK certificate path-validation semantic corpus: INDETERMINATE")
+            return 2
+        print("EK certificate path-validation semantic corpus: FAIL")
+        print(observed["reason"])
+        return 1
 
 def main() -> int:
     parser = argparse.ArgumentParser()
