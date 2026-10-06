@@ -356,26 +356,6 @@
       "id": "EKC-V45",
       "mutation": "path-verifier-execution-binding-substitution",
       "expected": "DENY"
-    },
-    {
-      "id": "EKC-V46",
-      "mutation": "duplicate-extensions-wrapper",
-      "expected": "DENY"
-    },
-    {
-      "id": "EKC-V47",
-      "mutation": "explicit-false-extension-critical-boolean",
-      "expected": "DENY"
-    },
-    {
-      "id": "EKC-V48",
-      "mutation": "non-canonical-oid-or-integer-encoding",
-      "expected": "DENY"
-    },
-    {
-      "id": "EKC-V49",
-      "mutation": "tcg-san-missing-or-structurally-incomplete",
-      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -472,5 +452,33 @@
     ],
     "conditional_pqc_requirements": "EKCredentialAlgorithmList and TPMPQCVersion are intentionally outside this v0.1 reference theorem because their correctness depends on issuer-issued PQC credentials and firmware-at-manufacturing/current-firmware evidence not present in this synthetic reference fixture.",
     "claim_ceiling": "ReferenceModelOnly"
-  }
+  },
+  "parser_structural_controls": [
+    {
+      "id": "EKC-S01",
+      "control": "duplicate-extension-wrapper",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S02",
+      "control": "explicit-false-extension-critical-boolean",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S03",
+      "control": "non-canonical-oid-encoding",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S04",
+      "control": "non-canonical-integer-encoding",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S05",
+      "control": "tcg-san-missing-or-structurally-incomplete",
+      "expected": "DENY"
+    }
+  ],
+  "parser_structural_control_count": 5
 }
