@@ -57,6 +57,45 @@ impl core::fmt::Display for Currency {
 }
 
 // =============================================================================
+// GOVERNANCE MEMBERSHIP WITNESSES
+// =============================================================================
+
+/// Immutable governance-membership witness.
+///
+/// Hashes are stored as their canonical 36-byte HoloHash payloads so this
+/// dependency-free types crate remains usable by both HDI integrity and HDK
+/// coordinator zomes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernanceAgentRegistration {
+    /// Agent granted governance membership.
+    ///
+    /// Must contain exactly 36 raw bytes for an AgentPubKey.
+    pub registered_agent: Vec<u8>,
+
+    /// Prior governance registration witness that authorized this registration.
+    ///
+    /// A missing predecessor is reserved for the deployment-scoped DNA bootstrap
+    /// root. A present predecessor must contain exactly 36 raw bytes for an ActionHash.
+    pub predecessor_registration: Option<Vec<u8>>,
+}
+
+impl GovernanceAgentRegistration {
+    pub const HASH_BYTES: usize = 36;
+
+    pub fn validate_shape(&self) -> Result<(), &'static str> {
+        if self.registered_agent.len() != Self::HASH_BYTES {
+            return Err("registered_agent must be exactly 36 bytes");
+        }
+        if let Some(predecessor) = &self.predecessor_registration {
+            if predecessor.len() != Self::HASH_BYTES {
+                return Err("predecessor_registration must be exactly 36 bytes");
+            }
+        }
+        Ok(())
+    }
+}
+
+// =============================================================================
 // FEE TIERS
 // =============================================================================
 
@@ -1216,6 +1255,34 @@ pub const HEARTH_MAX_MEMBERS: u32 = 50;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn governance_registration_witness_shape_contract() {
+        let valid = GovernanceAgentRegistration {
+            registered_agent: vec![1; 36],
+            predecessor_registration: None,
+        };
+        assert!(valid.validate_shape().is_ok());
+
+        let valid_successor = GovernanceAgentRegistration {
+            registered_agent: vec![2; 36],
+            predecessor_registration: Some(vec![3; 36]),
+        };
+        assert!(valid_successor.validate_shape().is_ok());
+
+        let invalid_agent = GovernanceAgentRegistration {
+            registered_agent: vec![1; 35],
+            predecessor_registration: None,
+        };
+        assert!(invalid_agent.validate_shape().is_err());
+
+        let invalid_predecessor = GovernanceAgentRegistration {
+            registered_agent: vec![1; 36],
+            predecessor_registration: Some(vec![3; 35]),
+        };
+        assert!(invalid_predecessor.validate_shape().is_err());
+    }
+
 
     #[test]
     fn test_currency_display() {
