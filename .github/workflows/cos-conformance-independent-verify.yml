@@ -278,8 +278,7 @@ jobs:
         id: execution_artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}
-          digest-mismatch: error
+          name: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
           path: evidence/
           if-no-files-found: warn
           retention-days: 30
@@ -301,7 +300,8 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}
+          digest-mismatch: error
           path: evidence
 
       - name: Validate live PR binding and raw evidence
