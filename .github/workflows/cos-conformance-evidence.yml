@@ -199,7 +199,7 @@ jobs:
           esac
           cat > evidence/run-envelope.json <<JSON
           {
-            "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1",
+            "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V2",
             "claim_ceiling": "ReferenceModelOnly",
             "repository": "$TARGET_REPOSITORY",
             "trigger_sha": "$TRIGGER_SHA",
@@ -238,7 +238,7 @@ jobs:
           git_sha_re = re.compile(r"^[0-9a-f]{40}$")
           sha256_re = re.compile(r"^[0-9a-f]{64}$")
 
-          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1"
+          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-EVIDENCE-V2"
           assert envelope["claim_ceiling"] == "ReferenceModelOnly"
           assert envelope["workflow_action_refs"]
           assert all(git_sha_re.fullmatch(sha) for sha in envelope["workflow_action_refs"].values())
