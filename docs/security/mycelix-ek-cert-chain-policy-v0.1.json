@@ -96,14 +96,17 @@
     "certificate_extension_uniqueness": "a given X.509 extension OID may occur at most once",
     "authority_information_access": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
     "crl_distribution": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
-    "subject_directory_attributes": "if present, MUST be non-critical"
+    "subject_directory_attributes": "if present, MUST be non-critical",
+    "subject_alt_name": "MUST be present; exact DER GeneralNames must include a directoryName containing exactly one TCG manufacturer, model/part-number, and firmware-version attribute; manufacturer and firmware attributes use the TCG id: form",
+    "subject_key_identifier": "if present, MUST be non-critical",
+    "der_canonicality": "certificate outer structure, unique-ID/Extensions wrapper cardinality, INTEGER encodings, OID base-128 encodings, BIT STRING padding, and extension critical BOOLEAN encodings are validated from exact DER"
   },
   "forbidden_inputs": [
     "profile_override",
     "caller-supplied certificate criticality overrides"
   ],
   "authorization_rules": {
-    "trust_anchor_source": "trust_anchor_source_sha256 must equal SHA-256(canonical JSON {source_tag: synthetic-ek-root-fixture-v0.1, root_sha256: trust_anchor_root_sha256}) for the reference fixture",
+    "trust_anchor_source": "trust_anchor_source_sha256 must equal SHA-256(canonical JSON {source_tag: mycelix.synthetic-ek-root.v0.1, root_sha256: trust_anchor_root_sha256}) for the reproducible synthetic reference fixture",
     "root_authority": "the synthetic root is authorized only inside ReferenceModelOnly; a physical deployment must replace this with independently authorized real-root provenance"
   },
   "non_equivalences": [
@@ -353,24 +356,46 @@
       "id": "EKC-V45",
       "mutation": "path-verifier-execution-binding-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V46",
+      "mutation": "duplicate-extensions-wrapper",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V47",
+      "mutation": "explicit-false-extension-critical-boolean",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V48",
+      "mutation": "non-canonical-oid-or-integer-encoding",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V49",
+      "mutation": "tcg-san-missing-or-structurally-incomplete",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
-    "root_sha256": "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab",
-    "intermediate_sha256": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
-    "leaf_sha256": "7448f84d763c2bee017ff33e18f1679b73f6db3f96bcfe2793c4b607b20a048b",
-    "bad_usage_sha256": "526a43a655e5a46d7e9176281a96820c4d15d932d0a18be507300d11d8598e9f",
-    "bad_eku_sha256": "45c32aac3237eabe9cecdc38cb9d49c359e52d9d68deacf62aee8d30c44ab62c",
-    "crl_bundle_pem_sha256": "6e0e1ea27ae4b5933d40e54368a8618a7aee98b45011962029a131c11b323abb",
+    "root_sha256": "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556",
+    "intermediate_sha256": "9c92d8c6362a2fbe24a324c36f525bec0c0619cb7527e68456d72189ac6fdfb8",
+    "leaf_sha256": "688094a4c40bc27deccb9932a18e417889fe56854fb91d31655de43f947d157b",
+    "bad_usage_sha256": "deb8f4f3f7dfd6ebb05fc6a68cca96a1ba8892e9f61f5c411180658e19d3b159",
+    "bad_eku_sha256": "cbfb90ff5a855dbd999364178eb06989cc82daebba20c2dc31af7c02c3c0986b",
+    "crl_bundle_pem_sha256": "a5e4ab922a3d434f4c61e8f17fee24d53fb24f00c9ebc4132a8d6d88bf4a75ab",
     "verification_time_unix": 1791158400,
     "fixture_paths": [
-      "docs/security/fixtures/ek-chain-policy-v0.1/root.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/intermediate.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/leaf.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/bad-usage.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/bad-eku.der",
-      "docs/security/fixtures/ek-chain-policy-v0.1/crl-bundle.pem"
-    ]
+      "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json",
+      "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py"
+    ],
+    "generation_mode": "deterministic-generated-synthetic",
+    "recipe_path": "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json",
+    "generator_path": "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py",
+    "recipe_sha256": "9cb907f524e35e71be005f9fdbfad450e218ec1d2423bb5e79f052d8753c4d47",
+    "previous_frozen_fixture_status": "not-recoverable-from-Git-history; not fabricated",
+    "generator_contract": "generator --recipe fixture-recipe-v0.1.json --output-dir <temp> --check"
   },
   "required_input_trust_anchor_appraisal": [
     "state",
@@ -439,8 +464,11 @@
       "Authority Key Identifier mandatory and non-critical",
       "AIA and CRL Distribution non-critical when present",
       "Subject Directory Attributes non-critical when present",
+      "SubjectAltName present with structurally parsed TCG manufacturer/model/firmware directory attributes",
+      "Subject Key Identifier non-critical when present",
       "exact RSA-2048 TPMT_PUBLIC modulus structure for L-1",
-      "exact RSA certificate SPKI rsaEncryption AlgorithmIdentifier parameters"
+      "exact RSA certificate SPKI rsaEncryption AlgorithmIdentifier parameters",
+      "canonical DER certificate structure including unique Extensions wrapper and primitive canonicality checks"
     ],
     "conditional_pqc_requirements": "EKCredentialAlgorithmList and TPMPQCVersion are intentionally outside this v0.1 reference theorem because their correctness depends on issuer-issued PQC credentials and firmware-at-manufacturing/current-firmware evidence not present in this synthetic reference fixture.",
     "claim_ceiling": "ReferenceModelOnly"
