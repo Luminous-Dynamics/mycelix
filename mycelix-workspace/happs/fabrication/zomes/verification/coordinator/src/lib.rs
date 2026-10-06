@@ -451,7 +451,7 @@ fn create_fpm_attestation_challenge_impl(
 fn create_fpm_source_attestation_anchor_impl(
     input: CreateFpmSourceAttestationAnchorInput,
 ) -> ExternResult<Record> {
-    let challenge = resolve_fpm_attestation_challenge(
+    let challenge = resolve_fpm_attestation_challenge_impl(
         ResolveFpmAttestationChallengeInput {
             action_hash: input.challenge_action.clone(),
         },
@@ -529,7 +529,7 @@ fn create_fpm_source_attestation_anchor_impl(
 fn qualify_fpm_source_attestation_impl(
     input: QualifyFpmSourceAttestationInput,
 ) -> ExternResult<FpmSourceAttestationQualificationResult> {
-    let challenge = resolve_fpm_attestation_challenge(
+    let challenge = resolve_fpm_attestation_challenge_impl(
         ResolveFpmAttestationChallengeInput {
             action_hash: input.challenge_action.clone(),
         },
