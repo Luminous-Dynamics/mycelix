@@ -30,7 +30,7 @@ const DID_METHOD_PREFIX: &str = "did:mycelix:";
 /// Maximum length for a DID string
 const MAX_DID_LENGTH: usize = 256;
 
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
+fn verify_governance() -> ExternResult<()> {
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
@@ -507,7 +507,7 @@ pub fn update_mycel_score(input: UpdateMycelInput) -> ExternResult<MemberMycelSt
 /// Restricted to authorized governance agents (or any agent during bootstrap).
 #[hdk_extern]
 pub fn jubilee_normalize(member_did: String) -> ExternResult<MemberMycelState> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
     if member_did.is_empty() || member_did.len() > MAX_DID_LENGTH {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Member DID must be 1-256 characters".into()
@@ -541,7 +541,7 @@ pub fn jubilee_normalize(member_did: String) -> ExternResult<MemberMycelState> {
 /// Restricted to authorized governance agents (or any agent during bootstrap).
 #[hdk_extern]
 pub fn dissolve_mycel(member_did: String) -> ExternResult<()> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
     if member_did.is_empty() || member_did.len() > MAX_DID_LENGTH {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Member DID must be 1-256 characters".into()
@@ -590,7 +590,7 @@ pub fn dissolve_mycel(member_did: String) -> ExternResult<()> {
 /// Restricted to authorized governance agents (or any agent during bootstrap).
 #[hdk_extern]
 pub fn apply_passive_decay(member_did: String) -> ExternResult<MemberMycelState> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
     if member_did.is_empty() || member_did.len() > MAX_DID_LENGTH {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Member DID must be 1-256 characters".into()
