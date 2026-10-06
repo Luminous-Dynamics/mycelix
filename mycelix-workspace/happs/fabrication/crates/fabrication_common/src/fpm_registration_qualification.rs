@@ -15,6 +15,10 @@ use crate::fpm_registration::{
 pub const FPM_STRUCTURAL_QUALIFICATION_SCHEMA_VERSION: &str = "fpm.registration.qualification.v1";
 pub const FPM_STRUCTURAL_QUALIFICATION_PROFILE_ID: &str = "fpm.registration.structure";
 pub const FPM_STRUCTURAL_QUALIFICATION_PROFILE_VERSION: &str = "1";
+/// Current Rust-local digest profile; not yet a cross-language canonical encoding.
+pub const FPM_REGISTRATION_DIGEST_PROFILE_ID: &str = "sha256:serde-json:fpm.registration.v1";
+pub const FPM_QUALIFICATION_DIGEST_PROFILE_ID: &str =
+    "sha256:serde-json:fpm.registration.qualification.v1";
 const SHA256_HEX_LEN: usize = 64;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,6 +36,8 @@ pub struct StructuralQualification {
     /// Holochain agent identity of the verifier that authored this statement.
     pub verifier: AgentPubKey,
     pub registration_schema_version: String,
+    pub registration_digest_profile: String,
+    pub qualification_digest_profile: String,
     pub registration_digest: String,
     pub registration_state: RegistrationState,
     pub outcome: StructuralQualificationOutcome,
@@ -113,6 +119,8 @@ pub fn qualify_registration_structure(
         profile_version: FPM_STRUCTURAL_QUALIFICATION_PROFILE_VERSION.into(),
         verifier: verifier.clone(),
         registration_schema_version: registration.schema_version.clone(),
+        registration_digest_profile: FPM_REGISTRATION_DIGEST_PROFILE_ID.into(),
+        qualification_digest_profile: FPM_QUALIFICATION_DIGEST_PROFILE_ID.into(),
         registration_digest,
         registration_state: state,
         outcome: outcome_for(state),
@@ -124,6 +132,7 @@ pub fn qualify_registration_structure(
 
 impl StructuralQualification {
     /// Recompute the content digest with the stored digest field excluded.
+    /// The exact digest profile is carried in the qualification for auditability.
     pub fn digest(&self) -> Result<String, QualificationError> {
         qualification_digest(self)
     }
