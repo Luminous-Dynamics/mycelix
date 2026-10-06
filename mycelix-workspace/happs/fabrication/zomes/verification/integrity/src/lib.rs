@@ -419,6 +419,7 @@ fn validate_fpm_attestation_challenge(
         ));
     }
     if !valid_attestation_identifier(&challenge.subject_id, 128)
+        || !valid_attestation_identifier(&challenge.attestation_format, 128)
         || !canonical_attestation_digest(&challenge.acquisition_root_digest)
         || !canonical_attestation_digest(&challenge.verifier_profile_digest)
         || !canonical_attestation_digest(&challenge.appraisal_policy_digest)
