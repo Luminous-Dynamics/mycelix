@@ -1075,11 +1075,88 @@ def parse_crl_der_for_crypto(der: bytes) -> dict[str, Any]:
     }
 
 
+def validate_crl_semantics(
+    crls: dict[str, dict[str, Any]],
+    issuers: dict[str, dict[str, Any]],
+    expected: dict[str, Any],
+    verification_time_unix: int,
+) -> dict[str, Any]:
+    if not isinstance(expected, dict) or set(expected) != {"root", "intermediate"}:
+        raise ValueError("reference CRL semantics must contain root and intermediate")
+    if verification_time_unix < 0:
+        raise ValueError("verification time must be non-negative")
+    chain_serials = {issuers["leaf"]["serial"], issuers["intermediate"]["serial"], issuers["root"]["serial"]}
+    observed: dict[str, Any] = {}
+    for label in ("root", "intermediate"):
+        crl = crls[label]
+        spec = expected[label]
+        if crl["this_update"]["unix"] > verification_time_unix or verification_time_unix >= crl["next_update"]["unix"]:
+            raise ValueError(f"{label} CRL outside exact modeled validity window")
+        expected_number = int(spec["crl_number"])
+        if crl["crl_number"] != expected_number:
+            raise ValueError(f"{label} cRLNumber does not match committed recipe")
+        if crl["this_update"]["text"] != str(spec["this_update"]) or crl["next_update"]["text"] != str(spec["next_update"]):
+            raise ValueError(f"{label} CRL time values do not match committed recipe")
+        signer_ski = issuers[label]["subject_key_identifier"]
+        if not signer_ski or crl["authority_key_identifier"] != signer_ski:
+            raise ValueError(f"{label} CRL AuthorityKeyIdentifier does not match signer SubjectKeyIdentifier")
+        expected_entries = spec["revoked_entries"]
+        if not isinstance(expected_entries, list) or len(crl["revoked_entries"]) != len(expected_entries):
+            raise ValueError(f"{label} CRL revoked-entry count mismatch")
+        entries = []
+        seen_serials = set()
+        previous_serial = 0
+        for observed_entry, expected_entry in zip(crl["revoked_entries"], expected_entries, strict=True):
+            serial = observed_entry["serial"]
+            if serial <= previous_serial or serial in seen_serials:
+                raise ValueError(f"{label} CRL revoked serials are not strictly increasing and unique")
+            previous_serial = serial
+            seen_serials.add(serial)
+            if serial in chain_serials:
+                raise ValueError(f"{label} CRL revokes an active chain certificate")
+            reason_ext = observed_entry["extensions"].get("2.5.29.21")
+            if reason_ext is None or reason_ext["critical"]:
+                raise ValueError(f"{label} CRL reasonCode missing or critical")
+            if set(observed_entry["extensions"]) != {"2.5.29.21"}:
+                raise ValueError(f"{label} CRL entry extension set mismatch")
+            reason_tag, reason_content, _reason_raw, reason_end = der_tlv(reason_ext["extn_value"], 0)
+            if reason_tag != 0x0A or reason_end != len(reason_ext["extn_value"]) or not reason_content:
+                raise ValueError(f"{label} CRL reasonCode malformed")
+            if len(reason_content) > 1 and reason_content[0] == 0:
+                raise ValueError(f"{label} CRL reasonCode non-canonical")
+            reason = int.from_bytes(reason_content, "big")
+            if reason != int(expected_entry["reason_code"]):
+                raise ValueError(f"{label} CRL reasonCode mismatch")
+            if observed_entry["revocation_date"]["text"] != str(expected_entry["revocation_date"]):
+                raise ValueError(f"{label} revocationDate mismatch")
+            if observed_entry["revocation_date"]["unix"] > crl["this_update"]["unix"]:
+                raise ValueError(f"{label} revocationDate after thisUpdate")
+            entries.append({
+                "entry_identity_sha256": observed_entry["entry_identity_sha256"],
+                "serial": serial,
+                "revocation_date": observed_entry["revocation_date"]["text"],
+                "reason_code": reason,
+            })
+        observed[label] = {
+            "object_sha256": crl["object_sha256"],
+            "tbs_sha256": crl["tbs_sha256"],
+            "this_update": crl["this_update"]["text"],
+            "next_update": crl["next_update"]["text"],
+            "crl_number": crl["crl_number"],
+            "authority_key_identifier_sha256": hashlib.sha256(crl["authority_key_identifier"]).hexdigest(),
+            "issuer_object_sha256": issuers[label]["object_sha256"],
+            "revoked_entries": entries,
+        }
+    return observed
+
+
 def cryptographic_binding_receipt(
     leaf: dict[str, Any],
     intermediate: dict[str, Any],
     root: dict[str, Any],
     crl_bundle: bytes,
+    expected_crl_semantics: dict[str, Any],
+    verification_time_unix: int,
 ) -> dict[str, Any]:
     if leaf["issuer_der"] != intermediate["subject_der"]:
         raise ValueError("leaf issuer does not exactly match intermediate subject")
@@ -1110,6 +1187,7 @@ def cryptographic_binding_receipt(
             "self_signed": self_signed,
         }
 
+    parsed_crls: dict[str, dict[str, Any]] = {}
     crl_signatures: dict[str, dict[str, Any]] = {}
     seen_crl: set[str] = set()
     blocks = split_pem_crls(crl_bundle)
@@ -1128,8 +1206,7 @@ def cryptographic_binding_receipt(
             raise ValueError("CRL issuer does not exactly match one chain issuer subject")
         label, issuer = matches[0]
         check = rsa_sha256_verify(entry["tbs_der"], entry["signature_der"], issuer["spki_der"])
-        if label in crl_signatures:
-            raise ValueError(f"duplicate CRL issuer: {label}")
+        parsed_crls[label] = entry
         crl_signatures[label] = {
             "object_sha256": entry["object_sha256"],
             "pem_block_sha256": hashlib.sha256(block).hexdigest(),
@@ -1145,19 +1222,29 @@ def cryptographic_binding_receipt(
         }
     if set(crl_signatures) != {"root", "intermediate"}:
         raise ValueError("CRL bundle must contain exactly one CRL for root and intermediate")
-
+    crl_semantics = validate_crl_semantics(
+        parsed_crls,
+        {"root": root, "intermediate": intermediate, "leaf": leaf},
+        expected_crl_semantics,
+        verification_time_unix,
+    )
     return {
         "verifier_id": CRYPTO_BINDING_ID,
         "verifier_source_sha256": sha256_file(Path(__file__)),
         "state": "PASS",
         "certificate_signatures": certificate_signatures,
         "crl_signatures": crl_signatures,
+        "crl_semantics_sha256": canonical_hash(expected_crl_semantics),
+        "crl_semantics": crl_semantics,
         "exact_relationships": {
             "leaf_to_intermediate_subject_exact": True,
             "intermediate_to_root_subject_exact": True,
             "root_self_issued_exact": True,
             "root_crl_issuer_exact": True,
             "intermediate_crl_issuer_exact": True,
+            "crl_aki_to_signer_ski_exact": True,
+            "crl_times_to_verification_time_exact": True,
+            "crl_revocation_entries_exact": True,
         },
         "exact_input_objects": {
             "leaf_certificate_sha256": leaf["object_sha256"],
