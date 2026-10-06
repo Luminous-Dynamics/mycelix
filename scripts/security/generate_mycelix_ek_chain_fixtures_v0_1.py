@@ -261,8 +261,8 @@ def certificate(
 def crl_entry(serial: int, revocation_date: str, reason_code: int) -> bytes:
     if serial <= 0:
         raise ValueError("CRL revoked serial must be positive")
-    if reason_code not in {0, 1, 2, 3, 4, 5, 6, 9, 10}:
-        raise ValueError("unsupported reference CRLReason")
+    if reason_code not in {0, 1, 2, 3, 4, 5, 6, 8, 9, 10}:
+        raise ValueError("unsupported RFC 5280 CRLReason")
     if reason_code == 8:
         raise ValueError("removeFromCRL requires unsupported delta CRL semantics")
     reason_extension = extension(
