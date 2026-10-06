@@ -105,7 +105,7 @@ jobs:
           quote_key = json.loads(Path("docs/security/mycelix-ak-quote-key-binding-v0.1.json").read_text())
           assert quote_key["profile_id"] == "mycelix.security.tpm.ak-quote-key-binding"
           assert quote_key["claim_ceiling"] == "ReferenceModelOnly"
-          assert len(quote_key["vectors"]) == 16
+          assert len(quote_key["vectors"]) == 17
           san_binding = json.loads(Path("docs/security/mycelix-ek-cert-san-identity-binding-v0.1.json").read_text())
           assert san_binding["profile_id"] == "mycelix.security.tpm.ek-cert-san-identity-binding"
           assert san_binding["claim_ceiling"] == "ReferenceModelOnly"
