@@ -28,6 +28,15 @@ pub enum FederationExternalVerificationPolicyDecision {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationExternalVerificationPolicyAdmissionViolation {
+    RejectedClaim,
+    VerifierSchemaTooOld,
+    VerifierProfileNotAdmitted,
+    VerificationClaimNotAdmitted,
+    PolicyInvalid(FederationExternalVerificationTrustPolicyViolation),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationExternalVerificationTrustPolicyViolation {
     UnsupportedSchemaVersion,
     UnsupportedPolicyProfile,
@@ -37,6 +46,7 @@ pub enum FederationExternalVerificationTrustPolicyViolation {
     EmptyVerifierProfileEntry,
     NoAcceptedVerifierProfiles,
     AcceptedClaimsContainRejected,
+    DuplicateAcceptedClaim,
     NoAcceptedClaims,
 }
 
@@ -112,6 +122,11 @@ impl FederationExternalVerificationTrustPolicyV1 {
         {
             return Err(FederationExternalVerificationTrustPolicyViolation::AcceptedClaimsContainRejected);
         }
+        if self.accepted_claims.iter().collect::<BTreeSet<_>>().len()
+            != self.accepted_claims.len()
+        {
+            return Err(FederationExternalVerificationTrustPolicyViolation::DuplicateAcceptedClaim);
+        }
         Ok(())
     }
 
@@ -166,17 +181,33 @@ impl FederationExternalVerificationTrustPolicyV1 {
 }
 
 impl FederationStateMachineTraceExternalEvidenceVerificationResult {
-    pub(crate) fn admit_under_policy(
+    pub fn admit_under_policy(
         &self,
         policy: &FederationExternalVerificationTrustPolicyV1,
-    ) -> Result<FederationExternalVerificationPolicyAdmissionV1, FederationExternalVerificationTrustPolicyViolation> {
-        if policy.classify(self.verifier_schema_version(), self.verifier_profile(), self.claim())?
-            != FederationExternalVerificationPolicyDecision::Admitted
-        {
-            return Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedPolicyProfile);
+    ) -> Result<FederationExternalVerificationPolicyAdmissionV1, FederationExternalVerificationPolicyAdmissionViolation> {
+        let decision = policy
+            .classify(self.verifier_schema_version(), self.verifier_profile(), self.claim())
+            .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?;
+        match decision {
+            FederationExternalVerificationPolicyDecision::Admitted => {}
+            FederationExternalVerificationPolicyDecision::RejectedClaim => {
+                return Err(FederationExternalVerificationPolicyAdmissionViolation::RejectedClaim);
+            }
+            FederationExternalVerificationPolicyDecision::VerifierSchemaTooOld => {
+                return Err(FederationExternalVerificationPolicyAdmissionViolation::VerifierSchemaTooOld);
+            }
+            FederationExternalVerificationPolicyDecision::VerifierProfileNotAdmitted => {
+                return Err(FederationExternalVerificationPolicyAdmissionViolation::VerifierProfileNotAdmitted);
+            }
+            FederationExternalVerificationPolicyDecision::VerificationClaimNotAdmitted => {
+                return Err(FederationExternalVerificationPolicyAdmissionViolation::VerificationClaimNotAdmitted);
+            }
         }
+
         Ok(FederationExternalVerificationPolicyAdmissionV1 {
-            policy_sha256: policy.policy_sha256()?,
+            policy_sha256: policy
+                .policy_sha256()
+                .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?,
             verifier_profile: self.verifier_profile().into(),
             verifier_schema_version: self.verifier_schema_version(),
             claim: self.claim(),
@@ -2237,6 +2268,44 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn external_verification_policy_admission_preserves_exact_denial_reason() {
+        let policy = FederationExternalVerificationTrustPolicyV1::try_new(
+            2,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("policy must build");
+
+        let denied_schema = FederationExternalVerificationTrustPolicyV1::try_new(
+            2,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("policy must build");
+
+        assert_eq!(
+            policy.classify(
+                1,
+                "rfc3161-verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            ),
+            Ok(FederationExternalVerificationPolicyDecision::VerifierSchemaTooOld)
+        );
+        assert_eq!(
+            policy.classify(
+                2,
+                "rfc3161-verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::Rejected,
+            ),
+            Ok(FederationExternalVerificationPolicyDecision::RejectedClaim)
+        );
+        assert_eq!(
+            denied_schema.policy_sha256().unwrap(),
+            policy.policy_sha256().unwrap()
+        );
+    }
 
     #[test]
     fn external_verification_policy_is_explicit_and_fail_closed() {
