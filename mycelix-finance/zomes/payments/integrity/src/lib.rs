@@ -1484,6 +1484,15 @@ fn validate_update_sap_balance(
             ));
         }
     } else if bal.balance < original.balance {
+        // All current negative SAP paths are owner-authorized source-chain actions.
+        // Requiring the debit transition itself to be authored by the account owner
+        // prevents a valid provenance witness from being replayed by another agent.
+        if did_for_author(action.author()) != bal.member_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP balance decrease must be authored by the account owner".into(),
+            ));
+        }
+
         let delta = original.balance - bal.balance;
         let Some(justification_hash) = bal.justified_by.clone() else {
             return Ok(ValidateCallbackResult::Invalid(
