@@ -4264,7 +4264,7 @@ mod tests {
     /// verify the exact binding of the statement to the anchor reference and
     /// verifier-report bytes, but it does not verify the external claim itself.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    enum FederationStateMachineTraceExternalVerificationClaim {
+    pub enum FederationStateMachineTraceExternalVerificationClaim {
         CryptographicSignatureVerified,
         TimestampTokenVerified,
         TransparencyConsistencyVerified,
