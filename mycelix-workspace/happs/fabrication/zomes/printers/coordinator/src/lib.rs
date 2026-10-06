@@ -235,6 +235,7 @@ pub fn get_printer(hash: ActionHash) -> ExternResult<Option<Record>> {
 /// Update a printer
 #[hdk_extern]
 pub fn update_printer(input: UpdatePrinterInput) -> ExternResult<Record> {
+    rate_limit_caller()?;
     let original = get(input.original_action_hash.clone(), GetOptions::default())?
         .ok_or(FabricationError::not_found("Printer", &input.original_action_hash))?;
 
@@ -289,6 +290,7 @@ pub fn update_printer(input: UpdatePrinterInput) -> ExternResult<Record> {
 /// Deactivate a printer (marks as offline)
 #[hdk_extern]
 pub fn deactivate_printer(hash: ActionHash) -> ExternResult<ActionHash> {
+    rate_limit_caller()?;
     let printer_record = get(hash.clone(), GetOptions::default())?
         .ok_or(FabricationError::not_found("Printer", &hash))?;
 
@@ -737,6 +739,7 @@ pub struct UpdateAvailabilityInput {
 
 #[hdk_extern]
 pub fn update_availability(input: UpdateAvailabilityInput) -> ExternResult<Record> {
+    rate_limit_caller()?;
     let printer_record = get(input.printer_hash.clone(), GetOptions::default())?
         .ok_or(FabricationError::not_found("Printer", &input.printer_hash))?;
 
