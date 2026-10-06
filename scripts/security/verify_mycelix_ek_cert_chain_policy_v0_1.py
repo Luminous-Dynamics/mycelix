@@ -788,6 +788,9 @@ def leaf_profile_ok(info: dict[str, Any], expected_tpm: dict[str, Any] | None = 
         "subject_alt_name_directory_name_count": san["directory_name_count"],
         "subject_alt_name_tcg_attributes": san["attributes"],
         "subject_alt_name_critical": san_critical,
+        "reference_tpm_manufacturer": expected_tpm["manufacturer"],
+        "reference_tpm_model": expected_tpm["model"],
+        "reference_tpm_version": expected_tpm["version"],
         "subject_alt_name_criticality_ok": (
             (info["subject_empty"] and san_critical)
             or (not info["subject_empty"] and not san_critical)
@@ -802,12 +805,21 @@ def leaf_profile_ok(info: dict[str, Any], expected_tpm: dict[str, Any] | None = 
     aki_critical_ok = not aki_critical
     tcg_san_oids = {"2.23.133.2.1", "2.23.133.2.2", "2.23.133.2.3"}
     san_attrs = san["attributes"]
+    expected_san_values = {
+        "2.23.133.2.1": "id:" + format(expected_tpm["manufacturer"], "08X"),
+        "2.23.133.2.2": expected_tpm["model"],
+        "2.23.133.2.3": "id:" + expected_tpm["version"],
+    }
+    san_values_ok = all(
+        san_attrs.get(oid, []) == [value] for oid, value in expected_san_values.items()
+    )
     san_ok = (
         san["present"]
         and san["directory_name_count"] >= 1
         and all(len(san_attrs.get(oid, [])) == 1 for oid in tcg_san_oids)
         and san_attrs["2.23.133.2.1"][0].startswith("id:")
         and san_attrs["2.23.133.2.3"][0].startswith("id:")
+        and san_values_ok
         and (
             (info["subject_empty"] and san_critical)
             or (not info["subject_empty"] and not san_critical)
