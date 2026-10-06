@@ -42,7 +42,7 @@ impl ModalityObservationRef {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum AlignmentMethod {
-    ExactSequence,
+    ExactCorrelationId,
     ExactSourceTimestampMicros,
     DeclaredClockTransform { transform_digest: String },
     ExternalRegistrationEvidence { evidence_digest: String },
