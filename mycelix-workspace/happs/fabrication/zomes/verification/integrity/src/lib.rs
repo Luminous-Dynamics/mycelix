@@ -466,12 +466,66 @@ fn validate_fpm_attestation_challenge(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_fpm_eat_cose_verification_anchor(
+    anchor: FpmEatCoseVerificationAnchor,
+) -> ExternResult<ValidateCallbackResult> {
+    if anchor.schema_version != FPM_EAT_COSE_VERIFICATION_ANCHOR_SCHEMA_VERSION {
+        return Ok(ValidateCallbackResult::Invalid(
+            "unsupported FPM EAT/COSE verification anchor schema".into(),
+        ));
+    }
+    if !valid_attestation_identifier(&anchor.subject_id, 128)
+        || !valid_attestation_identifier(&anchor.audience, 256)
+        || !valid_attestation_identifier(&anchor.eat_profile_uri, 512)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "invalid FPM EAT/COSE verification anchor identifiers".into(),
+        ));
+    }
+    for (name, value) in [
+        ("evidence_digest", &anchor.evidence_digest),
+        ("payload_digest", &anchor.payload_digest),
+        ("nonce_digest", &anchor.nonce_digest),
+        ("verification_key_digest", &anchor.verification_key_digest),
+    ] {
+        if !canonical_attestation_digest(value) {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "{name} must be canonical lowercase SHA-256"
+            )));
+        }
+    }
+    if anchor.key_id.is_empty() || anchor.key_id.len() > 128 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM EAT/COSE verification key id is invalid".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_fpm_source_attestation_anchor(
     anchor: FpmSourceAttestationAnchor,
 ) -> ExternResult<ValidateCallbackResult> {
     if anchor.schema_version != FPM_SOURCE_ATTESTATION_ANCHOR_SCHEMA_VERSION {
         return Ok(ValidateCallbackResult::Invalid(
             "unsupported FPM source attestation anchor schema".into(),
+        ));
+    }
+    let verification_action = must_get_action(anchor.eat_cose_verification_action.clone())?;
+    if verification_action.action_type() != ActionType::Create {
+        return Ok(ValidateCallbackResult::Invalid(
+            "source attestation must reference a Create EAT/COSE verification action".into(),
+        ));
+    }
+    let expected_verification_entry_type = EntryType::App(
+        UnitEntryTypes::FpmEatCoseVerificationAnchor
+            .try_into()
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "could not construct FPM EAT/COSE verification entry type".into()
+            )))?,
+    );
+    if verification_action.entry_type() != Some(&expected_verification_entry_type) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "source attestation references the wrong verification entry type".into(),
         ));
     }
     let qualification = qualify_source_attestation(&FpmAttestationQualificationInput {
