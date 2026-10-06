@@ -74,6 +74,17 @@ def verify_action_pins(lines: list[str], expected_action_shas: dict[str, str]) -
         if expected is not None and sha.lower() != expected:
             fail(f"unexpected pin for {action}: {sha}")
 
+
+def require_exact_action_set(lines: list[str], expected_actions: tuple[str, ...], description: str) -> None:
+    actual = []
+    for use in active_uses(lines):
+        match = re.search(r"uses:\s*([^@]+)@([0-9a-fA-F]{40})(?:\s+#.*)?$", use)
+        if not match:
+            fail(f"{description}: action reference is not a recognized pinned action: {use!r}")
+        actual.append(f"{match.group(1)}@{match.group(2).lower()}")
+    if tuple(actual) != tuple(expected_actions):
+        fail(f"{description}: expected exact action set {expected_actions!r}, found {tuple(actual)!r}")
+
 def verify_s0(raw: bytes) -> None:
     lines = normalized_lines(raw)
     require_exact(lines, "name: Security Kernel Qualification — Trusted Dispatcher", "S0 name")
@@ -90,6 +101,7 @@ def verify_s0(raw: bytes) -> None:
     require(lines, "./.github/workflows/security-kernel-independent-qualification.yml", "S0 local S1 call")
     forbid(lines, ("actions/checkout@", "git checkout ", "git fetch ", "actions: write", "contents: write", "pull-requests: write", "id-token:", "secrets:"), "S0 trust boundary")
     verify_action_pins(lines, {"actions/checkout": CHECKOUT_SHA, "actions/upload-artifact": UPLOAD_SHA})
+    require_exact_action_set(lines, (), "S0 actions")
 
 def verify_s1(raw: bytes) -> None:
     lines = normalized_lines(raw)
@@ -114,6 +126,11 @@ def verify_s1(raw: bytes) -> None:
     require(lines, "uses: actions/upload-artifact@" + UPLOAD_SHA, "S1 pinned artifact upload")
     forbid(lines, ("pull_request_target:", "workflow_dispatch:", "actions: write", "contents: write", "pull-requests: write", "id-token:", "--network=host", "--privileged", "--cap-add", "docker.sock:/"), "S1 privilege boundary")
     verify_action_pins(lines, {"actions/checkout": CHECKOUT_SHA, "actions/upload-artifact": UPLOAD_SHA})
+    require_exact_action_set(
+        lines,
+        (f"actions/checkout@{CHECKOUT_SHA}", f"actions/upload-artifact@{UPLOAD_SHA}"),
+        "S1 actions",
+    )
 
 def verify_s2(raw: bytes) -> None:
     lines = normalized_lines(raw)
@@ -135,8 +152,12 @@ def verify_s2(raw: bytes) -> None:
     require_exact(lines, 'REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"', "S2 binding oracle path")
     require_exact(lines, 'CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"', "S2 causal oracle path")
     require_exact(lines, 'SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"', "S2 policy oracle path")
+    require_exact(lines, 'REFERENCE_VERIFIER_BLOB_SHA: "24b5ea20e3a5946b106c22ece9fedcdb85e9c7db"', "S2 binding oracle pin")
+    require_exact(lines, 'CAUSAL_JOIN_VERIFIER_BLOB_SHA: "2c9d4d48dab41255944e48300893a62c668b5d4a"', "S2 causal oracle pin")
+    require_exact(lines, 'SOURCE_POLICY_VERIFIER_BLOB_SHA: "09e993ccd99e9e6399e6ae797a0e6c4aad9e63e0"', "S2 policy oracle pin")
     forbid(lines, ("actions: write", "contents: write", "pull-requests: write", "id-token:", "actions/upload-artifact@", "docker run ", "docker exec "), "S2 read-only verifier boundary")
     verify_action_pins(lines, {"actions/checkout": CHECKOUT_SHA})
+    require_exact_action_set(lines, (f"actions/checkout@{CHECKOUT_SHA}",), "S2 actions")
 
 def verify_file_identity(record: dict) -> bytes:
     if set(record) != {"path", "ref", "sha", "encoding", "content"}:
