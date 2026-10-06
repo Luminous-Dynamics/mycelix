@@ -20,6 +20,7 @@ pub struct ModalityObservationRef {
     pub source_sequence: u64,
     /// Producer-assigned correlation identifier shared by observations that
     /// are asserted to represent the same acquisition frame.
+    pub correlation_domain: String,
     pub correlation_id: String,
     pub source_timestamp_micros: Option<u64>,
     pub calibration_profile_digest: String,
@@ -32,6 +33,7 @@ impl ModalityObservationRef {
         validate_label(&self.source_id, "source_id")?;
         validate_label(&self.modality, "modality")?;
         validate_label(&self.clock_domain, "clock_domain")?;
+        validate_label(&self.correlation_domain, "correlation_domain")?;
         validate_label(&self.correlation_id, "correlation_id")?;
         validate_digest(&self.calibration_profile_digest, "calibration_profile_digest")?;
         validate_digest(&self.process_context_digest, "process_context_digest")?;
@@ -130,7 +132,8 @@ impl RegistrationEnvelope {
         match method {
             AlignmentMethod::ExactCorrelationId => {
                 if participants.clone().all(|item| {
-                    item.correlation_id == self.reference.correlation_id
+                    item.correlation_domain == self.reference.correlation_domain
+                        && item.correlation_id == self.reference.correlation_id
                 }) {
                     RegistrationState::Registered
                 } else {
@@ -229,6 +232,7 @@ mod tests {
             modality: "thermal".into(),
             clock_domain: "ptp-domain-1".into(),
             source_sequence: sequence,
+            correlation_domain: "printer-frame-domain-1".into(),
             correlation_id: format!("frame-{sequence}"),
             source_timestamp_micros: Some(1_000_000),
             calibration_profile_digest: digest('a'),
