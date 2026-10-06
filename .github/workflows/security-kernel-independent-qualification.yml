@@ -803,6 +803,17 @@ jobs:
           printf '%s' "$negative_controls_log_digest" | grep -Eq '^[0-9a-f]{64}$'
           printf 'negative_controls=passed\nsentinel_digest=%s\nnegative_controls_log_digest=%s\n' "$sentinel_digest" "$negative_controls_log_digest" >> "$GITHUB_OUTPUT"
           echo "PASS: trusted sandbox negative-control matrix passed"
+
+      - name: Upload sandbox negative-control transcript
+        if: success()
+        id: negative_controls_log_upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-kernel-negative-controls-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.log
+          path: ${{ runner.temp }}/security-kernel-negative-controls.log
+          if-no-files-found: error
+          archive: false
+          overwrite: false
       - name: Execute candidate qualification in disposable networkless sandbox
         shell: bash
         env:

@@ -21,7 +21,7 @@ env:
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
   TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "ac91d40e653b1ed2ddeb4b7d7111954d0fa4f4bb"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "b4f68cbfea1b2407b1eb25090e79a5eccc207e84"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -531,6 +531,7 @@ jobs:
               output.write(f"verifier_workflow_blob_sha={os.environ['WORKFLOW_BLOB_SHA']}\n")
               output.write(f"execution_binding_sha256={binding_digest}\n")
               output.write(f"evidence_binding_sha256={evidence_binding_digest}\n")
+              output.write(f"sandbox_negative_controls_log_sha256={receipt['sandbox_negative_controls_log_sha256']}\n")
           print("PASS: trusted metadata and artifact identity are ready for independent direct-file verification")
 
           print(json.dumps({
@@ -556,6 +557,168 @@ jobs:
           PY
 
 
+      - name: Verify retained negative-control evidence binding
+        if: success()
+        id: verify_negative_controls_log
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
+          BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+          BASE_REPOSITORY_ID: "1176351975"
+          RUN_ID: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}
+          RUN_ATTEMPT: ${{ steps.verify_result.outputs.trusted_dispatch_run_attempt }}
+          CANDIDATE_SHA: ${{ steps.verify_result.outputs.candidate_sha }}
+          CANDIDATE_PR: ${{ steps.verify_result.outputs.candidate_pr }}
+          RECEIPT_LOG_SHA256: ${{ steps.verify_result.outputs.sandbox_negative_controls_log_sha256 }}
+          PARENT_EVIDENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.evidence_binding_sha256 }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, io, json, os, re, urllib.error, urllib.parse, urllib.request, zipfile
+
+          base = "https://api.github.com"
+          token = os.environ["TOKEN"]
+          repo = os.environ["BASE_REPOSITORY"]
+          repo_id = int(os.environ["BASE_REPOSITORY_ID"])
+          run_id = int(os.environ["RUN_ID"])
+          run_attempt = int(os.environ["RUN_ATTEMPT"])
+          candidate_sha = os.environ["CANDIDATE_SHA"]
+          candidate_pr = int(os.environ["CANDIDATE_PR"])
+          receipt_log_sha256 = os.environ["RECEIPT_LOG_SHA256"]
+          parent_binding = os.environ["PARENT_EVIDENCE_BINDING_SHA256"]
+
+          assert re.fullmatch(r"[0-9a-f]{64}", receipt_log_sha256), "S1 negative-control transcript digest is not canonical"
+          assert re.fullmatch(r"[0-9a-f]{64}", parent_binding), "parent evidence binding digest is not canonical"
+
+          def get(path):
+              req = urllib.request.Request(
+                  base + path,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(req, timeout=20) as response:
+                  return json.load(response)
+
+          expected_name = f"security-kernel-negative-controls-{candidate_sha}-attempt-{run_attempt}.log"
+          encoded_name = urllib.parse.quote(expected_name, safe="")
+          artifact_response = get(
+              f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100&name={encoded_name}"
+          )
+          artifacts = artifact_response.get("artifacts", [])
+          assert artifact_response.get("total_count") == len(artifacts), "negative-control artifact name-filter count mismatch"
+          assert len(artifacts) == 1, f"expected exactly one retained negative-control transcript artifact: {len(artifacts)}"
+          artifact = artifacts[0]
+          assert artifact.get("expired") is False, "negative-control transcript artifact is expired"
+          assert artifact.get("name") == expected_name, "negative-control transcript artifact name mismatch"
+          assert int(artifact.get("id", 0)) > 0, "negative-control transcript artifact id is invalid"
+          assert artifact.get("workflow_run", {}).get("id") == run_id, "negative-control transcript artifact is not bound to the exact S0 run"
+          assert artifact.get("workflow_run", {}).get("repository_id") == repo_id, "negative-control transcript artifact repository identity mismatch"
+          assert artifact.get("workflow_run", {}).get("head_sha") == candidate_sha, "negative-control transcript artifact head SHA mismatch"
+          artifact_digest = artifact.get("digest")
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest or ""), "negative-control transcript artifact digest is not canonical"
+          artifact_size = int(artifact.get("size_in_bytes", 0))
+          assert 0 < artifact_size <= 1024 * 1024, "negative-control transcript artifact size is outside verifier bounds"
+
+          pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
+          assert pr["number"] == candidate_pr
+          assert pr["state"] == "open"
+          assert pr["base"]["repo"]["id"] == repo_id
+          assert pr["base"]["ref"] == "main"
+          assert pr["head"]["sha"] == candidate_sha
+          assert pr["head"]["repo"]["id"] == artifact.get("workflow_run", {}).get("head_repository_id"), "candidate head repository differs from transcript artifact provenance"
+
+          archive_url = artifact.get("archive_download_url")
+          assert isinstance(archive_url, str) and archive_url, "negative-control transcript artifact has no download URL"
+          request = urllib.request.Request(
+              archive_url,
+              headers={
+                  "Accept": "application/octet-stream",
+                  "Authorization": f"Bearer {token}",
+                  "X-GitHub-Api-Version": "2026-03-10",
+              },
+          )
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+
+          try:
+              with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
+                  raise AssertionError(f"negative-control transcript download returned unexpected HTTP {response.status} without redirect")
+          except urllib.error.HTTPError as error:
+              if error.code not in (301, 302, 303, 307, 308):
+                  raise
+              download_url = error.headers.get("Location")
+              assert isinstance(download_url, str) and download_url, "negative-control transcript redirect omitted Location"
+
+          with urllib.request.urlopen(download_url, timeout=30) as response:
+              downloaded = response.read(1024 * 1024 + 1)
+          assert downloaded, "negative-control transcript download is empty"
+          assert len(downloaded) <= 1024 * 1024, "negative-control transcript download exceeds verifier bound"
+          assert artifact_digest == "sha256:" + hashlib.sha256(downloaded).hexdigest(), "transcript download does not match GitHub artifact digest"
+
+          content = downloaded
+          if zipfile.is_zipfile(io.BytesIO(downloaded)):
+              with zipfile.ZipFile(io.BytesIO(downloaded)) as archive:
+                  members = [info for info in archive.infolist() if not info.is_dir()]
+                  assert len(members) == 1, f"negative-control transcript archive contains {len(members)} files, expected exactly one"
+                  assert members[0].filename.rsplit("/", 1)[-1] == expected_name, "negative-control transcript member name mismatch"
+                  content = archive.read(members[0])
+
+          content_sha256 = hashlib.sha256(content).hexdigest()
+          assert content_sha256 == receipt_log_sha256, "retained transcript bytes do not match the independently parsed S1 receipt digest"
+          text = content.decode("utf-8")
+          marker = "PASS: active negative controls rejected writable-root, source/vendor/config mutation, token visibility, device exposure, network access, and untrusted background-process assumptions"
+          assert marker in text, "negative-control transcript is missing the required semantic pass marker"
+          assert "unexpectedly succeeded" not in text, "negative-control transcript contains an unexpected-success marker"
+
+          binding = {
+              "schema": "security-kernel-evidence-retention-binding-v1",
+              "parent_evidence_binding_sha256": parent_binding,
+              "candidate_pr": candidate_pr,
+              "candidate_sha": candidate_sha,
+              "run_id": run_id,
+              "run_attempt": run_attempt,
+              "artifact_name": expected_name,
+              "artifact_id": int(artifact["id"]),
+              "artifact_digest": artifact_digest,
+              "artifact_size": artifact_size,
+              "content_sha256": content_sha256,
+          }
+          encoded = json.dumps(binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+          binding_sha256 = hashlib.sha256(encoded).hexdigest()
+
+          for field, replacement in (
+              ("parent_evidence_binding_sha256", "0" * 64),
+              ("candidate_pr", candidate_pr + 1),
+              ("candidate_sha", "1" * 40),
+              ("run_id", run_id + 1),
+              ("run_attempt", run_attempt + 1),
+              ("artifact_name", expected_name + ".mutated"),
+              ("artifact_id", int(artifact["id"]) + 1),
+              ("artifact_digest", "sha256:" + "2" * 64),
+              ("artifact_size", artifact_size + 1),
+              ("content_sha256", "3" * 64),
+          ):
+              mutated = dict(binding)
+              mutated[field] = replacement
+              mutated_sha256 = hashlib.sha256(
+                  json.dumps(mutated, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+              ).hexdigest()
+              assert mutated_sha256 != binding_sha256, f"evidence-retention binding is invariant under mutation of {field}"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"negative_controls_log_artifact_id={artifact['id']}\n")
+              output.write(f"negative_controls_log_artifact_name={expected_name}\n")
+              output.write(f"negative_controls_log_artifact_digest={artifact_digest}\n")
+              output.write(f"negative_controls_log_artifact_size={artifact_size}\n")
+              output.write(f"negative_controls_log_content_sha256={content_sha256}\n")
+              output.write(f"evidence_retention_binding_sha256={binding_sha256}\n")
+          print(f"PASS: evidence-retention binding SHA-256={binding_sha256}")
+          PY
+
       - name: Download retained qualification receipt through official artifact client
         if: success()
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -567,11 +730,28 @@ jobs:
           run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}
           digest-mismatch: error
 
+      - name: Download retained sandbox negative-control transcript through official artifact client
+        if: success()
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}
+          path: ${{ runner.temp }}/security-kernel-official-negative-controls
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}
+          digest-mismatch: error
+
       - name: Verify official receipt transport and publish verified result
         if: success()
         shell: bash
         env:
           RECEIPT_ROOT: ${{ runner.temp }}/security-kernel-official-receipt
+          NEGATIVE_CONTROLS_ROOT: ${{ runner.temp }}/security-kernel-official-negative-controls
+          EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_name }}
+          EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_digest }}
+          EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_SIZE: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_size }}
+          EXPECTED_NEGATIVE_CONTROLS_LOG_SHA256: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_content_sha256 }}
+          EVIDENCE_RETENTION_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.evidence_retention_binding_sha256 }}
           EXPECTED_ARTIFACT_NAME: ${{ steps.verify_result.outputs.artifact_name }}
           EXPECTED_ARTIFACT_DIGEST: ${{ steps.verify_result.outputs.artifact_digest }}
           EXPECTED_ARTIFACT_SIZE: ${{ steps.verify_result.outputs.artifact_size }}
@@ -597,6 +777,19 @@ jobs:
           test "$(stat -c %s "$receipt_path")" = "$EXPECTED_ARTIFACT_SIZE"
           actual_digest="$(sha256sum "$receipt_path" | awk '{print $1}')"
           test "sha256:$actual_digest" = "$EXPECTED_ARTIFACT_DIGEST"
+          test -d "$NEGATIVE_CONTROLS_ROOT"
+          mapfile -t negative_controls_files < <(find "$NEGATIVE_CONTROLS_ROOT" -type f -print)
+          test "${#negative_controls_files[@]}" -eq 1
+          negative_controls_path="${negative_controls_files[0]}"
+          test "$(basename "$negative_controls_path")" = "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME"
+          test "$(stat -c %s "$negative_controls_path")" = "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_SIZE"
+          negative_controls_digest="$(sha256sum "$negative_controls_path" | awk '{print $1}')"
+          test "sha256:$negative_controls_digest" = "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST"
+          test "$negative_controls_digest" = "$EXPECTED_NEGATIVE_CONTROLS_LOG_SHA256"
+          grep -Fq 'PASS: active negative controls rejected writable-root, source/vendor/config mutation, token visibility, device exposure, network access, and untrusted background-process assumptions' "$negative_controls_path"
+          ! grep -Fq 'unexpectedly succeeded' "$negative_controls_path"
+          printf "%s\n" "$EVIDENCE_RETENTION_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
+          echo "PASS: official artifact client returned the retained negative-control transcript with exact filename, size, artifact digest, content digest, and semantic pass marker"
           test "$ARTIFACT_ID" -gt 0
           printf '%s\n' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s\n' "$TRUSTED_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
@@ -605,6 +798,7 @@ jobs:
           printf '%s\n' "$VERIFIER_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s\n' "$VERIFIER_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
           echo "PASS: official artifact client returned exactly one direct-file receipt with exact filename, size, and SHA-256"
+          printf "evidence_retention_binding_sha256=%s\nnegative_controls_log_artifact_id=%s\nnegative_controls_log_artifact_name=%s\nnegative_controls_log_artifact_digest=%s\nnegative_controls_log_content_sha256=%s\n" "$EVIDENCE_RETENTION_BINDING_SHA256" "${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST" "$negative_controls_digest"
           printf "%s\n" "$EXECUTION_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
           printf "%s\n" "$EVIDENCE_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
           printf 'candidate_sha=%s\ncandidate_pr=%s\ncandidate_repository=%s\ncandidate_repository_id=%s\ntrusted_dispatcher_workflow_sha=%s\ntrusted_dispatcher_workflow_blob_sha=%s\ntrusted_s1_workflow_blob_sha=%s\nexecution_binding_sha256=%s\nevidence_binding_sha256=%s\nverifier_workflow_sha=%s\nverifier_workflow_blob_sha=%s\nqualification_receipt_artifact_id=%s\nqualification_receipt_artifact_digest=%s\nqualification_receipt_content_sha256=%s\nindependent_qualification=verified-pass\nstatus_publication=deliberately-deferred-to-protected-status-plane\n' "$CANDIDATE_SHA" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$TRUSTED_WORKFLOW_SHA" "$S0_BLOB_SHA" "$S1_BLOB_SHA" "$EXECUTION_BINDING_SHA256" "$EVIDENCE_BINDING_SHA256" "$VERIFIER_WORKFLOW_SHA" "$VERIFIER_BLOB_SHA" "$ARTIFACT_ID" "$EXPECTED_ARTIFACT_DIGEST" "$actual_digest"
