@@ -23,6 +23,8 @@ env:
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
+  REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
+  REFERENCE_VERIFIER_BLOB_SHA: "4cdb9ec315014114cbe4137a9339db515d89d2fd"
 
 jobs:
   verify:
@@ -54,12 +56,17 @@ jobs:
           test "${ACTIONS_CACHE_MODE:-}" = "none"
           workflow_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- ".github/workflows/security-kernel-trusted-result-verifier.yml" | awk '{print $3}')"
           printf "%s" "$workflow_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          test "$workflow_blob_sha" = "$TRUSTED_RESULT_VERIFIER_BLOB_SHA"
+          reference_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$REFERENCE_VERIFIER_PATH" | awk '{print $3}')"
+          printf "%s" "$reference_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          test "$reference_verifier_blob_sha" = "$REFERENCE_VERIFIER_BLOB_SHA"
           git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
           git merge-base --is-ancestor "$GITHUB_WORKFLOW_SHA" "refs/remotes/origin/main"
 
           export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
+          export REFERENCE_VERIFIER_BLOB_SHA="$reference_verifier_blob_sha"
           python3 - <<'PY'
-          import hashlib, io, json, os, re, subprocess, urllib.error, urllib.parse, urllib.request, zipfile
+          import hashlib, io, json, os, re, subprocess, tempfile, urllib.error, urllib.parse, urllib.request, zipfile
 
           base = "https://api.github.com"
           token = os.environ["TOKEN"]
@@ -220,7 +227,7 @@ jobs:
               repository_id, repository, candidate_repository_id, candidate_repository,
               candidate_pr, candidate_sha, dispatcher_workflow_path, dispatcher_workflow_sha,
               s1_workflow_path, s1_workflow_blob_sha, run_id, run_attempt, run_number,
-              resolver_job_id, s1_job_id,
+              resolver_job_id, s1_job_id, reference_verifier_path, reference_verifier_blob_sha,
           ):
               return {
                   "schema": "security-kernel-execution-binding-v1",
@@ -239,6 +246,8 @@ jobs:
                   "run_number": int(run_number),
                   "resolver_job_id": int(resolver_job_id),
                   "s1_job_id": int(s1_job_id),
+                  "reference_verifier_path": str(reference_verifier_path),
+                  "reference_verifier_blob_sha": str(reference_verifier_blob_sha),
               }
 
           def execution_binding_digest(binding):
@@ -263,7 +272,18 @@ jobs:
               run_number=run["run_number"],
               resolver_job_id=resolver_job["id"],
               s1_job_id=job["id"],
+              reference_verifier_path=os.environ["REFERENCE_VERIFIER_PATH"],
+              reference_verifier_blob_sha=os.environ["REFERENCE_VERIFIER_BLOB_SHA"],
           )
+          expected_execution_binding_keys = {
+              "schema", "repository_id", "repository", "candidate_repository_id",
+              "candidate_repository", "candidate_pr", "candidate_sha",
+              "dispatcher_workflow_path", "dispatcher_workflow_sha",
+              "s1_workflow_path", "s1_workflow_blob_sha", "run_id", "run_attempt",
+              "run_number", "resolver_job_id", "s1_job_id",
+              "reference_verifier_path", "reference_verifier_blob_sha",
+          }
+          assert set(binding) == expected_execution_binding_keys, "execution binding schema drift"
           assert binding["repository_id"] == int(os.environ["BASE_REPOSITORY_ID"])
           assert binding["repository"] == repository_obj["full_name"]
           assert binding["candidate_repository"] == candidate_repository
@@ -295,6 +315,8 @@ jobs:
               "dispatcher_workflow_sha": "1" * 40,
               "s1_workflow_path": binding["s1_workflow_path"] + ".mutated",
               "s1_workflow_blob_sha": "2" * 40,
+              "reference_verifier_path": binding["reference_verifier_path"] + ".mutated",
+              "reference_verifier_blob_sha": "5" * 40,
               "run_id": binding["run_id"] + 1,
               "run_attempt": binding["run_attempt"] + 1,
               "run_number": binding["run_number"] + 1,
@@ -307,6 +329,37 @@ jobs:
               assert execution_binding_digest(mutated) != binding_digest, (
                   f"execution binding digest is invariant under mutation of {field}"
               )
+
+          def run_reference_verifier(document):
+              workspace = os.environ["GITHUB_WORKSPACE"]
+              reference_path = os.path.join(workspace, os.environ["REFERENCE_VERIFIER_PATH"])
+              with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+                  json.dump(document, handle, sort_keys=True, separators=(",", ":"))
+                  document_path = handle.name
+              try:
+                  output = subprocess.check_output(
+                      ["python3", reference_path, document_path],
+                      text=True,
+                      stderr=subprocess.STDOUT,
+                      timeout=20,
+                  )
+              except subprocess.CalledProcessError as exc:
+                  raise AssertionError(f"independent reference verifier rejected binding: {exc.output!r}") from exc
+              finally:
+                  os.unlink(document_path)
+              fields = {}
+              for line in output.splitlines():
+                  assert "=" in line, f"reference verifier emitted malformed line: {line!r}"
+                  key, value = line.split("=", 1)
+                  assert key not in fields, f"reference verifier emitted duplicate key: {key!r}"
+                  fields[key] = value
+              assert fields.get("schema") == document["schema"]
+              digest = fields.get("reference_digest", "")
+              assert re.fullmatch(r"[0-9a-f]{64}", digest), "reference verifier did not emit a SHA-256 digest"
+              assert fields.get("mutations_verified") == str(len(document) - 1), "reference verifier mutation census drift"
+              return digest
+
+          reference_binding_digest = run_reference_verifier(binding)
 
           expected_artifact_name = f"security-kernel-independent-qualification-{candidate_sha}-attempt-{run_attempt}.txt"
           encoded_artifact_name = urllib.parse.quote(expected_artifact_name, safe="")
@@ -322,22 +375,51 @@ jobs:
               f"expected exactly one retained qualification receipt artifact: {len(matching_artifacts)}"
           )
           artifact = matching_artifacts[0]
+          assert artifact.get("name") == expected_artifact_name
+          assert isinstance(artifact.get("id"), int) and artifact["id"] > 0
           assert artifact.get("expired") is False, "qualification receipt artifact is expired"
-          artifact_run = artifact.get("workflow_run") or {}
-          assert artifact_run.get("id") == int(run_id), (
+          artifact_run = artifact.get("workflow_run")
+          assert isinstance(artifact_run, dict), "qualification receipt artifact lacks workflow_run metadata"
+          for field in ("id", "repository_id", "head_repository_id", "head_branch", "head_sha"):
+              assert field in artifact_run, f"qualification receipt artifact workflow_run missing {field!r}"
+          head_repository = run.get("head_repository")
+          assert isinstance(head_repository, dict) and isinstance(head_repository.get("id"), int) and head_repository["id"] > 0, (
+              "triggering workflow run lacks a concrete head_repository identity"
+          )
+          assert isinstance(run.get("head_branch"), str) and run["head_branch"], (
+              "triggering workflow run lacks a concrete head branch"
+          )
+          assert re.fullmatch(r"[0-9a-f]{40}", run.get("head_sha") or ""), (
+              "triggering workflow run lacks a concrete head SHA"
+          )
+          assert isinstance(artifact_run["id"], int) and artifact_run["id"] > 0
+          assert isinstance(artifact_run["repository_id"], int) and artifact_run["repository_id"] > 0
+          assert isinstance(artifact_run["head_repository_id"], int) and artifact_run["head_repository_id"] > 0
+          assert isinstance(artifact_run["head_branch"], str) and artifact_run["head_branch"]
+          assert re.fullmatch(r"[0-9a-f]{40}", artifact_run["head_sha"] or "")
+          assert artifact_run["id"] == int(run_id), (
               "qualification receipt artifact is not bound to the exact trusted dispatcher run"
           )
-          assert artifact_run.get("repository_id") == run["repository"]["id"], (
+          assert artifact_run["repository_id"] == run["repository"]["id"], (
               "qualification receipt artifact repository identity differs from the triggering workflow run"
           )
-          assert artifact_run.get("head_repository_id") == run.get("head_repository_id"), (
+          assert artifact_run["head_repository_id"] == head_repository["id"], (
               "qualification receipt artifact head repository identity differs from the triggering workflow run"
           )
-          assert artifact_run.get("head_branch") == run.get("head_branch"), (
+          assert artifact_run["head_branch"] == run["head_branch"], (
               "qualification receipt artifact head branch differs from the triggering workflow run"
           )
-          assert artifact_run.get("head_sha") == run.get("head_sha"), (
+          assert artifact_run["head_sha"] == run["head_sha"], (
               "qualification receipt artifact head SHA differs from the triggering workflow run"
+          )
+
+          artifact_by_id = get(f"/repos/{repo}/actions/artifacts/{artifact['id']}")
+          for key in ("id", "name", "expired", "size_in_bytes", "digest"):
+              assert artifact_by_id.get(key) == artifact.get(key), (
+                  f"artifact metadata changed between exact-name list and exact-ID lookup for {key!r}"
+              )
+          assert artifact_by_id.get("workflow_run") == artifact_run, (
+              "artifact workflow_run provenance changed between exact-name list and exact-ID lookup"
           )
           assert int(artifact.get("size_in_bytes", 0)) > 0, "qualification receipt artifact is empty"
           artifact_digest = artifact.get("digest")
@@ -498,6 +580,10 @@ jobs:
           evidence_binding["artifact_id"] = int(artifact["id"])
           evidence_binding["artifact_digest"] = artifact_digest
           evidence_binding["receipt_content_sha256"] = receipt_content_sha256
+          expected_evidence_binding_keys = expected_execution_binding_keys | {
+              "artifact_name", "artifact_id", "artifact_digest", "receipt_content_sha256",
+          }
+          assert set(evidence_binding) == expected_evidence_binding_keys, "final evidence binding schema drift"
 
           def evidence_binding_digest(document):
               encoded = json.dumps(
@@ -506,6 +592,7 @@ jobs:
               return hashlib.sha256(encoded).hexdigest()
 
           evidence_digest = evidence_binding_digest(evidence_binding)
+          reference_evidence_binding_digest = run_reference_verifier(evidence_binding)
           for field, replacement in (
               ("artifact_name", expected_artifact_name + "-mutated"),
               ("artifact_id", evidence_binding["artifact_id"] + 1),
@@ -564,8 +651,10 @@ jobs:
               "qualification_receipt_content_sha256": receipt_content_sha256,
               "execution_binding": binding,
               "execution_binding_sha256": binding_digest,
+              "execution_binding_reference_sha256": reference_binding_digest,
               "evidence_binding": evidence_binding,
               "evidence_binding_sha256": evidence_digest,
+              "evidence_binding_reference_sha256": reference_evidence_binding_digest,
               "independent_qualification": "verified-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
