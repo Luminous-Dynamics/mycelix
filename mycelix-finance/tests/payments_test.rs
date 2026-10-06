@@ -1929,6 +1929,7 @@ mod sap_balance_management {
         println!("Test 8.1 PASSED: SAP balance initializes to zero");
     }
 
+    // AC-118 regression: the legacy ABI remains callable only to prove it cannot mutate SAP.
     /// Test 8.2: The legacy untyped debit API is retired.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
