@@ -1,5 +1,5 @@
 {
-  "policy_version": 46,
+  "policy_version": 47,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "24c6cc9d3d47ef075291483a591d2c90e941a04f"
+    "blob_sha": "3e65741def75e9430dbf9171131345643b36a035"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -218,11 +218,15 @@
     "reject_encrypted_members": true,
     "reject_symlink_members": true,
     "expected_member_count": 3,
-    "policy_revision": 28
+    "policy_revision": 29,
+    "allowed_compression_methods": [
+      "stored",
+      "deflate"
+    ]
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-    "blob_sha": "dc5657828cc416a6b851a10895286416911d23ca"
+    "blob_sha": "cf8c0f9dd3142a4262a4f33fa6ac6a1a4cbd2a86"
   },
   "trusted_permissions": {
     "verifier": {
@@ -273,7 +277,7 @@
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-      "blob_sha": "dc5657828cc416a6b851a10895286416911d23ca"
+      "blob_sha": "cf8c0f9dd3142a4262a4f33fa6ac6a1a4cbd2a86"
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
@@ -352,7 +356,7 @@
     "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "retain_canonical_predicate": true
   },
-  "attestation_integrity_revision": 46,
+  "attestation_integrity_revision": 47,
   "attestation_commitment": {
     "schema": "d6u-trusted-runtime-evidence-attestation/v2",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",

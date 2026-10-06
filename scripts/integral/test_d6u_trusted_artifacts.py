@@ -93,7 +93,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 46
+    assert policy["policy_version"] == 47
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -348,6 +348,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_symlink_members": True,
         "reject_zip64": True,
         "eocd_entry_count_preflight": True,
+        "allowed_compression_methods": ["stored", "deflate"],
     }
 
     assert policy["attestation_commitment"] == {
@@ -368,7 +369,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_encrypted_members": True,
         "reject_symlink_members": True,
         "expected_member_count": 3,
-        "policy_revision": 28,
+        "policy_revision": 29,
     }
 
 
@@ -2066,6 +2067,23 @@ def test_trusted_zip_entry_count_is_preflighted_before_zip_parsing() -> None:
             )
 
 
+
+def test_trusted_zip_rejects_non_zlib_compression() -> None:
+    from zipfile import ZIP_BZIP2, ZIP_LZMA
+
+    for compression in (ZIP_BZIP2, ZIP_LZMA):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "artifact.zip"
+            with ZipFile(archive, "w", compression=compression) as zip_file:
+                zip_file.writestr("d6u-runtime-evidence.txt", "evidence")
+                zip_file.writestr("d6u-runtime-test.log", "log")
+                zip_file.writestr("Cargo.lock", "lock")
+            assert_rejected(
+                lambda: verify_zip_members(archive, artifact_policy()),
+                f"unsupported ZIP compression method was accepted: {compression}",
+            )
+
+
 if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
@@ -2121,6 +2139,7 @@ if __name__ == "__main__":
         test_current_run_handoff_artifact_rejects_oversized_archive_metadata,
         test_bounded_artifact_download_rejects_stream_overflow,
         test_trusted_zip_entry_count_is_preflighted_before_zip_parsing,
+        test_trusted_zip_rejects_non_zlib_compression,
     ]
     for test in tests:
         test()

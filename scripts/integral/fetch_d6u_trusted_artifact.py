@@ -44,6 +44,7 @@ HANDOFF_EXPECTED_FILES = {
 }
 
 MAX_ZIP_EOCD_SEARCH_BYTES = 22 + 65535
+ALLOWED_ZIP_COMPRESSION_METHODS = {0, 8}  # stored, deflate (Zlib)
 
 
 def github_get(repo: str, api_path: str, token: str) -> dict:
