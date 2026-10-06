@@ -25,7 +25,7 @@ env:
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
   RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "9335c34b821214e663bb7118c0bc67f1790252fc"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "6f1354bbf910e4405171c675a4115e70ccdbb5a7"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
