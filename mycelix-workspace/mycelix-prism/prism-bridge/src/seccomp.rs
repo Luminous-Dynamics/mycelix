@@ -3001,6 +3001,59 @@ mod linux {
         }
 
         #[test]
+        fn v2_all_six_argument_offsets_preserve_masked_not_equal_semantics() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let target = 0x1122_3344_5566_7788u64;
+
+            let rules = (0..6u8)
+                .map(|arg_index| {
+                    SeccompSyscallRuleV2::new(
+                        40_200 + i64::from(arg_index),
+                        vec![SeccompArgPredicateV1::new_with_op(
+                            arg_index,
+                            u64::MAX,
+                            target,
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        )
+                        .unwrap()],
+                    )
+                    .unwrap()
+                })
+                .collect::<Vec<_>>();
+
+            let policy = SeccompSyscallPolicyV2::new(arch, rules).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            for arg_index in 0..6usize {
+                let syscall = 40_200 + arg_index as i64;
+
+                let mut exact = [0u64; 6];
+                exact[arg_index] = target;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, exact),
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                    "arg {arg_index} exact 64-bit value must fail MaskedNotEqual"
+                );
+
+                let mut low_mismatch = exact;
+                low_mismatch[arg_index] ^= 0x0000_0000_0000_0001;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, low_mismatch),
+                    SECCOMP_RET_ALLOW,
+                    "arg {arg_index} low-word mismatch must satisfy MaskedNotEqual"
+                );
+
+                let mut high_mismatch = exact;
+                high_mismatch[arg_index] ^= 0x0000_0001_0000_0000;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, high_mismatch),
+                    SECCOMP_RET_ALLOW,
+                    "arg {arg_index} high-word mismatch must satisfy MaskedNotEqual"
+                );
+            }
+        }
+
+        #[test]
         fn v2_compiled_filter_deterministic_differential_matrix() {
             let arch = SeccompArchitecture::current().unwrap();
 
