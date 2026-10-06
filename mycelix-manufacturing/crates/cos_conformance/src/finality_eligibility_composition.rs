@@ -1407,7 +1407,22 @@ fn compose_finality_eligibility_from_authoritative_d6o(
     Some(composition)
 }
 
-/// ReferenceModelOnly helper retained for crate-internal regression coverage.\n///\n/// This verifier intentionally does not reconstruct the authoritative D6N/D6O\n/// provenance chain. External qualified consumers must use\n/// compose_finality_eligibility_from_authoritative_d6n_d6o followed by\n/// verify_current_receipt_provenance_from_composition instead.\nfn verify_current_receipt_provenance(\n    receipt: &CurrentFinalityEligibilityReceiptV1,\n    set: &ExternalObservationSetV1,\n    assessment: &ObservationSetAssessmentV1,\n    evidence: &[ExternalObservedEvidenceV1],\n    eligibility_receipts: &[EvidenceEligibilityReceiptV1],\n    lifecycle_profile_id: &str,\n    current_frontier_root: &str,\n    required_independent_observations: u32,\n) -> bool {
+/// ReferenceModelOnly helper retained for crate-internal regression coverage.
+///
+/// This verifier intentionally does not reconstruct the authoritative D6N/D6O
+/// provenance chain. External qualified consumers must use
+/// compose_finality_eligibility_from_authoritative_d6n_d6o followed by
+/// verify_current_receipt_provenance_from_composition instead.
+fn verify_current_receipt_provenance(
+    receipt: &CurrentFinalityEligibilityReceiptV1,
+    set: &ExternalObservationSetV1,
+    assessment: &ObservationSetAssessmentV1,
+    evidence: &[ExternalObservedEvidenceV1],
+    eligibility_receipts: &[EvidenceEligibilityReceiptV1],
+    lifecycle_profile_id: &str,
+    current_frontier_root: &str,
+    required_independent_observations: u32,
+) -> bool {
     let composition = compose_finality_eligibility(
         set,
         assessment,
