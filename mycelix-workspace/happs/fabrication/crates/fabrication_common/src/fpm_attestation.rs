@@ -27,6 +27,8 @@ pub enum FpmAttestationDisposition {
 pub struct FpmSourceAttestationClaim {
     pub subject_id: String,
     pub audience: String,
+    pub verification_key_id: Vec<u8>,
+    pub verification_key_digest: String,
     pub acquisition_root_digest: String,
     pub challenge_nonce_digest: String,
     pub evidence_digest: String,
@@ -53,6 +55,8 @@ impl FpmSourceAttestationClaim {
         append_field(&mut bytes, b"fpm.source-attestation-claim.v1");
         append_field(&mut bytes, self.subject_id.as_bytes());
         append_field(&mut bytes, self.audience.as_bytes());
+        append_field(&mut bytes, &self.verification_key_id);
+        append_field(&mut bytes, self.verification_key_digest.as_bytes());
         append_field(&mut bytes, self.acquisition_root_digest.as_bytes());
         append_field(&mut bytes, self.challenge_nonce_digest.as_bytes());
         append_field(&mut bytes, self.evidence_digest.as_bytes());
@@ -78,6 +82,8 @@ impl FpmSourceAttestationClaim {
 pub struct FpmAttestationQualificationInput {
     pub expected_subject_id: String,
     pub expected_audience: String,
+    pub expected_verification_key_id: Vec<u8>,
+    pub expected_verification_key_digest: String,
     pub expected_acquisition_root_digest: String,
     pub expected_challenge_nonce_digest: String,
     pub expected_attestation_format: String,
@@ -102,6 +108,8 @@ pub enum FpmAttestationQualificationReason {
     InvalidDigestEncoding,
     SubjectMismatch,
     AudienceMismatch,
+    VerificationKeyIdMismatch,
+    VerificationKeyDigestMismatch,
     AcquisitionRootMismatch,
     ChallengeNonceMismatch,
     EvidenceDigestMismatch,
@@ -138,6 +146,8 @@ pub fn qualify_source_attestation(
         &input.claim.subject_id,
         &input.expected_audience,
         &input.claim.audience,
+        &input.expected_verification_key_digest,
+        &input.claim.verification_key_digest,
         &input.expected_attestation_format,
     ] {
         if !valid_label(value) {
@@ -170,6 +180,12 @@ pub fn qualify_source_attestation(
     }
     if input.claim.audience != input.expected_audience {
         reasons.insert(FpmAttestationQualificationReason::AudienceMismatch);
+    }
+    if input.claim.verification_key_id != input.expected_verification_key_id {
+        reasons.insert(FpmAttestationQualificationReason::VerificationKeyIdMismatch);
+    }
+    if input.claim.verification_key_digest != input.expected_verification_key_digest {
+        reasons.insert(FpmAttestationQualificationReason::VerificationKeyDigestMismatch);
     }
     if input.claim.acquisition_root_digest != input.expected_acquisition_root_digest {
         reasons.insert(FpmAttestationQualificationReason::AcquisitionRootMismatch);
@@ -215,6 +231,8 @@ pub fn qualify_source_attestation(
         FpmAttestationQualificationStatus::QualifiedForProfile
     } else if reasons.contains(&FpmAttestationQualificationReason::SubjectMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AudienceMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::VerificationKeyIdMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::VerificationKeyDigestMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AcquisitionRootMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::ChallengeNonceMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AttestationFormatMismatch)
@@ -290,6 +308,8 @@ mod tests {
         FpmSourceAttestationClaim {
             subject_id: "source-1".into(),
             audience: "fpm.example.consumer".into(),
+            verification_key_id: b"fpm-key-1".to_vec(),
+            verification_key_digest: digest('7'),
             acquisition_root_digest: digest('a'),
             challenge_nonce_digest: digest('b'),
             evidence_digest: digest('c'),
@@ -309,6 +329,8 @@ mod tests {
         FpmAttestationQualificationInput {
             expected_subject_id: claim.subject_id.clone(),
             expected_audience: claim.audience.clone(),
+            expected_verification_key_id: claim.verification_key_id.clone(),
+            expected_verification_key_digest: claim.verification_key_digest.clone(),
             expected_acquisition_root_digest: claim.acquisition_root_digest.clone(),
             expected_challenge_nonce_digest: claim.challenge_nonce_digest.clone(),
             expected_appraisal_policy_digest: claim.appraisal_policy_digest.clone(),
@@ -352,6 +374,34 @@ mod tests {
         assert!(result
             .reasons
             .contains(&FpmAttestationQualificationReason::AudienceMismatch));
+    }
+
+    #[test]
+    fn verification_key_id_substitution_conflicts() {
+        let mut input = input();
+        input.claim.verification_key_id = b"other-key".to_vec();
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::VerificationKeyIdMismatch));
+    }
+
+    #[test]
+    fn verification_key_digest_substitution_conflicts() {
+        let mut input = input();
+        input.claim.verification_key_digest = digest('9');
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::VerificationKeyDigestMismatch));
     }
 
     #[test]
