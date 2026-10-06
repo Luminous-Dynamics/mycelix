@@ -996,96 +996,64 @@ pub fn confirm_exchange(exchange_id: String) -> ExternResult<ExchangeRecord> {
             "Exchange ID must be 1-256 characters".into()
         )));
     }
+
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
 
-    // Find the exchange
-    let exchange = find_exchange_by_id(&exchange_id)?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Exchange not found".into()
-    )))?;
-
-    // Verify caller is the receiver
+    let exchange = find_exchange_by_id(&exchange_id)?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Exchange not found".into())
+    ))?;
     if exchange.receiver_did != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the receiver can confirm an exchange".into()
         )));
     }
-
-    // Verify status is Proposed
     if exchange.status != ExchangeStatus::Proposed {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Exchange is not in Proposed status".into()
         )));
     }
 
-    // RC-19 fix: Create confirmation guard link FIRST, then verify we won
-    // the race. This prevents duplicate balance updates from concurrent calls.
-    let confirm_anchor = format!("tend-confirm:{}", exchange_id);
-    let confirm_anchor_hash = anchor_hash(&confirm_anchor)?;
+    // Resolve the exact original Create action rather than trusting only the
+    // human-readable exchange_id. The settlement claim is bound to this hash.
+    let exchange_action_hash = find_exchange_action_hash_by_id(&exchange_id)?;
 
-    // Quick pre-check: if confirmation already happened, return idempotently
+    // RC-19: the confirmation guard is a concurrency lock, not authority.
+    // A pre-existing guard no longer permits a false-green "Confirmed" result.
+    let confirm_anchor_hash = anchor_hash(&format!("tend-confirm:{}", exchange_id))?;
     let pre_existing = get_links(
         LinkQuery::try_new(confirm_anchor_hash.clone(), LinkTypes::AnchorLinks)?,
         GetStrategy::default(),
     )?;
-    if !pre_existing.is_empty() {
-        // Already confirmed by a prior call — re-fetch to get current status
-        let confirmed_ex = find_exchange_by_id(&exchange_id)?.ok_or(wasm_error!(
-            WasmErrorInner::Guest("Exchange not found".into())
-        ))?;
-        return Ok(ExchangeRecord {
-            id: confirmed_ex.id,
-            provider_did: confirmed_ex.provider_did,
-            receiver_did: confirmed_ex.receiver_did,
-            hours: confirmed_ex.hours,
-            service_description: confirmed_ex.service_description,
-            service_category: confirmed_ex.service_category,
-            status: ExchangeStatus::Confirmed,
-            timestamp: confirmed_ex.timestamp,
-        });
-    }
 
-    // Create the guard link BEFORE balance updates (claim our intent)
-    let our_link_hash = create_link(
-        confirm_anchor_hash.clone(),
-        AnyLinkableHash::from(agent_info()?.agent_initial_pubkey),
-        LinkTypes::AnchorLinks,
-        (),
-    )?;
+    if pre_existing.is_empty() {
+        let our_link_hash = create_link(
+            confirm_anchor_hash.clone(),
+            AnyLinkableHash::from(caller.clone()),
+            LinkTypes::AnchorLinks,
+            (),
+        )?;
 
-    // Re-read links to detect concurrent confirmations (create-then-verify)
-    let all_confirm_links = get_links(
-        LinkQuery::try_new(confirm_anchor_hash, LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
+        let all_confirm_links = get_links(
+            LinkQuery::try_new(confirm_anchor_hash, LinkTypes::AnchorLinks)?,
+            GetStrategy::default(),
+        )?;
 
-    if all_confirm_links.len() > 1 {
-        // Race detected — winner is lowest ActionHash (deterministic)
-        let winner = pick_race_winner(&all_confirm_links)?;
-
-        if winner.create_link_hash != our_link_hash {
-            // We lost the race — clean up and return idempotently
-            delete_link(our_link_hash, GetOptions::default())?;
-            return Ok(ExchangeRecord {
-                id: exchange.id,
-                provider_did: exchange.provider_did,
-                receiver_did: exchange.receiver_did,
-                hours: exchange.hours,
-                service_description: exchange.service_description,
-                service_category: exchange.service_category,
-                status: ExchangeStatus::Confirmed,
-                timestamp: exchange.timestamp,
-            });
-        }
-        // We won — best-effort cleanup of loser links
-        for link in &all_confirm_links {
-            if link.create_link_hash != our_link_hash {
-                let _ = delete_link(link.create_link_hash.clone(), GetOptions::default());
+        if all_confirm_links.len() > 1 {
+            let winner = pick_race_winner(&all_confirm_links)?;
+            if winner.create_link_hash != our_link_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Another confirmation attempt won the settlement race; retry".into()
+                )));
+            }
+            for link in &all_confirm_links {
+                if link.create_link_hash != our_link_hash {
+                    let _ = delete_link(link.create_link_hash.clone(), GetOptions::default());
+                }
             }
         }
     }
 
-    // Only the race winner reaches here — re-check balance limits
     let provider_limit = get_effective_limit_for_member(&exchange.provider_did)?;
     let receiver_limit = get_effective_limit_for_member(&exchange.receiver_did)?;
 
@@ -1109,86 +1077,140 @@ pub fn confirm_exchange(exchange_id: String) -> ExternResult<ExchangeRecord> {
         ))));
     }
 
-    // Create a PendingBalanceAdjustment BEFORE balance updates for crash recovery.
-    // If a crash occurs between the two updates, recover_pending_adjustments can
-    // complete the interrupted operation and restore the zero-sum invariant.
-    let now_ts = sys_time()?;
-    let pending_adj = PendingBalanceAdjustment {
-        exchange_id: exchange.id.clone(),
-        provider_did: exchange.provider_did.clone(),
-        receiver_did: exchange.receiver_did.clone(),
-        hours: exchange.hours as f64,
-        currency_id: exchange.dao_did.clone(),
-        provider_completed: false,
-        receiver_completed: false,
-        created_at: now_ts,
-    };
-    let pending_adj_hash = create_entry(&EntryTypes::PendingBalanceAdjustment(pending_adj))?;
+    // Reuse an orphaned claim from a previous interrupted confirmation before
+    // creating anything new. The integrity layer requires this claim to be
+    // receiver-authored and bound to the exact exchange Create action.
+    let (pending_adj_hash, mut adj, mut current_action) =
+        if let Some((claim_hash, record, claim)) =
+            find_pending_claim_for_exchange(&exchange_action_hash)?
+        {
+            validate_pending_claim_runtime(
+                &claim,
+                &exchange,
+                &exchange_action_hash,
+                &caller_did,
+            )?;
+            (claim_hash, claim, record.action_address().clone())
+        } else {
+            let now_ts = sys_time()?;
+            let pending = PendingBalanceAdjustment {
+                exchange_id: exchange.id.clone(),
+                exchange_action_hash: exchange_action_hash.clone(),
+                provider_did: exchange.provider_did.clone(),
+                receiver_did: exchange.receiver_did.clone(),
+                hours: exchange.hours as f64,
+                currency_id: exchange.dao_did.clone(),
+                provider_completed: false,
+                receiver_completed: false,
+                created_at: now_ts,
+            };
+            let claim_hash = create_entry(&EntryTypes::PendingBalanceAdjustment(pending))?;
+            let pending_anchor = anchor_hash("pending-balance-adjustments")?;
+            create_link(
+                pending_anchor,
+                claim_hash.clone(),
+                LinkTypes::PendingAdjustmentToExchange,
+                (),
+            )?;
+            let record = follow_update_chain(claim_hash.clone())?;
+            let claim = record
+                .entry()
+                .to_app_option::<PendingBalanceAdjustment>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "New settlement claim deserialization error: {:?}",
+                        e
+                    )))
+                })?
+                .ok_or_else(|| {
+                    wasm_error!(WasmErrorInner::Guest(
+                        "New settlement claim entry is missing".into()
+                    ))
+                })?;
+            (claim_hash, claim, record.action_address().clone())
+        };
 
-    // Link from a well-known anchor so recover_pending_adjustments can find them
-    let pending_anchor = anchor_hash("pending-balance-adjustments")?;
-    create_link(
-        pending_anchor,
-        pending_adj_hash.clone(),
-        LinkTypes::PendingAdjustmentToExchange,
-        (),
+    if !adj.provider_completed {
+        update_balance_after_exchange(
+            &adj.provider_did,
+            &adj.currency_id,
+            exchange.hours,
+            true,
+        )?;
+
+        adj.provider_completed = true;
+        current_action = update_entry(
+            current_action,
+            &EntryTypes::PendingBalanceAdjustment(adj.clone()),
+        )?;
+    }
+
+    // Always reload the latest claim before applying the second side. This
+    // closes stale-read races after an interrupted provider-side update.
+    let latest_claim_record = follow_update_chain(pending_adj_hash.clone())?;
+    adj = latest_claim_record
+        .entry()
+        .to_app_option::<PendingBalanceAdjustment>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Settlement claim deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Settlement claim entry is missing".into()
+            ))
+        })?;
+    current_action = latest_claim_record.action_address().clone();
+    validate_pending_claim_runtime(
+        &adj,
+        &exchange,
+        &exchange_action_hash,
+        &caller_did,
     )?;
 
-    // Update balances — provider first
-    update_balance_after_exchange(
-        &exchange.provider_did,
-        &exchange.dao_did,
-        exchange.hours,
-        true, // provider gains
-    )?;
+    if !adj.receiver_completed {
+        update_balance_after_exchange(
+            &adj.receiver_did,
+            &adj.currency_id,
+            exchange.hours,
+            false,
+        )?;
 
-    // Mark provider side as completed
-    let pending_adj_provider_done = PendingBalanceAdjustment {
-        exchange_id: exchange.id.clone(),
-        provider_did: exchange.provider_did.clone(),
-        receiver_did: exchange.receiver_did.clone(),
-        hours: exchange.hours as f64,
-        currency_id: exchange.dao_did.clone(),
-        provider_completed: true,
-        receiver_completed: false,
-        created_at: now_ts,
-    };
-    update_entry(
-        pending_adj_hash.clone(),
-        &EntryTypes::PendingBalanceAdjustment(pending_adj_provider_done),
-    )?;
+        adj.receiver_completed = true;
+        current_action = update_entry(
+            current_action,
+            &EntryTypes::PendingBalanceAdjustment(adj.clone()),
+        )?;
+    }
 
-    // Update balances — receiver second
-    update_balance_after_exchange(
-        &exchange.receiver_did,
-        &exchange.dao_did,
-        exchange.hours,
-        false, // receiver pays
-    )?;
+    let finalized_claim = follow_update_chain(pending_adj_hash.clone())?;
+    let finalized_adj = finalized_claim
+        .entry()
+        .to_app_option::<PendingBalanceAdjustment>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Final settlement claim deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Final settlement claim entry is missing".into()
+            ))
+        })?;
 
-    // Mark both sides as completed
-    let pending_adj_all_done = PendingBalanceAdjustment {
-        exchange_id: exchange.id.clone(),
-        provider_did: exchange.provider_did.clone(),
-        receiver_did: exchange.receiver_did.clone(),
-        hours: exchange.hours as f64,
-        currency_id: exchange.dao_did.clone(),
-        provider_completed: true,
-        receiver_completed: true,
-        created_at: now_ts,
-    };
-    update_entry(
-        pending_adj_hash,
-        &EntryTypes::PendingBalanceAdjustment(pending_adj_all_done),
-    )?;
+    if !finalized_adj.provider_completed || !finalized_adj.receiver_completed {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Settlement claim did not reach the completed state".into()
+        )));
+    }
 
-    // Update exchange status
     let updated_exchange = TendExchange {
         status: ExchangeStatus::Confirmed,
         ..exchange.clone()
     };
-
-    // Find and update the entry
     update_exchange_entry(&exchange_id, &updated_exchange)?;
 
     Ok(ExchangeRecord {
@@ -2559,55 +2581,131 @@ fn update_balance_after_exchange(
     Ok(())
 }
 
+fn find_pending_claim_for_exchange(
+    exchange_action_hash: &ActionHash,
+) -> ExternResult<Option<(ActionHash, Record, PendingBalanceAdjustment)>> {
+    let pending_anchor = anchor_hash("pending-balance-adjustments")?;
+    let links = get_links(
+        LinkQuery::try_new(pending_anchor, LinkTypes::PendingAdjustmentToExchange)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut candidates = Vec::new();
+    for link in links {
+        let Some(claim_hash) = link.target.into_action_hash() else {
+            continue;
+        };
+        let record = follow_update_chain(claim_hash.clone())?;
+        let Some(claim) = record
+            .entry()
+            .to_app_option::<PendingBalanceAdjustment>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "PendingBalanceAdjustment deserialization error: {:?}",
+                    e
+                )))
+            })?
+        else {
+            continue;
+        };
+        if &claim.exchange_action_hash == exchange_action_hash {
+            candidates.push((claim_hash, record, claim));
+        }
+    }
+
+    candidates.sort_by(|a, b| a.0.cmp(&b.0));
+    Ok(candidates.into_iter().next())
+}
+
+fn validate_pending_claim_runtime(
+    claim: &PendingBalanceAdjustment,
+    exchange: &TendExchange,
+    exchange_action_hash: &ActionHash,
+    caller_did: &str,
+) -> ExternResult<()> {
+    if claim.exchange_action_hash != *exchange_action_hash {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Settlement claim is bound to a different exchange".into()
+        )));
+    }
+    if claim.exchange_id != exchange.id
+        || claim.provider_did != exchange.provider_did
+        || claim.receiver_did != exchange.receiver_did
+        || claim.hours != exchange.hours as f64
+        || claim.currency_id != exchange.dao_did
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Settlement claim terms do not match the exchange".into()
+        )));
+    }
+    if claim.receiver_did != caller_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Settlement claim receiver does not match confirmation caller".into()
+        )));
+    }
+    if claim.hours.is_nan() || !claim.hours.is_finite() || claim.hours <= 0.0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Settlement claim hours are invalid".into()
+        )));
+    }
+    Ok(())
+}
+
+fn find_exchange_action_hash_by_id(exchange_id: &str) -> ExternResult<ActionHash> {
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&format!("exchange:{}", exchange_id))?,
+            LinkTypes::ExchangeIdToExchange,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    let mut hashes = links
+        .into_iter()
+        .filter_map(|link| link.target.into_action_hash())
+        .collect::<Vec<_>>();
+    hashes.sort();
+    hashes.dedup();
+
+    match hashes.len() {
+        0 => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "No exchange ActionHash exists for exchange ID: {}",
+            exchange_id
+        )))),
+        1 => Ok(hashes.remove(0)),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Conflicting exchange ActionHashes exist for exchange ID: {}",
+            exchange_id
+        )))),
+    }
+}
+
 /// Find an exchange by its ID using the ExchangeIdToExchange index.
 /// Follows the update chain to get the latest version (exchanges are mutable — status changes).
 fn find_exchange_by_id(exchange_id: &str) -> ExternResult<Option<TendExchange>> {
-    let links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(&format!("exchange:{}", exchange_id))?,
-            LinkTypes::ExchangeIdToExchange,
-        )?,
-        GetStrategy::default(),
-    )?;
-
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            return record.entry().to_app_option::<TendExchange>().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "TendExchange deserialization error: {:?}",
-                    e
-                )))
-            });
-        }
-    }
-
-    Ok(None)
+    let action_hash = match find_exchange_action_hash_by_id(exchange_id) {
+        Ok(hash) => hash,
+        Err(_) => return Ok(None),
+    };
+    let record = follow_update_chain(action_hash)?;
+    record
+        .entry()
+        .to_app_option::<TendExchange>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "TendExchange deserialization error: {:?}",
+                e
+            )))
+        })
 }
 
-/// Update an exchange entry by finding it via ID index and updating in place.
-/// Follows the update chain to ensure we update the latest version (prevents fork).
+/// Update an exchange entry by resolving the unique exact original ActionHash
+/// and then following its deterministic update chain to the current revision.
 fn update_exchange_entry(exchange_id: &str, exchange: &TendExchange) -> ExternResult<()> {
-    let links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(&format!("exchange:{}", exchange_id))?,
-            LinkTypes::ExchangeIdToExchange,
-        )?,
-        GetStrategy::default(),
-    )?;
-
-    if let Some(link) = links.first() {
-        if let Some(link_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(link_hash)?;
-            update_entry(record.action_address().clone(), exchange)?;
-            return Ok(());
-        }
-    }
-
-    Err(wasm_error!(WasmErrorInner::Guest(format!(
-        "Exchange not found for update: {}",
-        exchange_id
-    ))))
+    let original_hash = find_exchange_action_hash_by_id(exchange_id)?;
+    let record = follow_update_chain(original_hash)?;
+    update_entry(record.action_address().clone(), exchange)?;
+    Ok(())
 }
 
 /// Check if a candidate mediator meets the MYCEL threshold (> 0.5)
@@ -3151,17 +3249,12 @@ pub fn recover_pending_adjustments(currency_id: String) -> ExternResult<u32> {
     let mut recovered: u32 = 0;
 
     for link in links {
-        let Some(target_hash) = link.target.into_action_hash() else {
+        let Some(claim_hash) = link.target.into_action_hash() else {
             continue;
         };
 
-        // Follow the update chain to get the latest version of this entry
-        let record = match follow_update_chain(target_hash) {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
-
-        let Some(adj) = record
+        let record = follow_update_chain(claim_hash.clone())?;
+        let Some(claim) = record
             .entry()
             .to_app_option::<PendingBalanceAdjustment>()
             .map_err(|e| {
@@ -3174,60 +3267,137 @@ pub fn recover_pending_adjustments(currency_id: String) -> ExternResult<u32> {
             continue;
         };
 
-        // Skip entries not matching the requested currency
-        if adj.currency_id != currency_id {
+        if claim.currency_id != currency_id {
+            continue;
+        }
+        if claim.provider_completed && claim.receiver_completed {
+            // Completed claims are already consumed. They remain addressable as
+            // audit evidence but cannot authorize another balance mutation.
             continue;
         }
 
-        // Skip fully completed adjustments
-        if adj.provider_completed && adj.receiver_completed {
-            continue;
+        let exchange_record = follow_update_chain(claim.exchange_action_hash.clone())?;
+        let exchange = exchange_record
+            .entry()
+            .to_app_option::<TendExchange>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Settlement claim exchange deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Settlement claim exchange record is missing".into()
+                ))
+            })?;
+
+        if exchange.status != ExchangeStatus::Proposed {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Pending settlement claim {} points to a non-Proposed exchange {:?}",
+                claim_hash, exchange.status
+            ))));
         }
 
-        let hours = adj.hours as f32;
+        let claim_record = must_get_valid_record(claim_hash.clone())?;
+        let claim_author_did = format!("did:mycelix:{}", claim_record.action().author());
+        if claim_author_did != claim.receiver_did {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Settlement claim author does not match its receiver".into()
+            )));
+        }
+
+        validate_pending_claim_runtime(
+            &claim,
+            &exchange,
+            &claim.exchange_action_hash,
+            &claim.receiver_did,
+        )?;
+
+        let hours = claim.hours as f32;
         let mut current_action = record.action_address().clone();
+        let mut latest_claim = claim.clone();
 
-        // Retry missing balance updates
-        if !adj.provider_completed {
-            // Neither side completed — retry provider first
+        if !latest_claim.provider_completed {
             update_balance_after_exchange(
-                &adj.provider_did,
-                &adj.currency_id,
+                &latest_claim.provider_did,
+                &latest_claim.currency_id,
                 hours,
-                true, // provider gains
+                true,
             )?;
 
-            // Mark provider done
-            let updated = PendingBalanceAdjustment {
-                provider_completed: true,
-                ..adj.clone()
-            };
+            latest_claim.provider_completed = true;
             current_action = update_entry(
                 current_action,
-                &EntryTypes::PendingBalanceAdjustment(updated),
+                &EntryTypes::PendingBalanceAdjustment(latest_claim.clone()),
             )?;
         }
 
-        if !adj.receiver_completed {
+        let refreshed_claim = follow_update_chain(claim_hash.clone())?;
+        latest_claim = refreshed_claim
+            .entry()
+            .to_app_option::<PendingBalanceAdjustment>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Refreshed settlement claim deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Refreshed settlement claim entry is missing".into()
+                ))
+            })?;
+        current_action = refreshed_claim.action_address().clone();
+
+        if !latest_claim.provider_completed {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Settlement claim provider side could not be marked complete".into()
+            )));
+        }
+
+        if !latest_claim.receiver_completed {
             update_balance_after_exchange(
-                &adj.receiver_did,
-                &adj.currency_id,
+                &latest_claim.receiver_did,
+                &latest_claim.currency_id,
                 hours,
-                false, // receiver pays
+                false,
             )?;
 
-            // Mark both sides done
-            let updated = PendingBalanceAdjustment {
-                provider_completed: true,
-                receiver_completed: true,
-                ..adj.clone()
-            };
-            update_entry(
+            latest_claim.receiver_completed = true;
+            current_action = update_entry(
                 current_action,
-                &EntryTypes::PendingBalanceAdjustment(updated),
+                &EntryTypes::PendingBalanceAdjustment(latest_claim.clone()),
             )?;
         }
 
+        let finalized_claim = follow_update_chain(claim_hash.clone())?;
+        let finalized = finalized_claim
+            .entry()
+            .to_app_option::<PendingBalanceAdjustment>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Final settlement claim deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Final settlement claim entry is missing".into()
+                ))
+            })?;
+
+        if !finalized.provider_completed || !finalized.receiver_completed {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Settlement claim did not reach the completed state".into()
+            )));
+        }
+
+        let updated_exchange = TendExchange {
+            status: ExchangeStatus::Confirmed,
+            ..exchange
+        };
+        update_exchange_entry(&updated_exchange.id, &updated_exchange)?;
         recovered += 1;
     }
 
