@@ -570,9 +570,12 @@ pub fn cancel_print(input: CancelPrintInput) -> ExternResult<Record> {
         )));
     }
 
-    if matches!(job.status, PrintJobStatus::Completed | PrintJobStatus::Cancelled) {
+    if matches!(
+        job.status,
+        PrintJobStatus::Completed | PrintJobStatus::Failed | PrintJobStatus::Cancelled
+    ) {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Job is already completed or cancelled".to_string()
+            "Job is already terminal and cannot be cancelled".to_string()
         )));
     }
 
