@@ -579,7 +579,7 @@
   ],
   "parser_structural_control_count": 20,
   "cryptographic_binding_composition": {
-    "verifier_id": "mycelix.tpm.ek-fixture-signatures.v0.1",
+    "verifier_id": "mycelix.tpm.ek-fixture-crypto.v0.1",
     "required_fields": [
       "cryptographic_binding_sha256",
       "cryptographic_binding_source_sha256",
