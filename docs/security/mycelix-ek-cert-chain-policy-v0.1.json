@@ -106,7 +106,7 @@
     "caller-supplied certificate criticality overrides"
   ],
   "authorization_rules": {
-    "trust_anchor_source": "trust_anchor_source_sha256 must equal SHA-256(canonical JSON {source_tag: mycelix.synthetic-ek-root.v0.1, root_sha256: trust_anchor_root_sha256}) for the reproducible synthetic reference fixture",
+    "trust_anchor_source": "trust_anchor_source_sha256 must equal the SHA-256 digest of the exact synthetic trust-anchor authorization receipt; receipt_root_sha256 must equal the receipt's root_certificate_sha256 and the exact supplied root DER digest",
     "root_authority": "the synthetic root is authorized only inside ReferenceModelOnly; a physical deployment must replace this with independently authorized real-root provenance"
   },
   "non_equivalences": [
