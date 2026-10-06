@@ -140,6 +140,7 @@ pub struct FpmAttestationChallenge {
     pub acquisition_root_action: ActionHash,
     pub acquisition_root_digest: String,
     pub verifier_agent: AgentPubKey,
+    pub attestation_format: String,
     pub verifier_profile_digest: String,
     pub appraisal_policy_digest: String,
     pub reference_values_digest: String,
