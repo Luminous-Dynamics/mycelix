@@ -2320,7 +2320,11 @@ mod tests {
             updated.completed_at = Some(ts(2_000_000));
 
             assert!(matches!(
-                validate_bilateral_settlement_transition(&original, &updated),
+                validate_bilateral_settlement_transition(
+                    &original,
+                    &updated,
+                    &updated.completed_at.unwrap_or(ts(0)),
+                ),
                 ValidateCallbackResult::Invalid(_)
             ));
         }
@@ -2714,7 +2718,11 @@ mod tests {
         let mut updated = original.clone();
         updated.last_updated_at = ts(1_500_000);
         assert!(matches!(
-            validate_bilateral_balance_state_transition(&original, &updated),
+            validate_bilateral_balance_state_transition(
+                &original,
+                &updated,
+                &updated.last_updated_at,
+            ),
             ValidateCallbackResult::Invalid(_)
         ));
     }
