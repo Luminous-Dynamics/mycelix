@@ -93,6 +93,15 @@ impl FederationStateMachineTraceExternalEvidenceVerificationStatement {
     pub fn verifier_report_sha256(&self) -> &str { &self.verifier_report_sha256 }
     pub fn claimed_verified_at_unix_seconds(&self) -> u64 { self.claimed_verified_at_unix_seconds }
     pub fn statement_sha256(&self) -> &str { &self.statement_sha256 }
+    pub fn claimed_verified_at_unix_seconds(&self) -> u64 {
+        self.claimed_verified_at_unix_seconds
+    }
+    pub fn evaluated_at_unix_seconds(&self) -> u64 {
+        self.evaluated_at_unix_seconds
+    }
+    pub fn verification_age_seconds(&self) -> u64 {
+        self.verification_age_seconds
+    }
 }
 
 /// Typed read-only projection produced only after the external-evidence binding chain validates.
@@ -1101,6 +1110,9 @@ pub struct FederationExternalVerificationPolicyAdmissionV1 {
     verifier_schema_version: u16,
     claim: FederationStateMachineTraceExternalVerificationClaim,
     statement_sha256: String,
+    claimed_verified_at_unix_seconds: u64,
+    evaluated_at_unix_seconds: u64,
+    verification_age_seconds: u64,
 }
 
 impl FederationExternalVerificationTrustPolicyV1 {
@@ -1335,26 +1347,61 @@ impl FederationExternalVerificationTrustPolicyV1 {
 }
 
 impl FederationStateMachineTraceExternalEvidenceVerificationResult {
-    pub fn admit_under_policy(
+    /// Admits an externally asserted verification result under a local policy at
+    /// one explicit evaluation timestamp. A positive admission therefore commits
+    /// to freshness, witness scope, verifier identity, verifier schema/profile,
+    /// and claim eligibility together.
+    pub fn admit_under_policy_at(
         &self,
         policy: &FederationExternalVerificationTrustPolicyV1,
-    ) -> Result<FederationExternalVerificationPolicyAdmissionV1, FederationExternalVerificationPolicyAdmissionViolation> {
+        evaluated_at_unix_seconds: u64,
+    ) -> Result<
+        FederationExternalVerificationPolicyAdmissionV1,
+        FederationExternalVerificationPolicyAdmissionViolation,
+    > {
+        let maximum_verification_age_seconds = policy
+            .maximum_verification_age_seconds()
+            .ok_or(
+                FederationExternalVerificationPolicyAdmissionViolation::VerificationFreshnessPolicyMissing,
+            )?;
+
+        if self.claimed_verified_at_unix_seconds() > evaluated_at_unix_seconds {
+            return Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerificationClaimFromFuture,
+            );
+        }
+
+        let verification_age_seconds =
+            evaluated_at_unix_seconds.saturating_sub(self.claimed_verified_at_unix_seconds());
+        if verification_age_seconds > maximum_verification_age_seconds {
+            return Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerificationClaimTooOld,
+            );
+        }
+
         let (required_witness_kind, required_witness_profile) = match (
             policy.required_witness_kind(),
             policy.required_witness_profile(),
         ) {
             (Some(kind), Some(profile)) => (kind, profile),
             _ => {
-                return Err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid(
-                    FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete,
-                ))
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid(
+                        FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete,
+                    ),
+                )
             }
         };
+
         if required_witness_kind != self.witness_kind() {
-            return Err(FederationExternalVerificationPolicyAdmissionViolation::WitnessKindNotAdmitted);
+            return Err(
+                FederationExternalVerificationPolicyAdmissionViolation::WitnessKindNotAdmitted,
+            );
         }
         if required_witness_profile != self.witness_profile() {
-            return Err(FederationExternalVerificationPolicyAdmissionViolation::WitnessProfileNotAdmitted);
+            return Err(
+                FederationExternalVerificationPolicyAdmissionViolation::WitnessProfileNotAdmitted,
+            );
         }
 
         let (required_identity_kind, required_identity_profile, required_identity_sha256) = match (
@@ -1371,6 +1418,7 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
                 )
             }
         };
+
         if required_identity_kind != self.verifier_identity_kind() {
             return Err(
                 FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityKindNotAdmitted,
@@ -1390,19 +1438,28 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
         let decision = policy
             .classify(self.verifier_schema_version(), self.verifier_profile(), self.claim())
             .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?;
+
         match decision {
             FederationExternalVerificationPolicyDecision::Admitted => {}
             FederationExternalVerificationPolicyDecision::RejectedClaim => {
-                return Err(FederationExternalVerificationPolicyAdmissionViolation::RejectedClaim);
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::RejectedClaim,
+                );
             }
             FederationExternalVerificationPolicyDecision::VerifierSchemaTooOld => {
-                return Err(FederationExternalVerificationPolicyAdmissionViolation::VerifierSchemaTooOld);
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::VerifierSchemaTooOld,
+                );
             }
             FederationExternalVerificationPolicyDecision::VerifierProfileNotAdmitted => {
-                return Err(FederationExternalVerificationPolicyAdmissionViolation::VerifierProfileNotAdmitted);
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::VerifierProfileNotAdmitted,
+                );
             }
             FederationExternalVerificationPolicyDecision::VerificationClaimNotAdmitted => {
-                return Err(FederationExternalVerificationPolicyAdmissionViolation::VerificationClaimNotAdmitted);
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::VerificationClaimNotAdmitted,
+                );
             }
         }
 
@@ -1419,6 +1476,9 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             verifier_schema_version: self.verifier_schema_version(),
             claim: self.claim(),
             statement_sha256: self.statement_sha256().into(),
+            claimed_verified_at_unix_seconds: self.claimed_verified_at_unix_seconds(),
+            evaluated_at_unix_seconds,
+            verification_age_seconds,
         })
     }
 }
