@@ -92,6 +92,24 @@ def top_level_keys_after(lines_: list[str], heading: str) -> tuple[str, ...]:
     return tuple(found)
 
 
+def top_level_keys(lines_: list[str]) -> tuple[str, ...]:
+    return tuple(
+        match.group(1)
+        for line in lines_
+        if (match := re.fullmatch(r"([A-Za-z0-9_-]+):\s*", line))
+    )
+
+
+def require_exact_top_level_keys(
+    lines_: list[str],
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    actual = top_level_keys(lines_)
+    if actual != expected:
+        fail(f"{description}: top-level key census mismatch: expected {expected!r}, found {actual!r}")
+
+
 def job_keys(lines_: list[str]) -> tuple[str, ...]:
     try:
         start = next(i for i, line in enumerate(lines_) if line.strip() == "jobs:")
@@ -99,6 +117,8 @@ def job_keys(lines_: list[str]) -> tuple[str, ...]:
         fail("missing jobs block")
     found = []
     for line in lines_[start + 1 :]:
+        if line and not line.startswith((" ", "\t")):
+            break
         match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", line)
         if match:
             found.append(match.group(1))
@@ -106,11 +126,15 @@ def job_keys(lines_: list[str]) -> tuple[str, ...]:
 
 
 def step_names(lines_: list[str]) -> tuple[str, ...]:
-    return tuple(
-        match.group(1)
-        for line in lines_
-        if (match := re.fullmatch(r"\s{6}- name: (.+)", line))
-    )
+    names = []
+    for line in lines_:
+        if not re.fullmatch(r"\s{6}-\s+(.+)", line):
+            continue
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if not match:
+            fail(f"workflow step item must use the closed-world '- name:' form: {line!r}")
+        names.append(match.group(1))
+    return tuple(names)
 
 
 def external_uses(lines_: list[str]) -> tuple[str, ...]:
