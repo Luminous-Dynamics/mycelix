@@ -35,6 +35,232 @@ fn get_config() -> FabricationConfig {
     })
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateFpmRegistrationAnchorInput {
+    pub envelope: RegistrationEnvelope,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolveFpmRegistrationActionAnchorInput {
+    pub action_hash: ActionHash,
+    pub claimed_envelope_digest: String,
+    pub expected_author: Option<AgentPubKey>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolveFpmRegistrationEntryAnchorInput {
+    pub entry_hash: EntryHash,
+    pub claimed_envelope_digest: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolvedFpmRegistrationAnchor {
+    pub anchor_kind: RegistrationAnchorKind,
+    pub anchor_reference: String,
+    pub registration_envelope_digest: String,
+    pub entry_hash: EntryHash,
+    pub action_hash: Option<ActionHash>,
+    pub author: Option<AgentPubKey>,
+    pub timestamp: Option<Timestamp>,
+    pub envelope: RegistrationEnvelope,
+}
+
+fn valid_fpm_digest(value: &str) -> bool {
+    value.len() == 64
+        && value.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn fpm_anchor_error(reason: impl Into<String>) -> WasmError {
+    FabricationError::ValidationFailed {
+        field: "fpm_registration_anchor".into(),
+        reason: reason.into(),
+    }
+    .to_wasm_error()
+}
+
+fn validate_resolved_anchor_envelope(
+    anchor: &FpmRegistrationAnchor,
+    claimed_envelope_digest: &str,
+) -> ExternResult<()> {
+    if anchor.schema_version != FPM_REGISTRATION_ANCHOR_SCHEMA_VERSION {
+        return Err(fpm_anchor_error("unsupported registration anchor schema"));
+    }
+    if !valid_fpm_digest(claimed_envelope_digest) {
+        return Err(fpm_anchor_error("claimed envelope digest is not canonical SHA-256"));
+    }
+    if !valid_fpm_digest(&anchor.envelope_digest) {
+        return Err(fpm_anchor_error("stored envelope digest is not canonical SHA-256"));
+    }
+    if anchor.envelope_digest != claimed_envelope_digest {
+        return Err(fpm_anchor_error("claimed envelope digest does not match stored anchor"));
+    }
+    let computed = anchor.envelope.digest().map_err(|e| {
+        fpm_anchor_error(format!("failed to hash anchored registration envelope: {e}"))
+    })?;
+    if computed != anchor.envelope_digest {
+        return Err(fpm_anchor_error("stored envelope digest does not match envelope content"));
+    }
+    Ok(())
+}
+
+#[hdk_extern]
+pub fn create_fpm_registration_anchor(
+    input: CreateFpmRegistrationAnchorInput,
+) -> ExternResult<Record> {
+    rate_limit_caller()?;
+
+    let envelope_digest = input.envelope.digest().map_err(|e| {
+        fpm_anchor_error(format!("failed to hash registration envelope: {e}"))
+    })?;
+
+    let anchor = FpmRegistrationAnchor {
+        schema_version: FPM_REGISTRATION_ANCHOR_SCHEMA_VERSION.into(),
+        envelope: input.envelope,
+        envelope_digest,
+    };
+
+    let action_hash =
+        create_entry(EntryTypes::FpmRegistrationAnchor(anchor))?;
+
+    get(action_hash, GetOptions::default())?
+        .ok_or_else(|| FabricationError::not_found(
+            "FpmRegistrationAnchor",
+            &"newly-created action",
+        ))
+}
+
+fn resolve_action_anchor(
+    input: ResolveFpmRegistrationActionAnchorInput,
+) -> ExternResult<ResolvedFpmRegistrationAnchor> {
+    let details = get_details(input.action_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| FabricationError::not_found("FpmRegistrationAnchor", &input.action_hash))?;
+
+    let Details::Record(record_details) = details else {
+        return Err(fpm_anchor_error("ActionHash did not resolve to record details"));
+    };
+
+    if record_details.validation_status != ValidationStatus::Valid {
+        return Err(fpm_anchor_error("registration anchor record is not valid"));
+    }
+    if !record_details.updates.is_empty() {
+        return Err(fpm_anchor_error("registration anchor record has updates"));
+    }
+    if !record_details.deletes.is_empty() {
+        return Err(fpm_anchor_error("registration anchor record has deletes"));
+    }
+
+    let record = record_details.record;
+    let anchor: FpmRegistrationAnchor = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| fpm_anchor_error(format!("could not decode registration anchor: {e}")))?
+        .ok_or_else(|| fpm_anchor_error("record is not an FPM registration anchor entry"))?;
+
+    validate_resolved_anchor_envelope(&anchor, &input.claimed_envelope_digest)?;
+
+    let author = *record.action().author();
+    if let Some(expected_author) = input.expected_author.as_ref() {
+        if *expected_author != author {
+            return Err(fpm_anchor_error("ActionHash author does not match expected author"));
+        }
+    }
+
+    let entry_hash = record
+        .action()
+        .entry_hash()
+        .ok_or_else(|| fpm_anchor_error("registration anchor action has no entry hash"))?;
+
+    if entry_hash != *record
+        .action()
+        .entry_hash()
+        .as_ref()
+        .expect("entry hash checked above")
+    {
+        return Err(fpm_anchor_error("registration anchor entry identity could not be retained"));
+    }
+
+    Ok(ResolvedFpmRegistrationAnchor {
+        anchor_kind: RegistrationAnchorKind::HolochainAction,
+        anchor_reference: format!("holochain-action:{input_action}", input_action = input.action_hash),
+        registration_envelope_digest: anchor.envelope_digest,
+        entry_hash,
+        action_hash: Some(input.action_hash),
+        author: Some(author),
+        timestamp: Some(*record.action().timestamp()),
+        envelope: anchor.envelope,
+    })
+}
+
+fn resolve_entry_anchor(
+    input: ResolveFpmRegistrationEntryAnchorInput,
+) -> ExternResult<ResolvedFpmRegistrationAnchor> {
+    let details = get_details(input.entry_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| FabricationError::not_found("FpmRegistrationAnchor", &input.entry_hash))?;
+
+    let Details::Entry(entry_details) = details else {
+        return Err(fpm_anchor_error("EntryHash did not resolve to entry details"));
+    };
+
+    if entry_details.entry_dht_status != EntryDhtStatus::Live {
+        return Err(fpm_anchor_error("registration anchor entry is not live"));
+    }
+    if !entry_details.rejected_actions.is_empty() {
+        return Err(fpm_anchor_error("registration anchor entry has rejected creation actions"));
+    }
+    if !entry_details.deletes.is_empty() {
+        return Err(fpm_anchor_error("registration anchor entry has deletes"));
+    }
+    if !entry_details.updates.is_empty() {
+        return Err(fpm_anchor_error("registration anchor entry has updates"));
+    }
+
+    let record = get(input.entry_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| FabricationError::not_found("FpmRegistrationAnchor", &input.entry_hash))?;
+
+    let actual_entry_hash = record
+        .action()
+        .entry_hash()
+        .ok_or_else(|| fpm_anchor_error("resolved entry record has no entry hash"))?;
+    if actual_entry_hash != input.entry_hash {
+        return Err(fpm_anchor_error("resolved record entry hash does not match requested EntryHash"));
+    }
+
+    let anchor: FpmRegistrationAnchor = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| fpm_anchor_error(format!("could not decode registration anchor: {e}")))?
+        .ok_or_else(|| fpm_anchor_error("entry is not an FPM registration anchor entry"))?;
+
+    validate_resolved_anchor_envelope(&anchor, &input.claimed_envelope_digest)?;
+
+    Ok(ResolvedFpmRegistrationAnchor {
+        anchor_kind: RegistrationAnchorKind::HolochainEntry,
+        anchor_reference: format!("holochain-entry:{input_entry}", input_entry = input.entry_hash),
+        registration_envelope_digest: anchor.envelope_digest,
+        entry_hash: input.entry_hash,
+        action_hash: None,
+        author: None,
+        timestamp: None,
+        envelope: anchor.envelope,
+    })
+}
+
+#[hdk_extern]
+pub fn resolve_fpm_registration_action_anchor(
+    input: ResolveFpmRegistrationActionAnchorInput,
+) -> ExternResult<ResolvedFpmRegistrationAnchor> {
+    rate_limit_caller()?;
+    resolve_action_anchor(input)
+}
+
+#[hdk_extern]
+pub fn resolve_fpm_registration_entry_anchor(
+    input: ResolveFpmRegistrationEntryAnchorInput,
+) -> ExternResult<ResolvedFpmRegistrationAnchor> {
+    rate_limit_caller()?;
+    resolve_entry_anchor(input)
+}
+
 // =============================================================================
 // RATE LIMITING
 // =============================================================================
