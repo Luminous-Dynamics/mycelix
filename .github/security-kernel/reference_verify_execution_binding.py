@@ -105,19 +105,15 @@ def validate(binding: object) -> dict:
         value = binding.get(key)
         if not isinstance(value, str) or len(value) != 40:
             fail(f"{key} must be a 40-character string")
-        try:
-            int(value, 16)
-        except ValueError:
-            fail(f"{key} must be hexadecimal")
+        if not all(char in "0123456789abcdef" for char in value):
+            fail(f"{key} must use lowercase hexadecimal")
 
     for key in HEX64_KEYS:
         value = binding.get(key)
         if not isinstance(value, str) or len(value) != 64:
             fail(f"{key} must be a 64-character string")
-        try:
-            int(value, 16)
-        except ValueError:
-            fail(f"{key} must be hexadecimal")
+        if not all(char in "0123456789abcdef" for char in value):
+            fail(f"{key} must use lowercase hexadecimal")
 
     for key in SHA256_PREFIX_KEYS:
         value = binding.get(key)
@@ -125,8 +121,9 @@ def validate(binding: object) -> dict:
             not isinstance(value, str)
             or len(value) != 71
             or not value.startswith("sha256:")
+            or not all(char in "0123456789abcdef" for char in value[7:])
         ):
-            fail(f"{key} must be sha256:<64 hex>")
+            fail(f"{key} must be sha256:<64 lowercase hex>")
 
     for key in (
         "repository",
