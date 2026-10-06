@@ -12,3 +12,5 @@ Caller-supplied certificate criticality overrides are not accepted. Certificate 
 The trust-anchor child boundary is source- and output-bound: the chain verifier records the exact trust-anchor appraiser source SHA, exact output-file SHA, and verifier-computed semantic content SHA, and rejects substitutions of any of the three.
 
 The trust-anchor child boundary is source- and output-bound: the chain verifier records the exact trust-anchor appraiser source SHA, exact output-file SHA, and verifier-computed semantic content SHA, and rejects substitutions of any of the three.
+
+The EK chain no longer consumes SPKI PASS metadata as authority. It re-executes the SPKI verifier over the exact chain certificate/public-wire inputs and binds the verifier source, input/output file digests, and semantic output content digest. The contract adds four explicit SPKI composition regressions.
