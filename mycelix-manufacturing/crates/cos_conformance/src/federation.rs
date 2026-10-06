@@ -937,8 +937,9 @@ struct FederationExternalVerificationTrustPolicyHashView {
 
 /// Local policy admission of an externally asserted verification result.
 ///
-/// This object means only that the supplied verifier profile/schema/claim satisfied
-/// the explicitly configured local policy. It is not a cryptographic proof,
+/// This object means only that the supplied verifier profile/schema/claim and
+/// explicitly bound witness identity satisfied the configured local policy. It is not
+/// a cryptographic proof,
 /// not a verifier trust root, and not execution authority.
 ///
 /// It is intentionally one-way and cannot be deserialized into an authority-bearing
