@@ -153,6 +153,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
             check=True,
             capture_output=True,
             text=True,
+            cwd=Path(__file__).parents[2],
         ).stdout.strip()
         assert tree_record
         mode, kind, observed, observed_path = tree_record.split(None, 3)
