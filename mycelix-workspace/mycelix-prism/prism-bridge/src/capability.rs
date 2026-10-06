@@ -169,10 +169,25 @@ impl AuthenticatedRendererSession {
         Self { session_id, peer_id, renderer_process, generation, sequence: RequestSequence::default(), active: true }
     }
 
-    pub fn accept_request(&mut self, peer_id: RendererPeerId, generation: u64, request_id: RequestId) -> Result<(), CapabilityError> {
+    pub fn validate_request(
+        &self,
+        peer_id: RendererPeerId,
+        generation: u64,
+        request_id: RequestId,
+    ) -> Result<(), CapabilityError> {
         if !self.active { return Err(CapabilityError::SessionClosed); }
         if self.peer_id != peer_id { return Err(CapabilityError::PeerMismatch); }
         if self.generation != generation { return Err(CapabilityError::GenerationMismatch); }
+        self.sequence.check(request_id)
+    }
+
+    pub fn accept_request(
+        &mut self,
+        peer_id: RendererPeerId,
+        generation: u64,
+        request_id: RequestId,
+    ) -> Result<(), CapabilityError> {
+        self.validate_request(peer_id, generation, request_id)?;
         self.sequence.check_and_record(request_id)
     }
 
@@ -252,7 +267,7 @@ pub struct RequestSequence {
 }
 
 impl RequestSequence {
-    pub fn check_and_record(&mut self, request_id: RequestId) -> Result<(), CapabilityError> {
+    pub fn check(&self, request_id: RequestId) -> Result<(), CapabilityError> {
         if let Some(previous) = self.last {
             if request_id.0 <= previous.0 {
                 return Err(CapabilityError::RequestIdReplay {
@@ -261,6 +276,11 @@ impl RequestSequence {
                 });
             }
         }
+        Ok(())
+    }
+
+    pub fn check_and_record(&mut self, request_id: RequestId) -> Result<(), CapabilityError> {
+        self.check(request_id)?;
         self.last = Some(request_id);
         Ok(())
     }
@@ -298,6 +318,17 @@ mod tests {
     fn capability_names_are_stable() {
         assert_eq!(Capability::NetworkFetch.stable_name(), "network-fetch");
         assert_eq!(Capability::FileOpen.stable_name(), "file-open");
+    }
+
+    #[test]
+    fn sequence_validation_does_not_mutate_state() {
+        let mut sequence = RequestSequence::default();
+        sequence.check(RequestId::new(1).unwrap()).unwrap();
+        assert_eq!(sequence.last(), None);
+        sequence.check_and_record(RequestId::new(1).unwrap()).unwrap();
+        assert_eq!(sequence.last(), RequestId::new(1).ok());
+        assert!(sequence.check(RequestId::new(1).unwrap()).is_err());
+        assert_eq!(sequence.last(), RequestId::new(1).ok());
     }
 
     #[test]
