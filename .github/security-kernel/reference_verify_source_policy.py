@@ -101,6 +101,22 @@ def require_exact_action_set(lines: list[str], expected_actions: tuple[str, ...]
         fail(f"{description}: expected exact action set {expected_actions!r}, found {tuple(actual)!r}")
 
 
+def require_exact_trigger_keys(lines: list[str], expected_triggers: tuple[str, ...], description: str) -> None:
+    try:
+        on_index = next(i for i, line in enumerate(lines) if line.strip() == "on:")
+    except StopIteration as exc:
+        fail(f"{description}: missing on block")
+    actual = []
+    for line in lines[on_index + 1 :]:
+        if line and not line.startswith((" ", "\t")):
+            break
+        match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", line)
+        if match:
+            actual.append(match.group(1))
+    if tuple(actual) != expected_triggers:
+        fail(f"{description}: expected exact top-level triggers {expected_triggers!r}, found {tuple(actual)!r}")
+
+
 def require_exact_job_names(lines: list[str], expected_jobs: tuple[str, ...], description: str) -> None:
     try:
         jobs_index = next(i for i, line in enumerate(lines) if line.strip() == "jobs:")
@@ -140,6 +156,7 @@ def verify_s0(raw: bytes) -> None:
     lines = normalized_lines(raw)
     require_exact(lines, "name: Security Kernel Qualification — Trusted Dispatcher", "S0 name")
     require_exact(lines, "pull_request_target:", "S0 trigger")
+    require_exact_trigger_keys(lines, ("pull_request_target",), "S0 trigger topology")
     require_exact(lines, "types: [opened, synchronize, reopened, ready_for_review]", "S0 trigger types")
     require_permission_block(lines, 2, "S0 permissions")
     require_exact(lines, 'BASE_REPOSITORY: "Luminous-Dynamics/mycelix"', "S0 repository")
@@ -169,6 +186,7 @@ def verify_s1(raw: bytes) -> None:
     lines = normalized_lines(raw)
     require_exact(lines, "name: Security Kernel Independent Qualification", "S1 name")
     require_exact(lines, "workflow_call:", "S1 trigger")
+    require_exact_trigger_keys(lines, ("workflow_call",), "S1 trigger topology")
     if exact_count(lines, re.escape("workflow_dispatch:")):
         fail("S1 must not expose workflow_dispatch")
     require_permission_block(lines, 1, "S1 permissions")
@@ -222,6 +240,7 @@ def verify_s2(raw: bytes, expected_policy_blob_sha: str) -> None:
     lines = normalized_lines(raw)
     require_exact(lines, "name: Security Kernel Qualification — Trusted Result Verifier", "S2 name")
     require_exact(lines, "workflow_run:", "S2 trigger")
+    require_exact_trigger_keys(lines, ("workflow_run",), "S2 trigger topology")
     require_exact(lines, 'workflows: ["Security Kernel Qualification — Trusted Dispatcher"]', "S2 workflow trigger")
     require_exact(lines, "types: [completed]", "S2 trigger type")
     if exact_count(lines, re.escape("workflow_dispatch:")):
