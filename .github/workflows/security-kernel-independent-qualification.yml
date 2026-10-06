@@ -74,6 +74,7 @@ jobs:
           CALLED_WORKFLOW_FILE_PATH: ${{ job.workflow_file_path }}
           TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
+        shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
@@ -153,6 +154,7 @@ jobs:
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
           TOKEN: ${{ github.token }}
           FETCH_IMAGE: "docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329"
+        shell: bash
         run: |
           set -euo pipefail
           candidate_root="$RUNNER_TEMP/security-kernel-candidate-src"
@@ -338,6 +340,7 @@ jobs:
         shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+        shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -485,6 +488,7 @@ jobs:
         shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+        shell: bash
         run: |
           set -euo pipefail
           python3 - "$CANDIDATE_ROOT" <<'PY' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"
@@ -519,6 +523,7 @@ jobs:
         shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+        shell: bash
         run: |
           set -euo pipefail
           lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"
@@ -538,6 +543,7 @@ jobs:
         shell: bash
         env:
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
+        shell: bash
         run: |
           set -euo pipefail
           docker pull --quiet "$SANDBOX_IMAGE"
@@ -611,6 +617,7 @@ jobs:
         shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+        shell: bash
         run: |
           set -euo pipefail
           dependency_root="$RUNNER_TEMP/security-kernel-dependency-subject"
@@ -627,6 +634,7 @@ jobs:
         env:
           DEPENDENCY_ROOT: ${{ steps.dependency_subject.outputs.dependency_root }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
+        shell: bash
         run: |
           set -euo pipefail
           runner_uid="$(id -u)"
@@ -713,6 +721,7 @@ jobs:
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
+        shell: bash
         run: |
           set -euo pipefail
           runner_uid="$(id -u)"
@@ -822,6 +831,7 @@ jobs:
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
+        shell: bash
         run: |
           set -euo pipefail
           runner_uid="$(id -u)"
@@ -946,6 +956,7 @@ jobs:
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
           EXPECTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
+        shell: bash
         run: |
           set -euo pipefail
           python3 - "$CANDIDATE_ROOT" "$EXPECTED_SOURCE_DIGEST" <<'PY'
@@ -982,6 +993,7 @@ jobs:
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
           EXPECTED_VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
+        shell: bash
         run: |
           set -euo pipefail
           python3 - "$VENDOR_ROOT" "$VENDOR_CONFIG" "$EXPECTED_VENDOR_DIGEST" <<'PY'
@@ -1046,6 +1058,7 @@ jobs:
           RUST_VERSION: ${{ steps.sandbox_preflight.outputs.rust_version }}
           RUST_COMMIT: ${{ steps.sandbox_preflight.outputs.rust_commit }}
           FETCH_IMAGE: "docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329"
+        shell: bash
         run: |
           set -euo pipefail
           CARGO_LOCK_DIGEST="$LOCK_DIGEST"
@@ -1122,6 +1135,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
           RECEIPT_PATH: ${{ runner.temp }}/security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt
+        shell: bash
         run: |
           set -euo pipefail
           printf "%s" "$EXPECTED_ARTIFACT_ID" | grep -Eq "^[0-9]+$"
