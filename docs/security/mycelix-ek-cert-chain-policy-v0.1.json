@@ -140,6 +140,18 @@
     [
       "ek_profile_pass",
       "AK_EK_lineage"
+    ],
+    [
+      "reference_crl_window_pass",
+      "live_crl_freshness"
+    ],
+    [
+      "reference_revocation_entry_pass",
+      "real_world_revocation_authority"
+    ],
+    [
+      "crl_aki_ski_match",
+      "issuer_operational_authority"
     ]
   ],
   "vectors": [
@@ -519,7 +531,11 @@
       "exact RSA certificate SPKI rsaEncryption AlgorithmIdentifier parameters",
       "canonical DER certificate structure including unique Extensions wrapper and primitive canonicality checks",
       "Certificate Policies non-critical and structurally validated when present",
-      "exact certificate/CRL cryptographic signature binding to issuer public keys and exact TBS bytes"
+      "exact certificate/CRL cryptographic signature binding to issuer public keys and exact TBS bytes",
+      "exact reference CRL v2 thisUpdate/nextUpdate semantics bound to the modeled verification time",
+      "exact non-critical CRL AuthorityKeyIdentifier and cRLNumber extension presence and encoding",
+      "CRL AuthorityKeyIdentifier keyIdentifier exact match to the signing certificate SubjectKeyIdentifier",
+      "exact revoked-entry serial, revocationDate, reasonCode, and raw DER identity binding"
     ],
     "conditional_pqc_requirements": "EKCredentialAlgorithmList and TPMPQCVersion are intentionally outside this v0.1 reference theorem because their correctness depends on issuer-issued PQC credentials and firmware-at-manufacturing/current-firmware evidence not present in this synthetic reference fixture.",
     "claim_ceiling": "ReferenceModelOnly"
