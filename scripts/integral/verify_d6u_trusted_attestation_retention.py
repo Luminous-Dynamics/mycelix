@@ -140,33 +140,48 @@ def expected_verify_command(
     return command
 
 
+def canonical_json_sha256(value: object) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def verify_report(
     path: Path,
     expected_subjects: list[tuple[str, str]],
-    expected_run_uri: str,
-    predicate_type: str,
-) -> None:
+    expected_context: dict[str, str],
+) -> str:
     report = load_json(path)
     assert isinstance(report, list) and len(report) >= 1
     matches = []
+    predicate_hashes = []
     for entry in report:
         assert isinstance(entry, dict)
         result = entry.get("verificationResult")
         assert isinstance(result, dict)
         statement = result.get("statement")
         assert isinstance(statement, dict)
-        assert statement.get("predicateType") == predicate_type
+        assert statement.get("predicateType") == expected_context["predicate_type"]
 
         certificate = result.get("signature", {}).get("certificate", {})
         assert isinstance(certificate, dict)
-        assert certificate.get("runInvocationURI") == expected_run_uri
+        assert certificate.get("subjectAlternativeName") == expected_context["certificate_identity"]
+        assert certificate.get("issuer") == expected_context["certificate_oidc_issuer"]
+        assert certificate.get("githubWorkflowRepository") == expected_context["repository"]
+        assert certificate.get("githubWorkflowRef") == "refs/heads/main"
+        assert certificate.get("sourceRepositoryURI") == ("https://github.com/" + expected_context["repository"])
+        assert certificate.get("sourceRepositoryDigest") == expected_context["source_digest"]
+        assert certificate.get("runnerEnvironment") == "github-hosted"
+        assert certificate.get("runInvocationURI") == expected_context["run_invocation_uri"]
 
         timestamps = result.get("verifiedTimestamps", [])
         assert isinstance(timestamps, list)
-        assert any(
-            isinstance(timestamp, dict) and timestamp.get("type") == "Tlog"
-            for timestamp in timestamps
-        )
+        assert any(isinstance(timestamp, dict) and timestamp.get("type") == "Tlog" for timestamp in timestamps)
+
+        predicate = statement.get("predicate")
+        assert isinstance(predicate, dict)
+        assert predicate.get("schema") == expected_context["predicate_schema"]
+        assert predicate.get("claim_ceiling") == expected_context["claim_ceiling"]
+        assert predicate.get("attestation_kind") == "verified-runtime-evidence"
 
         subjects = statement.get("subject")
         assert isinstance(subjects, list)
@@ -180,9 +195,11 @@ def verify_report(
         assert len(observed_subjects) == len(set(observed_subjects))
         assert sorted(observed_subjects) == sorted(expected_subjects)
         matches.append(entry)
+        predicate_hashes.append(canonical_json_sha256(predicate))
 
     assert len(matches) == 1
-
+    assert len(predicate_hashes) == 1
+    return predicate_hashes[0]
 
 def verify_no_public_good_control(
     path: Path,
@@ -398,6 +415,7 @@ def main() -> None:
             "online_report_sha256",
             "offline_report_filename",
             "offline_report_sha256",
+            "predicate_sha256",
             "negative_control_filename",
             "negative_control_sha256",
             "trusted_root_sha256",
@@ -422,18 +440,28 @@ def main() -> None:
         assert binding["trusted_root_sha256"] == root_sha256
 
         load_jsonl(root / expected_bundle)
-        verify_report(
+        expected_context = {
+            "repository": transcript["repository"],
+            "source_digest": transcript["source_digest"],
+            "run_invocation_uri": transcript["run_invocation_uri"],
+            "certificate_identity": transcript["certificate_identity"],
+            "certificate_oidc_issuer": transcript["certificate_oidc_issuer"],
+            "predicate_type": transcript["predicate_type"],
+            "predicate_schema": transcript["predicate_schema"],
+            "claim_ceiling": transcript["claim_ceiling"],
+        }
+        online_predicate_sha256 = verify_report(
             root / expected_online,
             expected_subjects,
-            transcript["run_invocation_uri"],
-            transcript["predicate_type"],
+            expected_context,
         )
-        verify_report(
+        offline_predicate_sha256 = verify_report(
             root / expected_offline,
             expected_subjects,
-            transcript["run_invocation_uri"],
-            transcript["predicate_type"],
+            expected_context,
         )
+        assert online_predicate_sha256 == offline_predicate_sha256
+        assert binding["predicate_sha256"] == online_predicate_sha256
 
     for subject_name in SUBJECTS:
         safe = subject_name.replace(".", "_").replace("-", "_")
