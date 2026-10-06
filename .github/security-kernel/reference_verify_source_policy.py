@@ -137,6 +137,43 @@ def step_names(lines_: list[str]) -> tuple[str, ...]:
     return tuple(names)
 
 
+def require_exact_job_keys(
+    lines_: list[str],
+    expected: tuple[tuple[str, tuple[str, ...]], ...],
+    description: str,
+) -> None:
+    actual = []
+    start = next((i for i, line in enumerate(lines_) if line.strip() == "jobs:"), None)
+    if start is None:
+        fail(f"{description}: missing jobs block")
+    current_job = None
+    current_keys = []
+
+    def flush() -> None:
+        if current_job is None:
+            return
+        actual.append((current_job, tuple(current_keys)))
+
+    for line in lines_[start + 1 :]:
+        if line and not line.startswith((" ", "\t")):
+            break
+        job_match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", line)
+        if job_match:
+            flush()
+            current_job = job_match.group(1)
+            current_keys = []
+            continue
+        if current_job is None:
+            continue
+        key_match = re.fullmatch(r"    ([A-Za-z0-9_-]+):(?:\s+.*)?", line)
+        if key_match:
+            current_keys.append(key_match.group(1))
+
+    flush()
+    if tuple(actual) != expected:
+        fail(f"{description}: job key census mismatch: expected {expected!r}, found {actual!r}")
+
+
 def require_exact_step_keys(
     lines_: list[str],
     expected: tuple[tuple[str, tuple[str, ...]], ...],
@@ -481,6 +518,14 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 must contain exactly one pull_request_target runtime guard")
     if job_keys(l) != ("resolve", "qualify"):
         fail("S0 job topology mismatch")
+    require_exact_job_keys(
+        l,
+        (
+            ("resolve", ("name", "runs-on", "cache-mode", "timeout-minutes", "outputs", "steps")),
+            ("qualify", ("name", "needs", "permissions", "cache-mode", "uses", "with")),
+        ),
+        S0,
+    )
     if step_names(l) != ("Verify trusted dispatcher context and exact PR identity",):
         fail("S0 step topology mismatch")
     if external_uses(l) != ():
@@ -530,6 +575,11 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 must contain exactly one pull_request_target runtime guard")
     if job_keys(l) != ("qualify",):
         fail("S1 job topology mismatch")
+    require_exact_job_keys(
+        l,
+        (("qualify", ("name", "runs-on", "timeout-minutes", "steps")),),
+        S1,
+    )
     if tuple(step_names(l)) != S1_STEPS:
         fail("S1 step topology mismatch")
     require_exact_actions(
@@ -664,6 +714,11 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         fail("S2 must contain exactly one main-ref runtime guard")
     if job_keys(l) != ("verify",):
         fail("S2 job topology mismatch")
+    require_exact_job_keys(
+        l,
+        (("verify", ("name", "runs-on", "cache-mode", "timeout-minutes", "steps")),),
+        S2,
+    )
     if tuple(step_names(l)) != S2_STEPS:
         fail("S2 step topology mismatch")
     require_exact_actions(
