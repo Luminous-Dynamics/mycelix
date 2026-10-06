@@ -1929,11 +1929,11 @@ mod sap_balance_management {
         println!("Test 8.1 PASSED: SAP balance initializes to zero");
     }
 
-    /// Test 8.2: Credit and debit SAP, verify remaining balance
+    /// Test 8.2: The legacy untyped debit API is retired.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
-    async fn test_credit_and_debit_sap() {
-        println!("Test 8.2: Credit and Debit SAP");
+    async fn test_untyped_debit_sap_is_retired() {
+        println!("Test 8.2: Untyped debit_sap is retired");
 
         let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
         let dna = SweetDnaFile::from_bundle(&dna_path)
@@ -1951,7 +1951,6 @@ mod sap_balance_management {
         let alice_key = agents[0].clone();
         let alice_did = format!("did:mycelix:{}", alice_key);
 
-        // Initialize
         let _: Record = conductor
             .call(
                 &alice_cell.zome("payments"),
@@ -1960,29 +1959,6 @@ mod sap_balance_management {
             )
             .await;
 
-        // Credit 5000
-        #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-        struct CreditSapInput {
-            pub member_did: String,
-            pub amount: u64,
-            pub reason: String,
-        }
-
-        let _: Record = conductor
-            .call(
-                &alice_cell.zome("payments"),
-                "credit_sap",
-                CreditSapInput {
-                    member_did: alice_did.clone(),
-                    amount: 5000,
-                    reason: "Test credit".to_string(),
-                },
-            )
-            .await;
-
-        println!("  - Credited 5000 SAP");
-
-        // Debit 2000
         #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
         struct DebitSapInput {
             pub member_did: String,
@@ -1990,43 +1966,36 @@ mod sap_balance_management {
             pub reason: String,
         }
 
-        let _: Record = conductor
-            .call(
+        let result: Result<Record, _> = conductor
+            .call_fallible(
                 &alice_cell.zome("payments"),
                 "debit_sap",
                 DebitSapInput {
-                    member_did: alice_did.clone(),
-                    amount: 2000,
-                    reason: "Test debit".to_string(),
+                    member_did: alice_did,
+                    amount: 1,
+                    reason: "legacy raw debit must be rejected".to_string(),
                 },
             )
             .await;
 
-        println!("  - Debited 2000 SAP");
-
-        // Verify remaining balance is 3000
-        let balance: SapBalanceResponse = conductor
-            .call(
-                &alice_cell.zome("payments"),
-                "get_sap_balance",
-                alice_did.clone(),
-            )
-            .await;
-
-        assert_eq!(
-            balance.raw_balance, 3000,
-            "Balance should be 3000 after credit 5000 and debit 2000"
+        let error_msg = match result {
+            Err(e) => format!("{:?}", e),
+            Ok(_) => panic!("The retired untyped debit API must never mutate SAP"),
+        };
+        assert!(
+            error_msg.contains("retired") || error_msg.contains("typed provenance"),
+            "Unexpected legacy debit error: {}",
+            error_msg
         );
 
-        println!("  - Remaining balance: {}", balance.raw_balance);
-        println!("Test 8.2 PASSED: Credit and debit work correctly");
+        println!("Test 8.2 PASSED: legacy untyped debit is fail-closed");
     }
 
-    /// Test 8.3: Debit exceeding balance should fail
+    /// Test 8.3: The legacy untyped debit remains retired even for funded accounts.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
-    async fn test_debit_exceeds_balance_fails() {
-        println!("Test 8.3: Debit Exceeds Balance");
+    async fn test_untyped_debit_sap_cannot_bypass_provenance() {
+        println!("Test 8.3: Untyped debit cannot bypass provenance");
 
         let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
         let dna = SweetDnaFile::from_bundle(&dna_path)
@@ -2044,7 +2013,6 @@ mod sap_balance_management {
         let alice_key = agents[0].clone();
         let alice_did = format!("did:mycelix:{}", alice_key);
 
-        // Initialize and credit 1000
         let _: Record = conductor
             .call(
                 &alice_cell.zome("payments"),
@@ -2053,26 +2021,15 @@ mod sap_balance_management {
             )
             .await;
 
-        #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-        struct CreditSapInput {
-            pub member_did: String,
-            pub amount: u64,
-            pub reason: String,
-        }
-
-        let _: Record = conductor
+        let balance_before: SapBalanceResponse = conductor
             .call(
                 &alice_cell.zome("payments"),
-                "credit_sap",
-                CreditSapInput {
-                    member_did: alice_did.clone(),
-                    amount: 1000,
-                    reason: "Test credit".to_string(),
-                },
+                "get_sap_balance",
+                alice_did.clone(),
             )
             .await;
+        assert_eq!(balance_before.raw_balance, 0);
 
-        // Try to debit 2000 (exceeds 1000 balance)
         #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
         struct DebitSapInput {
             pub member_did: String,
@@ -2086,28 +2043,27 @@ mod sap_balance_management {
                 "debit_sap",
                 DebitSapInput {
                     member_did: alice_did.clone(),
-                    amount: 2000,
-                    reason: "Test overdraft".to_string(),
+                    amount: 1,
+                    reason: "attempted provenance bypass".to_string(),
                 },
             )
             .await;
 
-        match result {
-            Err(e) => {
-                let error_msg = format!("{:?}", e);
-                assert!(
-                    error_msg.contains("Insufficient")
-                        || error_msg.contains("insufficient")
-                        || error_msg.contains("balance"),
-                    "Should reject debit exceeding balance, got: {}",
-                    error_msg
-                );
-                println!("  - Overdraft rejected: OK");
-            }
-            Ok(_) => panic!("Should have rejected debit exceeding balance"),
-        }
+        assert!(result.is_err(), "Retired untyped debit unexpectedly succeeded");
 
-        println!("Test 8.3 PASSED: Debit exceeding balance fails correctly");
+        let balance_after: SapBalanceResponse = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "get_sap_balance",
+                alice_did,
+            )
+            .await;
+        assert_eq!(
+            balance_after.raw_balance, 0,
+            "Rejected legacy debit must not mutate SAP balance"
+        );
+
+        println!("Test 8.3 PASSED: legacy debit cannot bypass provenance");
     }
 
     /// Test 8.4: Demurrage is applied on balance read
