@@ -648,7 +648,7 @@ jobs:
             --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
             --env ACTIONS_ID_TOKEN_REQUEST_URL= \
             --env ACTIONS_RUNTIME_TOKEN= \
-            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
               test "$(id -u)" -ne 0
               grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
               grep -Eq "^Seccomp:[[:space:]]+2$" /proc/self/status
@@ -755,7 +755,7 @@ jobs:
             --env HOME=/cargo-home --env CARGO_HOME=/cargo-home \
             --env VENDOR_MAX_BYTES="$VENDOR_MAX_BYTES" --env VENDOR_MAX_FILES="$VENDOR_MAX_FILES" --env VENDOR_MAX_INODES="$VENDOR_MAX_INODES" \
             --env GITHUB_TOKEN= --env GH_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_URL= --env ACTIONS_RUNTIME_TOKEN= \
-            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               set -euo pipefail
               /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config
               python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" /vendor /vendor-metrics <<\PY
@@ -848,7 +848,7 @@ jobs:
             --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
             --env ACTIONS_ID_TOKEN_REQUEST_URL= \
             --env ACTIONS_RUNTIME_TOKEN= \
-            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               set -euo pipefail
               must_fail() {
                 if "$@" >/tmp/negative-control-output 2>&1; then
@@ -1161,7 +1161,7 @@ jobs:
               if observed != expected: raise SystemExit(f'vendor substrate mutated: {expected} != {observed}')
               print('PASS: vendored dependency substrate remained immutable and regular-file-only')
               PY
-            '
+          CONTAINER_SCRIPT
           if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null; then
             echo "security-kernel vendor volume cleanup failed" >&2
             exit 1
