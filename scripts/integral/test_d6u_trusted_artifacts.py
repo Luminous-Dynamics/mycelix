@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import stat
+import struct
 import tempfile
 from zipfile import ZipFile, ZipInfo
 from unittest.mock import patch
@@ -2186,6 +2187,7 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
         "GITHUB_RUN_ID": "501",
         "GITHUB_RUN_ATTEMPT": "2",
         "GITHUB_SHA": "a" * 40,
+        "GITHUB_REF": "refs/heads/main",
         "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
         "D6U_TRIGGER_HEAD_SHA": "b" * 40,
         "GITHUB_TOKEN": "token",
@@ -2193,8 +2195,8 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
     current_run = {
         "id": 501,
         "run_attempt": 2,
-        "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
-        "head_sha": "b" * 40,
+        "head_branch": "main",
+        "head_sha": "a" * 40,
         "repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
         "head_repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
     }
@@ -2209,8 +2211,8 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
                 "id": 501,
                 "repository_id": 9001,
                 "head_repository_id": 9001,
-                "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
-                "head_sha": "b" * 40,
+                "head_branch": "main",
+                "head_sha": "a" * 40,
             },
         }]
     }
@@ -2228,6 +2230,44 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
             "oversized auditor handoff archive was accepted",
         )
 
+
+
+def test_trusted_zip_rejects_zip64_eocd() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = Path(tmp) / "artifact.zip"
+        write_valid_artifact_zip(archive)
+        raw = archive.read_bytes()
+        eocd = raw.rfind(b"PK\\x05\\x06")
+        assert eocd >= 0
+        total_entries, central_size, central_offset = struct.unpack_from(
+            "<HII", raw, eocd + 10
+        )
+        zip64_offset = eocd
+        zip64_record = struct.pack(
+            "<4sQ2H2I4Q",
+            b"PK\\x06\\x06",
+            44,
+            45,
+            45,
+            0,
+            0,
+            total_entries,
+            total_entries,
+            central_size,
+            central_offset,
+        )
+        zip64_locator = struct.pack(
+            "<4sIQI",
+            b"PK\\x06\\x07",
+            0,
+            zip64_offset,
+            1,
+        )
+        archive.write_bytes(raw[:eocd] + zip64_record + zip64_locator + raw[eocd:])
+        assert_rejected(
+            lambda: verify_zip_members(archive, artifact_policy()),
+            "ZIP64 EOCD/locator was accepted",
+        )
 
 
 def test_bounded_artifact_download_rejects_stream_overflow() -> None:
@@ -2350,6 +2390,7 @@ if __name__ == "__main__":
         test_bounded_artifact_download_rejects_stream_overflow,
         test_trusted_zip_entry_count_is_preflighted_before_zip_parsing,
         test_trusted_zip_rejects_non_zlib_compression,
+        test_trusted_zip_rejects_zip64_eocd,
     ]
     for test in tests:
         test()
