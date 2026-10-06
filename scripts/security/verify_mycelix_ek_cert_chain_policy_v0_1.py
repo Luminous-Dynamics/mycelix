@@ -1090,6 +1090,10 @@ def validate_crl_semantics(
     for label in ("root", "intermediate"):
         crl = crls[label]
         spec = expected[label]
+        if crl.get("version") != 2:
+            raise ValueError(f"{label} CRL must be v2")
+        if "this_update" not in crl or "next_update" not in crl:
+            raise ValueError(f"{label} CRL thisUpdate/nextUpdate are required")
         if crl["this_update"]["unix"] > verification_time_unix or verification_time_unix >= crl["next_update"]["unix"]:
             raise ValueError(f"{label} CRL outside exact modeled validity window")
         expected_number = int(spec["crl_number"])
