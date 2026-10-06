@@ -575,6 +575,21 @@ fn get_or_create_hearth_balance(
     Ok(bal)
 }
 
+fn require_hearth_membership(
+    is_member: bool,
+    member_did: &str,
+    hearth_did: &str,
+) -> ExternResult<()> {
+    if is_member {
+        Ok(())
+    } else {
+        Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{} is not a member of hearth {}",
+            member_did, hearth_did
+        ))))
+    }
+}
+
 /// Verify that a member belongs to a hearth via cross-zome call to hearth zome.
 ///
 /// Hearth membership is authorization for a monetary TEND mutation. Any
@@ -604,14 +619,7 @@ fn verify_hearth_membership(member_did: &str, hearth_did: &str) -> ExternResult<
                     member_did, hearth_did, e
                 )))
             })?;
-            if is_member {
-                Ok(())
-            } else {
-                Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "{} is not a member of hearth {}",
-                    member_did, hearth_did
-                ))))
-            }
+            require_hearth_membership(is_member, member_did, hearth_did)
         }
         Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Hearth membership authority returned an unexpected response for {}@{}: {:?}",
@@ -3233,6 +3241,24 @@ mod tests {
 
     fn ts() -> Timestamp {
         Timestamp::from_micros(0)
+    }
+
+    #[test]
+    fn hearth_membership_true_allows_exchange_authority() {
+        assert!(require_hearth_membership(
+            true,
+            "did:mycelix:member",
+            "did:mycelix:hearth"
+        ).is_ok());
+    }
+
+    #[test]
+    fn hearth_membership_false_rejects_exchange_authority() {
+        assert!(require_hearth_membership(
+            false,
+            "did:mycelix:member",
+            "did:mycelix:hearth"
+        ).is_err());
     }
 
     #[test]
