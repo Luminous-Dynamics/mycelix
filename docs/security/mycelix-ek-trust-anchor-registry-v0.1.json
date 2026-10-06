@@ -5,7 +5,7 @@
   "entries": [
     {
       "anchor_id": "mycelix.synthetic-ek-root.v0.1",
-      "root_certificate_sha256": "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab",
+      "root_certificate_sha256": "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556",
       "authorization_state": "PASS",
       "authorization_class": "synthetic-reference-fixture",
       "source_tag": "mycelix.synthetic-ek-root.v0.1",
