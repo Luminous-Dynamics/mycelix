@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 44
+    assert policy["policy_version"] == 45
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -439,6 +439,25 @@ def test_policy_pins_current_trusted_workflow() -> None:
         text=True,
     ).stdout.strip()
     assert policy["trusted_workflow"]["blob_sha"] == observed
+
+
+def test_trusted_github_api_readers_are_response_bounded() -> None:
+    root = Path(__file__).parents[2]
+    sources = [
+        root / "scripts/integral/verify_d6u_trusted_artifacts.py",
+        root / "scripts/integral/fetch_d6u_trusted_artifact.py",
+    ]
+    for path in sources:
+        source = path.read_text(encoding="utf-8")
+        assert "MAX_GITHUB_JSON_BYTES = 8 * 1024 * 1024" in source
+        assert "response.read(MAX_GITHUB_JSON_BYTES + 1)" in source
+        assert "len(payload) > MAX_GITHUB_JSON_BYTES" in source
+    policy = json.loads(
+        (root / "docs/integral/d6u-trusted-builder-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert policy["trusted_network"]["github_api_response_max_bytes"] == 8 * 1024 * 1024
 
 
 def test_trusted_python_programs_reject_optimized_mode() -> None:
