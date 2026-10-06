@@ -18,7 +18,7 @@ pub const FEDERATION_PROFILE_ID: &str = "INTEGRAL-FED-REF-001";
 /// This is a statement record, not a proof result. The reference model can
 /// verify the exact binding of the statement to the anchor reference and
 /// verifier-report bytes, but it does not verify the external claim itself.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum FederationStateMachineTraceExternalVerificationClaim {
     CryptographicSignatureVerified,
     TimestampTokenVerified,
@@ -132,6 +132,9 @@ pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE: &str =
     "integral-federation-external-verification-trust-policy-v1";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN: &str =
     "integral-federation-external-verification-trust-policy-sha256-v1";
+pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ALGORITHM: &str = "sha-256";
+pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ENCODING: &str =
+    "sha256-lowercase-hex-v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationExternalVerificationPolicyDecision {
@@ -176,6 +179,18 @@ pub struct FederationExternalVerificationTrustPolicyV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct FederationExternalVerificationTrustPolicyHashView {
+    hash_domain: String,
+    schema_version: u16,
+    policy_profile: String,
+    hash_algorithm: String,
+    hash_encoding: String,
+    minimum_verifier_schema_version: u16,
+    accepted_verifier_profiles: Vec<String>,
+    accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationExternalVerificationPolicyAdmissionV1 {
     policy_sha256: String,
     verifier_profile: String,
@@ -190,11 +205,13 @@ impl FederationExternalVerificationTrustPolicyV1 {
         accepted_verifier_profiles: impl IntoIterator<Item = impl Into<String>>,
         accepted_claims: impl IntoIterator<Item = FederationStateMachineTraceExternalVerificationClaim>,
     ) -> Result<Self, FederationExternalVerificationTrustPolicyViolation> {
-        let accepted_verifier_profiles = accepted_verifier_profiles
+        let mut accepted_verifier_profiles = accepted_verifier_profiles
             .into_iter()
             .map(Into::into)
             .collect::<Vec<_>>();
-        let accepted_claims = accepted_claims.into_iter().collect::<Vec<_>>();
+        accepted_verifier_profiles.sort();
+        let mut accepted_claims = accepted_claims.into_iter().collect::<Vec<_>>();
+        accepted_claims.sort();
         let policy = Self {
             schema_version: FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION,
             policy_profile: FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE.into(),
@@ -253,22 +270,19 @@ impl FederationExternalVerificationTrustPolicyV1 {
 
     pub fn policy_sha256(&self) -> Result<String, FederationExternalVerificationTrustPolicyViolation> {
         self.validate()?;
-        let mut profiles = self.accepted_verifier_profiles.clone();
-        profiles.sort();
-        let mut claims = self.accepted_claims.clone();
-        claims.sort();
-        let bytes = serde_json::to_vec(&(
-            self.schema_version,
-            self.policy_profile.as_str(),
-            self.minimum_verifier_schema_version,
-            profiles,
-            claims,
-        )).expect("external verification policy hash view is serializable");
-        let input = [
-            FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN.as_bytes(),
-            bytes.as_slice(),
-        ].concat();
-        let digest = Sha256::digest(input);
+        let view = FederationExternalVerificationTrustPolicyHashView {
+            hash_domain: FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN.into(),
+            schema_version: self.schema_version,
+            policy_profile: self.policy_profile.clone(),
+            hash_algorithm: FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ALGORITHM.into(),
+            hash_encoding: FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ENCODING.into(),
+            minimum_verifier_schema_version: self.minimum_verifier_schema_version,
+            accepted_verifier_profiles: self.accepted_verifier_profiles.clone(),
+            accepted_claims: self.accepted_claims.clone(),
+        };
+        let bytes = serde_json::to_vec(&view)
+            .expect("external verification policy hash view is serializable");
+        let digest = Sha256::digest(bytes);
         Ok(format!("sha256:{digest:x}"))
     }
 
@@ -2420,6 +2434,93 @@ mod tests {
             denied_schema.policy_sha256().unwrap(),
             policy.policy_sha256().unwrap()
         );
+    }
+
+    #[test]
+    fn external_verification_policy_is_canonical_and_content_addressed() {
+        let left = FederationExternalVerificationTrustPolicyV1::try_new(
+            2,
+            ["ct-auditor-v1", "rfc3161-verifier-v1"],
+            [
+                FederationStateMachineTraceExternalVerificationClaim::TransparencyConsistencyVerified,
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            ],
+        )
+        .expect("left policy must build");
+        let right = FederationExternalVerificationTrustPolicyV1::try_new(
+            2,
+            ["rfc3161-verifier-v1", "ct-auditor-v1"],
+            [
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                FederationStateMachineTraceExternalVerificationClaim::TransparencyConsistencyVerified,
+            ],
+        )
+        .expect("right policy must build");
+
+        assert_eq!(left.accepted_verifier_profiles(), right.accepted_verifier_profiles());
+        assert_eq!(left.accepted_claims(), right.accepted_claims());
+        assert_eq!(left.policy_sha256().unwrap(), right.policy_sha256().unwrap());
+    }
+
+    #[test]
+    fn external_verification_policy_admission_preserves_exact_identity() {
+        let subject_schema_version =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION;
+        let subject_profile =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE;
+        let subject_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let witness_artifact = b"policy-anchor";
+        let anchor_reference = state_machine_trace_external_evidence_anchor_reference(
+            subject_schema_version,
+            subject_profile,
+            subject_sha256,
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            witness_artifact,
+            1_791_001_100,
+        )
+        .expect("anchor reference must build");
+        let verifier_report = b"policy-report";
+        let statement = state_machine_trace_external_evidence_verification_statement(
+            &anchor_reference.anchor_reference_sha256,
+            2,
+            "rfc3161-verifier-v1",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            verifier_report,
+            1_791_001_101,
+        )
+        .expect("verification statement must build");
+
+        let result =
+            validate_state_machine_trace_external_evidence_verification_statement_chain(
+                subject_schema_version,
+                subject_profile,
+                subject_sha256,
+                witness_artifact,
+                &anchor_reference,
+                verifier_report,
+                &statement,
+            )
+            .expect("binding chain must validate");
+
+        let policy = FederationExternalVerificationTrustPolicyV1::try_new(
+            2,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("policy must build");
+
+        let admission = result
+            .admit_under_policy(&policy)
+            .expect("policy should admit exact external result");
+
+        assert_eq!(admission.policy_sha256(), policy.policy_sha256().unwrap());
+        assert_eq!(admission.verifier_profile(), result.verifier_profile());
+        assert_eq!(admission.verifier_schema_version(), result.verifier_schema_version());
+        assert_eq!(admission.claim(), result.claim());
+        assert_eq!(admission.statement_sha256(), result.statement_sha256());
     }
 
     #[test]
