@@ -44,9 +44,11 @@ while IFS= read -r rel; do
     # The projection may change only the one relative path required by the
     # standalone directory layout. Compare its exact blob against the
     # canonical file after that deterministic transformation.
-    canonical_content="$(git show "HEAD:$canonical_root/$rel")"
-    expected_content="$(printf '%s' "$canonical_content" |       sed 's#../../nix/modules/holochain-base.nix#../nix/modules/holochain-base.nix#g')"
-    expected_blob="$(printf '%s' "$expected_content" | git hash-object --stdin)"
+    expected_blob="$(
+      git show "HEAD:$canonical_root/$rel" |
+        sed 's#\.\./\.\./nix/modules/holochain-base\.nix#../nix/modules/holochain-base.nix#g' |
+        git hash-object --stdin
+    )"
 
     if [ "$projection_blob" != "$expected_blob" ]; then
       printf 'SOURCE_PARITY_MISMATCH %s canonical=%s expected_projection=%s actual_projection=%s\n'         "$rel" "$canonical_blob" "$expected_blob" "$projection_blob"
