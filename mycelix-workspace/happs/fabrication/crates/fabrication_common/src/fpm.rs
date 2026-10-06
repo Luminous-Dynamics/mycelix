@@ -53,7 +53,9 @@ impl ProcessFeature {
 
     fn anomaly_type(self) -> ProcessAnomalyType {
         match self {
-            Self::HotendTemperature | Self::BedTemperature => ProcessProcessAnomalyType::TemperatureDeviation,
+            Self::HotendTemperature | Self::BedTemperature => {
+                ProcessAnomalyType::TemperatureDeviation
+            },
             Self::ExtruderCurrent => ProcessAnomalyType::ExtrusionInconsistency,
             Self::VibrationRms => ProcessAnomalyType::VibrationAnomaly,
             Self::FilamentTension => ProcessAnomalyType::FilamentSlip,
@@ -527,7 +529,8 @@ mod tests {
         let observations = (0..10)
             .map(|sequence| observation(sequence, 210.0 + (sequence as f32 % 2.0) * 0.2))
             .collect::<Vec<_>>();
-        BaselineProfile::from_observations(&DetectorConfig::default(), &observations).expect("valid baseline")
+        BaselineProfile::from_observations(&DetectorConfig::default(), &observations)
+            .expect("valid baseline")
     }
 
     #[test]
@@ -607,7 +610,9 @@ mod tests {
         let config = DetectorConfig::default();
         let result = analyze(&config, &baseline(), &observation(100, 250.0)).expect("analysis");
         assert_eq!(result.status, DetectionStatus::Anomalous);
-        assert!(result.anomaly_types.contains(&AnomalyType::TemperatureDeviation));
+        assert!(result
+            .anomaly_types
+            .contains(&ProcessAnomalyType::TemperatureDeviation));
         assert!(result
             .evaluations
             .iter()
