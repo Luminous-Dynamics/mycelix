@@ -1068,22 +1068,25 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
         &EntryTypes::CollateralBridgeDeposit(redeemed),
     )?;
 
-    // Debit SAP from depositor's balance via payments zome
+    // Debit SAP from depositor's balance through the explicit typed redemption
+    // sink. The caller is already authenticated as the deposit owner above.
     #[derive(Serialize, Debug)]
-    struct DebitSapPayload {
+    struct RedemptionSapDebitPayload {
         member_did: String,
         amount: u64,
-        reason: String,
+        redemption_id: String,
+        redemption_action_hash: ActionHash,
     }
     match call(
         CallTargetCell::Local,
         ZomeName::from("payments"),
-        FunctionName::from("debit_sap"),
+        FunctionName::from("debit_sap_for_redemption"),
         None,
-        DebitSapPayload {
+        RedemptionSapDebitPayload {
             member_did: deposit.depositor_did.clone(),
             amount: deposit.sap_minted,
-            reason: format!("Collateral bridge redemption: {}", deposit.collateral_type),
+            redemption_id: deposit.id.clone(),
+            redemption_action_hash: action_hash.clone(),
         },
     ) {
         Ok(ZomeCallResponse::Ok(_)) => {}
