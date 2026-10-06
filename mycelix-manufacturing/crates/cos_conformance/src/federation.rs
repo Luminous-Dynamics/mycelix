@@ -5774,17 +5774,11 @@ mod tests {
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     enum FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation {
-        InvalidAnchorReferenceSchemaVersion,
-        InvalidAnchorReferenceProfile,
-        InvalidAnchorReferenceDigest,
-        InvalidVerifierReportSchemaVersion,
-        EmptyVerifierProfile,
+build violations remove        EmptyVerifierProfile,
         EmptyVerifierReport,
     }
 
     fn state_machine_trace_external_evidence_verification_statement(
-        anchor_reference_schema_version: u16,
-        anchor_reference_profile: &str,
         anchor_reference_sha256: &str,
         verifier_schema_version: u16,
         verifier_profile: &str,
@@ -5795,21 +5789,7 @@ mod tests {
         FederationStateMachineTraceExternalEvidenceVerificationStatement,
         FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation,
     > {
-        if anchor_reference_schema_version
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceSchemaVersion
-            );
-        }
-        if anchor_reference_profile
-            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE
-        {
-            return Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceProfile
-            );
-        }
-        if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
+builder gates remove        if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
             return Err(
                 FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceDigest
             );
@@ -5840,8 +5820,10 @@ mod tests {
                     FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM.into(),
                 hash_encoding:
                     FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING.into(),
-                anchor_reference_schema_version,
-                anchor_reference_profile: anchor_reference_profile.into(),
+                anchor_reference_schema_version:
+                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION,
+                anchor_reference_profile:
+                    FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE.into(),
                 anchor_reference_sha256: anchor_reference_sha256.into(),
                 verifier_schema_version,
                 verifier_profile: verifier_profile.into(),
@@ -5867,6 +5849,8 @@ mod tests {
         UnsupportedHashAlgorithm,
         UnsupportedHashEncoding,
         InvalidAnchorReferenceDigest,
+        AnchorReferenceSchemaVersionMismatch,
+        AnchorReferenceProfileMismatch,
         AnchorReferenceDigestMismatch,
         InvalidVerifierReportSchemaVersion,
         EmptyVerifierProfile,
@@ -5914,6 +5898,20 @@ mod tests {
         {
             return Err(
                 FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedHashEncoding
+            );
+        }
+        if statement.anchor_reference_schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceSchemaVersionMismatch
+            );
+        }
+        if statement.anchor_reference_profile
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceProfileMismatch
             );
         }
         if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
