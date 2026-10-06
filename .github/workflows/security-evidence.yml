@@ -111,7 +111,7 @@ jobs:
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_chain["vectors"]) == 40
+          assert len(cert_chain["vectors"]) == 45
           PY
 
       - name: Compile security verifiers and bundle regression
@@ -134,6 +134,7 @@ jobs:
             scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py \
             scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py \
+            scripts/security/verify_mycelix_ek_cert_path_validation_v0_1.py \
             scripts/security/verify_mycelix_ek_trust_anchor_appraisal_v0_1.py
 
       - name: Run platform Evidence semantic corpus
@@ -171,6 +172,9 @@ jobs:
 
       - name: Run EK certificate chain policy semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py --self-test
+
+      - name: Run EK certificate path validation semantic corpus
+        run: python3 scripts/security/verify_mycelix_ek_cert_path_validation_v0_1.py --self-test
 
       - name: Run EK trust-anchor appraisal semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_trust_anchor_appraisal_v0_1.py --self-test

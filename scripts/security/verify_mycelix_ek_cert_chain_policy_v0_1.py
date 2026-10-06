@@ -6,7 +6,6 @@ import argparse
 import copy
 import hashlib
 import json
-import shutil
 import sys
 import subprocess
 import tempfile
@@ -15,6 +14,7 @@ from typing import Any
 
 VERIFIER_ID = "mycelix.tpm.ek-cert-chain-policy.v0.1"
 SPKI_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
+PATH_VERIFIER_ID = "mycelix.tpm.ek-cert-path-validation.v0.1"
 TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
 ROOT = Path(__file__).resolve().parents[2]
 TRUST_ANCHOR_APPRAISAL_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
@@ -25,6 +25,8 @@ SPKI_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_cert_spki_bin
 FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
+REFERENCE_TIME_UNIX = 1791158400
+EXPIRED_TIME_UNIX = 4102444800
 FIXTURE_HASHES = {
     "root.der": REFERENCE_ROOT_SHA256,
     "intermediate.der": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
@@ -34,6 +36,7 @@ FIXTURE_HASHES = {
     "crl-bundle.pem": "6e0e1ea27ae4b5933d40e54368a8618a7aee98b45011962029a131c11b323abb",
 }
 TEMPLATE_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_template_appraisal_v0_1.py")
+PATH_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ek_cert_path_validation_v0_1.py")
 EK_CERT_EKU_OID = "2.23.133.8.1"
 
 
@@ -89,6 +92,39 @@ def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         cmd, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
     )
+
+
+def split_pem_crls(bundle: bytes) -> list[bytes]:
+    start_marker = b"-----BEGIN X509 CRL-----"
+    end_marker = b"-----END X509 CRL-----"
+    blocks: list[bytes] = []
+    cursor = 0
+    while cursor < len(bundle):
+        start = bundle.find(start_marker, cursor)
+        if start < 0:
+            if bundle[cursor:].strip():
+                raise ValueError("CRL bundle contains non-CRL data")
+            break
+        if bundle[cursor:start].strip():
+            raise ValueError("CRL bundle contains bytes outside PEM CRL blocks")
+        end = bundle.find(end_marker, start + len(start_marker))
+        if end < 0:
+            raise ValueError("CRL PEM block missing END marker")
+        end += len(end_marker)
+        blocks.append(bundle[start:end] + b"\\n")
+        cursor = end
+    if not blocks:
+        raise ValueError("CRL bundle contains no PEM CRLs")
+    return blocks
+
+
+def hex_bytes(value: Any, field: str) -> bytes:
+    if not isinstance(value, str) or len(value) % 2:
+        raise ValueError(f"{field} must be an even-length hexadecimal string")
+    try:
+        return bytes.fromhex(value)
+    except ValueError as exc:
+        raise ValueError(f"{field} invalid hexadecimal: {exc}") from exc
 
 
 def sha256_file(path: Path) -> str:
@@ -408,20 +444,27 @@ def verify_crl_sign_key_usage(info: dict[str, Any]) -> bool:
     return critical and crl_sign
 
 
-def crl_issuer_names_from_pem_bundle(bundle: bytes, work: Path) -> list[bytes]:
+def crl_pem_to_der(block: bytes) -> bytes:
+    import base64
+    start_marker = b"-----BEGIN X509 CRL-----"
+    end_marker = b"-----END X509 CRL-----"
+    stripped = block.strip()
+    if not stripped.startswith(start_marker) or not stripped.endswith(end_marker):
+        raise ValueError("invalid X509 CRL PEM block")
+    body = stripped[len(start_marker):-len(end_marker)]
+    encoded = b"".join(body.split())
+    try:
+        return base64.b64decode(encoded, validate=True)
+    except Exception as exc:
+        raise ValueError(f"invalid X509 CRL PEM encoding: {exc}") from exc
+
+
+def crl_issuer_names_from_pem_bundle(bundle: bytes) -> list[bytes]:
     issuers: list[bytes] = []
-    for index, block in enumerate(split_pem_crls(bundle)):
-        path = work / f"crl-{index}.pem"
-        path.write_bytes(block)
-        der_path = work / f"crl-{index}.der"
-        proc = run(
-            ["openssl", "crl", "-in", str(path), "-outform", "DER", "-out", str(der_path)],
-            work,
-        )
-        if proc.returncode != 0:
-            raise ValueError(f"openssl crl block {index} conversion failed: {proc.stderr.strip()}")
-        tag, crl_content, _raw, end = der_tlv(der_path.read_bytes(), 0)
-        if tag != 0x30 or end != der_path.stat().st_size:
+    for block in split_pem_crls(bundle):
+        der = crl_pem_to_der(block)
+        tag, crl_content, _raw, end = der_tlv(der, 0)
+        if tag != 0x30 or end != len(der):
             raise ValueError("CRL is not a single DER sequence")
         tbs_tag, tbs_content, _tbs_raw, _ = der_tlv(crl_content, 0)
         if tbs_tag != 0x30:
@@ -653,6 +696,121 @@ def run_spki_verifier(
         return output
 
 
+def run_path_verifier(
+    manifest: dict[str, Any],
+    binding: dict[str, Any],
+) -> dict[str, Any]:
+    if not PATH_VERIFIER_SCRIPT.is_file():
+        return result("DENY", "path-verifier-missing")
+    verifier_input = binding.get("verifier_input")
+    if not isinstance(verifier_input, dict):
+        return result("DENY", "path-verifier-input-invalid")
+    expected_input = {
+        "profile_id": "mycelix.security.tpm.ek-cert-path-validation",
+        "profile_version": "0.1.0",
+        "verification_mode": manifest["verification_mode"],
+        "claim_ceiling": "ReferenceModelOnly",
+        "session_id": manifest["session_id"],
+        "tpm_identity_digest": manifest["tpm_identity_digest"],
+        "leaf_certificate_der_base64": manifest["leaf_certificate_der_base64"],
+        "leaf_certificate_sha256": manifest["leaf_certificate_sha256"],
+        "intermediate_certificate_der_base64": manifest["intermediate_certificate_der_base64"],
+        "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
+        "trust_anchor_root_der_base64": manifest["trust_anchor_root_der_base64"],
+        "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
+        "crl_bundle_pem_base64": manifest["revocation"]["crl_bundle_pem_base64"],
+        "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
+        "verification_time_unix": manifest["verification_time_unix"],
+    }
+    if verifier_input != {key: value for key, value in expected_input.items()}:
+        return result("DENY", "path-verifier-input-projection-mismatch")
+    expected_execution_binding = canonical_hash({
+        "session_id": expected_input["session_id"],
+        "tpm_identity_digest": expected_input["tpm_identity_digest"],
+        "leaf_certificate_sha256": expected_input["leaf_certificate_sha256"],
+        "intermediate_certificate_sha256": expected_input["intermediate_certificate_sha256"],
+        "trust_anchor_root_sha256": expected_input["trust_anchor_root_sha256"],
+        "crl_bundle_pem_sha256": expected_input["crl_bundle_pem_sha256"],
+        "verification_time_unix": expected_input["verification_time_unix"],
+        "policy_argv": [
+            "openssl", "verify", "-CAfile", "root.pem",
+            "-untrusted", "intermediate.pem", "-CRLfile", "crl-bundle.pem",
+            "-crl_check_all", "-attime", str(expected_input["verification_time_unix"]),
+            "leaf.pem",
+        ],
+    })
+    if binding.get("execution_binding_sha256") != expected_execution_binding:
+        return result("DENY", "path-verifier-execution-binding-mismatch")
+    if binding.get("verifier_id") != PATH_VERIFIER_ID:
+        return result("DENY", "path-verifier-id-mismatch")
+    if binding.get("source_sha256") != sha256_file(PATH_VERIFIER_SCRIPT):
+        return result("DENY", "path-verifier-source-mismatch")
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-path-compose-") as td:
+        work = Path(td)
+        input_path = work / "path-input.json"
+        output_path = work / "path-output.json"
+        input_path.write_text(
+            json.dumps(expected_input, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(PATH_VERIFIER_SCRIPT),
+                "--verify",
+                str(input_path),
+                "--output",
+                str(output_path),
+            ],
+            cwd=work,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if proc.returncode not in (0, 1, 2):
+            return result("DENY", "path-verifier-execution-error", {"stderr": proc.stderr})
+        if not output_path.is_file():
+            return result("DENY", "path-verifier-produced-no-output")
+        try:
+            output = json.loads(output_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            return result("DENY", "path-verifier-output-invalid", {"error": str(exc)})
+        if output.get("verifier_id") != PATH_VERIFIER_ID:
+            return result("DENY", "path-verifier-result-id-mismatch")
+        if output.get("state") != binding.get("state"):
+            return result("DENY", "path-verifier-result-state-mismatch")
+        if output.get("input_sha256") != hashlib.sha256(input_path.read_bytes()).hexdigest():
+            return result("DENY", "path-verifier-result-input-digest-mismatch")
+        if binding.get("input_sha256") != output["input_sha256"]:
+            return result("DENY", "path-verifier-input-digest-mismatch")
+        output_sha = hashlib.sha256(output_path.read_bytes()).hexdigest()
+        if binding.get("output_sha256") != output_sha:
+            return result("DENY", "path-verifier-output-digest-mismatch")
+        if not valid_hash(output.get("content_sha256")):
+            return result("DENY", "path-verifier-output-content-digest-invalid")
+        if binding.get("output_content_sha256") != output["content_sha256"]:
+            return result("DENY", "path-verifier-output-content-digest-mismatch")
+        if output["content_sha256"] != canonical_hash(
+            {key: value for key, value in output.items() if key != "content_sha256"}
+        ):
+            return result("DENY", "path-verifier-output-content-invalid")
+        details = output.get("details")
+        if not isinstance(details, dict):
+            return result("DENY", "path-verifier-result-details-missing")
+        for field, expected in (
+            ("leaf_certificate_sha256", manifest["leaf_certificate_sha256"]),
+            ("intermediate_certificate_sha256", manifest["intermediate_certificate_sha256"]),
+            ("trust_anchor_root_sha256", manifest["trust_anchor_root_sha256"]),
+            ("crl_bundle_pem_sha256", manifest["revocation"]["crl_bundle_pem_sha256"]),
+            ("verification_time_unix", manifest["verification_time_unix"]),
+            ("execution_binding_sha256", expected_execution_binding),
+        ):
+            if details.get(field) != expected:
+                return result("DENY", "path-verifier-result-binding-mismatch", {"field": field})
+        return output
+
+
 def validate_template_binding(manifest: dict[str, Any]) -> dict[str, Any]:
     template = manifest.get("ek_template_binding")
     if not isinstance(template, dict):
@@ -729,6 +887,13 @@ def session_binding(
             "revocation_state": rev["state"],
             "revocation_method": rev.get("method"),
             "revocation_crl_bundle_pem_sha256": crl_sha,
+            "path_state": manifest["path_validation"].get("state"),
+            "path_verifier_id": manifest["path_validation"].get("verifier_id"),
+            "path_source_sha256": manifest["path_validation"].get("source_sha256"),
+            "path_input_sha256": manifest["path_validation"].get("input_sha256"),
+            "path_output_sha256": manifest["path_validation"].get("output_sha256"),
+            "path_output_content_sha256": manifest["path_validation"].get("output_content_sha256"),
+            "path_execution_binding_sha256": manifest["path_validation"].get("execution_binding_sha256"),
             "spki_state": spki.get("state"),
             "spki_certificate_sha256": spki.get("certificate_sha256"),
             "spki_ek_public_wire_sha256": spki.get("ek_public_wire_sha256"),
@@ -754,7 +919,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "intermediate_certificate_der_base64", "intermediate_certificate_sha256",
         "trust_anchor_root_der_base64", "trust_anchor_root_sha256",
         "trust_anchor_state", "trust_anchor_source_sha256", "trust_anchor_appraisal",
-        "verification_time_unix", "revocation", "spki_binding", "ek_template_binding",
+        "verification_time_unix", "revocation", "path_validation", "spki_binding", "ek_template_binding",
         "session_binding_sha256",
     }
     missing = sorted(required - set(manifest))
@@ -890,32 +1055,50 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     if expected_session_binding != manifest["session_binding_sha256"]:
         return result("DENY", "session-binding-mismatch")
 
-    if not shutil.which("openssl"):
-        return result("INDETERMINATE", "openssl-unavailable")
+    path_validation = manifest["path_validation"]
+    if not isinstance(path_validation, dict):
+        return result("DENY", "path-validation-object-invalid")
+    if path_validation.get("state") == "INDETERMINATE":
+        return result("INDETERMINATE", "path-validation-indeterminate")
+    if path_validation.get("state") != "PASS":
+        return result("DENY", "path-validation-not-pass")
+    for field in (
+        "state", "verifier_id", "source_sha256", "input_sha256",
+        "output_sha256", "output_content_sha256", "execution_binding_sha256",
+        "verifier_input",
+    ):
+        if field not in path_validation:
+            return result("DENY", "path-validation-field-missing", {"field": field})
+    for field in (
+        "source_sha256", "input_sha256", "output_sha256",
+        "output_content_sha256", "execution_binding_sha256",
+    ):
+        if not valid_hash(path_validation[field]):
+            return result("DENY", "path-validation-digest-invalid", {"field": field})
+    generated_path = run_path_verifier(manifest, path_validation)
+    if generated_path.get("verifier_id") != PATH_VERIFIER_ID:
+        return generated_path
+    if generated_path.get("state") != "PASS":
+        return result("DENY", "path-validation-reexecution-not-pass")
+    path_details = generated_path.get("details")
+    if not isinstance(path_details, dict):
+        return result("DENY", "path-validation-result-details-missing")
 
-    with tempfile.TemporaryDirectory(prefix="mycelix-ek-chain-") as td:
-        work = Path(td)
-        try:
-            chain_ok, chain_detail = verify_chain(
-                leaf, intermediate, root, crl_bundle_pem, manifest["verification_time_unix"], work
-            )
-            leaf_info = parse_certificate_der(leaf)
-            intermediate_info = parse_certificate_der(intermediate)
-            root_info = parse_certificate_der(root)
-            crl_issuers = crl_issuer_names_from_pem_bundle(crl_bundle_pem, work)
-            openssl_version = run(["openssl", "version"], work).stdout.strip()
-        except (ValueError, OSError) as exc:
-            return result("DENY", "openssl-parse-error", {"error": str(exc)})
-
-    if not chain_ok:
-        return result("DENY", "certificate-path-validation-failed", {"openssl": chain_detail})
+    try:
+        leaf_info = parse_certificate_der(leaf)
+        intermediate_info = parse_certificate_der(intermediate)
+        root_info = parse_certificate_der(root)
+        crl_issuers = crl_issuer_names_from_pem_bundle(crl_bundle_pem)
+    except (ValueError, OSError) as exc:
+        return result("DENY", "certificate-parse-error", {"error": str(exc)})
 
     profile_ok, profile = leaf_profile_ok(leaf_info)
     profile["leaf_issuer_name_sha256"] = hashlib.sha256(leaf_info["issuer_der"]).hexdigest()
     profile["leaf_subject_name_sha256"] = hashlib.sha256(leaf_info["subject_der"]).hexdigest()
     profile["intermediate_subject_name_sha256"] = hashlib.sha256(intermediate_info["subject_der"]).hexdigest()
     profile["root_subject_name_sha256"] = hashlib.sha256(root_info["subject_der"]).hexdigest()
-    profile["openssl_version"] = openssl_version
+    profile["path_verifier_id"] = PATH_VERIFIER_ID
+    profile["path_execution_binding_sha256"] = path_validation["execution_binding_sha256"]
     if leaf_info["serial"] <= 0:
         return result("DENY", "leaf-serial-invalid", profile)
     if not profile_ok:
@@ -1021,6 +1204,16 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_state": "PASS",
         "trust_anchor_source_sha256": "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591",
         "verification_time_unix": fx["attime"],
+        "path_validation": {
+            "state": "PASS",
+            "verifier_id": PATH_VERIFIER_ID,
+            "source_sha256": sha256_file(PATH_VERIFIER_SCRIPT),
+            "input_sha256": "",
+            "output_sha256": "",
+            "output_content_sha256": "",
+            "execution_binding_sha256": "",
+            "verifier_input": {},
+        },
         "revocation": {
             "state": "PASS",
             "method": "issuer-crl",
@@ -1209,6 +1402,61 @@ def refresh_spki_binding(m: dict[str, Any]) -> None:
         binding["output_content_sha256"]=output["content_sha256"]
 
 
+def refresh_path_validation(m: dict[str, Any]) -> None:
+    binding = m["path_validation"]
+    verifier_input = {
+        "profile_id": "mycelix.security.tpm.ek-cert-path-validation",
+        "profile_version": "0.1.0",
+        "verification_mode": m["verification_mode"],
+        "claim_ceiling": "ReferenceModelOnly",
+        "session_id": m["session_id"],
+        "tpm_identity_digest": m["tpm_identity_digest"],
+        "leaf_certificate_der_base64": m["leaf_certificate_der_base64"],
+        "leaf_certificate_sha256": m["leaf_certificate_sha256"],
+        "intermediate_certificate_der_base64": m["intermediate_certificate_der_base64"],
+        "intermediate_certificate_sha256": m["intermediate_certificate_sha256"],
+        "trust_anchor_root_der_base64": m["trust_anchor_root_der_base64"],
+        "trust_anchor_root_sha256": m["trust_anchor_root_sha256"],
+        "crl_bundle_pem_base64": m["revocation"]["crl_bundle_pem_base64"],
+        "crl_bundle_pem_sha256": m["revocation"]["crl_bundle_pem_sha256"],
+        "verification_time_unix": m["verification_time_unix"],
+    }
+    execution_binding = canonical_hash({
+        "session_id": verifier_input["session_id"],
+        "tpm_identity_digest": verifier_input["tpm_identity_digest"],
+        "leaf_certificate_sha256": verifier_input["leaf_certificate_sha256"],
+        "intermediate_certificate_sha256": verifier_input["intermediate_certificate_sha256"],
+        "trust_anchor_root_sha256": verifier_input["trust_anchor_root_sha256"],
+        "crl_bundle_pem_sha256": verifier_input["crl_bundle_pem_sha256"],
+        "verification_time_unix": verifier_input["verification_time_unix"],
+        "policy_argv": [
+            "openssl", "verify", "-CAfile", "root.pem",
+            "-untrusted", "intermediate.pem", "-CRLfile", "crl-bundle.pem",
+            "-crl_check_all", "-attime", str(verifier_input["verification_time_unix"]),
+            "leaf.pem",
+        ],
+    })
+    binding["verifier_input"] = verifier_input
+    binding["execution_binding_sha256"] = execution_binding
+    binding["source_sha256"] = sha256_file(PATH_VERIFIER_SCRIPT)
+    with tempfile.TemporaryDirectory(prefix="mycelix-ek-path-refresh-") as td:
+        work = Path(td)
+        ip = work / "input.json"
+        op = work / "output.json"
+        ip.write_text(json.dumps(verifier_input, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(PATH_VERIFIER_SCRIPT), "--verify", str(ip), "--output", str(op)],
+            cwd=work, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        if proc.returncode != 0 or not op.is_file():
+            raise RuntimeError(f"path verifier fixture failed: {proc.stderr}")
+        output = json.loads(op.read_text(encoding="utf-8"))
+        binding["state"] = output["state"]
+        binding["input_sha256"] = hashlib.sha256(ip.read_bytes()).hexdigest()
+        binding["output_sha256"] = hashlib.sha256(op.read_bytes()).hexdigest()
+        binding["output_content_sha256"] = output["content_sha256"]
+
+
 def refresh_template_binding(m: dict[str, Any]) -> None:
     binding = m["ek_template_binding"]
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-template-refresh-") as td:
@@ -1312,6 +1560,7 @@ def self_test() -> int:
         base = make_manifest(fx)
         refresh_trust_anchor_appraisal(base)
         refresh_spki_binding(base)
+        refresh_path_validation(base)
         refresh_template_binding(base)
         base["session_binding_sha256"] = session_binding(
             base,
@@ -1328,8 +1577,8 @@ def self_test() -> int:
         if "def verify_crl_sign_key_usage" not in source or "crl sign" not in source.lower():
             print("explicit CRL issuer cRLSign enforcement: FAIL")
             return 1
-        if '"-crl_check_all",' not in source:
-            print("full-chain CRL verification command: FAIL")
+        if '"-crl_check_all",' not in source or "PATH_VERIFIER_ID" not in source:
+            print("full-chain CRL path verifier composition: FAIL")
             return 1
         if "def parse_certificate_der" not in implementation_source or "leaf_profile_ok(leaf_info)" not in implementation_source:
             print("binary DER certificate semantics: FAIL")
@@ -1382,6 +1631,11 @@ def self_test() -> int:
             ("spki-output-substitution", "DENY", lambda x: x["spki_binding"].update({"output_sha256": "7a" * 32})),
             ("spki-output-content-substitution", "DENY", lambda x: x["spki_binding"].update({"output_content_sha256": "7b" * 32})),
             ("spki-indeterminate", "INDETERMINATE", lambda x: x["spki_binding"].update({"state": "INDETERMINATE"})),
+            ("path-verifier-source-substitution", "DENY", lambda x: x["path_validation"].update({"source_sha256": "80" * 32})),
+            ("path-verifier-input-substitution", "DENY", lambda x: x["path_validation"].update({"input_sha256": "81" * 32})),
+            ("path-verifier-output-substitution", "DENY", lambda x: x["path_validation"].update({"output_sha256": "82" * 32})),
+            ("path-verifier-output-content-substitution", "DENY", lambda x: x["path_validation"].update({"output_content_sha256": "83" * 32})),
+            ("path-verifier-execution-binding-substitution", "DENY", lambda x: x["path_validation"].update({"execution_binding_sha256": "84" * 32})),
             ("spki-ek-public-digest-substitution", "DENY", lambda x: x["spki_binding"].update({"ek_public_wire_sha256": "77" * 32})),
             ("verification-time-binding-substitution", "DENY", lambda x: x.update({"verification_time_unix": x["verification_time_unix"] + 3600})),
             ("revocation-state-binding-substitution", "DENY", lambda x: (x["revocation"].update({"state": "INDETERMINATE"}), x.update({"session_binding_sha256": session_binding(x, x["leaf_certificate_sha256"], x["intermediate_certificate_sha256"], x["trust_anchor_root_sha256"], x["revocation"]["crl_bundle_pem_sha256"])}), x["revocation"].update({"state": "PASS"}))),
@@ -1415,7 +1669,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("36 adversarial mutations plus canonical and key-order control: PASS")
+    print("43 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 

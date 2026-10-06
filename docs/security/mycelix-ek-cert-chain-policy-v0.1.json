@@ -47,14 +47,21 @@
     "revocation": [
       "state",
       "method",
-      "crl_der_base64",
-      "crl_der_sha256"
+      "coverage",
+      "crl_bundle_pem_base64",
+      "crl_bundle_pem_sha256"
     ],
     "spki_binding": [
       "state",
       "verifier_id",
       "certificate_sha256",
-      "ek_public_wire_sha256"
+      "ek_public_wire_sha256",
+      "source_sha256",
+      "input_sha256",
+      "output_sha256",
+      "output_content_sha256",
+      "session_binding_sha256",
+      "verifier_input"
     ],
     "ek_template_binding": [
       "state",
@@ -66,7 +73,17 @@
       "template_id",
       "verifier_input"
     ],
-    "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, and SPKI certificate/public-key identity"
+    "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, and SPKI certificate/public-key identity",
+    "path_validation": [
+      "state",
+      "verifier_id",
+      "source_sha256",
+      "input_sha256",
+      "output_sha256",
+      "output_content_sha256",
+      "execution_binding_sha256",
+      "verifier_input"
+    ]
   },
   "profile_rules": {
     "version": 3,
@@ -306,6 +323,31 @@
       "id": "EKC-V40",
       "mutation": "spki-output-content-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V41",
+      "mutation": "path-verifier-source-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V42",
+      "mutation": "path-verifier-input-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V43",
+      "mutation": "path-verifier-output-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V44",
+      "mutation": "path-verifier-output-content-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V45",
+      "mutation": "path-verifier-execution-binding-substitution",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -370,5 +412,19 @@
       "verifier_input"
     ],
     "rule": "The EK chain verifier re-executes the SPKI verifier against the exact leaf certificate DER and exact EK TPMT_PUBLIC bytes already bound by the chain, and independently checks verifier source, input/output file digests, and verifier-produced content digest."
+  },
+  "path_validation_composition": {
+    "verifier_id": "mycelix.tpm.ek-cert-path-validation.v0.1",
+    "required_fields": [
+      "state",
+      "verifier_id",
+      "source_sha256",
+      "input_sha256",
+      "output_sha256",
+      "output_content_sha256",
+      "execution_binding_sha256",
+      "verifier_input"
+    ],
+    "rule": "The EK chain verifier re-executes the standalone path verifier against the exact leaf/intermediate/root DER, exact CRL bundle, and exact verification time bound by this manifest. It requires exact verifier source, input/output file digests, semantic output content digest, and execution-policy binding."
   }
 }
