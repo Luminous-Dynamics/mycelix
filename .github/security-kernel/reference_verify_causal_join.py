@@ -396,11 +396,59 @@ def verify(snapshot: object) -> dict:
     return result
 
 
+def assert_mutation_rejected(snapshot: dict) -> int:
+    mutations = []
+
+    def add(label, path, replacement):
+        mutations.append((label, path, replacement))
+
+    add("event run id", ("event", "run_id"), snapshot["event"]["run_id"] + 1)
+    add("event run attempt", ("event", "run_attempt"), snapshot["event"]["run_attempt"] + 1)
+    add("event verifier SHA", ("event", "verifier_workflow_sha"), "0" * 40)
+    add("event verifier blob", ("event", "verifier_workflow_blob_sha"), "1" * 40)
+    add("run SHA", ("run", "workflow_sha"), "2" * 40)
+    add("run title", ("run", "display_title"), snapshot["run"]["display_title"] + "-mutated")
+    add("PR head SHA", ("pull_request", "head", "sha"), "3" * 40)
+    add("resolver job id", ("jobs", 0, "id"), snapshot["jobs"][0]["id"] + 1)
+    add("S1 job id", ("jobs", 1, "id"), snapshot["jobs"][1]["id"] + 1)
+    add("artifact list total", ("artifact_list_total_count",), 2)
+    add("artifact name", ("artifact_list_view", "name"), snapshot["artifact_list_view"]["name"] + "-mutated")
+    add("artifact id", ("artifact_list_view", "id"), snapshot["artifact_list_view"]["id"] + 1)
+    add("artifact digest", ("artifact_list_view", "digest"), "sha256:" + "4" * 64)
+    add("artifact head SHA", ("artifact_list_view", "workflow_run", "head_sha"), "5" * 40)
+    add("receipt text", ("receipt_text",), snapshot["receipt_text"] + "\nmutated=true")
+    add(
+        "S0 bytes",
+        ("workflow_file_snapshots", "s0", "content"),
+        snapshot["workflow_file_snapshots"]["s0"]["content"] + "AA==",
+    )
+    add(
+        "S1 bytes",
+        ("workflow_file_snapshots", "s1", "content"),
+        snapshot["workflow_file_snapshots"]["s1"]["content"] + "AA==",
+    )
+
+    for label, path, replacement in mutations:
+        mutated = json.loads(json.dumps(snapshot))
+        cursor = mutated
+        for key in path[:-1]:
+            cursor = cursor[key]
+        cursor[path[-1]] = replacement
+        try:
+            verify(mutated)
+        except (AssertionError, SystemExit):
+            continue
+        fail(f"causal acceptance invariant under mutation of {label}")
+    return len(mutations)
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: reference_verify_causal_join.py <snapshot.json>")
     snapshot = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    mutation_count = assert_mutation_rejected(snapshot)
     result = verify(snapshot)
+    result["metamorphic_mutations_verified"] = mutation_count
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
 
 
