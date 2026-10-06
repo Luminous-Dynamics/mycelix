@@ -6,6 +6,7 @@ import json
 import os
 import pathlib
 import stat
+import struct
 import sys
 import urllib.parse
 import urllib.request
@@ -32,6 +33,17 @@ EXPECTED_FILES = {
     "d6u-runtime-test.log",
     "Cargo.lock",
 }
+
+HANDOFF_EXPECTED_FILES = {
+    "Cargo.lock",
+    "d6u-auditor-context.txt",
+    "d6u-auditor-handoff.manifest.sha256",
+    "d6u-runtime-evidence.txt",
+    "d6u-runtime-test.log",
+    "d6u-trusted-evidence-predicate.json",
+}
+
+MAX_ZIP_EOCD_SEARCH_BYTES = 22 + 65535
 
 
 def github_get(repo: str, api_path: str, token: str) -> dict:
@@ -87,6 +99,42 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     return artifact
 
 
+def expected_current_run_artifact(repo: str, policy: dict) -> dict:
+    run_id = int(os.environ["GITHUB_RUN_ID"])
+    run_attempt = int(os.environ["GITHUB_RUN_ATTEMPT"])
+    expected_name = policy["auditor_handoff"]["artifact_name_template"].format(
+        run_id=run_id,
+        run_attempt=run_attempt,
+    )
+    query = urllib.parse.urlencode({"name": expected_name})
+    payload = github_get(
+        repo,
+        f"/actions/runs/{run_id}/artifacts?{query}",
+        os.environ["GITHUB_TOKEN"],
+    )
+    artifacts = payload.get("artifacts", [])
+    assert len(artifacts) == 1, (
+        f"expected exactly one current-run auditor handoff artifact, observed {len(artifacts)}"
+    )
+    artifact = artifacts[0]
+    assert artifact["name"] == expected_name
+    assert artifact["expired"] is False
+    workflow_artifact_run = artifact["workflow_run"]
+    assert workflow_artifact_run["id"] == run_id
+    assert workflow_artifact_run["head_branch"] == "main"
+    assert workflow_artifact_run["head_sha"] == os.environ["GITHUB_SHA"]
+    digest = artifact.get("digest", "")
+    assert digest.startswith("sha256:") and len(digest) == 71, (
+        f"missing or malformed GitHub artifact digest: {digest!r}"
+    )
+    maximum = int(policy["auditor_handoff"]["artifact_max_archive_bytes"])
+    assert artifact["size_in_bytes"] <= maximum, (
+        f"auditor handoff archive exceeds trusted maximum: "
+        f"{artifact['size_in_bytes']} > {maximum}"
+    )
+    return artifact
+
+
 def download_archive(repo: str, artifact_id: int, expected_digest: str, destination: pathlib.Path, maximum: int) -> None:
     request = urllib.request.Request(
         f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip",
@@ -115,11 +163,69 @@ def is_symlink_member(info) -> bool:
     return stat.S_ISLNK(mode)
 
 
-def verify_zip_members(archive_path: pathlib.Path, policy: dict) -> list:
-    expected = set(EXPECTED_FILES)
-    maximums = policy["artifact_max_bytes"]
-    maximum_entries = int(policy["artifact_max_entries"])
-    maximum_total = int(policy["artifact_max_total_bytes"])
+def preflight_zip_entry_count(archive_path: pathlib.Path, maximum_entries: int) -> None:
+    archive_size = archive_path.stat().st_size
+    assert archive_size >= 22, "trusted artifact ZIP is smaller than an EOCD record"
+    with archive_path.open("rb") as handle:
+        handle.seek(max(0, archive_size - MAX_ZIP_EOCD_SEARCH_BYTES))
+        tail = handle.read(MAX_ZIP_EOCD_SEARCH_BYTES)
+
+    marker = b"PK\x05\x06"
+    end = -1
+    cursor = len(tail)
+    while True:
+        position = tail.rfind(marker, 0, cursor)
+        if position < 0:
+            break
+        if position + 22 <= len(tail):
+            comment_length = struct.unpack_from("<H", tail, position + 20)[0]
+            if position + 22 + comment_length == len(tail):
+                end = position
+                break
+        cursor = position
+
+    assert end >= 0, "trusted artifact ZIP has no valid EOCD record"
+    disk_number = struct.unpack_from("<H", tail, end + 4)[0]
+    central_directory_disk = struct.unpack_from("<H", tail, end + 6)[0]
+    entries_on_disk = struct.unpack_from("<H", tail, end + 8)[0]
+    total_entries = struct.unpack_from("<H", tail, end + 10)[0]
+    assert disk_number == 0 and central_directory_disk == 0, (
+        "trusted artifact ZIP uses a multi-disk layout"
+    )
+    assert entries_on_disk == total_entries, (
+        "trusted artifact ZIP has inconsistent entry counts"
+    )
+    assert total_entries != 0xFFFF, (
+        "trusted artifact ZIP Zip64 entry counts are not permitted"
+    )
+    assert total_entries <= maximum_entries, (
+        f"trusted artifact ZIP entry count exceeds trusted maximum: "
+        f"{total_entries} > {maximum_entries}"
+    )
+
+
+def verify_zip_members(
+    archive_path: pathlib.Path,
+    policy: dict,
+    expected_files: set[str] | None = None,
+    maximums: dict[str, int] | None = None,
+    maximum_entries: int | None = None,
+    maximum_total: int | None = None,
+) -> list:
+    expected = set(EXPECTED_FILES if expected_files is None else expected_files)
+    maximums = policy["artifact_max_bytes"] if maximums is None else maximums
+    maximum_entries = (
+        int(policy["artifact_max_entries"])
+        if maximum_entries is None
+        else int(maximum_entries)
+    )
+    maximum_total = (
+        int(policy["artifact_max_total_bytes"])
+        if maximum_total is None
+        else int(maximum_total)
+    )
+
+    preflight_zip_entry_count(archive_path, maximum_entries)
 
     try:
         archive = ZipFile(archive_path)
@@ -167,8 +273,9 @@ def extract_members(
     destination: pathlib.Path,
     infos: list,
     policy: dict,
+    maximums: dict[str, int] | None = None,
 ) -> None:
-    maximums = policy["artifact_max_bytes"]
+    maximums = policy["artifact_max_bytes"] if maximums is None else maximums
     destination.mkdir(parents=True, exist_ok=True)
 
     with ZipFile(archive_path) as archive:
@@ -194,28 +301,76 @@ def extract_members(
 
 
 def main() -> None:
-    assert len(sys.argv) == 2, "usage: fetch_d6u_trusted_artifact.py DESTINATION_DIR"
-    destination = pathlib.Path(sys.argv[1]).resolve()
-    event = json.loads(
-        pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8")
+    assert len(sys.argv) in {2, 3}, (
+        "usage: fetch_d6u_trusted_artifact.py DESTINATION_DIR | "
+        "--current-run-handoff DESTINATION_DIR"
     )
+    current_run_handoff = len(sys.argv) == 3
+    if current_run_handoff:
+        assert sys.argv[1] == "--current-run-handoff"
+        destination = pathlib.Path(sys.argv[2]).resolve()
+    else:
+        destination = pathlib.Path(sys.argv[1]).resolve()
+
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     repo = os.environ["GITHUB_REPOSITORY"]
 
-    artifact = expected_artifact(repo, event, policy)
-    archive_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "d6u-trusted-artifact.zip"
+    if current_run_handoff:
+        expected_workflow_ref = (
+            f"{repo}/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
+        )
+        assert os.environ["GITHUB_WORKFLOW_REF"] == expected_workflow_ref
+        artifact = expected_current_run_artifact(repo, policy)
+        maximums = {
+            name: int(value)
+            for name, value in policy["auditor_handoff"]["artifact_max_bytes"].items()
+        }
+        expected_files = HANDOFF_EXPECTED_FILES
+        maximum_entries = int(policy["auditor_handoff"]["artifact_max_entries"])
+        maximum_total = int(policy["auditor_handoff"]["artifact_max_total_bytes"])
+        maximum_archive = int(policy["auditor_handoff"]["artifact_max_archive_bytes"])
+    else:
+        event = json.loads(
+            pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8")
+        )
+        artifact = expected_artifact(repo, event, policy)
+        maximums = policy["artifact_max_bytes"]
+        expected_files = EXPECTED_FILES
+        maximum_entries = int(policy["artifact_max_entries"])
+        maximum_total = int(policy["artifact_max_total_bytes"])
+        maximum_archive = int(policy["artifact_max_total_bytes"])
+
+    archive_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / (
+        "d6u-trusted-auditor-handoff.zip"
+        if current_run_handoff
+        else "d6u-trusted-artifact.zip"
+    )
     try:
         download_archive(
             repo,
             int(artifact["id"]),
             artifact["digest"],
             archive_path,
-            int(policy["artifact_max_total_bytes"]),
+            maximum_archive,
         )
-        infos = verify_zip_members(archive_path, policy)
-        extract_members(archive_path, destination, infos, policy)
+        infos = verify_zip_members(
+            archive_path,
+            policy,
+            expected_files=expected_files,
+            maximums=maximums,
+            maximum_entries=maximum_entries,
+            maximum_total=maximum_total,
+        )
+        extract_members(
+            archive_path,
+            destination,
+            infos,
+            policy,
+            maximums=maximums,
+        )
+        label = "current-run auditor handoff" if current_run_handoff else "D6U artifact"
         print(
-            "verified and safely extracted D6U artifact: "
+            f"verified and safely extracted {label}: "
             f"id={artifact['id']} digest={artifact['digest']}"
         )
     finally:

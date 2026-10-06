@@ -134,7 +134,7 @@ jobs:
           printf 'canonical_predicate_sha256=%s\n' "$canonical_predicate_sha256" >> "$GITHUB_OUTPUT"
       - name: Prepare exact auditor handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "45"
+          D6U_TRUSTED_POLICY_VERSION: "46"
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
@@ -243,7 +243,7 @@ EOF
   "schema": "d6u-trusted-runtime-evidence-attestation/v2",
   "attestation_kind": "verified-runtime-evidence",
   "claim_ceiling": "ReferenceModelOnly",
-  "policy_version": 45,
+  "policy_version": 46,
   "canonical_predicate_sha256": "$CANONICAL_PREDICATE_SHA256"
 }
 EOF
@@ -346,15 +346,18 @@ EOF
 
 
 
-      - name: Download exact auditor handoff
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: d6u-trusted-auditor-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/d6u-auditor-handoff
+      - name: Download exact auditor handoff through bounded trusted fetcher
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/fetch_d6u_trusted_artifact.py \
+            --current-run-handoff \
+            "$RUNNER_TEMP/d6u-auditor-handoff"
 
       - name: Assert exact auditor handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "45"
+          D6U_TRUSTED_POLICY_VERSION: "46"
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
@@ -453,7 +456,7 @@ EOF
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "45"
+          D6U_TRUSTED_POLICY_VERSION: "46"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"

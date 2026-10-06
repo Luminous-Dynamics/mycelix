@@ -11,7 +11,14 @@ from zipfile import ZipFile, ZipInfo
 from unittest.mock import patch
 from pathlib import Path
 
-from fetch_d6u_trusted_artifact import EXPECTED_FILES, extract_members, verify_zip_members
+from fetch_d6u_trusted_artifact import (
+    EXPECTED_FILES,
+    HANDOFF_EXPECTED_FILES,
+    download_archive,
+    expected_current_run_artifact,
+    extract_members,
+    verify_zip_members,
+)
 from verify_d6u_trusted_attestation import main as verify_attestation_main
 from verify_d6u_trusted_artifacts import (
     load_record,
@@ -86,7 +93,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 45
+    assert policy["policy_version"] == 46
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -261,10 +268,6 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
             "ref": "ea165f8d65b6e75b540449e92b4886f43607fa02",
             "version": "v4.6.2",
         },
-        "actions/download-artifact": {
-            "ref": "d3f86a106a0bac45b974a628896c90dbdf5c8093",
-            "version": "v4.3.0",
-        },
     }
     workflow_path = Path(__file__).parents[2] / policy["trusted_workflow"]["path"]
     uses = []
@@ -304,7 +307,9 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert "actions: write" not in workflow_text
     assert "contents: write" not in workflow_text
     assert "artifact-metadata: write" not in workflow_text
-    assert "uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0" in workflow_text
+    assert "uses: actions/download-artifact@" not in workflow_text
+    assert "fetch_d6u_trusted_artifact.py \
+            --current-run-handoff" in workflow_text
     assert "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2" in workflow_text
 
     assert policy["auditor_handoff"] == {
@@ -324,6 +329,25 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "require_manifest_sha256": True,
         "require_current_run_context": True,
         "claim_ceiling": "ReferenceModelOnly",
+        "artifact_max_bytes": {
+            "d6u-runtime-evidence.txt": 262144,
+            "d6u-runtime-test.log": 8388608,
+            "Cargo.lock": 4194304,
+            "d6u-auditor-context.txt": 4096,
+            "d6u-auditor-handoff.manifest.sha256": 1024,
+            "d6u-trusted-evidence-predicate.json": 16384,
+        },
+        "artifact_max_entries": 16,
+        "artifact_max_total_bytes": 12866560,
+        "artifact_max_archive_bytes": 13631488,
+        "expected_member_count": 6,
+        "require_match_after_download": True,
+        "archive_format": "zip",
+        "extraction_mode": "bounded-members",
+        "reject_encrypted_members": True,
+        "reject_symlink_members": True,
+        "reject_zip64": True,
+        "eocd_entry_count_preflight": True,
     }
 
     assert policy["attestation_commitment"] == {
@@ -344,7 +368,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_encrypted_members": True,
         "reject_symlink_members": True,
         "expected_member_count": 3,
-        "policy_revision": 27,
+        "policy_revision": 28,
     }
 
 
@@ -1927,6 +1951,121 @@ def test_artifact_layout_rejects_symlink() -> None:
         )
 
 
+
+def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
+    import fetch_d6u_trusted_artifact as fetcher
+
+    policy = {
+        "auditor_handoff": {
+            "artifact_name_template": "d6u-trusted-auditor-handoff-run-{run_id}-attempt-{run_attempt}",
+            "artifact_max_archive_bytes": 1024,
+        }
+    }
+    assert len(HANDOFF_EXPECTED_FILES) == 6
+    env = {
+        "GITHUB_RUN_ID": "501",
+        "GITHUB_RUN_ATTEMPT": "2",
+        "GITHUB_SHA": "a" * 40,
+        "GITHUB_TOKEN": "token",
+    }
+    payload = {
+        "artifacts": [{
+            "id": 9001,
+            "name": "d6u-trusted-auditor-handoff-run-501-attempt-2",
+            "expired": False,
+            "size_in_bytes": 512,
+            "digest": "sha256:" + "b" * 64,
+            "workflow_run": {
+                "id": 501,
+                "head_branch": "main",
+                "head_sha": "a" * 40,
+            },
+        }]
+    }
+    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", return_value=payload):
+        observed = expected_current_run_artifact("Luminous-Dynamics/mycelix", policy)
+    assert observed["id"] == 9001
+
+
+def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> None:
+    import fetch_d6u_trusted_artifact as fetcher
+
+    policy = {
+        "auditor_handoff": {
+            "artifact_name_template": "d6u-trusted-auditor-handoff-run-{run_id}-attempt-{run_attempt}",
+            "artifact_max_archive_bytes": 1024,
+        }
+    }
+    env = {
+        "GITHUB_RUN_ID": "501",
+        "GITHUB_RUN_ATTEMPT": "2",
+        "GITHUB_SHA": "a" * 40,
+        "GITHUB_TOKEN": "token",
+    }
+    payload = {
+        "artifacts": [{
+            "id": 9001,
+            "name": "d6u-trusted-auditor-handoff-run-501-attempt-2",
+            "expired": False,
+            "size_in_bytes": 1025,
+            "digest": "sha256:" + "b" * 64,
+            "workflow_run": {
+                "id": 501,
+                "head_branch": "main",
+                "head_sha": "a" * 40,
+            },
+        }]
+    }
+    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", return_value=payload):
+        assert_rejected(
+            lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
+            "oversized auditor handoff archive was accepted",
+        )
+
+
+def test_bounded_artifact_download_rejects_stream_overflow() -> None:
+    import fetch_d6u_trusted_artifact as fetcher
+
+    class OversizeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self, size):
+            return b"x" * (size + 1)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        destination = Path(tmp) / "artifact.zip"
+        with patch.object(fetcher.urllib.request, "urlopen", return_value=OversizeResponse()):
+            assert_rejected(
+                lambda: download_archive(
+                    "Luminous-Dynamics/mycelix",
+                    9001,
+                    "sha256:" + "b" * 64,
+                    destination,
+                    1024,
+                ),
+                "oversized streamed artifact archive was accepted",
+            )
+
+
+def test_trusted_zip_entry_count_is_preflighted_before_zip_parsing() -> None:
+    import fetch_d6u_trusted_artifact as fetcher
+
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = Path(tmp) / "artifact.zip"
+        with ZipFile(archive, "w") as zip_file:
+            for index in range(33):
+                zip_file.writestr(f"unexpected-{index}", "x")
+        with patch.object(fetcher, "ZipFile", side_effect=AssertionError("ZipFile opened")):
+            assert_rejected(
+                lambda: verify_zip_members(archive, artifact_policy()),
+                "ZIP parser was opened before entry-count preflight rejected the archive",
+            )
+
+
 if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
@@ -1978,6 +2117,10 @@ if __name__ == "__main__":
         test_commitment_attestation_accepts_current_run_and_rejects_old_run,
         test_trusted_workflow_policy_shape_is_pinned,
         test_artifact_layout_rejects_symlink,
+        test_current_run_handoff_artifact_accepts_exact_identity,
+        test_current_run_handoff_artifact_rejects_oversized_archive_metadata,
+        test_bounded_artifact_download_rejects_stream_overflow,
+        test_trusted_zip_entry_count_is_preflighted_before_zip_parsing,
     ]
     for test in tests:
         test()
