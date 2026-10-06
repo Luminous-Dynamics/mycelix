@@ -153,7 +153,7 @@ jobs:
             scripts/security/verify_mycelix_ak_public_attributes_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py \
             scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py \
-            scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py
+            scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py \
             scripts/security/verify_mycelix_ek_fixture_crypto_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_path_validation_v0_1.py \
