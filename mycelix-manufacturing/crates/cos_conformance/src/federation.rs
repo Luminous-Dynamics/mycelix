@@ -7006,12 +7006,26 @@ mod tests {
         let set = state_machine_trace_publication_equivocation_witness_set(&collection)
             .expect("three-way fork must produce a complete witness set");
         assert_eq!(set.witnesses, witnesses);
+        assert_eq!(set.collection_size, 4);
+        assert_eq!(
+            set.collection_sha256,
+            state_machine_trace_publication_collection_commitment(&collection)
+                .expect("collection commitment must compute")
+                .1
+        );
         assert_eq!(
             validate_state_machine_trace_publication_equivocation_witness_set(
                 &collection, &set
             ),
             Ok(())
         );
+
+        let mut exact_replay_collection = collection.clone();
+        exact_replay_collection.push((&fork_a, &fork_a_publication));
+        let replay_set =
+            state_machine_trace_publication_equivocation_witness_set(&exact_replay_collection)
+                .expect("exact publication replay must remain idempotent");
+        assert_eq!(replay_set, set);
 
         let mut reversed = collection.clone();
         reversed.reverse();
