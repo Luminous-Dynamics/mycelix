@@ -4769,6 +4769,22 @@ mod tests {
             policy.validate(),
             Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedSchemaVersion)
         );
+        policy.schema_version = 2;
+        assert_eq!(
+            policy.validate(),
+            Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedSchemaVersion)
+        );
+
+        policy.schema_version = FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION;
+        policy.policy_profile =
+            "integral-federation-external-verification-trust-policy-v2".into();
+        assert_eq!(
+            policy.validate(),
+            Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedPolicyProfile)
+        );
+
+        policy.policy_profile =
+            FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE.into();
     }
 
     #[test]
@@ -5004,6 +5020,42 @@ mod tests {
         assert_eq!(
             admission.verifier_identity_use_evidence_sha256(),
             Some(identity_use.use_evidence_sha256())
+        );
+        let mut wrong_method = identity_use.clone();
+        wrong_method.use_method =
+            FederationExternalVerifierIdentityUseMethod::CertificateBoundSignature;
+        wrong_method.statement_sha256 =
+            state_machine_trace_external_verifier_identity_use_statement_sha256(&wrong_method);
+        assert_eq!(
+            result.admit_under_policy_with_identity_use_at(
+                &policy,
+                1_791_005_002,
+                identity_material,
+                verifier_report,
+                b"signature-binding-evidence",
+                &wrong_method,
+            ),
+            Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUseMethodNotAdmitted
+            )
+        );
+
+        let mut wrong_profile = identity_use.clone();
+        wrong_profile.use_evidence_profile = "different-binding-profile-v1".into();
+        wrong_profile.statement_sha256 =
+            state_machine_trace_external_verifier_identity_use_statement_sha256(&wrong_profile);
+        assert_eq!(
+            result.admit_under_policy_with_identity_use_at(
+                &policy,
+                1_791_005_002,
+                identity_material,
+                verifier_report,
+                b"signature-binding-evidence",
+                &wrong_profile,
+            ),
+            Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUseProfileNotAdmitted
+            )
         );
     }
 
