@@ -66,12 +66,13 @@ pub struct RegistrationQualificationInput {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegistrationQualificationVerifier {
-    /// Stable verifier identity. This is an identifier, not an authentication claim.
+    /// Declared verifier identity. This is not an authentication claim.
     pub verifier_id: String,
-    /// Stable implementation/profile version for the verifier.
+    /// Declared implementation/profile version. This is not an authentication claim.
     pub verifier_version: String,
-    /// Immutable commitment to the verifier implementation artifact.
-    pub verifier_implementation_digest: String,
+    /// Declared commitment to the verifier implementation artifact. The runtime
+    /// supplying this value must establish its authenticity separately.
+    pub declared_verifier_implementation_digest: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,6 +88,7 @@ pub enum RegistrationQualificationReason {
     EmptyVerifierIdentity,
     EmptyVerifierVersion,
     InvalidVerifierImplementationDigest,
+    InvalidRegistrationAnchorReference,
     NonCanonicalDigestEncoding,
     EnvelopeDigestMismatch,
     MissingRegistrationAnchor,
@@ -150,7 +152,7 @@ pub struct RegistrationQualification {
     pub registration_anchor_digest: Option<String>,
     pub verifier_id: String,
     pub verifier_version: String,
-    pub verifier_implementation_digest: String,
+    pub declared_verifier_implementation_digest: String,
     pub profile_id: String,
     pub profile_version: String,
     pub profile_digest: String,
@@ -231,7 +233,7 @@ pub fn qualify_registration(
     if verifier.verifier_version.trim().is_empty() {
         reasons.insert(RegistrationQualificationReason::EmptyVerifierVersion);
     }
-    if !is_canonical_digest(&verifier.verifier_implementation_digest) {
+    if !is_canonical_digest(&verifier.declared_verifier_implementation_digest) {
         reasons.insert(RegistrationQualificationReason::InvalidVerifierImplementationDigest);
     }
 
@@ -255,10 +257,16 @@ pub fn qualify_registration(
             }
             Some(anchor)
                 if !is_canonical_digest(&anchor.registration_envelope_digest)
-                    || anchor.registration_envelope_digest != input.registration_envelope_digest
-                    || anchor.anchor_reference.trim().is_empty() =>
+                    || anchor.registration_envelope_digest != input.registration_envelope_digest =>
             {
                 reasons.insert(RegistrationQualificationReason::RegistrationAnchorMismatch);
+            }
+            Some(anchor)
+                if anchor.anchor_reference.trim().is_empty()
+                    || anchor.anchor_reference.len() > 512
+                    || anchor.anchor_reference != anchor.anchor_reference.trim() =>
+            {
+                reasons.insert(RegistrationQualificationReason::InvalidRegistrationAnchorReference);
             }
             Some(_) => {}
         }
@@ -352,6 +360,7 @@ pub fn qualify_registration(
                 | RegistrationQualificationReason::NonCanonicalDigestEncoding
                 | RegistrationQualificationReason::EnvelopeDigestMismatch
                 | RegistrationQualificationReason::RegistrationAnchorMismatch
+                | RegistrationQualificationReason::InvalidRegistrationAnchorReference
                 | RegistrationQualificationReason::ArtifactDigestMismatch
                 | RegistrationQualificationReason::ArtifactBindingMismatch
                 | RegistrationQualificationReason::DuplicateArtifact
@@ -374,7 +383,7 @@ pub fn qualify_registration(
         registration_anchor_digest,
         verifier_id: verifier.verifier_id.clone(),
         verifier_version: verifier.verifier_version.clone(),
-        verifier_implementation_digest: verifier.verifier_implementation_digest.clone(),
+        declared_verifier_implementation_digest: verifier.declared_verifier_implementation_digest.clone(),
         profile_id: profile.profile_id.into(),
         profile_version: profile.profile_version.into(),
         profile_digest: profile.digest(),
@@ -545,7 +554,7 @@ mod tests {
         RegistrationQualificationVerifier {
             verifier_id: "fpm.registration.qualifier".into(),
             verifier_version: "1".into(),
-            verifier_implementation_digest: digest('d'),
+            declared_verifier_implementation_digest: digest('d'),
         }
     }
 
@@ -858,7 +867,7 @@ mod tests {
         let verifier = RegistrationQualificationVerifier {
             verifier_id: "   ".into(),
             verifier_version: "1".into(),
-            verifier_implementation_digest: digest('d'),
+            declared_verifier_implementation_digest: digest('d'),
         };
 
         let qualification =
@@ -972,12 +981,12 @@ mod tests {
     }
 
     #[test]
-    fn invalid_verifier_implementation_digest_cannot_qualify() {
+    fn invalid_declared_verifier_implementation_digest_cannot_qualify() {
         let input = input_with_exact_artifacts();
         let verifier = RegistrationQualificationVerifier {
             verifier_id: "fpm.registration.qualifier".into(),
             verifier_version: "1".into(),
-            verifier_implementation_digest: "not-a-digest".into(),
+            declared_verifier_implementation_digest: "not-a-digest".into(),
         };
 
         let qualification =
@@ -998,7 +1007,7 @@ mod tests {
         let verifier = RegistrationQualificationVerifier {
             verifier_id: "untrusted-label".into(),
             verifier_version: "1".into(),
-            verifier_implementation_digest: digest('d'),
+            declared_verifier_implementation_digest: digest('d'),
         };
 
         let qualification =
