@@ -22,6 +22,11 @@ jobs:
       contents: read
     env:
       GH_CONFIG_DIR: ${{ runner.temp }}/d6u-gh-config
+    outputs:
+      evidence_sha256: ${{ steps.signer_inputs.outputs.evidence_sha256 }}
+      runtime_test_sha256: ${{ steps.signer_inputs.outputs.runtime_test_sha256 }}
+      cargo_lock_sha256: ${{ steps.signer_inputs.outputs.cargo_lock_sha256 }}
+      canonical_predicate_sha256: ${{ steps.signer_inputs.outputs.canonical_predicate_sha256 }}
     steps:
       - name: Checkout trusted policy root
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -92,6 +97,30 @@ jobs:
             "$RUNNER_TEMP/d6u-trusted-evidence-predicate.json"
 
 
+      - name: Emit bounded signer inputs
+        id: signer_inputs
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-evidence.txt"
+          runtime_test="$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-test.log"
+          cargo_lock="$RUNNER_TEMP/d6u-trusted-input/Cargo.lock"
+          predicate="$RUNNER_TEMP/d6u-trusted-evidence-predicate.json"
+          for path in "$evidence" "$runtime_test" "$cargo_lock" "$predicate"; do
+            test -f "$path"
+            test ! -L "$path"
+          done
+          evidence_sha256="$(sha256sum "$evidence" | awk '{print $1}')"
+          runtime_test_sha256="$(sha256sum "$runtime_test" | awk '{print $1}')"
+          cargo_lock_sha256="$(sha256sum "$cargo_lock" | awk '{print $1}')"
+          canonical_predicate_sha256="$(sha256sum "$predicate" | awk '{print $1}')"
+          for digest in "$evidence_sha256" "$runtime_test_sha256" "$cargo_lock_sha256" "$canonical_predicate_sha256"; do
+            test "${#digest}" -eq 64
+            case "$digest" in *[!0-9a-f]*) exit 1 ;; esac
+          done
+          printf 'evidence_sha256=%s\n' "$evidence_sha256" >> "$GITHUB_OUTPUT"
+          printf 'runtime_test_sha256=%s\n' "$runtime_test_sha256" >> "$GITHUB_OUTPUT"
+          printf 'cargo_lock_sha256=%s\n' "$cargo_lock_sha256" >> "$GITHUB_OUTPUT"
+          printf 'canonical_predicate_sha256=%s\n' "$canonical_predicate_sha256" >> "$GITHUB_OUTPUT"
       - name: Prepare inert trusted signer handoff
         env:
           D6U_TRUSTED_POLICY_VERSION: "35"
