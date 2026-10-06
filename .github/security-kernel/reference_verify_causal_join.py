@@ -324,8 +324,14 @@ def verify(snapshot: object) -> dict:
     for key in COUNT_FIELDS:
         assert re.fullmatch(r"[0-9]+", receipt[key])
 
+    snapshot_bytes = json.dumps(
+        snapshot, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    snapshot_sha256 = hashlib.sha256(snapshot_bytes).hexdigest()
+
     result = {
         "schema": SCHEMA,
+        "snapshot_sha256": snapshot_sha256,
         "candidate_repository": pr_head_repo["full_name"],
         "candidate_repository_id": candidate_repository_id,
         "candidate_pr": candidate_pr,
