@@ -92,6 +92,16 @@ jobs:
           from pathlib import Path
 
           path = Path(".github/workflows/cos-conformance-independent-verify.yml")
+          text = path.read_text()
+
+          assert "permissions: {}" in text
+          assert text.count("\n    cache-mode: none\n") == 3
+          assert "actions/cache@" not in text
+          assert "secrets." not in text
+          assert "allow-unsafe-pr-checkout: true" not in text
+          assert text.count("actions/checkout@") == 2
+          assert text.count("persist-credentials: false") == 2
+
           expected = {
               "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
               "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
