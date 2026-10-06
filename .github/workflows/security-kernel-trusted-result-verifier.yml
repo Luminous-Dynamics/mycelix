@@ -24,7 +24,7 @@ env:
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
-  REFERENCE_VERIFIER_BLOB_SHA: "0bacbb041d980e5eafdf82ccf1d86e321bc369cc"
+  REFERENCE_VERIFIER_BLOB_SHA: "4d5bf644ceaebf208ba1c0520b18a92f4702ecd6"
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
   CAUSAL_JOIN_VERIFIER_BLOB_SHA: "41aa3e0f70544c55aeff07136a477d93012d50fe"
 
