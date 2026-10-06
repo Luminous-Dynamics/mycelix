@@ -498,6 +498,15 @@ mod tests {
             .to_vec()
     }
 
+    fn alternate_verification_key_sec1() -> Vec<u8> {
+        let alternate = SigningKey::from_bytes((&[8u8; 32]).into())
+            .expect("alternate signing key");
+        VerifyingKey::from(&alternate)
+            .to_encoded_point(false)
+            .as_bytes()
+            .to_vec()
+    }
+
     fn payload(
         subject: &str,
         audience: &str,
@@ -579,6 +588,54 @@ mod tests {
         assert!(result
             .reasons
             .contains(&FpmEatCoseVerificationReason::SignatureInvalid));
+    }
+
+    #[test]
+    fn wrong_nonce_conflicts_after_valid_signature() {
+        let token = token(b"different-nonce-32-bytes-123456789");
+        let result = verify_fpm_eat_cose_sign1(&input(token));
+        assert_eq!(
+            result.status,
+            FpmEatCoseVerificationStatus::ConflictingEvidence
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmEatCoseVerificationReason::NonceMismatch));
+        assert!(!result
+            .reasons
+            .contains(&FpmEatCoseVerificationReason::SignatureInvalid));
+    }
+
+    #[test]
+    fn profile_substitution_conflicts_after_valid_signature() {
+        let nonce = b"fresh-nonce-32-bytes-123456789012";
+        let claims = coset::cbor::Value::Map(vec![
+            (coset::cbor::Value::Integer(CLAIM_SUB.into()), coset::cbor::Value::Text("source-1".into())),
+            (coset::cbor::Value::Integer(CLAIM_AUD.into()), coset::cbor::Value::Text("fpm-verifier".into())),
+            (coset::cbor::Value::Integer(CLAIM_NONCE.into()), coset::cbor::Value::Bytes(nonce.to_vec())),
+            (coset::cbor::Value::Integer(CLAIM_EAT_PROFILE.into()), coset::cbor::Value::Text("tag:luminousdynamics.org,2026:other-profile".into())),
+        ]);
+        let payload = claims.to_vec().expect("CBOR payload");
+        let protected = HeaderBuilder::new()
+            .algorithm(iana::Algorithm::ES256)
+            .key_id(b"fpm-key-1".to_vec())
+            .content_type(ContentType::Text(FPM_EAT_MEDIA_TYPE.into()))
+            .build();
+        let token = CoseSign1Builder::new()
+            .protected(protected)
+            .payload(payload)
+            .create_signature(&[], |data| signing_key().sign(data))
+            .build()
+            .to_tagged_vec()
+            .expect("COSE_Sign1");
+        let result = verify_fpm_eat_cose_sign1(&input(token));
+        assert_eq!(
+            result.status,
+            FpmEatCoseVerificationStatus::ConflictingEvidence
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmEatCoseVerificationReason::EatProfileMismatch));
     }
 
     #[test]
@@ -703,10 +760,8 @@ mod tests {
 
     #[test]
     fn wrong_key_is_invalid() {
-        let mut wrong_key = verification_key_sec1();
-        wrong_key[1] ^= 0x01;
         let mut input = input(token(b"fresh-nonce-32-bytes-123456789012"));
-        input.trusted_public_key_sec1 = wrong_key;
+        input.trusted_public_key_sec1 = alternate_verification_key_sec1();
         let result = verify_fpm_eat_cose_sign1(&input);
         assert_eq!(
             result.status,
