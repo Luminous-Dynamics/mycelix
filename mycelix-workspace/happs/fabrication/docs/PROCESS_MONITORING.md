@@ -158,7 +158,7 @@ The remaining work is empirical qualification of registration and detection agai
 
 FPM now defines a narrowly scoped structural qualification profile. Its purpose is to let a verifier produce a deterministic, content-bound statement about the internal consistency of a registration envelope.
 
-The profile binds the qualification schema, profile identifier/version, verifier identity, exact registration digest, assessed registration state, outcome, and a final qualification digest. The qualification digest excludes its own digest field, so the resulting receipt can be deterministically recomputed and checked for tampering.
+The profile binds the qualification schema, profile identifier/version, verifier identity, exact registration digest, assessed registration state, outcome, and a final qualification digest. The current implementation explicitly carries the registration and qualification digest profiles. They are Rust serde-json profiles for this version, not yet a cross-language canonical encoding contract; Issue #4313 tracks the separate canonicalization qualification. The qualification digest excludes its own digest field, so the resulting receipt can be deterministically recomputed and checked for tampering.
 
 The positive outcome is deliberately named Qualified only in the sense of **qualified against the structural profile**. It does not establish source authenticity, sensor correctness, physical clock synchronization, calibration correctness, transform correctness, or physical part quality.
 
