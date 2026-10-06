@@ -130,15 +130,39 @@ def local_uses(lines_: list[str]) -> tuple[str, ...]:
 def require_permissions(lines_: list[str], count: int) -> None:
     blocks = []
     for i, line in enumerate(lines_):
-        if line.strip() == "permissions:":
-            block = tuple(
-                lines_[i + offset].strip()
-                for offset in range(1, 4)
-                if i + offset < len(lines_)
-            )
-            blocks.append(block)
-    if blocks.count(READ_PERMISSIONS) != count:
+        if line.strip() != "permissions:":
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        child_indent = indent + 2
+        block = []
+        for candidate in lines_[i + 1 :]:
+            if not candidate.strip() or len(candidate) - len(candidate.lstrip(" ")) <= indent:
+                break
+            actual_indent = len(candidate) - len(candidate.lstrip(" "))
+            if actual_indent != child_indent:
+                fail(f"permission block contains unexpected indentation: {candidate!r}")
+            if not re.fullmatch(r"[A-Za-z0-9_-]+:\s+[^#]+", candidate.strip()):
+                fail(f"permission block contains malformed entry: {candidate!r}")
+            block.append(candidate.strip())
+        blocks.append(tuple(block))
+    if len(blocks) != count or any(block != READ_PERMISSIONS for block in blocks):
         fail(f"permission census mismatch: expected {count} exact read-only blocks, found {blocks!r}")
+
+
+def expect_rejection(action, description: str) -> None:
+    try:
+        action()
+    except SystemExit:
+        return
+    fail(f"adversarial mutation unexpectedly accepted by source-policy oracle: {description!r}")
+
+
+def inject_extra_permission(raw: bytes) -> bytes:
+    marker = b"  pull-requests: read\n"
+    replacement = marker + b"  security-events: write\n"
+    if marker not in raw:
+        fail("permission regression fixture marker missing")
+    return raw.replace(marker, replacement, 1)
 
 
 def require_no_escalation(lines_: list[str], description: str) -> None:
@@ -417,6 +441,29 @@ def main() -> None:
     verify_s2(raw["s2"], s0_sha, s1_sha, retention_sha, execution_sha, files["policy"]["sha"])
     verify_execution(raw["execution"])
     verify_retention(raw["retention"])
+
+    # Regression: the oracle must reject a permission added after the approved
+    # read-only entries rather than validating only a fixed three-line prefix.
+    expect_rejection(
+        lambda: verify_s0(inject_extra_permission(raw["s0"]), s1_sha),
+        "S0 security-events: write",
+    )
+    expect_rejection(
+        lambda: verify_s1(inject_extra_permission(raw["s1"]), s1_sha),
+        "S1 security-events: write",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_extra_permission(raw["s2"]),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 security-events: write",
+    )
+
     print(json.dumps({
         "schema": SCHEMA,
         "policy_result": "verified",
