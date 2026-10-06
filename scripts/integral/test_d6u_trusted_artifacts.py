@@ -2017,6 +2017,14 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
         "D6U_TRIGGER_HEAD_SHA": "a" * 40,
         "GITHUB_TOKEN": "token",
     }
+    current_run = {
+        "id": 501,
+        "run_attempt": 2,
+        "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "head_sha": "a" * 40,
+        "repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
+    }
     payload = {
         "artifacts": [{
             "id": 9001,
@@ -2026,15 +2034,36 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
             "digest": "sha256:" + "b" * 64,
             "workflow_run": {
                 "id": 501,
-                "run_attempt": 2,
+                "repository_id": 9001,
+                "head_repository_id": 9001,
                 "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
                 "head_sha": "a" * 40,
             },
         }]
     }
-    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", return_value=payload):
+
+    def fake_github_get(_repo, api_path, _token):
+        if api_path == "/actions/runs/501":
+            return current_run
+        if api_path.startswith("/actions/runs/501/artifacts?"):
+            return payload
+        raise AssertionError(f"unexpected GitHub API path: {api_path}")
+
+    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", side_effect=fake_github_get):
         observed = expected_current_run_artifact("Luminous-Dynamics/mycelix", policy)
     assert observed["id"] == 9001
+
+    bad_run = dict(current_run)
+    bad_run["head_sha"] = "c" * 40
+    with patch.dict(os.environ, env, clear=False), patch.object(
+        fetcher,
+        "github_get",
+        side_effect=lambda _repo, api_path, _token: bad_run if api_path == "/actions/runs/501" else payload,
+    ):
+        assert_rejected(
+            lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
+            "handoff artifact was accepted after current workflow head changed",
+        )
 
 
 def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> None:
@@ -2054,6 +2083,14 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
         "D6U_TRIGGER_HEAD_SHA": "b" * 40,
         "GITHUB_TOKEN": "token",
     }
+    current_run = {
+        "id": 501,
+        "run_attempt": 2,
+        "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "head_sha": "b" * 40,
+        "repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
+    }
     payload = {
         "artifacts": [{
             "id": 9001,
@@ -2063,12 +2100,22 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
             "digest": "sha256:" + "b" * 64,
             "workflow_run": {
                 "id": 501,
-                "head_branch": "main",
-                "head_sha": "a" * 40,
+                "repository_id": 9001,
+                "head_repository_id": 9001,
+                "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+                "head_sha": "b" * 40,
             },
         }]
     }
-    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", return_value=payload):
+
+    def fake_github_get(_repo, api_path, _token):
+        if api_path == "/actions/runs/501":
+            return current_run
+        if api_path.startswith("/actions/runs/501/artifacts?"):
+            return payload
+        raise AssertionError(f"unexpected GitHub API path: {api_path}")
+
+    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", side_effect=fake_github_get):
         assert_rejected(
             lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
             "oversized auditor handoff archive was accepted",
