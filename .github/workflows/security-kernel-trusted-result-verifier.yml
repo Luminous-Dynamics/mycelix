@@ -179,8 +179,11 @@ jobs:
           assert all(job["status"] == "completed" for job in jobs)
 
           resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact pull request subject"]
+          resolver_job = resolver_jobs[0]
           assert len(resolver_jobs) == 1, f"expected one S0 resolver job, found {len(resolver_jobs)}"
-          assert resolver_jobs[0]["conclusion"] == "success"
+          assert resolver_job["conclusion"] == "success"
+          assert resolver_job["id"] > 0
+          assert resolver_job["name"] == "Resolve exact pull request subject"
 
           matching = [
               job for job in jobs
@@ -192,6 +195,13 @@ jobs:
           assert job["status"] == "completed"
           assert job["conclusion"] == "success"
           assert job["run_id"] == int(run_id)
+          assert job["id"] > 0
+          assert job["name"] == os.environ["EXPECTED_JOB_NAME"] or job["name"].endswith(" / " + os.environ["EXPECTED_JOB_NAME"])
+
+          raw_steps = job.get("steps") or []
+          step_names = [step.get("name") for step in raw_steps]
+          assert all(isinstance(name, str) and name for name in step_names), "S1 job contains unnamed step records"
+          assert len(step_names) == len(set(step_names)), "S1 job contains duplicate step names; closed-world census is ambiguous"
 
           # The reusable job inherits the caller workflow context. S2 binds the called
           # workflow independently by resolving its file at the exact S0 workflow commit
@@ -214,8 +224,10 @@ jobs:
               "Upload qualification receipt",
               "Verify retained qualification receipt",
           )
-          steps = {step["name"]: step["conclusion"] for step in (job.get("steps") or [])}
-          missing = [name for name in required if name not in steps]
+          step_counts = {name: step_names.count(name) for name in required}
+          duplicate_required = {name: count for name, count in step_counts.items() if count != 1}
+          assert not duplicate_required, f"required qualification step multiplicity is not exactly one: {duplicate_required}"
+          steps = {step["name"]: step["conclusion"] for step in raw_steps}
           assert not missing, f"required qualification steps missing: {missing}"
           failed = {name: steps[name] for name in required if steps[name] != "success"}
           assert not failed, f"independent qualification gate failed: {failed}"
