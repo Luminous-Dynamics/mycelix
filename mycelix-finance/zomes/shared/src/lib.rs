@@ -863,7 +863,6 @@ pub mod oracle_verification {
             )));
         }
 
-        // Fetch consensus from price-oracle zome
         #[derive(Debug, Serialize)]
         struct GetConsensusInput {
             item: String,
@@ -882,43 +881,38 @@ pub mod oracle_verification {
                 item: item.to_string(),
             },
         ) {
-            Ok(ZomeCallResponse::Ok(result)) => match result.decode::<ConsensusResult>() {
-                Ok(consensus)
-                    if consensus.median_price.is_finite() && consensus.median_price > 0.0 =>
-                {
-                    let deviation =
-                        (claimed_rate - consensus.median_price).abs() / consensus.median_price;
-                    if deviation > ORACLE_RATE_TOLERANCE {
-                        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                            "Oracle rate {:.6} deviates {:.1}% from consensus {:.6} (max {}%)",
-                            claimed_rate,
-                            deviation * 100.0,
-                            consensus.median_price,
-                            ORACLE_RATE_TOLERANCE * 100.0
-                        ))));
-                    }
-                    Ok(())
+            Ok(ZomeCallResponse::Ok(result)) => {
+                let consensus = result.decode::<ConsensusResult>().map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Oracle consensus response could not be decoded: {e:?}"
+                    )))
+                })?;
+                if !consensus.median_price.is_finite() || consensus.median_price <= 0.0 {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Oracle consensus price is invalid".into()
+                    )));
                 }
-                Ok(_) => {
-                    debug!("verify_oracle_rate: consensus price invalid, accepting claimed rate");
-                    Ok(())
+                let deviation =
+                    (claimed_rate - consensus.median_price).abs() / consensus.median_price;
+                if deviation > ORACLE_RATE_TOLERANCE {
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "Oracle rate {:.6} deviates {:.1}% from consensus {:.6} (max {:.0}%).                          Use get_consensus_price to fetch current rate before depositing.",
+                        claimed_rate,
+                        deviation * 100.0,
+                        consensus.median_price,
+                        ORACLE_RATE_TOLERANCE * 100.0
+                    ))));
                 }
-                Err(e) => {
-                    debug!(
-                        "verify_oracle_rate: decode error: {:?}, accepting claimed rate",
-                        e
-                    );
-                    Ok(())
-                }
-            },
-            _ => {
-                // Oracle unreachable — accept with warning (bootstrap/standalone)
-                debug!(
-                    "verify_oracle_rate: price oracle unreachable, accepting claimed rate {}",
-                    claimed_rate
-                );
                 Ok(())
             }
+            Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Price oracle returned an unexpected consensus response: {:?}",
+                other
+            )))),
+            Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Price oracle consensus is unavailable: {:?}",
+                e
+            )))),
         }
     }
 }
