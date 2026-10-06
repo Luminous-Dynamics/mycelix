@@ -2,11 +2,13 @@
 """Validate a retained D6U attestation/offline-verification evidence packet.
 
 Cryptographic verification remains the responsibility of gh attestation verify.
-This verifier makes the retained packet itself deterministic and fail-closed.
+This verifier makes the retained packet itself deterministic and fail-closed,
+including explicit online/offline/negative-control cross-links.
 """
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -14,7 +16,8 @@ import sys
 from pathlib import Path
 
 
-SCHEMA = "d6u-attestation-retention/v1"
+SCHEMA = "d6u-attestation-retention/v2"
+CONTROL_SCHEMA = "d6u-no-public-good-control/v1"
 SUBJECTS = (
     "d6u-runtime-evidence.txt",
     "d6u-runtime-test.log",
@@ -24,10 +27,14 @@ FILES = (
     "d6u-runtime-evidence.attestation.jsonl",
     "d6u-runtime-test.attestation.jsonl",
     "Cargo_lock.attestation.jsonl",
+    "d6u-runtime-evidence.online.json",
+    "d6u-runtime-test.online.json",
+    "Cargo_lock.online.json",
     "d6u-runtime-evidence.offline.json",
     "d6u-runtime-test.offline.json",
     "Cargo_lock.offline.json",
     "trusted_root.jsonl",
+    "no-public-good-control.json",
     "retention-transcript.json",
 )
 MAX_FILE_BYTES = 4 * 1024 * 1024
@@ -35,6 +42,11 @@ MAX_ROOT_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 18 * 1024 * 1024
 MAX_JSONL_LINES = 64
 RETAINED_FILES = tuple(name for name in FILES if name != "retention-transcript.json")
+PREDICATE_TYPE = "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"
+PREDICATE_SCHEMA = "d6u-trusted-runtime-evidence/v1"
+PUBLIC_GOOD_INSTANCE = "sigstore-public-good"
+SIGNER_WORKFLOW_SUFFIX = "/.github/workflows/d6u-trusted-evidence-attestation.yml"
+CERT_OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 
 
 def sha256(path: Path) -> str:
@@ -63,14 +75,16 @@ def load_jsonl(path: Path) -> list[dict]:
 def assert_hash_record(base: Path, filename: str, expected: dict) -> None:
     assert isinstance(expected, dict)
     assert set(expected) == {"sha256", "bytes"}
+    assert isinstance(expected["bytes"], int)
     path = base / filename
     assert path.is_file() and not path.is_symlink()
     observed_bytes = path.stat().st_size
     assert observed_bytes == expected["bytes"]
-    assert 0 <= observed_bytes <= MAX_FILE_BYTES
-    assert expected["sha256"] == sha256(path)
+    limit = MAX_ROOT_BYTES if filename == "trusted_root.jsonl" else MAX_FILE_BYTES
+    assert 0 < observed_bytes <= limit
     assert isinstance(expected["sha256"], str) and len(expected["sha256"]) == 64
     assert all(ch in "0123456789abcdef" for ch in expected["sha256"])
+    assert expected["sha256"] == sha256(path)
 
 
 def current_run_uri(repository: str, run_id: str, run_attempt: str) -> str:
@@ -78,6 +92,50 @@ def current_run_uri(repository: str, run_id: str, run_attempt: str) -> str:
         "https://github.com/" + repository + "/actions/runs/"
         + run_id + "/attempts/" + run_attempt
     )
+
+
+def expected_verify_command(
+    subject_path: str,
+    repository: str,
+    root_path: str | None = None,
+    bundle_path: str | None = None,
+    no_public_good: bool = False,
+) -> list[str]:
+    command = [
+        "gh",
+        "attestation",
+        "verify",
+        subject_path,
+        "--repo",
+        repository,
+    ]
+    if bundle_path is not None:
+        command.extend(["--bundle", bundle_path])
+    if root_path is not None:
+        command.extend(["--custom-trusted-root", root_path])
+    command.extend(
+        [
+            "--signer-workflow",
+            repository + SIGNER_WORKFLOW_SUFFIX,
+            "--signer-digest",
+            os.environ["GITHUB_WORKFLOW_SHA"],
+            "--cert-identity",
+            "https://github.com/" + repository + SIGNER_WORKFLOW_SUFFIX + "@refs/heads/main",
+            "--cert-oidc-issuer",
+            CERT_OIDC_ISSUER,
+            "--source-digest",
+            os.environ["GITHUB_SHA"],
+            "--source-ref",
+            os.environ["GITHUB_REF"],
+            "--predicate-type",
+            PREDICATE_TYPE,
+            "--deny-self-hosted-runners",
+        ]
+    )
+    if no_public_good:
+        command.append("--no-public-good")
+    command.append("--format=json")
+    return command
 
 
 def verify_report(
@@ -124,6 +182,80 @@ def verify_report(
     assert len(matches) == 1
 
 
+def verify_no_public_good_control(
+    path: Path,
+    root: Path,
+    expected_subject_name: str,
+    expected_subject_sha256: str,
+    expected_bundle_name: str,
+    expected_bundle_sha256: str,
+    expected_offline_name: str,
+    expected_offline_sha256: str,
+    expected_root_sha256: str,
+) -> None:
+    control = load_json(path)
+    assert isinstance(control, dict)
+    required = {
+        "schema",
+        "public_good_instance",
+        "subject_name",
+        "subject_path",
+        "subject_sha256",
+        "bundle_filename",
+        "bundle_path",
+        "bundle_sha256",
+        "trusted_root_filename",
+        "trusted_root_path",
+        "trusted_root_sha256",
+        "baseline_offline_filename",
+        "baseline_offline_path",
+        "baseline_offline_sha256",
+        "command",
+        "exit_status",
+        "combined_output_base64",
+        "combined_output_bytes",
+        "combined_output_sha256",
+    }
+    assert set(control) == required
+    assert control["schema"] == CONTROL_SCHEMA
+    assert control["public_good_instance"] == PUBLIC_GOOD_INSTANCE
+    assert control["subject_name"] == expected_subject_name
+    assert control["subject_sha256"] == expected_subject_sha256
+
+    evidence_root = Path(os.environ["RUNNER_TEMP"]) / "d6u-trusted-input"
+    subject_path = evidence_root / expected_subject_name
+    bundle_path = root / expected_bundle_name
+    offline_path = root / expected_offline_name
+    root_path = root / "trusted_root.jsonl"
+
+    assert control["subject_path"] == str(subject_path)
+    assert control["bundle_filename"] == expected_bundle_name
+    assert control["bundle_path"] == str(bundle_path)
+    assert control["bundle_sha256"] == expected_bundle_sha256
+    assert control["trusted_root_filename"] == "trusted_root.jsonl"
+    assert control["trusted_root_path"] == str(root_path)
+    assert control["trusted_root_sha256"] == expected_root_sha256
+    assert control["baseline_offline_filename"] == expected_offline_name
+    assert control["baseline_offline_path"] == str(offline_path)
+    assert control["baseline_offline_sha256"] == expected_offline_sha256
+
+    expected_command = expected_verify_command(
+        str(subject_path),
+        os.environ["GITHUB_REPOSITORY"],
+        root_path=str(root_path),
+        bundle_path=str(bundle_path),
+        no_public_good=True,
+    )
+    assert control["command"] == expected_command
+    assert control["command"].count("--no-public-good") == 1
+    assert control["exit_status"] != 0
+    assert isinstance(control["combined_output_base64"], str)
+    raw = base64.b64decode(control["combined_output_base64"], validate=True)
+    assert 0 < len(raw) <= MAX_FILE_BYTES
+    assert control["combined_output_bytes"] == len(raw)
+    assert control["combined_output_sha256"] == hashlib.sha256(raw).hexdigest()
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit(
@@ -136,25 +268,45 @@ def main() -> None:
     actual = sorted(path.name for path in root.iterdir())
     assert actual == sorted(FILES), f"unexpected retention packet files: {actual}"
 
-    total = sum((root / name).stat().st_size for name in actual)
-    assert total <= MAX_TOTAL_BYTES
-    for name in FILES:
+    total = 0
+    for name in actual:
         path = root / name
         assert path.is_file() and not path.is_symlink()
-        if name == "trusted_root.jsonl":
-            assert path.stat().st_size <= MAX_ROOT_BYTES
-        else:
-            assert path.stat().st_size <= MAX_FILE_BYTES
+        limit = MAX_ROOT_BYTES if name == "trusted_root.jsonl" else MAX_FILE_BYTES
+        size = path.stat().st_size
+        assert 0 < size <= limit
+        total += size
+    assert total <= MAX_TOTAL_BYTES
 
     transcript = load_json(root / "retention-transcript.json")
     assert isinstance(transcript, dict)
     required = {
-        "schema", "policy_version", "repository", "source_ref", "source_digest",
-        "signer_workflow", "signer_workflow_digest", "certificate_identity",
-        "certificate_oidc_issuer", "run_id", "run_attempt", "run_invocation_uri",
-        "cli_version", "predicate_type", "predicate_schema", "claim_ceiling",
-        "public_good_instance_required", "public_good_instance", "tlog_required", "offline_verified",
-        "no_public_good_rejected", "subjects", "retained_files",
+        "schema",
+        "policy_version",
+        "repository",
+        "source_ref",
+        "source_digest",
+        "signer_workflow",
+        "signer_workflow_digest",
+        "certificate_identity",
+        "certificate_oidc_issuer",
+        "run_id",
+        "run_attempt",
+        "run_invocation_uri",
+        "cli_version",
+        "predicate_type",
+        "predicate_schema",
+        "claim_ceiling",
+        "public_good_instance_required",
+        "public_good_instance",
+        "tlog_required",
+        "online_verified",
+        "offline_verified",
+        "no_public_good_rejected",
+        "trusted_root",
+        "subjects",
+        "subject_bundle_bindings",
+        "retained_files",
     }
     assert set(transcript) == required
     assert transcript["schema"] == SCHEMA
@@ -163,18 +315,16 @@ def main() -> None:
     assert transcript["source_ref"] == os.environ["GITHUB_REF"]
     assert transcript["source_digest"] == os.environ["GITHUB_SHA"]
     assert transcript["signer_workflow"] == (
-        os.environ["GITHUB_REPOSITORY"]
-        + "/.github/workflows/d6u-trusted-evidence-attestation.yml"
+        os.environ["GITHUB_REPOSITORY"] + SIGNER_WORKFLOW_SUFFIX
     )
     assert transcript["signer_workflow_digest"] == os.environ["GITHUB_WORKFLOW_SHA"]
     assert transcript["certificate_identity"] == (
         "https://github.com/"
         + os.environ["GITHUB_REPOSITORY"]
-        + "/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
+        + SIGNER_WORKFLOW_SUFFIX
+        + "@refs/heads/main"
     )
-    assert transcript["certificate_oidc_issuer"] == (
-        "https://token.actions.githubusercontent.com"
-    )
+    assert transcript["certificate_oidc_issuer"] == CERT_OIDC_ISSUER
     assert str(transcript["run_id"]) == os.environ["GITHUB_RUN_ID"]
     assert str(transcript["run_attempt"]) == os.environ["GITHUB_RUN_ATTEMPT"]
     assert transcript["run_invocation_uri"] == current_run_uri(
@@ -183,14 +333,13 @@ def main() -> None:
         os.environ["GITHUB_RUN_ATTEMPT"],
     )
     assert transcript["cli_version"] == "2.101.0"
-    assert transcript["predicate_type"] == (
-        "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"
-    )
-    assert transcript["predicate_schema"] == "d6u-trusted-runtime-evidence/v1"
+    assert transcript["predicate_type"] == PREDICATE_TYPE
+    assert transcript["predicate_schema"] == PREDICATE_SCHEMA
     assert transcript["claim_ceiling"] == "ReferenceModelOnly"
     assert transcript["public_good_instance_required"] is True
-    assert transcript["public_good_instance"] == "sigstore-public-good"
+    assert transcript["public_good_instance"] == PUBLIC_GOOD_INSTANCE
     assert transcript["tlog_required"] is True
+    assert transcript["online_verified"] is True
     assert transcript["offline_verified"] is True
     assert transcript["no_public_good_rejected"] is True
 
@@ -198,8 +347,10 @@ def main() -> None:
     assert isinstance(subjects, list) and len(subjects) == len(SUBJECTS)
     by_name = {item["name"]: item for item in subjects}
     assert set(by_name) == set(SUBJECTS)
+    assert len(by_name) == len(SUBJECTS)
     for item in subjects:
         assert set(item) == {"name", "sha256"}
+        assert isinstance(item["name"], str) and item["name"] in SUBJECTS
         assert isinstance(item["sha256"], str) and len(item["sha256"]) == 64
         assert all(ch in "0123456789abcdef" for ch in item["sha256"])
 
@@ -214,25 +365,104 @@ def main() -> None:
     retained = transcript["retained_files"]
     assert isinstance(retained, dict)
     assert set(retained) == set(RETAINED_FILES)
-
     for name in RETAINED_FILES:
         assert_hash_record(root, name, retained[name])
+
+    trusted_root = transcript["trusted_root"]
+    assert isinstance(trusted_root, dict)
+    assert set(trusted_root) == {"filename", "sha256"}
+    assert trusted_root["filename"] == "trusted_root.jsonl"
+    assert trusted_root["sha256"] == retained["trusted_root.jsonl"]["sha256"]
+    load_jsonl(root / "trusted_root.jsonl")
 
     expected_subjects = [
         (subject_name, by_name[subject_name]["sha256"])
         for subject_name in SUBJECTS
     ]
-    for subject_name in SUBJECTS:
-        safe = subject_name.replace(".", "_").replace("-", "_")
-        bundle_name = safe + ".attestation.jsonl"
-        report_name = safe + ".offline.json"
-        load_jsonl(root / bundle_name)
+    bindings = transcript["subject_bundle_bindings"]
+    assert isinstance(bindings, list) and len(bindings) == len(SUBJECTS)
+    binding_names = {item["subject_name"] for item in bindings}
+    assert binding_names == set(SUBJECTS)
+    assert len(binding_names) == len(SUBJECTS)
+
+    root_sha256 = retained["trusted_root.jsonl"]["sha256"]
+    for binding in bindings:
+        assert set(binding) == {
+            "subject_name",
+            "subject_sha256",
+            "bundle_filename",
+            "bundle_sha256",
+            "online_report_filename",
+            "online_report_sha256",
+            "offline_report_filename",
+            "offline_report_sha256",
+            "negative_control_filename",
+            "negative_control_sha256",
+            "trusted_root_sha256",
+        }
+        name = binding["subject_name"]
+        assert name in SUBJECTS
+        subject_sha256 = by_name[name]["sha256"]
+        assert binding["subject_sha256"] == subject_sha256
+        safe = name.replace(".", "_").replace("-", "_")
+        expected_bundle = safe + ".attestation.jsonl"
+        expected_online = safe + ".online.json"
+        expected_offline = safe + ".offline.json"
+        assert binding["bundle_filename"] == expected_bundle
+        assert binding["online_report_filename"] == expected_online
+        assert binding["offline_report_filename"] == expected_offline
+        assert binding["negative_control_filename"] == "no-public-good-control.json"
+        assert binding["bundle_sha256"] == retained[expected_bundle]["sha256"]
+        assert binding["online_report_sha256"] == retained[expected_online]["sha256"]
+        assert binding["offline_report_sha256"] == retained[expected_offline]["sha256"]
+        assert binding["negative_control_sha256"] == retained["no-public-good-control.json"]["sha256"]
+        assert binding["trusted_root_sha256"] == root_sha256
+
+        load_jsonl(root / expected_bundle)
         verify_report(
-            root / report_name,
+            root / expected_online,
             expected_subjects,
             transcript["run_invocation_uri"],
             transcript["predicate_type"],
         )
+        verify_report(
+            root / expected_offline,
+            expected_subjects,
+            transcript["run_invocation_uri"],
+            transcript["predicate_type"],
+        )
+
+    # The same negative-control file is referenced by every subject binding.
+    verify_no_public_good_control(
+        root / "no-public-good-control.json",
+        root,
+        expected_subject_name=SUBJECTS[0],
+        expected_subject_sha256=by_name[SUBJECTS[0]]["sha256"],
+        expected_bundle_name=(
+            SUBJECTS[0].replace(".", "_").replace("-", "_") + ".attestation.jsonl"
+        ),
+        expected_bundle_sha256=retained[
+            SUBJECTS[0].replace(".", "_").replace("-", "_") + ".attestation.jsonl"
+        ]["sha256"],
+        expected_offline_name=(
+            SUBJECTS[0].replace(".", "_").replace("-", "_") + ".offline.json"
+        ),
+        expected_offline_sha256=retained[
+            SUBJECTS[0].replace(".", "_").replace("-", "_") + ".offline.json"
+        ]["sha256"],
+        expected_root_sha256=root_sha256,
+    )
+    control = load_json(root / "no-public-good-control.json")
+    # A single control cannot honestly bind to multiple different subjects.
+    for binding in bindings:
+        assert binding["subject_name"] == control["subject_name"]
+
+    print(
+        "verified D6U retained attestation packet: "
+        f"subjects={len(SUBJECTS)}, files={len(FILES)}, "
+        f"run={transcript['run_id']}, attempt={transcript['run_attempt']}, "
+        f"policy=v{transcript['policy_version']}"
+    )
 
 
 if __name__ == "__main__":
