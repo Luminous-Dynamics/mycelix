@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 26
+    assert policy["policy_version"] == 32
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -127,6 +127,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "subject_set_exact": True,
         "require_signed_predicate_subject_binding": True,
         "require_verified_timestamp": True,
+        "require_verified_tlog": True,
     }
     assert policy["artifact_max_entries"] == 32
     assert policy["trusted_artifact_fetcher"]["path"] == (
@@ -142,6 +143,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "scripts/integral/fetch_d6u_trusted_artifact.py",
         "scripts/integral/verify_d6u_trusted_attestation.py",
         "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
+        "scripts/integral/verify_d6u_trusted_attestation_retention.py",
     }
     for path, descriptor in policy["trusted_programs"].items():
         assert descriptor["path"] == path
@@ -173,6 +175,36 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["attestation_verification"]["require_current_run_identity"] is True
     assert policy["attestation_verification"]["subject_set_exact"] is True
     assert policy["attestation_verification"]["require_verified_timestamp"] is True
+    assert policy["attestation_verification"]["require_verified_tlog"] is True
+
+    assert policy["attestation_retention"] == {
+        "schema": "d6u-attestation-retention/v2",
+        "expected_file_count": 14,
+        "max_file_bytes": 4194304,
+        "max_trusted_root_bytes": 2097152,
+        "max_total_bytes": 18874368,
+        "max_jsonl_lines": 64,
+        "subjects": [
+            "d6u-runtime-evidence.txt",
+            "d6u-runtime-test.log",
+            "Cargo.lock",
+        ],
+        "trusted_root_filename": "trusted_root.jsonl",
+        "offline_verified": True,
+        "online_verified": True,
+        "require_public_good_instance": True,
+        "public_good_instance": "sigstore-public-good",
+        "require_tlog": True,
+        "require_no_public_good_rejection": True,
+        "retention_artifact": {
+            "name_template": "d6u-trusted-attestation-retention-run-{run_id}-attempt-{run_attempt}",
+            "retention_days": 90,
+        },
+        "negative_control_schema": "d6u-no-public-good-control/v1",
+        "retain_online_verification": True,
+        "retain_negative_control": True,
+        "max_attestations_per_verify": 8,
+    }
 
     workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
     assert workflow_text.count("TRUSTED_POLICY_VERSION:") == 1
@@ -187,6 +219,10 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "actions/attest": {
             "ref": "1e69f48acb82d1966a394da916b4c169aa569d6",
             "version": "v4.2.2",
+        },
+        "actions/upload-artifact": {
+            "ref": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+            "version": "v4.6.2",
         },
     }
     workflow_path = Path(__file__).parents[2] / policy["trusted_workflow"]["path"]
@@ -226,7 +262,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_encrypted_members": True,
         "reject_symlink_members": True,
         "expected_member_count": 3,
-        "policy_revision": 26,
+        "policy_revision": 27,
     }
 
 
@@ -340,6 +376,38 @@ def test_policy_pins_current_trusted_fetcher() -> None:
     assert policy["trusted_artifact_fetcher"]["blob_sha"] == observed
 
 
+def test_retention_workflow_contains_offline_controls() -> None:
+    root = Path(__file__).parents[2]
+    policy = json.loads(
+        (root / "docs/integral/d6u-trusted-builder-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    workflow = (root / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
+    required_fragments = [
+        "gh attestation trusted-root",
+        "gh attestation download",
+        "--predicate-type \"https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1\"",
+        "--bundle \"$bundle\"",
+        "--custom-trusted-root \"$retention_dir/trusted_root.jsonl\"",
+        "--no-public-good",
+        "--deny-self-hosted-runners",
+        "--format=json",
+        "--limit 8",
+        "d6u-runtime-evidence.online.json",
+        "d6u-runtime-evidence.no-public-good.json",
+        "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
+        "retention-days: 90",
+        "d6u-attestation-retention/v2",
+        '"schema": "d6u-no-public-good-control/v1",',
+
+    ]
+    for fragment in required_fragments:
+        assert fragment in workflow, f"retention workflow control missing: {fragment}"
+    assert workflow.count("gh attestation verify") == 4
+    assert workflow.count("--limit 8") >= 5
+
+
 def test_trusted_cli_policy_is_explicit() -> None:
     policy = json.loads(
         (Path(__file__).parents[2] / "docs/integral/d6u-trusted-builder-policy.json").read_text(
@@ -352,11 +420,15 @@ def test_trusted_cli_policy_is_explicit() -> None:
         "configuration_directory": "${{ runner.temp }}/d6u-gh-config",
         "required_fresh_configuration": True,
         "forbidden_environment_overrides": ["GH_HOST", "GH_ENTERPRISE_TOKEN", "GH_REPO"],
+        "executable_path_must_not_resolve_under": ["${{ github.workspace }}", "${{ runner.temp }}"],
     }
     workflow = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
     assert "gh version" in workflow
     assert "2.101.0" in workflow
     assert "GH_CONFIG_DIR: ${{ runner.temp }}/d6u-gh-config" in workflow
+    assert 'gh_path="$(command -v gh)"' in workflow
+    assert 'gh_path="$(readlink -f "$gh_path")"' in workflow
+    assert '"$GITHUB_WORKSPACE"/*|"$RUNNER_TEMP"/*' in workflow
     assert "GH_HOST GH_ENTERPRISE_TOKEN GH_REPO" in workflow
 
 def test_privileged_actions_are_exactly_pinned() -> None:
@@ -870,6 +942,247 @@ def attestation_entry(
     }
 
 
+
+def _valid_negative_control_fixture():
+    import base64
+    import hashlib
+    import verify_d6u_trusted_attestation_retention as retention
+
+    tmp = tempfile.TemporaryDirectory()
+    root = Path(tmp.name)
+    evidence_root = root / "d6u-trusted-input"
+    evidence_root.mkdir()
+    subject = evidence_root / "d6u-runtime-evidence.txt"
+    subject.write_text("subject\n", encoding="utf-8")
+    bundle = root / "d6u-runtime-evidence.attestation.jsonl"
+    bundle.write_text("{}\n", encoding="utf-8")
+    offline = root / "d6u-runtime-evidence.offline.json"
+    offline.write_text("[]\n", encoding="utf-8")
+    trusted_root = root / "trusted_root.jsonl"
+    trusted_root.write_text("{}\n", encoding="utf-8")
+    raw = b"expected public-good rejection\n"
+
+    env = {
+        "RUNNER_TEMP": str(root),
+        "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+        "GITHUB_WORKFLOW_SHA": "c" * 40,
+        "GITHUB_SHA": "a" * 40,
+        "GITHUB_REF": "refs/heads/main",
+    }
+    with patch.dict(os.environ, env, clear=False):
+        command = retention.expected_verify_command(
+            str(subject),
+            env["GITHUB_REPOSITORY"],
+            root_path=str(trusted_root),
+            bundle_path=str(bundle),
+            no_public_good=True,
+        )
+    control = {
+        "schema": "d6u-no-public-good-control/v1",
+        "public_good_instance": "sigstore-public-good",
+        "subject_name": "d6u-runtime-evidence.txt",
+        "subject_path": str(subject),
+        "subject_sha256": hashlib.sha256(subject.read_bytes()).hexdigest(),
+        "bundle_filename": bundle.name,
+        "bundle_path": str(bundle),
+        "bundle_sha256": hashlib.sha256(bundle.read_bytes()).hexdigest(),
+        "trusted_root_filename": trusted_root.name,
+        "trusted_root_path": str(trusted_root),
+        "trusted_root_sha256": hashlib.sha256(trusted_root.read_bytes()).hexdigest(),
+        "baseline_offline_filename": offline.name,
+        "baseline_offline_path": str(offline),
+        "baseline_offline_sha256": hashlib.sha256(offline.read_bytes()).hexdigest(),
+        "command": command,
+        "exit_status": 1,
+        "combined_output_base64": base64.b64encode(raw).decode("ascii"),
+        "combined_output_bytes": len(raw),
+        "combined_output_sha256": hashlib.sha256(raw).hexdigest(),
+    }
+    return tmp, root, control, bundle, offline, trusted_root, retention
+
+
+def test_trusted_root_jsonl_line_limit_is_enforced() -> None:
+    import verify_d6u_trusted_attestation_retention as retention
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "trusted_root.jsonl"
+        path.write_text(("{}\n" * (retention.MAX_JSONL_LINES + 1)), encoding="utf-8")
+        assert_rejected(
+            lambda: retention.load_jsonl(path),
+            "trusted root JSONL line limit was not enforced",
+        )
+
+
+def test_negative_control_requires_nonzero_exit() -> None:
+    tmp, root, control, bundle, offline, trusted_root, retention = _valid_negative_control_fixture()
+    try:
+        control["exit_status"] = 0
+        path = root / "control.json"
+        path.write_text(json.dumps(control), encoding="utf-8")
+        with patch.dict(
+            os.environ,
+            {
+                "RUNNER_TEMP": str(root),
+                "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "GITHUB_WORKFLOW_SHA": "c" * 40,
+                "GITHUB_SHA": "a" * 40,
+                "GITHUB_REF": "refs/heads/main",
+            },
+            clear=False,
+        ):
+            assert_rejected(
+                lambda: retention.verify_no_public_good_control(
+                    path, root, "d6u-runtime-evidence.txt",
+                    control["subject_sha256"], bundle.name,
+                    control["bundle_sha256"], offline.name,
+                    control["baseline_offline_sha256"],
+                    control["trusted_root_sha256"],
+                ),
+                "successful --no-public-good control was accepted",
+            )
+    finally:
+        tmp.cleanup()
+
+
+def test_negative_control_command_must_disable_public_good() -> None:
+    tmp, root, control, bundle, offline, trusted_root, retention = _valid_negative_control_fixture()
+    try:
+        control["command"] = [item for item in control["command"] if item != "--no-public-good"]
+        path = root / "control.json"
+        path.write_text(json.dumps(control), encoding="utf-8")
+        with patch.dict(
+            os.environ,
+            {
+                "RUNNER_TEMP": str(root),
+                "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "GITHUB_WORKFLOW_SHA": "c" * 40,
+                "GITHUB_SHA": "a" * 40,
+                "GITHUB_REF": "refs/heads/main",
+            },
+            clear=False,
+        ):
+            assert_rejected(
+                lambda: retention.verify_no_public_good_control(
+                    path, root, "d6u-runtime-evidence.txt",
+                    control["subject_sha256"], bundle.name,
+                    control["bundle_sha256"], offline.name,
+                    control["baseline_offline_sha256"],
+                    control["trusted_root_sha256"],
+                ),
+                "negative control without --no-public-good was accepted",
+            )
+    finally:
+        tmp.cleanup()
+
+
+def test_negative_control_cross_link_mismatch_is_rejected() -> None:
+    tmp, root, control, bundle, offline, trusted_root, retention = _valid_negative_control_fixture()
+    try:
+        original = control["bundle_sha256"]
+        control["bundle_sha256"] = "b" * 64
+        path = root / "control.json"
+        path.write_text(json.dumps(control), encoding="utf-8")
+        with patch.dict(
+            os.environ,
+            {
+                "RUNNER_TEMP": str(root),
+                "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "GITHUB_WORKFLOW_SHA": "c" * 40,
+                "GITHUB_SHA": "a" * 40,
+                "GITHUB_REF": "refs/heads/main",
+            },
+            clear=False,
+        ):
+            assert_rejected(
+                lambda: retention.verify_no_public_good_control(
+                    path, root, "d6u-runtime-evidence.txt",
+                    control["subject_sha256"], bundle.name,
+                    original, offline.name,
+                    control["baseline_offline_sha256"],
+                    control["trusted_root_sha256"],
+                ),
+                "cross-linked negative control bundle identity was accepted",
+            )
+    finally:
+        tmp.cleanup()
+
+
+
+def test_retained_report_identity_and_predicate_are_bound() -> None:
+    import verify_d6u_trusted_attestation_retention as retention
+
+    subjects = [
+        {"name": "d6u-runtime-evidence.txt", "digest": {"sha256": "a" * 64}},
+        {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
+        {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
+    ]
+    entry = synthetic_attestation_entry(subjects, "42")
+    context = {
+        "repository": "Luminous-Dynamics/mycelix",
+        "source_digest": "a" * 40,
+        "run_invocation_uri": (
+            "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42/attempts/3"
+        ),
+        "certificate_identity": (
+            "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/"
+            "d6u-trusted-evidence-attestation.yml@refs/heads/main"
+        ),
+        "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
+        "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+        "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+        "claim_ceiling": "ReferenceModelOnly",
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        report = Path(tmp) / "report.json"
+        report.write_text(json.dumps([entry]), encoding="utf-8")
+        observed = retention.verify_report(report, subjects and [
+            (item["name"], item["digest"]["sha256"]) for item in subjects
+        ], context)
+        assert len(observed) == 64
+
+        tampered_certificate = json.loads(report.read_text(encoding="utf-8"))
+        tampered_certificate[0]["verificationResult"]["signature"]["certificate"][
+            "sourceRepositoryDigest"
+        ] = "b" * 40
+        report.write_text(json.dumps(tampered_certificate), encoding="utf-8")
+        assert_rejected(
+            lambda: retention.verify_report(
+                report,
+                [(item["name"], item["digest"]["sha256"]) for item in subjects],
+                context,
+            ),
+            "retained report with mismatched source identity was accepted",
+        )
+
+        report.write_text(json.dumps([entry]), encoding="utf-8")
+        tampered_predicate = json.loads(report.read_text(encoding="utf-8"))
+        tampered_predicate[0]["verificationResult"]["statement"]["predicate"][
+            "claim_ceiling"
+        ] = "Production"
+        report.write_text(json.dumps(tampered_predicate), encoding="utf-8")
+        assert_rejected(
+            lambda: retention.verify_report(
+                report,
+                [(item["name"], item["digest"]["sha256"]) for item in subjects],
+                context,
+            ),
+            "retained report with mismatched claim ceiling was accepted",
+        )
+
+
+def test_retention_packet_rejects_extra_member() -> None:
+    import verify_d6u_trusted_attestation_retention as retention
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "unexpected.json").write_text("{}", encoding="utf-8")
+        with patch("sys.argv", ["verify_d6u_trusted_attestation_retention.py", str(root)]):
+            assert_rejected(
+                lambda: retention.main(),
+                "retention packet accepted an unexpected member",
+            )
+
+
 def test_trusted_zip_accepts_exact_members() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         archive = Path(tmp) / "artifact.zip"
@@ -1123,6 +1436,34 @@ def test_custom_attestation_requires_verified_timestamp() -> None:
         assert verifier.verify_entry(entry, record, subjects) is False
 
 
+def test_custom_attestation_rejects_non_tlog_timestamp() -> None:
+    import verify_d6u_trusted_attestation as verifier
+
+    subjects = [
+        {"name": "d6u-runtime-evidence.txt", "digest": {"sha256": "a" * 64}},
+        {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
+        {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
+    ]
+    record = synthetic_record()
+    entry = synthetic_attestation_entry(subjects, "42")
+    entry["verificationResult"]["verifiedTimestamps"] = [
+        {"type": "RFC3161", "uri": "https://tsa.invalid/example"}
+    ]
+    with patch.dict(
+        os.environ,
+        {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_WORKFLOW_SHA": "c" * 40,
+            "GITHUB_REF": "refs/heads/main",
+        },
+        clear=False,
+    ):
+        assert verifier.verify_entry(entry, record, subjects) is False
+
+
 def test_custom_attestation_subject_set_is_order_independent_but_exact() -> None:
     import verify_d6u_trusted_attestation as verifier
 
@@ -1278,7 +1619,15 @@ if __name__ == "__main__":
         test_attestation_verifier_accepts_current_run,
         test_attestation_verifier_rejects_old_run,
         test_custom_attestation_requires_verified_timestamp,
+        test_custom_attestation_rejects_non_tlog_timestamp,
         test_custom_attestation_subject_set_is_order_independent_but_exact,
+        test_retention_workflow_contains_offline_controls,
+        test_trusted_root_jsonl_line_limit_is_enforced,
+        test_negative_control_requires_nonzero_exit,
+        test_negative_control_command_must_disable_public_good,
+        test_negative_control_cross_link_mismatch_is_rejected,
+        test_retained_report_identity_and_predicate_are_bound,
+        test_retention_packet_rejects_extra_member,
         test_custom_attestation_accepts_current_run_and_rejects_old_run,
         test_trusted_workflow_policy_shape_is_pinned,
         test_artifact_layout_rejects_symlink,

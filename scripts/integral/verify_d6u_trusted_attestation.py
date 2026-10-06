@@ -133,7 +133,10 @@ def verify_entry(entry: dict, record: dict[str, str], subjects: list[dict]) -> b
 
     return (
         certificate_ok
-        and bool(verified_timestamps)
+        and any(
+            isinstance(timestamp, dict) and timestamp.get("type") == "Tlog"
+            for timestamp in verified_timestamps
+        )
         and predicate_ok
         and canonical_subjects(statement_subjects) == canonical_subjects(subjects)
     )

@@ -1,5 +1,5 @@
 {
-  "policy_version": 26,
+  "policy_version": 32,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "e1fc28cc508e6f9bcf97ad6b07167b55f3765f5a"
+    "blob_sha": "646ec5ff5054844151e97fdfed82b054db52f8e8"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -218,7 +218,7 @@
     "reject_encrypted_members": true,
     "reject_symlink_members": true,
     "expected_member_count": 3,
-    "policy_revision": 26
+    "policy_revision": 27
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
@@ -248,11 +248,12 @@
     "require_subject_digest_match": true,
     "subject_set_exact": true,
     "require_signed_predicate_subject_binding": true,
-    "require_verified_timestamp": true
+    "require_verified_timestamp": true,
+    "require_verified_tlog": true
   },
   "trusted_attestation_verifier": {
     "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-    "blob_sha": "c7f36ab104197e8deaac94a5fdcdf967a315e467"
+    "blob_sha": "3ea629986424bd8f7860119a70f900c346b78ce4"
   },
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
@@ -265,11 +266,15 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-      "blob_sha": "c7f36ab104197e8deaac94a5fdcdf967a315e467"
+      "blob_sha": "3ea629986424bd8f7860119a70f900c346b78ce4"
     },
     "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
       "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
       "blob_sha": "77eb6d7869b85d7f8444131ae9c8899770b79c7e"
+    },
+    "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
+      "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
+      "blob_sha": "49e0877318f0e29fea355fc50681acc1edddfeb4"
     }
   },
   "trusted_actions": {
@@ -280,6 +285,10 @@
     "actions/attest": {
       "ref": "1e69f48acb82d1966a394da916b4c169aa569d6",
       "version": "v4.2.2"
+    },
+    "actions/upload-artifact": {
+      "ref": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "version": "v4.6.2"
     }
   },
   "trusted_cli": {
@@ -291,6 +300,39 @@
       "GH_HOST",
       "GH_ENTERPRISE_TOKEN",
       "GH_REPO"
+    ],
+    "executable_path_must_not_resolve_under": [
+      "${{ github.workspace }}",
+      "${{ runner.temp }}"
     ]
-  }
+  },
+  "attestation_retention": {
+    "schema": "d6u-attestation-retention/v2",
+    "expected_file_count": 14,
+    "max_file_bytes": 4194304,
+    "max_trusted_root_bytes": 2097152,
+    "max_total_bytes": 18874368,
+    "max_jsonl_lines": 64,
+    "subjects": [
+      "d6u-runtime-evidence.txt",
+      "d6u-runtime-test.log",
+      "Cargo.lock"
+    ],
+    "trusted_root_filename": "trusted_root.jsonl",
+    "offline_verified": true,
+    "online_verified": true,
+    "require_public_good_instance": true,
+    "public_good_instance": "sigstore-public-good",
+    "require_tlog": true,
+    "require_no_public_good_rejection": true,
+    "retention_artifact": {
+      "name_template": "d6u-trusted-attestation-retention-run-{run_id}-attempt-{run_attempt}",
+      "retention_days": 90
+    },
+    "negative_control_schema": "d6u-no-public-good-control/v1",
+    "retain_online_verification": true,
+    "retain_negative_control": true,
+    "max_attestations_per_verify": 8
+  },
+  "attestation_integrity_revision": 32
 }

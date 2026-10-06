@@ -28,12 +28,13 @@ It pins:
 - the maximum trusted artifact archive/member/entry sizes;
 - the trusted artifact fetcher and bounded ZIP extraction policy;
 - the canonical D6U evidence-attestation predicate and its emitter;
-- the exact immutable Action revisions used by the privileged workflow;
+- the exact immutable Action revisions used by the privileged workflow, including the retention upload action;
 - the exact `gh` CLI version and isolated CLI configuration boundary;
 - all native case outcomes and zome reachability;
 - supplemental substrate witnesses;
 - lockfile substrate versions and crates.io provenance;
-- the `ReferenceModelOnly` claim ceiling.
+- the `ReferenceModelOnly` claim ceiling;
+- the public-transparency Tlog requirement and retained offline-attestation packet schema/limits.
 
 Before signing, the trusted verifier obtains the complete Git tree for the triggering run's exact `head_sha`. The D6S success status is not treated as sufficient proof by itself: the canonical verifier programs and canonical reference inputs are independently pinned in the trusted policy. It requires every policy-listed tracked path to resolve to an ordinary Git blob with an allowed file mode and the exact expected SHA. A truncated tree, missing path, blob mismatch, symlink mode, submodule/non-blob entry, or inherited Cargo configuration fails closed. The privileged workflow also fails closed if its own workflow-ref or pinned workflow blob does not match the reviewed policy. The artifact's self-reported hashes therefore cannot substitute for repository state.
 
@@ -49,28 +50,29 @@ Nested directories, symlinks, special files, missing files, extra files, oversiz
 
 ## Attestation boundary
 
-The privileged attestation job now has only `actions: read`, `contents: read`, `id-token: write`, and `attestations: write`. `artifact-metadata: write` is intentionally absent because GitHub documents that permission as necessary for linked-artifact storage records when `push-to-registry` is used, not for ordinary binary artifact attestations.
-The D6U main-owned runtime executor has `contents: read` only and explicitly defers attestation. The trusted workflow owns:
+The privileged attestation job has only `actions: read`, `contents: read`, `id-token: write`, and `attestations: write`. `artifact-metadata: write` is intentionally absent. The D6U main-owned runtime executor has `contents: read` only and explicitly defers attestation.
 
-- `id-token: write`;
-- `attestations: write`;
-- `artifact-metadata: write`.
+The trusted workflow signs the exact evidence files only after independent verification, using the dedicated `d6u-trusted-runtime-evidence/v1` evidence predicate. This is an evidence attestation, not a claim that the trusted workflow built the evidence. Attestation verification additionally pins the exact GitHub Actions OIDC issuer and certificate SAN for this workflow, alongside the signer workflow path and signer workflow commit digest. It also requires the certificate `runInvocationURI` to identify the current trusted workflow run/attempt and requires the signed predicate to match the independently verified evidence record. The subject binding is an exact set of three `(name, sha256)` identities, so statement ordering is irrelevant while duplicates, extra algorithms, altered names, or altered digests fail closed. The trusted verifier now requires a verified `Tlog` witness rather than accepting an RFC3161-only timestamp, and records the verification as relying on the `sigstore-public-good` instance.
 
-The trusted workflow signs the exact evidence files only after independent verification, using the dedicated `d6u-trusted-runtime-evidence/v1` evidence predicate. This is an evidence attestation, not a claim that the trusted workflow built the evidence. Attestation verification additionally pins the exact GitHub Actions OIDC issuer and certificate SAN for this workflow, alongside the signer workflow path and signer workflow commit digest. It also requires the certificate `runInvocationURI` to identify the current trusted workflow run/attempt and requires the signed predicate to match the independently verified evidence record. The subject binding is an exact set of three `(name, sha256)` identities, so statement ordering is irrelevant while duplicates, extra algorithms, altered names, or altered digests fail closed. The trusted verifier also requires at least one `verifiedTimestamps` entry from GitHub CLI verification.
+After signing, the same trusted root downloads the exact attestation bundles and the current Sigstore trusted-root material, then performs offline verification using the retained bundle and custom trusted root. It also performs a negative control with `--no-public-good`; the control must fail, so a successful retained verification cannot silently substitute the non-public verification path. A bounded retention packet records the exact subject digests, bundle/root/report hashes, current run identity, signer/source identities, policy/predicate schema, and claim ceiling. The packet is uploaded under a run/attempt-derived immutable artifact name.
 
-A successful D6U pull-request run therefore means runtime evidence was produced and uploaded. A trusted signed attestation means the default-branch verifier accepted that evidence against its independently reviewed policy and signed the exact resulting bytes.
+A successful D6U pull-request run therefore means runtime evidence was produced and uploaded. A trusted signed attestation means the default-branch verifier accepted that evidence against its independently reviewed policy and signed the exact resulting bytes. The retained packet additionally makes the successful public-transparency verification reproducible offline.
 
 Neither event upgrades the D6S claim ceiling beyond `ReferenceModelOnly`.
 
 ## Fail-closed self-test boundary
 
-The read-only trusted-verifier suite contains thirty-four deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; regular-file artifact-layout symlink rejection; artifact size-limit enforcement; artifact entry-count enforcement; trusted-workflow policy-shape enforcement; policy binding to the current trusted workflow blob; executor run-head binding to the reviewed executor workflow blob; bounded ZIP extraction adversaries for exact-member, duplicate-member, symlink-member, and traversal-path rejection; and current-run versus historical-attestation identity checks.
+The read-only trusted-verifier suite contains thirty-seven deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; regular-file artifact-layout symlink rejection; artifact size-limit enforcement; artifact entry-count enforcement; trusted-workflow policy-shape enforcement; policy binding to the current trusted workflow blob; executor run-head binding to the reviewed executor workflow blob; bounded ZIP extraction adversaries for exact-member, duplicate-member, symlink-member, and traversal-path rejection; and current-run versus historical-attestation identity checks.
 
-The self-test has no signing permissions and is not itself an authority root.
+The self-test has no signing permissions and is not itself an authority root. Its policy-shape test pins the retention verifier, upload Action revision, public Tlog requirement, and retained packet limits; dedicated regressions cover the offline workflow controls and unexpected retention-packet members.
+
+## Branch-validation boundary
+
+The trusted attestation workflow is deliberately not branch-executable. GitHub documents that `workflow_run` only triggers when the workflow file exists on the default branch, and the resulting run uses the default branch for `GITHUB_SHA`/`GITHUB_REF`. Feature-branch pushes that surface a workflow-file run without jobs are therefore not treated as failed attestation evidence; they cannot create signing authority. The deterministic self-test is the branch-side validation surface. Real trusted attestation execution occurs only after the reviewed workflow/policy root is present on the default branch and a qualifying main-owned executor run completes.
 
 ## Workflow-run chain
 
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v26.
+Current trusted policy revision: v29.
