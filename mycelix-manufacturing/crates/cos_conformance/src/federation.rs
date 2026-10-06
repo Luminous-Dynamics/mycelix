@@ -4063,6 +4063,8 @@ mod tests {
         statement_profile: String,
         hash_algorithm: String,
         hash_encoding: String,
+        anchor_reference_schema_version: u16,
+        anchor_reference_profile: String,
         anchor_reference_sha256: String,
         verifier_schema_version: u16,
         verifier_profile: String,
@@ -4081,6 +4083,8 @@ mod tests {
         statement_profile: String,
         hash_algorithm: String,
         hash_encoding: String,
+        anchor_reference_schema_version: u16,
+        anchor_reference_profile: String,
         anchor_reference_sha256: String,
         verifier_schema_version: u16,
         verifier_profile: String,
@@ -4961,6 +4965,8 @@ mod tests {
             statement_profile: statement.statement_profile.clone(),
             hash_algorithm: statement.hash_algorithm.clone(),
             hash_encoding: statement.hash_encoding.clone(),
+            anchor_reference_schema_version: statement.anchor_reference_schema_version,
+            anchor_reference_profile: statement.anchor_reference_profile.clone(),
             anchor_reference_sha256: statement.anchor_reference_sha256.clone(),
             verifier_schema_version: statement.verifier_schema_version,
             verifier_profile: statement.verifier_profile.clone(),
@@ -5768,6 +5774,8 @@ mod tests {
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     enum FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation {
+        InvalidAnchorReferenceSchemaVersion,
+        InvalidAnchorReferenceProfile,
         InvalidAnchorReferenceDigest,
         InvalidVerifierReportSchemaVersion,
         EmptyVerifierProfile,
@@ -5775,6 +5783,8 @@ mod tests {
     }
 
     fn state_machine_trace_external_evidence_verification_statement(
+        anchor_reference_schema_version: u16,
+        anchor_reference_profile: &str,
         anchor_reference_sha256: &str,
         verifier_schema_version: u16,
         verifier_profile: &str,
@@ -5785,6 +5795,20 @@ mod tests {
         FederationStateMachineTraceExternalEvidenceVerificationStatement,
         FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation,
     > {
+        if anchor_reference_schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceSchemaVersion
+            );
+        }
+        if anchor_reference_profile
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceProfile
+            );
+        }
         if !state_machine_trace_is_sha256_digest(anchor_reference_sha256) {
             return Err(
                 FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceDigest
@@ -5816,6 +5840,8 @@ mod tests {
                     FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM.into(),
                 hash_encoding:
                     FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING.into(),
+                anchor_reference_schema_version,
+                anchor_reference_profile: anchor_reference_profile.into(),
                 anchor_reference_sha256: anchor_reference_sha256.into(),
                 verifier_schema_version,
                 verifier_profile: verifier_profile.into(),
