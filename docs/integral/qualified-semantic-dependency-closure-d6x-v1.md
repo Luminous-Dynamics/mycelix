@@ -238,6 +238,24 @@ Artifact preservation is deliberately independent from qualification outcome. A 
 
 The evidence concurrency group and artifact name are keyed from the exact pull-request head SHA rather than GitHub's PR merge-trigger SHA. The workflow also records both the target repository and the pull-request head repository separately. The checked-out PR head remains explicitly asserted, while GitHub's executing workflow identity is recorded independently. This preserves the distinction between the revision under qualification, the repository that owns that revision, and the workflow definition that executed the job.
 
+## Independent verification control-plane boundary
+
+A separate `main`-branch-controlled workflow, `.github/workflows/cos-conformance-independent-verify.yml`, provides an independent execution path for an exact PR head. It is manually dispatched with the PR number and exact expected head SHA.
+
+The workflow first requires its own workflow reference to be the `main` branch, records `github.workflow_sha`, checks the live PR head through the read-only GitHub API, and then checks out the exact requested head. The PR code is executed only with `contents: read` and `pull-requests: read` permissions; no PR-controlled secrets or write-capable credentials are exposed.
+
+The verifier therefore separates three identities:
+
+```
+trusted verifier workflow on main
+    !=
+PR head under test
+    !=
+artifact/result produced by that execution
+```
+
+Its resulting envelope records the trusted workflow SHA, tested commit SHA, report/test outcomes, and explicit `passed` / `failed` / `not_run` state. Artifact preservation is diagnostic evidence, not itself a qualification decision. This is still a ReferenceModelOnly execution layer; trust in `main` and its branch-governance controls remains an external repository-governance assumption.
+
 ## Runtime resolution adapter boundary
 
 The reference model now exposes a separate d6x_resolution_adapter layer. It defines audit-only address and attempt domains:
