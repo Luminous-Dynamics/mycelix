@@ -46,6 +46,7 @@ V2_KEYS = V1_KEYS | frozenset(
         "artifact_id",
         "artifact_digest",
         "receipt_content_sha256",
+        "causal_reference_snapshot_sha256",
     }
 )
 
@@ -72,7 +73,7 @@ HEX40_KEYS = frozenset(
     }
 )
 
-HEX64_KEYS = frozenset({"receipt_content_sha256"})
+HEX64_KEYS = frozenset({"receipt_content_sha256", "causal_reference_snapshot_sha256"})
 SHA256_PREFIX_KEYS = frozenset({"artifact_digest"})
 
 
