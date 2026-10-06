@@ -616,6 +616,39 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_required_claim_is_invalid() {
+        let nonce = b"fresh-nonce-32-bytes-123456789012";
+        let claims = coset::cbor::Value::Map(vec![
+            (coset::cbor::Value::Integer(CLAIM_SUB.into()), coset::cbor::Value::Text("source-1".into())),
+            (coset::cbor::Value::Integer(CLAIM_AUD.into()), coset::cbor::Value::Text("fpm-verifier".into())),
+            (coset::cbor::Value::Integer(CLAIM_AUD.into()), coset::cbor::Value::Text("fpm-verifier".into())),
+            (coset::cbor::Value::Integer(CLAIM_NONCE.into()), coset::cbor::Value::Bytes(nonce.to_vec())),
+            (coset::cbor::Value::Integer(CLAIM_EAT_PROFILE.into()), coset::cbor::Value::Text(FPM_EAT_PROFILE_URI.into())),
+        ]);
+        let payload = claims.to_vec().expect("CBOR payload");
+        let protected = HeaderBuilder::new()
+            .algorithm(iana::Algorithm::ES256)
+            .key_id(b"fpm-key-1".to_vec())
+            .content_type(ContentType::Text(FPM_EAT_MEDIA_TYPE.into()))
+            .build();
+        let token = CoseSign1Builder::new()
+            .protected(protected)
+            .payload(payload)
+            .create_signature(&[], |data| signing_key().sign(data))
+            .build()
+            .to_tagged_vec()
+            .expect("COSE_Sign1");
+        let result = verify_fpm_eat_cose_sign1(&input(token));
+        assert_eq!(
+            result.status,
+            FpmEatCoseVerificationStatus::InvalidEvidence
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmEatCoseVerificationReason::DuplicateClaim));
+    }
+
+    #[test]
     fn non_integer_claim_key_is_invalid() {
         let nonce = b"fresh-nonce-32-bytes-123456789012";
         let claims = coset::cbor::value::Value::Map(vec![
