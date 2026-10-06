@@ -1,5 +1,5 @@
 {
-  "policy_version": 29,
+  "policy_version": 30,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "1626b97150e0483ca34a35f64541a30377c639c8"
+    "blob_sha": "5ad544fd386c041e92fac5424d86962c8b5e83b4"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -274,7 +274,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
-      "blob_sha": "28239b126fe535abe578cfc302fd51e80e104e24"
+      "blob_sha": "a3ed3018071e8d403527cf12a655eb199f74d3b8"
     }
   },
   "trusted_actions": {
@@ -307,8 +307,8 @@
     ]
   },
   "attestation_retention": {
-    "schema": "d6u-attestation-retention/v1",
-    "expected_file_count": 8,
+    "schema": "d6u-attestation-retention/v2",
+    "expected_file_count": 14,
     "max_file_bytes": 4194304,
     "max_trusted_root_bytes": 2097152,
     "max_total_bytes": 18874368,
@@ -320,14 +320,18 @@
     ],
     "trusted_root_filename": "trusted_root.jsonl",
     "offline_verified": true,
+    "online_verified": true,
     "require_public_good_instance": true,
+    "public_good_instance": "sigstore-public-good",
     "require_tlog": true,
     "require_no_public_good_rejection": true,
     "retention_artifact": {
       "name_template": "d6u-trusted-attestation-retention-run-{run_id}-attempt-{run_attempt}",
       "retention_days": 90
     },
-    "public_good_instance": "sigstore-public-good"
+    "negative_control_schema": "d6u-no-public-good-control/v1",
+    "retain_online_verification": true,
+    "retain_negative_control": true
   },
-  "attestation_integrity_revision": 29
+  "attestation_integrity_revision": 30
 }
