@@ -284,11 +284,11 @@ jobs:
               *,
               repository_id, repository, workflow_id, candidate_repository_id, candidate_repository,
               candidate_pr, candidate_sha, dispatcher_workflow_path, dispatcher_workflow_sha,
-              s1_workflow_path, s1_workflow_blob_sha, run_id, run_attempt, run_number,
-              resolver_job_id, s1_job_id,
+              s1_workflow_path, s1_workflow_blob_sha, verifier_workflow_path, verifier_workflow_sha,
+              verifier_workflow_blob_sha, run_id, run_attempt, run_number, resolver_job_id, s1_job_id,
           ):
               return {
-                  "schema": "security-kernel-execution-binding-v1",
+                  "schema": "security-kernel-execution-binding-v2",
                   "repository_id": int(repository_id),
                   "repository": str(repository),
                   "workflow_id": int(workflow_id),
@@ -300,6 +300,9 @@ jobs:
                   "dispatcher_workflow_sha": str(dispatcher_workflow_sha),
                   "s1_workflow_path": str(s1_workflow_path),
                   "s1_workflow_blob_sha": str(s1_workflow_blob_sha),
+                  "verifier_workflow_path": str(verifier_workflow_path),
+                  "verifier_workflow_sha": str(verifier_workflow_sha),
+                  "verifier_workflow_blob_sha": str(verifier_workflow_blob_sha),
                   "run_id": int(run_id),
                   "run_attempt": int(run_attempt),
                   "run_number": int(run_number),
@@ -323,6 +326,9 @@ jobs:
               dispatcher_workflow_sha=workflow_sha,
               s1_workflow_path=os.environ["INDEPENDENT_WORKFLOW_PATH"],
               s1_workflow_blob_sha=s1_at_run["sha"],
+              verifier_workflow_path=".github/workflows/security-kernel-trusted-result-verifier.yml",
+              verifier_workflow_sha=os.environ["GITHUB_WORKFLOW_SHA"],
+              verifier_workflow_blob_sha=os.environ["WORKFLOW_BLOB_SHA"],
               run_id=run_id,
               run_attempt=run_attempt,
               run_number=run["run_number"],
@@ -341,6 +347,9 @@ jobs:
               "dispatcher_workflow_sha": workflow_sha,
               "s1_workflow_path": os.environ["INDEPENDENT_WORKFLOW_PATH"],
               "s1_workflow_blob_sha": s1_at_run["sha"],
+              "verifier_workflow_path": ".github/workflows/security-kernel-trusted-result-verifier.yml",
+              "verifier_workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+              "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
               "run_id": int(run_id),
               "run_attempt": run_attempt,
               "run_number": run["run_number"],
@@ -367,6 +376,9 @@ jobs:
               "run_number": binding["run_number"] + 1,
               "resolver_job_id": binding["resolver_job_id"] + 1,
               "s1_job_id": binding["s1_job_id"] + 1,
+              "verifier_workflow_path": binding["verifier_workflow_path"] + ".mutated",
+              "verifier_workflow_sha": "5" * 40,
+              "verifier_workflow_blob_sha": "6" * 40,
           }
           for field, replacement in mutations.items():
               mutated = dict(binding)
@@ -534,7 +546,7 @@ jobs:
                   f"{receipt.get(key)!r} != {expected_value!r}"
               )
           evidence_binding = dict(binding)
-          evidence_binding["schema"] = "security-kernel-execution-binding-v2"
+          evidence_binding["schema"] = "security-kernel-execution-binding-v3"
           evidence_binding["artifact_name"] = expected_artifact_name
           evidence_binding["artifact_id"] = int(artifact["id"])
           evidence_binding["artifact_digest"] = artifact_digest
@@ -569,7 +581,7 @@ jobs:
                assert key not in execution_reference_fields
                execution_reference_fields[key] = value
            assert set(execution_reference_fields) == {"schema", "reference_digest", "mutations_verified"}
-           assert execution_reference_fields["schema"] == "security-kernel-execution-binding-v2"
+           assert execution_reference_fields["schema"] == "security-kernel-execution-binding-v3"
            assert re.fullmatch(r"[0-9a-f]{64}", execution_reference_fields["reference_digest"])
            assert execution_reference_fields["mutations_verified"] == str(len(evidence_binding) - 1)
            execution_reference_binding_sha256 = execution_reference_fields["reference_digest"]
