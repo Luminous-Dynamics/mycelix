@@ -1315,6 +1315,10 @@ def run_crypto_verifier(manifest: dict[str, Any]) -> dict[str, Any]:
         output_sha = hashlib.sha256(op.read_bytes()).hexdigest()
         if not valid_hash(output.get("content_sha256")):
             return result("DENY", "cryptographic-verifier-content-digest-invalid")
+        if output["content_sha256"] != canonical_hash(
+            {key: value for key, value in output.items() if key != "content_sha256"}
+        ):
+            return result("DENY", "cryptographic-verifier-output-content-invalid")
         details = output.get("details")
         if not isinstance(details, dict):
             return result("DENY", "cryptographic-verifier-details-missing")
