@@ -75,6 +75,7 @@ pub struct FederationExternalVerifierIdentityUseStatementV1 {
     hash_encoding: String,
     use_method: FederationExternalVerifierIdentityUseMethod,
     use_evidence_profile: String,
+    verification_statement_sha256: String,
     verifier_identity_kind: FederationExternalVerifierIdentityKind,
     verifier_identity_profile: String,
     verifier_identity_hash_algorithm: String,
@@ -94,6 +95,7 @@ impl FederationExternalVerifierIdentityUseStatementV1 {
     pub fn statement_profile(&self) -> &str { &self.statement_profile }
     pub fn use_method(&self) -> FederationExternalVerifierIdentityUseMethod { self.use_method }
     pub fn use_evidence_profile(&self) -> &str { &self.use_evidence_profile }
+    pub fn verification_statement_sha256(&self) -> &str { &self.verification_statement_sha256 }
     pub fn verifier_identity_kind(&self) -> FederationExternalVerifierIdentityKind { self.verifier_identity_kind }
     pub fn verifier_identity_profile(&self) -> &str { &self.verifier_identity_profile }
     pub fn verifier_identity_sha256(&self) -> &str { &self.verifier_identity_sha256 }
@@ -305,11 +307,11 @@ pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMEN
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING: &str =
     "serde-json-struct-order-v1";
 
-pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION: u16 = 1;
+pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION: u16 = 2;
 pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_PROFILE: &str =
-    "integral-federation-external-verifier-identity-use-statement-v1";
+    "integral-federation-external-verifier-identity-use-statement-v2";
 pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_DOMAIN: &str =
-    "integral-federation-external-verifier-identity-use-statement-sha256-v1";
+    "integral-federation-external-verifier-identity-use-statement-sha256-v2";
 pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_ALGORITHM: &str =
     "sha-256";
 pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_ENCODING: &str =
@@ -410,6 +412,7 @@ struct FederationExternalVerifierIdentityUseStatementHashView {
     hash_encoding: String,
     use_method: FederationExternalVerifierIdentityUseMethod,
     use_evidence_profile: String,
+    verification_statement_sha256: String,
     verifier_identity_kind: FederationExternalVerifierIdentityKind,
     verifier_identity_profile: String,
     verifier_identity_hash_algorithm: String,
@@ -484,6 +487,7 @@ fn state_machine_trace_external_verifier_identity_use_statement_sha256(
         hash_encoding: statement.hash_encoding.clone(),
         use_method: statement.use_method,
         use_evidence_profile: statement.use_evidence_profile.clone(),
+        verification_statement_sha256: statement.verification_statement_sha256.clone(),
         verifier_identity_kind: statement.verifier_identity_kind,
         verifier_identity_profile: statement.verifier_identity_profile.clone(),
         verifier_identity_hash_algorithm: statement.verifier_identity_hash_algorithm.clone(),
@@ -1149,6 +1153,8 @@ pub fn validate_state_machine_trace_external_evidence_verification_statement_cha
 pub enum FederationExternalVerifierIdentityUseStatementBuildViolation {
     EmptyVerifierIdentityProfile,
     EmptyUseEvidenceProfile,
+    EmptyVerificationStatementDigest,
+    InvalidVerificationStatementDigest,
     EmptyVerifierIdentityMaterial,
     EmptyVerifierReport,
     EmptyUseEvidence,
@@ -1157,6 +1163,7 @@ pub enum FederationExternalVerifierIdentityUseStatementBuildViolation {
 pub fn federation_external_verifier_identity_use_statement(
     use_method: FederationExternalVerifierIdentityUseMethod,
     use_evidence_profile: &str,
+    verification_statement_sha256: &str,
     verifier_identity_kind: FederationExternalVerifierIdentityKind,
     verifier_identity_profile: &str,
     verifier_identity_material: &[u8],
@@ -1168,6 +1175,12 @@ pub fn federation_external_verifier_identity_use_statement(
 > {
     if use_evidence_profile.is_empty() {
         return Err(FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyUseEvidenceProfile);
+    }
+    if verification_statement_sha256.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerificationStatementDigest);
+    }
+    if !state_machine_trace_is_sha256_digest(verification_statement_sha256) {
+        return Err(FederationExternalVerifierIdentityUseStatementBuildViolation::InvalidVerificationStatementDigest);
     }
     if verifier_identity_profile.is_empty() {
         return Err(FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierIdentityProfile);
@@ -1189,6 +1202,7 @@ pub fn federation_external_verifier_identity_use_statement(
         hash_encoding: FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_HASH_ENCODING.into(),
         use_method,
         use_evidence_profile: use_evidence_profile.into(),
+        verification_statement_sha256: verification_statement_sha256.into(),
         verifier_identity_kind,
         verifier_identity_profile: verifier_identity_profile.into(),
         verifier_identity_hash_algorithm:
@@ -1224,6 +1238,8 @@ pub enum FederationExternalVerifierIdentityUseStatementViolation {
     UnsupportedHashEncoding,
     EmptyVerifierIdentityProfile,
     EmptyUseEvidenceProfile,
+    EmptyVerificationStatementDigest,
+    InvalidVerificationStatementDigest,
     IdentityHashAlgorithmMismatch,
     IdentityHashEncodingMismatch,
     EmptyVerifierIdentityDigest,
@@ -1244,6 +1260,7 @@ pub enum FederationExternalVerifierIdentityUseStatementViolation {
     ResultIdentityProfileMismatch,
     ResultIdentityDigestMismatch,
     ResultVerifierReportDigestMismatch,
+    ResultVerificationStatementDigestMismatch,
 }
 
 pub fn validate_federation_external_verifier_identity_use_statement(
@@ -1269,6 +1286,12 @@ pub fn validate_federation_external_verifier_identity_use_statement(
     }
     if statement.use_evidence_profile.is_empty() {
         return Err(FederationExternalVerifierIdentityUseStatementViolation::EmptyUseEvidenceProfile);
+    }
+    if statement.verification_statement_sha256.is_empty() {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::EmptyVerificationStatementDigest);
+    }
+    if !state_machine_trace_is_sha256_digest(&statement.verification_statement_sha256) {
+        return Err(FederationExternalVerifierIdentityUseStatementViolation::InvalidVerificationStatementDigest);
     }
     if statement.verifier_identity_hash_algorithm
         != FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_IDENTITY_HASH_ALGORITHM
@@ -1361,6 +1384,11 @@ pub fn validate_federation_external_verifier_identity_use_statement_against_resu
     }
     if result.verifier_report_sha256() != statement.verifier_report_sha256 {
         return Err(FederationExternalVerifierIdentityUseStatementViolation::ResultVerifierReportDigestMismatch);
+    }
+    if result.statement_sha256() != statement.verification_statement_sha256 {
+        return Err(
+            FederationExternalVerifierIdentityUseStatementViolation::ResultVerificationStatementDigestMismatch,
+        );
     }
     Ok(())
 }
@@ -3558,6 +3586,9 @@ mod tests {
     use super::*;
     use sha2::{Digest, Sha256};
 
+    const TEST_VERIFICATION_STATEMENT_SHA256: &str =
+        "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+
     #[test]
     fn external_evidence_anchor_reference_binds_exact_subject_and_witness_artifact() {
         let left =
@@ -4417,6 +4448,7 @@ mod tests {
             identity_material,
             verifier_report,
             use_evidence,
+            TEST_VERIFICATION_STATEMENT_SHA256
         )
         .expect("identity-use statement must build");
 
@@ -4458,6 +4490,7 @@ mod tests {
             identity_material,
             verifier_report,
             use_evidence,
+            TEST_VERIFICATION_STATEMENT_SHA256
         )
         .expect("identity-use statement must build");
 
@@ -4563,6 +4596,7 @@ mod tests {
             identity_material,
             verifier_report,
             b"signature-evidence",
+            statement.statement_sha256()
         )
         .expect("identity-use statement must build");
 
@@ -4594,10 +4628,129 @@ mod tests {
     }
 
     #[test]
+    fn external_verifier_identity_use_statement_rejects_verification_context_replay() {
+        let subject_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let witness_artifact = b"context-replay-anchor";
+        let anchor_reference = state_machine_trace_external_evidence_anchor_reference(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            witness_artifact,
+            1_791_007_000,
+        )
+        .expect("anchor reference must build");
+        let verifier_report = b"same-verifier-report";
+        let identity_material = b"same-verifier-identity";
+
+        let statement_a = state_machine_trace_external_evidence_verification_statement(
+            &anchor_reference.anchor_reference_sha256,
+            2,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-tsa-key-sha256-v1",
+            identity_material,
+            FederationExternalVerificationClaim::TimestampTokenVerified,
+            verifier_report,
+            1_791_007_001,
+        )
+        .expect("statement A must build");
+        let result_a = validate_state_machine_trace_external_evidence_verification_statement_chain(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            witness_artifact,
+            &anchor_reference,
+            verifier_report,
+            &statement_a,
+        )
+        .expect("result A must build");
+
+        let mut statement_b = statement_a.clone();
+        statement_b.verification_claim =
+            FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified;
+        statement_b.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&statement_b);
+        let result_b = validate_state_machine_trace_external_evidence_verification_statement_chain(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            witness_artifact,
+            &anchor_reference,
+            verifier_report,
+            &statement_b,
+        )
+        .expect("result B must build");
+
+        let identity_use = federation_external_verifier_identity_use_statement(
+            FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
+            "rfc3161-context-bound-report-v2",
+            statement_a.statement_sha256(),
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-tsa-key-sha256-v1",
+            identity_material,
+            verifier_report,
+            b"context-binding-evidence",
+        )
+        .expect("identity-use statement must build");
+
+        validate_federation_external_verifier_identity_use_statement_against_result(
+            &result_a,
+            &identity_use,
+        )
+        .expect("identity use must bind to original verification context");
+        assert_eq!(
+            validate_federation_external_verifier_identity_use_statement_against_result(
+                &result_b,
+                &identity_use,
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementViolation::ResultVerificationStatementDigestMismatch
+            )
+        );
+    }
+
+    #[test]
     fn external_verifier_identity_use_statement_rejects_empty_inputs_and_unknown_fields() {
         let valid_identity = b"identity";
         let valid_report = b"report";
         let valid_evidence = b"binding";
+        assert_eq!(
+            federation_external_verifier_identity_use_statement(
+                FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
+                "opaque-binding-v1",
+                "",
+                FederationExternalVerifierIdentityKind::Opaque,
+                "opaque-v1",
+                valid_identity,
+                valid_report,
+                valid_evidence,
+                TEST_VERIFICATION_STATEMENT_SHA256,
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerificationStatementDigest
+            )
+        );
+        assert_eq!(
+            federation_external_verifier_identity_use_statement(
+                FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
+                "opaque-binding-v1",
+                "not-a-digest",
+                FederationExternalVerifierIdentityKind::Opaque,
+                "opaque-v1",
+                valid_identity,
+                valid_report,
+                valid_evidence,
+                TEST_VERIFICATION_STATEMENT_SHA256,
+            ),
+            Err(
+                FederationExternalVerifierIdentityUseStatementBuildViolation::InvalidVerificationStatementDigest
+            )
+        );
+
 
         assert_eq!(
             federation_external_verifier_identity_use_statement(
@@ -4608,6 +4761,7 @@ mod tests {
                 valid_identity,
                 valid_report,
                 valid_evidence,
+            TEST_VERIFICATION_STATEMENT_SHA256
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyUseEvidenceProfile
@@ -4622,6 +4776,7 @@ mod tests {
                 valid_identity,
                 valid_report,
                 valid_evidence,
+            TEST_VERIFICATION_STATEMENT_SHA256
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierIdentityProfile
@@ -4636,6 +4791,7 @@ mod tests {
                 b"",
                 valid_report,
                 valid_evidence,
+            TEST_VERIFICATION_STATEMENT_SHA256
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierIdentityMaterial
@@ -4650,6 +4806,7 @@ mod tests {
                 valid_identity,
                 b"",
                 valid_evidence,
+            TEST_VERIFICATION_STATEMENT_SHA256
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierReport
@@ -4664,6 +4821,7 @@ mod tests {
                 valid_identity,
                 valid_report,
                 b"",
+            TEST_VERIFICATION_STATEMENT_SHA256
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyUseEvidence
@@ -4678,6 +4836,7 @@ mod tests {
             valid_identity,
             valid_report,
             valid_evidence,
+            TEST_VERIFICATION_STATEMENT_SHA256
         )
         .expect("identity-use statement must build");
         let mut value =
@@ -4895,6 +5054,7 @@ mod tests {
             b"identity",
             b"report",
             b"evidence",
+            result.statement_sha256()
         )
         .expect("identity-use statement must build");
 
@@ -4991,6 +5151,7 @@ mod tests {
             identity_material,
             verifier_report,
             b"signature-binding-evidence",
+            statement.statement_sha256()
         )
         .expect("identity-use statement must build");
 
