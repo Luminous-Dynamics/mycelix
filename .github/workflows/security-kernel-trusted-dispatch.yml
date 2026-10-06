@@ -152,5 +152,5 @@ jobs:
       candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
       candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
-      trusted_workflow_blob_sha: "ded74a077f13b8938cd134a3d1e596d7c108f80e"
+      trusted_workflow_blob_sha: "156f00beeb50f269847a1d3cd9bbb50aa8ec5514"
 
