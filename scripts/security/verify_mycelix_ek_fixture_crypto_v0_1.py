@@ -39,6 +39,7 @@ def result(state: str, reason: str, details: dict[str, Any] | None = None) -> di
 
 
 def tlv(data: bytes, pos: int = 0) -> tuple[int, bytes, bytes, int]:
+    start = pos
     if pos >= len(data):
         raise ValueError("DER truncated")
     tag = data[pos]
@@ -60,7 +61,7 @@ def tlv(data: bytes, pos: int = 0) -> tuple[int, bytes, bytes, int]:
     end = pos + length
     if end > len(data):
         raise ValueError("DER value truncated")
-    return tag, data[pos:end], data[pos-length-(0 if first & 0x80 else 0):end] if False else data[(pos - (1 + (1 + (first & 0x7f) if first & 0x80 else 1))):end], end
+    return tag, data[pos:end], data[start:end], end
 
 
 def children(content: bytes) -> list[tuple[int, bytes, bytes]]:
