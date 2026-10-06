@@ -12,7 +12,7 @@
     "INDETERMINATE"
   ],
   "theorem": {
-    "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
+    "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, the exact certificate and issuer signatures and both issuer CRL signatures verify from the exact DER/TBS bytes, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
     "scope": "The reference trust anchor is synthetic. This theorem is a deterministic policy model and does not assert real manufacturer authenticity."
   },
   "required_input": {
@@ -83,7 +83,8 @@
       "output_content_sha256",
       "execution_binding_sha256",
       "verifier_input"
-    ]
+    ],
+    "cryptographic_binding_sha256": "canonical hash of the verifier-computed exact certificate/CRL signature binding receipt"
   },
   "profile_rules": {
     "version": 3,
@@ -97,9 +98,10 @@
     "authority_information_access": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
     "crl_distribution": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
     "subject_directory_attributes": "if present, MUST be non-critical",
-    "subject_alt_name": "MUST be present; exact DER GeneralNames must include a directoryName containing exactly one TCG manufacturer, model/part-number, and firmware-version attribute; manufacturer and firmware attributes use the TCG id: form",
+    "subject_alt_name": "MUST be present; exact DER GeneralNames must include a directoryName containing exactly one TCG manufacturer, model/part-number, and firmware-version attribute; manufacturer and firmware attributes use the TCG id: form; SAN criticality is critical iff the Subject is empty",
     "subject_key_identifier": "if present, MUST be non-critical",
-    "der_canonicality": "certificate outer structure, unique-ID/Extensions wrapper cardinality, INTEGER encodings, OID base-128 encodings, BIT STRING padding, and extension critical BOOLEAN encodings are validated from exact DER"
+    "der_canonicality": "certificate outer structure, unique-ID/Extensions wrapper cardinality, INTEGER encodings, OID base-128 encodings, BIT STRING padding, and extension critical BOOLEAN encodings are validated from exact DER",
+    "certificate_policies": "if present, MUST be non-critical and contain at least one PolicyIdentifier; policy qualifiers are outside this reference profile"
   },
   "forbidden_inputs": [
     "profile_override",
@@ -356,6 +358,11 @@
       "id": "EKC-V45",
       "mutation": "path-verifier-execution-binding-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V46",
+      "mutation": "forbidden-profile-override-on-valid-input",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -448,7 +455,9 @@
       "Subject Key Identifier non-critical when present",
       "exact RSA-2048 TPMT_PUBLIC modulus structure for L-1",
       "exact RSA certificate SPKI rsaEncryption AlgorithmIdentifier parameters",
-      "canonical DER certificate structure including unique Extensions wrapper and primitive canonicality checks"
+      "canonical DER certificate structure including unique Extensions wrapper and primitive canonicality checks",
+      "Certificate Policies non-critical and structurally validated when present",
+      "exact certificate/CRL cryptographic signature binding to issuer public keys and exact TBS bytes"
     ],
     "conditional_pqc_requirements": "EKCredentialAlgorithmList and TPMPQCVersion are intentionally outside this v0.1 reference theorem because their correctness depends on issuer-issued PQC credentials and firmware-at-manufacturing/current-firmware evidence not present in this synthetic reference fixture.",
     "claim_ceiling": "ReferenceModelOnly"
@@ -518,8 +527,7 @@
       "id": "EKC-S13",
       "control": "non-canonical-key-usage-trailing-zero",
       "expected": "DENY"
-    }
-  ,
+    },
     {
       "id": "EKC-S14",
       "control": "critical-authority-information-access",
@@ -539,7 +547,29 @@
       "id": "EKC-S17",
       "control": "unsupported-aia-access-method",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-S18",
+      "control": "critical-certificate-policies",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S19",
+      "control": "malformed-certificate-policies",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S20",
+      "control": "san-criticality-mismatch-with-subject",
+      "expected": "DENY"
     }
   ],
-  "parser_structural_control_count": 17
+  "parser_structural_control_count": 20,
+  "cryptographic_binding_composition": {
+    "verifier_id": "mycelix.tpm.ek-fixture-signatures.v0.1",
+    "required_fields": [
+      "cryptographic_binding_sha256"
+    ],
+    "rule": "The chain verifier parses the exact supplied leaf/intermediate/root DER and exact CRL bundle, verifies leaf-to-intermediate, intermediate-to-root, root self-signature, and both issuer CRL signatures directly from exact TBS/signature bytes using the exact issuer SubjectPublicKeyInfo, records object/TBS/signature/issuer hashes, and rejects any receipt hash mismatch before profile acceptance."
+  }
 }
