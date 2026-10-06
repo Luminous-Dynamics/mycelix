@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 26
+    assert policy["policy_version"] == 29
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -127,6 +127,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "subject_set_exact": True,
         "require_signed_predicate_subject_binding": True,
         "require_verified_timestamp": True,
+        "require_verified_tlog": True,
     }
     assert policy["artifact_max_entries"] == 32
     assert policy["trusted_artifact_fetcher"]["path"] == (
@@ -142,6 +143,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "scripts/integral/fetch_d6u_trusted_artifact.py",
         "scripts/integral/verify_d6u_trusted_attestation.py",
         "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
+        "scripts/integral/verify_d6u_trusted_attestation_retention.py",
     }
     for path, descriptor in policy["trusted_programs"].items():
         assert descriptor["path"] == path
@@ -173,6 +175,31 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["attestation_verification"]["require_current_run_identity"] is True
     assert policy["attestation_verification"]["subject_set_exact"] is True
     assert policy["attestation_verification"]["require_verified_timestamp"] is True
+    assert policy["attestation_verification"]["require_verified_tlog"] is True
+
+    assert policy["attestation_retention"] == {
+        "schema": "d6u-attestation-retention/v1",
+        "expected_file_count": 8,
+        "max_file_bytes": 4194304,
+        "max_trusted_root_bytes": 2097152,
+        "max_total_bytes": 18874368,
+        "max_jsonl_lines": 64,
+        "subjects": [
+            "d6u-runtime-evidence.txt",
+            "d6u-runtime-test.log",
+            "Cargo.lock",
+        ],
+        "trusted_root_filename": "trusted_root.jsonl",
+        "offline_verified": True,
+        "require_public_good_instance": True,
+        "public_good_instance": "sigstore-public-good",
+        "require_tlog": True,
+        "require_no_public_good_rejection": True,
+        "retention_artifact": {
+            "name_template": "d6u-trusted-attestation-retention-run-{run_id}-attempt-{run_attempt}",
+            "retention_days": 90,
+        },
+    }
 
     workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
     assert workflow_text.count("TRUSTED_POLICY_VERSION:") == 1
@@ -187,6 +214,10 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "actions/attest": {
             "ref": "1e69f48acb82d1966a394da916b4c169aa569d6",
             "version": "v4.2.2",
+        },
+        "actions/upload-artifact": {
+            "ref": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+            "version": "v4.6.2",
         },
     }
     workflow_path = Path(__file__).parents[2] / policy["trusted_workflow"]["path"]
@@ -226,7 +257,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_encrypted_members": True,
         "reject_symlink_members": True,
         "expected_member_count": 3,
-        "policy_revision": 26,
+        "policy_revision": 27,
     }
 
 
@@ -340,6 +371,32 @@ def test_policy_pins_current_trusted_fetcher() -> None:
     assert policy["trusted_artifact_fetcher"]["blob_sha"] == observed
 
 
+def test_retention_workflow_contains_offline_controls() -> None:
+    root = Path(__file__).parents[2]
+    policy = json.loads(
+        (root / "docs/integral/d6u-trusted-builder-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    workflow = (root / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
+    required_fragments = [
+        "gh attestation trusted-root",
+        "gh attestation download",
+        "--predicate-type \"https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1\"",
+        "--bundle \"$bundle\"",
+        "--custom-trusted-root \"$retention_dir/trusted_root.jsonl\"",
+        "--no-public-good",
+        "--deny-self-hosted-runners",
+        "--format=json",
+        "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
+        "retention-days: 90",
+        "d6u-attestation-retention/v1",
+        '"public_good_instance": "sigstore-public-good",',
+    ]
+    for fragment in required_fragments:
+        assert fragment in workflow, f"retention workflow control missing: {fragment}"
+
+
 def test_trusted_cli_policy_is_explicit() -> None:
     policy = json.loads(
         (Path(__file__).parents[2] / "docs/integral/d6u-trusted-builder-policy.json").read_text(
@@ -352,11 +409,15 @@ def test_trusted_cli_policy_is_explicit() -> None:
         "configuration_directory": "${{ runner.temp }}/d6u-gh-config",
         "required_fresh_configuration": True,
         "forbidden_environment_overrides": ["GH_HOST", "GH_ENTERPRISE_TOKEN", "GH_REPO"],
+        "executable_path_must_not_resolve_under": ["${{ github.workspace }}", "${{ runner.temp }}"],
     }
     workflow = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
     assert "gh version" in workflow
     assert "2.101.0" in workflow
     assert "GH_CONFIG_DIR: ${{ runner.temp }}/d6u-gh-config" in workflow
+    assert 'gh_path="$(command -v gh)"' in workflow
+    assert 'gh_path="$(readlink -f "$gh_path")"' in workflow
+    assert '"$GITHUB_WORKSPACE"/*|"$RUNNER_TEMP"/*' in workflow
     assert "GH_HOST GH_ENTERPRISE_TOKEN GH_REPO" in workflow
 
 def test_privileged_actions_are_exactly_pinned() -> None:
@@ -870,6 +931,19 @@ def attestation_entry(
     }
 
 
+def test_retention_packet_rejects_extra_member() -> None:
+    import verify_d6u_trusted_attestation_retention as retention
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "unexpected.json").write_text("{}", encoding="utf-8")
+        with patch("sys.argv", ["verify_d6u_trusted_attestation_retention.py", str(root)]):
+            assert_rejected(
+                lambda: retention.main(),
+                "retention packet accepted an unexpected member",
+            )
+
+
 def test_trusted_zip_accepts_exact_members() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         archive = Path(tmp) / "artifact.zip"
@@ -1123,6 +1197,34 @@ def test_custom_attestation_requires_verified_timestamp() -> None:
         assert verifier.verify_entry(entry, record, subjects) is False
 
 
+def test_custom_attestation_rejects_non_tlog_timestamp() -> None:
+    import verify_d6u_trusted_attestation as verifier
+
+    subjects = [
+        {"name": "d6u-runtime-evidence.txt", "digest": {"sha256": "a" * 64}},
+        {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
+        {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
+    ]
+    record = synthetic_record()
+    entry = synthetic_attestation_entry(subjects, "42")
+    entry["verificationResult"]["verifiedTimestamps"] = [
+        {"type": "RFC3161", "uri": "https://tsa.invalid/example"}
+    ]
+    with patch.dict(
+        os.environ,
+        {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_WORKFLOW_SHA": "c" * 40,
+            "GITHUB_REF": "refs/heads/main",
+        },
+        clear=False,
+    ):
+        assert verifier.verify_entry(entry, record, subjects) is False
+
+
 def test_custom_attestation_subject_set_is_order_independent_but_exact() -> None:
     import verify_d6u_trusted_attestation as verifier
 
@@ -1278,7 +1380,10 @@ if __name__ == "__main__":
         test_attestation_verifier_accepts_current_run,
         test_attestation_verifier_rejects_old_run,
         test_custom_attestation_requires_verified_timestamp,
+        test_custom_attestation_rejects_non_tlog_timestamp,
         test_custom_attestation_subject_set_is_order_independent_but_exact,
+        test_retention_workflow_contains_offline_controls,
+        test_retention_packet_rejects_extra_member,
         test_custom_attestation_accepts_current_run_and_rejects_old_run,
         test_trusted_workflow_policy_shape_is_pinned,
         test_artifact_layout_rejects_symlink,
