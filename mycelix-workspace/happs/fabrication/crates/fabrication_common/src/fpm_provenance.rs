@@ -16,6 +16,9 @@ pub const FPM_PROVENANCE_PROFILE_ID: &str =
     "fpm.registration.provenance-disjointness";
 pub const FPM_PROVENANCE_PROFILE_VERSION: &str = "1";
 const SHA256_HEX_LEN: usize = 64;
+const MAX_LINEAGE_NODES: usize = 256;
+const MAX_PARENTS_PER_NODE: usize = 32;
+const MAX_NODE_ID_BYTES: usize = 128;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AcquisitionLineageWitness {
@@ -76,6 +79,9 @@ pub enum ProvenanceQualificationReason {
     LineageCycle,
     SharedAcquisitionRoot,
     SharedAncestry,
+    TooManyLineageNodes,
+    TooManyParentEdges,
+    InvalidNodeId,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -105,16 +111,27 @@ pub fn qualify_provenance(
     }
 
     let expected_participants = participant_keys(&input.envelope);
+    if input.lineage.len() > MAX_LINEAGE_NODES {
+        reasons.insert(ProvenanceQualificationReason::TooManyLineageNodes);
+    }
     let mut by_participant = BTreeMap::new();
     let mut by_node_id = BTreeMap::new();
     let mut by_digest = BTreeMap::new();
 
     for witness in &input.lineage {
         if witness.node_id.trim().is_empty()
-            || !is_canonical_digest(&witness.source_observation_digest)
+            || witness.node_id.len() > MAX_NODE_ID_BYTES
+            || witness.node_id != witness.node_id.trim()
+        {
+            reasons.insert(ProvenanceQualificationReason::InvalidNodeId);
+        }
+        if !is_canonical_digest(&witness.source_observation_digest)
             || !is_canonical_digest(&witness.acquisition_root_digest)
         {
             reasons.insert(ProvenanceQualificationReason::InvalidDigestEncoding);
+        }
+        if witness.parent_node_ids.len() > MAX_PARENTS_PER_NODE {
+            reasons.insert(ProvenanceQualificationReason::TooManyParentEdges);
         }
 
         let node_digest = witness.digest();
@@ -205,6 +222,9 @@ pub fn qualify_provenance(
                 | ProvenanceQualificationReason::LineageDigestMismatch
                 | ProvenanceQualificationReason::ObservationBindingMismatch
                 | ProvenanceQualificationReason::LineageCycle
+                | ProvenanceQualificationReason::InvalidNodeId
+                | ProvenanceQualificationReason::TooManyLineageNodes
+                | ProvenanceQualificationReason::TooManyParentEdges
         )
     }) {
         ProvenanceQualificationStatus::InvalidEvidence
@@ -403,6 +423,40 @@ mod tests {
             envelope,
             lineage,
         }
+    }
+
+    #[test]
+    fn oversized_lineage_is_invalid() {
+        let mut input = qualified_input();
+        input.lineage.extend(
+            (0..MAX_LINEAGE_NODES)
+                .map(|index| witness(
+                    &input.envelope.reference,
+                    &hex_digest(format!("root-{index}").as_bytes()),
+                    vec![],
+                )),
+        );
+        assert_eq!(
+            qualify_provenance(&input).status,
+            ProvenanceQualificationStatus::InvalidEvidence
+        );
+        assert!(qualify_provenance(&input)
+            .reasons
+            .contains(&ProvenanceQualificationReason::TooManyLineageNodes));
+    }
+
+    #[test]
+    fn excessive_parent_edges_are_invalid() {
+        let mut input = qualified_input();
+        input.lineage[0].parent_node_ids =
+            (0..=MAX_PARENTS_PER_NODE).map(|i| format!("p-{i}")).collect();
+        assert_eq!(
+            qualify_provenance(&input).status,
+            ProvenanceQualificationStatus::InvalidEvidence
+        );
+        assert!(qualify_provenance(&input)
+            .reasons
+            .contains(&ProvenanceQualificationReason::TooManyParentEdges));
     }
 
     #[test]
