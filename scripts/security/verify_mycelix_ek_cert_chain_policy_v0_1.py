@@ -289,6 +289,23 @@ def bit_string_has(bit_string_content: bytes, bit_number: int) -> bool:
     return byte_index < len(payload) and bool(payload[byte_index] & bit_mask)
 
 
+def validate_named_bit_string(bit_string_content: bytes, field: str) -> None:
+    if not bit_string_content:
+        raise ValueError(f"{field} BIT STRING empty")
+    unused = bit_string_content[0]
+    payload = bit_string_content[1:]
+    if unused > 7:
+        raise ValueError(f"{field} BIT STRING invalid unused-bit count")
+    if not payload:
+        if unused != 0:
+            raise ValueError(f"{field} BIT STRING empty payload has unused bits")
+        return
+    if unused and payload[-1] & ((1 << unused) - 1):
+        raise ValueError(f"{field} BIT STRING has non-zero padding bits")
+    if payload[-1] == 0:
+        raise ValueError(f"{field} BIT STRING has non-canonical trailing zero byte")
+
+
 def parse_extensions(extension_wrapper: bytes) -> dict[str, dict[str, Any]]:
     tag, content, _raw, end = der_tlv(extension_wrapper, 0)
     if tag != 0x30 or end != len(extension_wrapper):
@@ -440,16 +457,17 @@ def basic_constraints(info: dict[str, Any]) -> tuple[bool, bool]:
         if children[1][0] != 0x02:
             raise ValueError("BasicConstraints pathLenConstraint malformed")
         der_integer_value(children[1][1], "BasicConstraints.pathLenConstraint")
-    return critical, True
+    return critical, False
 
 
 def key_usage_bits(info: dict[str, Any]) -> tuple[bool, bool, bool, bool]:
     critical, value = extension_value(info, "2.5.29.15")
     if value is None:
-        return critical, False, False
+        return critical, False, False, False
     tag, content, _raw, end = der_tlv(value, 0)
     if tag != 0x03 or end != len(value):
         raise ValueError("KeyUsage extension malformed")
+    validate_named_bit_string(content, "KeyUsage")
     return critical, bit_string_has(content, 2), bit_string_has(content, 6), bit_string_has(content, 5)
 
 
@@ -1995,6 +2013,27 @@ def self_test() -> int:
         san_ok, _san_profile = leaf_profile_ok(missing_san)
         if san_ok:
             print("TCG SubjectAltName omission acceptance: FAIL")
+            return 1
+
+        ca_true = copy.deepcopy(leaf_info)
+        ca_true["extensions"]["2.5.29.19"]["extn_value"] = der_tlv(
+            0x30, der_tlv(0x01, b"\xff")
+        )
+        ok_ca_true, _ = leaf_profile_ok(ca_true)
+        if ok_ca_true:
+            print("leaf CA=true BasicConstraints acceptance: FAIL")
+            return 1
+
+        ca_false_pathlen = copy.deepcopy(leaf_info)
+        ca_false_pathlen["extensions"]["2.5.29.19"]["extn_value"] = der_tlv(
+            0x30, der_tlv(0x01, b"\x00") + der_tlv(0x02, b"\x00")
+        )
+        try:
+            leaf_profile_ok(ca_false_pathlen)
+        except ValueError:
+            pass
+        else:
+            print("CA=false pathLenConstraint acceptance: FAIL")
             return 1
 
         empty_extensions = der_tlv(0x30, b"")
