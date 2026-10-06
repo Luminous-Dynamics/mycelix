@@ -17,7 +17,7 @@ const DEFAULT_LIST_LIMIT: usize = 100;
 /// Verify the caller is a registered governance agent, or allow any agent during
 /// bootstrap (before the first governance agent is registered) — the same pattern
 /// used by recognition/staking/tend. Gates commons-pool allocations.
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
+fn verify_governance() -> ExternResult<()> {
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
@@ -1276,7 +1276,7 @@ pub fn request_allocation(input: RequestCommonsAllocationInput) -> ExternResult<
     // the 25% reserve floor with no recipient (pure griefing/drain). Bind the requester
     // to the caller and require a governance agent (bootstrap-open until one is set up).
     verify_caller_is_did(&input.requester_did)?;
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
 
     for attempt in 0..=MAX_RETRIES {
         let (record, pool) = get_commons_pool_record(&input.commons_pool_id)?;
