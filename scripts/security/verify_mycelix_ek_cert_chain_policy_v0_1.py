@@ -8,6 +8,7 @@ import hashlib
 import json
 import sys
 import subprocess
+from datetime import datetime, timezone
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -69,6 +70,58 @@ def valid_hash(value: Any) -> bool:
     return isinstance(value, str) and len(value) == 64 and all(
         c in "0123456789abcdef" for c in value
     )
+
+
+def parse_crl_time(tag: int, content: bytes, field: str) -> dict[str, Any]:
+    if tag == 0x17:
+        if len(content) != 13 or not content.endswith(b"Z"):
+            raise ValueError(f"{field} UTCTime malformed")
+        value_text = content.decode("ascii")
+        year_short = int(value_text[:2])
+        year = 1900 + year_short if year_short >= 50 else 2000 + year_short
+        fmt = "%y%m%d%H%M%SZ"
+    elif tag == 0x18:
+        if len(content) != 15 or not content.endswith(b"Z"):
+            raise ValueError(f"{field} GeneralizedTime malformed")
+        value_text = content.decode("ascii")
+        year = int(value_text[:4])
+        fmt = "%Y%m%d%H%M%SZ"
+    else:
+        raise ValueError(f"{field} must be UTCTime or GeneralizedTime")
+    try:
+        parsed = datetime.strptime(value_text, fmt).replace(tzinfo=timezone.utc)
+    except ValueError as exc:
+        raise ValueError(f"{field} time value invalid: {exc}") from exc
+    if tag == 0x17 and not 1950 <= year <= 2049:
+        raise ValueError(f"{field} UTCTime year outside RFC 5280 range")
+    return {"text": value_text, "unix": int(parsed.timestamp())}
+
+
+def parse_crl_reason_extension(ext_value: bytes) -> int:
+    tag, content, _raw, end = der_tlv(ext_value, 0)
+    if tag != 0x0A or end != len(ext_value) or not content or content[0] & 0x80:
+        raise ValueError("CRL reasonCode malformed")
+    if len(content) > 1 and content[0] == 0:
+        raise ValueError("CRL reasonCode non-canonical")
+    reason = int.from_bytes(content, "big")
+    if reason not in {0, 1, 2, 3, 4, 5, 6, 8, 9, 10}:
+        raise ValueError("CRL reasonCode unsupported")
+    return reason
+
+
+def parse_crl_aki(info: dict[str, Any]) -> bytes:
+    extension = info["crl_extensions"].get("2.5.29.35")
+    if not extension:
+        raise ValueError("CRL AuthorityKeyIdentifier missing")
+    if extension["critical"]:
+        raise ValueError("CRL AuthorityKeyIdentifier must be non-critical")
+    tag, content, _raw, end = der_tlv(extension["extn_value"], 0)
+    if tag != 0x30 or end != len(extension["extn_value"]):
+        raise ValueError("CRL AuthorityKeyIdentifier malformed")
+    fields = der_children(content)
+    if len(fields) != 1 or fields[0][0] != 0x80 or not fields[0][1]:
+        raise ValueError("CRL AuthorityKeyIdentifier must contain exactly keyIdentifier")
+    return fields[0][1]
 
 
 def b64(value: bytes) -> str:
@@ -929,18 +982,16 @@ def parse_crl_der_for_crypto(der: bytes) -> dict[str, Any]:
     tbs_raw = outer[0][2]
     outer_alg_raw = outer[1][2]
     signature_content = outer[2][1]
-    if signature_content[:1] != b"\x00":
+    if signature_content[:1] != b"\\x00":
         raise ValueError("CRL signatureValue must have zero unused bits")
     signature = signature_content[1:]
     tbs_tag, tbs_content, _tbs_raw, tbs_end = der_tlv(tbs_raw, 0)
     if tbs_tag != 0x30 or tbs_end != len(tbs_raw):
         raise ValueError("TBSCertList malformed")
     fields = der_children(tbs_content)
-    cursor = 0
-    if fields and fields[0][0] == 0x02:
-        if der_integer_value(fields[0][1], "TBSCertList.version") != 1:
-            raise ValueError("synthetic CRL must be v2")
-        cursor += 1
+    if not fields or fields[0][0] != 0x02 or der_integer_value(fields[0][1], "TBSCertList.version") != 1:
+        raise ValueError("CRL must be explicit v2")
+    cursor = 1
     if len(fields) <= cursor or fields[cursor][0] != 0x30:
         raise ValueError("TBSCertList signature AlgorithmIdentifier malformed")
     inner_alg_raw = fields[cursor][2]
@@ -952,6 +1003,59 @@ def parse_crl_der_for_crypto(der: bytes) -> dict[str, Any]:
     if cursor >= len(fields) or fields[cursor][0] != 0x30:
         raise ValueError("TBSCertList issuer Name malformed")
     issuer_der = fields[cursor][2]
+    if not issuer_der:
+        raise ValueError("TBSCertList issuer Name empty")
+    cursor += 1
+    if cursor >= len(fields):
+        raise ValueError("CRL thisUpdate missing")
+    this_update = parse_crl_time(fields[cursor][0], fields[cursor][1], "CRL.thisUpdate")
+    cursor += 1
+    if cursor >= len(fields):
+        raise ValueError("CRL nextUpdate missing")
+    next_update = parse_crl_time(fields[cursor][0], fields[cursor][1], "CRL.nextUpdate")
+    if this_update["unix"] >= next_update["unix"]:
+        raise ValueError("CRL nextUpdate must be later than thisUpdate")
+    cursor += 1
+
+    revoked_entries = []
+    if cursor < len(fields) and fields[cursor][0] == 0x30:
+        for entry_tag, entry_content, entry_raw in der_children(fields[cursor][1]):
+            if entry_tag != 0x30:
+                raise ValueError("CRL entry malformed")
+            entry_fields = der_children(entry_content)
+            if len(entry_fields) < 2 or entry_fields[0][0] != 0x02:
+                raise ValueError("CRL entry serial missing")
+            serial = der_integer_value(entry_fields[0][1], "CRL revoked serial", positive=True)
+            revocation_date = parse_crl_time(entry_fields[1][0], entry_fields[1][1], "CRL revocationDate")
+            entry_extensions = {}
+            if len(entry_fields) > 2:
+                if len(entry_fields) != 3 or entry_fields[2][0] != 0xA0:
+                    raise ValueError("CRL entry extensions malformed")
+                entry_extensions = parse_extensions(entry_fields[2][1])
+            revoked_entries.append({
+                "entry_identity_sha256": hashlib.sha256(entry_raw).hexdigest(),
+                "serial": serial,
+                "revocation_date": revocation_date,
+                "extensions": entry_extensions,
+            })
+        cursor += 1
+
+    if cursor >= len(fields) or fields[cursor][0] != 0xA0:
+        raise ValueError("CRL Extensions wrapper missing")
+    crl_extensions = parse_extensions(fields[cursor][1])
+    cursor += 1
+    if cursor != len(fields):
+        raise ValueError("CRL trailing field malformed")
+    if set(crl_extensions) != {"2.5.29.35", "2.5.29.20"}:
+        raise ValueError("CRL extension set must be exactly AuthorityKeyIdentifier and cRLNumber")
+    if any(ext["critical"] for ext in crl_extensions.values()):
+        raise ValueError("CRL AuthorityKeyIdentifier and cRLNumber must be non-critical")
+    number_value = crl_extensions["2.5.29.20"]["extn_value"]
+    number_tag, number_content, _number_raw, number_end = der_tlv(number_value, 0)
+    if number_tag != 0x02 or number_end != len(number_value):
+        raise ValueError("CRL cRLNumber malformed")
+    crl_number = der_integer_value(number_content, "CRL.cRLNumber")
+    authority_key_identifier = parse_crl_aki({"crl_extensions": crl_extensions})
     return {
         "object_der": der,
         "object_sha256": hashlib.sha256(der).hexdigest(),
@@ -961,6 +1065,13 @@ def parse_crl_der_for_crypto(der: bytes) -> dict[str, Any]:
         "signature_sha256": hashlib.sha256(signature).hexdigest(),
         "signature_algorithm_oid": outer_oid,
         "issuer_der": issuer_der,
+        "version": 2,
+        "this_update": this_update,
+        "next_update": next_update,
+        "crl_number": crl_number,
+        "authority_key_identifier": authority_key_identifier,
+        "revoked_entries": revoked_entries,
+        "crl_extensions": crl_extensions,
     }
 
 
