@@ -1632,120 +1632,85 @@ def test_commitment_attestation_rejects_hash_mismatch() -> None:
         }, clear=False), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
             assert_rejected(lambda: verifier.main(), "attestation hash mismatch was accepted")
 
-def test_custom_attestation_requires_verified_timestamp() -> None:
+def test_commitment_attestation_requires_verified_timestamp() -> None:
     import verify_d6u_trusted_attestation as verifier
 
-    subjects = [
-        {"name": "d6u-runtime-evidence.txt", "digest": {"sha256": "a" * 64}},
-        {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
-        {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
-    ]
-    record = synthetic_record()
-    entry = synthetic_attestation_entry(subjects, "42")
-    entry["verificationResult"]["verifiedTimestamps"] = []
-    with patch.dict(
-        os.environ,
-        {
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        canonical_sha = hashlib.sha256((evidence_dir / "d6u-trusted-evidence-predicate.json").read_bytes()).hexdigest()
+        entry = synthetic_commitment_attestation_entry(subjects, canonical_sha, "42")
+        entry["verificationResult"]["verifiedTimestamps"] = []
+        with patch.dict(os.environ, {
             "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
             "GITHUB_RUN_ID": "42",
             "GITHUB_RUN_ATTEMPT": "3",
             "GITHUB_SHA": "a" * 40,
-            "GITHUB_WORKFLOW_SHA": "c" * 40,
-            "GITHUB_REF": "refs/heads/main",
-        },
-        clear=False,
-    ):
-        assert verifier.verify_entry(entry, record, subjects) is False
+            "D6U_TRUSTED_POLICY_VERSION": "22",
+        }, clear=False):
+            assert verifier.verify_commitment_entry(entry, synthetic_record(), subjects, canonical_sha) is False
 
 
-def test_custom_attestation_rejects_non_tlog_timestamp() -> None:
+def test_commitment_attestation_rejects_non_tlog_timestamp() -> None:
     import verify_d6u_trusted_attestation as verifier
 
-    subjects = [
-        {"name": "d6u-runtime-evidence.txt", "digest": {"sha256": "a" * 64}},
-        {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
-        {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
-    ]
-    record = synthetic_record()
-    entry = synthetic_attestation_entry(subjects, "42")
-    entry["verificationResult"]["verifiedTimestamps"] = [
-        {"type": "RFC3161", "uri": "https://tsa.invalid/example"}
-    ]
-    with patch.dict(
-        os.environ,
-        {
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        canonical_sha = hashlib.sha256((evidence_dir / "d6u-trusted-evidence-predicate.json").read_bytes()).hexdigest()
+        entry = synthetic_commitment_attestation_entry(subjects, canonical_sha, "42")
+        entry["verificationResult"]["verifiedTimestamps"] = [{"type": "RFC3161"}]
+        with patch.dict(os.environ, {
             "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
             "GITHUB_RUN_ID": "42",
             "GITHUB_RUN_ATTEMPT": "3",
             "GITHUB_SHA": "a" * 40,
-            "GITHUB_WORKFLOW_SHA": "c" * 40,
-            "GITHUB_REF": "refs/heads/main",
-        },
-        clear=False,
-    ):
-        assert verifier.verify_entry(entry, record, subjects) is False
+            "D6U_TRUSTED_POLICY_VERSION": "22",
+        }, clear=False):
+            assert verifier.verify_commitment_entry(entry, synthetic_record(), subjects, canonical_sha) is False
 
 
-def test_custom_attestation_subject_set_is_order_independent_but_exact() -> None:
+def test_commitment_attestation_subject_set_is_order_independent_but_exact() -> None:
     import verify_d6u_trusted_attestation as verifier
 
-    subjects = [
-        {"name": "d6u-runtime-evidence.txt", "digest": {"sha256": "a" * 64}},
-        {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
-        {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
-    ]
-    reordered = [subjects[2], subjects[0], subjects[1]]
-
-    record = synthetic_record()
-    current = synthetic_attestation_entry(subjects, "42")
-    current["verificationResult"]["statement"]["subject"] = reordered
-    current["verificationResult"]["statement"]["predicate"]["subjects"] = reordered
-
-    duplicate = synthetic_attestation_entry(subjects, "42")
-    duplicate_subjects = list(subjects) + [dict(subjects[0])]
-    duplicate["verificationResult"]["statement"]["subject"] = duplicate_subjects
-    duplicate["verificationResult"]["statement"]["predicate"]["subjects"] = duplicate_subjects
-
-    with patch.dict(
-        os.environ,
-        {
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        canonical_sha = hashlib.sha256((evidence_dir / "d6u-trusted-evidence-predicate.json").read_bytes()).hexdigest()
+        reordered = [subjects[2], subjects[0], subjects[1]]
+        current = synthetic_commitment_attestation_entry(subjects, canonical_sha, "42")
+        current["verificationResult"]["statement"]["subject"] = reordered
+        duplicate = synthetic_commitment_attestation_entry(subjects, canonical_sha, "42")
+        duplicate["verificationResult"]["statement"]["subject"] = subjects + [dict(subjects[0])]
+        with patch.dict(os.environ, {
             "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
             "GITHUB_RUN_ID": "42",
             "GITHUB_RUN_ATTEMPT": "3",
             "GITHUB_SHA": "a" * 40,
-            "GITHUB_WORKFLOW_SHA": "c" * 40,
-            "GITHUB_REF": "refs/heads/main",
-        },
-        clear=False,
-    ):
-        assert verifier.verify_entry(current, record, subjects) is True
-        assert verifier.verify_entry(duplicate, record, subjects) is False
+            "D6U_TRUSTED_POLICY_VERSION": "22",
+        }, clear=False):
+            assert verifier.verify_commitment_entry(current, synthetic_record(), subjects, canonical_sha) is True
+            assert verifier.verify_commitment_entry(duplicate, synthetic_record(), subjects, canonical_sha) is False
 
-def test_custom_attestation_accepts_current_run_and_rejects_old_run() -> None:
+
+def test_commitment_attestation_accepts_current_run_and_rejects_old_run() -> None:
     import verify_d6u_trusted_attestation as verifier
 
-    subjects = [
-        {"name": name, "digest": {"sha256": "d" * 64}}
-        for name in ("d6u-runtime-evidence.txt", "d6u-runtime-test.log", "Cargo.lock")
-    ]
-    record = synthetic_record()
-    with patch.dict(
-        os.environ,
-        {
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        canonical_sha = hashlib.sha256((evidence_dir / "d6u-trusted-evidence-predicate.json").read_bytes()).hexdigest()
+        current = synthetic_commitment_attestation_entry(subjects, canonical_sha, "42")
+        old = synthetic_commitment_attestation_entry(subjects, canonical_sha, "41")
+        with patch.dict(os.environ, {
             "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
             "GITHUB_RUN_ID": "42",
             "GITHUB_RUN_ATTEMPT": "3",
             "GITHUB_SHA": "a" * 40,
-            "GITHUB_WORKFLOW_SHA": "c" * 40,
-            "GITHUB_REF": "refs/heads/main",
-        },
-        clear=False,
-    ):
-        current = synthetic_attestation_entry(subjects, "42")
-        old = synthetic_attestation_entry(subjects, "41")
-        assert verifier.verify_entry(current, record, subjects) is True
-        assert verifier.verify_entry(old, record, subjects) is False
-
+            "D6U_TRUSTED_POLICY_VERSION": "22",
+        }, clear=False):
+            assert verifier.verify_commitment_entry(current, synthetic_record(), subjects, canonical_sha) is True
+            assert verifier.verify_commitment_entry(old, synthetic_record(), subjects, canonical_sha) is False
 
 def test_artifact_entry_limit_is_enforced() -> None:
     maximums = {"evidence.txt": 16, "runtime.log": 16, "Cargo.lock": 16}
