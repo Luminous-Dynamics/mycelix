@@ -450,8 +450,9 @@ pub fn analyze(
 
         let delta = (observed - baseline_feature.center).abs();
         let (robust_z, score, anomalous) = if baseline_feature.median_absolute_deviation > 0.0 {
-            let robust_sigma = 1.4826 * baseline_feature.median_absolute_deviation;
-            let raw_z = delta / robust_sigma;
+            // Divide before multiplying by the scale constant so finite but
+            // extreme MAD values cannot overflow into an artificial zero z-score.
+            let raw_z = (delta / baseline_feature.median_absolute_deviation) / 1.4826;
             // Preserve a finite evidence value even for extreme ratios that
             // overflow f32. The normalized anomaly score remains bounded.
             let z = if raw_z.is_finite() { raw_z } else { f32::MAX };
