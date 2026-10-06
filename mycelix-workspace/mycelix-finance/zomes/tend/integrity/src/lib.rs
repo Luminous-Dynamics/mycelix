@@ -963,23 +963,86 @@ fn validate_create_balance(
 }
 
 fn validate_update_balance(
-    _action: Update,
+    action: Update,
     balance: TendBalance,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Float fields must be finite
-    if !balance.total_provided.is_finite() || !balance.total_received.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "total_provided and total_received must be finite numbers".into(),
-        ));
+    let original_record = must_get_valid_record(action.original_action_address)?;
+    let original = original_record
+        .entry()
+        .to_app_option::<TendBalance>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "TendBalance predecessor deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "TendBalance update predecessor is not a TendBalance".into()
+            ))
+        })?;
+
+    if let ValidateCallbackResult::Invalid(msg) =
+        validate_balance_state_transition(&original, &balance)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
-    // Constitutional maximum — coordinator enforces dynamic limit
-    if balance.balance.abs() > BALANCE_LIMIT_EMERGENCY {
-        return Ok(ValidateCallbackResult::Invalid(format!(
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_balance_state_transition(
+    original: &TendBalance,
+    updated: &TendBalance,
+) -> ValidateCallbackResult {
+    // Identity and accounting domain are immutable.
+    if original.member_did != updated.member_did {
+        return ValidateCallbackResult::Invalid(
+            "TendBalance member_did is immutable across updates".into(),
+        );
+    }
+    if original.dao_did != updated.dao_did {
+        return ValidateCallbackResult::Invalid(
+            "TendBalance dao_did is immutable across updates".into(),
+        );
+    }
+
+    // Historical counters are append-only.
+    if updated.total_provided < original.total_provided {
+        return ValidateCallbackResult::Invalid(
+            "TendBalance total_provided cannot decrease".into(),
+        );
+    }
+    if updated.total_received < original.total_received {
+        return ValidateCallbackResult::Invalid(
+            "TendBalance total_received cannot decrease".into(),
+        );
+    }
+    if updated.exchange_count < original.exchange_count {
+        return ValidateCallbackResult::Invalid(
+            "TendBalance exchange_count cannot decrease".into(),
+        );
+    }
+    if updated.last_activity < original.last_activity {
+        return ValidateCallbackResult::Invalid(
+            "TendBalance last_activity cannot move backwards".into(),
+        );
+    }
+
+    if !updated.total_provided.is_finite() || !updated.total_received.is_finite() {
+        return ValidateCallbackResult::Invalid(
+            "total_provided and total_received must be finite numbers".into(),
+        );
+    }
+
+    if updated.balance.abs() > BALANCE_LIMIT_EMERGENCY {
+        return ValidateCallbackResult::Invalid(format!(
             "Balance would exceed constitutional maximum of ±{}",
             BALANCE_LIMIT_EMERGENCY
-        )));
+        ));
     }
-    Ok(ValidateCallbackResult::Valid)
+
+    ValidateCallbackResult::Valid
 }
 
 fn validate_create_listing(
@@ -1782,6 +1845,79 @@ mod tests {
             exchange_count: 3,
             last_activity: ts(1_000_000),
         }
+    }
+
+    #[test]
+    fn balance_state_transition_accepts_identity_and_monotonic_history() {
+        let original = valid_balance();
+        let mut updated = original.clone();
+        updated.balance = 7;
+        updated.total_provided = 12.0;
+        updated.total_received = 5.0;
+        updated.exchange_count = 4;
+        updated.last_activity = ts(2_000_000);
+
+        assert!(matches!(
+            validate_balance_state_transition(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn balance_state_transition_rejects_member_identity_swap() {
+        let original = valid_balance();
+        let mut updated = original.clone();
+        updated.member_did = "did:mycelix:attacker".into();
+
+        assert!(matches!(
+            validate_balance_state_transition(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn balance_state_transition_rejects_dao_identity_swap() {
+        let original = valid_balance();
+        let mut updated = original.clone();
+        updated.dao_did = "did:mycelix:other-dao".into();
+
+        assert!(matches!(
+            validate_balance_state_transition(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn balance_state_transition_rejects_history_regression() {
+        let original = valid_balance();
+
+        let mut provided_regresses = original.clone();
+        provided_regresses.total_provided = original.total_provided - 0.5;
+        assert!(matches!(
+            validate_balance_state_transition(&original, &provided_regresses),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut received_regresses = original.clone();
+        received_regresses.total_received = original.total_received - 0.5;
+        assert!(matches!(
+            validate_balance_state_transition(&original, &received_regresses),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut count_regresses = original.clone();
+        count_regresses.exchange_count = original.exchange_count - 1;
+        assert!(matches!(
+            validate_balance_state_transition(&original, &count_regresses),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut time_regresses = original.clone();
+        time_regresses.last_activity = ts(500_000);
+        assert!(matches!(
+            validate_balance_state_transition(&original, &time_regresses),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     fn valid_rating() -> QualityRating {
