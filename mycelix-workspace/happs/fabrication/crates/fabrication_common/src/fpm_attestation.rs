@@ -395,6 +395,30 @@ mod tests {
     }
 
     #[test]
+    fn nonce_digest_is_deterministic_and_domain_separated() {
+        let a = fpm_attestation_nonce_digest(b"nonce-a");
+        let b = fpm_attestation_nonce_digest(b"nonce-a");
+        let c = fpm_attestation_nonce_digest(b"nonce-b");
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        assert_eq!(a.len(), SHA256_HEX_LEN);
+    }
+
+    #[test]
+    fn attestation_format_substitution_conflicts() {
+        let mut input = input();
+        input.claim.attestation_format = "eat-jwt".into();
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::AttestationFormatMismatch));
+    }
+
+    #[test]
     fn claim_digest_is_deterministic() {
         let input = input();
         assert_eq!(input.claim.digest(), input.claim.digest());
