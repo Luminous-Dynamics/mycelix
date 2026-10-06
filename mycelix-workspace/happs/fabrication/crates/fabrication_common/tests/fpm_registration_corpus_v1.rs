@@ -33,7 +33,7 @@ fn envelope(method: AlignmentMethod) -> RegistrationEnvelope {
 
 #[test]
 fn registered_requires_explicit_alignment_evidence() {
-    let exact = envelope(AlignmentMethod::ExactSequence);
+    let exact = envelope(AlignmentMethod::ExactCorrelationId);
     assert_eq!(exact.assess(), RegistrationState::Registered);
 
     let mut missing = exact;
@@ -42,22 +42,29 @@ fn registered_requires_explicit_alignment_evidence() {
 }
 
 #[test]
-fn sequence_skew_is_conflicting_not_unknown() {
-    let mut skewed = envelope(AlignmentMethod::ExactSequence);
-    skewed.related[0].source_sequence = 11;
+fn correlation_id_mismatch_is_conflicting_even_with_equal_sequences() {
+    let mut skewed = envelope(AlignmentMethod::ExactCorrelationId);
+    skewed.related[0].correlation_id = "frame-11".into();
     assert_eq!(skewed.assess(), RegistrationState::Conflicting);
 }
 
 #[test]
+fn independent_source_sequences_may_differ_when_shared_correlation_is_explicit() {
+    let mut registered = envelope(AlignmentMethod::ExactCorrelationId);
+    registered.related[0].source_sequence = 11;
+    assert_eq!(registered.assess(), RegistrationState::Registered);
+}
+
+#[test]
 fn context_conflict_is_not_registered() {
-    let mut conflicting = envelope(AlignmentMethod::ExactSequence);
+    let mut conflicting = envelope(AlignmentMethod::ExactCorrelationId);
     conflicting.related[0].process_context_digest = digest('d');
     assert_eq!(conflicting.assess(), RegistrationState::Conflicting);
 }
 
 #[test]
 fn calibration_conflict_is_not_registered() {
-    let mut conflicting = envelope(AlignmentMethod::ExactSequence);
+    let mut conflicting = envelope(AlignmentMethod::ExactCorrelationId);
     conflicting.related[0].calibration_profile_digest = digest('d');
     assert_eq!(conflicting.assess(), RegistrationState::Conflicting);
 }
@@ -74,15 +81,15 @@ fn timestamp_alignment_requires_source_timestamps() {
 
 #[test]
 fn malformed_digest_is_invalid() {
-    let mut invalid = envelope(AlignmentMethod::ExactSequence);
+    let mut invalid = envelope(AlignmentMethod::ExactCorrelationId);
     invalid.related[0].source_data_digest = "not-a-digest".into();
     assert_eq!(invalid.assess(), RegistrationState::Invalid);
 }
 
 #[test]
 fn registered_envelope_is_deterministically_committed() {
-    let a = envelope(AlignmentMethod::ExactSequence);
-    let b = envelope(AlignmentMethod::ExactSequence);
+    let a = envelope(AlignmentMethod::ExactCorrelationId);
+    let b = envelope(AlignmentMethod::ExactCorrelationId);
     assert_eq!(a.digest().expect("digest a"), b.digest().expect("digest b"));
 }
 
@@ -101,7 +108,7 @@ fn context_digest_can_bind_to_fpm_process_context() {
     };
     let context_digest = context.digest().expect("context digest");
 
-    let mut registration = envelope(AlignmentMethod::ExactSequence);
+    let mut registration = envelope(AlignmentMethod::ExactCorrelationId);
     registration.reference.process_context_digest = context_digest.clone();
     registration.related[0].process_context_digest = context_digest;
 
