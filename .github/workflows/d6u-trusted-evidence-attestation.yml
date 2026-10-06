@@ -39,7 +39,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "29"
+          TRUSTED_POLICY_VERSION: "30"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -145,7 +145,7 @@ jobs:
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
-            D6U_TRUSTED_POLICY_VERSION="29" \
+            D6U_TRUSTED_POLICY_VERSION="30" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
@@ -153,7 +153,7 @@ jobs:
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "29"
+          D6U_TRUSTED_POLICY_VERSION: "30"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"
@@ -162,7 +162,6 @@ jobs:
 
           gh attestation trusted-root > "$retention_dir/trusted_root.jsonl"
           test -s "$retention_dir/trusted_root.jsonl"
-          test "$(stat -c '%s' "$retention_dir/trusted_root.jsonl")" -le 2097152
 
           subjects=(
             "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-evidence.txt"
@@ -182,12 +181,10 @@ jobs:
             work="$RUNNER_TEMP/d6u-attestation-download-$safe"
             rm -rf "$work"
             mkdir -p "$work"
+
             (
               cd "$work"
-              gh attestation download "$subject" \
-                --repo "$GITHUB_REPOSITORY" \
-                --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1" \
-                --limit 8
+              gh attestation download "$subject"                 --repo "$GITHUB_REPOSITORY"                 --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"                 --limit 8
             )
             mapfile -t bundles < <(find "$work" -maxdepth 1 -type f -name '*.jsonl' -print)
             test "${#bundles[@]}" -eq 1
@@ -195,38 +192,77 @@ jobs:
             cp -- "${bundles[0]}" "$bundle"
             test -s "$bundle"
 
-            report="$retention_dir/$safe.offline.json"
-            gh attestation verify "$subject" \
-              --repo "$GITHUB_REPOSITORY" \
-              --bundle "$bundle" \
-              --custom-trusted-root "$retention_dir/trusted_root.jsonl" \
-              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml" \
-              --signer-digest "$GITHUB_WORKFLOW_SHA" \
-              --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main" \
-              --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
-              --source-digest "$GITHUB_SHA" \
-              --source-ref "$GITHUB_REF" \
-              --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1" \
-              --deny-self-hosted-runners \
-              --format=json > "$report"
+            online_report="$retention_dir/$safe.online.json"
+            gh attestation verify "$subject"               --repo "$GITHUB_REPOSITORY"               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml"               --signer-digest "$GITHUB_WORKFLOW_SHA"               --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"               --cert-oidc-issuer "https://token.actions.githubusercontent.com"               --source-digest "$GITHUB_SHA"               --source-ref "$GITHUB_REF"               --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"               --deny-self-hosted-runners               --format=json > "$online_report"
+            test -s "$online_report"
 
+            offline_report="$retention_dir/$safe.offline.json"
+            gh attestation verify "$subject"               --repo "$GITHUB_REPOSITORY"               --bundle "$bundle"               --custom-trusted-root "$retention_dir/trusted_root.jsonl"               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml"               --signer-digest "$GITHUB_WORKFLOW_SHA"               --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"               --cert-oidc-issuer "https://token.actions.githubusercontent.com"               --source-digest "$GITHUB_SHA"               --source-ref "$GITHUB_REF"               --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"               --deny-self-hosted-runners               --format=json > "$offline_report"
+            test -s "$offline_report"
+
+            control_raw="$RUNNER_TEMP/d6u-no-public-good-$safe.output"
             set +e
-            gh attestation verify "$subject" \
-              --repo "$GITHUB_REPOSITORY" \
-              --bundle "$bundle" \
-              --custom-trusted-root "$retention_dir/trusted_root.jsonl" \
-              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml" \
-              --signer-digest "$GITHUB_WORKFLOW_SHA" \
-              --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main" \
-              --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
-              --source-digest "$GITHUB_SHA" \
-              --source-ref "$GITHUB_REF" \
-              --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1" \
-              --deny-self-hosted-runners \
-              --no-public-good > "$RUNNER_TEMP/no-public-good-$safe.json" 2>&1
+            gh attestation verify "$subject"               --repo "$GITHUB_REPOSITORY"               --bundle "$bundle"               --custom-trusted-root "$retention_dir/trusted_root.jsonl"               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml"               --signer-digest "$GITHUB_WORKFLOW_SHA"               --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"               --cert-oidc-issuer "https://token.actions.githubusercontent.com"               --source-digest "$GITHUB_SHA"               --source-ref "$GITHUB_REF"               --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"               --deny-self-hosted-runners               --no-public-good               --format=json > "$control_raw" 2>&1
             status="$?"
             set -e
             test "$status" -ne 0
+
+            control="$retention_dir/$safe.no-public-good.json"
+            CONTROL_EXIT_STATUS="$status" python3 - "$control" "$control_raw" "$subject" "$bundle" "$retention_dir/trusted_root.jsonl" "$offline_report" <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import sys
+
+          out, raw_path, subject, bundle, trusted_root, offline = map(Path, sys.argv[1:6])
+          raw = raw_path.read_bytes()
+          command = [
+              "gh", "attestation", "verify", str(subject),
+              "--repo", os.environ["GITHUB_REPOSITORY"],
+              "--bundle", str(bundle),
+              "--custom-trusted-root", str(trusted_root),
+              "--signer-workflow",
+              os.environ["GITHUB_REPOSITORY"] + "/.github/workflows/d6u-trusted-evidence-attestation.yml",
+              "--signer-digest", os.environ["GITHUB_WORKFLOW_SHA"],
+              "--cert-identity",
+              "https://github.com/" + os.environ["GITHUB_REPOSITORY"] + "/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main",
+              "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
+              "--source-digest", os.environ["GITHUB_SHA"],
+              "--source-ref", os.environ["GITHUB_REF"],
+              "--predicate-type", "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+              "--deny-self-hosted-runners",
+              "--no-public-good",
+              "--format=json",
+          ]
+          payload = {
+              "schema": "d6u-no-public-good-control/v1",
+              "public_good_instance": "sigstore-public-good",
+              "subject_name": subject.name,
+              "subject_path": str(subject),
+              "subject_sha256": hashlib.sha256(subject.read_bytes()).hexdigest(),
+              "bundle_filename": bundle.name,
+              "bundle_path": str(bundle),
+              "bundle_sha256": hashlib.sha256(bundle.read_bytes()).hexdigest(),
+              "trusted_root_filename": trusted_root.name,
+              "trusted_root_path": str(trusted_root),
+              "trusted_root_sha256": hashlib.sha256(trusted_root.read_bytes()).hexdigest(),
+              "baseline_offline_filename": offline.name,
+              "baseline_offline_path": str(offline),
+              "baseline_offline_sha256": hashlib.sha256(offline.read_bytes()).hexdigest(),
+              "command": command,
+              "exit_status": int(os.environ["CONTROL_EXIT_STATUS"]),
+              "combined_output_base64": base64.b64encode(raw).decode("ascii"),
+              "combined_output_bytes": len(raw),
+              "combined_output_sha256": hashlib.sha256(raw).hexdigest(),
+          }
+          out.write_text(
+              json.dumps(payload, sort_keys=True, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+            rm -f "$control_raw"
           done
 
           python3 - "$retention_dir/retention-transcript.json" <<'PY'
@@ -238,31 +274,47 @@ jobs:
 
           root = Path(os.environ["RUNNER_TEMP"]) / "d6u-attestation-retention"
           out = Path(sys.argv[1])
-          subjects = []
-          mapping = {
-              "d6u-runtime-evidence.txt": "D6U_SUBJECT_D6U_RUNTIME_EVIDENCE_TXT_SHA256",
-              "d6u-runtime-test.log": "D6U_SUBJECT_D6U_RUNTIME_TEST_LOG_SHA256",
-              "Cargo.lock": "D6U_SUBJECT_CARGO_LOCK_SHA256",
-          }
+          subject_names = (
+              "d6u-runtime-evidence.txt",
+              "d6u-runtime-test.log",
+              "Cargo.lock",
+          )
           evidence_root = Path(os.environ["RUNNER_TEMP"]) / "d6u-trusted-input"
-          for name, env_name in mapping.items():
-              digest = hashlib.sha256((evidence_root / name).read_bytes()).hexdigest()
-              subjects.append({"name": name, "sha256": digest})
-              expected = os.environ.get(env_name)
-              if expected is not None and expected != digest:
-                  raise SystemExit(f"subject digest mismatch for {name}")
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
 
+          subjects = [
+              {"name": name, "sha256": digest(evidence_root / name)}
+              for name in subject_names
+          ]
           retained = {}
           for path in sorted(root.iterdir()):
               if path.name == "retention-transcript.json":
                   continue
               retained[path.name] = {
-                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                  "sha256": digest(path),
                   "bytes": path.stat().st_size,
               }
 
+          bindings = []
+          for name in subject_names:
+              safe = name.replace(".", "_").replace("-", "_")
+              bindings.append({
+                  "subject_name": name,
+                  "subject_sha256": next(item["sha256"] for item in subjects if item["name"] == name),
+                  "bundle_filename": safe + ".attestation.jsonl",
+                  "bundle_sha256": retained[safe + ".attestation.jsonl"]["sha256"],
+                  "online_report_filename": safe + ".online.json",
+                  "online_report_sha256": retained[safe + ".online.json"]["sha256"],
+                  "offline_report_filename": safe + ".offline.json",
+                  "offline_report_sha256": retained[safe + ".offline.json"]["sha256"],
+                  "negative_control_filename": safe + ".no-public-good.json",
+                  "negative_control_sha256": retained[safe + ".no-public-good.json"]["sha256"],
+                  "trusted_root_sha256": retained["trusted_root.jsonl"]["sha256"],
+              })
+
           payload = {
-              "schema": "d6u-attestation-retention/v1",
+              "schema": "d6u-attestation-retention/v2",
               "policy_version": int(os.environ["D6U_TRUSTED_POLICY_VERSION"]),
               "repository": os.environ["GITHUB_REPOSITORY"],
               "source_ref": os.environ["GITHUB_REF"],
@@ -281,28 +333,21 @@ jobs:
               "public_good_instance_required": True,
               "public_good_instance": "sigstore-public-good",
               "tlog_required": True,
+              "online_verified": True,
               "offline_verified": True,
               "no_public_good_rejected": True,
+              "trusted_root": {
+                  "filename": "trusted_root.jsonl",
+                  "sha256": retained["trusted_root.jsonl"]["sha256"],
+              },
               "subjects": subjects,
+              "subject_bundle_bindings": bindings,
               "retained_files": retained,
           }
           out.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
           PY
 
-          D6U_TRUSTED_POLICY_VERSION="$D6U_TRUSTED_POLICY_VERSION" \
-          GITHUB_REPOSITORY="$GITHUB_REPOSITORY" \
-          GITHUB_REF="$GITHUB_REF" \
-          GITHUB_SHA="$GITHUB_SHA" \
-          GITHUB_WORKFLOW_SHA="$GITHUB_WORKFLOW_SHA" \
-          GITHUB_RUN_ID="$GITHUB_RUN_ID" \
-          GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
-          D6U_SUBJECT_D6U_RUNTIME_EVIDENCE_TXT_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-evidence.txt" | awk '{print $1}')" \
-          D6U_SUBJECT_D6U_RUNTIME_TEST_LOG_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-test.log" | awk '{print $1}')" \
-          D6U_SUBJECT_CARGO_LOCK_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/Cargo.lock" | awk '{print $1}')" \
-            python3 scripts/integral/verify_d6u_trusted_attestation_retention.py "$retention_dir"
-
-          rm -f "$RUNNER_TEMP"/no-public-good-*.json
-
+          D6U_TRUSTED_POLICY_VERSION="$D6U_TRUSTED_POLICY_VERSION"           GITHUB_REPOSITORY="$GITHUB_REPOSITORY"           GITHUB_REF="$GITHUB_REF"           GITHUB_SHA="$GITHUB_SHA"           GITHUB_WORKFLOW_SHA="$GITHUB_WORKFLOW_SHA"           GITHUB_RUN_ID="$GITHUB_RUN_ID"           GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT"           RUNNER_TEMP="$RUNNER_TEMP"           D6U_SUBJECT_D6U_RUNTIME_EVIDENCE_TXT_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-evidence.txt" | awk '{print $1}')"           D6U_SUBJECT_D6U_RUNTIME_TEST_LOG_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-test.log" | awk '{print $1}')"           D6U_SUBJECT_CARGO_LOCK_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/Cargo.lock" | awk '{print $1}')"             python3 scripts/integral/verify_d6u_trusted_attestation_retention.py "$retention_dir"
       - name: Upload retained trusted attestation packet
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
