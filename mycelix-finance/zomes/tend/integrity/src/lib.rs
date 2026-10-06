@@ -2380,6 +2380,15 @@ mod tests {
             validate_oracle_state_timestamp(&action_time, &action_time),
             ValidateCallbackResult::Valid
         ));
+
+        let mut state = valid_oracle_state();
+        state.updated_at = action_time;
+        let mut action = make_create();
+        action.timestamp = action_time;
+        assert!(matches!(
+            validate_create_oracle_state(EntryCreationAction::Create(action), state),
+            Ok(ValidateCallbackResult::Valid)
+        ));
     }
 
     #[test]
@@ -2389,6 +2398,15 @@ mod tests {
             assert!(matches!(
                 validate_oracle_state_timestamp(&action_time, &state_time),
                 ValidateCallbackResult::Invalid(_)
+            ));
+
+            let mut state = valid_oracle_state();
+            state.updated_at = state_time;
+            let mut action = make_create();
+            action.timestamp = action_time;
+            assert!(matches!(
+                validate_create_oracle_state(EntryCreationAction::Create(action), state),
+                Ok(ValidateCallbackResult::Invalid(_))
             ));
         }
     }
@@ -2428,7 +2446,7 @@ mod tests {
         updated.updated_at = ts(500_000);
 
         assert!(matches!(
-            validate_oracle_state_transition(&original, &updated),
+            validate_oracle_state_transition(&original, &updated, &updated.updated_at),
             ValidateCallbackResult::Invalid(_)
         ));
     }
