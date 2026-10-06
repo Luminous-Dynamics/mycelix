@@ -71,6 +71,14 @@ jobs:
           grep -Fq 'pub fn validate_state_machine_trace_external_evidence_verification_statement_chain' "$source"
           grep -Fq 'pub fn state_machine_trace_external_verifier_identity_sha256' "$source"
           grep -Fq 'pub fn try_new_bound_identity' "$source"
+          grep -Fq 'pub fn admit_under_policy_at' "$source"
+          if grep -Fq 'pub fn admit_under_policy(' "$source"; then
+            echo 'Non-timestamped external policy admission API must not exist.'
+            exit 1
+          fi
+          grep -Fq 'maximum_verification_age_seconds' "$source"
+          grep -Fq 'VerificationClaimTooOld' "$source"
+          grep -Fq 'VerificationClaimFromFuture' "$source"
           grep -Fq 'required_identity_sha256 != self.verifier_identity_sha256()' "$source"
           grep -Fq 'WitnessBindingIncomplete' "$source"
           grep -Fq 'VerifierIdentityBindingIncomplete' "$source"
