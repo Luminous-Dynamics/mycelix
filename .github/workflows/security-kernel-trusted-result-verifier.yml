@@ -537,6 +537,7 @@ jobs:
               output.write(f"execution_binding_sha256={binding_digest}\n")
               output.write(f"evidence_binding_sha256={evidence_binding_digest}\n")
               output.write(f"sandbox_negative_controls_log_sha256={receipt['sandbox_negative_controls_log_sha256']}\n")
+              output.write(f"receipt_artifact_expires_at={receipt_expires_at}\n")
           print("PASS: trusted metadata and artifact identity are ready for independent direct-file verification")
 
           print(json.dumps({
@@ -576,6 +577,7 @@ jobs:
           CANDIDATE_PR: ${{ steps.verify_result.outputs.candidate_pr }}
           RECEIPT_LOG_SHA256: ${{ steps.verify_result.outputs.sandbox_negative_controls_log_sha256 }}
           PARENT_EVIDENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.evidence_binding_sha256 }}
+          RECEIPT_ARTIFACT_EXPIRES_AT: ${{ steps.verify_result.outputs.receipt_artifact_expires_at }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -591,9 +593,13 @@ jobs:
           candidate_pr = int(os.environ["CANDIDATE_PR"])
           receipt_log_sha256 = os.environ["RECEIPT_LOG_SHA256"]
           parent_binding = os.environ["PARENT_EVIDENCE_BINDING_SHA256"]
+          receipt_expires_at = os.environ["RECEIPT_ARTIFACT_EXPIRES_AT"]
 
           assert re.fullmatch(r"[0-9a-f]{64}", receipt_log_sha256), "S1 negative-control transcript digest is not canonical"
           assert re.fullmatch(r"[0-9a-f]{64}", parent_binding), "parent evidence binding digest is not canonical"
+          assert isinstance(receipt_expires_at, str) and receipt_expires_at, "receipt artifact expiration is missing from S2 step binding"
+          receipt_expiry = __import__("datetime").datetime.fromisoformat(receipt_expires_at.replace("Z", "+00:00"))
+          assert receipt_expiry > __import__("datetime").datetime.now(__import__("datetime").timezone.utc) + __import__("datetime").timedelta(days=1), "receipt artifact expires too soon for retained evidence"
 
           def get(path):
               req = urllib.request.Request(
