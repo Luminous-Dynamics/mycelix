@@ -226,6 +226,18 @@ Downstream qualification is a stronger question. `is_passed()` explicitly expose
 
 This separation mirrors the current SLSA v1.2 VSA model, where `verificationResult` may be `PASSED` or `FAILED`, while consumer verification separately requires `PASSED` when the artifact is to be accepted. D6X adopts the semantic distinction only; it remains ReferenceModelOnly and unsigned.
 
+## Evidence-run state boundary
+
+The COS Conformance Evidence workflow distinguishes three artifact states:
+
+- `passed` — the conformance test step completed successfully and the machine-readable report validation step also completed successfully;
+- `failed` — execution began, but either the conformance test or report validation did not complete successfully;
+- `not_run` — execution reached the envelope stage without a completed conformance test/report validation pair, for example after an earlier setup or cancellation boundary.
+
+Artifact preservation is deliberately independent from qualification outcome. A failed or not-run execution may still upload its evidence directory for diagnosis and immutable run history, but artifact presence MUST NOT be interpreted as a passing qualification result. The run envelope records both the individual step outcomes and the derived `qualification_result`, and the sealing step runs with `always()` so even failed executions receive the same structural envelope checks and `SHA256SUMS` treatment when the required metadata exists.
+
+The workflow also records both the target repository and the pull-request head repository separately. The checked-out PR head remains explicitly asserted, while GitHub's executing workflow identity is recorded independently. This preserves the distinction between the revision under qualification, the repository that owns that revision, and the workflow definition that executed the job.
+
 ## Runtime resolution adapter boundary
 
 The reference model now exposes a separate d6x_resolution_adapter layer. It defines audit-only address and attempt domains:
