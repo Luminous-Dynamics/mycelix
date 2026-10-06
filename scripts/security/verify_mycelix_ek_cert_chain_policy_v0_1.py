@@ -467,6 +467,12 @@ def run_trust_anchor_appraiser(
         return result("DENY", "trust-anchor-authorization-receipt-digest-mismatch")
     if receipt.get("registry_file_sha256") != hashlib.sha256(TRUST_ANCHOR_REGISTRY_FILE.read_bytes()).hexdigest():
         return result("DENY", "trust-anchor-receipt-registry-file-mismatch")
+    if receipt.get("root_certificate_sha256") != hashlib.sha256(root_der).hexdigest():
+        return result("DENY", "trust-anchor-receipt-root-mismatch")
+    if receipt.get("authorization_state") != appraisal.get("authorization_state"):
+        return result("DENY", "trust-anchor-receipt-state-mismatch")
+    if receipt.get("registry_id") != registry.get("registry_id"):
+        return result("DENY", "trust-anchor-receipt-registry-id-mismatch")
     try:
         registry = json.loads(TRUST_ANCHOR_REGISTRY_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -476,7 +482,7 @@ def run_trust_anchor_appraiser(
     ).hexdigest()
     if appraisal.get("registry_sha256") != registry_sha:
         return result("DENY", "trust-anchor-registry-digest-mismatch")
-    required = ("anchor_id", "authorization_state", "registry_sha256", "registry_source_sha256", "input_sha256", "output_sha256")
+    required = ("anchor_id", "authorization_state", "registry_sha256", "registry_source_sha256", "receipt_root_sha256", "input_sha256", "output_sha256")
     for field in required:
         if field not in appraisal:
             return result("DENY", "trust-anchor-appraisal-field-missing", {"field": field})
@@ -609,6 +615,7 @@ def session_binding(
             "trust_anchor_appraisal_anchor_id": manifest["trust_anchor_appraisal"].get("anchor_id"),
             "trust_anchor_appraisal_registry_sha256": manifest["trust_anchor_appraisal"].get("registry_sha256"),
             "trust_anchor_appraisal_registry_source_sha256": manifest["trust_anchor_appraisal"].get("registry_source_sha256"),
+            "trust_anchor_appraisal_receipt_root_sha256": manifest["trust_anchor_appraisal"].get("receipt_root_sha256"),
             "trust_anchor_appraisal_input_sha256": manifest["trust_anchor_appraisal"].get("input_sha256"),
             "trust_anchor_appraisal_output_sha256": manifest["trust_anchor_appraisal"].get("output_sha256"),
             "verification_time_unix": manifest["verification_time_unix"],
@@ -878,6 +885,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             "authorization_state": "PASS",
             "registry_sha256": "",
             "registry_source_sha256": "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591",
+            "receipt_root_sha256": REFERENCE_ROOT_SHA256,
             "input_sha256": "",
             "output_sha256": "",
         },
@@ -1159,6 +1167,7 @@ def self_test() -> int:
             ("trust-anchor-appraisal-registry-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"registry_sha256": "12" * 32})),
             ("trust-anchor-appraisal-receipt-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"registry_source_sha256": "13" * 32})),
             ("trust-anchor-appraisal-output-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"output_sha256": "14" * 32})),
+            ("trust-anchor-appraisal-receipt-root-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"receipt_root_sha256": "15" * 32})),
             ("session-binding-substitution", "DENY", lambda x: x.update({"session_id": "attacker"})),
         ]
         for name, expected, mutate in cases:
@@ -1181,7 +1190,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("31 adversarial mutations plus canonical and key-order control: PASS")
+    print("32 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
