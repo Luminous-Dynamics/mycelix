@@ -1,5 +1,5 @@
 use fabrication_common::fpm::{analyze, BaselineProfile, DetectorConfig, DetectionStatus, FpmError, ProcessObservation};
-use fabrication_common::{AnomalyType, SensorSnapshot};
+use fabrication_common::{SensorSnapshot};
 
 fn sensor(hotend: f32, bed: f32, extruder: f32, vibration: f32, filament: Option<f32>) -> SensorSnapshot {
     SensorSnapshot {
@@ -21,7 +21,8 @@ fn baseline() -> BaselineProfile {
     let observations = (0..10)
         .map(|sequence| obs(sequence, sensor(210.0 + (sequence % 2) as f32 * 0.2, 60.0, 1.0, 0.05, Some(100.0))))
         .collect::<Vec<_>>();
-    BaselineProfile::from_observations("1", &observations).expect("frozen FPM corpus baseline must build")
+    BaselineProfile::from_observations(&DetectorConfig::default(), &observations)
+        .expect("frozen FPM corpus baseline must build")
 }
 
 #[test]
@@ -36,7 +37,7 @@ fn fpm_corpus_v1_expected_results() {
     let hotend = analyze(&config, &baseline, &obs(101, sensor(250.0, 60.0, 1.0, 0.05, Some(100.0))))
         .expect("hotend case should analyze");
     assert_eq!(hotend.status, DetectionStatus::Anomalous);
-    assert!(hotend.anomaly_types.contains(&AnomalyType::TemperatureDeviation));
+    assert!(hotend.anomaly_types.contains(&fabrication_common::fpm::ProcessAnomalyType::TemperatureDeviation));
 
     let bed = analyze(&config, &baseline, &obs(102, sensor(210.0, 90.0, 1.0, 0.05, Some(100.0))))
         .expect("bed case should analyze");
@@ -82,7 +83,7 @@ fn fpm_corpus_v1_baseline_reordering_is_rejected() {
         obs(1, sensor(210.0, 60.0, 1.0, 0.05, None)),
     ];
     assert_eq!(
-        BaselineProfile::from_observations("1", &observations),
+        BaselineProfile::from_observations(&DetectorConfig::default(), &observations),
         Err(FpmError::NonMonotonicSequence)
     );
 }
