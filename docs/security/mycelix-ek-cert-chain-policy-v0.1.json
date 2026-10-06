@@ -122,7 +122,7 @@
     "rsa_modulus": "for the L-1 RSA 2048 template, unique is exactly 256 bytes, non-zero, the most-significant bit is set, and the modulus is odd",
     "certificate_extension_uniqueness": "a given X.509 extension OID may occur at most once",
     "authority_information_access": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
-    "crl_distribution": "if present, MUST be non-critical; in this v0.1 reference model the leaf has exactly one DistributionPoint containing only fullName with exactly one URI GeneralName, no reasons field, and no cRLIssuer. The URI is a non-authoritative locator only; selected CRL object and issuer are bound independently by exact digest and issuer-name checks.",
+    "crl_distribution": "TCG EK Credential Profile v2.7 treats CRL Distribution as optional and requires it to be non-critical when present. For this Mycelix ReferenceModelOnly fixture, the leaf MUST carry exactly one DistributionPoint containing only fullName with exactly one URI GeneralName, with no reasons field and no cRLIssuer. The URI is a non-authoritative locator only; selected CRL object and issuer are bound independently by exact digest and issuer-name checks.",
     "subject_directory_attributes": "if present, MUST be non-critical",
     "subject_alt_name": "MUST be present; exact DER GeneralNames must include a directoryName containing exactly one TCG manufacturer, model/part-number, and firmware-version attribute; manufacturer and firmware attributes use the TCG id: form; SAN criticality is critical iff the Subject is empty",
     "subject_key_identifier": "if present, MUST be non-critical",
