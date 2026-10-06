@@ -471,12 +471,12 @@ def run_trust_anchor_appraiser(
         return result("DENY", "trust-anchor-receipt-root-mismatch")
     if receipt.get("authorization_state") != appraisal.get("authorization_state"):
         return result("DENY", "trust-anchor-receipt-state-mismatch")
-    if receipt.get("registry_id") != registry.get("registry_id"):
-        return result("DENY", "trust-anchor-receipt-registry-id-mismatch")
     try:
         registry = json.loads(TRUST_ANCHOR_REGISTRY_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return result("DENY", "trust-anchor-registry-invalid", {"error": str(exc)})
+    if receipt.get("registry_id") != registry.get("registry_id"):
+        return result("DENY", "trust-anchor-receipt-registry-id-mismatch")
     registry_sha = hashlib.sha256(
         (json.dumps(registry, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
     ).hexdigest()
