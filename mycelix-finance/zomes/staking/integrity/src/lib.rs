@@ -420,6 +420,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Valid),
             LinkTypes::EscrowToSignatures => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::RegisterDeleteLink { link_type, .. } => match link_type {
+            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Invalid(
+                "Governance agent links are append-only and cannot be deleted".into(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
