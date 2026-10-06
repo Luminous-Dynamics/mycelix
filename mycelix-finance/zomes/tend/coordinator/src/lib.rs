@@ -2627,7 +2627,7 @@ fn validate_pending_claim_runtime(
     exchange_action_hash: &ActionHash,
     caller_did: &str,
 ) -> ExternResult<()> {
-    if claim.exchange_action_hash != *exchange_action_hash {
+    if claim.exchange_action_hash != exchange_action_hash.clone() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Settlement claim is bound to a different exchange".into()
         )));
