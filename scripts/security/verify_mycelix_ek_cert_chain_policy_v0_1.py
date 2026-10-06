@@ -482,15 +482,21 @@ def run_trust_anchor_appraiser(
     ).hexdigest()
     if appraisal.get("registry_sha256") != registry_sha:
         return result("DENY", "trust-anchor-registry-digest-mismatch")
-    required = ("anchor_id", "authorization_state", "registry_sha256", "registry_source_sha256", "receipt_root_sha256", "input_sha256", "output_sha256")
+    required = ("anchor_id", "authorization_state", "registry_sha256", "registry_source_sha256", "receipt_root_sha256", "input_sha256", "output_sha256", "verifier_source_sha256", "output_content_sha256")
     for field in required:
         if field not in appraisal:
             return result("DENY", "trust-anchor-appraisal-field-missing", {"field": field})
     try:
         if not valid_hash(appraisal["registry_source_sha256"]):
             return result("DENY", "trust-anchor-registry-source-digest-invalid")
+        if not valid_hash(appraisal["verifier_source_sha256"]):
+            return result("DENY", "trust-anchor-appraisal-verifier-source-digest-invalid")
+        if appraisal["verifier_source_sha256"] != sha256_file(TRUST_ANCHOR_APPRAISAL_SCRIPT):
+            return result("DENY", "trust-anchor-appraisal-verifier-source-mismatch")
+        if not valid_hash(appraisal["output_content_sha256"]):
+            return result("DENY", "trust-anchor-appraisal-output-content-digest-invalid")
     except KeyError:
-        return result("DENY", "trust-anchor-registry-source-digest-invalid")
+        return result("DENY", "trust-anchor-appraisal-source-fields-invalid")
 
     input_manifest = {
         "profile_id": "mycelix.security.tpm.ek-trust-anchor-appraisal",
@@ -545,6 +551,14 @@ def run_trust_anchor_appraiser(
             return result("DENY", "trust-anchor-appraisal-result-verifier-id-mismatch")
         if output.get("state") != appraisal.get("state"):
             return result("DENY", "trust-anchor-appraisal-result-state-mismatch")
+        if output.get("content_sha256") != appraisal.get("output_content_sha256"):
+            return result("DENY", "trust-anchor-appraisal-output-content-digest-mismatch")
+        if not valid_hash(output.get("content_sha256")):
+            return result("DENY", "trust-anchor-appraisal-output-content-digest-invalid")
+        if output["content_sha256"] != canonical_hash(
+            {key: value for key, value in output.items() if key != "content_sha256"}
+        ):
+            return result("DENY", "trust-anchor-appraisal-output-content-invalid")
         return output
 
 
@@ -618,6 +632,8 @@ def session_binding(
             "trust_anchor_appraisal_receipt_root_sha256": manifest["trust_anchor_appraisal"].get("receipt_root_sha256"),
             "trust_anchor_appraisal_input_sha256": manifest["trust_anchor_appraisal"].get("input_sha256"),
             "trust_anchor_appraisal_output_sha256": manifest["trust_anchor_appraisal"].get("output_sha256"),
+            "trust_anchor_appraisal_verifier_source_sha256": manifest["trust_anchor_appraisal"].get("verifier_source_sha256"),
+            "trust_anchor_appraisal_output_content_sha256": manifest["trust_anchor_appraisal"].get("output_content_sha256"),
             "verification_time_unix": manifest["verification_time_unix"],
             "revocation_state": rev["state"],
             "revocation_method": rev.get("method"),
@@ -888,6 +904,8 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             "receipt_root_sha256": REFERENCE_ROOT_SHA256,
             "input_sha256": "",
             "output_sha256": "",
+            "verifier_source_sha256": sha256_file(TRUST_ANCHOR_APPRAISAL_SCRIPT),
+            "output_content_sha256": "",
         },
         "ek_template_binding": {
             "state": "PASS",
@@ -990,6 +1008,9 @@ def refresh_trust_anchor_appraisal(m: dict[str, Any]) -> None:
         appraisal["registry_sha256"] = registry_sha
         appraisal["input_sha256"] = hashlib.sha256(ip.read_bytes()).hexdigest()
         appraisal["output_sha256"] = hashlib.sha256(op.read_bytes()).hexdigest()
+        appraisal["verifier_source_sha256"] = sha256_file(TRUST_ANCHOR_APPRAISAL_SCRIPT)
+        output = json.loads(op.read_text(encoding="utf-8"))
+        appraisal["output_content_sha256"] = output["content_sha256"]
 
 def refresh_template_binding(m: dict[str, Any]) -> None:
     binding = m["ek_template_binding"]
@@ -1167,6 +1188,8 @@ def self_test() -> int:
             ("trust-anchor-appraisal-registry-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"registry_sha256": "12" * 32})),
             ("trust-anchor-appraisal-receipt-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"registry_source_sha256": "13" * 32})),
             ("trust-anchor-appraisal-output-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"output_sha256": "14" * 32})),
+            ("trust-anchor-appraisal-verifier-source-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"verifier_source_sha256": "45" * 32})),
+            ("trust-anchor-appraisal-output-content-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"output_content_sha256": "46" * 32})),
             ("trust-anchor-appraisal-receipt-root-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"receipt_root_sha256": "15" * 32})),
             ("session-binding-substitution", "DENY", lambda x: x.update({"session_id": "attacker"})),
         ]
