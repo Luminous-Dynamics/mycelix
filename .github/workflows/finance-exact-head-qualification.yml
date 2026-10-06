@@ -105,6 +105,13 @@ jobs:
           assert "api_base_ref" in text
           assert "git rev-parse HEAD^{tree}" in text
           assert "git status --porcelain --untracked-files=no" in text
+          assert "git archive --format=tar" in text
+          assert "finance-qualification-test" in text
+          assert "chmod 0555" in text
+          assert "env -i" in text
+          assert "CARGO_TARGET_DIR" in text
+          assert "CARGO_HOME" in text
+          assert "GITHUB_TOKEN" not in text
           PY
 
       - name: Resolve exact qualification subject
@@ -188,15 +195,111 @@ jobs:
           test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
           test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
 
-      - name: Check Finance formatting
+      - name: Prepare isolated Finance execution identity
+        id: isolation
+        run: |
+          set -euo pipefail
+
+          subject_dir="${RUNNER_TEMP}/finance-subject"
+          cargo_home="${RUNNER_TEMP}/finance-test-cargo-home"
+          cargo_target="${RUNNER_TEMP}/finance-test-target"
+          test_home="${RUNNER_TEMP}/finance-test-home"
+
+          rm -rf "${subject_dir}" "${cargo_home}" "${cargo_target}" "${test_home}"
+          mkdir -p "${subject_dir}" "${cargo_home}" "${cargo_target}" "${test_home}"
+
+          if git ls-tree -r HEAD -- mycelix-finance \
+              | awk -F'\\t' '$1 ~ /^120000 / { bad=1 } END { exit bad+0 }'; then
+            :
+          else
+            echo "Finance qualification subject contains a symlink under mycelix-finance/" >&2
+            git ls-tree -r HEAD -- mycelix-finance | awk -F'\\t' '$1 ~ /^120000 / { print }'
+            exit 1
+          fi
+
+          git archive --format=tar "${{ steps.checkout.outputs.tested_head_sha }}" \
+            | tar -xf - -C "${subject_dir}"
+
+          sudo chown -R root:root "${subject_dir}"
+          sudo find "${subject_dir}" -type d -exec chmod 0555 {} +
+          sudo find "${subject_dir}" -type f -exec chmod 0444 {} +
+
+          if id finance-qualification-test >/dev/null 2>&1; then
+            sudo userdel finance-qualification-test || true
+          fi
+          sudo useradd --system --no-create-home --shell /usr/sbin/nologin finance-qualification-test
+
+          rust_bin="$(rustup which rustc --toolchain 1.96.1)"
+          cargo_bin="$(rustup which cargo --toolchain 1.96.1)"
+          rustdoc_bin="$(rustup which rustdoc --toolchain 1.96.1)"
+          rust_dir="$(dirname "${rust_bin}")"
+
+          sudo chown -R finance-qualification-test:finance-qualification-test \
+            "${cargo_home}" "${cargo_target}" "${test_home}"
+
+          {
+            printf 'subject_dir=%s\\n' "${subject_dir}"
+            printf 'cargo_home=%s\\n' "${cargo_home}"
+            printf 'cargo_target=%s\\n' "${cargo_target}"
+            printf 'test_home=%s\\n' "${test_home}"
+            printf 'rust_bin=%s\\n' "${rust_bin}"
+            printf 'cargo_bin=%s\\n' "${cargo_bin}"
+            printf 'rustdoc_bin=%s\\n' "${rustdoc_bin}"
+            printf 'rust_dir=%s\\n' "${rust_dir}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Check Finance formatting as isolated test identity
         id: fmt
-        run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
+        run: |
+          set -euo pipefail
+          test_user=finance-qualification-test
 
-      - name: Run Finance workspace tests
+          sudo -u "${test_user}" env -i \
+            HOME="${{ steps.isolation.outputs.test_home }}" \
+            PATH="${{ steps.isolation.outputs.rust_dir }}:/usr/bin:/bin" \
+            CARGO_HOME="${{ steps.isolation.outputs.cargo_home }}" \
+            CARGO_TARGET_DIR="${{ steps.isolation.outputs.cargo_target }}" \
+            CARGO_TERM_COLOR=never \
+            RUSTC="${{ steps.isolation.outputs.rust_bin }}" \
+            RUSTDOC="${{ steps.isolation.outputs.rustdoc_bin }}" \
+            TMPDIR="${{ steps.isolation.outputs.test_home }}" \
+            "${{ steps.isolation.outputs.cargo_bin }}" \
+              fmt --manifest-path "${{ steps.isolation.outputs.subject_dir }}/mycelix-finance/Cargo.toml" \
+              --all -- --check
+
+      - name: Run Finance workspace tests as isolated test identity
         id: tests
-        run: cargo test --workspace --manifest-path mycelix-finance/Cargo.toml --locked
+        run: |
+          set -euo pipefail
+          test_user=finance-qualification-test
 
-      - name: Assert executed worktree remained immutable
+          sudo -u "${test_user}" env -i \
+            HOME="${{ steps.isolation.outputs.test_home }}" \
+            PATH="${{ steps.isolation.outputs.rust_dir }}:/usr/bin:/bin" \
+            CARGO_HOME="${{ steps.isolation.outputs.cargo_home }}" \
+            CARGO_TARGET_DIR="${{ steps.isolation.outputs.cargo_target }}" \
+            CARGO_TERM_COLOR=never \
+            RUSTC="${{ steps.isolation.outputs.rust_bin }}" \
+            RUSTDOC="${{ steps.isolation.outputs.rustdoc_bin }}" \
+            TMPDIR="${{ steps.isolation.outputs.test_home }}" \
+            "${{ steps.isolation.outputs.cargo_bin }}" \
+              test --workspace --manifest-path "${{ steps.isolation.outputs.subject_dir }}/mycelix-finance/Cargo.toml" --locked
+
+      - name: Assert isolated candidate source remained immutable
+        id: source_immutability
+        if: always()
+        run: |
+          set -euo pipefail
+          source_dir="${{ steps.isolation.outputs.subject_dir }}"
+          test -d "${source_dir}"
+          test -z "$(sudo find "${source_dir}" -type f -writable -print)"
+          test -z "$(sudo find "${source_dir}" -type d -writable -print)"
+          test -z "$(sudo find "${source_dir}/mycelix-finance" -type l -print -quit)"
+          test -n "${{ steps.isolation.outputs.test_home }}"
+          test -n "${{ steps.isolation.outputs.cargo_home }}"
+          test -n "${{ steps.isolation.outputs.cargo_target }}"
+
+      - name: Assert trusted worktree remained immutable
         id: tree_immutability
         if: always()
         run: |
