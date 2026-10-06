@@ -23,17 +23,22 @@ NONCLAIMS = [
 ]
 
 
+def require(condition: bool, message: str = "verification invariant failed") -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def load_record(path: Path) -> dict[str, str]:
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines and lines[0] == "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE"
+    require(lines and lines[0] == "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE")
     record: dict[str, str] = {}
     for line in lines[1:]:
         key, separator, value = line.partition("=")
-        assert separator and key and key not in record
+        require(separator and key and key not in record)
         record[key] = value
     return record
 
@@ -46,21 +51,21 @@ def expected_subjects(evidence_dir: Path) -> list[dict]:
 
 
 def canonical_subjects(value: list[dict]) -> tuple[tuple[str, str], ...]:
-    assert isinstance(value, list)
+    require(isinstance(value, list))
     normalized: list[tuple[str, str]] = []
     for subject in value:
-        assert isinstance(subject, dict)
-        assert set(subject) == {"name", "digest"}
+        require(isinstance(subject, dict))
+        require(set(subject) == {"name", "digest"})
         name = subject["name"]
         digest = subject["digest"]
-        assert isinstance(name, str) and name
-        assert isinstance(digest, dict)
-        assert set(digest) == {"sha256"}
+        require(isinstance(name, str) and name)
+        require(isinstance(digest, dict))
+        require(set(digest) == {"sha256"})
         sha = digest["sha256"]
-        assert isinstance(sha, str) and len(sha) == 64
-        assert all(ch in "0123456789abcdef" for ch in sha)
+        require(isinstance(sha, str) and len(sha) == 64)
+        require(all(ch in "0123456789abcdef" for ch in sha))
         normalized.append((name, sha))
-    assert len(set(normalized)) == len(normalized)
+    require(len(set(normalized)) == len(normalized))
     return tuple(sorted(normalized))
 
 def verify_canonical_predicate(
@@ -69,21 +74,23 @@ def verify_canonical_predicate(
     subjects: list[dict],
     expected_policy_version: int,
 ) -> bool:
-    assert isinstance(predicate, dict)
+    require(isinstance(predicate, dict))
     event_repository = os.environ["D6U_TRIGGER_REPOSITORY"]
     event_branch = os.environ["D6U_TRIGGER_HEAD_BRANCH"]
     event_head_sha = os.environ["D6U_TRIGGER_HEAD_SHA"]
     event_run_id = int(os.environ["D6U_TRIGGER_RUN_ID"])
     event_run_attempt = int(os.environ["D6U_TRIGGER_RUN_ATTEMPT"])
-    assert record["source_repository"] == event_repository
-    assert record["source_branch"] == event_branch
-    assert record["source_commit"] == event_head_sha
-    assert int(record["executor_run_id"]) == event_run_id
-    assert int(record["executor_run_attempt"]) == event_run_attempt
-    assert set(predicate) == {
-        "attestation_kind", "claim_ceiling", "evidence", "executor", "nonclaims",
-        "policy_version", "schema", "source", "subjects", "trigger",
-    }
+    require(record["source_repository"] == event_repository)
+    require(record["source_branch"] == event_branch)
+    require(record["source_commit"] == event_head_sha)
+    require(int(record["executor_run_id"]) == event_run_id)
+    require(int(record["executor_run_attempt"]) == event_run_attempt)
+    require(
+        set(predicate) == {
+            "attestation_kind", "claim_ceiling", "evidence", "executor", "nonclaims",
+            "policy_version", "schema", "source", "subjects", "trigger",
+        }
+    )
     return (
         predicate.get("schema") == CANONICAL_PREDICATE_SCHEMA
         and predicate.get("attestation_kind") == "verified-runtime-evidence"
@@ -142,36 +149,40 @@ def verify_commitment_entry(
         predicate = statement.get("predicate", {})
         statement_subjects = statement.get("subject", [])
         verified_timestamps = result.get("verifiedTimestamps", [])
-        assert statement.get("predicateType") == PREDICATE_TYPE
-        assert isinstance(predicate, dict)
-        assert set(predicate) == {
-            "attestation_kind",
-            "canonical_predicate_sha256",
-            "claim_ceiling",
-            "policy_version",
-            "schema",
-        }
-        assert predicate.get("schema") == ATTESTATION_PREDICATE_SCHEMA
-        assert predicate.get("attestation_kind") == "verified-runtime-evidence"
-        assert predicate.get("claim_ceiling") == record["claim_ceiling"]
-        assert predicate.get("policy_version") == expected_policy_version
-        digest = predicate.get("canonical_predicate_sha256")
-        assert isinstance(digest, str) and len(digest) == 64
-        assert all(ch in "0123456789abcdef" for ch in digest)
-        assert digest == canonical_predicate_sha256
-        assert certificate.get("subjectAlternativeName") == expected_san
-        assert certificate.get("issuer") == "https://token.actions.githubusercontent.com"
-        assert certificate.get("githubWorkflowRepository") == repo
-        assert certificate.get("githubWorkflowRef") == "refs/heads/main"
-        assert certificate.get("sourceRepositoryURI") == "https://github.com/" + repo
-        assert certificate.get("sourceRepositoryDigest") == expected_source_digest
-        assert certificate.get("runnerEnvironment") == "github-hosted"
-        assert certificate.get("runInvocationURI") == expected_run_uri
-        assert any(
-            isinstance(timestamp, dict) and timestamp.get("type") == "Tlog"
-            for timestamp in verified_timestamps
+        require(statement.get("predicateType") == PREDICATE_TYPE)
+        require(isinstance(predicate, dict))
+        require(
+            set(predicate) == {
+                "attestation_kind",
+                "canonical_predicate_sha256",
+                "claim_ceiling",
+                "policy_version",
+                "schema",
+            }
         )
-        assert canonical_subjects(statement_subjects) == canonical_subjects(subjects)
+        require(predicate.get("schema") == ATTESTATION_PREDICATE_SCHEMA)
+        require(predicate.get("attestation_kind") == "verified-runtime-evidence")
+        require(predicate.get("claim_ceiling") == record["claim_ceiling"])
+        require(predicate.get("policy_version") == expected_policy_version)
+        digest = predicate.get("canonical_predicate_sha256")
+        require(isinstance(digest, str) and len(digest) == 64)
+        require(all(ch in "0123456789abcdef" for ch in digest))
+        require(digest == canonical_predicate_sha256)
+        require(certificate.get("subjectAlternativeName") == expected_san)
+        require(certificate.get("issuer") == "https://token.actions.githubusercontent.com")
+        require(certificate.get("githubWorkflowRepository") == repo)
+        require(certificate.get("githubWorkflowRef") == "refs/heads/main")
+        require(certificate.get("sourceRepositoryURI") == "https://github.com/" + repo)
+        require(certificate.get("sourceRepositoryDigest") == expected_source_digest)
+        require(certificate.get("runnerEnvironment") == "github-hosted")
+        require(certificate.get("runInvocationURI") == expected_run_uri)
+        require(
+            any(
+                isinstance(timestamp, dict) and timestamp.get("type") == "Tlog"
+                for timestamp in verified_timestamps
+            )
+        )
+        require(canonical_subjects(statement_subjects) == canonical_subjects(subjects))
     except (AssertionError, KeyError, TypeError, ValueError):
         return False
     return True
@@ -181,7 +192,7 @@ def main() -> None:
         raise SystemExit("usage: verify_d6u_trusted_attestation.py ATTESTATION_JSON")
 
     report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    assert isinstance(report, list) and report, "attestation verification returned no results"
+    require(isinstance(report, list) and report, "attestation verification returned no results")
 
     evidence_dir = Path(os.environ["D6U_TRUSTED_EVIDENCE_DIR"])
     subject_path = Path(os.environ["D6U_ATTESTATION_SUBJECT"])
@@ -190,12 +201,14 @@ def main() -> None:
     subject_digest = sha256(subject_path)
     canonical_path = evidence_dir / "d6u-trusted-evidence-predicate.json"
     canonical_predicate = json.loads(canonical_path.read_text(encoding="utf-8"))
-    assert isinstance(canonical_predicate, dict)
-    assert verify_canonical_predicate(
-        canonical_predicate,
-        record,
-        subjects,
-        int(os.environ["D6U_TRUSTED_POLICY_VERSION"]),
+    require(isinstance(canonical_predicate, dict))
+    require(
+        verify_canonical_predicate(
+            canonical_predicate,
+            record,
+            subjects,
+            int(os.environ["D6U_TRUSTED_POLICY_VERSION"]),
+        )
     )
     canonical_predicate_sha256 = sha256(canonical_path)
 
@@ -216,8 +229,9 @@ def main() -> None:
         )
     ]
 
-    assert len(matches) == 1, (
-        f"expected exactly one current-run D6U evidence attestation: {len(matches)}"
+    require(
+        len(matches) == 1,
+        f"expected exactly one current-run D6U evidence attestation: {len(matches)}",
     )
     print(
         "verified D6U trusted evidence attestation: "
