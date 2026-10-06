@@ -215,6 +215,10 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
             "ref": "1e69f48acb82d1966a394da916b4c169aa569d6",
             "version": "v4.2.2",
         },
+        "actions/upload-artifact": {
+            "ref": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+            "version": "v4.6.2",
+        },
     }
     workflow_path = Path(__file__).parents[2] / policy["trusted_workflow"]["path"]
     uses = []
