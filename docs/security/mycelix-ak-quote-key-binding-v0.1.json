@@ -24,8 +24,8 @@
     ],
     "claim_ceiling": "ReferenceModelOnly",
     "ak_public_key_pem": "exact captured AK public key PEM",
-    "ak_public_key_sha256": "digest of exact captured key representation",
-    "ak_public_source_sha256": "source receipt digest for captured AK public key",
+    "ak_public_key_sha256": "digest of canonical DER SubjectPublicKeyInfo derived from exact captured key representation",
+    "ak_public_source_sha256": "digest of exact captured AK public-key PEM bytes",
     "ak_public_wire_hex": "exact TPMT_PUBLIC bytes",
     "ak_public_wire_sha256": "digest of exact TPMT_PUBLIC bytes",
     "ak_name_hex": "exact TPM Name",
@@ -153,6 +153,21 @@
     ],
     [
       "QK-V16",
+      "public-source-digest-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V17",
+      "offline-origin",
+      "INDETERMINATE"
+    ],
+    [
+      "QK-V18",
+      "live-origin",
+      "INDETERMINATE"
+    ],
+    [
+      "QK-V19",
       "key-order-permutation",
       "PASS"
     ]
