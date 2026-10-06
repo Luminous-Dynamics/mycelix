@@ -1867,6 +1867,190 @@ pub fn run_scenario(
         );
     }
 
+    #[test]
+    fn external_evidence_verification_statement_binds_anchor_and_verifier_report() {
+        let anchor_reference_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let verifier_report = b"opaque-external-verifier-report-v1";
+        let statement =
+            state_machine_trace_external_evidence_verification_statement(
+                anchor_reference_sha256,
+                1,
+                "rfc3161-verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                verifier_report,
+                1_791_000_500,
+            )
+            .expect("verification statement must build");
+
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_binding(
+                anchor_reference_sha256,
+                verifier_report,
+                &statement,
+            ),
+            Ok(())
+        );
+
+        let round_trip =
+            serde_json::to_string(&statement).expect("verification statement must serialize");
+        assert_eq!(
+            serde_json::from_str::<
+                FederationStateMachineTraceExternalEvidenceVerificationStatement,
+            >(&round_trip)
+            .expect("verification statement must deserialize"),
+            statement
+        );
+    }
+
+    #[test]
+    fn external_evidence_verification_statement_rejects_binding_tampering() {
+        let anchor_reference_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let verifier_report = b"opaque-external-verifier-report-v1";
+        let mut statement =
+            state_machine_trace_external_evidence_verification_statement(
+                anchor_reference_sha256,
+                1,
+                "ct-verifier-v2",
+                FederationStateMachineTraceExternalVerificationClaim::TransparencyConsistencyVerified,
+                verifier_report,
+                1_791_000_501,
+            )
+            .expect("verification statement must build");
+
+        statement.anchor_reference_sha256 =
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into();
+        statement.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_binding(
+                anchor_reference_sha256,
+                verifier_report,
+                &statement,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::AnchorReferenceDigestMismatch
+            )
+        );
+
+        statement.anchor_reference_sha256 = anchor_reference_sha256.into();
+        statement.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+        let changed_report = b"opaque-external-verifier-report-v2";
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_binding(
+                anchor_reference_sha256,
+                changed_report,
+                &statement,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportDigestMismatch
+            )
+        );
+
+        statement.verifier_report_hash_encoding = "raw-bytes-v1".into();
+        statement.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_binding(
+                anchor_reference_sha256,
+                verifier_report,
+                &statement,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::VerifierReportHashEncodingMismatch
+            )
+        );
+    }
+
+    #[test]
+    fn external_evidence_verification_statement_does_not_authenticate_external_claims() {
+        let anchor_reference_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let verifier_report = b"this-report-may-claim-anything";
+        let mut statement =
+            state_machine_trace_external_evidence_verification_statement(
+                anchor_reference_sha256,
+                1,
+                "untrusted-verifier-profile-v1",
+                FederationStateMachineTraceExternalVerificationClaim::CryptographicSignatureVerified,
+                verifier_report,
+                1_791_000_502,
+            )
+            .expect("verification statement must build");
+
+        statement.verification_claim =
+            FederationStateMachineTraceExternalVerificationClaim::Rejected;
+        statement.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_binding(
+                anchor_reference_sha256,
+                verifier_report,
+                &statement,
+            ),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn external_evidence_verification_statement_rejects_invalid_metadata_and_unknown_fields() {
+        let anchor_reference_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let verifier_report = b"opaque-report";
+        assert_eq!(
+            state_machine_trace_external_evidence_verification_statement(
+                "not-a-digest",
+                1,
+                "verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
+                verifier_report,
+                1,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidAnchorReferenceDigest
+            )
+        );
+        assert_eq!(
+            state_machine_trace_external_evidence_verification_statement(
+                anchor_reference_sha256,
+                0,
+                "verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
+                verifier_report,
+                1,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::InvalidVerifierReportSchemaVersion
+            )
+        );
+
+        let statement =
+            state_machine_trace_external_evidence_verification_statement(
+                anchor_reference_sha256,
+                1,
+                "verifier-v1",
+                FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
+                verifier_report,
+                1,
+            )
+            .expect("verification statement must build");
+        let mut unknown =
+            serde_json::to_value(&statement).expect("verification statement must serialize");
+        unknown
+            .as_object_mut()
+            .expect("verification statement must be an object")
+            .insert("unexpected_verification_field".into(), serde_json::Value::Bool(true));
+        assert!(
+            serde_json::from_value::<
+                FederationStateMachineTraceExternalEvidenceVerificationStatement,
+            >(unknown)
+            .is_err()
+        );
+    }
+
 }
 
 #[cfg(test)]
