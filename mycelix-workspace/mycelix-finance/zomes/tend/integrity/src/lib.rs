@@ -1857,10 +1857,10 @@ mod tests {
         updated.exchange_count = 4;
         updated.last_activity = ts(2_000_000);
 
-        assert_eq!(
+        assert!(matches!(
             validate_balance_state_transition(&original, &updated),
             ValidateCallbackResult::Valid
-        );
+        ));
     }
 
     #[test]
