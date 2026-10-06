@@ -425,7 +425,7 @@ def crl_blocks(bundle: bytes) -> list[bytes]:
         if finish < 0:
             raise ValueError("CRL END marker missing")
         finish += len(end)
-        block = bundle[start:finish] + b"\\n"
+        block = bundle[start:finish]
         encoded = b"".join(block[len(begin):-len(end)].split())
         der = base64.b64decode(encoded, validate=True)
         # Preserve exact PEM identity while parsing exact DER payload.
@@ -455,6 +455,22 @@ def expected_crl_semantics_check(
         spec = expected.get(label)
         if not isinstance(spec, dict):
             raise ValueError(f"CRL semantics missing {label}")
+        selection = spec.get("selection")
+        if not isinstance(selection, dict) or set(selection) != {
+            "issuer_certificate_sha256", "crl_der_sha256", "scope",
+            "delta_crl_supported", "indirect_crl_supported", "crl_number_lineage",
+        }:
+            raise ValueError(f"{label} CRL authoritative selection contract malformed")
+        if selection["issuer_certificate_sha256"] != issuers[label]["object_sha256"]:
+            raise ValueError(f"{label} CRL authoritative issuer certificate identity mismatch")
+        if selection["crl_der_sha256"] != crl["object_sha256"]:
+            raise ValueError(f"{label} CRL authoritative CRL DER identity mismatch")
+        if selection["scope"] != "all-certificates-issued-by-issuer":
+            raise ValueError(f"{label} CRL scope is not complete-single-CA")
+        if selection["delta_crl_supported"] is not False or selection["indirect_crl_supported"] is not False:
+            raise ValueError(f"{label} CRL delta/indirect semantics are outside the reference model")
+        if selection["crl_number_lineage"] != "single-current-reference-no-history":
+            raise ValueError(f"{label} CRL number historical progression is not modeled")
         if crl["version"] != 2:
             raise ValueError(f"{label} CRL version mismatch")
         if "this_update" not in crl or "next_update" not in crl:
@@ -473,6 +489,8 @@ def expected_crl_semantics_check(
         number_tag, number_content, _raw, number_end = tlv(extensions["2.5.29.20"]["extn_value"])
         if number_tag != 0x02 or number_end != len(extensions["2.5.29.20"]["extn_value"]):
             raise ValueError(f"{label} CRL number malformed")
+        if len(number_content) > 20:
+            raise ValueError("CRL.cRLNumber exceeds RFC 5280 20-octet limit")
         number = integer(number_content, f"{label}.cRLNumber")
         if number != int(spec["crl_number"]):
             raise ValueError(f"{label} cRLNumber mismatch")
@@ -498,6 +516,8 @@ def expected_crl_semantics_check(
             if set(observed["extensions"]) != {"2.5.29.21"}:
                 raise ValueError(f"{label} CRL entry extension set mismatch")
             reason = parse_reason_code(reason_ext["extn_value"])
+            if reason == 8:
+                raise ValueError(f"{label} CRL removeFromCRL requires delta-CRL semantics")
             if reason != int(exp["reason_code"]):
                 raise ValueError(f"{label} CRL reasonCode mismatch")
             observed_serials.append(observed["serial"])
