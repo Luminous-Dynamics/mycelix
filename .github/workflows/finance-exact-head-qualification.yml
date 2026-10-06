@@ -135,7 +135,6 @@ jobs:
           printf 'resolution_mode=%s\n' "${resolution_mode}" >> "${GITHUB_OUTPUT}"
 
       - name: Checkout exact PR head
-        id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.subject.outputs.expected_head_sha }}
@@ -144,6 +143,7 @@ jobs:
           fetch-depth: 1
 
       - name: Assert exact PR-head checkout
+        id: checkout
         run: |
           set -euo pipefail
           git clean -ffdx
