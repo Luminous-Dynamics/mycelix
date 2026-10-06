@@ -482,6 +482,16 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 bounded vendor volume read-only mount count mismatch")
     if exact_count(l, VENDOR_VOLUME_INSPECT) != 1:
         fail("S1 vendor volume instantiation must be independently inspected")
+    if 'if docker volume inspect "$vendor_volume_name"' in joined:
+        fail("S1 vendor collision detection must not treat volume-inspect failure as absence")
+    if 'if [ "$status" -ne 0 ] && docker volume inspect "$vendor_volume_name"' in joined:
+        fail("S1 vendor cleanup must not use masked volume-inspect status")
+    for required in (
+        'if ! existing_vendor_volumes="$(docker volume ls --format \'{{.Name}}\')"; then',
+        'if ! remaining_vendor_volumes="$(docker volume ls --format \'{{.Name}}\')"; then',
+    ):
+        if required not in joined:
+            fail(f"S1 vendor fail-closed inventory control missing: {required!r}")
     if 'test "$vendor_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"' not in joined:
         fail("S1 vendor volume instantiated options mismatch")
     if '--volume "$vendor_root:/vendor:rw"' in joined or '--volume "$VENDOR_ROOT:/vendor:rw"' in joined:
