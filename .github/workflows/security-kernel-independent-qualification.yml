@@ -50,6 +50,7 @@ env:
   SOURCE_TMPFS_SIZE: "1024m"
   SOURCE_TMPFS_NR_INODES: "300000"
   SOURCE_AUDIT_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
+  CANDIDATE_ROOT: "${{ runner.temp }}/security-kernel-candidate-root"
 
 jobs:
   qualify:
@@ -326,8 +327,12 @@ jobs:
               echo "PASS: hostile Git transport, object validation, archive parsing, and source extraction executed in isolated fetch sandbox"
             '
 
-          candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
+          candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")
           test "${#candidate_tree}" -eq 40
+          candidate_root="$CANDIDATE_ROOT"
+          test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"
+          rm -rf -- "$candidate_root"
+          install -d -m 0700 -- "$candidate_root"
           source_copy_status=0
           set -o pipefail
           if ! timeout --signal=TERM --kill-after=20s 5m docker run --rm --platform=linux/amd64 --pull=never \
@@ -355,19 +360,6 @@ jobs:
           test "$source_copy_files" -le 200000
           test "$source_copy_inodes" -le "$SOURCE_MAX_INODES"
           printf 'source_volume_name=%s\nsource_volume_spec=%s\nsource_copy_bytes=%s\nsource_copy_files=%s\nsource_copy_inodes=%s\n' "$candidate_volume_name" "$candidate_volume_spec" "$source_copy_bytes" "$source_copy_files" "$source_copy_inodes" >> "$GITHUB_OUTPUT"
-          if ! docker volume rm "$candidate_volume_name" >/dev/null 2>&1; then
-            echo "security-kernel candidate source volume cleanup failed" >&2
-            exit 1
-          fi
-          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then
-            echo "security-kernel candidate source volume inventory query failed after cleanup" >&2
-            exit 1
-          fi
-          if printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$candidate_volume_name"; then
-            echo "security-kernel candidate source volume remains after cleanup" >&2
-            exit 1
-          fi
-          trap - EXIT
           stats_file="$RUNNER_TEMP/security-kernel-source-tree-stats.txt"
           test -s "$stats_file"
           source_tree_entry_count="$(sed -n "s/^source_tree_entry_count=//p" "$stats_file")"
@@ -413,7 +405,7 @@ jobs:
 
       - name: Static trust-surface audit
         env:
-          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
         shell: bash
         run: |
           set -euo pipefail
@@ -560,7 +552,7 @@ jobs:
       - name: Snapshot exact candidate source identity
         id: snapshot_source
         env:
-          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
         shell: bash
         run: |
           set -euo pipefail
@@ -594,11 +586,11 @@ jobs:
       - name: Snapshot locked dependency identity
         id: locked_dependency_identity
         env:
-          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
         shell: bash
         run: |
           set -euo pipefail
-          lock_path="$CANDIDATE_VOLUME_NAME/crates/mycelix-bridge-common/Cargo.lock"
+          lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"
           lock_digest="$(sha256sum "$lock_path" | awk '{print $1}')"
           test "${#lock_digest}" -eq 64
           lock_package_count="$(grep -c '^\[\[package\]\]$' "$lock_path")"
@@ -1087,7 +1079,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$CANDIDATE_VOLUME_NAME" "$EXPECTED_SOURCE_DIGEST" <<'PY'
+          candidate_volume_spec_after="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$CANDIDATE_VOLUME_NAME")"
+          test "$candidate_volume_spec_after" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
+          candidate_volume_mountpoint="$(docker volume inspect --format '{{.Mountpoint}}' "$CANDIDATE_VOLUME_NAME")"
+          test -d "$candidate_volume_mountpoint"
+          python3 - "$candidate_volume_mountpoint" "$EXPECTED_SOURCE_DIGEST" <<'PY'
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           expected=sys.argv[2].strip()
@@ -1111,9 +1107,46 @@ jobs:
               digest.update(content)
           after=digest.hexdigest()
           assert expected == after, f"candidate source mutated during qualification: {expected} != {after}"
-          print("PASS: candidate source remained immutable and regular-file-only")
+          print("PASS: actual bounded candidate source volume remained immutable and regular-file-only")
           PY
 
+      - name: Cleanup candidate source substrate
+        if: ${{ !cancelled() && steps.resolve_source.outcome == 'success' }}
+        env:
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$CANDIDATE_ROOT" = "$RUNNER_TEMP/security-kernel-candidate-root"
+          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then
+            echo "security-kernel candidate source volume inventory query failed before cleanup" >&2
+            exit 1
+          fi
+          if ! printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$CANDIDATE_VOLUME_NAME"; then
+            echo "security-kernel candidate source volume unexpectedly missing before cleanup" >&2
+            exit 1
+          fi
+          if ! docker volume rm "$CANDIDATE_VOLUME_NAME" >/dev/null 2>&1; then
+            echo "security-kernel candidate source volume cleanup failed" >&2
+            exit 1
+          fi
+          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then
+            echo "security-kernel candidate source volume inventory query failed after cleanup" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$CANDIDATE_VOLUME_NAME"; then
+            echo "security-kernel candidate source volume remains after cleanup" >&2
+            exit 1
+          fi
+          if [ -e "$CANDIDATE_ROOT" ] || [ -L "$CANDIDATE_ROOT" ]; then
+            rm -rf -- "$CANDIDATE_ROOT"
+          fi
+          if [ -e "$CANDIDATE_ROOT" ] || [ -L "$CANDIDATE_ROOT" ]; then
+            echo "security-kernel candidate host staging root remains after cleanup" >&2
+            exit 1
+          fi
+          echo "PASS: candidate source volume and trusted host staging root were removed fail-closed"
       - name: Verify dependency substrate immutability
         id: dependency_postflight
         env:
