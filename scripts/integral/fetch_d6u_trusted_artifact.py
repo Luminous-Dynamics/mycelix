@@ -19,6 +19,8 @@ if not __debug__:
 ROOT = pathlib.Path(__file__).parents[2]
 POLICY = ROOT / "docs/integral/d6u-trusted-builder-policy.json"
 
+MAX_GITHUB_JSON_BYTES = 8 * 1024 * 1024
+
 API_HEADERS = {
     "Accept": "application/vnd.github+json",
     "X-GitHub-Api-Version": "2026-03-10",
@@ -38,7 +40,12 @@ def github_get(repo: str, api_path: str, token: str) -> dict:
         headers={**API_HEADERS, "Authorization": f"Bearer {token}"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+        payload = response.read(MAX_GITHUB_JSON_BYTES + 1)
+        if len(payload) > MAX_GITHUB_JSON_BYTES:
+            raise RuntimeError(
+                f"GitHub API response exceeded {MAX_GITHUB_JSON_BYTES} bytes"
+            )
+        return json.loads(payload)
 
 
 def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
