@@ -181,6 +181,62 @@ const ORACLE_STATE_ANCHOR: &str = "tend:oracle_state";
 const MAX_VITALITY: u32 = 100;
 const HIBERNATION_YIELD_THRESHOLD: f32 = 1.0; // kWh
 
+fn read_current_oracle_state() -> ExternResult<OracleState> {
+    let links = get_links(
+        LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut hashes = links
+        .into_iter()
+        .map(|link| {
+            link.target.into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Oracle state anchor contains a non-ActionHash target".into()
+                ))
+            })
+        })
+        .collect::<ExternResult<Vec<_>>>()?;
+
+    hashes.sort();
+    hashes.dedup();
+
+    let action_hash = match hashes.len() {
+        0 => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Authoritative TEND OracleState is unavailable".into()
+            )));
+        }
+        1 => hashes.remove(0),
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Conflicting TEND OracleState roots exist".into()
+            )));
+        }
+    };
+
+    let record = follow_update_chain(action_hash)?;
+    record
+        .entry()
+        .to_app_option::<OracleState>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "OracleState deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Authoritative OracleState record is missing".into()
+            ))
+        })
+}
+
+fn is_in_hibernation() -> ExternResult<bool> {
+    let state = read_current_oracle_state()?;
+    Ok(state.total_yield_kwh < HIBERNATION_YIELD_THRESHOLD)
+}
+
 /// Calculate the adaptive demurrage rate based on total yield (Loop 3).
 #[hdk_extern]
 pub fn get_adaptive_demurrage_rate(_: ()) -> ExternResult<f64> {
