@@ -825,6 +825,27 @@ mod tests {
     }
 
     #[test]
+    fn anchored_profile_rejects_malformed_anchor_reference() {
+        let mut input = input_with_exact_artifacts();
+        input.registration_anchor = Some(RegistrationAnchorEvidence {
+            anchor_reference: "  malformed  ".into(),
+            anchor_kind: RegistrationAnchorKind::HolochainAction,
+            registration_envelope_digest: input.registration_envelope_digest.clone(),
+        });
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_ANCHORED_V1, &verifier(), &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InvalidEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::InvalidRegistrationAnchorReference));
+    }
+
+    #[test]
     fn anchored_profile_rejects_replayed_envelope_against_old_anchor() {
         let mut input = input_with_exact_artifacts();
         input.registration_anchor = Some(RegistrationAnchorEvidence {
