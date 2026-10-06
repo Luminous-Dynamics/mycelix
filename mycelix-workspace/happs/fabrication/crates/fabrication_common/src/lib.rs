@@ -19,6 +19,17 @@ use serde::{Deserialize, Serialize};
 // =============================================================================
 
 #[allow(clippy::result_unit_err)]
+/// Compute the canonical SHA-256 commitment for an FPM verifier public key.
+/// The digest covers the exact encoded key bytes supplied to cryptographic verification.
+pub fn fpm_verification_key_digest(public_key_sec1: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(public_key_sec1);
+    hasher.finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 pub mod fpm_context;
 pub mod fpm_registration;
 pub mod fpm_qualification;
@@ -167,6 +178,31 @@ impl Default for FabricationConfig {
             hdc_dimensions: 16_384,
             similarity_threshold: 0.7,
         }
+    }
+}
+
+#[dna_properties]
+#[derive(Clone)]
+pub struct FabricationDnaProperties {
+    /// Immutable network authority allowed to provision FPM verifier-key trust anchors.
+    ///
+    /// A missing value is intentionally fail-closed for trust-rooted attestation
+    /// operations. Networks must explicitly configure an authority in the DNA
+    /// properties before trusted verifier keys can be registered.
+    #[serde(default)]
+    pub fpm_verifier_trust_authority: Option<AgentPubKey>,
+}
+
+impl FabricationDnaProperties {
+    pub fn fpm_verifier_trust_authority() -> ExternResult<AgentPubKey> {
+        Self::try_from_dna_properties()?
+            .fpm_verifier_trust_authority
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "FPM verifier-key trust authority is not configured in DNA properties"
+                        .into(),
+                ))
+            })
     }
 }
 
