@@ -35,12 +35,12 @@ fn exact_one_index_link(
     let Some(link) = links.next() else {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "{index_type} index has no entry for {identifier}"
-        )));
+        ))));
     };
     if links.next().is_some() {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "{index_type} index is ambiguous for {identifier}"
-        )));
+        ))));
     }
     Ok(link)
 }
