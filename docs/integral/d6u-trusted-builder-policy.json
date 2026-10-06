@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "9afba827d9467f9d4913bc5f8e1671e27622c7ce"
+    "blob_sha": "bd1a6d0497f885813ef3e18127a88da59d6ed971"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -250,7 +250,8 @@
     "source_digest_source": "GITHUB_SHA",
     "source_ref_source": "GITHUB_REF",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
-    "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+    "predicate_schema": "d6u-trusted-runtime-evidence-attestation/v2",
+    "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "current_run_identity": {
       "certificate_field": "runInvocationURI",
       "template": "https://github.com/{repository}/actions/runs/{run_id}/attempts/{run_attempt}"
@@ -264,7 +265,7 @@
   },
   "trusted_attestation_verifier": {
     "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-    "blob_sha": "3ea629986424bd8f7860119a70f900c346b78ce4"
+    "blob_sha": "9a1f44c5805573bb0cad6752fcb95cdc272f8a98"
   },
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
