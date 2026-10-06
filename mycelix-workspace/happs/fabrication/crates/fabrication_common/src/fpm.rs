@@ -196,12 +196,17 @@ impl std::fmt::Display for FpmError {
         match self {
             Self::InvalidConfiguration(msg) => write!(f, "invalid FPM configuration: {msg}"),
             Self::EmptyBaseline => write!(f, "baseline requires at least one observation"),
-            Self::NonMonotonicSequence => write!(f, "baseline observation sequence is not strictly increasing"),
+            Self::NonMonotonicSequence => {
+                write!(f, "baseline observation sequence is not strictly increasing")
+            }
             Self::NonFiniteObservation { sequence } => {
                 write!(f, "observation {sequence} contains a non-finite sensor value")
             }
             Self::InsufficientBaseline { feature, samples, minimum } => {
-                write!(f, "feature {feature:?} has {samples} baseline samples; minimum is {minimum}")
+                write!(
+                    f,
+                    "feature {feature:?} has {samples} baseline samples; minimum is {minimum}"
+                )
             }
             Self::MissingBaselineFeature(feature) => {
                 write!(f, "baseline is missing required feature {feature:?}")
@@ -362,7 +367,11 @@ impl BaselineProfile {
 
 fn digest_json<T: Serialize>(value: &T) -> Result<String, FpmError> {
     let bytes = serde_json::to_vec(value)
-        .map_err(|error| FpmError::InvalidConfiguration(format!("failed to serialize FPM input: {error}")))?;
+        .map_err(|error| {
+            FpmError::InvalidConfiguration(format!(
+                "failed to serialize FPM input: {error}"
+            ))
+        })?;
     Ok(hex_digest(&bytes))
 }
 
@@ -590,8 +599,8 @@ mod tests {
 
     #[test]
     fn baseline_is_deterministic() {
-        let first = baseline().expect("valid baseline");
-        let second = baseline().expect("valid baseline");
+        let first = baseline();
+        let second = baseline();
         assert_eq!(first, second);
         assert_eq!(first.digest().expect("digest"), second.digest().expect("digest"));
     }
@@ -625,10 +634,18 @@ mod tests {
         let observations = (0..10)
             .map(|sequence| ProcessObservation {
                 sequence,
-                sensor: sensor(210.0, 60.0, 1.0, 0.05, if sequence == 0 { Some(100.0) } else { None }),
+                sensor: sensor(
+                    210.0,
+                    60.0,
+                    1.0,
+                    0.05,
+                    if sequence == 0 { Some(100.0) } else { None },
+                ),
             })
             .collect::<Vec<_>>();
-        let profile = BaselineProfile::from_observations(&DetectorConfig::default(), &observations).expect("required baseline");
+        let profile =
+            BaselineProfile::from_observations(&DetectorConfig::default(), &observations)
+                .expect("required baseline");
         assert!(profile.feature(ProcessFeature::FilamentTension).is_none());
     }
 
@@ -641,7 +658,9 @@ mod tests {
                 sensor: sensor(210.0 + sequence as f32 * 1e-20, 60.0, 1.0, 0.05, None),
             });
         }
-        let profile = BaselineProfile::from_observations(&DetectorConfig::default(), &observations).expect("baseline");
+        let profile =
+            BaselineProfile::from_observations(&DetectorConfig::default(), &observations)
+                .expect("baseline");
         let result = analyze(
             &DetectorConfig::default(),
             &profile,
@@ -664,13 +683,16 @@ mod tests {
                 sensor: sensor(210.0, 60.0, 1.0, 0.05, Some(100.0)),
             })
             .collect::<Vec<_>>();
-        let baseline = BaselineProfile::from_observations(&DetectorConfig::default(), &observations).expect("baseline");
+        let baseline =
+            BaselineProfile::from_observations(&DetectorConfig::default(), &observations)
+                .expect("baseline");
 
         let observation = ProcessObservation {
             sequence: 100,
             sensor: sensor(210.0, 60.0, 1.0, 0.05, Some(500.0)),
         };
-        let result = analyze(&DetectorConfig::default(), &baseline, &observation).expect("analysis");
+        let result =
+            analyze(&DetectorConfig::default(), &baseline, &observation).expect("analysis");
         assert_eq!(result.status, DetectionStatus::Anomalous);
         assert!(result.anomaly_types.contains(&ProcessAnomalyType::FilamentSlip));
     }
