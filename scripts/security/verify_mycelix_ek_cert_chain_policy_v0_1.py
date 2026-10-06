@@ -612,6 +612,37 @@ def validate_aia(info: dict[str, Any]) -> bool:
     return True
 
 
+def validate_certificate_policies(info: dict[str, Any]) -> bool:
+    critical, value = extension_value(info, "2.5.29.32")
+    if value is None:
+        return True
+    if critical:
+        raise ValueError("CertificatePolicies MUST be non-critical")
+    tag, content, _raw, end = der_tlv(value, 0)
+    if tag != 0x30 or end != len(value):
+        raise ValueError("CertificatePolicies extension must be a SEQUENCE")
+    policies = der_children(content)
+    if not policies:
+        raise ValueError("CertificatePolicies must contain PolicyInformation")
+    for policy_tag, policy_content, _policy_raw in policies:
+        if policy_tag != 0x30:
+            raise ValueError("CertificatePolicies PolicyInformation malformed")
+        children = der_children(policy_content)
+        if not children or children[0][0] != 0x06:
+            raise ValueError("CertificatePolicies PolicyInformation missing policyIdentifier")
+        oid_string(children[0][1])
+        if len(children) > 2:
+            raise ValueError("CertificatePolicies PolicyInformation has unexpected fields")
+        if len(children) == 2:
+            if children[1][0] != 0x30:
+                raise ValueError("CertificatePolicies policyQualifiers malformed")
+            # TCG v2.7's EK certificate table defines the value as PolicyIdentifier;
+            # qualifiers are therefore outside this reference profile.
+            if der_children(children[1][1]):
+                raise ValueError("CertificatePolicies policyQualifiers are outside reference profile")
+    return True
+
+
 def validate_cdp(info: dict[str, Any]) -> bool:
     critical, content = _extension_sequence_content(
         info, "2.5.29.31", "CRLDistributionPoints"
@@ -728,6 +759,7 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     san_critical, san = subject_alt_name(info)
     ski_critical, ski_value = subject_key_id(info)
     validate_aia(info)
+    validate_certificate_policies(info)
     validate_cdp(info)
     validate_subject_directory_attributes(info)
     profile = {
@@ -746,6 +778,11 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         "subject_alt_name_directory_name_count": san["directory_name_count"],
         "subject_alt_name_tcg_attributes": san["attributes"],
         "subject_alt_name_critical": san_critical,
+        "subject_alt_name_criticality_ok": (
+            (info["subject_empty"] and san_critical)
+            or (not info["subject_empty"] and not san_critical)
+        ),
+        "certificate_policies_present": "2.5.29.32" in info["extensions"],
         "subject_name_empty": info["subject_empty"],
         "subject_key_identifier_present": ski_value is not None,
         "subject_key_identifier_critical": ski_critical,
@@ -761,7 +798,10 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         and all(len(san_attrs.get(oid, [])) == 1 for oid in tcg_san_oids)
         and san_attrs["2.23.133.2.1"][0].startswith("id:")
         and san_attrs["2.23.133.2.3"][0].startswith("id:")
-        and (not info["subject_empty"] or san_critical)
+        and (
+            (info["subject_empty"] and san_critical)
+            or (not info["subject_empty"] and not san_critical)
+        )
     )
     ok = (
         profile["version_3"]
@@ -1465,6 +1505,10 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "verification-mode-invalid")
     if manifest["claim_ceiling"] != "ReferenceModelOnly":
         return result("DENY", "claim-ceiling-mismatch")
+    forbidden_inputs = {"profile_override", "caller_supplied_certificate_criticality_overrides"}
+    supplied_forbidden = sorted(forbidden_inputs & set(manifest))
+    if supplied_forbidden:
+        return result("DENY", "forbidden-inputs-present", {"fields": supplied_forbidden})
     if not isinstance(manifest["session_id"], str) or not manifest["session_id"]:
         return result("DENY", "session-id-invalid")
     for field in ("tpm_identity_digest", "ek_public_wire_sha256", "leaf_certificate_sha256", "intermediate_certificate_sha256",
@@ -1880,10 +1924,6 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
                     "transcript_sha256": "ee" * 32
                 }
             }
-        },
-        "profile_override": {
-            "authority_key_identifier_critical": False,
-            "extended_key_usage_critical": False
         },
         "spki_binding": {
             "state": "PASS",
@@ -2409,6 +2449,42 @@ def self_test() -> int:
                 print(f"critical {label} acceptance: FAIL")
                 return 1
 
+        nonempty_subject_critical_san = copy.deepcopy(leaf_info)
+        nonempty_subject_critical_san["extensions"]["2.5.29.17"]["critical"] = True
+        ok_san_critical, _ = leaf_profile_ok(nonempty_subject_critical_san)
+        if ok_san_critical:
+            print("non-empty-subject critical SAN acceptance: FAIL")
+            return 1
+
+        critical_policies = copy.deepcopy(leaf_info)
+        critical_policies["extensions"]["2.5.29.32"] = {
+            "critical": True,
+            "extn_value": der_tlv(
+                0x30,
+                der_tlv(0x30, der_tlv(0x06, bytes.fromhex("2b06010505070301"))),
+            ),
+        }
+        try:
+            leaf_profile_ok(critical_policies)
+        except ValueError:
+            pass
+        else:
+            print("critical CertificatePolicies acceptance: FAIL")
+            return 1
+
+        malformed_policies = copy.deepcopy(leaf_info)
+        malformed_policies["extensions"]["2.5.29.32"] = {
+            "critical": False,
+            "extn_value": der_tlv(0x04, b"malformed"),
+        }
+        try:
+            leaf_profile_ok(malformed_policies)
+        except ValueError:
+            pass
+        else:
+            print("malformed CertificatePolicies acceptance: FAIL")
+            return 1
+
         unknown_aia = copy.deepcopy(leaf_info)
         unknown_aia["extensions"]["1.3.6.1.5.5.7.1.1"]["extn_value"] = der_tlv(
             0x30,
@@ -2440,6 +2516,9 @@ def self_test() -> int:
 
         cases = [
             ("canonical-valid", "PASS", lambda x: None),
+            ("forbidden-profile-override-on-valid-input", "DENY", lambda x: x.update({
+                "profile_override": {"authority_key_identifier_critical": False}
+            })),
             ("root-substitution", "DENY", lambda x: (
                 x.update({
                     "trust_anchor_root_der_base64": x["intermediate_certificate_der_base64"],
@@ -2519,7 +2598,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("44 adversarial mutations plus canonical/key-order control and 5 structural parser controls: PASS")
+    print("47 contract vectors plus canonical/key-order control and 19 structural parser controls: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
