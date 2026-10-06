@@ -2290,6 +2290,21 @@ def test_trusted_zip_rejects_zip64_eocd() -> None:
         )
 
 
+def test_trusted_zip_rejects_zip64_central_directory_sentinel() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = Path(tmp) / "artifact.zip"
+        write_valid_artifact_zip(archive)
+        raw = bytearray(archive.read_bytes())
+        eocd = raw.rfind(b"PK\\x05\\x06")
+        assert eocd >= 0
+        struct.pack_into("<I", raw, eocd + 12, 0xFFFFFFFF)
+        archive.write_bytes(raw)
+        assert_rejected(
+            lambda: verify_zip_members(archive, artifact_policy()),
+            "ZIP64 central-directory sentinel was accepted",
+        )
+
+
 def test_bounded_artifact_download_rejects_stream_overflow() -> None:
     import fetch_d6u_trusted_artifact as fetcher
 
@@ -2439,6 +2454,7 @@ if __name__ == "__main__":
         test_trusted_zip_entry_count_is_preflighted_before_zip_parsing,
         test_trusted_zip_rejects_non_zlib_compression,
         test_trusted_zip_rejects_zip64_eocd,
+        test_trusted_zip_rejects_zip64_central_directory_sentinel,
     ]
     for test in tests:
         test()
