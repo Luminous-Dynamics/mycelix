@@ -488,8 +488,7 @@ fn validate_fpm_verification_key_trust_anchor(
         || anchor.key_id.len() > 128
         || !valid_attestation_identifier(&anchor.attestation_format, 128)
         || !canonical_attestation_digest(&anchor.verifier_profile_digest)
-        || anchor.public_key_sec1.len() != 65
-        || anchor.public_key_sec1.first() != Some(&0x04)
+        || !is_valid_fpm_p256_public_key(&anchor.public_key_sec1)
         || !canonical_attestation_digest(&anchor.verification_key_digest)
         || fpm_verification_key_digest(&anchor.public_key_sec1) != anchor.verification_key_digest
     {
