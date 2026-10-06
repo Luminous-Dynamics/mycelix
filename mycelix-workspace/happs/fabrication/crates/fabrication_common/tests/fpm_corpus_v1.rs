@@ -1,7 +1,16 @@
-use fabrication_common::fpm::{analyze, BaselineProfile, DetectorConfig, DetectionStatus, FpmError, ProcessAnomalyType, ProcessObservation};
+use fabrication_common::fpm::{
+    analyze, BaselineProfile, DetectorConfig, DetectionStatus, FpmError, ProcessAnomalyType,
+    ProcessObservation,
+};
 use fabrication_common::SensorSnapshot;
 
-fn sensor(hotend: f32, bed: f32, extruder: f32, vibration: f32, filament: Option<f32>) -> SensorSnapshot {
+fn sensor(
+    hotend: f32,
+    bed: f32,
+    extruder: f32,
+    vibration: f32,
+    filament: Option<f32>,
+) -> SensorSnapshot {
     SensorSnapshot {
         hotend_temp: hotend,
         bed_temp: bed,
@@ -19,7 +28,18 @@ fn obs(sequence: u64, sensor: SensorSnapshot) -> ProcessObservation {
 
 fn baseline() -> BaselineProfile {
     let observations = (0..10)
-        .map(|sequence| obs(sequence, sensor(210.0 + (sequence % 2) as f32 * 0.2, 60.0, 1.0, 0.05, Some(100.0))))
+        .map(|sequence| {
+            obs(
+                sequence,
+                sensor(
+                    210.0 + (sequence % 2) as f32 * 0.2,
+                    60.0,
+                    1.0,
+                    0.05,
+                    Some(100.0),
+                ),
+            )
+        })
         .collect::<Vec<_>>();
     BaselineProfile::from_observations(&DetectorConfig::default(), &observations)
         .expect("frozen FPM corpus baseline must build")
@@ -43,15 +63,27 @@ fn fpm_corpus_v1_expected_results() {
         .expect("bed case should analyze");
     assert!(bed.anomaly_types.contains(&ProcessProcessAnomalyType::TemperatureDeviation));
 
-    let extruder = analyze(&config, &baseline, &obs(103, sensor(210.0, 60.0, 2.0, 0.05, Some(100.0))))
+    let extruder = analyze(
+        &config,
+        &baseline,
+        &obs(103, sensor(210.0, 60.0, 2.0, 0.05, Some(100.0))),
+    )
         .expect("extruder case should analyze");
     assert!(extruder.anomaly_types.contains(&ProcessProcessAnomalyType::ExtrusionInconsistency));
 
-    let vibration = analyze(&config, &baseline, &obs(104, sensor(210.0, 60.0, 1.0, 0.5, Some(100.0))))
+    let vibration = analyze(
+        &config,
+        &baseline,
+        &obs(104, sensor(210.0, 60.0, 1.0, 0.5, Some(100.0))),
+    )
         .expect("vibration case should analyze");
     assert!(vibration.anomaly_types.contains(&ProcessProcessAnomalyType::VibrationAnomaly));
 
-    let filament = analyze(&config, &baseline, &obs(105, sensor(210.0, 60.0, 1.0, 0.05, Some(500.0))))
+    let filament = analyze(
+        &config,
+        &baseline,
+        &obs(105, sensor(210.0, 60.0, 1.0, 0.05, Some(500.0))),
+    )
         .expect("filament case should analyze");
     assert!(filament.anomaly_types.contains(&ProcessProcessAnomalyType::FilamentSlip));
 
