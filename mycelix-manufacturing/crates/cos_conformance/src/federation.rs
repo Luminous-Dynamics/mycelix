@@ -974,6 +974,9 @@ pub fn validate_state_machine_trace_external_evidence_verification_statement_cha
         witness_profile: anchor_reference.witness_profile.clone(),
         verifier_schema_version: statement.verifier_schema_version,
         verifier_profile: statement.verifier_profile.clone(),
+        verifier_identity_kind: statement.verifier_identity_kind,
+        verifier_identity_profile: statement.verifier_identity_profile.clone(),
+        verifier_identity_sha256: statement.verifier_identity_sha256.clone(),
         claim: statement.verification_claim,
         verifier_report_sha256: statement.verifier_report_sha256.clone(),
         claimed_verified_at_unix_seconds: statement.claimed_verified_at_unix_seconds,
@@ -3170,10 +3173,13 @@ mod tests {
         let verifier_report = b"external-verifier-report-v1";
         let statement =
             state_machine_trace_external_evidence_verification_statement(
-                &anchor_reference.anchor_reference_sha256,
-                1,
-                "archive-verifier-v1",
-                FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
+            &anchor_reference.anchor_reference_sha256,
+            1,
+            "archive-verifier-v1",
+            FederationExternalVerifierIdentityKind::ArchiveProviderId,
+            "test-archiveproviderid-identity-v1",
+            b"test-archive-verifier-v1-identity",
+            FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
                 verifier_report,
                 1_791_000_601,
             )
@@ -3275,6 +3281,9 @@ mod tests {
             &anchor_reference.anchor_reference_sha256,
             1,
             "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"test-rfc3161-verifier-v1-identity",
             FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
             verifier_report,
             1_791_001_001,
@@ -3456,6 +3465,9 @@ mod tests {
             &anchor_reference.anchor_reference_sha256,
             2,
             "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"test-rfc3161-verifier-v1-identity",
             FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
             verifier_report,
             1_791_001_101,
@@ -3563,10 +3575,13 @@ mod tests {
         let verifier_report = b"opaque-external-verifier-report-v1";
         let statement =
             state_machine_trace_external_evidence_verification_statement(
-                anchor_reference_sha256,
-                1,
-                "rfc3161-verifier-v1",
-                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            anchor_reference_sha256,
+            1,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"test-rfc3161-verifier-v1-identity",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
                 verifier_report,
                 1_791_000_500,
             )
@@ -3599,10 +3614,13 @@ mod tests {
         let verifier_report = b"opaque-external-verifier-report-v1";
         let mut statement =
             state_machine_trace_external_evidence_verification_statement(
-                anchor_reference_sha256,
-                1,
-                "ct-verifier-v2",
-                FederationStateMachineTraceExternalVerificationClaim::TransparencyConsistencyVerified,
+            anchor_reference_sha256,
+            1,
+            "ct-verifier-v2",
+            FederationExternalVerifierIdentityKind::TransparencyLogId,
+            "test-transparencylogid-identity-v1",
+            b"test-ct-verifier-v2-identity",
+            FederationStateMachineTraceExternalVerificationClaim::TransparencyConsistencyVerified,
                 verifier_report,
                 1_791_000_501,
             )
@@ -3695,10 +3713,13 @@ mod tests {
         let verifier_report = b"this-report-may-claim-anything";
         let mut statement =
             state_machine_trace_external_evidence_verification_statement(
-                anchor_reference_sha256,
-                1,
-                "untrusted-verifier-profile-v1",
-                FederationStateMachineTraceExternalVerificationClaim::CryptographicSignatureVerified,
+            anchor_reference_sha256,
+            1,
+            "untrusted-verifier-profile-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"test-untrusted-verifier-profile-v1-identity",
+            FederationStateMachineTraceExternalVerificationClaim::CryptographicSignatureVerified,
                 verifier_report,
                 1_791_000_502,
             )
@@ -3726,10 +3747,13 @@ mod tests {
         let verifier_report = b"opaque-report";
         assert_eq!(
             state_machine_trace_external_evidence_verification_statement(
-                "not-a-digest",
-                1,
-                "verifier-v1",
-                FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
+            "not-a-digest",
+            1,
+            "verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"test-verifier-v1-identity",
+            FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
                 verifier_report,
                 1,
             ),
@@ -3739,10 +3763,13 @@ mod tests {
         );
         assert_eq!(
             state_machine_trace_external_evidence_verification_statement(
-                anchor_reference_sha256,
-                0,
-                "verifier-v1",
-                FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
+            anchor_reference_sha256,
+            0,
+            "verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"test-verifier-v1-identity",
+            FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
                 verifier_report,
                 1,
             ),
@@ -3753,10 +3780,13 @@ mod tests {
 
         let statement =
             state_machine_trace_external_evidence_verification_statement(
-                anchor_reference_sha256,
-                1,
-                "verifier-v1",
-                FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
+            anchor_reference_sha256,
+            1,
+            "verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"test-verifier-v1-identity",
+            FederationStateMachineTraceExternalVerificationClaim::ArchiveEvidenceVerified,
                 verifier_report,
                 1,
             )
