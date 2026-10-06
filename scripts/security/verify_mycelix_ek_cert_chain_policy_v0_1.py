@@ -3363,6 +3363,7 @@ def self_test() -> int:
             ("crl-cdp-scope-substitution", "DENY", lambda x: x["crl_applicability"].update({"selected_crl_scope": "limited-reason-scope"})),
             ("crl-cdp-uri-digest-substitution", "DENY", lambda x: x["crl_applicability"]["distribution_point"].update({"uri_sha256": "9b" * 32})),
             ("crl-cdp-reason-scope-claim-substitution", "DENY", lambda x: x["crl_applicability"]["distribution_point"].update({"reasons_present": True})),
+            ("crl-cdp-crl-issuer-claim-substitution", "DENY", lambda x: x["crl_applicability"]["distribution_point"].update({"crl_issuer_present": True})),
         ]
         for name, expected, mutate in cases:
             candidate = copy.deepcopy(base)
