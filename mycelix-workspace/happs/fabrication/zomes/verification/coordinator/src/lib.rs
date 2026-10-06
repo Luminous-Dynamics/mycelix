@@ -212,6 +212,251 @@ fn fpm_attestation_error(reason: impl Into<String>) -> WasmError {
     }
     .to_wasm_error()
 }
+fn resolve_fpm_eat_cose_verification_anchor(
+    action_hash: ActionHash,
+) -> ExternResult<ResolvedFpmEatCoseVerificationAnchor> {
+    let details = get_details(action_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| FabricationError::not_found(
+            "FpmEatCoseVerificationAnchor",
+            &action_hash,
+        ))?;
+    let Details::Record(record_details) = details else {
+        return Err(fpm_attestation_error(
+            "EAT/COSE verification ActionHash did not resolve to record details",
+        ));
+    };
+    if record_details.validation_status != ValidationStatus::Valid
+        || !record_details.updates.is_empty()
+        || !record_details.deletes.is_empty()
+    {
+        return Err(fpm_attestation_error(
+            "EAT/COSE verification record is not currently valid and immutable",
+        ));
+    }
+
+    let record = record_details.record;
+    if record.action().action_type() != ActionType::Create {
+        return Err(fpm_attestation_error(
+            "EAT/COSE verification ActionHash must resolve to its original Create action",
+        ));
+    }
+
+    let expected_entry_type = EntryType::App(
+        UnitEntryTypes::FpmEatCoseVerificationAnchor
+            .try_into()
+            .map_err(|_| fpm_attestation_error(
+                "could not construct EAT/COSE verification entry type",
+            ))?,
+    );
+    if record.action().entry_type() != Some(&expected_entry_type) {
+        return Err(fpm_attestation_error(
+            "ActionHash does not reference the FPM EAT/COSE verification entry type",
+        ));
+    }
+
+    let anchor: FpmEatCoseVerificationAnchor = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| fpm_attestation_error(format!(
+            "could not decode EAT/COSE verification anchor: {e}"
+        )))?
+        .ok_or_else(|| fpm_attestation_error(
+            "record is not an FPM EAT/COSE verification anchor",
+        ))?;
+
+    if anchor.schema_version != FPM_EAT_COSE_VERIFICATION_ANCHOR_SCHEMA_VERSION
+        || !valid_fpm_digest(&anchor.evidence_digest)
+        || !valid_fpm_digest(&anchor.payload_digest)
+        || !valid_fpm_digest(&anchor.nonce_digest)
+        || !valid_fpm_digest(&anchor.verification_key_digest)
+        || anchor.key_id.is_empty()
+        || anchor.key_id.len() > 128
+    {
+        return Err(fpm_attestation_error(
+            "EAT/COSE verification anchor contains malformed commitments",
+        ));
+    }
+
+    let verification =
+        resolve_fpm_eat_cose_verification_anchor(anchor.eat_cose_verification_action.clone())?;
+
+    if verification.challenge_action != anchor.challenge_action
+        || verification.evidence_digest != anchor.claim.evidence_digest
+        || verification.subject_id != anchor.claim.subject_id
+        || verification.audience != anchor.claim.audience
+        || verification.key_id != anchor.claim.verification_key_id
+        || verification.verification_key_digest != anchor.claim.verification_key_digest
+        || verification.nonce_digest != anchor.claim.challenge_nonce_digest
+    {
+        return Err(fpm_attestation_error(
+            "source attestation is not exactly bound to its EAT/COSE verification",
+        ));
+    }
+
+    let challenge = resolve_fpm_attestation_challenge_impl(
+        ResolveFpmAttestationChallengeInput {
+            action_hash: anchor.challenge_action.clone(),
+        },
+    )?;
+
+    if challenge.attestation_format != FPM_EAT_MEDIA_TYPE
+        || challenge.subject_id != anchor.subject_id
+        || challenge.audience != anchor.audience
+        || challenge.verification_key_id != anchor.key_id
+        || challenge.verification_key_digest != anchor.verification_key_digest
+        || challenge.nonce_digest != anchor.nonce_digest
+    {
+        return Err(fpm_attestation_error(
+            "EAT/COSE verification anchor does not match its challenge",
+        ));
+    }
+
+    let entry_hash = record
+        .action()
+        .entry_hash()
+        .ok_or_else(|| fpm_attestation_error(
+            "EAT/COSE verification action has no entry hash",
+        ))?
+        .clone();
+
+    Ok(ResolvedFpmEatCoseVerificationAnchor {
+        action_hash,
+        entry_hash,
+        challenge_action: anchor.challenge_action,
+        evidence_digest: anchor.evidence_digest,
+        payload_digest: anchor.payload_digest,
+        subject_id: anchor.subject_id,
+        audience: anchor.audience,
+        nonce_digest: anchor.nonce_digest,
+        eat_profile_uri: anchor.eat_profile_uri,
+        key_id: anchor.key_id,
+        verification_key_digest: anchor.verification_key_digest,
+        author: *record.action().author(),
+        signer: *record.action().signer(),
+        timestamp: record.action().timestamp(),
+        action_seq: record.action().action_seq(),
+        prev_action: record.action().prev_action().cloned(),
+    })
+}
+
+fn verify_fpm_eat_cose_against_challenge_impl(
+    input: VerifyFpmEatCoseAgainstChallengeInput,
+) -> ExternResult<FpmChallengeEatCoseVerification> {
+    let challenge = resolve_fpm_attestation_challenge_impl(
+        ResolveFpmAttestationChallengeInput {
+            action_hash: input.challenge_action.clone(),
+        },
+    )?;
+
+    if challenge.attestation_format != FPM_EAT_MEDIA_TYPE {
+        return Err(fpm_attestation_error(
+            "challenge is not configured for application/eat+cwt",
+        ));
+    }
+
+    let root = resolve_acquisition_root_action_anchor(
+        ResolveFpmAcquisitionRootActionAnchorInput {
+            action_hash: challenge.acquisition_root_action.clone(),
+            expected_root_digest: Some(challenge.acquisition_root_digest.clone()),
+        },
+    )?;
+    if root.source_system_id != challenge.subject_id {
+        return Err(fpm_attestation_error(
+            "challenge subject no longer matches authenticated acquisition root",
+        ));
+    }
+
+    let verification = verify_fpm_eat_cose_sign1(&FpmEatCoseVerificationInput {
+        expected_subject_id: challenge.subject_id.clone(),
+        expected_audience: challenge.audience.clone(),
+        expected_nonce: challenge.nonce.clone(),
+        expected_verification_key_id: challenge.verification_key_id.clone(),
+        expected_verification_key_digest: challenge.verification_key_digest.clone(),
+        trusted_public_key_sec1: input.trusted_public_key_sec1,
+        expected_evidence_digest: input.expected_evidence_digest,
+        token_bytes: input.token_bytes,
+    });
+
+    Ok(FpmChallengeEatCoseVerification {
+        challenge_action: input.challenge_action,
+        acquisition_root_action: challenge.acquisition_root_action,
+        verification,
+    })
+}
+
+fn create_fpm_eat_cose_verification_anchor_impl(
+    input: CreateFpmEatCoseVerificationAnchorInput,
+) -> ExternResult<Record> {
+    let challenge = resolve_fpm_attestation_challenge_impl(
+        ResolveFpmAttestationChallengeInput {
+            action_hash: input.challenge_action.clone(),
+        },
+    )?;
+
+    let current_agent = agent_info()?.agent_initial_pubkey;
+    if current_agent != challenge.verifier_agent {
+        return Err(fpm_attestation_error(
+            "only the challenge verifier may create the EAT/COSE verification anchor",
+        ));
+    }
+
+    let result = verify_fpm_eat_cose_against_challenge_impl(
+        VerifyFpmEatCoseAgainstChallengeInput {
+            challenge_action: input.challenge_action.clone(),
+            trusted_public_key_sec1: input.trusted_public_key_sec1,
+            token_bytes: input.token_bytes,
+            expected_evidence_digest: input.expected_evidence_digest,
+        },
+    )?;
+
+    if result.verification.status != FpmEatCoseVerificationStatus::QualifiedForProfile {
+        return Err(fpm_attestation_error(format!(
+            "EAT/COSE verification did not qualify: {:?}",
+            result.verification.reasons,
+        )));
+    }
+
+    let payload_digest = result.verification.payload_digest.clone().ok_or_else(|| {
+        fpm_attestation_error("qualified EAT/COSE verification has no payload digest")
+    })?;
+    let subject_id = result.verification.subject_id.clone().ok_or_else(|| {
+        fpm_attestation_error("qualified EAT/COSE verification has no subject")
+    })?;
+    let audience = result.verification.audience.clone().ok_or_else(|| {
+        fpm_attestation_error("qualified EAT/COSE verification has no audience")
+    })?;
+    let nonce = result.verification.nonce.clone().ok_or_else(|| {
+        fpm_attestation_error("qualified EAT/COSE verification has no nonce")
+    })?;
+    let eat_profile_uri = result.verification.eat_profile_uri.clone().ok_or_else(|| {
+        fpm_attestation_error("qualified EAT/COSE verification has no profile")
+    })?;
+    let key_id = result.verification.key_id.clone().ok_or_else(|| {
+        fpm_attestation_error("qualified EAT/COSE verification has no key id")
+    })?;
+
+    let anchor = FpmEatCoseVerificationAnchor {
+        schema_version: FPM_EAT_COSE_VERIFICATION_ANCHOR_SCHEMA_VERSION.into(),
+        challenge_action: input.challenge_action,
+        evidence_digest: result.verification.evidence_digest,
+        payload_digest,
+        subject_id,
+        audience,
+        nonce_digest: fpm_attestation_nonce_digest(&nonce),
+        eat_profile_uri,
+        key_id,
+        verification_key_digest: result.verification.verification_key_digest,
+    };
+
+    let action_hash = create_entry(EntryTypes::FpmEatCoseVerificationAnchor(anchor))?;
+    get(action_hash, GetOptions::default())?.ok_or_else(|| {
+        FabricationError::not_found(
+            "FpmEatCoseVerificationAnchor",
+            &"newly-created action",
+        )
+    })
+}
+
 
 
 fn resolve_fpm_attestation_challenge_impl(
@@ -614,13 +859,23 @@ fn create_fpm_source_attestation_anchor_impl(
         ));
     }
 
-    if input.evidence_digest.len() != 64
-        || !valid_fpm_digest(&input.evidence_digest)
-        || !valid_attestation_identifier(&input.verifier_id, 128)
+    let verification =
+        resolve_fpm_eat_cose_verification_anchor(input.eat_cose_verification_action.clone())?;
+    if verification.challenge_action != input.challenge_action {
+        return Err(fpm_attestation_error(
+            "cryptographic verification anchor references a different challenge",
+        ));
+    }
+    if verification.author != challenge.verifier_agent {
+        return Err(fpm_attestation_error(
+            "cryptographic verification anchor was not created by the challenge verifier",
+        ));
+    }
+    if !valid_attestation_identifier(&input.verifier_id, 128)
         || !valid_attestation_identifier(&input.verifier_version, 128)
     {
         return Err(fpm_attestation_error(
-            "source attestation evidence/verifier declaration is malformed",
+            "source attestation verifier declaration is malformed",
         ));
     }
 
@@ -655,6 +910,7 @@ fn create_fpm_source_attestation_anchor_impl(
     let anchor = FpmSourceAttestationAnchor {
         schema_version: FPM_SOURCE_ATTESTATION_ANCHOR_SCHEMA_VERSION.into(),
         challenge_action: input.challenge_action,
+        eat_cose_verification_action: input.eat_cose_verification_action,
         claim_digest: claim.digest(),
         claim,
     };
@@ -753,6 +1009,30 @@ fn qualify_fpm_source_attestation_impl(
         attestation_action: input.attestation_action,
         consumed: true,
     })
+}
+
+#[hdk_extern]
+pub fn verify_fpm_eat_cose_against_challenge(
+    input: VerifyFpmEatCoseAgainstChallengeInput,
+) -> ExternResult<FpmChallengeEatCoseVerification> {
+    rate_limit_caller()?;
+    verify_fpm_eat_cose_against_challenge_impl(input)
+}
+
+#[hdk_extern]
+pub fn create_fpm_eat_cose_verification_anchor(
+    input: CreateFpmEatCoseVerificationAnchorInput,
+) -> ExternResult<Record> {
+    rate_limit_caller()?;
+    create_fpm_eat_cose_verification_anchor_impl(input)
+}
+
+#[hdk_extern]
+pub fn resolve_fpm_eat_cose_verification_anchor(
+    action_hash: ActionHash,
+) -> ExternResult<ResolvedFpmEatCoseVerificationAnchor> {
+    rate_limit_caller()?;
+    resolve_fpm_eat_cose_verification_anchor(action_hash)
 }
 
 #[hdk_extern]
@@ -1997,7 +2277,6 @@ fn epistemic_aggregate_status(
 #[hdk_extern]
 pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicScore> {
     let claims = get_design_claims_all(design_hash)?;
-
     let mut e_sum = 0.0f32;
     let mut n_sum = 0.0f32;
     let mut m_sum = 0.0f32;
