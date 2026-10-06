@@ -1500,6 +1500,264 @@ pub fn run_scenario(
     }
 
     results
+    #[test]
+    fn external_evidence_anchor_reference_binds_exact_subject_and_witness_artifact() {
+        let left =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(
+                &state_machine_trace_capsule(71, 8),
+            )
+            .expect("left capsule must deserialize");
+        let right =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(
+                &state_machine_trace_capsule(71, 12),
+            )
+            .expect("right capsule must deserialize");
+        let left_publication = state_machine_trace_checkpoint_publication(
+            &left,
+            8,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let right_publication = state_machine_trace_checkpoint_publication(
+            &right,
+            12,
+            &left_publication.publication_sha256,
+        );
+        let receipt =
+            state_machine_trace_publication_collection_reconciliation(
+                &[(&left, &left_publication)],
+                &[(&left, &left_publication), (&right, &right_publication)],
+            )
+            .expect("reconciliation receipt must build");
+        let witness_artifact =
+            serde_json::to_vec(&receipt).expect("reconciliation receipt must serialize");
+        let reference = state_machine_trace_external_evidence_anchor_reference(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            &receipt.reconciliation_sha256,
+            FederationStateMachineTraceExternalWitnessKind::ArchiveEvidenceRecord,
+            "external-archive-evidence-record-v1",
+            &witness_artifact,
+            1_791_000_000,
+        )
+        .expect("external anchor reference must build");
+
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+                &receipt.reconciliation_sha256,
+                &witness_artifact,
+                &reference,
+            ),
+            Ok(())
+        );
+
+        let round_trip = serde_json::to_string(&reference)
+            .expect("external anchor reference must serialize");
+        assert_eq!(
+            serde_json::from_str::<
+                FederationStateMachineTraceExternalEvidenceAnchorReference,
+            >(&round_trip)
+            .expect("external anchor reference must deserialize"),
+            reference
+        );
+    }
+
+    #[test]
+    fn external_evidence_anchor_reference_detects_subject_witness_and_self_digest_tampering() {
+        let subject_profile =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE;
+        let subject_digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let witness_artifact = b"external-witness-artifact-v1";
+        let mut reference =
+            state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                subject_profile,
+                subject_digest,
+                FederationStateMachineTraceExternalWitnessKind::TransparencyLogHead,
+                "ct-log-sth-v2",
+                witness_artifact,
+                1_791_000_123,
+            )
+            .expect("external anchor reference must build");
+
+        reference.subject_sha256 =
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into();
+        reference.anchor_reference_sha256 =
+            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                subject_profile,
+                subject_digest,
+                witness_artifact,
+                &reference,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectDigestMismatch
+            )
+        );
+
+        reference.subject_sha256 = subject_digest.into();
+        reference.anchor_reference_sha256 =
+            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+        let changed_witness = b"external-witness-artifact-v2";
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                subject_profile,
+                subject_digest,
+                changed_witness,
+                &reference,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessDigestMismatch
+            )
+        );
+
+        reference.witness_sha256 = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into();
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                subject_profile,
+                subject_digest,
+                witness_artifact,
+                &reference,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessDigestMismatch
+            )
+        );
+
+        reference.witness_sha256 =
+            state_machine_trace_external_witness_artifact_sha256(witness_artifact);
+        reference.anchor_reference_sha256 =
+            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+        reference.claimed_observed_at_unix_seconds += 1;
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                subject_profile,
+                subject_digest,
+                witness_artifact,
+                &reference,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::AnchorReferenceDigestMismatch
+            )
+        );
+
+        reference.anchor_reference_sha256 =
+            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                subject_profile,
+                subject_digest,
+                witness_artifact,
+                &reference,
+            ),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn external_evidence_anchor_reference_rejects_empty_inputs_and_unknown_fields() {
+        assert_eq!(
+            state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                "",
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                FederationStateMachineTraceExternalWitnessKind::Other,
+                "external-v1",
+                b"witness",
+                0,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptySubjectProfile
+            )
+        );
+        assert_eq!(
+            state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                FederationStateMachineTraceExternalWitnessKind::Other,
+                "",
+                b"witness",
+                0,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptyWitnessProfile
+            )
+        );
+        assert_eq!(
+            state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                FederationStateMachineTraceExternalWitnessKind::Other,
+                "external-v1",
+                b"",
+                0,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptyWitnessArtifact
+            )
+        );
+
+        let reference =
+            state_machine_trace_external_evidence_anchor_reference(
+                1,
+                "subject-profile-v1",
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+                "tsa-token-v1",
+                b"token",
+                1_791_000_001,
+            )
+            .expect("reference must build");
+        let mut unknown = serde_json::to_value(&reference)
+            .expect("external anchor reference must serialize");
+        unknown
+            .as_object_mut()
+            .expect("external anchor reference must be an object")
+            .insert("unexpected_anchor_field".into(), serde_json::Value::Bool(true));
+        assert!(
+            serde_json::from_value::<
+                FederationStateMachineTraceExternalEvidenceAnchorReference,
+            >(unknown)
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn external_evidence_anchor_reference_is_not_an_authority_or_timestamp_proof() {
+        let witness_artifact = b"opaque-external-proof";
+        let reference =
+            state_machine_trace_external_evidence_anchor_reference(
+                1,
+                "subject-profile-v1",
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+                "tsa-token-v1",
+                witness_artifact,
+                u64::MAX,
+            )
+            .expect("reference must build");
+
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_anchor_reference(
+                1,
+                "subject-profile-v1",
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                witness_artifact,
+                &reference,
+            ),
+            Ok(())
+        );
+    }
+
 }
 
 #[cfg(test)]
@@ -3384,6 +3642,16 @@ mod tests {
     const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_HASH_ENCODING: &str =
         "serde-json-struct-order-v1";
 
+    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION: u16 = 1;
+    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE: &str =
+        "integral-federation-trace-external-evidence-anchor-reference-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_DOMAIN: &str =
+        "integral-federation-trace-external-evidence-anchor-reference-sha256-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM: &str =
+        "sha-256";
+    const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING: &str =
+        "serde-json-struct-order-v1";
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     enum FederationStateMachineTracePublicationCollectionRelationship {
         ExactMatch,
@@ -3401,6 +3669,52 @@ mod tests {
         DivergentAfterCommonPrefix,
         Disjoint,
         NotComparable,
+    }
+
+    /// Descriptive kind of an externally supplied witness artifact.
+    ///
+    /// The reference model does not interpret or authenticate these artifact
+    /// formats; it only binds the supplied bytes and metadata into an explicit
+    /// evidence-of-evidence reference.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTraceExternalWitnessKind {
+        TimestampToken,
+        TransparencyLogHead,
+        ArchiveEvidenceRecord,
+        Other,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct FederationStateMachineTraceExternalEvidenceAnchorReference {
+        schema_version: u16,
+        reference_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
+        subject_schema_version: u16,
+        subject_profile: String,
+        subject_sha256: String,
+        witness_kind: FederationStateMachineTraceExternalWitnessKind,
+        witness_profile: String,
+        witness_sha256: String,
+        claimed_observed_at_unix_seconds: u64,
+        anchor_reference_sha256: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+    struct FederationStateMachineTraceExternalEvidenceAnchorReferenceHashView {
+        hash_domain: String,
+        schema_version: u16,
+        reference_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
+        subject_schema_version: u16,
+        subject_profile: String,
+        subject_sha256: String,
+        witness_kind: FederationStateMachineTraceExternalWitnessKind,
+        witness_profile: String,
+        witness_sha256: String,
+        claimed_observed_at_unix_seconds: u64,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -4248,6 +4562,37 @@ mod tests {
         )
     }
 
+    fn state_machine_trace_external_witness_artifact_sha256(bytes: &[u8]) -> String {
+        let digest = Sha256::digest(bytes);
+        format!("sha256:{digest:x}")
+    }
+
+    fn state_machine_trace_external_evidence_anchor_reference_sha256(
+        reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
+    ) -> String {
+        let view = FederationStateMachineTraceExternalEvidenceAnchorReferenceHashView {
+            hash_domain:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_DOMAIN.into(),
+            schema_version: reference.schema_version,
+            reference_profile: reference.reference_profile.clone(),
+            hash_algorithm: reference.hash_algorithm.clone(),
+            hash_encoding: reference.hash_encoding.clone(),
+            subject_schema_version: reference.subject_schema_version,
+            subject_profile: reference.subject_profile.clone(),
+            subject_sha256: reference.subject_sha256.clone(),
+            witness_kind: reference.witness_kind,
+            witness_profile: reference.witness_profile.clone(),
+            witness_sha256: reference.witness_sha256.clone(),
+            claimed_observed_at_unix_seconds: reference.claimed_observed_at_unix_seconds,
+        };
+        let bytes = serde_json::to_vec(&view)
+            .expect("external evidence anchor reference hash view must be serializable");
+        state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_DOMAIN,
+            &bytes,
+        )
+    }
+
     fn state_machine_trace_publication_equivocation_witness_set_sha256(
         witness_set: &FederationStateMachineTracePublicationEquivocationWitnessSet,
     ) -> String {
@@ -4754,6 +5099,189 @@ mod tests {
         receipt.reconciliation_sha256 =
             state_machine_trace_publication_collection_reconciliation_sha256(&receipt);
         Ok(receipt)
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation {
+        EmptySubjectProfile,
+        EmptySubjectDigest,
+        EmptyWitnessProfile,
+        EmptyWitnessArtifact,
+    }
+
+    fn state_machine_trace_external_evidence_anchor_reference(
+        subject_schema_version: u16,
+        subject_profile: &str,
+        subject_sha256: &str,
+        witness_kind: FederationStateMachineTraceExternalWitnessKind,
+        witness_profile: &str,
+        witness_artifact: &[u8],
+        claimed_observed_at_unix_seconds: u64,
+    ) -> Result<
+        FederationStateMachineTraceExternalEvidenceAnchorReference,
+        FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation,
+    > {
+        if subject_profile.is_empty() {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptySubjectProfile
+            );
+        }
+        if subject_sha256.is_empty() {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptySubjectDigest
+            );
+        }
+        if witness_profile.is_empty() {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptyWitnessProfile
+            );
+        }
+        if witness_artifact.is_empty() {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptyWitnessArtifact
+            );
+        }
+
+        let mut reference = FederationStateMachineTraceExternalEvidenceAnchorReference {
+            schema_version:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION,
+            reference_profile:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE.into(),
+            hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM.into(),
+            hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING.into(),
+            subject_schema_version,
+            subject_profile: subject_profile.into(),
+            subject_sha256: subject_sha256.into(),
+            witness_kind,
+            witness_profile: witness_profile.into(),
+            witness_sha256: state_machine_trace_external_witness_artifact_sha256(witness_artifact),
+            claimed_observed_at_unix_seconds,
+            anchor_reference_sha256: String::new(),
+        };
+        reference.anchor_reference_sha256 =
+            state_machine_trace_external_evidence_anchor_reference_sha256(&reference);
+        Ok(reference)
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation {
+        UnsupportedSchemaVersion,
+        UnsupportedReferenceProfile,
+        UnsupportedHashAlgorithm,
+        UnsupportedHashEncoding,
+        EmptySubjectProfile,
+        EmptySubjectDigest,
+        EmptyWitnessProfile,
+        EmptyWitnessDigest,
+        EmptyWitnessArtifact,
+        SubjectSchemaVersionMismatch,
+        SubjectProfileMismatch,
+        SubjectDigestMismatch,
+        WitnessDigestMismatch,
+        AnchorReferenceDigestMismatch,
+    }
+
+    /// Verifies that a reference binds one exact model artifact to one exact
+    /// externally supplied witness byte sequence.
+    ///
+    /// This verifier intentionally stops at the binding boundary. It does not
+    /// verify a TSA signature, a transparency-log signature, an archive policy,
+    /// observer independence, or the truth of the claimed observation time.
+    fn validate_state_machine_trace_external_evidence_anchor_reference(
+        subject_schema_version: u16,
+        subject_profile: &str,
+        subject_sha256: &str,
+        witness_artifact: &[u8],
+        reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
+    ) -> Result<
+        (),
+        FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation,
+    > {
+        if reference.schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedSchemaVersion
+            );
+        }
+        if reference.reference_profile
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_PROFILE
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedReferenceProfile
+            );
+        }
+        if reference.hash_algorithm
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ALGORITHM
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedHashAlgorithm
+            );
+        }
+        if reference.hash_encoding
+            != FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_HASH_ENCODING
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::UnsupportedHashEncoding
+            );
+        }
+        if reference.subject_profile.is_empty() {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptySubjectProfile
+            );
+        }
+        if reference.subject_sha256.is_empty() {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptySubjectDigest
+            );
+        }
+        if reference.witness_profile.is_empty() {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptyWitnessProfile
+            );
+        }
+        if reference.witness_sha256.is_empty() {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptyWitnessDigest
+            );
+        }
+        if witness_artifact.is_empty() {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptyWitnessArtifact
+            );
+        }
+        if reference.subject_schema_version != subject_schema_version {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectSchemaVersionMismatch
+            );
+        }
+        if reference.subject_profile != subject_profile {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectProfileMismatch
+            );
+        }
+        if reference.subject_sha256 != subject_sha256 {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::SubjectDigestMismatch
+            );
+        }
+        let expected_witness_sha256 =
+            state_machine_trace_external_witness_artifact_sha256(witness_artifact);
+        if reference.witness_sha256 != expected_witness_sha256 {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::WitnessDigestMismatch
+            );
+        }
+        if reference.anchor_reference_sha256
+            != state_machine_trace_external_evidence_anchor_reference_sha256(reference)
+        {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::AnchorReferenceDigestMismatch
+            );
+        }
+        Ok(())
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
