@@ -1298,6 +1298,40 @@ def main() -> None:
         "S2 unregistered job key",
     )
 
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b"candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}",
+                b"candidate_sha: ${{ needs.resolve.outputs.candidate_pr }}",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 mutated reusable-workflow candidate_sha input",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"ref: ${{ github.workflow_sha }}",
+                b"ref: ${{ github.sha }}",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 mutated checkout ref",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(b"digest-mismatch: error", b"digest-mismatch: ignore", 1),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 mutated artifact digest policy",
+    )
+
     print(json.dumps({
         "schema": SCHEMA,
         "policy_result": "verified",
