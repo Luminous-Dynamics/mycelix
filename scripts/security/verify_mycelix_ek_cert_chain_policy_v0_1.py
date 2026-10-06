@@ -1537,6 +1537,7 @@ def session_binding(
             "leaf_certificate_sha256": leaf_sha,
             "intermediate_certificate_sha256": intermediate_sha,
             "trust_anchor_root_sha256": root_sha,
+        "fixture_recipe_sha256": fx["fixture_recipe_sha256"],
             "trust_anchor_source_sha256": manifest["trust_anchor_source_sha256"],
             "trust_anchor_state": manifest["trust_anchor_state"],
             "trust_anchor_appraisal_state": manifest["trust_anchor_appraisal"].get("state"),
@@ -1564,6 +1565,7 @@ def session_binding(
             "cryptographic_binding_source_sha256": manifest.get("cryptographic_binding_source_sha256"),
             "cryptographic_binding_input_sha256": manifest.get("cryptographic_binding_input_sha256"),
             "cryptographic_binding_output_sha256": manifest.get("cryptographic_binding_output_sha256"),
+            "fixture_recipe_sha256": manifest.get("fixture_recipe_sha256"),
             "spki_state": spki.get("state"),
             "spki_certificate_sha256": spki.get("certificate_sha256"),
             "spki_ek_public_wire_sha256": spki.get("ek_public_wire_sha256"),
@@ -1590,7 +1592,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "trust_anchor_root_der_base64", "trust_anchor_root_sha256",
         "trust_anchor_state", "trust_anchor_source_sha256", "trust_anchor_appraisal",
         "verification_time_unix", "revocation", "path_validation", "spki_binding", "ek_template_binding",
-        "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "session_binding_sha256",
+        "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "fixture_recipe_sha256", "session_binding_sha256",
     }
     missing = sorted(required - set(manifest))
     if missing:
@@ -1603,6 +1605,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "verification-mode-invalid")
     if manifest["claim_ceiling"] != "ReferenceModelOnly":
         return result("DENY", "claim-ceiling-mismatch")
+    if manifest["fixture_recipe_sha256"] != sha256_file(FIXTURE_RECIPE_FILE):
+        return result("DENY", "fixture-recipe-source-mismatch")
     forbidden_inputs = {"profile_override", "caller_supplied_certificate_criticality_overrides"}
     supplied_forbidden = sorted(forbidden_inputs & set(manifest))
     if supplied_forbidden:
@@ -1610,7 +1614,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(manifest["session_id"], str) or not manifest["session_id"]:
         return result("DENY", "session-id-invalid")
     for field in ("tpm_identity_digest", "ek_public_wire_sha256", "leaf_certificate_sha256", "intermediate_certificate_sha256",
-                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "session_binding_sha256"):
+                  "trust_anchor_root_sha256", "trust_anchor_source_sha256", "cryptographic_binding_sha256", "cryptographic_binding_source_sha256", "cryptographic_binding_input_sha256", "cryptographic_binding_output_sha256", "fixture_recipe_sha256", "session_binding_sha256"):
         if not valid_hash(manifest[field]):
             return result("DENY", "digest-invalid", {"field": field})
 
