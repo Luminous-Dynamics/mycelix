@@ -232,9 +232,9 @@ pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITN
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING: &str =
     "sha256-lowercase-hex-v1";
 
-pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 1;
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 2;
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_PROFILE: &str =
-    "integral-federation-trace-external-evidence-verification-statement-v1";
+    "integral-federation-trace-external-evidence-verification-statement-v2";
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_DOMAIN: &str =
     "integral-federation-trace-external-evidence-verification-statement-sha256-v1";
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM: &str =
@@ -993,9 +993,9 @@ pub fn validate_state_machine_trace_external_evidence_verification_statement_cha
     })
 }
 
-pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 1;
+pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 2;
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE: &str =
-    "integral-federation-external-verification-trust-policy-v1";
+    "integral-federation-external-verification-trust-policy-v2";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN: &str =
     "integral-federation-external-verification-trust-policy-sha256-v1";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ALGORITHM: &str = "sha-256";
@@ -3697,6 +3697,63 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn external_verification_wire_schema_rejects_legacy_version() {
+        let subject_schema_version =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION;
+        let subject_profile =
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE;
+        let subject_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let witness_artifact = b"legacy-schema-anchor";
+        let anchor_reference = state_machine_trace_external_evidence_anchor_reference(
+            subject_schema_version,
+            subject_profile,
+            subject_sha256,
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            witness_artifact,
+            1_791_003_000,
+        )
+        .expect("anchor reference must build");
+
+        let statement = state_machine_trace_external_evidence_verification_statement(
+            &anchor_reference.anchor_reference_sha256,
+            1,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            b"legacy-schema-identity",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            b"legacy-schema-report",
+            1_791_003_001,
+        )
+        .expect("current builder must emit current schema");
+
+        assert_eq!(
+            statement.schema_version(),
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION,
+            2
+        );
+
+        let mut legacy = statement.clone();
+        legacy.schema_version = 1;
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_binding(
+                &anchor_reference.anchor_reference_sha256,
+                b"legacy-schema-report",
+                &legacy,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedSchemaVersion
+            )
+        );
+    }
+
     fn external_verification_statement_identity_is_digest_bound() {
         let subject_schema_version =
             FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION;
@@ -3825,6 +3882,27 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn external_verification_policy_wire_schema_uses_current_version() {
+        let policy = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
+            1,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("policy must build");
+        assert_eq!(
+            policy.schema_version(),
+            FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION
+        );
+        assert_eq!(FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION, 2);
+        assert_eq!(
+            policy.policy_profile(),
+            FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE
+        );
+    }
+
     fn external_verification_policy_identity_is_part_of_content_address() {
         let base = FederationExternalVerificationTrustPolicyV1::try_new_bound(
             FederationStateMachineTraceExternalWitnessKind::TimestampToken,
