@@ -2976,6 +2976,45 @@ def self_test() -> int:
             return 1
 
 
+        crl_blocks = split_pem_crls(fx["crl_bundle_pem"])
+        parsed_crls = {}
+        for block in crl_blocks:
+            parsed = parse_crl_der_for_crypto(crl_pem_to_der(block))
+            label = (
+                "root" if parsed["issuer_der"] == root_for_crypto["subject_der"]
+                else "intermediate" if parsed["issuer_der"] == inter_for_crypto["subject_der"]
+                else None
+            )
+            if label is None:
+                print("CRL semantic fixture issuer mapping: FAIL")
+                return 1
+            parsed_crls[label] = parsed
+        semantic_mutations = [
+            ("crl-version-must-be-v2", lambda x: x["root"].update({"version": 1})),
+            ("crl-next-update-required", lambda x: x["root"].pop("next_update")),
+            ("crl-time-window-bound-to-verification-time", lambda x: x["root"]["next_update"].update({"unix": base["verification_time_unix"]})),
+            ("crl-authority-key-identifier-binds-to-signer-ski", lambda x: x["root"].update({"authority_key_identifier": b"\x00" * 32})),
+            ("crl-number-binds-to-reference-recipe", lambda x: x["root"].update({"crl_number": x["root"]["crl_number"] + 1})),
+            ("crl-revocation-entry-identity-binds-to-exact-der", lambda x: x["root"]["revoked_entries"][0].update({"entry_identity_sha256": "00" * 32})),
+            ("crl-revocation-entry-serials-unique-and-ordered", lambda x: x["intermediate"]["revoked_entries"][1].update({"serial": x["intermediate"]["revoked_entries"][0]["serial"]})),
+            ("crl-revocation-date-not-after-this-update", lambda x: x["root"]["revoked_entries"][0]["revocation_date"].update({"unix": x["root"]["this_update"]["unix"] + 1})),
+        ]
+        for name, mutate in semantic_mutations:
+            candidate = copy.deepcopy(parsed_crls)
+            mutate(candidate)
+            try:
+                validate_crl_semantics(
+                    candidate,
+                    {"root": root_for_crypto, "intermediate": inter_for_crypto, "leaf": leaf_for_crypto},
+                    base["crl_semantics"],
+                    base["verification_time_unix"],
+                )
+            except (ValueError, KeyError):
+                pass
+            else:
+                print(f"{name}: FAIL")
+                return 1
+
         cases = [
             ("canonical-valid", "PASS", lambda x: None),
             ("forbidden-profile-override-on-valid-input", "DENY", lambda x: x.update({
@@ -3045,6 +3084,14 @@ def self_test() -> int:
             ("trust-anchor-appraisal-output-content-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"output_content_sha256": "46" * 32})),
             ("trust-anchor-appraisal-receipt-root-substitution", "DENY", lambda x: x["trust_anchor_appraisal"].update({"receipt_root_sha256": "15" * 32})),
             ("session-binding-substitution", "DENY", lambda x: x.update({"session_id": "attacker"})),
+            ("crl-semantics-substitution", "DENY", lambda x: x["crl_semantics"]["root"].update({"crl_number": 2})),
+            ("crl-semantics-digest-substitution", "DENY", lambda x: x.update({"crl_semantics_sha256": "91" * 32})),
+            ("crl-this-update-substitution", "DENY", lambda x: x["crl_semantics"]["root"].update({"this_update": "250101000000Z"})),
+            ("crl-next-update-expiry", "DENY", lambda x: x["crl_semantics"]["root"].update({"next_update": "260101000000Z"})),
+            ("crl-authority-key-identifier-substitution", "DENY", lambda x: x["crl_semantics"]["root"].update({"crl_number": 99})),
+            ("crl-number-substitution", "DENY", lambda x: x["crl_semantics"]["intermediate"].update({"crl_number": 99})),
+            ("crl-revocation-entry-identity-substitution", "DENY", lambda x: x["crl_semantics"]["root"]["revoked_entries"][0].update({"entry_identity_sha256": "00" * 32})),
+            ("crl-revocation-entry-reason-substitution", "DENY", lambda x: x["crl_semantics"]["intermediate"]["revoked_entries"][0].update({"reason_code": 2})),
         ]
         for name, expected, mutate in cases:
             candidate = copy.deepcopy(base)
@@ -3066,7 +3113,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("48 contract vectors plus 20 structural parser controls: PASS")
+    print("56 contract vectors plus 20 structural parser controls plus 8 CRL semantic controls: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
