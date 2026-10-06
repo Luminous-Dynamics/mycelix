@@ -1290,7 +1290,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             ).hexdigest(),
             "source_sha256": sha256_file(TEMPLATE_VERIFIER_SCRIPT),
             "template_id": "L-1",
@@ -1305,25 +1305,25 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             ).hex(),
                 "public_wire_sha256": hashlib.sha256(
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             ).hexdigest(),
                 "name_hex": (SHA256_ALG_ID + hashlib.sha256(
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             ).digest()).hex(),
                 "qualified_name_hex": (SHA256_ALG_ID + hashlib.sha256(b"template-qname" + (
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             )).digest()).hex(),
                 "creation_provenance": {
                     "state": "PASS",
