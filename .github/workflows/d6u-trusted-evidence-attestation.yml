@@ -134,6 +134,7 @@ jobs:
             report="$RUNNER_TEMP/d6u-attestation-$(basename "$subject").json"
             gh attestation verify "$subject" \
               --repo "$GITHUB_REPOSITORY" \
+              --limit 8 \
               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml" \
               --signer-digest "$GITHUB_WORKFLOW_SHA" \
               --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main" \
