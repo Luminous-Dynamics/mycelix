@@ -3606,7 +3606,7 @@ mod tests {
         .with_maximum_verification_age_seconds(60)
         .expect("freshness policy must build");
         let admission = first
-            .admit_under_policy(&policy)
+            .admit_under_policy_at(&policy, 1_791_001_002)
             .expect("policy should admit the exact verifier claim");
         assert_eq!(admission.policy_sha256(), policy.policy_sha256().unwrap());
         assert_eq!(admission.witness_kind(), first.witness_kind());
@@ -3618,19 +3618,58 @@ mod tests {
         assert_eq!(admission.verifier_schema_version(), first.verifier_schema_version());
         assert_eq!(admission.claim(), first.claim());
         assert_eq!(admission.statement_sha256(), first.statement_sha256());
+        assert_eq!(
+            admission.claimed_verified_at_unix_seconds(),
+            first.claimed_verified_at_unix_seconds()
+        );
+        assert_eq!(admission.evaluated_at_unix_seconds(), 1_791_001_002);
+        assert_eq!(admission.verification_age_seconds(), 1);
+
+        assert_eq!(
+            first.admit_under_policy_at(&policy, 1_791_001_062),
+            Err(FederationExternalVerificationPolicyAdmissionViolation::VerificationClaimTooOld)
+        );
+        assert_eq!(
+            first.admit_under_policy_at(&policy, 1_791_001_000),
+            Err(FederationExternalVerificationPolicyAdmissionViolation::VerificationClaimFromFuture)
+        );
+
+        let no_freshness_policy = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
+            1,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("policy must build")
+        .try_new_bound_identity(
+            FederationExternalVerifierIdentityKind::Opaque,
+            "test-opaque-identity-v1",
+            state_machine_trace_external_verifier_identity_sha256(
+                b"test-rfc3161-verifier-v1-identity"
+            ),
+        )
+        .expect("identity policy must build");
+
+        assert_eq!(
+            first.admit_under_policy_at(&no_freshness_policy, 1_791_001_002),
+            Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerificationFreshnessPolicyMissing
+            )
+        );
 
         let mut wrong_identity_digest = first.clone();
         wrong_identity_digest.verifier_identity_sha256 =
             state_machine_trace_external_verifier_identity_sha256(b"attacker-identity");
         assert_eq!(
-            wrong_identity_digest.admit_under_policy(&policy),
+            wrong_identity_digest.admit_under_policy_at(&policy, 1_791_001_002),
             Err(FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityDigestNotAdmitted)
         );
 
         let mut wrong_identity_profile = first.clone();
         wrong_identity_profile.verifier_identity_profile = "different-identity-profile-v2".into();
         assert_eq!(
-            wrong_identity_profile.admit_under_policy(&policy),
+            wrong_identity_profile.admit_under_policy_at(&policy, 1_791_001_002),
             Err(FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityProfileNotAdmitted)
         );
 
@@ -3639,7 +3678,7 @@ mod tests {
             FederationStateMachineTraceExternalWitnessKind::TransparencyLogHead;
         wrong_kind.witness_profile = "ct-log-sth-v2".into();
         assert_eq!(
-            wrong_kind.admit_under_policy(&policy),
+            wrong_kind.admit_under_policy_at(&policy, 1_791_001_002),
             Err(FederationExternalVerificationPolicyAdmissionViolation::WitnessKindNotAdmitted)
         );
 
@@ -3650,7 +3689,7 @@ mod tests {
         )
         .expect("unbound policy must be structurally valid");
         assert_eq!(
-            first.admit_under_policy(&unbound_policy),
+            first.admit_under_policy_at(&unbound_policy, 1_791_001_002),
             Err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid(
                 FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete
             ))
@@ -3892,7 +3931,7 @@ mod tests {
         .expect("freshness policy must build");
 
         let admission = result
-            .admit_under_policy(&policy)
+            .admit_under_policy_at(&policy, 1_791_001_102)
             .expect("policy should admit exact external result");
 
         assert_eq!(admission.policy_sha256(), policy.policy_sha256().unwrap());
