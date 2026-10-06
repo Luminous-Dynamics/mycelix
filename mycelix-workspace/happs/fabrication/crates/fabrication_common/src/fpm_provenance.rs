@@ -44,7 +44,9 @@ impl AcquisitionLineageWitness {
         append_field(&mut bytes, self.modality.as_bytes());
         append_field(&mut bytes, self.source_observation_digest.as_bytes());
         append_field(&mut bytes, self.acquisition_root_digest.as_bytes());
-        for parent in &self.parent_node_ids {
+        let mut parents = self.parent_node_ids.clone();
+        parents.sort_unstable();
+        for parent in parents {
             append_field(&mut bytes, parent.as_bytes());
         }
         hex_digest(&bytes)
@@ -72,6 +74,7 @@ pub enum ProvenanceQualificationReason {
     MissingParticipantWitness,
     DuplicateParticipantWitness,
     DuplicateLineageNode,
+    DuplicateParentEdge,
     InvalidDigestEncoding,
     LineageDigestMismatch,
     ObservationBindingMismatch,
@@ -89,6 +92,7 @@ pub struct ProvenanceQualification {
     pub schema_version: String,
     pub registration_envelope_digest: String,
     pub lineage_manifest_digest: String,
+    pub qualification_basis_digest: String,
     pub profile_id: String,
     pub profile_version: String,
     pub status: ProvenanceQualificationStatus,
@@ -132,6 +136,10 @@ pub fn qualify_provenance(
         }
         if witness.parent_node_ids.len() > MAX_PARENTS_PER_NODE {
             reasons.insert(ProvenanceQualificationReason::TooManyParentEdges);
+        }
+        let unique_parents = witness.parent_node_ids.iter().collect::<BTreeSet<_>>();
+        if unique_parents.len() != witness.parent_node_ids.len() {
+            reasons.insert(ProvenanceQualificationReason::DuplicateParentEdge);
         }
 
         let node_digest = witness.digest();
@@ -210,6 +218,12 @@ pub fn qualify_provenance(
     }
 
     let lineage_manifest_digest = lineage_manifest_digest(&input.lineage);
+    let qualification_basis_digest = qualification_basis_digest(
+        &input.registration_envelope_digest,
+        &lineage_manifest_digest,
+        FPM_PROVENANCE_PROFILE_ID,
+        FPM_PROVENANCE_PROFILE_VERSION,
+    );
     let status = if reasons.is_empty() {
         ProvenanceQualificationStatus::QualifiedForProfile
     } else if reasons.iter().any(|reason| {
@@ -220,6 +234,7 @@ pub fn qualify_provenance(
                 | ProvenanceQualificationReason::DuplicateParticipantWitness
                 | ProvenanceQualificationReason::InvalidDigestEncoding
                 | ProvenanceQualificationReason::LineageDigestMismatch
+                | ProvenanceQualificationReason::DuplicateParentEdge
                 | ProvenanceQualificationReason::ObservationBindingMismatch
                 | ProvenanceQualificationReason::LineageCycle
                 | ProvenanceQualificationReason::InvalidNodeId
@@ -240,6 +255,7 @@ pub fn qualify_provenance(
         schema_version: FPM_PROVENANCE_QUALIFICATION_SCHEMA_VERSION.into(),
         registration_envelope_digest: input.registration_envelope_digest.clone(),
         lineage_manifest_digest,
+        qualification_basis_digest,
         profile_id: FPM_PROVENANCE_PROFILE_ID.into(),
         profile_version: FPM_PROVENANCE_PROFILE_VERSION.into(),
         status,
@@ -346,6 +362,34 @@ fn lineage_manifest_digest(lineage: &[AcquisitionLineageWitness]) -> String {
         append_field(&mut bytes, digest.as_bytes());
     }
     hex_digest(&bytes)
+}
+
+fn qualification_basis_digest(
+    registration_envelope_digest: &str,
+    lineage_manifest_digest: &str,
+    profile_id: &str,
+    profile_version: &str,
+) -> String {
+    let mut bytes = Vec::new();
+    append_field(&mut bytes, b"fpm.provenance-qualification-basis.v1");
+    append_field(&mut bytes, registration_envelope_digest.as_bytes());
+    append_field(&mut bytes, lineage_manifest_digest.as_bytes());
+    append_field(&mut bytes, profile_id.as_bytes());
+    append_field(&mut bytes, profile_version.as_bytes());
+    hex_digest(&bytes)
+}
+
+impl ProvenanceQualification {
+    /// Commit to the complete provenance qualification result for later
+    /// authenticated signing or transparency registration.
+    pub fn digest(&self) -> String {
+        let bytes = serde_json::to_vec(self)
+            .expect("ProvenanceQualification contains only serializable fields");
+        let mut preimage = Vec::new();
+        append_field(&mut preimage, b"fpm.provenance-qualification-record.v1");
+        append_field(&mut preimage, &bytes);
+        hex_digest(&preimage)
+    }
 }
 
 fn is_canonical_digest(value: &str) -> bool {
@@ -457,6 +501,45 @@ mod tests {
         assert!(qualify_provenance(&input)
             .reasons
             .contains(&ProvenanceQualificationReason::TooManyParentEdges));
+    }
+
+    #[test]
+    fn parent_order_does_not_change_node_digest() {
+        let participant = sample("thermal-1", "thermal", 10, b"thermal");
+        let a = witness(
+            &participant,
+            &hex_digest(b"root"),
+            vec!["b".into(), "a".into()],
+        );
+        let b = witness(
+            &participant,
+            &hex_digest(b"root"),
+            vec!["a".into(), "b".into()],
+        );
+        assert_eq!(a.digest(), b.digest());
+    }
+
+    #[test]
+    fn duplicate_parent_edge_is_invalid() {
+        let mut input = qualified_input();
+        input.lineage[0].parent_node_ids = vec!["same".into(), "same".into()];
+        let result = qualify_provenance(&input);
+        assert_eq!(
+            result.status,
+            ProvenanceQualificationStatus::InvalidEvidence
+        );
+        assert!(result
+            .reasons
+            .contains(&ProvenanceQualificationReason::DuplicateParentEdge));
+    }
+
+    #[test]
+    fn qualification_record_digest_is_deterministic() {
+        let input = qualified_input();
+        let a = qualify_provenance(&input);
+        let b = qualify_provenance(&input);
+        assert_eq!(a.digest(), b.digest());
+        assert_eq!(a.qualification_basis_digest.len(), SHA256_HEX_LEN);
     }
 
     #[test]
