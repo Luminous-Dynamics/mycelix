@@ -886,4 +886,129 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn fpm_anchor_envelope_binding_accepts_exact_digest() {
+        let reference = ModalityObservationRef {
+            source_id: "thermal-1".into(),
+            modality: "thermal".into(),
+            clock_domain: "ptp-domain-1".into(),
+            source_sequence: 10,
+            correlation_domain: "frame-domain".into(),
+            correlation_id: "frame-10".into(),
+            source_timestamp_micros: Some(1_000_000),
+            calibration_profile_digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            process_context_digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+            source_data_digest: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
+        };
+        let related = ModalityObservationRef {
+            source_id: "vibration-1".into(),
+            modality: "vibration".into(),
+            ..reference.clone()
+        };
+        let envelope = RegistrationEnvelope {
+            schema_version: FPM_REGISTRATION_SCHEMA_VERSION.into(),
+            reference,
+            related: vec![related],
+            alignment_method: Some(AlignmentMethod::ExactCorrelationId),
+        };
+        let digest = envelope.digest().expect("envelope digest");
+        let anchor = FpmRegistrationAnchor {
+            schema_version: FPM_REGISTRATION_ANCHOR_SCHEMA_VERSION.into(),
+            envelope,
+            envelope_digest: digest.clone(),
+        };
+
+        assert!(validate_resolved_anchor_envelope(&anchor, &digest).is_ok());
+    }
+
+    #[test]
+    fn fpm_anchor_envelope_substitution_is_rejected() {
+        let mut envelope = RegistrationEnvelope {
+            schema_version: FPM_REGISTRATION_SCHEMA_VERSION.into(),
+            reference: ModalityObservationRef {
+                source_id: "thermal-1".into(),
+                modality: "thermal".into(),
+                clock_domain: "ptp-domain-1".into(),
+                source_sequence: 10,
+                correlation_domain: "frame-domain".into(),
+                correlation_id: "frame-10".into(),
+                source_timestamp_micros: Some(1_000_000),
+                calibration_profile_digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+                process_context_digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+                source_data_digest: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
+            },
+            related: vec![],
+            alignment_method: None,
+        };
+        let digest = envelope.digest().expect("envelope digest");
+        envelope.correlation_id = "replay".into();
+        let anchor = FpmRegistrationAnchor {
+            schema_version: FPM_REGISTRATION_ANCHOR_SCHEMA_VERSION.into(),
+            envelope,
+            envelope_digest: digest.clone(),
+        };
+
+        assert!(validate_resolved_anchor_envelope(&anchor, &digest).is_err());
+    }
+
+    #[test]
+    fn fpm_anchor_claimed_digest_mismatch_is_rejected() {
+        let envelope = RegistrationEnvelope {
+            schema_version: FPM_REGISTRATION_SCHEMA_VERSION.into(),
+            reference: ModalityObservationRef {
+                source_id: "thermal-1".into(),
+                modality: "thermal".into(),
+                clock_domain: "ptp-domain-1".into(),
+                source_sequence: 10,
+                correlation_domain: "frame-domain".into(),
+                correlation_id: "frame-10".into(),
+                source_timestamp_micros: Some(1_000_000),
+                calibration_profile_digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+                process_context_digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+                source_data_digest: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
+            },
+            related: vec![],
+            alignment_method: None,
+        };
+        let digest = envelope.digest().expect("envelope digest");
+        let anchor = FpmRegistrationAnchor {
+            schema_version: FPM_REGISTRATION_ANCHOR_SCHEMA_VERSION.into(),
+            envelope,
+            envelope_digest: digest,
+        };
+        let wrong = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+
+        assert!(validate_resolved_anchor_envelope(&anchor, wrong).is_err());
+    }
+
+    #[test]
+    fn fpm_anchor_uppercase_digest_is_rejected() {
+        let envelope = RegistrationEnvelope {
+            schema_version: FPM_REGISTRATION_SCHEMA_VERSION.into(),
+            reference: ModalityObservationRef {
+                source_id: "thermal-1".into(),
+                modality: "thermal".into(),
+                clock_domain: "ptp-domain-1".into(),
+                source_sequence: 10,
+                correlation_domain: "frame-domain".into(),
+                correlation_id: "frame-10".into(),
+                source_timestamp_micros: Some(1_000_000),
+                calibration_profile_digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+                process_context_digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+                source_data_digest: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
+            },
+            related: vec![],
+            alignment_method: None,
+        };
+        let digest = envelope.digest().expect("envelope digest");
+        let anchor = FpmRegistrationAnchor {
+            schema_version: FPM_REGISTRATION_ANCHOR_SCHEMA_VERSION.into(),
+            envelope,
+            envelope_digest: digest.clone(),
+        };
+
+        assert!(validate_resolved_anchor_envelope(&anchor, &digest.to_uppercase()).is_err());
+    }
+
 }
