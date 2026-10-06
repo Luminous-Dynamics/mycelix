@@ -831,7 +831,6 @@ jobs:
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
-        shell: bash
         run: |
           set -euo pipefail
           runner_uid="$(id -u)"
