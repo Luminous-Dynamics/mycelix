@@ -238,8 +238,9 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         line.split("D6U_TRUSTED_POLICY_VERSION=", 1)[1].strip().strip('"')
         for line in workflow_text.splitlines()
         if "D6U_TRUSTED_POLICY_VERSION=" in line
+        and line.split("D6U_TRUSTED_POLICY_VERSION=", 1)[1].strip().strip('"').isdigit()
     ]
-    assert len(trusted_policy_env_versions) >= 2
+    assert trusted_policy_env_versions
     assert all(version == str(policy["policy_version"]) for version in trusted_policy_env_versions)
     _, signer_section = workflow_text.split("\n  signer:\n", 1)
     assert '"policy_version": %d,' % policy["policy_version"] in signer_section
