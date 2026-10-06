@@ -19,6 +19,8 @@ const SHA256_HEX_LEN: usize = 64;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AcquisitionLineageWitness {
+    /// Stable identifier for this lineage node within the supplied provenance graph.
+    pub node_id: String,
     /// Exact source/modality participant represented by this lineage witness.
     pub source_id: String,
     pub modality: String,
@@ -26,19 +28,20 @@ pub struct AcquisitionLineageWitness {
     pub source_observation_digest: String,
     /// Root acquisition commitment for this lineage component.
     pub acquisition_root_digest: String,
-    /// Direct parent lineage-node commitments.
-    pub parent_digests: Vec<String>,
+    /// Direct parent node identifiers.
+    pub parent_node_ids: Vec<String>,
 }
 
 impl AcquisitionLineageWitness {
     pub fn digest(&self) -> String {
         let mut bytes = Vec::new();
-        append_field(&mut bytes, b"fpm.acquisition-lineage-node.v1");
+        append_field(&mut bytes, b"fpm.acquisition-lineage-node.v2");
+        append_field(&mut bytes, self.node_id.as_bytes());
         append_field(&mut bytes, self.source_id.as_bytes());
         append_field(&mut bytes, self.modality.as_bytes());
         append_field(&mut bytes, self.source_observation_digest.as_bytes());
         append_field(&mut bytes, self.acquisition_root_digest.as_bytes());
-        for parent in &self.parent_digests {
+        for parent in &self.parent_node_ids {
             append_field(&mut bytes, parent.as_bytes());
         }
         hex_digest(&bytes)
@@ -103,18 +106,22 @@ pub fn qualify_provenance(
 
     let expected_participants = participant_keys(&input.envelope);
     let mut by_participant = BTreeMap::new();
+    let mut by_node_id = BTreeMap::new();
     let mut by_digest = BTreeMap::new();
 
     for witness in &input.lineage {
-        if !is_canonical_digest(&witness.source_observation_digest)
+        if witness.node_id.trim().is_empty()
+            || !is_canonical_digest(&witness.source_observation_digest)
             || !is_canonical_digest(&witness.acquisition_root_digest)
-            || witness.parent_digests.iter().any(|d| !is_canonical_digest(d))
         {
             reasons.insert(ProvenanceQualificationReason::InvalidDigestEncoding);
         }
 
         let node_digest = witness.digest();
         if by_digest.insert(node_digest.clone(), witness.clone()).is_some() {
+            reasons.insert(ProvenanceQualificationReason::DuplicateLineageNode);
+        }
+        if by_node_id.insert(witness.node_id.clone(), node_digest.clone()).is_some() {
             reasons.insert(ProvenanceQualificationReason::DuplicateLineageNode);
         }
 
@@ -144,8 +151,8 @@ pub fn qualify_provenance(
     }
 
     for witness in &input.lineage {
-        for parent in &witness.parent_digests {
-            if !by_digest.contains_key(parent) {
+        for parent_id in &witness.parent_node_ids {
+            if !by_node_id.contains_key(parent_id) {
                 reasons.insert(ProvenanceQualificationReason::MissingParent);
             }
         }
@@ -170,16 +177,16 @@ pub fn qualify_provenance(
 
     for left in 0..participant_nodes.len() {
         for right in (left + 1)..participant_nodes.len() {
-            let a = lineage_ancestors(&participant_nodes[left], &by_digest, &mut BTreeSet::new());
-            let b = lineage_ancestors(&participant_nodes[right], &by_digest, &mut BTreeSet::new());
+            let a = lineage_ancestors(&participant_nodes[left], &by_node_id, &by_digest, &mut BTreeSet::new());
+            let b = lineage_ancestors(&participant_nodes[right], &by_node_id, &by_digest, &mut BTreeSet::new());
             if a.intersection(&b).next().is_some() {
                 reasons.insert(ProvenanceQualificationReason::SharedAncestry);
             }
         }
     }
 
-    for node_digest in by_digest.keys() {
-        if graph_has_cycle(node_digest, &by_digest) {
+    for node_id in by_node_id.keys() {
+        if graph_has_cycle(node_id, &by_node_id, &by_digest) {
             reasons.insert(ProvenanceQualificationReason::LineageCycle);
             break;
         }
@@ -238,61 +245,72 @@ fn participant_observation_digest(
 }
 
 fn lineage_ancestors(
-    node: &str,
-    graph: &BTreeMap<String, AcquisitionLineageWitness>,
+    node_id: &str,
+    by_node_id: &BTreeMap<String, String>,
+    by_digest: &BTreeMap<String, AcquisitionLineageWitness>,
     visiting: &mut BTreeSet<String>,
 ) -> BTreeSet<String> {
     let mut ancestors = BTreeSet::new();
-    let Some(witness) = graph.get(node) else {
+    if !visiting.insert(node_id.to_string()) {
+        return ancestors;
+    }
+
+    let Some(node_digest) = by_node_id.get(node_id) else {
+        visiting.remove(node_id);
+        return ancestors;
+    };
+    let Some(witness) = by_digest.get(node_digest) else {
+        visiting.remove(node_id);
         return ancestors;
     };
 
-    if !visiting.insert(node.to_string()) {
-        return ancestors;
+    for parent_id in &witness.parent_node_ids {
+        ancestors.insert(parent_id.clone());
+        ancestors.extend(lineage_ancestors(parent_id, by_node_id, by_digest, visiting));
     }
 
-    for parent in &witness.parent_digests {
-        ancestors.insert(parent.clone());
-        ancestors.extend(lineage_ancestors(parent, graph, visiting));
-    }
-
-    visiting.remove(node);
+    visiting.remove(node_id);
     ancestors
 }
 
 fn graph_has_cycle(
-    node: &str,
-    graph: &BTreeMap<String, AcquisitionLineageWitness>,
+    node_id: &str,
+    by_node_id: &BTreeMap<String, String>,
+    by_digest: &BTreeMap<String, AcquisitionLineageWitness>,
 ) -> bool {
     fn visit(
-        node: &str,
-        graph: &BTreeMap<String, AcquisitionLineageWitness>,
+        node_id: &str,
+        by_node_id: &BTreeMap<String, String>,
+        by_digest: &BTreeMap<String, AcquisitionLineageWitness>,
         active: &mut BTreeSet<String>,
         done: &mut BTreeSet<String>,
     ) -> bool {
-        if active.contains(node) {
+        if active.contains(node_id) {
             return true;
         }
-        if done.contains(node) {
+        if done.contains(node_id) {
             return false;
         }
 
-        let Some(witness) = graph.get(node) else {
+        let Some(node_digest) = by_node_id.get(node_id) else {
+            return false;
+        };
+        let Some(witness) = by_digest.get(node_digest) else {
             return false;
         };
 
-        active.insert(node.to_string());
-        for parent in &witness.parent_digests {
-            if visit(parent, graph, active, done) {
+        active.insert(node_id.to_string());
+        for parent_id in &witness.parent_node_ids {
+            if visit(parent_id, by_node_id, by_digest, active, done) {
                 return true;
             }
         }
-        active.remove(node);
-        done.insert(node.to_string());
+        active.remove(node_id);
+        done.insert(node_id.to_string());
         false
     }
 
-    visit(node, graph, &mut BTreeSet::new(), &mut BTreeSet::new())
+    visit(node_id, by_node_id, by_digest, &mut BTreeSet::new(), &mut BTreeSet::new())
 }
 
 fn lineage_manifest_digest(lineage: &[AcquisitionLineageWitness]) -> String {
@@ -360,7 +378,8 @@ mod tests {
             modality: participant.modality.clone(),
             source_observation_digest: source_observation_binding_digest(participant),
             acquisition_root_digest: root.into(),
-            parent_digests: parents,
+            node_id: format!("{}-node", participant.source_id),
+        parent_node_ids: parents,
         }
     }
 
@@ -438,14 +457,10 @@ mod tests {
     #[test]
     fn cycle_is_invalid() {
         let mut input = qualified_input();
-        let a = witness(&input.envelope.reference, &digest('a'), vec![]);
-        let a_digest = a.digest();
-        let mut b = witness(&input.envelope.related[0], &digest('b'), vec![a_digest.clone()]);
-        let b_digest = b.digest();
-        b.parent_digests = vec![a_digest];
-        let mut a = a;
-        a.parent_digests = vec![b_digest];
-        input.lineage = vec![a, b];
+        input.lineage[0].node_id = "node-a".into();
+        input.lineage[1].node_id = "node-b".into();
+        input.lineage[0].parent_node_ids = vec!["node-b".into()];
+        input.lineage[1].parent_node_ids = vec!["node-a".into()];
         assert_eq!(
             qualify_provenance(&input).status,
             ProvenanceQualificationStatus::InvalidEvidence
