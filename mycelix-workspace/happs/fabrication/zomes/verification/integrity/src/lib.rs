@@ -30,6 +30,8 @@ pub enum EntryTypes {
     #[entry_type(visibility = "public")]
     FpmSourceAttestationAnchor(FpmSourceAttestationAnchor),
     #[entry_type(visibility = "public")]
+    FpmEatCoseVerificationAnchor(FpmEatCoseVerificationAnchor),
+    #[entry_type(visibility = "public")]
     FpmAttestationChallengeUse(FpmAttestationChallengeUse),
 }
 
@@ -124,6 +126,8 @@ pub const FPM_SOURCE_ATTESTATION_ANCHOR_SCHEMA_VERSION: &str =
     "fpm.attestation.result-anchor.v1";
 pub const FPM_ATTESTATION_CHALLENGE_USE_SCHEMA_VERSION: &str =
     "fpm.attestation.challenge-use.v1";
+pub const FPM_EAT_COSE_VERIFICATION_ANCHOR_SCHEMA_VERSION: &str =
+    "fpm.attestation.eat-cose-verification.v1";
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
