@@ -12,7 +12,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{AnomalyType, SensorSnapshot};
+use crate::SensorSnapshot;
 
 pub const FPM_SCHEMA_VERSION: &str = "fpm.v1";
 pub const DEFAULT_ROBUST_Z_THRESHOLD: f32 = 3.5;
@@ -51,14 +51,23 @@ impl ProcessFeature {
         }
     }
 
-    fn anomaly_type(self) -> AnomalyType {
+    fn anomaly_type(self) -> ProcessAnomalyType {
         match self {
-            Self::HotendTemperature | Self::BedTemperature => AnomalyType::TemperatureDeviation,
-            Self::ExtruderCurrent => AnomalyType::ExtrusionInconsistency,
-            Self::VibrationRms => AnomalyType::VibrationAnomaly,
-            Self::FilamentTension => AnomalyType::FilamentSlip,
+            Self::HotendTemperature | Self::BedTemperature => ProcessProcessAnomalyType::TemperatureDeviation,
+            Self::ExtruderCurrent => ProcessAnomalyType::ExtrusionInconsistency,
+            Self::VibrationRms => ProcessAnomalyType::VibrationAnomaly,
+            Self::FilamentTension => ProcessAnomalyType::FilamentSlip,
         }
     }
+}
+
+/// FPM-native anomaly classes. These are inference labels, not proof of physical defects.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub enum ProcessAnomalyType {
+    ExtrusionInconsistency,
+    TemperatureDeviation,
+    VibrationAnomaly,
+    FilamentSlip,
 }
 
 /// Robust baseline statistics for one feature.
@@ -75,8 +84,11 @@ pub struct BaselineFeature {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BaselineProfile {
     pub schema_version: String,
+    pub detector_id: String,
     pub detector_version: String,
     pub source_observation_count: u64,
+    /// SHA-256 commitment to the exact ordered source observations.
+    pub source_observations_digest: String,
     pub features: Vec<BaselineFeature>,
 }
 
@@ -151,7 +163,7 @@ pub struct ProcessDetection {
     pub status: DetectionStatus,
     /// Maximum feature anomaly score in [0, 1].
     pub anomaly_score: f32,
-    pub anomaly_types: Vec<AnomalyType>,
+    pub anomaly_types: Vec<ProcessAnomalyType>,
     pub evaluations: Vec<FeatureEvaluation>,
     pub provenance: DetectionProvenance,
 }
@@ -255,9 +267,10 @@ fn feature_baseline(
 
 impl BaselineProfile {
     pub fn from_observations(
-        detector_version: impl Into<String>,
+        config: &DetectorConfig,
         observations: &[ProcessObservation],
     ) -> Result<Self, FpmError> {
+        config.validate()?;
         if observations.is_empty() {
             return Err(FpmError::EmptyBaseline);
         }
@@ -324,10 +337,13 @@ impl BaselineProfile {
                 || baseline.sample_count as usize >= MIN_BASELINE_SAMPLES
         });
 
+        let source_observations_digest = digest_json(observations)?;
         let profile = Self {
             schema_version: FPM_SCHEMA_VERSION.to_string(),
-            detector_version: detector_version.into(),
+            detector_id: config.detector_id.clone(),
+            detector_version: config.detector_version.clone(),
             source_observation_count: observations.len() as u64,
+            source_observations_digest,
             features,
         };
         Ok(profile)
@@ -373,11 +389,22 @@ pub fn analyze(
             baseline.schema_version, FPM_SCHEMA_VERSION
         )));
     }
+    if baseline.detector_id != config.detector_id {
+        return Err(FpmError::InvalidConfiguration(format!(
+            "baseline detector id {} does not match config {}",
+            baseline.detector_id, config.detector_id
+        )));
+    }
     if baseline.detector_version != config.detector_version {
         return Err(FpmError::InvalidConfiguration(format!(
             "baseline detector version {} does not match config {}",
             baseline.detector_version, config.detector_version
         )));
+    }
+    if baseline.source_observation_count == 0 || baseline.source_observations_digest.is_empty() {
+        return Err(FpmError::InvalidConfiguration(
+            "baseline source observation commitment is missing".to_string(),
+        ));
     }
 
     let baseline_digest = baseline.digest()?;
@@ -500,7 +527,7 @@ mod tests {
         let observations = (0..10)
             .map(|sequence| observation(sequence, 210.0 + (sequence as f32 % 2.0) * 0.2))
             .collect::<Vec<_>>();
-        BaselineProfile::from_observations("1", &observations).expect("valid baseline")
+        BaselineProfile::from_observations(&DetectorConfig::default(), &observations).expect("valid baseline")
     }
 
     #[test]
@@ -515,7 +542,7 @@ mod tests {
     fn baseline_requires_monotonic_sequences() {
         let observations = vec![observation(2, 210.0), observation(1, 210.0)];
         assert_eq!(
-            BaselineProfile::from_observations("1", &observations),
+            BaselineProfile::from_observations(&DetectorConfig::default(), &observations),
             Err(FpmError::NonMonotonicSequence)
         );
     }
@@ -541,6 +568,21 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn baseline_commits_exact_source_observations() {
+        let config = DetectorConfig::default();
+        let mut observations = (0..10)
+            .map(|sequence| observation(sequence, 210.0))
+            .collect::<Vec<_>>();
+        let first = BaselineProfile::from_observations(&config, &observations).expect("baseline");
+        observations[9] = observation(9, 211.0);
+        let second = BaselineProfile::from_observations(&config, &observations).expect("baseline");
+        assert_ne!(
+            first.source_observations_digest,
+            second.source_observations_digest
+        );
     }
 
     #[test]
@@ -625,7 +667,7 @@ mod tests {
         };
         let result = analyze(&DetectorConfig::default(), &baseline, &observation).expect("analysis");
         assert_eq!(result.status, DetectionStatus::Anomalous);
-        assert!(result.anomaly_types.contains(&AnomalyType::FilamentSlip));
+        assert!(result.anomaly_types.contains(&ProcessAnomalyType::FilamentSlip));
     }
 
     #[test]
@@ -636,6 +678,16 @@ mod tests {
             analyze(&DetectorConfig::default(), &baseline(), &bad),
             Err(FpmError::NonFiniteObservation { sequence: 100 })
         );
+    }
+
+    #[test]
+    fn detector_id_must_match_baseline() {
+        let mut config = DetectorConfig::default();
+        config.detector_id = "different-detector".to_string();
+        assert!(matches!(
+            analyze(&config, &baseline(), &observation(100, 210.0)),
+            Err(FpmError::InvalidConfiguration(_))
+        ));
     }
 
     #[test]
