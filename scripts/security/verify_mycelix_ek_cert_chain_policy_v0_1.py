@@ -238,6 +238,13 @@ def crl_issuers_from_pem_bundle(bundle: bytes, work: Path) -> list[str]:
     return issuers
 
 
+def verify_crl_sign_key_usage(cert_text: str) -> bool:
+    critical, usage = extension(cert_text, "Key Usage")
+    if not critical or usage is None:
+        return False
+    normalized = usage.lower().replace("-", " ")
+    return "crl sign" in normalized
+
 def verify_aki_ski(leaf_text: str, intermediate_text: str) -> bool:
     _aki_critical, aki = extension(leaf_text, "Authority Key Identifier")
     _ski_critical, ski = extension(intermediate_text, "Subject Key Identifier")
@@ -522,6 +529,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             )
             leaf_text = x509_text(leaf, work, "leaf-profile")
             intermediate_text = x509_text(intermediate, work, "intermediate-profile")
+            root_text = x509_text(root, work, "root-profile")
             serial = int(x509_scalar(leaf, work, "leaf", "-serial"), 16)
             subject = x509_scalar(leaf, work, "leaf-subject", "-subject")
             issuer = x509_scalar(leaf, work, "leaf-issuer", "-issuer")
@@ -535,16 +543,6 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "certificate-path-validation-failed", {"openssl": chain_detail})
 
     profile_ok, profile = leaf_profile_ok(leaf_text)
-    override = manifest.get("profile_override")
-    if isinstance(override, dict):
-        for key in ("authority_key_identifier_critical", "extended_key_usage_critical"):
-            if key in override:
-                profile[key] = override[key]
-        profile_ok = (
-            profile_ok
-            and profile.get("authority_key_identifier_critical") is False
-            and profile.get("extended_key_usage_critical", False) is False
-        )
     profile["serial_positive"] = serial > 0
     profile["subject"] = subject
     profile["issuer"] = issuer
@@ -565,13 +563,17 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             "crl-bundle-missing-leaf-issuer",
             {**profile, "crl_issuers": crl_issuers, "required_issuer": intermediate_subject},
         )
-    root_subject = x509_scalar(root, work, "root-subject", "-subject")
     if root_subject not in crl_issuers:
         return result(
             "DENY",
             "crl-bundle-missing-intermediate-issuer",
             {**profile, "crl_issuers": crl_issuers, "required_issuer": root_subject},
         )
+    root_subject = x509_scalar(root, work, "root-subject", "-subject")
+    if not verify_crl_sign_key_usage(intermediate_text):
+        return result("DENY", "intermediate-crl-issuer-missing-crlSign", profile)
+    if not verify_crl_sign_key_usage(root_text):
+        return result("DENY", "root-crl-issuer-missing-crlSign", profile)
     if not verify_aki_ski(leaf_text, intermediate_text):
         return result("DENY", "authority-key-identifier-does-not-match-intermediate-ski", profile)
 
@@ -830,7 +832,13 @@ def self_test() -> int:
             base["revocation"]["crl_bundle_pem_sha256"],
         )
         source = Path(__file__).read_text(encoding="utf-8")
-        if '"-crl_check_all",' not in source:
+        if "profile_override" in source:
+        print("caller profile override escape hatch: FAIL")
+        return 1
+    if "def verify_crl_sign_key_usage" not in source or '"CRL Sign"' not in source and '"crl sign"' not in source.lower():
+        print("explicit CRL issuer cRLSign enforcement: FAIL")
+        return 1
+    if '"-crl_check_all",' not in source:
             print("full-chain CRL verification command: FAIL")
             return 1
 
@@ -851,7 +859,9 @@ def self_test() -> int:
             ("expired-reference-time", "DENY", lambda x: x.update({"verification_time_unix": EXPIRED_TIME_UNIX})),
             ("not-yet-valid-reference-time", "DENY", lambda x: x.update({"verification_time_unix": 0})),
             ("key-usage-profile-mismatch", "DENY", lambda x: mutate_leaf(x, fx["bad_usage"])),
+      ("profile-override-cannot-rescue-key-usage", "DENY", lambda x: (mutate_leaf(x, fx["bad_usage"]), x.update({"profile_override": {"authority_key_identifier_critical": False, "extended_key_usage_critical": False}}))),
             ("eku-profile-mismatch", "DENY", lambda x: mutate_leaf(x, fx["bad_eku"])),
+      ("profile-override-cannot-rescue-eku", "DENY", lambda x: (mutate_leaf(x, fx["bad_eku"]), x.update({"profile_override": {"authority_key_identifier_critical": False, "extended_key_usage_critical": False}}))),
             ("trust-anchor-source-substitution", "DENY", lambda x: mutate_trust_anchor_source(x)),
             ("root-self-consistent-source-substitution", "DENY", lambda x: mutate_root_authorization(x)),
             ("template-verifier-substitution", "DENY", lambda x: x["ek_template_binding"].update({"verifier_id": "other-verifier"})),
