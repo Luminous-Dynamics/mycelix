@@ -2,7 +2,7 @@
   "receipt_id": "mycelix.synthetic-ek-root-authorization.v0.1",
   "receipt_version": "0.1.0",
   "registry_id": "mycelix.ek-trust-anchor-registry",
-  "registry_file_sha256": "a20cf39d979a4e313f3a3e54ccd767891038c1650434450d96dede708ec46900",
+  "registry_file_sha256": "c3edeee70980319eaebdab91b3929d9ea79a1d20f1571bebf18baaa8bc2c770b",
   "root_certificate_sha256": "fca39a44f906461818995af4242bc7d779eb5a0266349c3ed0236053ddcb5556",
   "authorization_state": "PASS",
   "authorization_class": "synthetic-reference-fixture",
