@@ -414,6 +414,19 @@ fn valid_node_id(value: &str) -> bool {
         && !value.chars().any(char::is_control)
 }
 
+pub fn acquisition_root_binding_digest(
+    source_system_id: &str,
+    capture_reference: &str,
+    artifact_digest: &str,
+) -> String {
+    let mut bytes = Vec::new();
+    append_field(&mut bytes, b"fpm.acquisition-root.v1");
+    append_field(&mut bytes, source_system_id.as_bytes());
+    append_field(&mut bytes, capture_reference.as_bytes());
+    append_field(&mut bytes, artifact_digest.as_bytes());
+    hex_digest(&bytes)
+}
+
 fn is_canonical_digest(value: &str) -> bool {
     value.len() == SHA256_HEX_LEN
         && value.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
@@ -526,6 +539,28 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn acquisition_root_binding_digest_is_deterministic() {
+        let a = acquisition_root_binding_digest(
+            "capture-device-1",
+            "session/frame/10",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+        let b = acquisition_root_binding_digest(
+            "capture-device-1",
+            "session/frame/10",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+        let changed = acquisition_root_binding_digest(
+            "capture-device-2",
+            "session/frame/10",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+        assert_eq!(a, b);
+        assert_eq!(a.len(), SHA256_HEX_LEN);
+        assert_ne!(a, changed);
+    }
+
     fn parent_order_does_not_change_node_digest() {
         let participant = sample("thermal-1", "thermal", 10, b"thermal");
         let a = witness(
