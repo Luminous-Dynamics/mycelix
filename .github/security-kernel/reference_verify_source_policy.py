@@ -983,6 +983,46 @@ def main() -> None:
         "S2 quoted structural key",
     )
 
+    def inject_unapproved_step_property(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"step-key regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, marker + b"        timeout-minutes: 1\n", 1)
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unapproved_step_property(
+                raw["s0"],
+                b"      - name: Verify trusted dispatcher context and exact PR identity\n",
+            ),
+            s1_sha,
+        ),
+        "S0 unapproved step property",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unapproved_step_property(
+                raw["s1"],
+                b"      - name: Execute candidate qualification in disposable networkless sandbox\n",
+            ),
+            s1_sha,
+        ),
+        "S1 unapproved step property",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unapproved_step_property(
+                raw["s2"],
+                b"      - name: Checkout exact verifier workflow commit\n",
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unapproved step property",
+    )
+
     print(json.dumps({
         "schema": SCHEMA,
         "policy_result": "verified",
