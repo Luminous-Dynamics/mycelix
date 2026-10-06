@@ -230,13 +230,13 @@ This separation mirrors the current SLSA v1.2 VSA model, where `verificationResu
 
 The COS Conformance Evidence workflow distinguishes three artifact states:
 
-- `passed` — the conformance test step completed successfully and the machine-readable report validation step also completed successfully;
+- `passed` — the conformance test, machine-readable report generation, and report validation steps all completed successfully;
 - `failed` — execution began, but either the conformance test or report validation did not complete successfully;
 - `not_run` — execution reached the envelope stage without a completed conformance test/report validation pair, for example after an earlier setup or cancellation boundary.
 
-Artifact preservation is deliberately independent from qualification outcome. A failed or not-run execution may still upload its evidence directory for diagnosis and immutable run history, but artifact presence MUST NOT be interpreted as a passing qualification result. The run envelope records both the individual step outcomes and the derived `qualification_result`, and the sealing step runs with `always()` so even failed executions receive the same structural envelope checks and `SHA256SUMS` treatment when the required metadata exists.
+Artifact preservation is deliberately independent from qualification outcome. A failed or not-run execution may still upload its evidence directory for diagnosis and immutable run history, but artifact presence MUST NOT be interpreted as a passing qualification result. The run envelope records the individual conformance-test, report-generation, and report-validation outcomes plus the derived `qualification_result`, and the sealing step runs with `always()` so even failed executions receive the same structural envelope checks and `SHA256SUMS` treatment when the required metadata exists.
 
-The workflow also records both the target repository and the pull-request head repository separately. The checked-out PR head remains explicitly asserted, while GitHub's executing workflow identity is recorded independently. This preserves the distinction between the revision under qualification, the repository that owns that revision, and the workflow definition that executed the job.
+The evidence concurrency group and artifact name are keyed from the exact pull-request head SHA rather than GitHub's PR merge-trigger SHA. The workflow also records both the target repository and the pull-request head repository separately. The checked-out PR head remains explicitly asserted, while GitHub's executing workflow identity is recorded independently. This preserves the distinction between the revision under qualification, the repository that owns that revision, and the workflow definition that executed the job.
 
 ## Runtime resolution adapter boundary
 
