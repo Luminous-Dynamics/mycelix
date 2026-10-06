@@ -296,7 +296,7 @@ def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
 
 
 def inject_run_step_conditional_layout(raw: bytes) -> bytes:
-    marker = b"      - name: Upload sandbox negative-control transcript\n"
+    marker = b"      - name: Execute candidate qualification in disposable networkless sandbox\n"
     insertion = marker + b"        if: success()\n"
     if marker not in raw:
         fail("conditional-step shell regression fixture marker missing")
