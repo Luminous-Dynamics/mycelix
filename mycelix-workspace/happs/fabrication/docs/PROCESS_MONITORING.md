@@ -128,7 +128,7 @@ The contextual detection provenance records both the context commitment and a co
 
 ## Registration and physical validation boundary
 
-Context binding is necessary but not sufficient for multimodal registration or physical quality claims. ISO/ASTM 52953:2025 establishes requirements for registering process-monitoring and quality-control data, including multimodal data registration. ISO/ASTM TR 52958:2026 describes a flaw-detection workflow that uses process monitoring together with seeded flaws and CT validation. These support keeping data registration, inference, and independent physical validation as separate evidence layers. citeturn831155search0turn831155search1
+Context binding is necessary but not sufficient for multimodal registration or physical quality claims. ISO/ASTM 52953:2025 establishes requirements for registering process-monitoring and quality-control data, including multimodal data registration. ISO/ASTM TR 52958:2026 describes a flaw-detection workflow that uses process monitoring together with seeded flaws and CT validation. These support keeping data registration, inference, and independent physical validation as separate evidence layers. 
 
 The next research layer is therefore a separately versioned multimodal registration contract covering source-local clocks, alignment, calibration/profile identity, and explicit handling of missing or conflicting context. It should not silently convert alignment uncertainty into a normal or healthy result.
 ## Multimodal registration evidence
@@ -147,7 +147,7 @@ Registration state is derived from the envelope rather than accepted as a caller
 
 The first exact methods are correlation-ID alignment and shared-clock exact source timestamp. A correlation ID is a producer-assigned identifier for the same acquisition frame within an explicit correlation domain; source-local sequence counters are not assumed comparable across modalities. Cross-clock registration requires an explicit committed transform or external registration-evidence digest. The presence of such a commitment records an explicit registration claim; it does not independently prove the transform, sensor calibration, or physical truth.
 
-This distinction follows established industrial data semantics: OPC UA preserves a source timestamp assigned at the data source and distinguishes it from server receipt time; it also calls for synchronized source clocks where sources are redundant. IEEE 1588/PTP is a standard mechanism for synchronizing clocks in networked measurement and control systems. citeturn106905search0turn106905search3turn106905search6
+This distinction follows established industrial data semantics: OPC UA preserves a source timestamp assigned at the data source and distinguishes it from server receipt time; it also calls for synchronized source clocks where sources are redundant. IEEE 1588/PTP is a standard mechanism for synchronizing clocks in networked measurement and control systems. 
 
 A downstream detector should consume multimodal evidence only after the registration state and provenance requirements for that detector are satisfied. Registration status must never be silently converted into a Normal detection result.
 
@@ -184,9 +184,9 @@ The authority-resolution layer now has concrete verification entry points in the
 - `resolve_fpm_registration_action_anchor` retrieves `get_details(ActionHash, network)`, requires `ValidationStatus::Valid`, rejects updates/deletes, requires the addressed action itself to be `Create`, decodes the typed anchor, and recomputes the envelope digest before returning author/timestamp evidence;
 - `resolve_fpm_registration_entry_anchor` retrieves `get_details(EntryHash, network)`, requires a live entry with no rejected creation actions, updates, or deletes, confirms the returned record still carries the requested `EntryHash`, and recomputes the envelope digest.
 
-The EntryHash resolver intentionally returns no author/timestamp claim: an `EntryHash` is content identity, whereas an `ActionHash` identifies an authored instance and carries source-chain context. The ActionHash result preserves author, signer, timestamp, action sequence, and previous-action hash separately, and callers may bind an expected author and/or signer explicitly. Holochain documents these action fields and the distinction between author and signer. citeturn410340search1turn388535search0
+The EntryHash resolver intentionally returns no author/timestamp claim: an `EntryHash` is content identity, whereas an `ActionHash` identifies an authored instance and carries source-chain context. The ActionHash result preserves author, signer, timestamp, action sequence, and previous-action hash separately, and callers may bind an expected author and/or signer explicitly. Holochain documents these action fields and the distinction between author and signer. 
 
-This adapter is still not a claim of physical truth or universal authority: Holochain `get` only establishes that the local/returned view considers the resolved record valid, and other validators can have different information. The resolver consequently treats validation state, deletion/update metadata, typed entry decoding, and exact envelope commitment as separate predicates rather than collapsing them into a single “trusted” bit. citeturn832284search0
+This adapter is still not a claim of physical truth or universal authority: Holochain `get` only establishes that the local/returned view considers the resolved record valid, and other validators can have different information. The resolver consequently treats validation state, deletion/update metadata, typed entry decoding, and exact envelope commitment as separate predicates rather than collapsing them into a single “trusted” bit. 
 
 Verifier identity is treated similarly. `verifier_id`, `verifier_version`, and `declared_verifier_implementation_digest` are captured declarations in the pure core, not proof of the binary that executed. Authenticated build/execution identity is a separate boundary tracked in #4355.
 
@@ -208,7 +208,31 @@ Qualification additionally re-resolves the acquisition root and challenge, rejec
 
 This implements **challenge-bound attestation-result provenance**, not universal device trust. In particular, the current layer does not parse or cryptographically verify an EAT/COSE token, does not establish secure-boot or workload measurements, and does not prove physical sensor honesty. Those are separate verifier/provider adapter obligations.
 
-The separation follows the RATS architecture: Evidence is appraised by a Verifier under an Evidence Appraisal Policy, while Attestation Results are subsequently consumed under relying-party policy. EAT requires a freshness mechanism such as a nonce for anti-replay protection. citeturn101814search0turn101814search2
+The separation follows the RATS architecture: Evidence is appraised by a Verifier under an Evidence Appraisal Policy, while Attestation Results are subsequently consumed under relying-party policy. EAT requires a freshness mechanism such as a nonce for anti-replay protection. (see RFC 9334 and RFC 9711)
+
+## Cryptographic EAT-over-COSE verification
+
+The cryptographic adapter verifies the exact wire evidence rather than accepting an attestation-result digest or boolean.
+
+FPM v1 pins:
+- tagged COSE_Sign1 (CBOR tag 18);
+- protected algorithm: ES256 only;
+- protected key identifier (kid): required and matched against the configured verification key;
+- all unprotected COSE headers: rejected;
+- protected content type: application/eat+cwt;
+- EAT/CWT subject claim (claim 2): one exact text value;
+- EAT/CWT audience claim (claim 3): one exact text value;
+- EAT nonce claim (claim 10): one exact byte string matching the challenge nonce;
+- EAT profile claim (claim 265): one exact text URI;
+- exact received COSE bytes: hashed directly as the evidence commitment.
+
+The verifier checks the COSE signature over the Sig_structure before interpreting EAT claims. Trailing CBOR, detached payloads, duplicate required claims, malformed keys, wrong protected key IDs, signature failures, and profile/subject/audience/nonce substitutions cannot produce a qualified cryptographic result.
+
+The successful cryptographic verification is itself recorded as a typed Holochain evidence anchor. Source-attestation creation requires that anchor and derives its evidence digest from the verified COSE object; it cannot submit an arbitrary digest independently.
+
+This boundary establishes cryptographic verification under a configured key and profile. It does not establish that the key belongs to secure hardware, that the attester's software is uncompromised, or that the captured physical phenomenon is truthful. Those remain separate RATS trust, platform-attestation, calibration, and physical-validation boundaries.
+
+
 
 
 The authenticated provenance layer now requires each distinct `acquisition_root_digest` to resolve to its own typed Holochain acquisition-root anchor.
@@ -244,7 +268,7 @@ The challenge additionally binds a relying-party audience. This prevents an othe
 
 This establishes **authenticated provenance declarations**: who committed which lineage statement, which registration anchor it referenced, and whether the declaration remains valid in the resolver's Holochain view. It does not establish that the declared sensor lineage is physically true, that the source device is honest, or that two sources are physically independent.
 
-This distinction mirrors supply-chain provenance systems such as in-toto/SLSA, where a provenance statement identifies a subject and describes production lineage but still depends on the trustworthiness of the attesting builder/platform. citeturn173650search0turn173650search6
+This distinction mirrors supply-chain provenance systems such as in-toto/SLSA, where a provenance statement identifies a subject and describes production lineage but still depends on the trustworthiness of the attesting builder/platform. 
 
 ## Provenance disjointness qualification
 
@@ -266,7 +290,7 @@ The intended evidence chain is therefore:
 
 `Observation → RegistrationConsistency → SourceObservationBinding → ProvenanceDisjointness → Authenticated Provenance → Clock/Calibration Qualification → PhysicalValidation`
 
-W3C PROV similarly models provenance in terms of entities, activities, and relationships among them; the current FPM graph is an intentionally smaller deterministic subset focused on acquisition ancestry. citeturn874737search6
+W3C PROV similarly models provenance in terms of entities, activities, and relationships among them; the current FPM graph is an intentionally smaller deterministic subset focused on acquisition ancestry. 
 
 ## Next research boundary
 
