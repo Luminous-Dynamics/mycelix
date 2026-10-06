@@ -15,6 +15,7 @@ jobs:
     if: >-
       github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.name == 'D6U Exact-Head Runtime Executor' &&
+      github.event.workflow_run.path == '.github/workflows/d6u-exact-head-runtime-executor.yml' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
       github.event.repository.full_name == github.repository &&
@@ -52,7 +53,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "43"
+          TRUSTED_POLICY_VERSION: "44"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -133,7 +134,7 @@ jobs:
           printf 'canonical_predicate_sha256=%s\n' "$canonical_predicate_sha256" >> "$GITHUB_OUTPUT"
       - name: Prepare exact auditor handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "43"
+          D6U_TRUSTED_POLICY_VERSION: "44"
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
@@ -183,6 +184,7 @@ EOF
       needs.verifier.result == 'success' &&
       github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.name == 'D6U Exact-Head Runtime Executor' &&
+      github.event.workflow_run.path == '.github/workflows/d6u-exact-head-runtime-executor.yml' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime' &&
       github.event.repository.full_name == github.repository &&
@@ -241,7 +243,7 @@ EOF
   "schema": "d6u-trusted-runtime-evidence-attestation/v2",
   "attestation_kind": "verified-runtime-evidence",
   "claim_ceiling": "ReferenceModelOnly",
-  "policy_version": 43,
+  "policy_version": 44,
   "canonical_predicate_sha256": "$CANONICAL_PREDICATE_SHA256"
 }
 EOF
@@ -265,6 +267,7 @@ EOF
 
       github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.name == 'D6U Exact-Head Runtime Executor' &&
+      github.event.workflow_run.path == '.github/workflows/d6u-exact-head-runtime-executor.yml' &&
 
       github.event.workflow_run.conclusion == 'success' &&
 
@@ -306,7 +309,7 @@ EOF
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "43"
+          TRUSTED_POLICY_VERSION: "44"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -351,7 +354,7 @@ EOF
 
       - name: Assert exact auditor handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "43"
+          D6U_TRUSTED_POLICY_VERSION: "44"
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
@@ -442,7 +445,7 @@ EOF
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-auditor-handoff" \
-            D6U_TRUSTED_POLICY_VERSION="43" \
+            D6U_TRUSTED_POLICY_VERSION="44" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
@@ -450,7 +453,7 @@ EOF
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "43"
+          D6U_TRUSTED_POLICY_VERSION: "44"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"
