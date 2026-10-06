@@ -945,38 +945,22 @@ fn fetch_mycel_score(member_did: &str) -> ExternResult<f64> {
             struct MycelState {
                 mycel_score: f64,
             }
-            match result.decode::<MycelState>() {
-                Ok(state) if state.mycel_score.is_finite() => state.mycel_score,
-                Ok(state) => {
-                    debug!(
-                        "fetch_mycel_score: non-finite MYCEL score {:?} for {}, defaulting to 0.0",
-                        state.mycel_score, member_did
-                    );
-                    0.0
-                }
-                Err(e) => {
-                    debug!(
-                        "fetch_mycel_score: decode error for {}: {:?}, defaulting to 0.0",
-                        member_did, e
-                    );
-                    0.0
-                }
-            }
+            let state = result.decode::<MycelState>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Recognition MYCEL score response was malformed for {}: {:?}",
+                    member_did, e
+                )))
+            })?;
+            validate_mycel_score(state.mycel_score)
         }
-        Ok(other) => {
-            debug!(
-                "fetch_mycel_score: recognition zome returned {:?} for {}, defaulting to 0.0",
-                other, member_did
-            );
-            0.0
-        }
-        Err(e) => {
-            debug!(
-                "fetch_mycel_score: recognition zome unreachable for {}: {:?}, defaulting to 0.0",
-                member_did, e
-            );
-            0.0
-        }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition MYCEL score authority returned unexpected response for {}: {:?}",
+            member_did, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition MYCEL score authority unavailable for {}: {:?}",
+            member_did, e
+        )))),
     }
 }
 
