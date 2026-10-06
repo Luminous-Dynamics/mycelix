@@ -1113,6 +1113,9 @@ def artifact_policy() -> dict:
         },
         "artifact_max_entries": 32,
         "artifact_max_total_bytes": 256,
+        "artifact_integrity": {
+            "allowed_compression_methods": ["stored", "deflate"],
+        },
     }
 
 
@@ -1480,6 +1483,33 @@ def test_trusted_zip_accepts_exact_members() -> None:
         write_valid_artifact_zip(archive)
         infos = verify_zip_members(archive, artifact_policy())
         assert {info.filename for info in infos} == EXPECTED_FILES
+
+
+def test_handoff_zip_uses_handoff_compression_policy() -> None:
+    policy = {
+        "auditor_handoff": {
+            "allowed_compression_methods": ["stored"],
+        }
+    }
+    expected_files = HANDOFF_EXPECTED_FILES
+    maximums = {name: 64 for name in expected_files}
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = Path(tmp) / "handoff.zip"
+        with ZipFile(archive, "w", compression=8) as zip_file:
+            for name in sorted(expected_files):
+                zip_file.writestr(name, "x")
+        assert_rejected(
+            lambda: verify_zip_members(
+                archive,
+                policy,
+                expected_files=expected_files,
+                maximums=maximums,
+                maximum_entries=16,
+                maximum_total=256,
+                allowed_compression_methods=policy["auditor_handoff"]["allowed_compression_methods"],
+            ),
+            "handoff ZIP accepted a compression method outside its policy",
+        )
 
 
 def test_trusted_zip_rejects_duplicate_member() -> None:
@@ -1992,8 +2022,8 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
                 "id": 700,
                 "repository_id": 900,
                 "head_repository_id": 900,
-                "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
-                "head_sha": "a" * 40,
+                "head_branch": "main",
+                "head_sha": "d" * 40,
             },
         }]
     }
@@ -2032,6 +2062,7 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
         "GITHUB_RUN_ID": "501",
         "GITHUB_RUN_ATTEMPT": "2",
         "GITHUB_SHA": "d" * 40,
+        "GITHUB_REF": "refs/heads/main",
         "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
         "D6U_TRIGGER_HEAD_SHA": "a" * 40,
         "GITHUB_TOKEN": "token",
@@ -2039,8 +2070,8 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
     current_run = {
         "id": 501,
         "run_attempt": 2,
-        "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
-        "head_sha": "a" * 40,
+        "head_branch": "main",
+        "head_sha": "d" * 40,
         "repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
         "head_repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
     }
@@ -2082,6 +2113,20 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
         assert_rejected(
             lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
             "handoff artifact was accepted after current workflow head changed",
+        )
+
+    bad_branch_run = dict(current_run)
+    bad_branch_run["head_branch"] = "unexpected-branch"
+    with patch.dict(os.environ, env, clear=False), patch.object(
+        fetcher,
+        "github_get",
+        side_effect=lambda _repo, api_path, _token: (
+            bad_branch_run if api_path == "/actions/runs/501" else payload
+        ),
+    ):
+        assert_rejected(
+            lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
+            "handoff artifact was accepted from a current run on an unexpected branch",
         )
 
 
@@ -2230,6 +2275,7 @@ if __name__ == "__main__":
         test_tracked_source_tree_rejects_nonblob_entry,
         test_truncated_source_tree_is_rejected,
         test_trusted_zip_accepts_exact_members,
+        test_handoff_zip_uses_handoff_compression_policy,
         test_trusted_zip_rejects_duplicate_member,
         test_trusted_zip_rejects_symlink_member,
         test_trusted_zip_rejects_unexpected_member_path,
