@@ -85,6 +85,7 @@ pub enum RegistrationQualificationReason {
     EmptyVerifierIdentity,
     EmptyVerifierVersion,
     InvalidVerifierImplementationDigest,
+    NonCanonicalDigestEncoding,
     EnvelopeDigestMismatch,
     RegistrationUnregistered,
     RegistrationConflicting,
@@ -168,13 +169,18 @@ pub fn qualify_registration(
     if verifier.verifier_version.trim().is_empty() {
         reasons.insert(RegistrationQualificationReason::EmptyVerifierVersion);
     }
-    if !is_valid_digest(&verifier.verifier_implementation_digest) {
+    if !is_canonical_digest(&verifier.verifier_implementation_digest) {
         reasons.insert(RegistrationQualificationReason::InvalidVerifierImplementationDigest);
     }
 
     let computed_envelope_digest = input.envelope.digest();
     match computed_envelope_digest {
-        Ok(digest) if digest == input.registration_envelope_digest => {}
+        Ok(digest)
+            if is_canonical_digest(&input.registration_envelope_digest)
+                && digest == input.registration_envelope_digest => {}
+        Ok(_) if !is_canonical_digest(&input.registration_envelope_digest) => {
+            reasons.insert(RegistrationQualificationReason::NonCanonicalDigestEncoding);
+        }
         _ => {
             reasons.insert(RegistrationQualificationReason::EnvelopeDigestMismatch);
         }
@@ -213,7 +219,7 @@ pub fn qualify_registration(
             continue;
         }
 
-        if !is_valid_digest(&artifact.declared_digest)
+        if !is_canonical_digest(&artifact.declared_digest)
             || hex_digest(&artifact.bytes) != artifact.declared_digest
         {
             reasons.insert(RegistrationQualificationReason::ArtifactDigestMismatch);
@@ -258,6 +264,7 @@ pub fn qualify_registration(
             RegistrationQualificationReason::EmptyVerifierIdentity
                 | RegistrationQualificationReason::EmptyVerifierVersion
                 | RegistrationQualificationReason::InvalidVerifierImplementationDigest
+                | RegistrationQualificationReason::NonCanonicalDigestEncoding
                 | RegistrationQualificationReason::EnvelopeDigestMismatch
                 | RegistrationQualificationReason::ArtifactDigestMismatch
                 | RegistrationQualificationReason::ArtifactBindingMismatch
@@ -326,9 +333,11 @@ fn expected_artifacts(envelope: &RegistrationEnvelope) -> BTreeSet<(EvidenceKind
     expected
 }
 
-fn is_valid_digest(value: &str) -> bool {
+fn is_canonical_digest(value: &str) -> bool {
     value.len() == SHA256_HEX_LEN
-        && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 fn qualification_basis_digest(
@@ -413,6 +422,19 @@ fn hex_digest(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+impl RegistrationQualification {
+    /// Commit to the complete qualification result for later authenticated
+    /// signing or transparency registration.
+    pub fn digest(&self) -> String {
+        let bytes = serde_json::to_vec(self)
+            .expect("RegistrationQualification contains only serializable fields");
+        let mut preimage = Vec::new();
+        append_field(&mut preimage, b"fpm.registration-qualification-record.v1");
+        append_field(&mut preimage, &bytes);
+        hex_digest(&preimage)
+    }
 }
 
 #[cfg(test)]
@@ -501,6 +523,38 @@ mod tests {
             envelope,
             artifacts,
         }
+    }
+
+    #[test]
+    fn uppercase_digest_encoding_is_rejected_by_qualification() {
+        let mut input = input_with_exact_artifacts();
+        input.registration_envelope_digest = input.registration_envelope_digest.to_uppercase();
+        let verifier = verifier();
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InvalidEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::NonCanonicalDigestEncoding));
+    }
+
+    #[test]
+    fn qualification_record_digest_is_deterministic() {
+        let input = input_with_exact_artifacts();
+        let verifier = verifier();
+
+        let a =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
+        let b =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
+
+        assert_eq!(a.digest(), b.digest());
+        assert_eq!(a.digest().len(), SHA256_HEX_LEN);
     }
 
     #[test]
