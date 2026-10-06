@@ -26,6 +26,7 @@ FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
 REFERENCE_ROOT_SOURCE_TAG = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
 REFERENCE_TIME_UNIX = 1791158400
+REFERENCE_EK_RSA_MODULUS = bytes.fromhex("d019fb7bdf2679af2d0bf1d5438dae19f73cad698d171a5e3292506bcd05d8b85b7753f35b9c174105fab4613ccc54a67f43fa97c6ef9330a101897b39c3d0f730ee8001b0b53511846de96731104c242781a1fedee583b72c1205a8ace27bcea878ca22c3be355abd7989a3b8e0f9a384a0b6f3e3a8d8bfc35048d93fc07cf45957a52083ed2a49ce01016dcbbb66d4a39569de30285318f4f5a9ff364a80858cf16e84ee4182de3a282c972b6545ee7aa62d48202043cd006e2a5c84c575499b750226ad19c0a3faea19eb0b813a5e31907fb541ea11e3d3a05a39b120ba3b944dd87da4cb89c3e548d0a05e7b538b5e97c1ecd34290d0b0d2e413e369e657")
 EXPIRED_TIME_UNIX = 4102444800
 FIXTURE_HASHES = {
     "root.der": REFERENCE_ROOT_SHA256,
@@ -206,7 +207,11 @@ def der_tlv(data: bytes, offset: int) -> tuple[int, bytes, bytes, int]:
             raise ValueError("DER indefinite length forbidden")
         if count > 4 or offset + count > len(data):
             raise ValueError("DER length invalid")
+        if data[offset] == 0:
+            raise ValueError("DER non-canonical length")
         length = int.from_bytes(data[offset : offset + count], "big")
+        if length < 128:
+            raise ValueError("DER long-form length used for short value")
         offset += count
     end = offset + length
     if end > len(data):
@@ -280,7 +285,10 @@ def parse_extensions(extension_wrapper: bytes) -> dict[str, dict[str, Any]]:
             next_tag, next_content, _next_raw, next_offset = der_tlv(ext_content, next_offset)
         if next_tag != 0x04 or next_offset != len(ext_content):
             raise ValueError("X.509 Extension missing extnValue")
-        extensions[oid_string(oid_content)] = {
+        oid = oid_string(oid_content)
+        if oid in extensions:
+            raise ValueError(f"duplicate X.509 extension OID: {oid}")
+        extensions[oid] = {
             "critical": critical,
             "extn_value": next_content,
         }
@@ -351,19 +359,28 @@ def basic_constraints(info: dict[str, Any]) -> tuple[bool, bool]:
     if tag != 0x30 or end != len(value):
         raise ValueError("BasicConstraints extension malformed")
     children = der_children(content)
-    if not children or children[0][0] != 0x01 or len(children[0][1]) != 1:
-        return critical, False
-    return critical, children[0][1] == b"\x00"
+    if not children:
+        return critical, True
+    if children[0][0] != 0x01 or len(children[0][1]) != 1:
+        raise ValueError("BasicConstraints missing cA BOOLEAN")
+    ca_false = children[0][1] == b"\x00"
+    if len(children) > 1:
+        # RFC 5280 forbids pathLenConstraint when cA is FALSE.
+        if ca_false:
+            raise ValueError("BasicConstraints pathLenConstraint present with CA=false")
+        if children[1][0] != 0x02:
+            raise ValueError("BasicConstraints pathLenConstraint malformed")
+    return critical, ca_false
 
 
-def key_usage_bits(info: dict[str, Any]) -> tuple[bool, bool, bool]:
+def key_usage_bits(info: dict[str, Any]) -> tuple[bool, bool, bool, bool]:
     critical, value = extension_value(info, "2.5.29.15")
     if value is None:
         return critical, False, False
     tag, content, _raw, end = der_tlv(value, 0)
     if tag != 0x03 or end != len(value):
         raise ValueError("KeyUsage extension malformed")
-    return critical, bit_string_has(content, 2), bit_string_has(content, 6)
+    return critical, bit_string_has(content, 2), bit_string_has(content, 6), bit_string_has(content, 5)
 
 
 def eku_oids(info: dict[str, Any]) -> tuple[bool, list[str]]:
@@ -388,10 +405,27 @@ def authority_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
     tag, content, _raw, end = der_tlv(value, 0)
     if tag != 0x30 or end != len(value):
         raise ValueError("AuthorityKeyIdentifier extension malformed")
+    seen = set()
+    key_identifier: bytes | None = None
     for child_tag, child_content, _raw in der_children(content):
+        if child_tag in seen:
+            raise ValueError("AuthorityKeyIdentifier field duplicated")
+        seen.add(child_tag)
         if child_tag == 0x80:
-            return critical, child_content
-    return critical, None
+            key_identifier = child_content
+        elif child_tag == 0xA1:
+            # authorityCertIssuer is GeneralNames.
+            gn_tag, _gn_content, _gn_raw, gn_end = der_tlv(child_content, 0)
+            if gn_tag != 0x30 or gn_end != len(child_content):
+                raise ValueError("AuthorityKeyIdentifier authorityCertIssuer malformed")
+        elif child_tag == 0x82:
+            # authorityCertSerialNumber is INTEGER.
+            serial_tag, serial_content, _serial_raw, serial_end = der_tlv(child_content, 0)
+            if serial_tag != 0x02 or not serial_content or serial_end != len(child_content):
+                raise ValueError("AuthorityKeyIdentifier authorityCertSerialNumber malformed")
+        else:
+            raise ValueError("AuthorityKeyIdentifier contains unknown field")
+    return critical, key_identifier
 
 
 def subject_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
@@ -406,7 +440,7 @@ def subject_key_id(info: dict[str, Any]) -> tuple[bool, bytes | None]:
 
 def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     bc_critical, ca_false = basic_constraints(info)
-    ku_critical, key_encipherment, _crl_sign = key_usage_bits(info)
+    ku_critical, key_encipherment, _crl_sign, key_cert_sign = key_usage_bits(info)
     eku_critical, eku = eku_oids(info)
     aki_critical, aki = authority_key_id(info)
     profile = {
@@ -416,6 +450,7 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         "basic_constraints_ca_false": ca_false,
         "key_usage_critical": ku_critical,
         "key_encipherment_set": key_encipherment,
+        "key_cert_sign_set": key_cert_sign,
         "extended_key_usage_oids": eku,
         "extended_key_usage_critical": eku_critical,
         "authority_key_identifier_present": aki is not None,
@@ -431,6 +466,7 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         and ca_false
         and ku_critical
         and key_encipherment
+        and not key_cert_sign
         and eku_ok
         and eku_critical_ok
         and aki_critical_ok
@@ -440,7 +476,7 @@ def leaf_profile_ok(info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
 
 
 def verify_crl_sign_key_usage(info: dict[str, Any]) -> bool:
-    critical, _key_encipherment, crl_sign = key_usage_bits(info)
+    critical, _key_encipherment, crl_sign, _key_cert_sign = key_usage_bits(info)
     return critical and crl_sign
 
 
@@ -1097,12 +1133,27 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     profile["leaf_subject_name_sha256"] = hashlib.sha256(leaf_info["subject_der"]).hexdigest()
     profile["intermediate_subject_name_sha256"] = hashlib.sha256(intermediate_info["subject_der"]).hexdigest()
     profile["root_subject_name_sha256"] = hashlib.sha256(root_info["subject_der"]).hexdigest()
+    profile["aia_non_critical"] = (
+        not extension_value(leaf_info, "1.3.6.1.5.5.7.1.1")[0]
+    )
+    profile["crl_distribution_non_critical"] = (
+        not extension_value(leaf_info, "2.5.29.31")[0]
+    )
+    profile["subject_directory_attributes_non_critical"] = (
+        not extension_value(leaf_info, "2.5.29.9")[0]
+    )
     profile["path_verifier_id"] = PATH_VERIFIER_ID
     profile["path_execution_binding_sha256"] = path_validation["execution_binding_sha256"]
     if leaf_info["serial"] <= 0:
         return result("DENY", "leaf-serial-invalid", profile)
     if not profile_ok:
         return result("DENY", "ek-leaf-profile-requirements-failed", profile)
+    if extension_value(leaf_info, "1.3.6.1.5.5.7.1.1")[0]:
+        return result("DENY", "aia-extension-must-be-non-critical", profile)
+    if extension_value(leaf_info, "2.5.29.31")[0]:
+        return result("DENY", "crl-distribution-extension-must-be-non-critical", profile)
+    if extension_value(leaf_info, "2.5.29.9")[0]:
+        return result("DENY", "subject-directory-attributes-must-be-non-critical", profile)
     if leaf_info["issuer_der"] != intermediate_info["subject_der"]:
         return result(
             "DENY",
@@ -1187,13 +1238,13 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             bytes.fromhex("0001000b000300b2")
             + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
             + bytes.fromhex("00060080004300100800")
-            + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+            + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
         ).hex(),
         "ek_public_wire_sha256": hashlib.sha256(
             bytes.fromhex("0001000b000300b2")
             + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
             + bytes.fromhex("00060080004300100800")
-            + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+            + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
         ).hexdigest(),
         "leaf_certificate_der_base64": b64(fx["leaf"]),
         "leaf_certificate_sha256": leaf_sha,
@@ -1243,7 +1294,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             ).hexdigest(),
             "source_sha256": sha256_file(TEMPLATE_VERIFIER_SCRIPT),
             "template_id": "L-1",
@@ -1258,25 +1309,25 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             ).hex(),
                 "public_wire_sha256": hashlib.sha256(
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             ).hexdigest(),
                 "name_hex": (SHA256_ALG_ID + hashlib.sha256(
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             ).digest()).hex(),
                 "qualified_name_hex": (SHA256_ALG_ID + hashlib.sha256(b"template-qname" + (
                 bytes.fromhex("0001000b000300b2")
                 + bytes.fromhex("0020") + bytes.fromhex("837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa")
                 + bytes.fromhex("00060080004300100800")
-                + bytes.fromhex("00000000") + bytes.fromhex("0100") + bytes(256)
+                + bytes.fromhex("00000000") + bytes.fromhex("0100") + REFERENCE_EK_RSA_MODULUS
             )).digest()).hex(),
                 "creation_provenance": {
                     "state": "PASS",
@@ -1585,6 +1636,24 @@ def self_test() -> int:
             return 1
         if "x509_text(" in implementation_source or "x509_scalar(" in implementation_source or "extension(leaf_text" in implementation_source:
             print("human-readable certificate text remains security-authoritative: FAIL")
+            return 1
+        try:
+            der_tlv(b"\x04\x81\x01\x00", 0)
+        except ValueError:
+            pass
+        else:
+            print("non-canonical DER length acceptance: FAIL")
+            return 1
+        duplicate_extension = der_tlv(
+            0x30,
+            der_tlv(0x06, bytes.fromhex("551d13")) + der_tlv(0x04, der_tlv(0x30, b"")),
+        )
+        try:
+            parse_extensions(der_tlv(0x30, duplicate_extension + duplicate_extension))
+        except ValueError:
+            pass
+        else:
+            print("duplicate X.509 extension acceptance: FAIL")
             return 1
 
 

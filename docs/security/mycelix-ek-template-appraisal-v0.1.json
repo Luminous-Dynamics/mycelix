@@ -72,125 +72,140 @@
     ]
   ],
   "vectors": [
-    [
-      "ETP-V01",
-      "canonical-valid",
-      "PASS"
-    ],
-    [
-      "ETP-V02",
-      "public-type-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V03",
-      "name-alg-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V04",
-      "attributes-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V05",
-      "auth-policy-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V06",
-      "symmetric-alg-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V07",
-      "symmetric-keybits-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V08",
-      "symmetric-mode-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V09",
-      "scheme-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V10",
-      "keybits-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V11",
-      "exponent-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V12",
-      "unique-size-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V13",
-      "trailing-bytes",
-      "DENY"
-    ],
-    [
-      "ETP-V14",
-      "tpm2b-size-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V15",
-      "name-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V16",
-      "public-wire-digest-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V17",
-      "creation-hierarchy-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V18",
-      "creation-tool-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V19",
-      "creation-provenance-indeterminate",
-      "INDETERMINATE"
-    ],
-    [
-      "ETP-V20",
-      "manufacturer-template-mode",
-      "INDETERMINATE"
-    ],
-    [
-      "ETP-V21",
-      "offline-bundle",
-      "INDETERMINATE"
-    ],
-    [
-      "ETP-V22",
-      "live-verifier",
-      "INDETERMINATE"
-    ],
-    [
-      "ETP-V23",
-      "creation-transcript-substitution",
-      "DENY"
-    ],
-    [
-      "ETP-V24",
-      "key-order-permutation",
-      "PASS"
-    ]
+    {
+      "id": "ETP-V01",
+      "mutation": "canonical-valid",
+      "expected": "PASS"
+    },
+    {
+      "id": "ETP-V02",
+      "mutation": "public-type-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V03",
+      "mutation": "name-alg-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V04",
+      "mutation": "attributes-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V05",
+      "mutation": "auth-policy-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V06",
+      "mutation": "symmetric-alg-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V07",
+      "mutation": "symmetric-keybits-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V08",
+      "mutation": "symmetric-mode-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V09",
+      "mutation": "scheme-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V10",
+      "mutation": "keybits-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V11",
+      "mutation": "exponent-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V12",
+      "mutation": "unique-size-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V13",
+      "mutation": "trailing-bytes",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V14",
+      "mutation": "tpm2b-size-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V15",
+      "mutation": "name-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V16",
+      "mutation": "public-wire-digest-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V17",
+      "mutation": "creation-hierarchy-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V18",
+      "mutation": "creation-tool-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V19",
+      "mutation": "creation-provenance-indeterminate",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "ETP-V20",
+      "mutation": "manufacturer-template-mode",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "ETP-V21",
+      "mutation": "offline-bundle",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "ETP-V22",
+      "mutation": "live-verifier",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "ETP-V23",
+      "mutation": "creation-transcript-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V24",
+      "mutation": "rsa-modulus-zero",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V25",
+      "mutation": "rsa-modulus-msb-cleared",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V26",
+      "mutation": "rsa-modulus-even",
+      "expected": "DENY"
+    },
+    {
+      "id": "ETP-V27",
+      "mutation": "key-order-permutation",
+      "expected": "PASS"
+    }
   ]
 }

@@ -17,3 +17,6 @@ The EK chain no longer consumes SPKI PASS metadata as authority. It re-executes 
 
 
 The certificate-path theorem is now an independent execution boundary. The chain verifier derives the exact DER/CRL/time input, re-executes `mycelix.tpm.ek-cert-path-validation.v0.1`, and binds verifier source, input/output file hashes, semantic output hash, and a canonical execution-policy binding. The reference claim ceiling remains `ReferenceModelOnly`; OpenSSL runtime provenance is evidence of the verifier execution, not manufacturer trust.
+
+
+Profile 2.7 scope is intentionally bounded. The verifier now enforces unconditional certificate-structure requirements that are locally decidable from exact DER, including extension uniqueness, Basic Constraints structure, non-critical AIA/CDP/SubjectDirectoryAttributes when present, and the mandatory non-critical Authority Key Identifier structure. Conditional `EKCredentialAlgorithmList` / `TPMPQCVersion` requirements remain explicitly outside this reference theorem because they require issuer-history and firmware evidence.

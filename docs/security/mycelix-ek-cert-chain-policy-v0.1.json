@@ -90,8 +90,13 @@
     "basic_constraints": "critical CA:false",
     "key_usage": "critical keyEncipherment for RSA storage EK",
     "extended_key_usage": "optional; if present it should contain 2.23.133.8.1",
-    "authority_key_identifier": "matches issuing CA SubjectKeyIdentifier",
-    "crl_issuer_key_usage": "every certificate acting as a CRL issuer must have critical Key Usage with cRLSign set"
+    "authority_key_identifier": "MUST be present and non-critical; keyIdentifier is required and optional issuer/serial fields must be structurally valid",
+    "crl_issuer_key_usage": "every certificate acting as a CRL issuer must have critical Key Usage with cRLSign set",
+    "rsa_modulus": "for the L-1 RSA 2048 template, unique is exactly 256 bytes, non-zero, the most-significant bit is set, and the modulus is odd",
+    "certificate_extension_uniqueness": "a given X.509 extension OID may occur at most once",
+    "authority_information_access": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
+    "crl_distribution": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
+    "subject_directory_attributes": "if present, MUST be non-critical"
   },
   "forbidden_inputs": [
     "profile_override",
@@ -426,5 +431,18 @@
       "verifier_input"
     ],
     "rule": "The EK chain verifier re-executes the standalone path verifier against the exact leaf/intermediate/root DER, exact CRL bundle, and exact verification time bound by this manifest. It requires exact verifier source, input/output file digests, semantic output content digest, and execution-policy binding."
+  },
+  "profile_scope": {
+    "implemented_unconditional_2_7_invariants": [
+      "RSA storage EK Key Usage criticality and keyEncipherment",
+      "Basic Constraints critical CA=false",
+      "Authority Key Identifier mandatory and non-critical",
+      "AIA and CRL Distribution non-critical when present",
+      "Subject Directory Attributes non-critical when present",
+      "exact RSA-2048 TPMT_PUBLIC modulus structure for L-1",
+      "exact RSA certificate SPKI rsaEncryption AlgorithmIdentifier parameters"
+    ],
+    "conditional_pqc_requirements": "EKCredentialAlgorithmList and TPMPQCVersion are intentionally outside this v0.1 reference theorem because their correctness depends on issuer-issued PQC credentials and firmware-at-manufacturing/current-firmware evidence not present in this synthetic reference fixture.",
+    "claim_ceiling": "ReferenceModelOnly"
   }
 }

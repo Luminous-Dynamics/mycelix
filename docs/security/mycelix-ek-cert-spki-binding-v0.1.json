@@ -6,7 +6,11 @@
   "status": "executable-reference-profile",
   "claim_ceiling": "ReferenceModelOnly",
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
-  "states": ["PASS", "DENY", "INDETERMINATE"],
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
   "theorem": {
     "statement": "The leaf EK certificate SubjectPublicKeyInfo must encode the same RSA public key as the exact TPM EK TPMT_PUBLIC bytes.",
     "rsa_rule": "SubjectPublicKeyInfo = AlgorithmIdentifier(rsaEncryption,NULL) + BIT STRING(RSAPublicKey(modulus, publicExponent))",
@@ -15,11 +19,18 @@
   "required_input": {
     "session_id": "capture session identifier",
     "tpm_identity_digest": "sha256 digest identifying the TPM capture context",
-    "verification_mode": ["ReferenceModelOnly", "OfflineBundle", "LiveVerifierSession"],
+    "verification_mode": [
+      "ReferenceModelOnly",
+      "OfflineBundle",
+      "LiveVerifierSession"
+    ],
     "claim_ceiling": "ReferenceModelOnly",
     "certificate_der_hex": "exact leaf certificate DER",
     "certificate_der_sha256": "SHA-256 of exact certificate DER",
-    "ek_public_format": ["TPMT_PUBLIC", "TPM2B_PUBLIC"],
+    "ek_public_format": [
+      "TPMT_PUBLIC",
+      "TPM2B_PUBLIC"
+    ],
     "ek_public_wire_hex": "exact TPM EK public-area bytes",
     "ek_public_wire_sha256": "SHA-256 of exact EK public-area bytes",
     "certificate_source_sha256": "exact certificate capture/source receipt digest",
@@ -38,31 +49,121 @@
     "session_binding_sha256"
   ],
   "non_equivalences": [
-    ["spki_key_match", "certificate_chain_trust"],
-    ["spki_key_match", "certificate_validity"],
-    ["spki_key_match", "certificate_revocation_status"],
-    ["spki_key_match", "manufacturer_authenticity"],
-    ["spki_key_match", "ek_template_compliance"],
-    ["spki_key_match", "AK_EK_lineage"],
-    ["spki_key_match", "platform_measured_boot_valid"]
+    [
+      "spki_key_match",
+      "certificate_chain_trust"
+    ],
+    [
+      "spki_key_match",
+      "certificate_validity"
+    ],
+    [
+      "spki_key_match",
+      "certificate_revocation_status"
+    ],
+    [
+      "spki_key_match",
+      "manufacturer_authenticity"
+    ],
+    [
+      "spki_key_match",
+      "ek_template_compliance"
+    ],
+    [
+      "spki_key_match",
+      "AK_EK_lineage"
+    ],
+    [
+      "spki_key_match",
+      "platform_measured_boot_valid"
+    ]
   ],
   "vectors": [
-    {"id":"EKS-V01","mutation":"canonical-rsa-match","expected":"PASS"},
-    {"id":"EKS-V02","mutation":"certificate-der-malformed","expected":"DENY"},
-    {"id":"EKS-V03","mutation":"certificate-digest-substitution","expected":"DENY"},
-    {"id":"EKS-V04","mutation":"ek-public-digest-substitution","expected":"DENY"},
-    {"id":"EKS-V05","mutation":"ek-modulus-substitution","expected":"DENY"},
-    {"id":"EKS-V06","mutation":"ek-exponent-substitution","expected":"DENY"},
-    {"id":"EKS-V07","mutation":"ek-public-type-substitution","expected":"DENY"},
-    {"id":"EKS-V08","mutation":"tpm2b-size-substitution","expected":"DENY"},
-    {"id":"EKS-V09","mutation":"certificate-byte-substitution","expected":"DENY"},
-    {"id":"EKS-V10","mutation":"certificate-source-substitution","expected":"DENY"},
-    {"id":"EKS-V11","mutation":"ek-public-source-substitution","expected":"DENY"},
-    {"id":"EKS-V12","mutation":"session-binding-substitution","expected":"DENY"},
-    {"id":"EKS-V13","mutation":"tpm-identity-substitution","expected":"DENY"},
-    {"id":"EKS-V14","mutation":"offline-bundle","expected":"INDETERMINATE"},
-    {"id":"EKS-V15","mutation":"live-verifier","expected":"INDETERMINATE"},
-    {"id":"EKS-V16","mutation":"key-order-permutation","expected":"PASS"}
+    {
+      "id": "EKS-V01",
+      "mutation": "canonical-rsa-match",
+      "expected": "PASS"
+    },
+    {
+      "id": "EKS-V02",
+      "mutation": "certificate-der-malformed",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V03",
+      "mutation": "certificate-digest-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V04",
+      "mutation": "ek-public-digest-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V05",
+      "mutation": "ek-modulus-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V06",
+      "mutation": "ek-exponent-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V07",
+      "mutation": "ek-public-type-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V08",
+      "mutation": "tpm2b-size-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V09",
+      "mutation": "certificate-byte-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V10",
+      "mutation": "certificate-source-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V11",
+      "mutation": "ek-public-source-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V12",
+      "mutation": "session-binding-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V13",
+      "mutation": "tpm-identity-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V14",
+      "mutation": "offline-bundle",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "EKS-V15",
+      "mutation": "live-verifier",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "EKS-V16",
+      "mutation": "certificate-spki-parameters-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKS-V17",
+      "mutation": "key-order-permutation",
+      "expected": "PASS"
+    }
   ],
   "future_live_capture_requirements": [
     "capture the exact EK certificate DER bytes and source provenance",
