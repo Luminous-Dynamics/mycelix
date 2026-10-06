@@ -290,7 +290,7 @@ jobs:
 
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
-          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --env CANDIDATE_TREE="$candidate_tree"             --volume "$candidate_volume_name:/output:rw"             "$FETCH_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
+          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --env CANDIDATE_TREE="$candidate_tree"             --volume "$candidate_volume_name:/output:rw"             "$FETCH_IMAGE" /bin/bash -euo pipefail -c '
               set -euo pipefail
               export XDG_CONFIG_HOME=/tmp/config
               mkdir -p /tmp/config /tmp/repository
@@ -711,7 +711,11 @@ jobs:
           vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           vendor_config="$RUNNER_TEMP/security-kernel-vendor-config.toml"
           vendor_metrics="$RUNNER_TEMP/security-kernel-vendor-metrics.txt"
-          if docker volume inspect "$vendor_volume_name" >/dev/null 2>&1; then
+          if ! existing_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
+            echo "security-kernel vendor volume inventory query failed" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$existing_vendor_volumes" | grep -Fxq "$vendor_volume_name"; then
             echo "security-kernel vendor volume name collision" >&2
             exit 1
           fi
@@ -723,9 +727,13 @@ jobs:
           test "$vendor_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"
           vendor_cleanup_on_failure() {
             local status=$?
-            if [ "$status" -ne 0 ] && docker volume inspect "$vendor_volume_name" >/dev/null 2>&1; then
-              if ! docker volume rm "$vendor_volume_name" >/dev/null; then status=1; fi
-              if docker volume inspect "$vendor_volume_name" >/dev/null 2>&1; then status=1; fi
+            if [ "$status" -ne 0 ]; then
+              if ! docker volume rm "$vendor_volume_name" >/dev/null 2>&1; then status=1; fi
+              if ! remaining_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
+                status=1
+              elif printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$vendor_volume_name"; then
+                status=1
+              fi
             fi
             trap - EXIT
             exit "$status"
@@ -747,7 +755,7 @@ jobs:
             --env HOME=/cargo-home --env CARGO_HOME=/cargo-home \
             --env VENDOR_MAX_BYTES="$VENDOR_MAX_BYTES" --env VENDOR_MAX_FILES="$VENDOR_MAX_FILES" --env VENDOR_MAX_INODES="$VENDOR_MAX_INODES" \
             --env GITHUB_TOKEN= --env GH_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_URL= --env ACTIONS_RUNTIME_TOKEN= \
-            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
               set -euo pipefail
               /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config
               python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" /vendor /vendor-metrics <<\PY
@@ -764,7 +772,7 @@ jobs:
                   relative=rel.as_posix().encode(); digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
               metrics.write_text(f'vendor_observed_bytes={total}\nvendor_observed_files={files}\nvendor_observed_inodes={inodes}\nvendor_digest={digest.hexdigest()}\n', encoding='utf-8')
               PY
-            '
+          CONTAINER_SCRIPT
           status=$?
           set -e
           if [ "$status" -ne 0 ]; then exit "$status"; fi
@@ -840,7 +848,7 @@ jobs:
             --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
             --env ACTIONS_ID_TOKEN_REQUEST_URL= \
             --env ACTIONS_RUNTIME_TOKEN= \
-            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
               set -euo pipefail
               must_fail() {
                 if "$@" >/tmp/negative-control-output 2>&1; then
@@ -1139,7 +1147,7 @@ jobs:
             --user "$runner_uid:$runner_gid" --ipc=private --pid=private --cgroupns=private \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
             --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
-            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
               python3 - "$EXPECTED_VENDOR_DIGEST" /vendor <<\PY
               import hashlib, pathlib, stat, sys
               expected=sys.argv[1]; vendor=pathlib.Path(sys.argv[2]); digest=hashlib.sha256()
