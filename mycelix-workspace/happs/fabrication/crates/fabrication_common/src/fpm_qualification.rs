@@ -219,9 +219,11 @@ pub fn qualify_registration(
             continue;
         }
 
-        if !is_canonical_digest(&artifact.declared_digest)
-            || hex_digest(&artifact.bytes) != artifact.declared_digest
-        {
+        if !is_canonical_digest(&artifact.declared_digest) {
+            reasons.insert(RegistrationQualificationReason::NonCanonicalDigestEncoding);
+            continue;
+        }
+        if hex_digest(&artifact.bytes) != artifact.declared_digest {
             reasons.insert(RegistrationQualificationReason::ArtifactDigestMismatch);
             continue;
         }
