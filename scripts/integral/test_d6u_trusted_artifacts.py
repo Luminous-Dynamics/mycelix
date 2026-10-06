@@ -440,6 +440,17 @@ def test_policy_pins_current_trusted_workflow() -> None:
     assert policy["trusted_workflow"]["blob_sha"] == observed
 
 
+def test_attestation_verifier_contains_no_optimization_sensitive_asserts() -> None:
+    import ast
+
+    root = Path(__file__).parents[2]
+    source = (
+        root / "scripts/integral/verify_d6u_trusted_attestation.py"
+    ).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    assert not any(isinstance(node, ast.Assert) for node in ast.walk(tree))
+
+
 def test_policy_pins_current_trusted_fetcher() -> None:
     root = Path(__file__).parents[2]
     policy = json.loads(
