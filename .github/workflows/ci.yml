@@ -54,7 +54,7 @@ jobs:
               "Swatinem/rust-cache": "6323deb102c322ba6fcbdcafc7e3dddab59af2b6",
               "cachix/install-nix-action": "725982224ce3b974b7abc7df9ca873679eda8939",
               "cachix/cachix-action": "ad2ddac53f961de1989924296a1f236fcfbaa4fc",
-              "actions/setup-node": "820762786026740c76f36085b0efc47a31fe5020",
+              "actions/setup-node": "1b7c3664663df781e1fcd594dea72dd2d5aefb66",
               "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
           }
           refs = {}
@@ -433,7 +433,7 @@ jobs:
           workspaces: mycelix-workspace/sdk
       - name: Test Rust SDK
         run: cd mycelix-workspace/sdk && cargo test --workspace
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@1b7c3664663df781e1fcd594dea72dd2d5aefb66 # v7.0.0
         with:
           node-version: 20
       - name: Test TypeScript SDK
