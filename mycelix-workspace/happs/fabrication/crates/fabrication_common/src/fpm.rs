@@ -562,7 +562,7 @@ mod tests {
             .map(|sequence| observation(sequence as u64, 210.0))
             .collect::<Vec<_>>();
         assert!(matches!(
-            BaselineProfile::from_observations("1", &observations),
+            BaselineProfile::from_observations(&DetectorConfig::default(), &observations),
             Err(FpmError::InsufficientBaseline {
                 feature: ProcessFeature::HotendTemperature,
                 ..
@@ -623,7 +623,7 @@ mod tests {
                 sensor: sensor(210.0, 60.0, 1.0, 0.05, if sequence == 0 { Some(100.0) } else { None }),
             })
             .collect::<Vec<_>>();
-        let profile = BaselineProfile::from_observations("1", &observations).expect("required baseline");
+        let profile = BaselineProfile::from_observations(&DetectorConfig::default(), &observations).expect("required baseline");
         assert!(profile.feature(ProcessFeature::FilamentTension).is_none());
     }
 
@@ -636,7 +636,7 @@ mod tests {
                 sensor: sensor(210.0 + sequence as f32 * 1e-20, 60.0, 1.0, 0.05, None),
             });
         }
-        let profile = BaselineProfile::from_observations("1", &observations).expect("baseline");
+        let profile = BaselineProfile::from_observations(&DetectorConfig::default(), &observations).expect("baseline");
         let result = analyze(
             &DetectorConfig::default(),
             &profile,
@@ -659,7 +659,7 @@ mod tests {
                 sensor: sensor(210.0, 60.0, 1.0, 0.05, Some(100.0)),
             })
             .collect::<Vec<_>>();
-        let baseline = BaselineProfile::from_observations("1", &observations).expect("baseline");
+        let baseline = BaselineProfile::from_observations(&DetectorConfig::default(), &observations).expect("baseline");
 
         let observation = ProcessObservation {
             sequence: 100,
