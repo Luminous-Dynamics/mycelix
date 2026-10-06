@@ -1128,8 +1128,6 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     profile["leaf_subject_name_sha256"] = hashlib.sha256(leaf_info["subject_der"]).hexdigest()
     profile["intermediate_subject_name_sha256"] = hashlib.sha256(intermediate_info["subject_der"]).hexdigest()
     profile["root_subject_name_sha256"] = hashlib.sha256(root_info["subject_der"]).hexdigest()
-    _, _, key_cert_sign = key_usage_bits(leaf_info)
-    profile["key_cert_sign_set"] = key_cert_sign
     profile["aia_non_critical"] = (
         not extension_value(leaf_info, "1.3.6.1.5.5.7.1.1")[0]
     )
