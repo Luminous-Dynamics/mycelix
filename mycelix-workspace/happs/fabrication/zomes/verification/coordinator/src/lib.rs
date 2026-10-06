@@ -46,7 +46,11 @@ pub struct ResolvedFpmAcquisitionRootAnchor {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateFpmAttestationChallengeInput {
     pub acquisition_root_action: ActionHash,
+    pub attestation_format: String,
+    pub verifier_profile_digest: String,
     pub appraisal_policy_digest: String,
+    pub reference_values_digest: String,
+    pub endorsement_digest: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -61,7 +65,11 @@ pub struct ResolvedFpmAttestationChallenge {
     pub acquisition_root_action: ActionHash,
     pub acquisition_root_digest: String,
     pub verifier_agent: AgentPubKey,
+    pub attestation_format: String,
+    pub verifier_profile_digest: String,
     pub appraisal_policy_digest: String,
+    pub reference_values_digest: String,
+    pub endorsement_digest: String,
     pub nonce: Vec<u8>,
     pub nonce_digest: String,
     pub author: AgentPubKey,
@@ -75,12 +83,8 @@ pub struct ResolvedFpmAttestationChallenge {
 pub struct CreateFpmSourceAttestationAnchorInput {
     pub challenge_action: ActionHash,
     pub evidence_digest: String,
-    pub attestation_format: String,
     pub verifier_id: String,
     pub verifier_version: String,
-    pub verifier_profile_digest: String,
-    pub reference_values_digest: String,
-    pub endorsement_digest: String,
     pub disposition: FpmAttestationDisposition,
 }
 
@@ -183,8 +187,12 @@ fn resolve_fpm_attestation_challenge_impl(
 
     if challenge.schema_version != FPM_ATTESTATION_CHALLENGE_SCHEMA_VERSION
         || !valid_fpm_digest(&challenge.acquisition_root_digest)
+        || !valid_fpm_digest(&challenge.verifier_profile_digest)
         || !valid_fpm_digest(&challenge.appraisal_policy_digest)
+        || !valid_fpm_digest(&challenge.reference_values_digest)
+        || !valid_fpm_digest(&challenge.endorsement_digest)
         || !valid_attestation_identifier(&challenge.subject_id, 128)
+        || !valid_attestation_identifier(&challenge.attestation_format, 128)
         || !(8..=64).contains(&challenge.nonce.len())
         || challenge.verifier_agent != *record.action().author()
     {
@@ -199,7 +207,11 @@ fn resolve_fpm_attestation_challenge_impl(
         acquisition_root_action: challenge.acquisition_root_action,
         acquisition_root_digest: challenge.acquisition_root_digest,
         verifier_agent: challenge.verifier_agent,
+        attestation_format: challenge.attestation_format,
+        verifier_profile_digest: challenge.verifier_profile_digest,
         appraisal_policy_digest: challenge.appraisal_policy_digest,
+        reference_values_digest: challenge.reference_values_digest,
+        endorsement_digest: challenge.endorsement_digest,
         nonce_digest: fpm_attestation_nonce_digest(&challenge.nonce),
         nonce: challenge.nonce,
         author: *record.action().author(),
@@ -270,7 +282,10 @@ fn validate_attestation_claim_against_challenge(
         expected_subject_id: challenge.subject_id.clone(),
         expected_acquisition_root_digest: challenge.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: challenge.nonce_digest.clone(),
+        expected_verifier_profile_digest: challenge.verifier_profile_digest.clone(),
         expected_appraisal_policy_digest: challenge.appraisal_policy_digest.clone(),
+        expected_reference_values_digest: challenge.reference_values_digest.clone(),
+        expected_endorsement_digest: challenge.endorsement_digest.clone(),
         claim: claim.clone(),
     }))
 }
@@ -392,9 +407,14 @@ fn create_fpm_attestation_challenge_impl(
         },
     )?;
 
-    if !valid_fpm_digest(&input.appraisal_policy_digest) {
+    if !valid_attestation_identifier(&input.attestation_format, 128)
+        || !valid_fpm_digest(&input.verifier_profile_digest)
+        || !valid_fpm_digest(&input.appraisal_policy_digest)
+        || !valid_fpm_digest(&input.reference_values_digest)
+        || !valid_fpm_digest(&input.endorsement_digest)
+    {
         return Err(fpm_attestation_error(
-            "appraisal policy digest must be canonical lowercase SHA-256",
+            "attestation challenge verifier policy inputs are malformed",
         ));
     }
 
@@ -412,7 +432,11 @@ fn create_fpm_attestation_challenge_impl(
         acquisition_root_action: input.acquisition_root_action,
         acquisition_root_digest: root.root_digest,
         verifier_agent,
+        attestation_format: input.attestation_format,
+        verifier_profile_digest: input.verifier_profile_digest,
         appraisal_policy_digest: input.appraisal_policy_digest,
+        reference_values_digest: input.reference_values_digest,
+        endorsement_digest: input.endorsement_digest,
         nonce,
     };
 
@@ -452,18 +476,28 @@ fn create_fpm_source_attestation_anchor_impl(
         ));
     }
 
+    if input.evidence_digest.len() != 64
+        || !valid_fpm_digest(&input.evidence_digest)
+        || !valid_attestation_identifier(&input.verifier_id, 128)
+        || !valid_attestation_identifier(&input.verifier_version, 128)
+    {
+        return Err(fpm_attestation_error(
+            "source attestation evidence/verifier declaration is malformed",
+        ));
+    }
+
     let claim = FpmSourceAttestationClaim {
         subject_id: challenge.subject_id.clone(),
         acquisition_root_digest: challenge.acquisition_root_digest.clone(),
         challenge_nonce_digest: challenge.nonce_digest.clone(),
         evidence_digest: input.evidence_digest,
-        attestation_format: input.attestation_format,
+        attestation_format: challenge.attestation_format.clone(),
         verifier_id: input.verifier_id,
         verifier_version: input.verifier_version,
-        verifier_profile_digest: input.verifier_profile_digest,
+        verifier_profile_digest: challenge.verifier_profile_digest.clone(),
         appraisal_policy_digest: challenge.appraisal_policy_digest.clone(),
-        reference_values_digest: input.reference_values_digest,
-        endorsement_digest: input.endorsement_digest,
+        reference_values_digest: challenge.reference_values_digest.clone(),
+        endorsement_digest: challenge.endorsement_digest.clone(),
         disposition: input.disposition,
     };
 
