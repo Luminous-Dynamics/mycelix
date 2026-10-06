@@ -184,6 +184,8 @@ def verify_report(
         predicate = statement.get("predicate")
         assert isinstance(predicate, dict)
         assert predicate.get("schema") == expected_context["predicate_schema"]
+        assert predicate.get("canonical_predicate_sha256") == expected_context["canonical_predicate_sha256"]
+        assert predicate.get("policy_version") == int(expected_context["policy_version"])
         assert predicate.get("claim_ceiling") == expected_context["claim_ceiling"]
         assert predicate.get("attestation_kind") == "verified-runtime-evidence"
 
@@ -245,7 +247,7 @@ def verify_no_public_good_control(
     assert control["subject_name"] == expected_subject_name
     assert control["subject_sha256"] == expected_subject_sha256
 
-    evidence_root = Path(os.environ["RUNNER_TEMP"]) / "d6u-trusted-input"
+    evidence_root = Path(os.environ["RUNNER_TEMP"]) / "d6u-auditor-handoff"
     subject_path = evidence_root / expected_subject_name
     bundle_path = root / expected_bundle_name
     offline_path = root / expected_offline_name
@@ -319,6 +321,8 @@ def main() -> None:
         "cli_version",
         "predicate_type",
         "predicate_schema",
+        "canonical_predicate_schema",
+        "canonical_predicate_sha256",
         "claim_ceiling",
         "public_good_instance_required",
         "public_good_instance",
@@ -357,7 +361,8 @@ def main() -> None:
     )
     assert transcript["cli_version"] == "2.101.0"
     assert transcript["predicate_type"] == PREDICATE_TYPE
-    assert transcript["predicate_schema"] == PREDICATE_SCHEMA
+    assert transcript["predicate_schema"] == ATTESTATION_PREDICATE_SCHEMA
+    assert transcript["canonical_predicate_schema"] == CANONICAL_PREDICATE_SCHEMA
     assert transcript["claim_ceiling"] == "ReferenceModelOnly"
     assert transcript["public_good_instance_required"] is True
     assert transcript["public_good_instance"] == PUBLIC_GOOD_INSTANCE
