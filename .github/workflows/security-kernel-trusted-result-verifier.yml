@@ -28,7 +28,7 @@ env:
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
   CAUSAL_JOIN_VERIFIER_BLOB_SHA: "20cb3cbc1cd4b4c97ff576284e234692c89390ac"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "8ec4d22bd919cdcd02ad4bbf3f91bcacf596304a"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "bf741d22379fdf7dce7639c8e067641bb8312473"
 
 jobs:
   verify:
@@ -641,12 +641,48 @@ jobs:
               snapshot = {
                   "schema": "security-kernel-source-policy-reference-v1",
                   "files": {
-                      "s0": dispatcher_at_run,
-                      "s1": s1_at_run,
-                      "s2": verifier_file,
-                      "binding": binding_file,
-                      "causal": causal_file,
-                      "policy": policy_file,
+                      "s0": {
+                          "path": dispatcher_at_run["path"],
+                          "ref": workflow_sha,
+                          "sha": dispatcher_at_run["sha"],
+                          "encoding": dispatcher_at_run["encoding"],
+                          "content": dispatcher_at_run["content"],
+                      },
+                      "s1": {
+                          "path": s1_at_run["path"],
+                          "ref": workflow_sha,
+                          "sha": s1_at_run["sha"],
+                          "encoding": s1_at_run["encoding"],
+                          "content": s1_at_run["content"],
+                      },
+                      "s2": {
+                          "path": verifier_file["path"],
+                          "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                          "sha": verifier_file["sha"],
+                          "encoding": verifier_file["encoding"],
+                          "content": verifier_file["content"],
+                      },
+                      "binding": {
+                          "path": binding_file["path"],
+                          "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                          "sha": binding_file["sha"],
+                          "encoding": binding_file["encoding"],
+                          "content": binding_file["content"],
+                      },
+                      "causal": {
+                          "path": causal_file["path"],
+                          "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                          "sha": causal_file["sha"],
+                          "encoding": causal_file["encoding"],
+                          "content": causal_file["content"],
+                      },
+                      "policy": {
+                          "path": policy_file["path"],
+                          "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                          "sha": policy_file["sha"],
+                          "encoding": policy_file["encoding"],
+                          "content": policy_file["content"],
+                      },
                   },
               }
               with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
