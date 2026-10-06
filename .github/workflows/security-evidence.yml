@@ -112,8 +112,17 @@ jobs:
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(cert_chain["vectors"]) == 45
-          for fixture_path in cert_chain["reference_fixture"]["fixture_paths"]:
-              assert Path(fixture_path).is_file(), f"missing declared EK fixture: {fixture_path}"
+          rf = cert_chain["reference_fixture"]
+          assert rf["generation_mode"] == "deterministic-generated-synthetic"
+          assert rf["fixture_paths"] == [
+              "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json",
+              "scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py",
+          ]
+          assert Path(rf["recipe_path"]).is_file(), "missing EK fixture recipe"
+          assert Path(rf["generator_path"]).is_file(), "missing EK fixture generator"
+          import hashlib
+          assert hashlib.sha256(Path(rf["recipe_path"]).read_bytes()).hexdigest() == rf["recipe_sha256"]
+          assert rf["previous_frozen_fixture_status"].startswith("not-recoverable-from-Git-history")
           PY
 
       - name: Compile security verifiers and bundle regression
@@ -135,6 +144,7 @@ jobs:
             scripts/security/verify_mycelix_ak_public_attributes_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py \
             scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py \
+            scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_path_validation_v0_1.py \
             scripts/security/verify_mycelix_ek_trust_anchor_appraisal_v0_1.py
@@ -171,6 +181,11 @@ jobs:
 
       - name: Run EK NV-only certificate capture semantic corpus
         run: python3 scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py --self-test
+
+      - name: Generate and check reproducible EK certificate fixtures
+        run: |
+          set -euo pipefail
+          python3 scripts/security/generate_mycelix_ek_chain_fixtures_v0_1.py             --recipe docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json             --output-dir "$RUNNER_TEMP/mycelix-ek-fixtures"             --check
 
       - name: Run EK certificate chain policy semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py --self-test
