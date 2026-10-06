@@ -338,8 +338,7 @@ jobs:
           printf '%s\n' "${recorded_lock_sha}" | grep -Eq '^[0-9a-f]{64}$'
           sha256sum -c <(printf '%s  %s\n' "${recorded_lock_sha}" evidence/Cargo.lock)
 
-          expected_lock_b64="$(gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/Cargo.lock?ref=${EXPECTED_HEAD_SHA}" --jq '.content' | tr -d '
-')"
+          expected_lock_b64="$(gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/Cargo.lock?ref=${EXPECTED_HEAD_SHA}" --jq '.content' | tr -d '\n')"
           printf '%s' "${expected_lock_b64}" | base64 --decode > expected-Cargo.lock
           cmp -s expected-Cargo.lock evidence/Cargo.lock
 
