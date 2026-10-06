@@ -1,0 +1,33 @@
+name: Finance Qualification Request
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-finance/**'
+      - 'crates/mycelix-bridge-common/**'
+      - 'crates/mycelix-bridge-entry-types/**'
+      - 'crates/mycelix-zkp-core/**'
+      - 'crates/mycelix-zome-helpers/**'
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+# This workflow deliberately performs no checkout, code execution, cache access,
+# secret access, or repository writes. It only records the immutable PR event
+# metadata consumed by the trusted workflow_run verifier.
+jobs:
+  request:
+    name: Capture Finance qualification subject
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Emit qualification request identity
+        run: |
+          set -euo pipefail
+          echo "FINANCE_QUALIFICATION_REQUEST"
+          echo "pr_number=${{ github.event.pull_request.number }}"
+          echo "head_sha=${{ github.event.pull_request.head.sha }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha }}"
+          echo "head_repository=${{ github.event.pull_request.head_repository.full_name }}"
+          echo "base_ref=${{ github.event.pull_request.base.ref }}"
