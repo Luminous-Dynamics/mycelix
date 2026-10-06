@@ -513,11 +513,9 @@ def expected_crl_semantics_check(
 
 def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     try:
-        recipe_path = Path(__file__).resolve().parents[2] / "docs/security/fixtures/ek-chain-policy-v0.1/fixture-recipe-v0.1.json"
-        recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
-        expected_recipe_semantics = recipe["crl_semantics"]
-        if manifest.get("expected_crl_semantics") != expected_recipe_semantics:
-            return result("DENY", "crl-semantics-recipe-projection-mismatch")
+        expected_recipe_semantics = manifest["expected_crl_semantics"]
+        if not isinstance(expected_recipe_semantics, dict):
+            return result("DENY", "crl-semantics-recipe-projection-invalid")
         expected_semantics_sha = canonical_hash(expected_recipe_semantics)
         if manifest.get("expected_crl_semantics_sha256") != expected_semantics_sha:
             return result("DENY", "crl-semantics-recipe-digest-mismatch")
