@@ -198,9 +198,8 @@ jobs:
           matrix = tomllib.loads(Path("/tmp/finance-substrate-matrix.toml").read_text(encoding="utf-8"))
           assert matrix["schema"] == "MYCELIX-FINANCE-SUBSTRATE-MATRIX-V1"
           assert matrix["matrix_version"] == 1
-          assert matrix["status"] == "known-mismatch"
-          assert matrix["intended_holochain_family"] == "0.7"
-          assert matrix["implemented_holochain_family"] == "0.6"
+          assert matrix["status"] in {"known-mismatch", "ready"}
+          assert matrix["intended_holochain_family"] in {"0.7"}
           assert matrix["claim_ceiling"]["known_mismatch_is_pass"] is False
           assert matrix["claim_ceiling"]["holochain_07_claim_requires_reconciled_substrate"] is True
 
@@ -238,9 +237,17 @@ jobs:
           )
           assert rust_match, "qualification Rust toolchain no longer matches trusted substrate matrix"
 
-          print("FINANCE_SUBSTRATE_STATUS=known-mismatch")
-          print("FINANCE_SUBSTRATE_IMPLEMENTED=0.6")
-          print("FINANCE_SUBSTRATE_INTENDED=0.7")
+          substrate_status = matrix["status"]
+          implemented = matrix["implemented_holochain_family"]
+          intended = matrix["intended_holochain_family"]
+          print(f"FINANCE_SUBSTRATE_STATUS={substrate_status}")
+          print(f"FINANCE_SUBSTRATE_IMPLEMENTED={implemented}")
+          print(f"FINANCE_SUBSTRATE_INTENDED={intended}")
+          if substrate_status != "ready" or implemented != intended:
+              raise SystemExit(
+                  f"Finance qualification blocked by substrate state: "
+                  f"status={substrate_status}, implemented={implemented}, intended={intended}"
+              )
           PY
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # pinned action commit
