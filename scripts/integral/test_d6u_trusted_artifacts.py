@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 30
+    assert policy["policy_version"] == 31
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -1103,6 +1103,69 @@ def test_negative_control_cross_link_mismatch_is_rejected() -> None:
         tmp.cleanup()
 
 
+
+def test_retained_report_identity_and_predicate_are_bound() -> None:
+    import verify_d6u_trusted_attestation_retention as retention
+
+    subjects = [
+        {"name": "d6u-runtime-evidence.txt", "digest": {"sha256": "a" * 64}},
+        {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
+        {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
+    ]
+    entry = synthetic_attestation_entry(subjects, "42")
+    context = {
+        "repository": "Luminous-Dynamics/mycelix",
+        "source_digest": "a" * 40,
+        "run_invocation_uri": (
+            "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42/attempts/3"
+        ),
+        "certificate_identity": (
+            "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/"
+            "d6u-trusted-evidence-attestation.yml@refs/heads/main"
+        ),
+        "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
+        "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+        "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+        "claim_ceiling": "ReferenceModelOnly",
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        report = Path(tmp) / "report.json"
+        report.write_text(json.dumps([entry]), encoding="utf-8")
+        observed = retention.verify_report(report, subjects and [
+            (item["name"], item["digest"]["sha256"]) for item in subjects
+        ], context)
+        assert len(observed) == 64
+
+        tampered_certificate = json.loads(report.read_text(encoding="utf-8"))
+        tampered_certificate[0]["verificationResult"]["signature"]["certificate"][
+            "sourceRepositoryDigest"
+        ] = "b" * 40
+        report.write_text(json.dumps(tampered_certificate), encoding="utf-8")
+        assert_rejected(
+            lambda: retention.verify_report(
+                report,
+                [(item["name"], item["digest"]["sha256"]) for item in subjects],
+                context,
+            ),
+            "retained report with mismatched source identity was accepted",
+        )
+
+        report.write_text(json.dumps([entry]), encoding="utf-8")
+        tampered_predicate = json.loads(report.read_text(encoding="utf-8"))
+        tampered_predicate[0]["verificationResult"]["statement"]["predicate"][
+            "claim_ceiling"
+        ] = "Production"
+        report.write_text(json.dumps(tampered_predicate), encoding="utf-8")
+        assert_rejected(
+            lambda: retention.verify_report(
+                report,
+                [(item["name"], item["digest"]["sha256"]) for item in subjects],
+                context,
+            ),
+            "retained report with mismatched claim ceiling was accepted",
+        )
+
+
 def test_retention_packet_rejects_extra_member() -> None:
     import verify_d6u_trusted_attestation_retention as retention
 
@@ -1559,6 +1622,7 @@ if __name__ == "__main__":
         test_negative_control_requires_nonzero_exit,
         test_negative_control_command_must_disable_public_good,
         test_negative_control_cross_link_mismatch_is_rejected,
+        test_retained_report_identity_and_predicate_are_bound,
         test_retention_packet_rejects_extra_member,
         test_custom_attestation_accepts_current_run_and_rejects_old_run,
         test_trusted_workflow_policy_shape_is_pinned,
