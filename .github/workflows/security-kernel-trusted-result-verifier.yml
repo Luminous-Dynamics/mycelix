@@ -60,7 +60,7 @@ jobs:
 
           export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
           python3 - <<'PY'
-          import hashlib, io, json, os, re, subprocess, urllib.error, urllib.request, zipfile
+          import hashlib, io, json, os, re, subprocess, urllib.error, urllib.parse, urllib.request, zipfile
 
           base = "https://api.github.com"
           token = os.environ["TOKEN"]
@@ -95,6 +95,8 @@ jobs:
           assert run["repository"]["full_name"] == repo
           assert run["repository"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
           assert run["workflow_ref"] == f"{repo}/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}@refs/heads/main"
+          assert run.get("run_attempt") == run_attempt
+          assert isinstance(run.get("run_number"), int) and run["run_number"] >= 1
 
           workflow_sha = run.get("workflow_sha")
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected dispatcher workflow_sha: {workflow_sha!r}"
