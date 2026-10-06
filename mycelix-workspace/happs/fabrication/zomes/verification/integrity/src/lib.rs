@@ -21,6 +21,8 @@ pub enum EntryTypes {
     VerificationRequest(VerificationRequest),
     #[entry_type(visibility = "public")]
     FpmRegistrationAnchor(FpmRegistrationAnchor),
+    #[entry_type(visibility = "public")]
+    FpmProvenanceAnchor(FpmProvenanceAnchor),
 }
 
 #[hdk_link_types]
@@ -83,6 +85,17 @@ pub struct FpmRegistrationAnchor {
     pub envelope_digest: String,
 }
 
+pub const FPM_PROVENANCE_ANCHOR_SCHEMA_VERSION: &str = "fpm.provenance.anchor.v1";
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FpmProvenanceAnchor {
+    pub schema_version: String,
+    pub registration_anchor_action: ActionHash,
+    pub witness: AcquisitionLineageWitness,
+    pub witness_digest: String,
+}
+
 #[hdk_extern]
 pub fn genesis_self_check(_: GenesisSelfCheckData) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
@@ -99,6 +112,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::SafetyClaim(c) => validate_safety_claim(c),
             EntryTypes::VerificationRequest(r) => validate_verification_request(r),
             EntryTypes::FpmRegistrationAnchor(a) => validate_fpm_registration_anchor(a),
+            EntryTypes::FpmProvenanceAnchor(a) => validate_fpm_provenance_anchor(a),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterCreateLink { link_type, tag, .. } => {
@@ -258,6 +272,50 @@ fn validate_fpm_registration_anchor(
     if computed_digest != anchor.envelope_digest {
         return Ok(ValidateCallbackResult::Invalid(
             "FPM registration anchor envelope digest mismatch".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate an FPM provenance anchor entry.
+fn validate_fpm_provenance_anchor(
+    anchor: FpmProvenanceAnchor,
+) -> ExternResult<ValidateCallbackResult> {
+    if anchor.schema_version != FPM_PROVENANCE_ANCHOR_SCHEMA_VERSION {
+        return Ok(ValidateCallbackResult::Invalid(
+            "unsupported FPM provenance anchor schema".into(),
+        ));
+    }
+    if anchor.witness.node_id.trim().is_empty()
+        || anchor.witness.node_id != anchor.witness.node_id.trim()
+        || anchor.witness.node_id.len() > 128
+        || anchor.witness.node_id.chars().any(char::is_control)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "invalid FPM provenance witness node id".into(),
+        ));
+    }
+    for (name, value) in [
+        ("source_observation_digest", &anchor.witness.source_observation_digest),
+        ("acquisition_root_digest", &anchor.witness.acquisition_root_digest),
+        ("witness_digest", &anchor.witness_digest),
+    ] {
+        if value.len() != 64
+            || !value.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "{name} must be canonical lowercase SHA-256"
+            )));
+        }
+    }
+    if anchor.witness.parent_node_ids.len() > 32 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM provenance witness has too many parents".into(),
+        ));
+    }
+    if anchor.witness_digest != anchor.witness.digest() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM provenance witness digest mismatch".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
