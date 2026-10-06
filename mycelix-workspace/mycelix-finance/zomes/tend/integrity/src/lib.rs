@@ -901,6 +901,17 @@ fn validate_create_balance(
     _action: EntryCreationAction,
     balance: TendBalance,
 ) -> ExternResult<ValidateCallbackResult> {
+    // A newly created balance is only an initialization shell. Value and
+    // history must be introduced by the validated settlement update protocol.
+    if balance.balance != 0
+        || balance.total_provided != 0.0
+        || balance.total_received != 0.0
+        || balance.exchange_count != 0
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Initial TendBalance must be zero-valued and have no exchange history".into(),
+        ));
+    }
     // String length checks — prevent DHT bloat
     if balance.member_did.len() > MAX_DID_LEN || balance.dao_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
