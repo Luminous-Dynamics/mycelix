@@ -1184,6 +1184,10 @@ fn validate_create_sap_debit_record(
         ));
     }
 
+    // Inductive monetary conservation boundary: the debit can only consume the
+    // exact valid predecessor balance named by its own action hash. Because the
+    // dependency itself is validated before this record can validate, a fabricated
+    // reason or disconnected state cannot authorize a negative delta.
     let balance_record = must_get_valid_record(debit.balance_before_action_hash.clone())?;
     let balance = balance_record
         .entry()
