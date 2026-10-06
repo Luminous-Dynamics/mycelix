@@ -1732,6 +1732,31 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     path_details = generated_path.get("details")
     if not isinstance(path_details, dict):
         return result("DENY", "path-validation-result-details-missing")
+    expected_cross_witness = {
+        "leaf_certificate_sha256": manifest["leaf_certificate_sha256"],
+        "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
+        "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
+        "crl_bundle_pem_sha256": manifest["revocation"]["crl_bundle_pem_sha256"],
+    }
+    crypto_exact = external_crypto["details"].get("exact_input_objects")
+    path_exact = {
+        "leaf_certificate_sha256": path_details.get("leaf_certificate_sha256"),
+        "intermediate_certificate_sha256": path_details.get("intermediate_certificate_sha256"),
+        "trust_anchor_root_sha256": path_details.get("trust_anchor_root_sha256"),
+        "crl_bundle_pem_sha256": path_details.get("crl_bundle_pem_sha256"),
+    }
+    if crypto_exact != expected_cross_witness:
+        return result("DENY", "independent-crypto-exact-object-binding-mismatch")
+    if path_exact != expected_cross_witness:
+        return result("DENY", "openssl-path-exact-object-binding-mismatch")
+    cross_witness = canonical_hash({
+        "exact_input_objects": expected_cross_witness,
+        "independent_crypto_verifier_source_sha256": external_crypto["source_sha256"],
+        "independent_crypto_output_sha256": external_crypto["output_sha256"],
+        "openssl_path_verifier_source_sha256": path_validation["source_sha256"],
+        "openssl_path_output_sha256": path_validation["output_sha256"],
+        "openssl_policy_argv": path_details.get("policy_argv"),
+    })
 
     try:
         leaf_info = parse_certificate_der(leaf)
@@ -1832,6 +1857,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             "spki_ek_public_wire_sha256": spki["ek_public_wire_sha256"],
             "cryptographic_binding_sha256": manifest["cryptographic_binding_sha256"],
             "cryptographic_binding": crypto_receipt,
+            "cross_witness_sha256": cross_witness,
         },
     )
 
@@ -2382,6 +2408,12 @@ def self_test() -> int:
             return 1
         if '"-crl_check_all",' not in source or "PATH_VERIFIER_ID" not in source:
             print("full-chain CRL path verifier composition: FAIL")
+            return 1
+        if "def run_crypto_verifier" not in implementation_source or "CRYPTO_VERIFIER_SCRIPT" not in implementation_source:
+            print("independent cryptographic witness composition: FAIL")
+            return 1
+        if "openssl" not in implementation_source or "-check_ss_sig" not in implementation_source:
+            print("strict OpenSSL path composition: FAIL")
             return 1
         if "def parse_certificate_der" not in implementation_source or "leaf_profile_ok(leaf_info)" not in implementation_source:
             print("binary DER certificate semantics: FAIL")
