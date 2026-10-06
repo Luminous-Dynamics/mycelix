@@ -1,5 +1,5 @@
 {
-  "policy_version": 31,
+  "policy_version": 32,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "6f149d25a39b445fb1a18d78b4e407f964645924"
+    "blob_sha": "1db056a63cf4f94cfd12c78bb329b4a692bda5b6"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -274,7 +274,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
-      "blob_sha": "484e6d13eb1e6429d516f9e21ba452ba2b96e6b5"
+      "blob_sha": "49e0877318f0e29fea355fc50681acc1edddfeb4"
     }
   },
   "trusted_actions": {
@@ -331,7 +331,8 @@
     },
     "negative_control_schema": "d6u-no-public-good-control/v1",
     "retain_online_verification": true,
-    "retain_negative_control": true
+    "retain_negative_control": true,
+    "max_attestations_per_verify": 8
   },
-  "attestation_integrity_revision": 31
+  "attestation_integrity_revision": 32
 }
