@@ -492,7 +492,15 @@ impl core::fmt::Display for SeccompError {
 impl std::error::Error for SeccompError {}
 
 #[cfg(target_os = "linux")]
-mod linux {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct V2AllowPath {
+    pub syscall: i64,
+    pub clause_index: usize,
+    pub allow_pc: usize,
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) mod linux {
     use super::*;
 
     #[repr(C)]
@@ -1332,6 +1340,90 @@ mod linux {
         }
         validate_compiled_filter(&filter)?;
         Ok(filter)
+    }
+
+    /// Return the exact instruction index of each emitted clause ALLOW.
+    ///
+    /// This is a proof-only view of the production compiler. The filter has
+    /// already passed the structural and policy-bound semantic validator.
+    pub(crate) fn compiled_v2_allow_paths(
+        policy: &SeccompSyscallPolicyV2,
+    ) -> Result<Vec<V2AllowPath>, SeccompError> {
+        let filter = compile_filter_v2(policy)?;
+        let first_rule_index = if policy.architecture == SeccompArchitecture::X86_64 {
+            6usize
+        } else {
+            4usize
+        };
+        let mut dispatch_index = first_rule_index;
+        let mut paths = Vec::new();
+
+        for rule in &policy.rules {
+            let dispatch = filter
+                .get(dispatch_index)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if dispatch.code != BPF_JMP | BPF_JEQ | BPF_K
+                || dispatch.k != rule.syscall as u32
+                || dispatch.jt != 0
+                || dispatch.jf == 0
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+
+            let mut pc = dispatch_index
+                .checked_add(1)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+
+            if rule.is_disjunctive() {
+                for (clause_index, clause) in rule.clauses.iter().enumerate() {
+                    let body_len = clause_instruction_count(clause);
+                    let allow_pc = pc
+                        .checked_add(body_len)
+                        .and_then(|n| n.checked_sub(1))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    if filter.get(allow_pc)
+                        != Some(&stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW))
+                    {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                    paths.push(V2AllowPath {
+                        syscall: rule.syscall,
+                        clause_index,
+                        allow_pc,
+                    });
+                    pc = allow_pc
+                        .checked_add(1)
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                }
+            } else {
+                let predicate_len = rule
+                    .predicates()
+                    .iter()
+                    .map(predicate_instruction_count)
+                    .sum::<usize>();
+                let allow_pc = pc
+                    .checked_add(predicate_len)
+                    .and_then(|n| n.checked_sub(1))
+                    .ok_or(SeccompError::CompilerInvariantViolation)?;
+                if filter.get(allow_pc)
+                    != Some(&stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW))
+                {
+                    return Err(SeccompError::CompilerInvariantViolation);
+                }
+                paths.push(V2AllowPath {
+                    syscall: rule.syscall,
+                    clause_index: 0,
+                    allow_pc,
+                });
+            }
+
+            dispatch_index = dispatch_index
+                .checked_add(1)
+                .and_then(|pc| pc.checked_add(usize::from(dispatch.jf)))
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+        }
+
+        Ok(paths)
     }
 
     fn validate_v2_compiled_semantics(
