@@ -982,7 +982,7 @@ def parse_crl_der_for_crypto(der: bytes) -> dict[str, Any]:
     tbs_raw = outer[0][2]
     outer_alg_raw = outer[1][2]
     signature_content = outer[2][1]
-    if signature_content[:1] != b"\\x00":
+    if signature_content[:1] != b"\x00":
         raise ValueError("CRL signatureValue must have zero unused bits")
     signature = signature_content[1:]
     tbs_tag, tbs_content, _tbs_raw, tbs_end = der_tlv(tbs_raw, 0)
