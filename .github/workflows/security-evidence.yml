@@ -111,7 +111,7 @@ jobs:
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_chain["vectors"]) == 45
+          assert len(cert_chain["vectors"]) == 49
           rf = cert_chain["reference_fixture"]
           assert rf["generation_mode"] == "deterministic-generated-synthetic"
           assert rf["fixture_paths"] == [
