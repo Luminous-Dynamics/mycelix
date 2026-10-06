@@ -341,6 +341,11 @@ fn state_machine_trace_external_witness_artifact_sha256(bytes: &[u8]) -> String 
     format!("sha256:{digest:x}")
 }
 
+fn state_machine_trace_external_verifier_identity_sha256(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!("sha256:{digest:x}")
+}
+
 fn state_machine_trace_is_sha256_digest(value: &str) -> bool {
     let Some(hex) = value.strip_prefix("sha256:") else {
         return false;
@@ -670,6 +675,8 @@ pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementBuildVi
     InvalidAnchorReferenceDigest,
     InvalidVerifierReportSchemaVersion,
     EmptyVerifierProfile,
+    EmptyVerifierIdentityProfile,
+    EmptyVerifierIdentityMaterial,
     EmptyVerifierReport,
 }
 
@@ -677,6 +684,9 @@ pub fn state_machine_trace_external_evidence_verification_statement(
     anchor_reference_sha256: &str,
     verifier_schema_version: u16,
     verifier_profile: &str,
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: &str,
+    verifier_identity_material: &[u8],
     verification_claim: FederationStateMachineTraceExternalVerificationClaim,
     verifier_report: &[u8],
     claimed_verified_at_unix_seconds: u64,
@@ -697,6 +707,16 @@ pub fn state_machine_trace_external_evidence_verification_statement(
     if verifier_profile.is_empty() {
         return Err(
             FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierProfile
+        );
+    }
+    if verifier_identity_profile.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierIdentityProfile
+        );
+    }
+    if verifier_identity_material.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierIdentityMaterial
         );
     }
     if verifier_report.is_empty() {
@@ -722,6 +742,14 @@ pub fn state_machine_trace_external_evidence_verification_statement(
             anchor_reference_sha256: anchor_reference_sha256.into(),
             verifier_schema_version,
             verifier_profile: verifier_profile.into(),
+            verifier_identity_kind,
+            verifier_identity_profile: verifier_identity_profile.into(),
+            verifier_identity_hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_VERIFIER_IDENTITY_HASH_ALGORITHM.into(),
+            verifier_identity_hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_VERIFIER_IDENTITY_HASH_ENCODING.into(),
+            verifier_identity_sha256:
+                state_machine_trace_external_verifier_identity_sha256(verifier_identity_material),
             verification_claim,
             verifier_report_hash_algorithm:
                 FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_REPORT_HASH_ALGORITHM.into(),
