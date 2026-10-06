@@ -261,8 +261,10 @@ def certificate(
 def crl_entry(serial: int, revocation_date: str, reason_code: int) -> bytes:
     if serial <= 0:
         raise ValueError("CRL revoked serial must be positive")
-    if reason_code not in {0, 1, 2, 3, 4, 5, 6, 8, 9, 10}:
-        raise ValueError("unsupported RFC 5280 CRLReason")
+    if reason_code not in {0, 1, 2, 3, 4, 5, 6, 9, 10}:
+        raise ValueError("unsupported reference CRLReason")
+    if reason_code == 8:
+        raise ValueError("removeFromCRL requires unsupported delta CRL semantics")
     reason_extension = extension(
         "2.5.29.21",
         tlv(0x0A, bytes([reason_code])),
@@ -285,6 +287,8 @@ def crl(
 ) -> bytes:
     if crl_number < 0:
         raise ValueError("CRL number must be non-negative")
+    if max(1, (crl_number.bit_length() + 7) // 8) > 20:
+        raise ValueError("CRL number exceeds RFC 5280 20-octet limit")
     crl_extensions = seq(
         extension("2.5.29.35", seq(tlv(0x80, ski(signer["n"], signer["e"])))),
         extension("2.5.29.20", integer(crl_number)),
@@ -383,6 +387,22 @@ def generate(recipe: dict, output_dir: Path) -> None:
         spec = crl_specs.get(key_name)
         if not isinstance(spec, dict):
             raise ValueError(f"missing CRL semantics for {key_name}")
+        selection = spec.get("selection")
+        expected_issuer_hash = hashlib.sha256(files[f"{key_name}.der"]).hexdigest()
+        expected_crl_keys = {
+            "issuer_certificate_sha256", "crl_der_sha256", "scope",
+            "delta_crl_supported", "indirect_crl_supported", "crl_number_lineage",
+        }
+        if not isinstance(selection, dict) or set(selection) != expected_crl_keys:
+            raise ValueError(f"missing or malformed CRL selection metadata for {key_name}")
+        if selection["issuer_certificate_sha256"] != expected_issuer_hash:
+            raise ValueError(f"{key_name} CRL selection issuer certificate hash does not match generated issuer")
+        if selection["scope"] != "all-certificates-issued-by-issuer":
+            raise ValueError(f"{key_name} CRL selection scope is not complete-single-CA")
+        if selection["delta_crl_supported"] is not False or selection["indirect_crl_supported"] is not False:
+            raise ValueError(f"{key_name} CRL selection enables unsupported delta/indirect semantics")
+        if selection["crl_number_lineage"] != "single-current-reference-no-history":
+            raise ValueError(f"{key_name} CRL historical number lineage is outside reference model")
         der = crl(
             issuer_name,
             keys[key_name],
@@ -391,6 +411,8 @@ def generate(recipe: dict, output_dir: Path) -> None:
             next_update=str(spec["next_update"]),
             revoked_entries=list(spec["revoked_entries"]),
         )
+        if selection["crl_der_sha256"] != hashlib.sha256(der).hexdigest():
+            raise ValueError(f"{key_name} CRL selection DER hash does not match generated CRL")
         crl_bundle += (
             b"-----BEGIN X509 CRL-----\n"
             + base64.b64encode(der)
