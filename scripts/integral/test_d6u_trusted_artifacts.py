@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 28
+    assert policy["policy_version"] == 29
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
