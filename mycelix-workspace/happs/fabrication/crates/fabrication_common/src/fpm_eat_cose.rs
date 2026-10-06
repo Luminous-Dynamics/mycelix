@@ -54,6 +54,7 @@ pub enum FpmEatCoseVerificationReason {
     MalformedCoseSign1,
     DetachedPayload,
     UnprotectedHeadersPresent,
+    UnsupportedProtectedHeader,
     MissingProtectedAlgorithm,
     UnsupportedAlgorithm,
     MissingProtectedKeyId,
@@ -176,7 +177,9 @@ pub fn verify_fpm_eat_cose_sign1(
     if input.expected_key_id.is_empty() || input.expected_key_id.len() > 128 {
         reasons.insert(FpmEatCoseVerificationReason::KeyIdMismatch);
     }
-    if input.trusted_public_key_sec1.len() != P256_SEC1_UNCOMPRESSED_BYTES {
+    if input.trusted_public_key_sec1.len() != P256_SEC1_UNCOMPRESSED_BYTES
+        || input.trusted_public_key_sec1.first() != Some(&0x04)
+    {
         reasons.insert(FpmEatCoseVerificationReason::InvalidVerificationKey);
     }
 
@@ -252,7 +255,7 @@ pub fn verify_fpm_eat_cose_sign1(
         || !sign1.protected.header.partial_iv.is_empty()
         || !sign1.protected.header.counter_signatures.is_empty()
     {
-        reasons.insert(FpmEatCoseVerificationReason::UnprotectedHeadersPresent);
+        reasons.insert(FpmEatCoseVerificationReason::UnsupportedProtectedHeader);
     }
 
     if !reasons.is_empty() {
@@ -574,6 +577,34 @@ mod tests {
             FpmEatCoseVerificationStatus::InvalidEvidence
         );
         assert!(result
+            .reasons
+            .contains(&FpmEatCoseVerificationReason::SignatureInvalid));
+    }
+
+    #[test]
+    fn wrong_key_id_conflicts_after_valid_signature() {
+        let protected = HeaderBuilder::new()
+            .algorithm(iana::Algorithm::ES256)
+            .key_id(b"other-key".to_vec())
+            .content_type(ContentType::Text(FPM_EAT_MEDIA_TYPE.into()))
+            .build();
+        let token = CoseSign1Builder::new()
+            .protected(protected)
+            .payload(payload("source-1", "fpm-verifier", b"fresh-nonce-32-bytes-123456789012"))
+            .create_signature(&[], |data| signing_key().sign(data))
+            .build()
+            .to_tagged_vec()
+            .expect("COSE_Sign1");
+
+        let result = verify_fpm_eat_cose_sign1(&input(token));
+        assert_eq!(
+            result.status,
+            FpmEatCoseVerificationStatus::ConflictingEvidence
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmEatCoseVerificationReason::KeyIdMismatch));
+        assert!(!result
             .reasons
             .contains(&FpmEatCoseVerificationReason::SignatureInvalid));
     }
