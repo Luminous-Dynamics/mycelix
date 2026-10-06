@@ -152,6 +152,7 @@ def verify(snapshot: object) -> dict:
         "pull_request",
         "jobs",
         "artifact_list_view",
+        "artifact_list_total_count",
         "artifact_id_view",
         "receipt_text",
         "main_sha",
@@ -172,6 +173,8 @@ def verify(snapshot: object) -> dict:
     pr = need(snapshot["pull_request"], "pull request")
     jobs = need(snapshot["jobs"], "workflow jobs")
     artifact = need(snapshot["artifact_list_view"], "artifact list view")
+    artifact_total_count = snapshot["artifact_list_total_count"]
+    assert type(artifact_total_count) is int and artifact_total_count == 1
     artifact_by_id = need(snapshot["artifact_id_view"], "artifact ID view")
     event = need(snapshot["event"], "workflow_run event identity")
     receipt = parse_receipt(snapshot["receipt_text"])
