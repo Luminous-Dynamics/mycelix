@@ -558,6 +558,17 @@ fn validate_stake_update_terms(
         ));
     }
 
+    // There is currently no non-governance coordinator path after a stake has
+    // already entered Slashed. Do not leave those transitions open merely
+    // because the generic status enum admits them; AC-145 will add an explicit
+    // addressable governance authorization proof for any such mutation.
+    if original.status == StakeStatus::Slashed && original.status != updated.status {
+        return ValidateCallbackResult::Invalid(
+            "Slashed stakes require explicit governance authorization for further status transitions"
+                .into(),
+        );
+    }
+
     // SAP collateral may only be consumed by the documented terminalizing
     // transitions. Every ordinary refresh/lifecycle update preserves it.
     let collateral_terminalization = matches!(
