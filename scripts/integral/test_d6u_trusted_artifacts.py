@@ -498,6 +498,19 @@ def test_policy_pins_current_trusted_fetcher() -> None:
     assert policy["trusted_artifact_fetcher"]["blob_sha"] == observed
 
 
+def test_retention_workflow_bounds_inputs_before_verification() -> None:
+    workflow = (
+        Path(__file__).parents[2]
+        / ".github/workflows/d6u-trusted-evidence-attestation.yml"
+    ).read_text(encoding="utf-8")
+    assert 'wc -c < "$retention_dir/trusted_root.jsonl")" -le 2097152' in workflow
+    assert 'wc -l < "$retention_dir/trusted_root.jsonl")" -le 64' in workflow
+    assert 'wc -c < "$bundle")" -le 4194304' in workflow
+    assert 'wc -c < "$online_report")" -le 4194304' in workflow
+    assert 'wc -c < "$offline_report")" -le 4194304' in workflow
+    assert 'wc -c < "$control_raw")" -le 4194304' in workflow
+
+
 def test_retention_workflow_contains_offline_controls() -> None:
     root = Path(__file__).parents[2]
     policy = json.loads(
@@ -1932,6 +1945,7 @@ if __name__ == "__main__":
         test_commitment_attestation_requires_verified_timestamp,
         test_commitment_attestation_rejects_non_tlog_timestamp,
         test_commitment_attestation_subject_set_is_order_independent_but_exact,
+        test_retention_workflow_bounds_inputs_before_verification,
         test_retention_workflow_contains_offline_controls,
         test_trusted_root_jsonl_line_limit_is_enforced,
         test_negative_control_requires_nonzero_exit,
