@@ -8,3 +8,7 @@ The theorem does not prove manufacturer authenticity, measured boot, AK/EK linea
 
 
 Caller-supplied certificate criticality overrides are not accepted. Certificate extensions are authoritative only when parsed from the exact DER certificate bytes.
+
+The trust-anchor child boundary is source- and output-bound: the chain verifier records the exact trust-anchor appraiser source SHA, exact output-file SHA, and verifier-computed semantic content SHA, and rejects substitutions of any of the three.
+
+The trust-anchor child boundary is source- and output-bound: the chain verifier records the exact trust-anchor appraiser source SHA, exact output-file SHA, and verifier-computed semantic content SHA, and rejects substitutions of any of the three.
