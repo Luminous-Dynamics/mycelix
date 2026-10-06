@@ -1558,6 +1558,42 @@ def test_commitment_attestation_rejects_canonical_predicate_tampering() -> None:
         }, clear=False), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
             assert_rejected(lambda: verifier.main(), "tampered canonical predicate was accepted")
 
+def test_commitment_attestation_rejects_trigger_source_mismatch() -> None:
+    import verify_d6u_trusted_attestation as verifier
+
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        canonical_sha = hashlib.sha256((evidence_dir / "d6u-trusted-evidence-predicate.json").read_bytes()).hexdigest()
+        report = Path(tmp) / "attestation.json"
+        report.write_text(json.dumps([synthetic_commitment_attestation_entry(subjects, canonical_sha, "42")]), encoding="utf-8")
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_WORKFLOW_SHA": "c" * 40,
+            "GITHUB_REF": "refs/heads/main",
+            "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
+            "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
+            "D6U_TRUSTED_POLICY_VERSION": "22",
+            "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "e" * 40,
+            "D6U_TRIGGER_RUN_ID": "42",
+            "D6U_TRIGGER_RUN_ATTEMPT": "3",
+        }, clear=False), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
+            assert_rejected(lambda: verifier.main(), "mismatched triggering source commit was accepted")
+
+        with patch.dict(os.environ, {
+            "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "b" * 40,
+            "D6U_TRIGGER_RUN_ID": "43",
+            "D6U_TRIGGER_RUN_ATTEMPT": "3",
+        }, clear=False):
+            assert_rejected(lambda: verifier.main(), "mismatched triggering run ID was accepted")
+
 def test_commitment_attestation_rejects_hash_mismatch() -> None:
     import verify_d6u_trusted_attestation as verifier
 
@@ -1779,6 +1815,7 @@ if __name__ == "__main__":
         test_attestation_verifier_accepts_current_run,
         test_attestation_verifier_rejects_old_run,
         test_commitment_attestation_rejects_canonical_predicate_tampering,
+        test_commitment_attestation_rejects_trigger_source_mismatch,
         test_commitment_attestation_rejects_hash_mismatch,
         test_commitment_attestation_requires_verified_timestamp,
         test_commitment_attestation_rejects_non_tlog_timestamp,
