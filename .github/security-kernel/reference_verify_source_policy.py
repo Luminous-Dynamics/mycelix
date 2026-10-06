@@ -174,6 +174,42 @@ def require_exact_job_keys(
         fail(f"{description}: job key census mismatch: expected {expected!r}, found {actual!r}")
 
 
+def require_exact_job_mapping(
+    lines_: list[str],
+    job_name: str,
+    mapping_name: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"{job_name}:"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one job named {job_name!r}")
+    start = matches[0]
+    heading = f"{mapping_name}:"
+    indexes = []
+    for i in range(start + 1, len(lines_)):
+        if lines_[i].strip() == heading and len(lines_[i]) - len(lines_[i].lstrip(" ")) == 4:
+            indexes.append(i)
+    if len(indexes) != 1:
+        fail(f"{description}: expected exactly one {mapping_name!r} mapping under {job_name!r}")
+    index = indexes[0]
+    actual = []
+    for line in lines_[index + 1:]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= 4:
+            break
+        if indent != 6:
+            fail(f"{description}: unexpected {mapping_name} indentation: {line!r}")
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):\\s+(.+)", line.strip())
+        if not match:
+            fail(f"{description}: malformed {mapping_name} entry: {line!r}")
+        actual.append(f"{match.group(1)}: {match.group(2)}")
+    if tuple(actual) != expected:
+        fail(f"{description}: {mapping_name} mismatch: expected {expected!r}, found {tuple(actual)!r}")
+
+
 def require_exact_step_mapping(
     lines_: list[str],
     step_name: str,
@@ -564,12 +600,35 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         ),
         S0,
     )
+    for expected in (
+        'runs-on: ubuntu-24.04',
+        'cache-mode: none',
+        'timeout-minutes: 10',
+        'group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}',
+        'cancel-in-progress: true',
+    ):
+        expected_count = 2 if expected == 'runs-on: ubuntu-24.04' or expected == 'cache-mode: none' else 1
+        if exact_count(l, expected) != expected_count:
+            fail(f"S0 scalar/concurrency value mismatch: {expected!r}")
     if step_names(l) != ("Verify trusted dispatcher context and exact PR identity",):
         fail("S0 step topology mismatch")
     if external_uses(l) != ():
         fail(f"S0 external action census mismatch: {external_uses(l)!r}")
     if local_uses(l) != ("./.github/workflows/security-kernel-independent-qualification.yml",):
         fail("S0 local reusable workflow census mismatch")
+    require_exact_job_mapping(
+        l,
+        "qualify",
+        "with",
+        (
+            "candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}",
+            "candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}",
+            "candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}",
+            "candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}",
+            "trusted_workflow_blob_sha: ${{ inputs.trusted_workflow_blob_sha }}",
+        ),
+        S0,
+    )
     if exact_count(l, f'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"') != 1:
         fail("S0 registered S1 blob pin mismatch")
     if exact_count(l, f'trusted_workflow_blob_sha: "{expected_s1_sha}"') != 1:
