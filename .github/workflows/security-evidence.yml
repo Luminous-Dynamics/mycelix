@@ -136,6 +136,7 @@ jobs:
               "cryptographic_binding_source_sha256",
               "cryptographic_binding_input_sha256",
               "cryptographic_binding_output_sha256",
+              "crl_applicability_sha256",
           ]
           rf = cert_chain["reference_fixture"]
           assert rf["generation_mode"] == "deterministic-generated-synthetic"
