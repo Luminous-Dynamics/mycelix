@@ -49,7 +49,11 @@ def der_tlv_parse(data: bytes, offset: int) -> tuple[int, bytes, int]:
         count = first & 0x7F
         if count == 0 or count > 4 or offset + count > len(data):
             raise ValueError("DER invalid length")
+        if data[offset] == 0:
+            raise ValueError("DER non-canonical length")
         length = int.from_bytes(data[offset:offset + count], "big")
+        if length < 128:
+            raise ValueError("DER long-form length used for short value")
         offset += count
     else:
         length = first
@@ -102,6 +106,8 @@ def require_rsa_certificate_spki(cert_der: bytes) -> dict[str, Any]:
     if not n_content or n_content[0] & 0x80:
         raise ValueError("RSAPublicKey modulus INTEGER must be positive")
     modulus = n_content.lstrip(b"\\x00")
+    if not modulus:
+        raise ValueError("RSAPublicKey modulus is zero")
     exponent = int.from_bytes(e_content, "big") if e_content else 0
     if len(modulus) != 256 or not (modulus[0] & 0x80):
         raise ValueError("RSA EK certificate modulus is not 2048 bits")
@@ -282,6 +288,13 @@ def mutate_public_wrapper(value:dict[str,Any])->None:
 
 def self_test()->int:
     base=fixture()
+    try:
+        der_tlv_parse(b"\x04\x81\x01\x00", 0)
+    except ValueError:
+        pass
+    else:
+        print("non-canonical DER length acceptance: FAIL")
+        return 1
     cases=[
         ("canonical-rsa-match","PASS",lambda x:x),
         ("certificate-der-malformed","DENY",lambda x:x.update({"certificate_der_hex":"zz"})),
