@@ -36,6 +36,85 @@ def hex_bytes(value: Any,field: str) -> bytes:
         raise ValueError(f"{field} is not canonical hex")
     return bytes.fromhex(value)
 
+def der_tlv_parse(data: bytes, offset: int) -> tuple[int, bytes, int]:
+    if offset >= len(data):
+        raise ValueError("DER truncated at tag")
+    tag = data[offset]
+    offset += 1
+    if offset >= len(data):
+        raise ValueError("DER truncated at length")
+    first = data[offset]
+    offset += 1
+    if first & 0x80:
+        count = first & 0x7F
+        if count == 0 or count > 4 or offset + count > len(data):
+            raise ValueError("DER invalid length")
+        length = int.from_bytes(data[offset:offset + count], "big")
+        offset += count
+    else:
+        length = first
+    end = offset + length
+    if end > len(data):
+        raise ValueError("DER truncated value")
+    return tag, data[offset:end], end
+
+
+def require_rsa_certificate_spki(cert_der: bytes) -> dict[str, Any]:
+    tag, cert_content, cert_end = der_tlv_parse(cert_der, 0)
+    if tag != 0x30 or cert_end != len(cert_der):
+        raise ValueError("certificate is not one DER SEQUENCE")
+    tag, tbs, cursor = der_tlv_parse(cert_content, 0)
+    if tag != 0x30:
+        raise ValueError("TBSCertificate is not a SEQUENCE")
+    # version is optional [0]; then serial, signature, issuer, validity, subject, SPKI
+    tag, _content, next_cursor = der_tlv_parse(tbs, 0)
+    cursor_tbs = next_cursor if tag == 0xA0 else 0
+    for _ in range(5):
+        _tag, _content, cursor_tbs = der_tlv_parse(tbs, cursor_tbs)
+    spki_tag, spki_content, cursor_tbs = der_tlv_parse(tbs, cursor_tbs)
+    if spki_tag != 0x30 or cursor_tbs != len(tbs):
+        raise ValueError("SubjectPublicKeyInfo malformed")
+    alg_tag, alg_content, bit_content, end1 = (*der_tlv_parse(spki_content, 0),)
+    if alg_tag != 0x30:
+        raise ValueError("SPKI AlgorithmIdentifier malformed")
+    alg_offset = end1
+    alg2_tag, alg2_content, alg2_end = der_tlv_parse(spki_content, alg_offset)
+    if alg2_tag != 0x03 or alg2_end != len(spki_content):
+        raise ValueError("SPKI public-key BIT STRING malformed")
+    alg_cursor = 0
+    oid_tag, oid_content, oid_end = der_tlv_parse(alg_content, alg_cursor)
+    if oid_tag != 0x06 or oid_content != bytes.fromhex("2a864886f70d010101"):
+        raise ValueError("SPKI algorithm is not rsaEncryption")
+    param_tag, param_content, param_end = der_tlv_parse(alg_content, oid_end)
+    if param_tag != 0x05 or param_content != b"" or param_end != len(alg_content):
+        raise ValueError("rsaEncryption parameters must be ASN.1 NULL")
+    bit_string = alg2_content
+    if not bit_string or bit_string[0] != 0:
+        raise ValueError("SPKI BIT STRING must have zero unused bits")
+    key = bit_string[1:]
+    key_tag, key_content, key_end = der_tlv_parse(key, 0)
+    if key_tag != 0x30 or key_end != len(key):
+        raise ValueError("RSAPublicKey is not a SEQUENCE")
+    n_tag, n_content, n_end = der_tlv_parse(key_content, 0)
+    e_tag, e_content, e_end = der_tlv_parse(key_content, n_end)
+    if n_tag != 0x02 or e_tag != 0x02 or e_end != len(key_content):
+        raise ValueError("RSAPublicKey INTEGER structure malformed")
+    if not n_content or n_content[0] & 0x80:
+        raise ValueError("RSAPublicKey modulus INTEGER must be positive")
+    modulus = n_content.lstrip(b"\\x00")
+    exponent = int.from_bytes(e_content, "big") if e_content else 0
+    if len(modulus) != 256 or not (modulus[0] & 0x80):
+        raise ValueError("RSA EK certificate modulus is not 2048 bits")
+    if exponent != 65537:
+        raise ValueError("RSA EK certificate public exponent is not 65537")
+    return {
+        "algorithm_oid": "1.2.840.113549.1.1.1",
+        "algorithm_parameters": "NULL",
+        "modulus_sha256": hashlib.sha256(modulus).hexdigest(),
+        "public_exponent": exponent,
+    }
+
+
 def der_len(n:int)->bytes:
     if n < 128:
         return bytes([n])
@@ -159,6 +238,10 @@ def verify(manifest:dict[str,Any])->dict[str,Any]:
         return result("DENY","malformed-hex",{"error":str(exc)})
     if hashlib.sha256(cert_der).hexdigest()!=manifest["certificate_der_sha256"]:return result("DENY","certificate-digest-mismatch")
     if hashlib.sha256(public_wire).hexdigest()!=manifest["ek_public_wire_sha256"]:return result("DENY","ek-public-digest-mismatch")
+    try:
+        certificate_spki_profile = require_rsa_certificate_spki(cert_der)
+    except ValueError as exc:
+        return result("DENY","certificate-spki-profile-invalid",{"error":str(exc)})
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-spki-") as td:
         try:
             cert_spki,openssl_version=extract_cert_spki(cert_der,Path(td))
@@ -166,7 +249,7 @@ def verify(manifest:dict[str,Any])->dict[str,Any]:
         except (RuntimeError,ValueError) as exc:
             return result("DENY","key-material-parse-failed",{"error":str(exc)})
         tpm_spki=rsa_spki_der(modulus,exponent)
-    details={"certificate_spki_sha256":hashlib.sha256(cert_spki).hexdigest(),"tpm_spki_sha256":hashlib.sha256(tpm_spki).hexdigest(),"spki_equal":cert_spki==tpm_spki,"rsa_modulus_sha256":hashlib.sha256(modulus).hexdigest(),"rsa_exponent_hex":exponent.to_bytes(4,"big").hex(),"openssl_version":openssl_version,"certificate_der_sha256":manifest["certificate_der_sha256"],"ek_public_wire_sha256":manifest["ek_public_wire_sha256"],"session_binding_sha256":manifest["session_binding_sha256"]}
+    details={"certificate_spki_sha256":hashlib.sha256(cert_spki).hexdigest(),"certificate_spki_algorithm":certificate_spki_profile["algorithm_oid"],"certificate_spki_parameters":certificate_spki_profile["algorithm_parameters"],"certificate_modulus_sha256":certificate_spki_profile["modulus_sha256"],"tpm_spki_sha256":hashlib.sha256(tpm_spki).hexdigest(),"spki_equal":cert_spki==tpm_spki,"rsa_modulus_sha256":hashlib.sha256(modulus).hexdigest(),"rsa_exponent_hex":exponent.to_bytes(4,"big").hex(),"openssl_version":openssl_version,"certificate_der_sha256":manifest["certificate_der_sha256"],"ek_public_wire_sha256":manifest["ek_public_wire_sha256"],"session_binding_sha256":manifest["session_binding_sha256"]}
     if cert_spki!=tpm_spki:return result("DENY","certificate-spki-does-not-match-ek-public",details)
     if manifest["verification_mode"]!="ReferenceModelOnly":return result("INDETERMINATE","issuer-and-live-origin-not-authorized-by-this-theorem",details)
     if manifest["certificate_source_sha256"]!=APPROVED_CERT_SOURCE_SHA256:return result("DENY","reference-certificate-source-not-approved",details)
@@ -210,6 +293,7 @@ def self_test()->int:
         ("tpm2b-size-substitution","DENY",mutate_public_wrapper),
         ("certificate-byte-substitution","DENY",lambda x:x.update({"certificate_der_hex":x["certificate_der_hex"][:-2]+"00"})),
         ("certificate-source-substitution","DENY",lambda x:x.update({"certificate_source_sha256":"66"*32})),
+        ("certificate-spki-parameters-substitution","DENY",lambda x:x.update({"certificate_der_hex":x["certificate_der_hex"].replace("300d06092a864886f70d0101010500","300d06092a864886f70d0101010400")})),
         ("ek-public-source-substitution","DENY",lambda x:x.update({"ek_public_source_sha256":"77"*32})),
         ("session-binding-substitution","DENY",lambda x:x.update({"session_id":"attacker"})),
         ("tpm-identity-substitution","DENY",lambda x:x.update({"tpm_identity_digest":"88"*32})),
@@ -228,7 +312,7 @@ def self_test()->int:
         print("key-order-permutation: FAIL")
         return 1
     print("EK certificate SPKI binding semantic corpus: PASS")
-    print("15 adversarial mutations plus canonical case: PASS")
+    print("16 adversarial mutations plus canonical case: PASS")
     print("issuer trust, validity, revocation, and manufacturer authenticity remain separate")
     return 0
 
