@@ -12,7 +12,7 @@
     "INDETERMINATE"
   ],
   "theorem": {
-    "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, the exact certificate and issuer signatures and both issuer CRL signatures verify from the exact DER/TBS bytes, each issuer CRL is v2 with exact thisUpdate/nextUpdate semantics, non-critical authorityKeyIdentifier and cRLNumber extensions bound to the exact signer certificate and exact CRL DER object selected by the committed reference recipe, and exact revoked-entry serial/date/reason identities matching the committed reference recipe, with complete-single-CA scope and delta/indirect CRL semantics explicitly outside the model, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
+    "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, the exact certificate and issuer signatures and both issuer CRL signatures verify from the exact DER/TBS bytes, each issuer CRL is v2 with exact thisUpdate/nextUpdate semantics, non-critical authorityKeyIdentifier and cRLNumber extensions bound to the exact signer certificate and exact CRL DER object selected by the committed reference recipe, exact revoked-entry serial/date/reason identities matching the committed reference recipe, and the leaf certificate's CRLDistributionPoints contract identifies exactly one non-critical fullName URI for that direct issuer without reason scoping or cRLIssuer, with the selected complete-single-CA CRL object and signer bound separately by digest. The URI is a locator only, never a trust authority; delta/indirect CRL semantics are explicitly outside the model, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
     "scope": "The reference trust anchor is synthetic. This theorem is a deterministic policy model and does not assert real manufacturer authenticity."
   },
   "required_input": {
@@ -92,7 +92,25 @@
       "root": "exact reference CRL semantic recipe for the root-issued CRL",
       "intermediate": "exact reference CRL semantic recipe for the intermediate-issued CRL"
     },
-    "crl_semantics_sha256": "canonical hash of the exact committed crl_semantics object"
+    "crl_semantics_sha256": "canonical hash of the exact committed crl_semantics object",
+    "crl_applicability": {
+      "profile": "direct-issuer-complete-crl-v0.1",
+      "locator_authority": "non-authoritative",
+      "certificate_sha256": "leaf certificate digest",
+      "selected_crl_issuer_certificate_sha256": "selected CRL signer certificate digest",
+      "selected_crl_der_sha256": "selected CRL exact DER digest",
+      "selected_crl_scope": "all-certificates-issued-by-issuer",
+      "distribution_point": {
+        "count": 1,
+        "name_form": "fullName",
+        "general_name_count": 1,
+        "general_name_type": "uniformResourceIdentifier",
+        "uri_sha256": "SHA-256 of the exact URI IA5String bytes",
+        "reasons_present": false,
+        "crl_issuer_present": false
+      }
+    },
+    "crl_applicability_sha256": "canonical hash of the exact committed crl_applicability object"
   },
   "profile_rules": {
     "version": 3,
@@ -104,13 +122,13 @@
     "rsa_modulus": "for the L-1 RSA 2048 template, unique is exactly 256 bytes, non-zero, the most-significant bit is set, and the modulus is odd",
     "certificate_extension_uniqueness": "a given X.509 extension OID may occur at most once",
     "authority_information_access": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
-    "crl_distribution": "if present, MUST be non-critical; contents are metadata only and are never used as a network trust source by this verifier",
+    "crl_distribution": "if present, MUST be non-critical; in this v0.1 reference model the leaf has exactly one DistributionPoint containing only fullName with exactly one URI GeneralName, no reasons field, and no cRLIssuer. The URI is a non-authoritative locator only; selected CRL object and issuer are bound independently by exact digest and issuer-name checks.",
     "subject_directory_attributes": "if present, MUST be non-critical",
     "subject_alt_name": "MUST be present; exact DER GeneralNames must include a directoryName containing exactly one TCG manufacturer, model/part-number, and firmware-version attribute; manufacturer and firmware attributes use the TCG id: form; SAN criticality is critical iff the Subject is empty",
     "subject_key_identifier": "if present, MUST be non-critical",
     "der_canonicality": "certificate outer structure, unique-ID/Extensions wrapper cardinality, INTEGER encodings, OID base-128 encodings, BIT STRING padding, and extension critical BOOLEAN encodings are validated from exact DER",
     "certificate_policies": "if present, MUST be non-critical and contain at least one PolicyIdentifier; policy qualifiers are outside this reference profile",
-    "crl_semantics": "Reference-model CRLs MUST be v2, carry nextUpdate, carry exactly non-critical AuthorityKeyIdentifier and cRLNumber extensions, bind the CRL AKI keyIdentifier exactly to the signing certificate SubjectKeyIdentifier, bind the exact CRL DER object and exact issuer certificate object selected by the committed recipe, declare complete-single-CA scope, explicitly disable delta and indirect CRL semantics, use the committed thisUpdate/nextUpdate and cRLNumber values, and bind every revoked entry by exact serial, revocationDate, reasonCode, and entry DER identity. cRLNumber is bound to the single current reference object; historical monotonic progression is explicitly not modeled. The modeled validity window is thisUpdate <= verification_time < nextUpdate; this is deterministic fixture semantics and does not claim live revocation authority."
+    "crl_semantics": "Reference-model CRLs MUST be v2, carry nextUpdate, carry exactly non-critical AuthorityKeyIdentifier and cRLNumber extensions, bind the CRL AKI keyIdentifier exactly to the signing certificate SubjectKeyIdentifier, bind the exact CRL DER object and exact issuer certificate object selected by the committed recipe, declare complete-single-CA scope, explicitly disable delta and indirect CRL semantics, use the committed thisUpdate/nextUpdate and cRLNumber values, and bind every revoked entry by exact serial, revocationDate, reasonCode, and entry DER identity. cRLNumber is bound to the single current reference object; historical monotonic progression is explicitly not modeled. The modeled validity window is thisUpdate <= verification_time < nextUpdate; this is deterministic fixture semantics and does not claim live revocation authority. Certificate-to-CRL applicability is modeled separately: the leaf issuer, selected CRL issuer, selected issuer certificate digest, selected CRL DER digest, and the leaf's direct-issuer CRLDistributionPoints shape must all agree."
   },
   "forbidden_inputs": [
     "profile_override",
@@ -152,6 +170,18 @@
     [
       "crl_aki_ski_match",
       "issuer_operational_authority"
+    ],
+    [
+      "crl_distribution_uri_match",
+      "crl_object_integrity"
+    ],
+    [
+      "crl_distribution_uri",
+      "live_crl_retrieval_or_freshness"
+    ],
+    [
+      "crl_applicability_pass",
+      "real_world_revocation_authority"
     ]
   ],
   "vectors": [
@@ -469,6 +499,41 @@
       "id": "EKC-V63",
       "mutation": "crl-issuing-distribution-point-extension-injection",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-V64",
+      "mutation": "crl-cdp-applicability-digest-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V65",
+      "mutation": "crl-cdp-selected-crl-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V66",
+      "mutation": "crl-cdp-selected-issuer-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V67",
+      "mutation": "crl-cdp-certificate-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V68",
+      "mutation": "crl-cdp-scope-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V69",
+      "mutation": "crl-cdp-uri-digest-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V70",
+      "mutation": "crl-cdp-reason-scope-claim-substitution",
+      "expected": "DENY"
     }
   ],
   "reference_fixture": {
@@ -491,7 +556,10 @@
     "generator_contract": "generator --recipe fixture-recipe-v0.1.json --output-dir <temp> --check",
     "root_crl_der_sha256": "2909c633b414913ff031e1224d41bfdc58d74c91f84d6c7705bd13194ab27b4e",
     "intermediate_crl_der_sha256": "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8",
-    "crl_semantics_sha256": "1c86eae16de62a645881c94e22518bb1c4fb84a465a1341c6026b1a66d4493e7"
+    "crl_semantics_sha256": "1c86eae16de62a645881c94e22518bb1c4fb84a465a1341c6026b1a66d4493e7",
+    "crl_applicability_sha256": "7ffabfe47960eedfcb58f7b9819c6f5ed4b2c533372e3641b42c9ec4daeea968",
+    "crl_applicability_profile": "direct-issuer-complete-crl-v0.1",
+    "crl_applicability_uri_sha256": "cd780db8173506d6aa08a06a64bab407c5dc9386ab516bfca29c8ffde1ca5e47"
   },
   "required_input_trust_anchor_appraisal": [
     "state",
@@ -571,7 +639,8 @@
       "exact non-critical CRL AuthorityKeyIdentifier and cRLNumber extension presence and encoding",
       "CRL AuthorityKeyIdentifier keyIdentifier exact match to the signing certificate SubjectKeyIdentifier",
       "exact revoked-entry serial, revocationDate, reasonCode, and raw DER identity binding",
-      "delta CRL indicator and indirect/issuing-distribution-point CRL semantics are explicitly outside the reference model"
+      "delta CRL indicator and indirect/issuing-distribution-point CRL semantics are explicitly outside the reference model",
+      "leaf CRL DistributionPoints cross-bound to the selected direct-issuer complete CRL object; URI locator is non-authoritative and reason/cRLIssuer scoping is outside the reference model"
     ],
     "conditional_pqc_requirements": "EKCredentialAlgorithmList and TPMPQCVersion are intentionally outside this v0.1 reference theorem because their correctness depends on issuer-issued PQC credentials and firmware-at-manufacturing/current-firmware evidence not present in this synthetic reference fixture.",
     "claim_ceiling": "ReferenceModelOnly"
@@ -815,7 +884,60 @@
       "id": "CRL-S15",
       "control": "crl-issuing-distribution-point-rejected",
       "expected": "DENY"
+    },
+    {
+      "id": "CRL-S16",
+      "control": "certificate-crl-distribution-points-cross-bound-to-selected-crl",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S17",
+      "control": "certificate-crl-distribution-point-reason-scope-rejected",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S18",
+      "control": "certificate-crl-distribution-point-crl-issuer-rejected",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S19",
+      "control": "certificate-crl-distribution-point-count-bound-to-reference",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S20",
+      "control": "certificate-crl-distribution-uri-identity-bound",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S21",
+      "control": "certificate-crl-applicability-selected-crl-identity-bound",
+      "expected": "DENY"
+    },
+    {
+      "id": "CRL-S22",
+      "control": "certificate-crl-applicability-selected-issuer-identity-bound",
+      "expected": "DENY"
     }
   ],
-  "crl_semantics_control_count": 15
+  "crl_semantics_control_count": 22,
+  "crl_applicability": {
+    "profile": "direct-issuer-complete-crl-v0.1",
+    "locator_authority": "non-authoritative",
+    "certificate_sha256": "688094a4c40bc27deccb9932a18e417889fe56854fb91d31655de43f947d157b",
+    "selected_crl_issuer_certificate_sha256": "9c92d8c6362a2fbe24a324c36f525bec0c0619cb7527e68456d72189ac6fdfb8",
+    "selected_crl_der_sha256": "44d6833713582bcfb9cd35e412466fb59671ce985df381ed516e3d8284ff74e8",
+    "selected_crl_scope": "all-certificates-issued-by-issuer",
+    "distribution_point": {
+      "count": 1,
+      "name_form": "fullName",
+      "general_name_count": 1,
+      "general_name_type": "uniformResourceIdentifier",
+      "uri_sha256": "cd780db8173506d6aa08a06a64bab407c5dc9386ab516bfca29c8ffde1ca5e47",
+      "reasons_present": false,
+      "crl_issuer_present": false
+    }
+  },
+  "crl_applicability_sha256": "7ffabfe47960eedfcb58f7b9819c6f5ed4b2c533372e3641b42c9ec4daeea968"
 }
