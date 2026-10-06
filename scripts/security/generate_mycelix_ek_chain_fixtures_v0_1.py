@@ -379,6 +379,43 @@ def generate(recipe: dict, output_dir: Path) -> None:
     crl_specs = recipe.get("crl_semantics")
     if not isinstance(crl_specs, dict):
         raise ValueError("recipe is missing crl_semantics")
+    applicability = recipe.get("crl_applicability")
+    expected_applicability_keys = {
+        "profile",
+        "locator_authority",
+        "certificate_sha256",
+        "selected_crl_issuer_certificate_sha256",
+        "selected_crl_der_sha256",
+        "selected_crl_scope",
+        "distribution_point",
+    }
+    if not isinstance(applicability, dict) or set(applicability) != expected_applicability_keys:
+        raise ValueError("recipe is missing or has malformed crl_applicability")
+    if applicability["profile"] != "direct-issuer-complete-crl-v0.1":
+        raise ValueError("CRL applicability profile is unsupported")
+    if applicability["locator_authority"] != "non-authoritative":
+        raise ValueError("CRL distribution locator must remain non-authoritative")
+    if applicability["certificate_sha256"] != hashlib.sha256(files["leaf.der"]).hexdigest():
+        raise ValueError("CRL applicability certificate hash does not match generated leaf")
+    if applicability["selected_crl_issuer_certificate_sha256"] != hashlib.sha256(files["intermediate.der"]).hexdigest():
+        raise ValueError("CRL applicability issuer hash does not match generated intermediate")
+    if applicability["selected_crl_scope"] != "all-certificates-issued-by-issuer":
+        raise ValueError("CRL applicability selected scope is not complete-single-CA")
+    dp = applicability["distribution_point"]
+    expected_dp_keys = {
+        "count", "name_form", "general_name_count", "general_name_type",
+        "uri_sha256", "reasons_present", "crl_issuer_present",
+    }
+    if not isinstance(dp, dict) or set(dp) != expected_dp_keys:
+        raise ValueError("CRL applicability distribution-point metadata malformed")
+    if dp["count"] != 1 or dp["name_form"] != "fullName" or dp["general_name_count"] != 1:
+        raise ValueError("CRL applicability distribution-point cardinality/form mismatch")
+    if dp["general_name_type"] != "uniformResourceIdentifier":
+        raise ValueError("CRL applicability GeneralName type mismatch")
+    if dp["uri_sha256"] != hashlib.sha256(b"https://example.invalid/ek.crl").hexdigest():
+        raise ValueError("CRL applicability URI digest does not match fixture generator")
+    if dp["reasons_present"] is not False or dp["crl_issuer_present"] is not False:
+        raise ValueError("CRL applicability reason/cRLIssuer semantics are outside reference model")
     crl_bundle = b""
     for issuer_name, key_name in (
         ("Mycelix Synthetic EK Root", "root"),
