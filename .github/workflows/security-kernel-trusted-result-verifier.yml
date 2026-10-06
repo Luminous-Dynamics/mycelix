@@ -429,8 +429,16 @@ jobs:
           receipt_bytes = artifact_bytes
           if zipfile.is_zipfile(io.BytesIO(artifact_bytes)):
               with zipfile.ZipFile(io.BytesIO(artifact_bytes)) as archive:
-                  files = [info for info in archive.infolist() if not info.is_dir()]
+                  infos = archive.infolist()
+                  assert len(infos) <= 16, f"qualification receipt archive contains {len(infos)} entries, exceeding verifier bound"
+                  files = [info for info in infos if not info.is_dir()]
                   assert len(files) == 1, f"qualification receipt archive contains {len(files)} files, expected exactly one"
+                  assert 0 < files[0].file_size <= 1024 * 1024, (
+                      f"qualification receipt member expands to {files[0].file_size} bytes, outside verifier bound"
+                  )
+                  assert 0 < files[0].compress_size <= 1024 * 1024, (
+                      f"qualification receipt member compressed size {files[0].compress_size} is outside verifier bound"
+                  )
                   receipt_member = files[0].filename
                   assert receipt_member.rsplit("/", 1)[-1] == expected_artifact_name, (
                       f"qualification receipt member name mismatch: {receipt_member!r}"
@@ -708,8 +716,16 @@ jobs:
           content = downloaded
           if zipfile.is_zipfile(io.BytesIO(downloaded)):
               with zipfile.ZipFile(io.BytesIO(downloaded)) as archive:
-                  members = [info for info in archive.infolist() if not info.is_dir()]
+                  infos = archive.infolist()
+                  assert len(infos) <= 16, f"negative-control transcript archive contains {len(infos)} entries, exceeding verifier bound"
+                  members = [info for info in infos if not info.is_dir()]
                   assert len(members) == 1, f"negative-control transcript archive contains {len(members)} files, expected exactly one"
+                  assert 0 < members[0].file_size <= 1024 * 1024, (
+                      f"negative-control transcript member expands to {members[0].file_size} bytes, outside verifier bound"
+                  )
+                  assert 0 < members[0].compress_size <= 1024 * 1024, (
+                      f"negative-control transcript member compressed size {members[0].compress_size} is outside verifier bound"
+                  )
                   assert members[0].filename.rsplit("/", 1)[-1] == expected_name, "negative-control transcript member name mismatch"
                   content = archive.read(members[0])
 
