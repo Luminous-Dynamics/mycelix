@@ -223,6 +223,16 @@
     },
     {
       "id": "EKC-V27",
+      "mutation": "profile-override-cannot-rescue-key-usage",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V28",
+      "mutation": "profile-override-cannot-rescue-eku",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V29",
       "mutation": "key-order-permutation",
       "expected": "PASS"
     }
