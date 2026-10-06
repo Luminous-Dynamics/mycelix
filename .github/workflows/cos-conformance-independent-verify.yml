@@ -144,16 +144,22 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number || github.event.workflow_run.pull_requests[0].number }}
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
           TRIGGER_RUN_ID: ${{ github.event.workflow_run.id || 0 }}
+          TRIGGER_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id || 0 }}
+          TRIGGER_WORKFLOW_PATH: ${{ github.event.workflow_run.path || 'manual' }}
+          TRIGGER_REPOSITORY: ${{ github.event.workflow_run.repository.full_name || github.repository }}
           TRIGGER_EVENT: ${{ github.event.workflow_run.event || 'workflow_dispatch' }}
           TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion || 'manual' }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          TRIGGER_EVENT="${TRIGGER_EVENT}"           TRIGGER_RUN_ID="${TRIGGER_RUN_ID}"           PR_NUMBER="${PR_NUMBER}"           EXPECTED_HEAD_SHA="${EXPECTED_HEAD_SHA}"           python - <<'PY'
+          TRIGGER_EVENT="${TRIGGER_EVENT}"           TRIGGER_RUN_ID="${TRIGGER_RUN_ID}"           TRIGGER_WORKFLOW_ID="${TRIGGER_WORKFLOW_ID}"           TRIGGER_WORKFLOW_PATH="${TRIGGER_WORKFLOW_PATH}"           TRIGGER_REPOSITORY="${TRIGGER_REPOSITORY}"           PR_NUMBER="${PR_NUMBER}"           EXPECTED_HEAD_SHA="${EXPECTED_HEAD_SHA}"           python - <<'PY'
           import os
           import re
 
           event = os.environ["TRIGGER_EVENT"]
           run_id = int(os.environ["TRIGGER_RUN_ID"])
+          workflow_id = int(os.environ["TRIGGER_WORKFLOW_ID"])
+          workflow_path = os.environ["TRIGGER_WORKFLOW_PATH"]
+          trigger_repository = os.environ["TRIGGER_REPOSITORY"]
           pr_number = os.environ["PR_NUMBER"]
           head_sha = os.environ["EXPECTED_HEAD_SHA"]
 
@@ -163,8 +169,14 @@ jobs:
 
           if event == "pull_request":
               assert run_id > 0
+              assert workflow_id == 374065836
+              assert workflow_path == ".github/workflows/cos-conformance-evidence.yml"
+              assert trigger_repository == os.environ["GITHUB_REPOSITORY"]
           else:
               assert run_id == 0
+              assert workflow_id == 0
+              assert workflow_path == "manual"
+              assert trigger_repository == os.environ["GITHUB_REPOSITORY"]
           PY
 
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
