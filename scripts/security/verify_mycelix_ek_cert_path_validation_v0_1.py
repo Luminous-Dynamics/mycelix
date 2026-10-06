@@ -201,6 +201,76 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
                 return result("DENY", f"{name}-pem-der-binding-failed")
 
         (work / "crl-bundle.pem").write_bytes(crl_bundle)
+        version_proc = subprocess.run(
+            [openssl, "version"],
+            cwd=work,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if version_proc.returncode != 0:
+            return result(
+                "INDETERMINATE",
+                "openssl-version-unavailable",
+                {"stderr": version_proc.stderr.strip()},
+            )
+        openssl_version = version_proc.stdout.strip()
+        proc = subprocess.run(
+            [
+                openssl,
+                "verify",
+                "-x509_strict",
+                "-check_ss_sig",
+                "-CAfile",
+                str(work / "root.pem"),
+                "-untrusted",
+                str(work / "intermediate.pem"),
+                "-CRLfile",
+                str(work / "crl-bundle.pem"),
+                "-crl_check_all",
+                "-attime",
+                str(manifest["verification_time_unix"]),
+                str(work / "leaf.pem"),
+            ],
+            cwd=work,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        details = {
+            "leaf_certificate_sha256": manifest["leaf_certificate_sha256"],
+            "intermediate_certificate_sha256": manifest["intermediate_certificate_sha256"],
+            "trust_anchor_root_sha256": manifest["trust_anchor_root_sha256"],
+            "crl_bundle_pem_sha256": manifest["crl_bundle_pem_sha256"],
+            "verification_time_unix": manifest["verification_time_unix"],
+            "policy_argv": [
+                "openssl",
+                "verify",
+                "-x509_strict",
+                "-check_ss_sig",
+                "-CAfile",
+                "root.pem",
+                "-untrusted",
+                "intermediate.pem",
+                "-CRLfile",
+                "crl-bundle.pem",
+                "-crl_check_all",
+                "-attime",
+                str(manifest["verification_time_unix"]),
+                "leaf.pem",
+            ],
+            "openssl_path_basename": Path(openssl).name,
+            "openssl_version": openssl_version,
+            "returncode": proc.returncode,
+            "stdout_sha256": hashlib.sha256(proc.stdout.encode()).hexdigest(),
+            "stderr_sha256": hashlib.sha256(proc.stderr.encode()).hexdigest(),
+            "execution_binding_sha256": expected_binding,
+        }
+        if proc.returncode == 0:
+            return result("PASS", "certificate-path-validation-succeeded", details)
+        return result("DENY", "certificate-path-validation-failed", details)
 
 
 def self_test() -> int:
