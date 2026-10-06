@@ -1440,7 +1440,7 @@ fn find_mint_cap_counter_record() -> ExternResult<Option<(Record, SapMintCapCoun
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
-        let entry = record
+    let entry = record
             .entry()
             .to_app_option::<SapMintCapCounterEntry>()
             .map_err(|e| {
@@ -1449,9 +1449,8 @@ fn find_mint_cap_counter_record() -> ExternResult<Option<(Record, SapMintCapCoun
                     e
                 )))
             })?;
-        if let Some(entry) = entry {
-            return Ok(Some((record, entry)));
-        }
+    if let Some(entry) = entry {
+        return Ok(Some((record, entry)));
     }
     Ok(None)
 }
