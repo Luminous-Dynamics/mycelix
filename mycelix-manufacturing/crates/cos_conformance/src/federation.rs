@@ -1365,9 +1365,9 @@ pub fn validate_federation_external_verifier_identity_use_statement_against_resu
     Ok(())
 }
 
-pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 2;
+pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 3;
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE: &str =
-    "integral-federation-external-verification-trust-policy-v2";
+    "integral-federation-external-verification-trust-policy-v3";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN: &str =
     "integral-federation-external-verification-trust-policy-sha256-v1";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ALGORITHM: &str = "sha-256";
@@ -1393,6 +1393,10 @@ pub enum FederationExternalVerificationPolicyAdmissionViolation {
     VerifierIdentityKindNotAdmitted,
     VerifierIdentityProfileNotAdmitted,
     VerifierIdentityDigestNotAdmitted,
+    VerifierIdentityUseBindingRequired,
+    VerifierIdentityUseMethodNotAdmitted,
+    VerifierIdentityUseProfileNotAdmitted,
+    VerifierIdentityUseInvalid(FederationExternalVerifierIdentityUseStatementViolation),
     VerificationFreshnessPolicyMissing,
     VerificationClaimTooOld,
     VerificationClaimFromFuture,
@@ -1413,6 +1417,8 @@ pub enum FederationExternalVerificationTrustPolicyViolation {
     EmptyVerifierIdentityProfile,
     InvalidVerifierIdentityDigest,
     VerifierIdentityBindingIncomplete,
+    EmptyVerifierIdentityUseProfile,
+    VerifierIdentityUseBindingIncomplete,
     InvalidMaximumVerificationAge,
     NoAcceptedVerifierProfiles,
     AcceptedClaimsContainRejected,
@@ -1433,6 +1439,8 @@ pub struct FederationExternalVerificationTrustPolicyV1 {
     required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
     required_verifier_identity_profile: Option<String>,
     required_verifier_identity_sha256: Option<String>,
+    required_verifier_identity_use_method: Option<FederationExternalVerifierIdentityUseMethod>,
+    required_verifier_identity_use_profile: Option<String>,
     maximum_verification_age_seconds: Option<u64>,
 }
 
@@ -1451,6 +1459,8 @@ struct FederationExternalVerificationTrustPolicyHashView {
     required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
     required_verifier_identity_profile: Option<String>,
     required_verifier_identity_sha256: Option<String>,
+    required_verifier_identity_use_method: Option<FederationExternalVerifierIdentityUseMethod>,
+    required_verifier_identity_use_profile: Option<String>,
     maximum_verification_age_seconds: Option<u64>,
 }
 
@@ -1484,6 +1494,10 @@ pub struct FederationExternalVerificationPolicyAdmissionV1 {
     claimed_verified_at_unix_seconds: u64,
     evaluated_at_unix_seconds: u64,
     verification_age_seconds: u64,
+    verifier_identity_use_method: Option<FederationExternalVerifierIdentityUseMethod>,
+    verifier_identity_use_profile: Option<String>,
+    verifier_identity_use_statement_sha256: Option<String>,
+    verifier_identity_use_evidence_sha256: Option<String>,
 }
 
 impl FederationExternalVerificationTrustPolicyV1 {
@@ -1510,6 +1524,8 @@ impl FederationExternalVerificationTrustPolicyV1 {
             required_verifier_identity_kind: None,
             required_verifier_identity_profile: None,
             required_verifier_identity_sha256: None,
+            required_verifier_identity_use_method: None,
+            required_verifier_identity_use_profile: None,
             maximum_verification_age_seconds: None,
         };
         policy.validate()?;
@@ -1568,6 +1584,34 @@ impl FederationExternalVerificationTrustPolicyV1 {
                 FederationExternalVerificationTrustPolicyViolation::InvalidVerifierIdentityDigest
             );
         }
+
+        let identity_use_field_count = [
+            self.required_verifier_identity_use_method.is_some(),
+            self.required_verifier_identity_use_profile.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count();
+        if identity_use_field_count != 0 && identity_use_field_count != 2 {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::VerifierIdentityUseBindingIncomplete
+            );
+        }
+        if self
+            .required_verifier_identity_use_profile
+            .as_deref()
+            .is_some_and(str::is_empty)
+        {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::EmptyVerifierIdentityUseProfile
+            );
+        }
+        if identity_use_field_count == 2 && identity_field_count != 3 {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::VerifierIdentityUseBindingIncomplete
+            );
+        }
+
         if self.maximum_verification_age_seconds == Some(0) {
             return Err(
                 FederationExternalVerificationTrustPolicyViolation::InvalidMaximumVerificationAge
@@ -1618,6 +1662,14 @@ impl FederationExternalVerificationTrustPolicyV1 {
     pub fn required_verifier_identity_sha256(&self) -> Option<&str> {
         self.required_verifier_identity_sha256.as_deref()
     }
+    pub fn required_verifier_identity_use_method(
+        &self,
+    ) -> Option<FederationExternalVerifierIdentityUseMethod> {
+        self.required_verifier_identity_use_method
+    }
+    pub fn required_verifier_identity_use_profile(&self) -> Option<&str> {
+        self.required_verifier_identity_use_profile.as_deref()
+    }
     pub fn maximum_verification_age_seconds(&self) -> Option<u64> {
         self.maximum_verification_age_seconds
     }
@@ -1657,6 +1709,29 @@ impl FederationExternalVerificationTrustPolicyV1 {
         Ok(policy)
     }
 
+    pub fn try_new_bound_identity_use(
+        &self,
+        use_method: FederationExternalVerifierIdentityUseMethod,
+        use_evidence_profile: impl Into<String>,
+    ) -> Result<Self, FederationExternalVerificationTrustPolicyViolation> {
+        if self.required_verifier_identity_kind.is_none()
+            || self.required_verifier_identity_profile.is_none()
+            || self.required_verifier_identity_sha256.is_none()
+        {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::VerifierIdentityUseBindingIncomplete
+            );
+        }
+        if self.required_witness_kind.is_none() || self.required_witness_profile.is_none() {
+            return Err(FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete);
+        }
+        let mut policy = self.clone();
+        policy.required_verifier_identity_use_method = Some(use_method);
+        policy.required_verifier_identity_use_profile = Some(use_evidence_profile.into());
+        policy.validate()?;
+        Ok(policy)
+    }
+
     pub fn with_maximum_verification_age_seconds(
         &self,
         maximum_verification_age_seconds: u64,
@@ -1686,6 +1761,8 @@ impl FederationExternalVerificationTrustPolicyV1 {
             required_verifier_identity_kind: self.required_verifier_identity_kind,
             required_verifier_identity_profile: self.required_verifier_identity_profile.clone(),
             required_verifier_identity_sha256: self.required_verifier_identity_sha256.clone(),
+            required_verifier_identity_use_method: self.required_verifier_identity_use_method,
+            required_verifier_identity_use_profile: self.required_verifier_identity_use_profile.clone(),
             maximum_verification_age_seconds: self.maximum_verification_age_seconds,
         };
         let bytes = serde_json::to_vec(&view)
@@ -1730,6 +1807,49 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
         FederationExternalVerificationPolicyAdmissionV1,
         FederationExternalVerificationPolicyAdmissionViolation,
     > {
+        self.admit_under_policy_at_internal(policy, evaluated_at_unix_seconds, None)
+    }
+
+    /// Strong admission path requiring explicit evidence that the verifier report
+    /// was bound to the exact verifier identity under the method/profile required
+    /// by policy.
+    pub fn admit_under_policy_with_identity_use_at(
+        &self,
+        policy: &FederationExternalVerificationTrustPolicyV1,
+        evaluated_at_unix_seconds: u64,
+        verifier_identity_material: &[u8],
+        verifier_report: &[u8],
+        use_evidence: &[u8],
+        identity_use_statement: &FederationExternalVerifierIdentityUseStatementV1,
+    ) -> Result<
+        FederationExternalVerificationPolicyAdmissionV1,
+        FederationExternalVerificationPolicyAdmissionViolation,
+    > {
+        self.admit_under_policy_at_internal(
+            policy,
+            evaluated_at_unix_seconds,
+            Some((
+                verifier_identity_material,
+                verifier_report,
+                use_evidence,
+                identity_use_statement,
+            )),
+        )
+    }
+
+    fn admit_under_policy_at_internal(
+        &self,
+        policy: &FederationExternalVerificationTrustPolicyV1,
+        evaluated_at_unix_seconds: u64,
+        identity_use: Option<(&[u8], &[u8], &[u8], &FederationExternalVerifierIdentityUseStatementV1)>,
+    ) -> Result<
+        FederationExternalVerificationPolicyAdmissionV1,
+        FederationExternalVerificationPolicyAdmissionViolation,
+    > {
+        policy
+            .validate()
+            .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?;
+
         let maximum_verification_age_seconds = policy
             .maximum_verification_age_seconds()
             .ok_or(
@@ -1811,6 +1931,46 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             );
         }
 
+        if let Some(required_method) = policy.required_verifier_identity_use_method() {
+            let Some((identity_material, verifier_report, use_evidence, identity_use_statement)) =
+                identity_use
+            else {
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUseBindingRequired,
+                );
+            };
+
+            validate_federation_external_verifier_identity_use_statement(
+                identity_material,
+                verifier_report,
+                use_evidence,
+                identity_use_statement,
+            )
+            .map_err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUseInvalid,
+            )?;
+            validate_federation_external_verifier_identity_use_statement_against_result(
+                self,
+                identity_use_statement,
+            )
+            .map_err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUseInvalid,
+            )?;
+
+            if identity_use_statement.use_method() != required_method {
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUseMethodNotAdmitted,
+                );
+            }
+            if policy.required_verifier_identity_use_profile()
+                != Some(identity_use_statement.use_evidence_profile())
+            {
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUseProfileNotAdmitted,
+                );
+            }
+        }
+
         let decision = policy
             .classify(self.verifier_schema_version(), self.verifier_profile(), self.claim())
             .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?;
@@ -1855,6 +2015,14 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             claimed_verified_at_unix_seconds: self.claimed_verified_at_unix_seconds(),
             evaluated_at_unix_seconds,
             verification_age_seconds,
+            verifier_identity_use_method: policy.required_verifier_identity_use_method(),
+            verifier_identity_use_profile: policy
+                .required_verifier_identity_use_profile()
+                .map(str::to_owned),
+            verifier_identity_use_statement_sha256: identity_use
+                .map(|(_, _, _, statement)| statement.statement_sha256().to_owned()),
+            verifier_identity_use_evidence_sha256: identity_use
+                .map(|(_, _, _, statement)| statement.use_evidence_sha256().to_owned()),
         })
     }
 }
@@ -1870,6 +2038,20 @@ impl FederationExternalVerificationPolicyAdmissionV1 {
     pub fn verifier_identity_sha256(&self) -> &str { &self.verifier_identity_sha256 }
     pub fn verifier_profile(&self) -> &str { &self.verifier_profile }
     pub fn verifier_schema_version(&self) -> u16 { self.verifier_schema_version }
+    pub fn verifier_identity_use_method(
+        &self,
+    ) -> Option<FederationExternalVerifierIdentityUseMethod> {
+        self.verifier_identity_use_method
+    }
+    pub fn verifier_identity_use_profile(&self) -> Option<&str> {
+        self.verifier_identity_use_profile.as_deref()
+    }
+    pub fn verifier_identity_use_statement_sha256(&self) -> Option<&str> {
+        self.verifier_identity_use_statement_sha256.as_deref()
+    }
+    pub fn verifier_identity_use_evidence_sha256(&self) -> Option<&str> {
+        self.verifier_identity_use_evidence_sha256.as_deref()
+    }
     pub fn claim(&self) -> FederationStateMachineTraceExternalVerificationClaim { self.claim }
     pub fn statement_sha256(&self) -> &str { &self.statement_sha256 }
 }
@@ -4597,10 +4779,169 @@ mod tests {
             policy.schema_version(),
             FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION
         );
-        assert_eq!(FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION, 2);
+        assert_eq!(FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION, 3);
         assert_eq!(
             policy.policy_profile(),
             FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE
+        );
+    }
+
+    #[test]
+    fn external_verification_policy_identity_use_binding_is_content_addressed_and_fail_closed() {
+        let base = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
+            2,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("base policy must build")
+        .try_new_bound_identity(
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-tsa-key-sha256-v1",
+            state_machine_trace_external_verifier_identity_sha256(b"identity-A"),
+        )
+        .expect("identity-bound policy must build");
+
+        let left = base
+            .try_new_bound_identity_use(
+                FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
+                "rfc3161-signed-report-binding-v1",
+            )
+            .expect("identity-use policy must build");
+        let right = base
+            .try_new_bound_identity_use(
+                FederationExternalVerifierIdentityUseMethod::CertificateBoundSignature,
+                "rfc3161-signed-report-binding-v1",
+            )
+            .expect("identity-use policy must build");
+
+        assert_ne!(
+            left.required_verifier_identity_use_method(),
+            right.required_verifier_identity_use_method()
+        );
+        assert_ne!(left.policy_sha256().unwrap(), right.policy_sha256().unwrap());
+
+        let method_only = FederationExternalVerificationTrustPolicyV1 {
+            required_verifier_identity_use_method: Some(
+                FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
+            ),
+            required_verifier_identity_use_profile: None,
+            ..left.clone()
+        };
+        assert_eq!(
+            method_only.validate(),
+            Err(FederationExternalVerificationTrustPolicyViolation::VerifierIdentityUseBindingIncomplete)
+        );
+    }
+
+    #[test]
+    fn external_verification_policy_requires_identity_use_record_when_configured() {
+        let subject_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let witness_artifact = b"policy-identity-use-anchor";
+        let anchor_reference = state_machine_trace_external_evidence_anchor_reference(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            witness_artifact,
+            1_791_005_000,
+        )
+        .expect("anchor reference must build");
+        let verifier_report = b"policy-identity-use-report";
+        let identity_material = b"policy-identity-use-key";
+        let statement = state_machine_trace_external_evidence_verification_statement(
+            &anchor_reference.anchor_reference_sha256,
+            2,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-tsa-key-sha256-v1",
+            identity_material,
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            verifier_report,
+            1_791_005_001,
+        )
+        .expect("verification statement must build");
+        let result = validate_state_machine_trace_external_evidence_verification_statement_chain(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            witness_artifact,
+            &anchor_reference,
+            verifier_report,
+            &statement,
+        )
+        .expect("typed result must build");
+
+        let policy = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
+            2,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("policy must build")
+        .try_new_bound_identity(
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-tsa-key-sha256-v1",
+            state_machine_trace_external_verifier_identity_sha256(identity_material),
+        )
+        .expect("identity-bound policy must build")
+        .try_new_bound_identity_use(
+            FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
+            "rfc3161-signed-report-binding-v1",
+        )
+        .expect("identity-use policy must build")
+        .with_maximum_verification_age_seconds(60)
+        .expect("freshness policy must build");
+
+        assert_eq!(
+            result.admit_under_policy_at(&policy, 1_791_005_002),
+            Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierIdentityUseBindingRequired
+            )
+        );
+
+        let identity_use = federation_external_verifier_identity_use_statement(
+            FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
+            "rfc3161-signed-report-binding-v1",
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-tsa-key-sha256-v1",
+            identity_material,
+            verifier_report,
+            b"signature-binding-evidence",
+        )
+        .expect("identity-use statement must build");
+
+        let admission = result
+            .admit_under_policy_with_identity_use_at(
+                &policy,
+                1_791_005_002,
+                identity_material,
+                verifier_report,
+                b"signature-binding-evidence",
+                &identity_use,
+            )
+            .expect("strong policy should admit exact identity-use evidence");
+
+        assert_eq!(
+            admission.verifier_identity_use_method(),
+            Some(FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport)
+        );
+        assert_eq!(
+            admission.verifier_identity_use_profile(),
+            Some("rfc3161-signed-report-binding-v1")
+        );
+        assert_eq!(
+            admission.verifier_identity_use_statement_sha256(),
+            Some(identity_use.statement_sha256())
+        );
+        assert_eq!(
+            admission.verifier_identity_use_evidence_sha256(),
+            Some(identity_use.use_evidence_sha256())
         );
     }
 

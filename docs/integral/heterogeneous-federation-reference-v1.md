@@ -262,6 +262,26 @@ protocol adapter
     = performs the actual signature/certificate/CT/ERS verification
 ```
 
+### Policy-bound verifier identity use
+
+Local policy admission now has a stronger optional mode: a policy can require an exact verifier identity **and** an exact identity-use method/profile. In that mode, `admit_under_policy_at()` fails closed rather than silently falling back to identity-only admission; the stronger `admit_under_policy_with_identity_use_at()` path requires the raw identity material, verifier report, use-evidence bytes, and typed identity-use statement.
+
+The resulting admission record preserves the identity-use method/profile, statement digest, and use-evidence digest. A weak policy remains weak by construction: merely supplying an identity-use statement cannot upgrade an unconfigured policy.
+
+This follows the same separation used by the external standards. RFC 5035's `SigningCertificateV2` cryptographically links the certificate intended for validation to signed material, helping detect certificate substitution. RFC 9162 likewise defines immutable log parameters including the public key and Log ID that are used to verify log artifacts. citeturn967539search4turn967539search0
+
+The policy boundary is now:
+
+```text
+verifier identity
+    → identity-use mechanism/profile
+    → identity-use evidence
+    → typed external result correspondence
+    → local policy admission
+```
+
+The identity-use validator still does not perform the actual signature, certificate-chain, CT, or archive cryptographic verification. It verifies that the supplied bytes and typed result correspond exactly; the protocol adapter remains responsible for proving the external relationship itself.
+
 Freshness is an independent admission dimension rather than an implicit timestamp convention. An institutionally bound policy may configure a non-zero `maximum_verification_age_seconds`; `admit_under_policy_at()` requires an explicit evaluation timestamp and rejects evidence from the future, evidence older than the configured maximum age, or any policy that has not explicitly configured a freshness budget. The resulting non-deserializable admission record carries the claimed verification time, evaluation time, and computed age so downstream consumers cannot silently reinterpret the freshness decision.
 
 This prevents a second class of replay: an otherwise exact verifier identity, witness identity, and claim can become inadmissible solely because its evidence horizon has expired. Freshness is therefore part of local policy admission, not part of the external verifier's truth claim.

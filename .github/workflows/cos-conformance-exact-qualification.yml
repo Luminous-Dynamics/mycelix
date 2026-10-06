@@ -69,6 +69,10 @@ jobs:
           grep -Fq 'pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source"
           grep -Fq 'pub fn validate_federation_external_verifier_identity_use_statement' "$source"
           grep -Fq 'pub fn validate_federation_external_verifier_identity_use_statement_against_result' "$source"
+          grep -Fq 'pub fn admit_under_policy_with_identity_use_at' "$source"
+          grep -Fq 'pub fn try_new_bound_identity_use' "$source"
+          grep -Fq 'required_verifier_identity_use_method' "$source"
+          grep -Fq 'required_verifier_identity_use_profile' "$source"
           if grep -Fq 'pub pub fn' "$source"; then
             echo 'Duplicated visibility keyword detected.'
             exit 1
