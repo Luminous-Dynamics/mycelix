@@ -441,6 +441,15 @@ def assert_mutation_rejected(snapshot: dict) -> int:
     add("artifact id", ("artifact_list_view", "id"), snapshot["artifact_list_view"]["id"] + 1)
     add("artifact digest", ("artifact_list_view", "digest"), "sha256:" + "4" * 64)
     add("artifact head SHA", ("artifact_list_view", "workflow_run", "head_sha"), "5" * 40)
+    add("artifact repository id", ("artifact_list_view", "workflow_run", "repository_id"), snapshot["artifact_list_view"]["workflow_run"]["repository_id"] + 1)
+    add("artifact head repository id", ("artifact_list_view", "workflow_run", "head_repository_id"), snapshot["artifact_list_view"]["workflow_run"]["head_repository_id"] + 1)
+    add("artifact head branch", ("artifact_list_view", "workflow_run", "head_branch"), snapshot["artifact_list_view"]["workflow_run"]["head_branch"] + "-mutated")
+    add("artifact ID-view id", ("artifact_id_view", "id"), snapshot["artifact_id_view"]["id"] + 1)
+    add("artifact ID-view digest", ("artifact_id_view", "digest"), "sha256:" + "6" * 64)
+    add("artifact ID-view head SHA", ("artifact_id_view", "workflow_run", "head_sha"), "7" * 40)
+    add("main SHA", ("main_sha",), "8" * 40)
+    add("S0 top-level blob anchor", ("dispatcher_workflow_blob_sha",), "9" * 40)
+    add("S1 top-level blob anchor", ("s1_workflow_blob_sha",), "a" * 40)
     add("receipt text", ("receipt_text",), snapshot["receipt_text"] + "\nmutated=true")
     add(
         "S0 bytes",
@@ -472,6 +481,13 @@ def assert_mutation_rejected(snapshot: dict) -> int:
         ("workflow_file_snapshots", "policy", "content"),
         snapshot["workflow_file_snapshots"]["policy"]["content"] + "AA==",
     )
+    for name in ("s0", "s1", "s2", "binding", "causal", "policy"):
+        add(
+            f"{name} advertised blob SHA",
+            ("workflow_file_snapshots", name, "sha"),
+            ("b" if snapshot["workflow_file_snapshots"][name]["sha"][0] != "b" else "c")
+            + snapshot["workflow_file_snapshots"][name]["sha"][1:],
+        )
 
     for label, path, replacement in mutations:
         mutated = json.loads(json.dumps(snapshot))
