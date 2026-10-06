@@ -14,7 +14,7 @@ The reference corpus is still ReferenceModelOnly. Reproducibility proves that th
 
 Caller-supplied certificate criticality overrides are not accepted. Certificate extensions are authoritative only when parsed from the exact DER certificate bytes.
 
-The parser now rejects duplicate Extensions wrappers, duplicate extension OIDs, non-canonical INTEGER/OID encodings, invalid BIT STRING padding, explicit FALSE extension-critical BOOLEAN encodings, malformed Authority Key Identifier structures, and structurally incomplete TCG SubjectAltName data.
+The parser now rejects duplicate Extensions wrappers, duplicate extension OIDs, non-canonical INTEGER/OID encodings, invalid BIT STRING padding, explicit FALSE extension-critical BOOLEAN encodings, malformed Authority Key Identifier structures, structurally incomplete TCG SubjectAltName data, empty Extensions, and malformed recognized AIA/CRL Distribution/Subject Directory Attributes values.
 
 For the leaf EK, the local 2.7 boundary includes critical BasicConstraints with CA=FALSE, critical Key Usage with RSA keyEncipherment, mandatory non-critical AKI with keyIdentifier, TCG SAN structure, non-critical SKI when present, and non-critical AIA/CRL Distribution/Subject Directory Attributes when present.
 
