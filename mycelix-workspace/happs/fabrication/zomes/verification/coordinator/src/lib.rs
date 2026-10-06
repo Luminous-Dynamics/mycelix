@@ -212,7 +212,7 @@ fn fpm_attestation_error(reason: impl Into<String>) -> WasmError {
     }
     .to_wasm_error()
 }
-fn resolve_fpm_eat_cose_verification_anchor(
+fn resolve_fpm_eat_cose_verification_anchor_impl(
     action_hash: ActionHash,
 ) -> ExternResult<ResolvedFpmEatCoseVerificationAnchor> {
     let details = get_details(action_hash.clone(), GetOptions::network())?
@@ -278,7 +278,7 @@ fn resolve_fpm_eat_cose_verification_anchor(
     }
 
     let verification =
-        resolve_fpm_eat_cose_verification_anchor(anchor.eat_cose_verification_action.clone())?;
+        resolve_fpm_eat_cose_verification_anchor_impl(anchor.eat_cose_verification_action.clone())?;
 
     if verification.challenge_action != anchor.challenge_action
         || verification.evidence_digest != anchor.claim.evidence_digest
@@ -860,7 +860,7 @@ fn create_fpm_source_attestation_anchor_impl(
     }
 
     let verification =
-        resolve_fpm_eat_cose_verification_anchor(input.eat_cose_verification_action.clone())?;
+        resolve_fpm_eat_cose_verification_anchor_impl(input.eat_cose_verification_action.clone())?;
     if verification.challenge_action != input.challenge_action {
         return Err(fpm_attestation_error(
             "cryptographic verification anchor references a different challenge",
@@ -1032,7 +1032,7 @@ pub fn resolve_fpm_eat_cose_verification_anchor(
     action_hash: ActionHash,
 ) -> ExternResult<ResolvedFpmEatCoseVerificationAnchor> {
     rate_limit_caller()?;
-    resolve_fpm_eat_cose_verification_anchor(action_hash)
+    resolve_fpm_eat_cose_verification_anchor_impl(action_hash)
 }
 
 #[hdk_extern]
