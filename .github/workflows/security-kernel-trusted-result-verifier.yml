@@ -51,6 +51,7 @@ jobs:
           TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-result-verifier.yml@refs/heads/main"
@@ -731,6 +732,7 @@ jobs:
           RECEIPT_LOG_SHA256: ${{ steps.verify_result.outputs.sandbox_negative_controls_log_sha256 }}
           PARENT_EVIDENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.evidence_binding_sha256 }}
           RECEIPT_ARTIFACT_EXPIRES_AT: ${{ steps.verify_result.outputs.receipt_artifact_expires_at }}
+        shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -1006,6 +1008,7 @@ jobs:
           ARTIFACT_ID: ${{ steps.verify_result.outputs.artifact_id }}
           EXECUTION_BINDING_SHA256: ${{ steps.verify_result.outputs.execution_binding_sha256 }}
           EVIDENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.evidence_binding_sha256 }}
+        shell: bash
         run: |
           set -euo pipefail
           test -d "$RECEIPT_ROOT"
