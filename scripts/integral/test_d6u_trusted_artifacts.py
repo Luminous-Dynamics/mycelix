@@ -536,6 +536,7 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "branches:\n      - myc-int-demo-d6u-holochain-07-runtime" in workflow
     assert workflow.count("github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime'") == 3
     assert workflow.count("github.event.workflow_run.repository.full_name == github.repository") == 3
+    assert workflow.count("github.event.workflow_run.head_repository.full_name == github.repository") == 3
     assert workflow.count("github.event.workflow_run.name == 'D6U Exact-Head Runtime Executor'") == 3
     assert "gh attestation verify" not in signer
     assert "uses: actions/download-artifact@" not in signer
