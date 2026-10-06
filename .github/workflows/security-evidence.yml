@@ -113,6 +113,9 @@ jobs:
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(cert_chain["vectors"]) == 71
+          assert [entry["id"] for entry in cert_chain["vectors"][-8:]] == [
+              "EKC-V64", "EKC-V65", "EKC-V66", "EKC-V67", "EKC-V68", "EKC-V69", "EKC-V70", "EKC-V71",
+          ]
           assert cert_chain["parser_structural_control_count"] == 20
           assert cert_chain["crl_semantics_control_count"] == 22
           assert [entry["id"] for entry in cert_chain["parser_structural_controls"]] == [
