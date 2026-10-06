@@ -126,7 +126,7 @@ fn fpm_attestation_error(reason: impl Into<String>) -> WasmError {
 }
 
 
-fn resolve_fpm_attestation_challenge(
+fn resolve_fpm_attestation_challenge_impl(
     input: ResolveFpmAttestationChallengeInput,
 ) -> ExternResult<ResolvedFpmAttestationChallenge> {
     let details = get_details(input.action_hash.clone(), GetOptions::network())?
@@ -275,7 +275,7 @@ fn validate_attestation_claim_against_challenge(
     }))
 }
 
-fn resolve_fpm_source_attestation_anchor(
+fn resolve_fpm_source_attestation_anchor_impl(
     input: ResolveFpmSourceAttestationAnchorInput,
 ) -> ExternResult<ResolvedFpmSourceAttestationAnchor> {
     let details = get_details(input.action_hash.clone(), GetOptions::network())?
@@ -334,7 +334,7 @@ fn resolve_fpm_source_attestation_anchor(
         ));
     }
 
-    let challenge = resolve_fpm_attestation_challenge(
+    let challenge = resolve_fpm_attestation_challenge_impl(
         ResolveFpmAttestationChallengeInput {
             action_hash: anchor.challenge_action.clone(),
         },
@@ -528,7 +528,7 @@ fn qualify_fpm_source_attestation_impl(
         ));
     }
 
-    let attestation = resolve_fpm_source_attestation_anchor(
+    let attestation = resolve_fpm_source_attestation_anchor_impl(
         ResolveFpmSourceAttestationAnchorInput {
             action_hash: input.attestation_action.clone(),
         },
@@ -578,6 +578,46 @@ fn qualify_fpm_source_attestation_impl(
         attestation_action: input.attestation_action,
         consumed: true,
     })
+}
+
+#[hdk_extern]
+pub fn create_fpm_attestation_challenge(
+    input: CreateFpmAttestationChallengeInput,
+) -> ExternResult<Record> {
+    rate_limit_caller()?;
+    create_fpm_attestation_challenge_impl(input)
+}
+
+#[hdk_extern]
+pub fn resolve_fpm_attestation_challenge(
+    input: ResolveFpmAttestationChallengeInput,
+) -> ExternResult<ResolvedFpmAttestationChallenge> {
+    rate_limit_caller()?;
+    resolve_fpm_attestation_challenge_impl(input)
+}
+
+#[hdk_extern]
+pub fn create_fpm_source_attestation_anchor(
+    input: CreateFpmSourceAttestationAnchorInput,
+) -> ExternResult<Record> {
+    rate_limit_caller()?;
+    create_fpm_source_attestation_anchor_impl(input)
+}
+
+#[hdk_extern]
+pub fn resolve_fpm_source_attestation_anchor(
+    input: ResolveFpmSourceAttestationAnchorInput,
+) -> ExternResult<ResolvedFpmSourceAttestationAnchor> {
+    rate_limit_caller()?;
+    resolve_fpm_source_attestation_anchor_impl(input)
+}
+
+#[hdk_extern]
+pub fn qualify_fpm_source_attestation(
+    input: QualifyFpmSourceAttestationInput,
+) -> ExternResult<FpmSourceAttestationQualificationResult> {
+    rate_limit_caller()?;
+    qualify_fpm_source_attestation_impl(input)
 }
 
 fn valid_fpm_digest(value: &str) -> bool {
