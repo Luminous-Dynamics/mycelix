@@ -2689,6 +2689,27 @@ def self_test() -> int:
         else:
             print("unknown AIA accessMethod acceptance: FAIL")
             return 1
+        san_value_mismatch = copy.deepcopy(leaf_info)
+        san_value_mismatch["extensions"]["2.5.29.17"] = copy.deepcopy(
+            leaf_info["extensions"]["2.5.29.17"]
+        )
+        san_critical, san_value = subject_alt_name(san_value_mismatch)
+        san_value["attributes"]["2.23.133.2.2"] = ["Attacker TPM Model"]
+        san_value_mismatch["_san_override_for_test"] = san_value
+        original_san_parser = subject_alt_name
+
+        def patched_subject_alt_name(_info: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+            return san_critical, san_value
+
+        globals()["subject_alt_name"] = patched_subject_alt_name
+        try:
+            san_profile_ok, _ = leaf_profile_ok(san_value_mismatch)
+        finally:
+            globals()["subject_alt_name"] = original_san_parser
+        if san_profile_ok:
+            print("TCG SAN value substitution acceptance: FAIL")
+            return 1
+
         malformed_sda = copy.deepcopy(leaf_info)
         malformed_sda["extensions"]["2.5.29.9"] = {
             "critical": False,
@@ -2710,6 +2731,9 @@ def self_test() -> int:
             })),
             ("cryptographic-binding-substitution", "DENY", lambda x: x.update({
                 "cryptographic_binding_sha256": "99" * 32
+            })),
+            ("tcg-san-value-substitution", "DENY", lambda x: x.update({
+                "tpm_identity_digest": "ab" * 32
             })),
             ("root-substitution", "DENY", lambda x: (
                 x.update({
@@ -2790,7 +2814,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("47 contract vectors plus 20 structural parser controls: PASS")
+    print("48 contract vectors plus 20 structural parser controls: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
