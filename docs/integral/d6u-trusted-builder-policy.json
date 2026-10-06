@@ -1,5 +1,5 @@
 {
-  "policy_version": 35,
+  "policy_version": 37,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "3af0e220fe66a429d250f33fd0a272fa9c5b710a"
+    "blob_sha": "30e13c506f03798881c8d50eca7f14dc294f881f"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -277,7 +277,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-      "blob_sha": "3ea629986424bd8f7860119a70f900c346b78ce4"
+      "blob_sha": "04c92082583ef95a628cd7921240891b8c413df3"
     },
     "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
       "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
@@ -285,7 +285,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
-      "blob_sha": "49e0877318f0e29fea355fc50681acc1edddfeb4"
+      "blob_sha": "ff81b3c866fcc752e8d3f339fb7420471f7e4144"
     }
   },
   "trusted_actions": {
@@ -323,7 +323,7 @@
   },
   "attestation_retention": {
     "schema": "d6u-attestation-retention/v2",
-    "expected_file_count": 14,
+    "expected_file_count": 15,
     "max_file_bytes": 4194304,
     "max_trusted_root_bytes": 2097152,
     "max_total_bytes": 18874368,
@@ -347,21 +347,35 @@
     "negative_control_schema": "d6u-no-public-good-control/v1",
     "retain_online_verification": true,
     "retain_negative_control": true,
-    "max_attestations_per_verify": 8
+    "max_attestations_per_verify": 8,
+    "predicate_schema": "d6u-trusted-runtime-evidence-attestation/v2",
+    "canonical_predicate_filename": "d6u-trusted-evidence-predicate.json",
+    "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
+    "retain_canonical_predicate": true
   },
-  "attestation_integrity_revision": 35,
-  "signer_handoff": {
-    "schema": "d6u-trusted-signer-handoff/v1",
+  "attestation_integrity_revision": 37,
+  "attestation_commitment": {
+    "schema": "d6u-trusted-runtime-evidence-attestation/v2",
+    "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+    "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
+    "canonical_predicate_filename": "d6u-trusted-evidence-predicate.json",
+    "subject_source": "verifier_job_outputs",
+    "signing_mode": "digest-only-subject-checksums",
+    "signer_must_not_receive_original_subject_files": true,
+    "signer_must_not_download_auditor_handoff": true
+  },
+  "auditor_handoff": {
+    "schema": "d6u-trusted-auditor-handoff/v1",
     "expected_file_count": 6,
-    "manifest_filename": "d6u-signer-handoff.manifest.sha256",
-    "context_filename": "d6u-signer-context.txt",
+    "manifest_filename": "d6u-auditor-handoff.manifest.sha256",
+    "context_filename": "d6u-auditor-context.txt",
     "predicate_filename": "d6u-trusted-evidence-predicate.json",
     "subject_files": [
       "d6u-runtime-evidence.txt",
       "d6u-runtime-test.log",
       "Cargo.lock"
     ],
-    "artifact_name_template": "d6u-trusted-signer-handoff-run-{run_id}-attempt-{run_attempt}",
+    "artifact_name_template": "d6u-trusted-auditor-handoff-run-{run_id}-attempt-{run_attempt}",
     "retention_days": 1,
     "require_exact_file_set": true,
     "require_manifest_sha256": true,
