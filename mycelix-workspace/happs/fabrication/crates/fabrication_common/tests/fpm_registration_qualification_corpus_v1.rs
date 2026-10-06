@@ -80,6 +80,18 @@ fn malformed_registration_is_rejected() {
 }
 
 #[test]
+fn qualification_receipt_is_self_verifiable() {
+    let registration = envelope(AlignmentMethod::ExactCorrelationId);
+    let qualification =
+        qualify_registration_structure(&registration, "verifier-1").expect("qualification");
+    assert!(qualification.verify_digest().expect("verify"));
+
+    let mut tampered = qualification;
+    tampered.verifier_id = "verifier-2".into();
+    assert!(!tampered.verify_digest().expect("tampered verify"));
+}
+
+#[test]
 fn different_verifiers_produce_distinct_qualification_digests() {
     let registration = envelope(AlignmentMethod::ExactCorrelationId);
     let a = qualify_registration_structure(&registration, "verifier-a").expect("a");
