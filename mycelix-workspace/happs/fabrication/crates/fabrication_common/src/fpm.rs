@@ -413,7 +413,10 @@ pub fn analyze(
         let delta = (observed - baseline_feature.center).abs();
         let (robust_z, score, anomalous) = if baseline_feature.median_absolute_deviation > 0.0 {
             let robust_sigma = 1.4826 * baseline_feature.median_absolute_deviation;
-            let z = delta / robust_sigma;
+            let raw_z = delta / robust_sigma;
+            // Preserve a finite evidence value even for extreme ratios that
+            // overflow f32. The normalized anomaly score remains bounded.
+            let z = if raw_z.is_finite() { raw_z } else { f32::MAX };
             let score = (z / config.robust_z_threshold).clamp(0.0, 1.0);
             (Some(z), score, z >= config.robust_z_threshold)
         } else {
@@ -568,6 +571,42 @@ mod tests {
             .iter()
             .any(|evaluation| evaluation.feature == ProcessFeature::HotendTemperature
                 && evaluation.anomalous));
+    }
+
+    #[test]
+    fn optional_filament_tension_needs_a_stable_baseline() {
+        let observations = (0..10)
+            .map(|sequence| ProcessObservation {
+                sequence,
+                sensor: sensor(210.0, 60.0, 1.0, 0.05, if sequence == 0 { Some(100.0) } else { None }),
+            })
+            .collect::<Vec<_>>();
+        let profile = BaselineProfile::from_observations("1", &observations).expect("required baseline");
+        assert!(profile.feature(ProcessFeature::FilamentTension).is_none());
+    }
+
+    #[test]
+    fn extreme_deviation_keeps_robust_z_finite() {
+        let mut observations = Vec::new();
+        for sequence in 0..10 {
+            observations.push(ProcessObservation {
+                sequence,
+                sensor: sensor(210.0 + sequence as f32 * 1e-20, 60.0, 1.0, 0.05, None),
+            });
+        }
+        let profile = BaselineProfile::from_observations("1", &observations).expect("baseline");
+        let result = analyze(
+            &DetectorConfig::default(),
+            &profile,
+            &observation(100, 250.0),
+        )
+        .expect("analysis");
+        let evaluation = result
+            .evaluations
+            .iter()
+            .find(|item| item.feature == ProcessFeature::HotendTemperature)
+            .expect("temperature evaluation");
+        assert!(evaluation.robust_z.is_some_and(|z| z.is_finite()));
     }
 
     #[test]
