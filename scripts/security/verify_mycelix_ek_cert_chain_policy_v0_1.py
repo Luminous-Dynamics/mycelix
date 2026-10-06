@@ -665,10 +665,6 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         if hashlib.sha256(raw).hexdigest() != manifest[field]:
             return result("DENY", "digest-mismatch", {"field": field})
 
-    if manifest["trust_anchor_state"] == "DENY":
-        return result("DENY", "trust-anchor-denied")
-    if manifest["trust_anchor_state"] == "INDETERMINATE":
-        return result("INDETERMINATE", "trust-anchor-indeterminate")
     appraisal_result = run_trust_anchor_appraiser(manifest, root)
     if appraisal_result.get("state") != "PASS":
         return appraisal_result
@@ -679,6 +675,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "trust-anchor-appraisal-root-digest-mismatch")
     if appraisal_details.get("anchor_id") != manifest["trust_anchor_appraisal"].get("anchor_id"):
         return result("DENY", "trust-anchor-appraisal-anchor-id-mismatch")
+    if manifest["trust_anchor_state"] != manifest["trust_anchor_appraisal"].get("authorization_state"):
+        return result("DENY", "trust-anchor-state-appraisal-mismatch")
     if manifest["trust_anchor_source_sha256"] != manifest["trust_anchor_appraisal"].get("registry_source_sha256"):
         return result("DENY", "trust-anchor-source-appraisal-mismatch")
 
