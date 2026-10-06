@@ -468,13 +468,16 @@ jobs:
           receipt_bytes = artifact_bytes
           if zipfile.is_zipfile(io.BytesIO(artifact_bytes)):
               with zipfile.ZipFile(io.BytesIO(artifact_bytes)) as archive:
-                  files = [info for info in archive.infolist() if not info.is_dir()]
-                  assert len(files) == 1, f"qualification receipt archive contains {len(files)} files, expected exactly one"
-                  receipt_member = files[0].filename
-                  assert receipt_member.rsplit("/", 1)[-1] == expected_artifact_name, (
-                      f"qualification receipt member name mismatch: {receipt_member!r}"
+                  members = archive.infolist()
+                  assert len(members) == 1, (
+                      f"qualification receipt archive contains {len(members)} members, expected exactly one"
                   )
-                  receipt_bytes = archive.read(files[0])
+                  assert not members[0].is_dir(), "qualification receipt archive member is unexpectedly a directory"
+                  receipt_member = members[0].filename
+                  assert receipt_member == expected_artifact_name, (
+                      f"qualification receipt member path mismatch: {receipt_member!r}"
+                  )
+                  receipt_bytes = archive.read(members[0])
 
           receipt_content_sha256 = hashlib.sha256(receipt_bytes).hexdigest()
           assert re.fullmatch(r"[0-9a-f]{64}", receipt_content_sha256)
