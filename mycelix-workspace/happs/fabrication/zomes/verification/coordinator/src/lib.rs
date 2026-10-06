@@ -321,7 +321,47 @@ fn challenge_has_valid_use(
             && use_entry.author == challenge.verifier_agent
             && use_entry.attestation_action != challenge.action_hash
         {
-            return Ok(true);
+            let Some(attestation_details) =
+                get_details(use_entry.attestation_action.clone(), GetOptions::network())?
+            else {
+                continue;
+            };
+            let Details::Record(attestation_details) = attestation_details else {
+                continue;
+            };
+            if attestation_details.validation_status != ValidationStatus::Valid
+                || !attestation_details.updates.is_empty()
+                || !attestation_details.deletes.is_empty()
+            {
+                continue;
+            }
+            let attestation_record = attestation_details.record;
+            if attestation_record.action().action_type() != ActionType::Create
+                || *attestation_record.action().author() != challenge.verifier_agent
+            {
+                continue;
+            }
+            let expected_attestation_type = EntryType::App(
+                UnitEntryTypes::FpmSourceAttestationAnchor
+                    .try_into()
+                    .map_err(|_| fpm_attestation_error(
+                        "could not construct FPM source attestation entry type",
+                    ))?,
+            );
+            if attestation_record.action().entry_type() != Some(&expected_attestation_type) {
+                continue;
+            }
+            let Some(attestation_anchor) = attestation_record
+                .entry()
+                .to_app_option::<FpmSourceAttestationAnchor>()
+                .ok()
+                .flatten()
+            else {
+                continue;
+            };
+            if attestation_anchor.challenge_action == challenge.action_hash {
+                return Ok(true);
+            }
         }
     }
 
