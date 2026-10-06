@@ -248,7 +248,7 @@ fn validate_digest(value: &str, field: &str) -> Result<(), RegistrationError> {
             "{field} must be a {SHA256_HEX_LEN}-character lowercase hexadecimal SHA-256 digest"
         )));
     }
-}
+    Ok(())
 
 fn hex_digest(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
