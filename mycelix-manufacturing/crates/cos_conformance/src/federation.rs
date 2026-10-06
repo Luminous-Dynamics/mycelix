@@ -1681,6 +1681,20 @@ pub fn run_scenario(
             state_machine_trace_external_evidence_anchor_reference(
                 FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
                 FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                FederationStateMachineTraceExternalWitnessKind::Other,
+                "external-v1",
+                b"witness",
+                0,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidSubjectDigest
+            )
+        );
+        assert_eq!(
+            state_machine_trace_external_evidence_anchor_reference(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 FederationStateMachineTraceExternalWitnessKind::Other,
                 "",
@@ -4567,6 +4581,13 @@ mod tests {
         format!("sha256:{digest:x}")
     }
 
+    fn state_machine_trace_is_sha256_digest(value: &str) -> bool {
+        let Some(hex) = value.strip_prefix("sha256:") else {
+            return false;
+        };
+        hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+    }
+
     fn state_machine_trace_external_evidence_anchor_reference_sha256(
         reference: &FederationStateMachineTraceExternalEvidenceAnchorReference,
     ) -> String {
@@ -5105,6 +5126,7 @@ mod tests {
     enum FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation {
         EmptySubjectProfile,
         EmptySubjectDigest,
+        InvalidSubjectDigest,
         EmptyWitnessProfile,
         EmptyWitnessArtifact,
     }
@@ -5129,6 +5151,11 @@ mod tests {
         if subject_sha256.is_empty() {
             return Err(
                 FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::EmptySubjectDigest
+            );
+        }
+        if !state_machine_trace_is_sha256_digest(subject_sha256) {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceBuildViolation::InvalidSubjectDigest
             );
         }
         if witness_profile.is_empty() {
@@ -5173,6 +5200,7 @@ mod tests {
         UnsupportedHashEncoding,
         EmptySubjectProfile,
         EmptySubjectDigest,
+        InvalidSubjectDigest,
         EmptyWitnessProfile,
         EmptyWitnessDigest,
         EmptyWitnessArtifact,
@@ -5235,6 +5263,11 @@ mod tests {
         if reference.subject_sha256.is_empty() {
             return Err(
                 FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::EmptySubjectDigest
+            );
+        }
+        if !state_machine_trace_is_sha256_digest(&reference.subject_sha256) {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceAnchorReferenceViolation::InvalidSubjectDigest
             );
         }
         if reference.witness_profile.is_empty() {
@@ -8551,6 +8584,18 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTracePublicationCollectionReconciliationViolation::LeftCollectionDigestMismatch
+            )
+        );
+
+        let mut stale_history_digest = receipt.clone();
+        stale_history_digest.history_relationship =
+            FederationStateMachineTracePublicationCollectionHistoryRelationship::ExactMatch;
+        assert_eq!(
+            validate_state_machine_trace_publication_collection_reconciliation(
+                &left, &right, &stale_history_digest
+            ),
+            Err(
+                FederationStateMachineTracePublicationCollectionReconciliationViolation::ReconciliationDigestMismatch
             )
         );
 
