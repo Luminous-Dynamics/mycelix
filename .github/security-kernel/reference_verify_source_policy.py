@@ -102,11 +102,16 @@ def job_keys(lines_: list[str]) -> tuple[str, ...]:
 
 
 def step_names(lines_: list[str]) -> tuple[str, ...]:
-    return tuple(
-        match.group(1)
-        for line in lines_
-        if (match := re.fullmatch(r"\s{6}- name: (.+)", line))
-    )
+    names = []
+    for line in lines_:
+        step_item = re.fullmatch(r"\s{6}-\s+(.+)", line)
+        if not step_item:
+            continue
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if not match:
+            fail(f"workflow step item must use the closed-world '- name:' form: {line!r}")
+        names.append(match.group(1))
+    return tuple(names)
 
 
 def external_uses(lines_: list[str]) -> tuple[str, ...]:
@@ -227,6 +232,40 @@ def require_explicit_bash_for_run_steps(lines_: list[str], description: str) -> 
             in_run_block = True
         elif re.fullmatch(r"\s{8}shell:\s+bash\s*", line):
             current["shell"].append("bash")
+
+
+def require_exact_step_conditionals(
+    lines_: list[str],
+    expected: tuple[tuple[str, str | None], ...],
+    description: str,
+) -> None:
+    actual = []
+    current_name = None
+    current_conditionals = []
+
+    def flush() -> None:
+        if current_name is None:
+            return
+        if len(current_conditionals) > 1:
+            fail(f"{description}: step {current_name!r} contains duplicate if mappings")
+        actual.append((current_name, current_conditionals[0] if current_conditionals else None))
+
+    for line in lines_:
+        match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if match:
+            flush()
+            current_name = match.group(1)
+            current_conditionals = []
+            continue
+        if current_name is None:
+            continue
+        match = re.fullmatch(r"\s{8}if:\s*(.+)", line)
+        if match:
+            current_conditionals.append(match.group(1).strip())
+
+    flush()
+    if tuple(actual) != expected:
+        fail(f"{description}: step conditional census mismatch: expected {expected!r}, found {actual!r}")
 
 
 def require_step_execution_modes(lines_: list[str], description: str) -> None:
@@ -392,6 +431,11 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_explicit_bash_for_run_steps(l, S0)
     require_no_duplicate_step_keys(l, S0)
     require_step_execution_modes(l, S0)
+    require_exact_step_conditionals(
+        l,
+        (("Verify trusted dispatcher context and exact PR identity", None),),
+        S0,
+    )
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
         fail("S0 must remain metadata-only")
@@ -447,6 +491,29 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_explicit_bash_for_run_steps(l, S1)
     require_no_duplicate_step_keys(l, S1)
     require_step_execution_modes(l, S1)
+    require_exact_step_conditionals(
+        l,
+        (
+            ("Checkout trusted qualification root", None),
+            ("Verify trusted pull-request-target invocation", None),
+            ("Resolve exact candidate source", None),
+            ("Static trust-surface audit", None),
+            ("Snapshot exact candidate source identity", None),
+            ("Snapshot locked dependency identity", None),
+            ("Pull and preflight pinned sandbox image", None),
+            ("Prepare locked dependency subject", None),
+            ("Vendor locked dependency closure in fetch sandbox", None),
+            ("Execute sandbox negative controls", None),
+            ("Upload sandbox negative-control transcript", "success()"),
+            ("Execute candidate qualification in disposable networkless sandbox", None),
+            ("Verify candidate source immutability", None),
+            ("Verify dependency substrate immutability", None),
+            ("Emit qualification receipt", None),
+            ("Upload qualification receipt", "success()"),
+            ("Verify retained qualification receipt", "success()"),
+        ),
+        S1,
+    )
     for required in (
         "--network=bridge",
         "--network=none",
@@ -523,6 +590,18 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_explicit_bash_for_run_steps(l, S2)
     require_no_duplicate_step_keys(l, S2)
     require_step_execution_modes(l, S2)
+    require_exact_step_conditionals(
+        l,
+        (
+            ("Checkout exact verifier workflow commit", None),
+            ("Verify trusted dispatcher, reusable S1, and qualification gates", None),
+            ("Verify retained negative-control evidence binding", "success()"),
+            ("Download retained qualification receipt through official artifact client", "success()"),
+            ("Download retained sandbox negative-control transcript through official artifact client", "success()"),
+            ("Verify official receipt transport and publish verified result", "success()"),
+        ),
+        S2,
+    )
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
     require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: success()", "S2 transcript download gate")
@@ -653,6 +732,88 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 blank-separated security-events: write",
+    )
+
+    def inject_unnamed_step(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"unnamed-step regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, b"      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n" + marker, 1)
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unnamed_step(
+                raw["s0"],
+                b"      - name: Verify trusted dispatcher context and exact PR identity\n",
+            ),
+            s1_sha,
+        ),
+        "S0 unnamed uses step",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unnamed_step(
+                raw["s1"],
+                b"      - name: Checkout trusted qualification root\n",
+            ),
+            s1_sha,
+        ),
+        "S1 unnamed uses step",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unnamed_step(
+                raw["s2"],
+                b"      - name: Verify trusted dispatcher, reusable S1, and qualification gates\n",
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unnamed uses step",
+    )
+
+    def inject_unapproved_conditional(raw: bytes, marker: bytes) -> bytes:
+        if marker not in raw:
+            fail(f"conditional regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, b"        if: false\n" + marker, 1)
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_unapproved_conditional(
+                raw["s0"],
+                b"      - name: Verify trusted dispatcher context and exact PR identity\n",
+            ),
+            s1_sha,
+        ),
+        "S0 unapproved step conditional",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            inject_unapproved_conditional(
+                raw["s1"],
+                b"      - name: Execute candidate qualification in disposable networkless sandbox\n",
+            ),
+            s1_sha,
+        ),
+        "S1 unapproved step conditional",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            inject_unapproved_conditional(
+                raw["s2"],
+                b"      - name: Checkout exact verifier workflow commit\n",
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 unapproved step conditional",
     )
 
     print(json.dumps({
