@@ -1432,11 +1432,7 @@ fn find_mint_cap_counter_record() -> ExternResult<Option<(Record, SapMintCapCoun
     if links.is_empty() {
         return Ok(None);
     }
-    let link = exact_one_index_link(
-        links,
-        "MintCapCounterAnchor",
-        MINT_CAP_COUNTER_ANCHOR,
-    )?;
+    let link = exact_one_index_link(links, "MintCapCounterAnchor", MINT_CAP_COUNTER_ANCHOR)?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -1468,8 +1464,11 @@ fn find_sap_balance_record(member_did: &str) -> ExternResult<Option<(Record, Sap
     let mut seen = std::collections::HashSet::new();
 
     for link in links {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid SAP balance link target".into())))?;
+        let hash = ActionHash::try_from(link.target.clone()).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Invalid SAP balance link target".into()
+            ))
+        })?;
         if !seen.insert(hash.clone()) {
             continue;
         }
@@ -2843,11 +2842,7 @@ fn update_hearth_pool(hearth_did: &str, pool: &HearthSapPool) -> ExternResult<()
         GetStrategy::default(),
     )?;
 
-    let link = exact_one_index_link(
-        links,
-        "HearthDidToSapPool",
-        hearth_did,
-    )?;
+    let link = exact_one_index_link(links, "HearthDidToSapPool", hearth_did)?;
     let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
         WasmErrorInner::Guest("Invalid HearthSapPool index target".into())
     ))?;
