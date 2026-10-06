@@ -208,6 +208,26 @@ pub fn genesis_self_check(_: GenesisSelfCheckData) -> ExternResult<ValidateCallb
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
+        FlatOp::StoreEntry(OpEntry::CreateEntry {
+            app_entry: EntryTypes::FpmVerificationKeyTrustAnchor(anchor),
+            action,
+        }) => validate_fpm_verification_key_trust_anchor(anchor, &action),
+        FlatOp::StoreEntry(OpEntry::UpdateEntry {
+            app_entry: EntryTypes::FpmVerificationKeyTrustAnchor(_),
+            ..
+        }) => Ok(ValidateCallbackResult::Invalid(
+            "FPM verifier-key trust anchors are immutable and cannot be updated".into(),
+        )),
+        FlatOp::StoreEntry(OpEntry::CreateEntry {
+            app_entry: EntryTypes::FpmAttestationChallenge(challenge),
+            action,
+        }) => validate_fpm_attestation_challenge(challenge, &action),
+        FlatOp::StoreEntry(OpEntry::UpdateEntry {
+            app_entry: EntryTypes::FpmAttestationChallenge(_),
+            ..
+        }) => Ok(ValidateCallbackResult::Invalid(
+            "FPM attestation challenges are immutable and cannot be updated".into(),
+        )),
         FlatOp::StoreEntry(
             OpEntry::CreateEntry { app_entry, .. }
             | OpEntry::UpdateEntry { app_entry, .. }
@@ -453,9 +473,42 @@ fn valid_attestation_identifier(value: &str, max_len: usize) -> bool {
         && !value.chars().any(char::is_control)
 }
 
+fn validate_fpm_verification_key_trust_anchor(
+    anchor: FpmVerificationKeyTrustAnchor,
+    action: &hdi::prelude::Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let authority = FabricationDnaProperties::fpm_verifier_trust_authority()?;
+    if *action.author() != authority {
+        return Ok(ValidateCallbackResult::Invalid(
+            "only the DNA-configured FPM trust authority may provision verifier keys".into(),
+        ));
+    }
+    if anchor.schema_version != FPM_VERIFICATION_KEY_TRUST_ANCHOR_SCHEMA_VERSION
+        || anchor.key_id.is_empty()
+        || anchor.key_id.len() > 128
+        || !valid_attestation_identifier(&anchor.attestation_format, 128)
+        || !canonical_attestation_digest(&anchor.verifier_profile_digest)
+        || anchor.public_key_sec1.len() != 65
+        || anchor.public_key_sec1.first() != Some(&0x04)
+        || !canonical_attestation_digest(&anchor.verification_key_digest)
+        || fpm_verification_key_digest(&anchor.public_key_sec1) != anchor.verification_key_digest
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "malformed FPM verifier-key trust anchor".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_fpm_attestation_challenge(
     challenge: FpmAttestationChallenge,
+    action: &hdi::prelude::Create,
 ) -> ExternResult<ValidateCallbackResult> {
+    if *action.author() != challenge.verifier_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM attestation challenge author does not match verifier agent".into(),
+        ));
+    }
     if challenge.schema_version != FPM_ATTESTATION_CHALLENGE_SCHEMA_VERSION {
         return Ok(ValidateCallbackResult::Invalid(
             "unsupported FPM attestation challenge schema".into(),
@@ -482,6 +535,51 @@ fn validate_fpm_attestation_challenge(
             "FPM attestation challenge nonce must contain 8..64 bytes".into(),
         ));
     }
+
+    let trust_action = must_get_action(challenge.verification_key_trust_anchor_action.clone())?;
+    if trust_action.action_type() != ActionType::Create {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM attestation challenge must reference a trust-anchor Create action".into(),
+        ));
+    }
+    let expected_trust_type = EntryType::App(
+        UnitEntryTypes::FpmVerificationKeyTrustAnchor
+            .try_into()
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "could not construct FPM verifier-key trust-anchor entry type".into()
+            )))?,
+    );
+    if trust_action.entry_type() != Some(&expected_trust_type) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM attestation challenge references the wrong trust-anchor entry type".into(),
+        ));
+    }
+    let trust_entry_hash = trust_action.entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "FPM verifier-key trust anchor has no entry hash".into()
+        ))
+    })?;
+    let trust_entry = must_get_entry(trust_entry_hash.clone())?;
+    let trust_anchor: FpmVerificationKeyTrustAnchor = trust_entry
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "could not decode FPM verifier-key trust anchor: {e}"
+        ))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "FPM verifier-key trust anchor entry is not app data".into()
+        )))?;
+    if *trust_action.author() != FabricationDnaProperties::fpm_verifier_trust_authority()?
+        || trust_anchor.verifier_agent != challenge.verifier_agent
+        || trust_anchor.key_id != challenge.verification_key_id
+        || trust_anchor.verification_key_digest != challenge.verification_key_digest
+        || trust_anchor.attestation_format != challenge.attestation_format
+        || trust_anchor.verifier_profile_digest != challenge.verifier_profile_digest
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM attestation challenge does not exactly inherit its trusted verifier-key binding".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
