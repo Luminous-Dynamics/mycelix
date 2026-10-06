@@ -35,6 +35,8 @@ V1_KEYS = frozenset(
         "s1_job_id",
         "reference_verifier_path",
         "reference_verifier_blob_sha",
+        "causal_join_verifier_path",
+        "causal_join_verifier_blob_sha",
     }
 )
 
@@ -66,6 +68,7 @@ HEX40_KEYS = frozenset(
         "dispatcher_workflow_sha",
         "s1_workflow_blob_sha",
         "reference_verifier_blob_sha",
+        "causal_join_verifier_blob_sha",
     }
 )
 
@@ -131,6 +134,7 @@ def validate(binding: object) -> dict:
         "dispatcher_workflow_path",
         "s1_workflow_path",
         "reference_verifier_path",
+        "causal_join_verifier_path",
         "artifact_name",
     ):
         if key in binding and (not isinstance(binding[key], str) or not binding[key]):
