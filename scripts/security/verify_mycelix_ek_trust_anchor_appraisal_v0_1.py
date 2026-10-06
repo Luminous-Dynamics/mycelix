@@ -13,7 +13,8 @@ from typing import Any
 VERIFIER_ID = "mycelix.tpm.ek-trust-anchor-appraisal.v0.1"
 REFERENCE_ANCHOR_ID = "mycelix.synthetic-ek-root.v0.1"
 REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
-REFERENCE_REGISTRY_SOURCE_SHA256 = "52" * 32
+REFERENCE_REGISTRY_SOURCE_SHA256 = "9bd58a822f05138a4b4b41438452be414a8475911e9a02e9dbf4527f9884c591"
+REFERENCE_AUTHORIZATION_RECEIPT_FILE = Path(__file__).resolve().parents[2] / "docs/security/mycelix-ek-trust-anchor-authorization-receipt-v0.1.json"
 REFERENCE_REGISTRY = {
     "registry_id": "mycelix.ek-trust-anchor-registry",
     "registry_version": "0.1.0",
@@ -102,7 +103,12 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "registry-digest-mismatch")
     if manifest["registry_sha256"] != registry_digest(REFERENCE_REGISTRY):
         return result("DENY", "reference-registry-not-approved")
-    if manifest["registry_source_sha256"] != REFERENCE_REGISTRY_SOURCE_SHA256:
+    if not REFERENCE_AUTHORIZATION_RECEIPT_FILE.is_file():
+        return result("DENY", "authorization-receipt-missing")
+    receipt_sha = hashlib.sha256(REFERENCE_AUTHORIZATION_RECEIPT_FILE.read_bytes()).hexdigest()
+    if receipt_sha != REFERENCE_REGISTRY_SOURCE_SHA256:
+        return result("DENY", "authorization-receipt-digest-mismatch")
+    if manifest["registry_source_sha256"] != receipt_sha:
         return result("DENY", "registry-source-not-approved")
     entries = registry.get("entries")
     if not isinstance(entries, list):
