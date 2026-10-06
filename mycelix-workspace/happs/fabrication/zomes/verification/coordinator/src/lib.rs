@@ -155,6 +155,16 @@ fn resolve_action_anchor(
             "ActionHash anchor must resolve to the original Create action",
         ));
     }
+    let expected_entry_type = EntryType::App(
+        UnitEntryTypes::FpmRegistrationAnchor
+            .try_into()
+            .map_err(|_| fpm_anchor_error("could not construct FPM registration anchor entry type"))?,
+    );
+    if record.action().entry_type() != Some(&expected_entry_type) {
+        return Err(fpm_anchor_error(
+            "ActionHash does not reference the FPM registration anchor entry type",
+        ));
+    }
     let anchor: FpmRegistrationAnchor = record
         .entry()
         .to_app_option()
