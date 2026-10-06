@@ -503,7 +503,22 @@
       "id": "EKC-S10",
       "control": "malformed-subject-directory-attributes",
       "expected": "DENY"
+    },
+    {
+      "id": "EKC-S11",
+      "control": "leaf-basic-constraints-ca-true",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S12",
+      "control": "ca-false-path-len-constraint",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-S13",
+      "control": "non-canonical-key-usage-trailing-zero",
+      "expected": "DENY"
     }
   ],
-  "parser_structural_control_count": 10
+  "parser_structural_control_count": 13
 }
