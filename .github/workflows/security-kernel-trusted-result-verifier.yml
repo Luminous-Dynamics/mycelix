@@ -26,7 +26,7 @@ env:
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   REFERENCE_VERIFIER_BLOB_SHA: "0bacbb041d980e5eafdf82ccf1d86e321bc369cc"
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
-  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "ede9954ac40943292bed97a231357737324aa91a"
+  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "41aa3e0f70544c55aeff07136a477d93012d50fe"
 
 jobs:
   verify:
@@ -606,6 +606,7 @@ jobs:
                   "pull_request": pr,
                   "jobs": jobs,
                   "artifact_list_view": artifact,
+                  "artifact_list_total_count": artifact_response.get("total_count"),
                   "artifact_id_view": artifact_by_id,
                   "receipt_text": receipt_text,
                   "main_sha": main_sha,
