@@ -150,6 +150,11 @@ fn resolve_action_anchor(
     }
 
     let record = record_details.record;
+    if record.action().action_type() != ActionType::Create {
+        return Err(fpm_anchor_error(
+            "ActionHash anchor must resolve to the original Create action",
+        ));
+    }
     let anchor: FpmRegistrationAnchor = record
         .entry()
         .to_app_option()
@@ -169,15 +174,6 @@ fn resolve_action_anchor(
         .action()
         .entry_hash()
         .ok_or_else(|| fpm_anchor_error("registration anchor action has no entry hash"))?;
-
-    if entry_hash != *record
-        .action()
-        .entry_hash()
-        .as_ref()
-        .expect("entry hash checked above")
-    {
-        return Err(fpm_anchor_error("registration anchor entry identity could not be retained"));
-    }
 
     Ok(ResolvedFpmRegistrationAnchor {
         anchor_kind: RegistrationAnchorKind::HolochainAction,
