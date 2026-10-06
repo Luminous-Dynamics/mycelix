@@ -792,6 +792,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
                 "root_self_issued_exact": True,
                 "root_crl_issuer_exact": True,
                 "intermediate_crl_issuer_exact": True,
+                "leaf_cdp_to_selected_crl_exact": True,
+                "leaf_cdp_uri_is_non_authoritative": True,
             },
         }
         return result("PASS", "all-exact-signatures-verified", details)
