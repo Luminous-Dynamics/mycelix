@@ -1500,6 +1500,13 @@ pub fn run_scenario(
     }
 
     results
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
     #[test]
     fn external_evidence_anchor_reference_binds_exact_subject_and_witness_artifact() {
         let left =
@@ -2269,10 +2276,6 @@ pub fn run_scenario(
 
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use sha2::{Digest, Sha256};
 
     fn nodes() -> FederationState {
         FederationState::new([
