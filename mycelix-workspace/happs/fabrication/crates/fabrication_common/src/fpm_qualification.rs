@@ -68,6 +68,8 @@ pub struct RegistrationQualificationVerifier {
     pub verifier_id: String,
     /// Stable implementation/profile version for the verifier.
     pub verifier_version: String,
+    /// Immutable commitment to the verifier implementation artifact.
+    pub verifier_implementation_digest: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,6 +84,7 @@ pub enum RegistrationQualificationStatus {
 pub enum RegistrationQualificationReason {
     EmptyVerifierIdentity,
     EmptyVerifierVersion,
+    InvalidVerifierImplementationDigest,
     EnvelopeDigestMismatch,
     RegistrationUnregistered,
     RegistrationConflicting,
@@ -99,8 +102,10 @@ pub struct RegistrationQualification {
     pub schema_version: String,
     pub registration_envelope_digest: String,
     pub evidence_manifest_digest: String,
+    pub qualification_basis_digest: String,
     pub verifier_id: String,
     pub verifier_version: String,
+    pub verifier_implementation_digest: String,
     pub profile_id: String,
     pub profile_version: String,
     pub profile_digest: String,
@@ -163,6 +168,9 @@ pub fn qualify_registration(
     if verifier.verifier_version.trim().is_empty() {
         reasons.insert(RegistrationQualificationReason::EmptyVerifierVersion);
     }
+    if !is_valid_digest(&verifier.verifier_implementation_digest) {
+        reasons.insert(RegistrationQualificationReason::InvalidVerifierImplementationDigest);
+    }
 
     let computed_envelope_digest = input.envelope.digest();
     match computed_envelope_digest {
@@ -205,11 +213,7 @@ pub fn qualify_registration(
             continue;
         }
 
-        if artifact.declared_digest.len() != SHA256_HEX_LEN
-            || !artifact
-                .declared_digest
-                .bytes()
-                .all(|byte| byte.is_ascii_hexdigit())
+        if !is_valid_digest(&artifact.declared_digest)
             || hex_digest(&artifact.bytes) != artifact.declared_digest
         {
             reasons.insert(RegistrationQualificationReason::ArtifactDigestMismatch);
@@ -240,6 +244,11 @@ pub fn qualify_registration(
     }
 
     let evidence_manifest_digest = evidence_manifest_digest(&input.artifacts);
+    let qualification_basis_digest = qualification_basis_digest(
+        &input.registration_envelope_digest,
+        &evidence_manifest_digest,
+        &profile.digest(),
+    );
 
     let status = if reasons.is_empty() {
         RegistrationQualificationStatus::QualifiedForProfile
@@ -248,6 +257,7 @@ pub fn qualify_registration(
             reason,
             RegistrationQualificationReason::EmptyVerifierIdentity
                 | RegistrationQualificationReason::EmptyVerifierVersion
+                | RegistrationQualificationReason::InvalidVerifierImplementationDigest
                 | RegistrationQualificationReason::EnvelopeDigestMismatch
                 | RegistrationQualificationReason::ArtifactDigestMismatch
                 | RegistrationQualificationReason::ArtifactBindingMismatch
@@ -267,8 +277,10 @@ pub fn qualify_registration(
         schema_version: FPM_REGISTRATION_QUALIFICATION_SCHEMA_VERSION.into(),
         registration_envelope_digest: input.registration_envelope_digest.clone(),
         evidence_manifest_digest,
+        qualification_basis_digest,
         verifier_id: verifier.verifier_id.clone(),
         verifier_version: verifier.verifier_version.clone(),
+        verifier_implementation_digest: verifier.verifier_implementation_digest.clone(),
         profile_id: profile.profile_id.into(),
         profile_version: profile.profile_version.into(),
         profile_digest: profile.digest(),
@@ -312,6 +324,24 @@ fn expected_artifacts(envelope: &RegistrationEnvelope) -> BTreeSet<(EvidenceKind
     }
 
     expected
+}
+
+fn is_valid_digest(value: &str) -> bool {
+    value.len() == SHA256_HEX_LEN
+        && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn qualification_basis_digest(
+    registration_envelope_digest: &str,
+    evidence_manifest_digest: &str,
+    profile_digest: &str,
+) -> String {
+    let mut bytes = Vec::new();
+    append_field(&mut bytes, b"fpm.registration-qualification-basis.v1");
+    append_field(&mut bytes, registration_envelope_digest.as_bytes());
+    append_field(&mut bytes, evidence_manifest_digest.as_bytes());
+    append_field(&mut bytes, profile_digest.as_bytes());
+    hex_digest(&bytes)
 }
 
 fn source_observation_digest(
@@ -392,6 +422,14 @@ mod tests {
 
     fn digest(ch: char) -> String {
         std::iter::repeat(ch).take(SHA256_HEX_LEN).collect()
+    }
+
+    fn verifier() -> RegistrationQualificationVerifier {
+        RegistrationQualificationVerifier {
+            verifier_id: "fpm.registration.qualifier".into(),
+            verifier_version: "1".into(),
+            verifier_implementation_digest: digest('d'),
+        }
     }
 
     fn sample(source: &str, modality: &str, sequence: u64, data: &[u8]) -> (ModalityObservationRef, ResolvedEvidenceArtifact) {
@@ -475,10 +513,7 @@ mod tests {
     #[test]
     fn exact_evidence_is_qualified_without_wall_clock_or_dht_state() {
         let input = input_with_exact_artifacts();
-        let verifier = RegistrationQualificationVerifier {
-            verifier_id: "fpm.registration.qualifier".into(),
-            verifier_version: "1".into(),
-        };
+        let verifier = verifier();
 
         let qualification =
             qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
@@ -627,6 +662,7 @@ mod tests {
         let verifier = RegistrationQualificationVerifier {
             verifier_id: "   ".into(),
             verifier_version: "1".into(),
+            verifier_implementation_digest: digest('d'),
         };
 
         let qualification =
@@ -727,11 +763,51 @@ mod tests {
     }
 
     #[test]
+    fn qualification_basis_binds_envelope_evidence_and_profile() {
+        let input = input_with_exact_artifacts();
+        let verifier = verifier();
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
+
+        assert_eq!(
+            qualification.qualification_basis_digest,
+            qualification_basis_digest(
+                &qualification.registration_envelope_digest,
+                &qualification.evidence_manifest_digest,
+                &qualification.profile_digest,
+            )
+        );
+    }
+
+    #[test]
+    fn invalid_verifier_implementation_digest_cannot_qualify() {
+        let input = input_with_exact_artifacts();
+        let verifier = RegistrationQualificationVerifier {
+            verifier_id: "fpm.registration.qualifier".into(),
+            verifier_version: "1".into(),
+            verifier_implementation_digest: "not-a-digest".into(),
+        };
+
+        let qualification =
+            qualify_registration(RegistrationQualificationProfile::STRUCTURAL_V1, &verifier, &input);
+
+        assert_eq!(
+            qualification.status,
+            RegistrationQualificationStatus::InvalidEvidence
+        );
+        assert!(qualification
+            .reasons
+            .contains(&RegistrationQualificationReason::InvalidVerifierImplementationDigest));
+    }
+
+    #[test]
     fn verifier_identity_is_part_of_the_record_but_not_an_authentication_claim() {
         let input = input_with_exact_artifacts();
         let verifier = RegistrationQualificationVerifier {
             verifier_id: "untrusted-label".into(),
             verifier_version: "1".into(),
+            verifier_implementation_digest: digest('d'),
         };
 
         let qualification =
