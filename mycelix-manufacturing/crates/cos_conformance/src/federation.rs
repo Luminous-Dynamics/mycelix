@@ -1012,6 +1012,9 @@ pub enum FederationExternalVerificationPolicyAdmissionViolation {
     VerifierIdentityKindNotAdmitted,
     VerifierIdentityProfileNotAdmitted,
     VerifierIdentityDigestNotAdmitted,
+    VerificationFreshnessPolicyMissing,
+    VerificationClaimTooOld,
+    VerificationClaimFromFuture,
     VerificationClaimNotAdmitted,
     PolicyInvalid(FederationExternalVerificationTrustPolicyViolation),
 }
@@ -1029,6 +1032,8 @@ pub enum FederationExternalVerificationTrustPolicyViolation {
     EmptyVerifierIdentityProfile,
     InvalidVerifierIdentityDigest,
     VerifierIdentityBindingIncomplete,
+    InvalidMaximumVerificationAge,
+    VerificationFreshnessPolicyMissing,
     NoAcceptedVerifierProfiles,
     AcceptedClaimsContainRejected,
     DuplicateAcceptedClaim,
@@ -1048,6 +1053,7 @@ pub struct FederationExternalVerificationTrustPolicyV1 {
     required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
     required_verifier_identity_profile: Option<String>,
     required_verifier_identity_sha256: Option<String>,
+    maximum_verification_age_seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1065,6 +1071,7 @@ struct FederationExternalVerificationTrustPolicyHashView {
     required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
     required_verifier_identity_profile: Option<String>,
     required_verifier_identity_sha256: Option<String>,
+    maximum_verification_age_seconds: Option<u64>,
 }
 
 /// Local policy admission of an externally asserted verification result.
@@ -1120,6 +1127,7 @@ impl FederationExternalVerificationTrustPolicyV1 {
             required_verifier_identity_kind: None,
             required_verifier_identity_profile: None,
             required_verifier_identity_sha256: None,
+            maximum_verification_age_seconds: None,
         };
         policy.validate()?;
         Ok(policy)
@@ -1177,6 +1185,11 @@ impl FederationExternalVerificationTrustPolicyV1 {
                 FederationExternalVerificationTrustPolicyViolation::InvalidVerifierIdentityDigest
             );
         }
+        if self.maximum_verification_age_seconds == Some(0) {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::InvalidMaximumVerificationAge
+            );
+        }
         if self.accepted_verifier_profiles.is_empty() {
             return Err(FederationExternalVerificationTrustPolicyViolation::NoAcceptedVerifierProfiles);
         }
@@ -1222,6 +1235,9 @@ impl FederationExternalVerificationTrustPolicyV1 {
     pub fn required_verifier_identity_sha256(&self) -> Option<&str> {
         self.required_verifier_identity_sha256.as_deref()
     }
+    pub fn maximum_verification_age_seconds(&self) -> Option<u64> {
+        self.maximum_verification_age_seconds
+    }
 
     pub fn try_new_bound(
         witness_kind: FederationStateMachineTraceExternalWitnessKind,
@@ -1258,6 +1274,19 @@ impl FederationExternalVerificationTrustPolicyV1 {
         Ok(policy)
     }
 
+    pub fn with_maximum_verification_age_seconds(
+        &self,
+        maximum_verification_age_seconds: u64,
+    ) -> Result<Self, FederationExternalVerificationTrustPolicyViolation> {
+        if maximum_verification_age_seconds == 0 {
+            return Err(FederationExternalVerificationTrustPolicyViolation::InvalidMaximumVerificationAge);
+        }
+        let mut policy = self.clone();
+        policy.maximum_verification_age_seconds = Some(maximum_verification_age_seconds);
+        policy.validate()?;
+        Ok(policy)
+    }
+
     pub fn policy_sha256(&self) -> Result<String, FederationExternalVerificationTrustPolicyViolation> {
         self.validate()?;
         let view = FederationExternalVerificationTrustPolicyHashView {
@@ -1274,6 +1303,7 @@ impl FederationExternalVerificationTrustPolicyV1 {
             required_verifier_identity_kind: self.required_verifier_identity_kind,
             required_verifier_identity_profile: self.required_verifier_identity_profile.clone(),
             required_verifier_identity_sha256: self.required_verifier_identity_sha256.clone(),
+            maximum_verification_age_seconds: self.maximum_verification_age_seconds,
         };
         let bytes = serde_json::to_vec(&view)
             .expect("external verification policy hash view is serializable");
