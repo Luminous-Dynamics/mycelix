@@ -1235,6 +1235,7 @@ def cryptographic_binding_receipt(
         "certificate_signatures": certificate_signatures,
         "crl_signatures": crl_signatures,
         "crl_semantics_sha256": canonical_hash(expected_crl_semantics),
+        "crl_semantics_recipe": expected_crl_semantics,
         "crl_semantics": crl_semantics,
         "exact_relationships": {
             "leaf_to_intermediate_subject_exact": True,
@@ -2015,6 +2016,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "independent-crypto-details-invalid")
     if independent_details.get("crl_semantics_sha256") != manifest["crl_semantics_sha256"]:
         return result("DENY", "independent-crl-semantics-digest-mismatch")
+    if independent_details.get("crl_semantics_recipe") != manifest["crl_semantics"]:
+        return result("DENY", "independent-crl-semantics-recipe-binding-mismatch")
     if independent_details.get("crl_semantics") != crypto_receipt["crl_semantics"]:
         return result("DENY", "independent-crl-semantics-binding-mismatch")
     if manifest["cryptographic_binding_sha256"] != expected_crypto_binding_sha256:
