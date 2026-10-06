@@ -1,0 +1,333 @@
+//! Deterministic multimodal registration evidence for Fabrication Process Monitoring.
+//!
+//! This module describes registration evidence, not sensor truth. A Registered
+//! state means the required identity/alignment evidence is explicit and
+//! reproducible; it does not establish that the sensors are calibrated correctly
+//! or that an inferred anomaly is a physical defect.
+
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+
+pub const FPM_REGISTRATION_SCHEMA_VERSION: &str = "fpm.registration.v1";
+const MAX_LABEL_BYTES: usize = 128;
+const SHA256_HEX_LEN: usize = 64;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ModalityObservationRef {
+    pub source_id: String,
+    pub modality: String,
+    pub clock_domain: String,
+    pub source_sequence: u64,
+    pub source_timestamp_micros: Option<u64>,
+    pub calibration_profile_digest: String,
+    pub process_context_digest: String,
+    pub source_data_digest: String,
+}
+
+impl ModalityObservationRef {
+    pub fn validate(&self) -> Result<(), RegistrationError> {
+        validate_label(&self.source_id, "source_id")?;
+        validate_label(&self.modality, "modality")?;
+        validate_label(&self.clock_domain, "clock_domain")?;
+        validate_digest(&self.calibration_profile_digest, "calibration_profile_digest")?;
+        validate_digest(&self.process_context_digest, "process_context_digest")?;
+        validate_digest(&self.source_data_digest, "source_data_digest")?;
+        Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum AlignmentMethod {
+    ExactSequence,
+    ExactSourceTimestampMicros,
+    DeclaredClockTransform { transform_digest: String },
+    ExternalRegistrationEvidence { evidence_digest: String },
+}
+
+impl AlignmentMethod {
+    fn validate(&self) -> Result<(), RegistrationError> {
+        match self {
+            Self::ExactSequence | Self::ExactSourceTimestampMicros => Ok(()),
+            Self::DeclaredClockTransform { transform_digest }
+            | Self::ExternalRegistrationEvidence {
+                evidence_digest: transform_digest,
+            } => validate_digest(transform_digest, "alignment evidence digest"),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct RegistrationEnvelope {
+    pub schema_version: String,
+    pub reference: ModalityObservationRef,
+    pub related: Vec<ModalityObservationRef>,
+    pub alignment_method: Option<AlignmentMethod>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegistrationState {
+    Registered,
+    Unregistered,
+    Conflicting,
+    Invalid,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RegistrationError {
+    InvalidField(String),
+}
+
+impl std::fmt::Display for RegistrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidField(reason) => write!(f, "invalid FPM registration: {reason}"),
+        }
+    }
+}
+
+impl RegistrationEnvelope {
+    /// Derive registration state only from the complete envelope.
+    ///
+    /// No state is stored as user-supplied input, preventing a serialized
+    /// "Registered" label from bypassing the underlying evidence checks.
+    pub fn assess(&self) -> RegistrationState {
+        if self.schema_version != FPM_REGISTRATION_SCHEMA_VERSION {
+            return RegistrationState::Invalid;
+        }
+        if self.related.is_empty() {
+            return RegistrationState::Unregistered;
+        }
+        if self.reference.validate().is_err()
+            || self.related.iter().any(|item| item.validate().is_err())
+        {
+            return RegistrationState::Invalid;
+        }
+
+        let participants = std::iter::once(&self.reference).chain(self.related.iter());
+
+        let same_context = participants.clone().all(|item| {
+            item.process_context_digest == self.reference.process_context_digest
+        });
+        let same_calibration = participants.clone().all(|item| {
+            item.calibration_profile_digest == self.reference.calibration_profile_digest
+        });
+        if !same_context || !same_calibration {
+            return RegistrationState::Conflicting;
+        }
+
+        let Some(method) = &self.alignment_method else {
+            return RegistrationState::Unregistered;
+        };
+        if method.validate().is_err() {
+            return RegistrationState::Invalid;
+        }
+
+        match method {
+            AlignmentMethod::ExactSequence => {
+                if participants.clone().all(|item| {
+                    item.clock_domain == self.reference.clock_domain
+                        && item.source_sequence == self.reference.source_sequence
+                }) {
+                    RegistrationState::Registered
+                } else {
+                    RegistrationState::Conflicting
+                }
+            }
+            AlignmentMethod::ExactSourceTimestampMicros => {
+                let Some(reference_ts) = self.reference.source_timestamp_micros else {
+                    return RegistrationState::Unknown;
+                };
+                if participants.clone().all(|item| {
+                    item.clock_domain == self.reference.clock_domain
+                        && item.source_timestamp_micros == Some(reference_ts)
+                }) {
+                    RegistrationState::Registered
+                } else {
+                    RegistrationState::Conflicting
+                }
+            }
+            AlignmentMethod::DeclaredClockTransform { .. }
+            | AlignmentMethod::ExternalRegistrationEvidence { .. } => {
+                RegistrationState::Registered
+            }
+        }
+    }
+
+    pub fn validate_for_use(&self) -> Result<(), RegistrationError> {
+        match self.assess() {
+            RegistrationState::Registered => Ok(()),
+            RegistrationState::Unregistered => Err(RegistrationError::InvalidField(
+                "registration evidence is absent".into(),
+            )),
+            RegistrationState::Conflicting => Err(RegistrationError::InvalidField(
+                "registration participants disagree on context, calibration, or alignment".into(),
+            )),
+            RegistrationState::Invalid => Err(RegistrationError::InvalidField(
+                "registration envelope is malformed or unsupported".into(),
+            )),
+            RegistrationState::Unknown => Err(RegistrationError::InvalidField(
+                "registration evidence is insufficient to establish alignment".into(),
+            )),
+        }
+    }
+
+    pub fn digest(&self) -> Result<String, RegistrationError> {
+        let bytes = serde_json::to_vec(self).map_err(|e| {
+            RegistrationError::InvalidField(format!("failed to serialize registration: {e}"))
+        })?;
+        Ok(hex_digest(&bytes))
+    }
+}
+
+fn validate_label(value: &str, field: &str) -> Result<(), RegistrationError> {
+    if value.trim().is_empty() {
+        return Err(RegistrationError::InvalidField(format!(
+            "{field} cannot be empty"
+        )));
+    }
+    if value.len() > MAX_LABEL_BYTES {
+        return Err(RegistrationError::InvalidField(format!(
+            "{field} cannot exceed {MAX_LABEL_BYTES} bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_digest(value: &str, field: &str) -> Result<(), RegistrationError> {
+    if value.len() != SHA256_HEX_LEN || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(RegistrationError::InvalidField(format!(
+            "{field} must be a {SHA256_HEX_LEN}-character hexadecimal SHA-256 digest"
+        )));
+    }
+    Ok(())
+}
+
+fn hex_digest(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn digest(ch: char) -> String {
+        std::iter::repeat(ch).take(SHA256_HEX_LEN).collect()
+    }
+
+    fn sample(source: &str, sequence: u64) -> ModalityObservationRef {
+        ModalityObservationRef {
+            source_id: source.into(),
+            modality: "thermal".into(),
+            clock_domain: "ptp-domain-1".into(),
+            source_sequence: sequence,
+            source_timestamp_micros: Some(1_000_000),
+            calibration_profile_digest: digest('a'),
+            process_context_digest: digest('b'),
+            source_data_digest: digest('c'),
+        }
+    }
+
+    fn registered(method: AlignmentMethod) -> RegistrationEnvelope {
+        RegistrationEnvelope {
+            schema_version: FPM_REGISTRATION_SCHEMA_VERSION.into(),
+            reference: sample("thermal-1", 10),
+            related: vec![ModalityObservationRef {
+                modality: "vibration".into(),
+                ..sample("vibration-1", 10)
+            }],
+            alignment_method: Some(method),
+        }
+    }
+
+    #[test]
+    fn exact_sequence_is_registered_only_on_shared_clock_and_sequence() {
+        assert_eq!(
+            registered(AlignmentMethod::ExactSequence).assess(),
+            RegistrationState::Registered
+        );
+
+        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        envelope.related[0].source_sequence = 11;
+        assert_eq!(envelope.assess(), RegistrationState::Conflicting);
+
+        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        envelope.related[0].clock_domain = "local-clock-2".into();
+        assert_eq!(envelope.assess(), RegistrationState::Conflicting);
+    }
+
+    #[test]
+    fn exact_timestamp_requires_present_equal_source_timestamps() {
+        assert_eq!(
+            registered(AlignmentMethod::ExactSourceTimestampMicros).assess(),
+            RegistrationState::Registered
+        );
+
+        let mut envelope = registered(AlignmentMethod::ExactSourceTimestampMicros);
+        envelope.related[0].source_timestamp_micros = Some(1_000_001);
+        assert_eq!(envelope.assess(), RegistrationState::Conflicting);
+
+        let mut envelope = registered(AlignmentMethod::ExactSourceTimestampMicros);
+        envelope.reference.source_timestamp_micros = None;
+        assert_eq!(envelope.assess(), RegistrationState::Unknown);
+    }
+
+    #[test]
+    fn missing_alignment_is_unregistered() {
+        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        envelope.alignment_method = None;
+        assert_eq!(envelope.assess(), RegistrationState::Unregistered);
+        assert!(envelope.validate_for_use().is_err());
+    }
+
+    #[test]
+    fn conflicting_context_cannot_register() {
+        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        envelope.related[0].process_context_digest = digest('d');
+        assert_eq!(envelope.assess(), RegistrationState::Conflicting);
+    }
+
+    #[test]
+    fn conflicting_calibration_cannot_register() {
+        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        envelope.related[0].calibration_profile_digest = digest('d');
+        assert_eq!(envelope.assess(), RegistrationState::Conflicting);
+    }
+
+    #[test]
+    fn declared_transform_requires_commitment() {
+        let method = AlignmentMethod::DeclaredClockTransform {
+            transform_digest: digest('d'),
+        };
+        assert_eq!(registered(method).assess(), RegistrationState::Registered);
+
+        let invalid = AlignmentMethod::DeclaredClockTransform {
+            transform_digest: "bad".into(),
+        };
+        assert_eq!(registered(invalid).assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn invalid_schema_is_invalid_not_unknown() {
+        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        envelope.schema_version = "fpm.registration.v0".into();
+        assert_eq!(envelope.assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn empty_related_set_is_unregistered() {
+        let mut envelope = registered(AlignmentMethod::ExactSequence);
+        envelope.related.clear();
+        assert_eq!(envelope.assess(), RegistrationState::Unregistered);
+    }
+
+    #[test]
+    fn digest_changes_when_registration_changes() {
+        let a = registered(AlignmentMethod::ExactSequence);
+        let mut b = a.clone();
+        b.related[0].source_sequence = 11;
+        assert_ne!(a.digest().expect("digest a"), b.digest().expect("digest b"));
+    }
+}
