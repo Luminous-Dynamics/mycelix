@@ -183,6 +183,28 @@ The authority-resolution layer should retrieve the referenced record, reconstruc
 
 Verifier identity is treated similarly. `verifier_id`, `verifier_version`, and `declared_verifier_implementation_digest` are captured declarations in the pure core, not proof of the binary that executed. Authenticated build/execution identity is a separate boundary tracked in #4355.
 
+## Provenance disjointness qualification
+
+FPM can now qualify a supplied acquisition-lineage graph separately from registration consistency. A provenance witness binds a participant to its exact source-observation commitment, an acquisition-root commitment, and explicit parent lineage nodes.
+
+The provenance-disjointness profile fails closed for:
+- missing participant witnesses;
+- duplicate participant/node/parent relationships;
+- malformed or mismatched commitments;
+- missing parents;
+- lineage cycles;
+- shared acquisition roots;
+- shared lineage ancestry;
+- excessive graph cardinality.
+
+This result is still a statement about the **supplied provenance graph**. It does not prove that the real sensors were physically independent, honest, or correctly identified. Those properties require authenticated provenance anchored to the underlying acquisition system.
+
+The intended evidence chain is therefore:
+
+`Observation → RegistrationConsistency → SourceObservationBinding → ProvenanceDisjointness → Authenticated Provenance → Clock/Calibration Qualification → PhysicalValidation`
+
+W3C PROV similarly models provenance in terms of entities, activities, and relationships among them; the current FPM graph is an intentionally smaller deterministic subset focused on acquisition ancestry. citeturn874737search6
+
 ## Next research boundary
 
 The remaining work is empirical qualification of registration and detection against captured process traces, including clock skew, dropped/duplicated samples, calibration changes, context conflicts, and independent physical reference measurements. The current implementation remains a deterministic evidence contract, not a validated physical-defect detector.

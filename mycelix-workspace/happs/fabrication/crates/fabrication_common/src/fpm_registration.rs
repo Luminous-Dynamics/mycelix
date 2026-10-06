@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 pub const FPM_REGISTRATION_SCHEMA_VERSION: &str = "fpm.registration.v1";
 const MAX_LABEL_BYTES: usize = 128;
+const MAX_REGISTRATION_PARTICIPANTS: usize = 64;
 const SHA256_HEX_LEN: usize = 64;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -105,6 +106,9 @@ impl RegistrationEnvelope {
         }
         if self.related.is_empty() {
             return RegistrationState::Unregistered;
+        }
+        if self.related.len() + 1 > MAX_REGISTRATION_PARTICIPANTS {
+            return RegistrationState::Invalid;
         }
         if self.reference.validate().is_err()
             || self.related.iter().any(|item| item.validate().is_err())
@@ -216,6 +220,16 @@ fn validate_label(value: &str, field: &str) -> Result<(), RegistrationError> {
             "{field} cannot be empty"
         )));
     }
+    if value != value.trim() {
+        return Err(RegistrationError::InvalidField(format!(
+            "{field} cannot have leading or trailing whitespace"
+        )));
+    }
+    if value.chars().any(char::is_control) {
+        return Err(RegistrationError::InvalidField(format!(
+            "{field} cannot contain control characters"
+        )));
+    }
     if value.len() > MAX_LABEL_BYTES {
         return Err(RegistrationError::InvalidField(format!(
             "{field} cannot exceed {MAX_LABEL_BYTES} bytes"
@@ -225,13 +239,16 @@ fn validate_label(value: &str, field: &str) -> Result<(), RegistrationError> {
 }
 
 fn validate_digest(value: &str, field: &str) -> Result<(), RegistrationError> {
-    if value.len() != SHA256_HEX_LEN || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
+    if value.len() != SHA256_HEX_LEN
+        || !value
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    {
         return Err(RegistrationError::InvalidField(format!(
-            "{field} must be a {SHA256_HEX_LEN}-character hexadecimal SHA-256 digest"
+            "{field} must be a {SHA256_HEX_LEN}-character lowercase hexadecimal SHA-256 digest"
         )));
     }
     Ok(())
-}
 
 fn hex_digest(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
@@ -354,6 +371,41 @@ mod tests {
     fn invalid_schema_is_invalid_not_unknown() {
         let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
         envelope.schema_version = "fpm.registration.v0".into();
+        assert_eq!(envelope.assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn uppercase_digest_is_invalid() {
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.reference.source_data_digest =
+            envelope.reference.source_data_digest.to_uppercase();
+        assert_eq!(envelope.assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn padded_identifier_is_invalid() {
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.reference.source_id = " thermal-1".into();
+        assert_eq!(envelope.assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn control_character_identifier_is_invalid() {
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.reference.modality = "thermal\n".into();
+        assert_eq!(envelope.assess(), RegistrationState::Invalid);
+    }
+
+    #[test]
+    fn oversized_registration_is_invalid() {
+        let mut envelope = registered(AlignmentMethod::ExactCorrelationId);
+        envelope.related = (0..MAX_REGISTRATION_PARTICIPANTS)
+            .map(|index| ModalityObservationRef {
+                source_id: format!("source-{index}"),
+                modality: format!("modality-{index}"),
+                ..sample(&format!("source-{index}"), index as u64)
+            })
+            .collect();
         assert_eq!(envelope.assess(), RegistrationState::Invalid);
     }
 

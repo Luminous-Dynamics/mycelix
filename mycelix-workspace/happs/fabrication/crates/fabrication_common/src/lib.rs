@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 pub mod fpm_context;
 pub mod fpm_registration;
 pub mod fpm_qualification;
+pub mod fpm_provenance;
 
 pub mod validation {
     use hdi::prelude::{ValidateCallbackResult, LinkTag};
