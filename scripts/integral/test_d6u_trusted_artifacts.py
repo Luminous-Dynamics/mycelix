@@ -4,6 +4,7 @@
 import json
 import hashlib
 import os
+import re
 import subprocess
 import stat
 import tempfile
@@ -15,6 +16,7 @@ from fetch_d6u_trusted_artifact import (
     EXPECTED_FILES,
     HANDOFF_EXPECTED_FILES,
     download_archive,
+    expected_artifact,
     expected_current_run_artifact,
     extract_members,
     verify_zip_members,
@@ -93,7 +95,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 47
+    assert policy["policy_version"] == 48
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -235,13 +237,18 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["attestation_trigger"]["require_record_source_binding"] is True
     assert policy["attestation_trigger"]["require_record_executor_run_binding"] is True
     workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
-    trust_policy_versions = [
-        line.split(":", 1)[1].strip().strip('"')
-        for line in workflow_text.splitlines()
-        if line.strip().startswith("D6U_TRUSTED_POLICY_VERSION:")
-        or line.strip().startswith("TRUSTED_POLICY_VERSION:")
-    ]
-    assert len(trust_policy_versions) >= 2
+    literal_policy_version_pattern = re.compile(
+        r'^\s*(?:D6U_TRUSTED_POLICY_VERSION|TRUSTED_POLICY_VERSION):\s*"([0-9]+)"\s*$'
+    )
+    inline_policy_version_pattern = re.compile(
+        r'^\s*D6U_TRUSTED_POLICY_VERSION="([0-9]+)"'
+    )
+    trust_policy_versions = []
+    for line in workflow_text.splitlines():
+        match = literal_policy_version_pattern.match(line) or inline_policy_version_pattern.match(line)
+        if match:
+            trust_policy_versions.append(match.group(1))
+    assert len(trust_policy_versions) >= 5
     assert all(version == str(policy["policy_version"]) for version in trust_policy_versions)
     trusted_policy_env_versions = [
         line.split("D6U_TRUSTED_POLICY_VERSION=", 1)[1].strip().split('"', 2)[1]
@@ -370,7 +377,13 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_encrypted_members": True,
         "reject_symlink_members": True,
         "expected_member_count": 3,
-        "policy_revision": 29,
+        "policy_revision": 30,
+        "allowed_compression_methods": ["stored", "deflate"],
+    }
+    assert policy["artifact_run_binding"] == {
+        "require_exact_run_attempt": True,
+        "require_head_branch_match_trigger": True,
+        "require_head_sha_match_trigger": True,
     }
 
 
@@ -1954,6 +1967,57 @@ def test_artifact_layout_rejects_symlink() -> None:
 
 
 
+def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
+    import fetch_d6u_trusted_artifact as fetcher
+
+    policy = {"artifact_max_total_bytes": 4096}
+    event = {
+        "workflow_run": {
+            "id": 700,
+            "run_attempt": 3,
+            "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+            "head_sha": "a" * 40,
+        },
+        "repository": {"id": 900},
+    }
+    payload = {
+        "artifacts": [{
+            "id": 9100,
+            "name": "d6u-runtime-evidence-run-700-attempt-3",
+            "expired": False,
+            "size_in_bytes": 512,
+            "digest": "sha256:" + "b" * 64,
+            "workflow_run": {
+                "id": 700,
+                "repository_id": 900,
+                "head_repository_id": 900,
+                "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+                "head_sha": "a" * 40,
+            },
+        }]
+    }
+    with patch.dict(os.environ, {"GITHUB_TOKEN": "token"}, clear=False), patch.object(
+        fetcher, "github_get", return_value=payload
+    ):
+        observed = expected_artifact("Luminous-Dynamics/mycelix", event, policy)
+    assert observed["id"] == 9100
+
+    for field, bad_value, message in [
+        ("head_branch", "main", "executor artifact with mismatched trigger branch was accepted"),
+        ("head_sha", "c" * 40, "executor artifact with mismatched trigger SHA was accepted"),
+        ("id", 701, "executor artifact with mismatched run ID was accepted"),
+    ]:
+        bad = json.loads(json.dumps(payload))
+        bad["artifacts"][0]["workflow_run"][field] = bad_value
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "token"}, clear=False), patch.object(
+            fetcher, "github_get", return_value=bad
+        ):
+            assert_rejected(
+                lambda: expected_artifact("Luminous-Dynamics/mycelix", event, policy),
+                message,
+            )
+
+
 def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
     import fetch_d6u_trusted_artifact as fetcher
 
@@ -1963,12 +2027,21 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
             "artifact_max_archive_bytes": 1024,
         }
     }
-    assert len(HANDOFF_EXPECTED_FILES) == 6
     env = {
         "GITHUB_RUN_ID": "501",
         "GITHUB_RUN_ATTEMPT": "2",
-        "GITHUB_SHA": "a" * 40,
+        "GITHUB_SHA": "d" * 40,
+        "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+        "D6U_TRIGGER_HEAD_SHA": "a" * 40,
         "GITHUB_TOKEN": "token",
+    }
+    current_run = {
+        "id": 501,
+        "run_attempt": 2,
+        "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "head_sha": "a" * 40,
+        "repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
     }
     payload = {
         "artifacts": [{
@@ -1979,14 +2052,36 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
             "digest": "sha256:" + "b" * 64,
             "workflow_run": {
                 "id": 501,
-                "head_branch": "main",
+                "repository_id": 9001,
+                "head_repository_id": 9001,
+                "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
                 "head_sha": "a" * 40,
             },
         }]
     }
-    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", return_value=payload):
+
+    def fake_github_get(_repo, api_path, _token):
+        if api_path == "/actions/runs/501":
+            return current_run
+        if api_path.startswith("/actions/runs/501/artifacts?"):
+            return payload
+        raise AssertionError(f"unexpected GitHub API path: {api_path}")
+
+    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", side_effect=fake_github_get):
         observed = expected_current_run_artifact("Luminous-Dynamics/mycelix", policy)
     assert observed["id"] == 9001
+
+    bad_run = dict(current_run)
+    bad_run["head_sha"] = "c" * 40
+    with patch.dict(os.environ, env, clear=False), patch.object(
+        fetcher,
+        "github_get",
+        side_effect=lambda _repo, api_path, _token: bad_run if api_path == "/actions/runs/501" else payload,
+    ):
+        assert_rejected(
+            lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
+            "handoff artifact was accepted after current workflow head changed",
+        )
 
 
 def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> None:
@@ -2002,7 +2097,17 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
         "GITHUB_RUN_ID": "501",
         "GITHUB_RUN_ATTEMPT": "2",
         "GITHUB_SHA": "a" * 40,
+        "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+        "D6U_TRIGGER_HEAD_SHA": "b" * 40,
         "GITHUB_TOKEN": "token",
+    }
+    current_run = {
+        "id": 501,
+        "run_attempt": 2,
+        "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "head_sha": "b" * 40,
+        "repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
     }
     payload = {
         "artifacts": [{
@@ -2013,16 +2118,27 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
             "digest": "sha256:" + "b" * 64,
             "workflow_run": {
                 "id": 501,
-                "head_branch": "main",
-                "head_sha": "a" * 40,
+                "repository_id": 9001,
+                "head_repository_id": 9001,
+                "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+                "head_sha": "b" * 40,
             },
         }]
     }
-    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", return_value=payload):
+
+    def fake_github_get(_repo, api_path, _token):
+        if api_path == "/actions/runs/501":
+            return current_run
+        if api_path.startswith("/actions/runs/501/artifacts?"):
+            return payload
+        raise AssertionError(f"unexpected GitHub API path: {api_path}")
+
+    with patch.dict(os.environ, env, clear=False), patch.object(fetcher, "github_get", side_effect=fake_github_get):
         assert_rejected(
             lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
             "oversized auditor handoff archive was accepted",
         )
+
 
 
 def test_bounded_artifact_download_rejects_stream_overflow() -> None:
@@ -2098,6 +2214,7 @@ if __name__ == "__main__":
         test_harness_file_set_rejects_extra_build_script,
         test_artifact_size_limits_are_enforced,
         test_artifact_entry_limit_is_enforced,
+        test_executor_artifact_binds_trigger_head_and_attempt,
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
@@ -2117,8 +2234,10 @@ if __name__ == "__main__":
         test_trusted_zip_rejects_unexpected_member_path,
         test_trusted_github_api_readers_are_response_bounded,
         test_trusted_python_programs_reject_optimized_mode,
+        test_attestation_verifier_contains_no_optimization_sensitive_asserts,
         test_attestation_verifier_accepts_current_run,
         test_attestation_verifier_rejects_old_run,
+        test_commitment_attestation_rejects_malformed_entry_types,
         test_commitment_attestation_rejects_canonical_predicate_tampering,
         test_commitment_attestation_rejects_trigger_source_mismatch,
         test_commitment_attestation_rejects_hash_mismatch,
