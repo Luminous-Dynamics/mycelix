@@ -1058,9 +1058,9 @@ def parse_crl_der_for_crypto(der: bytes) -> dict[str, Any]:
     number_tag, number_content, _number_raw, number_end = der_tlv(number_value, 0)
     if number_tag != 0x02 or number_end != len(number_value):
         raise ValueError("CRL cRLNumber malformed")
-    if len(number_content) > 20:
-        raise ValueError("CRL.cRLNumber exceeds RFC 5280 20-octet limit")
     crl_number = der_integer_value(number_content, "CRL.cRLNumber")
+    if crl_number.bit_length() > 160:
+        raise ValueError("CRL.cRLNumber value exceeds RFC 5280 20-octet limit")
     authority_key_identifier = parse_crl_aki({"crl_extensions": crl_extensions})
     return {
         "object_der": der,
