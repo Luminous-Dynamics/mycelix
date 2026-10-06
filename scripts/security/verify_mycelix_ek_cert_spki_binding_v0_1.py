@@ -103,12 +103,26 @@ def require_rsa_certificate_spki(cert_der: bytes) -> dict[str, Any]:
     e_tag, e_content, e_end = der_tlv_parse(key_content, n_end)
     if n_tag != 0x02 or e_tag != 0x02 or e_end != len(key_content):
         raise ValueError("RSAPublicKey INTEGER structure malformed")
-    if not n_content or n_content[0] & 0x80:
-        raise ValueError("RSAPublicKey modulus INTEGER must be positive")
-    modulus = n_content.lstrip(b"\\x00")
+    if not n_content:
+        raise ValueError("RSAPublicKey modulus INTEGER is empty")
+    if n_content[0] == 0x00:
+        if len(n_content) < 2 or not (n_content[1] & 0x80):
+            raise ValueError("RSAPublicKey modulus INTEGER has non-canonical leading zero")
+        modulus = n_content[1:]
+    else:
+        if n_content[0] & 0x80:
+            raise ValueError("RSAPublicKey modulus INTEGER is negative")
+        modulus = n_content
     if not modulus:
         raise ValueError("RSAPublicKey modulus is zero")
-    exponent = int.from_bytes(e_content, "big") if e_content else 0
+    if not e_content:
+        raise ValueError("RSAPublicKey exponent INTEGER is empty")
+    if e_content[0] == 0x00:
+        if len(e_content) < 2 or not (e_content[1] & 0x80):
+            raise ValueError("RSAPublicKey exponent INTEGER has non-canonical leading zero")
+    elif e_content[0] & 0x80:
+        raise ValueError("RSAPublicKey exponent INTEGER is negative")
+    exponent = int.from_bytes(e_content, "big")
     if len(modulus) != 256 or not (modulus[0] & 0x80):
         raise ValueError("RSA EK certificate modulus is not 2048 bits")
     if exponent != 65537:
