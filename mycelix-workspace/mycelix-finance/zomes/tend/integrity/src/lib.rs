@@ -720,7 +720,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                     EntryTypes::BilateralBalance(_) => Ok(ValidateCallbackResult::Valid),
                     EntryTypes::BilateralSettlement(settlement) => {
-                        validate_update_bilateral_settlement(settlement)
+                        validate_update_bilateral_settlement(action, settlement)
                     }
                     EntryTypes::HearthTendBalance(bal) => validate_update_hearth_balance(bal),
                     EntryTypes::CurrencyAliasEntry(_) => {
@@ -1422,44 +1422,85 @@ fn validate_create_bilateral_settlement(
 }
 
 fn validate_update_bilateral_settlement(
+    action: Update,
     settlement: BilateralSettlement,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Amount must remain positive
-    if settlement.amount <= 0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Settlement amount must be positive".into(),
-        ));
+    let original_record = must_get_valid_record(action.original_action_address)?;
+    let original = original_record
+        .entry()
+        .to_app_option::<BilateralSettlement>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "BilateralSettlement predecessor deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "BilateralSettlement update predecessor is not a BilateralSettlement".into()
+            ))
+        })?;
+
+    Ok(validate_bilateral_settlement_transition(&original, &settlement))
+}
+
+fn validate_bilateral_settlement_transition(
+    original: &BilateralSettlement,
+    updated: &BilateralSettlement,
+) -> ValidateCallbackResult {
+    if original.status != SettlementStatus::Pending {
+        return ValidateCallbackResult::Invalid(
+            "Only a Pending settlement may transition to a terminal state".into(),
+        );
     }
 
-    // Only Completed and Failed are valid terminal statuses for updates.
-    // Pending -> Completed and Pending -> Failed are the only valid transitions,
-    // but we cannot access the original entry in integrity validation (no DHT reads),
-    // so we validate that the status is a valid terminal state.
-    match settlement.status {
-        SettlementStatus::Completed | SettlementStatus::Failed => {
-            // Valid terminal states
-        }
+    match updated.status {
+        SettlementStatus::Completed | SettlementStatus::Failed => {}
         SettlementStatus::Pending => {
-            // Updating to Pending is not a valid transition (already starts Pending)
-            return Ok(ValidateCallbackResult::Invalid(
-                "Cannot update settlement to Pending status (already starts Pending)".into(),
-            ));
+            return ValidateCallbackResult::Invalid(
+                "BilateralSettlement updates must use a terminal status".into(),
+            );
         }
     }
 
-    // DIDs must remain valid
-    if !settlement.debtor_dao_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Debtor DAO DID must be a valid DID".into(),
-        ));
-    }
-    if !settlement.creditor_dao_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Creditor DAO DID must be a valid DID".into(),
-        ));
+    if updated.id != original.id
+        || updated.debtor_dao_did != original.debtor_dao_did
+        || updated.creditor_dao_did != original.creditor_dao_did
+        || updated.amount != original.amount
+        || updated.created_at != original.created_at
+    {
+        return ValidateCallbackResult::Invalid(
+            "BilateralSettlement terms are immutable after creation".into(),
+        );
     }
 
-    Ok(ValidateCallbackResult::Valid)
+    if updated.amount <= 0 {
+        return ValidateCallbackResult::Invalid(
+            "Settlement amount must remain positive".into(),
+        );
+    }
+
+    if !updated.debtor_dao_did.starts_with("did:")
+        || !updated.creditor_dao_did.starts_with("did:")
+    {
+        return ValidateCallbackResult::Invalid(
+            "Settlement DAO DIDs must remain valid".into(),
+        );
+    }
+
+    let Some(completed_at) = updated.completed_at else {
+        return ValidateCallbackResult::Invalid(
+            "Terminal BilateralSettlement state requires completed_at".into(),
+        );
+    };
+
+    if completed_at < original.created_at {
+        return ValidateCallbackResult::Invalid(
+            "completed_at cannot precede created_at".into(),
+        );
+    }
+
+    ValidateCallbackResult::Valid
 }
 
 fn validate_create_hearth_balance(bal: HearthTendBalance) -> ExternResult<ValidateCallbackResult> {
@@ -1945,6 +1986,89 @@ mod tests {
             escalated_at: None,
             resolved_at: None,
         }
+    }
+
+    fn valid_bilateral_settlement() -> BilateralSettlement {
+        BilateralSettlement {
+            id: "settle:001".into(),
+            debtor_dao_did: "did:mycelix:dao-a".into(),
+            creditor_dao_did: "did:mycelix:dao-b".into(),
+            amount: 10,
+            status: SettlementStatus::Pending,
+            created_at: ts(1_000_000),
+            completed_at: None,
+        }
+    }
+
+    #[test]
+    fn bilateral_settlement_transition_accepts_pending_to_completed() {
+        let original = valid_bilateral_settlement();
+        let mut updated = original.clone();
+        updated.status = SettlementStatus::Completed;
+        updated.completed_at = Some(ts(2_000_000));
+
+        assert!(matches!(
+            validate_bilateral_settlement_transition(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn bilateral_settlement_transition_rejects_term_swaps() {
+        let original = valid_bilateral_settlement();
+
+        for mutate in [
+            |x: &mut BilateralSettlement| x.id = "attacker".into(),
+            |x: &mut BilateralSettlement| x.debtor_dao_did = "did:mycelix:attacker".into(),
+            |x: &mut BilateralSettlement| x.creditor_dao_did = "did:mycelix:attacker".into(),
+            |x: &mut BilateralSettlement| x.amount = 99,
+            |x: &mut BilateralSettlement| x.created_at = ts(2_000_000),
+        ] {
+            let mut updated = original.clone();
+            mutate(&mut updated);
+            updated.status = SettlementStatus::Completed;
+            updated.completed_at = Some(ts(2_000_000));
+
+            assert!(matches!(
+                validate_bilateral_settlement_transition(&original, &updated),
+                ValidateCallbackResult::Invalid(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn bilateral_settlement_transition_rejects_invalid_terminal_state() {
+        let original = valid_bilateral_settlement();
+
+        let mut missing_time = original.clone();
+        missing_time.status = SettlementStatus::Completed;
+        assert!(matches!(
+            validate_bilateral_settlement_transition(&original, &missing_time),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut backwards_time = original.clone();
+        backwards_time.status = SettlementStatus::Failed;
+        backwards_time.completed_at = Some(ts(500_000));
+        assert!(matches!(
+            validate_bilateral_settlement_transition(&original, &backwards_time),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn bilateral_settlement_transition_rejects_repeated_terminal_transition() {
+        let mut original = valid_bilateral_settlement();
+        original.status = SettlementStatus::Completed;
+        original.completed_at = Some(ts(2_000_000));
+
+        let mut updated = original.clone();
+        updated.completed_at = Some(ts(3_000_000));
+
+        assert!(matches!(
+            validate_bilateral_settlement_transition(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     fn valid_hearth_balance() -> HearthTendBalance {
