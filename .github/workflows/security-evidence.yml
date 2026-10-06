@@ -65,6 +65,11 @@ jobs:
           ak_attributes = json.loads(Path("docs/security/mycelix-ak-public-attributes-coherence-v0.1.json").read_text())
           ek_template = json.loads(Path("docs/security/mycelix-ek-template-appraisal-v0.1.json").read_text())
           cert_chain = json.loads(Path("docs/security/mycelix-ek-cert-chain-policy-v0.1.json").read_text())
+          trust_anchor_contract = json.loads(Path("docs/security/mycelix-ek-trust-anchor-appraisal-v0.1.json").read_text())
+          assert trust_anchor_contract["profile_id"] == "mycelix.security.tpm.ek-trust-anchor-appraisal"
+          assert trust_anchor_contract["claim_ceiling"] == "ReferenceModelOnly"
+          assert trust_anchor_contract["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
+          assert len(trust_anchor_contract["vectors"]) == 9
           assert platform["profile_id"] == "mycelix.security.platform.evidence.capture"
           assert recon["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"
           assert platform["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
@@ -106,7 +111,7 @@ jobs:
           assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(cert_chain["vectors"]) == 29
+          assert len(cert_chain["vectors"]) == 34
           PY
 
       - name: Compile security verifiers and bundle regression
@@ -128,7 +133,8 @@ jobs:
             scripts/security/verify_mycelix_ak_public_attributes_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py \
             scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py \
-            scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py
+            scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py \
+            scripts/security/verify_mycelix_ek_trust_anchor_appraisal_v0_1.py
 
       - name: Run platform Evidence semantic corpus
         run: python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --self-test
@@ -165,6 +171,9 @@ jobs:
 
       - name: Run EK certificate chain policy semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py --self-test
+
+      - name: Run EK trust-anchor appraisal semantic corpus
+        run: python3 scripts/security/verify_mycelix_ek_trust_anchor_appraisal_v0_1.py --self-test
 
       - name: Run EK template appraisal semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py --self-test

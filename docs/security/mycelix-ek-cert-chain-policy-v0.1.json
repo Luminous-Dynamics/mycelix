@@ -16,6 +16,17 @@
     "scope": "The reference trust anchor is synthetic. This theorem is a deterministic policy model and does not assert real manufacturer authenticity."
   },
   "required_input": {
+    "trust_anchor_appraisal": [
+      "state",
+      "verifier_id",
+      "anchor_id",
+      "authorization_state",
+      "registry_sha256",
+      "registry_source_sha256",
+      "receipt_root_sha256",
+      "input_sha256",
+      "output_sha256"
+    ],
     "session_id": "capture session identifier",
     "tpm_identity_digest": "TPM session identity digest",
     "verification_mode": [
@@ -238,6 +249,31 @@
     },
     {
       "id": "EKC-V29",
+      "mutation": "trust-anchor-appraisal-verifier-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V30",
+      "mutation": "trust-anchor-appraisal-registry-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V31",
+      "mutation": "trust-anchor-appraisal-receipt-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V32",
+      "mutation": "trust-anchor-appraisal-output-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V33",
+      "mutation": "trust-anchor-appraisal-receipt-root-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V34",
       "mutation": "key-order-permutation",
       "expected": "PASS"
     }

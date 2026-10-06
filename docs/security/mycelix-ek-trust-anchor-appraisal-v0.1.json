@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-ek-trust-anchor-appraisal-v0.1",
+  "profile_id": "mycelix.security.tpm.ek-trust-anchor-appraisal",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": ["PASS", "DENY", "INDETERMINATE"],
+  "theorem": {
+    "statement": "A trust anchor is admissible only when the exact supplied root certificate digest, registry entry, registry provenance, and authorization state agree under the reference policy.",
+    "scope": "Policy authorization only; no manufacturer authenticity or real-world CA trust is implied."
+  },
+  "required_input": {
+    "anchor_id": "registry anchor identifier",
+    "root_certificate_der_base64": "exact root DER bytes",
+    "root_certificate_sha256": "SHA-256 of exact root DER",
+    "registry_json": "exact authorization registry JSON",
+    "registry_sha256": "SHA-256 of exact registry JSON",
+    "registry_source_sha256": "authorized registry source receipt",
+    "authorization_state": "PASS, DENY or INDETERMINATE"
+  },
+  "non_equivalences": [
+    ["policy_authorization", "manufacturer_authenticity"],
+    ["root_digest_match", "chain_validity"],
+    ["registry_pass", "hardware_qualification"]
+  ],
+  "vectors": [
+    {"id":"EKA-V01","mutation":"canonical-authorized-root","expected":"PASS"},
+    {"id":"EKA-V02","mutation":"root-bytes-substitution","expected":"DENY"},
+    {"id":"EKA-V03","mutation":"root-digest-substitution","expected":"DENY"},
+    {"id":"EKA-V04","mutation":"anchor-id-substitution","expected":"DENY"},
+    {"id":"EKA-V05","mutation":"registry-entry-substitution","expected":"DENY"},
+    {"id":"EKA-V06","mutation":"authorization-state-deny","expected":"DENY"},
+    {"id":"EKA-V07","mutation":"unknown-anchor","expected":"INDETERMINATE"},
+    {"id":"EKA-V08","mutation":"registry-source-substitution","expected":"DENY"},
+    {"id":"EKA-V09","mutation":"key-order-permutation","expected":"PASS"}
+  ]
+}
