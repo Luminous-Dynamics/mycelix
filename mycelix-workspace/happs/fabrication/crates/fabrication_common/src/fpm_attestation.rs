@@ -77,6 +77,7 @@ pub struct FpmAttestationQualificationInput {
     pub expected_subject_id: String,
     pub expected_acquisition_root_digest: String,
     pub expected_challenge_nonce_digest: String,
+    pub expected_attestation_format: String,
     pub expected_verifier_profile_digest: String,
     pub expected_appraisal_policy_digest: String,
     pub expected_reference_values_digest: String,
@@ -103,8 +104,11 @@ pub enum FpmAttestationQualificationReason {
     VerifierProfileMismatch,
     AppraisalPolicyMismatch,
     ReferenceValuesMissing,
+    ReferenceValuesMismatch,
     EndorsementMissing,
+    EndorsementMismatch,
     InvalidEvidenceFormat,
+    AttestationFormatMismatch,
     EmptyVerifierIdentity,
     EmptyVerifierVersion,
     NotAppraised,
@@ -167,10 +171,10 @@ pub fn qualify_source_attestation(
         reasons.insert(FpmAttestationQualificationReason::AppraisalPolicyMismatch);
     }
     if input.claim.reference_values_digest != input.expected_reference_values_digest {
-        reasons.insert(FpmAttestationQualificationReason::ReferenceValuesMissing);
+        reasons.insert(FpmAttestationQualificationReason::ReferenceValuesMismatch);
     }
     if input.claim.endorsement_digest != input.expected_endorsement_digest {
-        reasons.insert(FpmAttestationQualificationReason::EndorsementMissing);
+        reasons.insert(FpmAttestationQualificationReason::EndorsementMismatch);
     }
     if !valid_label(&input.claim.attestation_format) {
         reasons.insert(FpmAttestationQualificationReason::InvalidEvidenceFormat);
@@ -196,8 +200,11 @@ pub fn qualify_source_attestation(
     } else if reasons.contains(&FpmAttestationQualificationReason::SubjectMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AcquisitionRootMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::ChallengeNonceMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::AttestationFormatMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::VerifierProfileMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AppraisalPolicyMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::ReferenceValuesMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::EndorsementMismatch)
     {
         FpmAttestationQualificationStatus::ConflictingAttestation
     } else if reasons.iter().any(|reason| {
@@ -333,15 +340,23 @@ mod tests {
         let mut input = input();
         input.claim.reference_values_digest = digest('9');
         let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
         assert!(result
             .reasons
-            .contains(&FpmAttestationQualificationReason::ReferenceValuesMissing));
+            .contains(&FpmAttestationQualificationReason::ReferenceValuesMismatch));
         input = input();
         input.claim.endorsement_digest = digest('9');
         let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
         assert!(result
             .reasons
-            .contains(&FpmAttestationQualificationReason::EndorsementMissing));
+            .contains(&FpmAttestationQualificationReason::EndorsementMismatch));
     }
 
     #[test]
