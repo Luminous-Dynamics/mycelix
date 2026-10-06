@@ -1620,6 +1620,15 @@ def test_commitment_attestation_rejects_trigger_source_mismatch() -> None:
             assert_rejected(lambda: verifier.main(), "mismatched triggering source commit was accepted")
 
         with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_WORKFLOW_SHA": "c" * 40,
+            "GITHUB_REF": "refs/heads/main",
+            "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
+            "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
+            "D6U_TRUSTED_POLICY_VERSION": "22",
             "D6U_TRIGGER_REPOSITORY": "Luminous-Dynamics/mycelix",
             "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
             "D6U_TRIGGER_HEAD_SHA": "b" * 40,
