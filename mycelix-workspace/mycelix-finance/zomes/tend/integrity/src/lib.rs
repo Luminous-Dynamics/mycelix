@@ -647,7 +647,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::DisputeCase(dispute) => {
                         validate_create_dispute_case(EntryCreationAction::Create(action), dispute)
                     }
-                    EntryTypes::OracleState(state) => validate_create_oracle_state(state)
+                    EntryTypes::OracleState(state) => {
+                        validate_create_oracle_state(EntryCreationAction::Create(action), state)
+                    }
                     EntryTypes::BilateralBalance(bal) => {
                         if bal.dao_a_did.len() > MAX_DID_LEN || bal.dao_b_did.len() > MAX_DID_LEN {
                             return Ok(ValidateCallbackResult::Invalid(
@@ -1407,25 +1409,44 @@ fn validate_create_bilateral_settlement(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_oracle_state(
-    state: OracleState,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_oracle_state_shape(state: &OracleState) -> ValidateCallbackResult {
     if state.vitality > 100 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Vitality must be 0-100".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Vitality must be 0-100".into());
     }
     if !state.total_yield_kwh.is_finite() || state.total_yield_kwh < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Total oracle yield must be finite and non-negative".into(),
-        ));
+        );
     }
     if state.tier != OracleState::tier_from_vitality(state.vitality) {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "OracleState tier must equal the tier derived from vitality".into(),
-        ));
+        );
     }
-    Ok(ValidateCallbackResult::Valid)
+    ValidateCallbackResult::Valid
+}
+
+fn validate_oracle_state_timestamp(
+    action_timestamp: &Timestamp,
+    state_timestamp: &Timestamp,
+) -> ValidateCallbackResult {
+    if action_timestamp != state_timestamp {
+        return ValidateCallbackResult::Invalid(
+            "OracleState updated_at must equal the Holochain action timestamp".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_create_oracle_state(
+    action: EntryCreationAction,
+    state: OracleState,
+) -> ExternResult<ValidateCallbackResult> {
+    let shape = validate_oracle_state_shape(&state);
+    if !matches!(shape, ValidateCallbackResult::Valid) {
+        return Ok(shape);
+    }
+    Ok(validate_oracle_state_timestamp(action.timestamp(), &state.updated_at))
 }
 
 fn validate_update_oracle_state(
@@ -1448,13 +1469,17 @@ fn validate_update_oracle_state(
             ))
         })?;
 
-    validate_create_oracle_state(state.clone())?;
-    Ok(validate_oracle_state_transition(&original, &state))
+    let shape = validate_oracle_state_shape(&state);
+    if !matches!(shape, ValidateCallbackResult::Valid) {
+        return Ok(shape);
+    }
+    Ok(validate_oracle_state_transition(&original, &state, &action.timestamp))
 }
 
 fn validate_oracle_state_transition(
     original: &OracleState,
     updated: &OracleState,
+    action_timestamp: &Timestamp,
 ) -> ValidateCallbackResult {
     if updated.tier != OracleState::tier_from_vitality(updated.vitality) {
         return ValidateCallbackResult::Invalid(
@@ -1469,6 +1494,11 @@ fn validate_oracle_state_transition(
     if !updated.total_yield_kwh.is_finite() || updated.total_yield_kwh < 0.0 {
         return ValidateCallbackResult::Invalid(
             "Total oracle yield must be finite and non-negative".into(),
+        );
+    }
+    if updated.updated_at != *action_timestamp {
+        return ValidateCallbackResult::Invalid(
+            "OracleState updated_at must equal the Holochain action timestamp".into(),
         );
     }
     ValidateCallbackResult::Valid
@@ -2344,6 +2374,26 @@ mod tests {
     }
 
     #[test]
+    fn oracle_state_timestamp_accepts_exact_action_time() {
+        let action_time = ts(2_000_000);
+        assert!(matches!(
+            validate_oracle_state_timestamp(&action_time, &action_time),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn oracle_state_timestamp_rejects_past_or_future_time() {
+        let action_time = ts(2_000_000);
+        for state_time in [ts(1_999_999), ts(2_000_001)] {
+            assert!(matches!(
+                validate_oracle_state_timestamp(&action_time, &state_time),
+                ValidateCallbackResult::Invalid(_)
+            ));
+        }
+    }
+
+    #[test]
     fn oracle_state_transition_accepts_derived_tier_and_monotonic_time() {
         let original = valid_oracle_state();
         let mut updated = original.clone();
@@ -2353,7 +2403,7 @@ mod tests {
         updated.updated_at = ts(2_000_000);
 
         assert!(matches!(
-            validate_oracle_state_transition(&original, &updated),
+            validate_oracle_state_transition(&original, &updated, &updated.updated_at),
             ValidateCallbackResult::Valid
         ));
     }
@@ -2366,7 +2416,7 @@ mod tests {
         updated.updated_at = ts(2_000_000);
 
         assert!(matches!(
-            validate_oracle_state_transition(&original, &updated),
+            validate_oracle_state_transition(&original, &updated, &updated.updated_at),
             ValidateCallbackResult::Invalid(_)
         ));
     }
