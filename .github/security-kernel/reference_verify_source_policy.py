@@ -100,6 +100,31 @@ def require_exact_action_set(lines: list[str], expected_actions: tuple[str, ...]
     if tuple(actual) != tuple(expected_actions):
         fail(f"{description}: expected exact action set {expected_actions!r}, found {tuple(actual)!r}")
 
+
+def require_exact_job_names(lines: list[str], expected_jobs: tuple[str, ...], description: str) -> None:
+    try:
+        jobs_index = next(i for i, line in enumerate(lines) if line.strip() == "jobs:")
+    except StopIteration as exc:
+        fail(f"{description}: missing jobs block")
+    jobs_section = lines[jobs_index + 1 :]
+    actual = tuple(
+        match.group(1)
+        for line in jobs_section
+        if (match := re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", line))
+    )
+    if actual != expected_jobs:
+        fail(f"{description}: expected exact top-level jobs {expected_jobs!r}, found {actual!r}")
+
+
+def require_exact_step_names(lines: list[str], expected_steps: tuple[str, ...], description: str) -> None:
+    actual = tuple(
+        match.group(1)
+        for line in lines
+        if (match := re.fullmatch(r"\s{6}- name: (.+)", line))
+    )
+    if actual != expected_steps:
+        fail(f"{description}: expected exact step-name sequence {expected_steps!r}, found {actual!r}")
+
 def require_exact_local_workflow_set(lines: list[str], expected_workflows: tuple[str, ...], description: str) -> None:
     actual = []
     for use in active_local_uses(lines):
@@ -122,6 +147,12 @@ def verify_s0(raw: bytes) -> None:
     require_exact(lines, 'BASE_BRANCH: "main"', "S0 base branch")
     require_exact(lines, 'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"', "S0 S1 pin")
     require_exact(lines, "cache-mode: none", "S0 cache mode")
+    require_exact_job_names(lines, ("resolve", "qualify"), "S0 job topology")
+    require_exact_step_names(
+        lines,
+        ("Verify trusted dispatcher context and exact PR identity",),
+        "S0 step topology",
+    )
     require_exact(lines, 'test "$GITHUB_REF_PROTECTED" = "true"', "S0 protected-ref check")
     require_exact(lines, 'test "$GITHUB_EVENT_NAME" = "pull_request_target"', "S0 event check")
     require(lines, "./.github/workflows/security-kernel-independent-qualification.yml", "S0 local S1 call")
@@ -142,6 +173,25 @@ def verify_s1(raw: bytes) -> None:
         fail("S1 must not expose workflow_dispatch")
     require_permission_block(lines, 1, "S1 permissions")
     require_exact(lines, "cache-mode: none", "S1 cache mode")
+    require_exact_job_names(lines, ("qualify",), "S1 job topology")
+    require_exact_step_names(lines, (
+        "Checkout trusted qualification root",
+        "Verify trusted pull-request-target invocation",
+        "Resolve exact candidate source",
+        "Static trust-surface audit",
+        "Snapshot exact candidate source identity",
+        "Snapshot locked dependency identity",
+        "Pull and preflight pinned sandbox image",
+        "Prepare locked dependency subject",
+        "Vendor locked dependency closure in fetch sandbox",
+        "Execute sandbox negative controls",
+        "Execute candidate qualification in disposable networkless sandbox",
+        "Verify candidate source immutability",
+        "Verify dependency substrate immutability",
+        "Emit qualification receipt",
+        "Upload qualification receipt",
+        "Verify retained qualification receipt",
+    ), "S1 step topology")
     require(lines, "uses: actions/checkout@" + CHECKOUT_SHA, "S1 pinned checkout")
     require_exact(lines, "persist-credentials: false", "S1 checkout credentials")
     require_exact(lines, 'FETCH_IMAGE: "' + GIT_FETCH_IMAGE + '"', "S1 pinned git image")
@@ -178,6 +228,12 @@ def verify_s2(raw: bytes, expected_policy_blob_sha: str) -> None:
         fail("S2 must not expose workflow_dispatch")
     require_permission_block(lines, 1, "S2 permissions")
     require_exact(lines, "cache-mode: none", "S2 cache mode")
+    require_exact_job_names(lines, ("verify",), "S2 job topology")
+    require_exact_step_names(
+        lines,
+        ("Checkout exact verifier workflow commit", "Verify trusted dispatcher, reusable S1, and qualification gates"),
+        "S2 step topology",
+    )
     require_exact(lines, "ref: " + "$" + "{{ github.workflow_sha }}", "S2 exact-workflow checkout")
     require_exact(lines, "fetch-depth: 0", "S2 full-history checkout")
     require_exact(lines, "persist-credentials: false", "S2 checkout credentials")
