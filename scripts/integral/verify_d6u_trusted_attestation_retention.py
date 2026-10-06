@@ -33,8 +33,10 @@ FILES = (
     "d6u-runtime-evidence.offline.json",
     "d6u-runtime-test.offline.json",
     "Cargo_lock.offline.json",
+    "d6u-runtime-evidence.no-public-good.json",
+    "d6u-runtime-test.no-public-good.json",
+    "Cargo_lock.no-public-good.json",
     "trusted_root.jsonl",
-    "no-public-good-control.json",
     "retention-transcript.json",
 )
 MAX_FILE_BYTES = 4 * 1024 * 1024
@@ -411,11 +413,12 @@ def main() -> None:
         assert binding["bundle_filename"] == expected_bundle
         assert binding["online_report_filename"] == expected_online
         assert binding["offline_report_filename"] == expected_offline
-        assert binding["negative_control_filename"] == "no-public-good-control.json"
+        expected_control = safe + ".no-public-good.json"
+        assert binding["negative_control_filename"] == expected_control
         assert binding["bundle_sha256"] == retained[expected_bundle]["sha256"]
         assert binding["online_report_sha256"] == retained[expected_online]["sha256"]
         assert binding["offline_report_sha256"] == retained[expected_offline]["sha256"]
-        assert binding["negative_control_sha256"] == retained["no-public-good-control.json"]["sha256"]
+        assert binding["negative_control_sha256"] == retained[expected_control]["sha256"]
         assert binding["trusted_root_sha256"] == root_sha256
 
         load_jsonl(root / expected_bundle)
@@ -432,30 +435,22 @@ def main() -> None:
             transcript["predicate_type"],
         )
 
-    # The same negative-control file is referenced by every subject binding.
-    verify_no_public_good_control(
-        root / "no-public-good-control.json",
-        root,
-        expected_subject_name=SUBJECTS[0],
-        expected_subject_sha256=by_name[SUBJECTS[0]]["sha256"],
-        expected_bundle_name=(
-            SUBJECTS[0].replace(".", "_").replace("-", "_") + ".attestation.jsonl"
-        ),
-        expected_bundle_sha256=retained[
-            SUBJECTS[0].replace(".", "_").replace("-", "_") + ".attestation.jsonl"
-        ]["sha256"],
-        expected_offline_name=(
-            SUBJECTS[0].replace(".", "_").replace("-", "_") + ".offline.json"
-        ),
-        expected_offline_sha256=retained[
-            SUBJECTS[0].replace(".", "_").replace("-", "_") + ".offline.json"
-        ]["sha256"],
-        expected_root_sha256=root_sha256,
-    )
-    control = load_json(root / "no-public-good-control.json")
-    # A single control cannot honestly bind to multiple different subjects.
-    for binding in bindings:
-        assert binding["subject_name"] == control["subject_name"]
+    for subject_name in SUBJECTS:
+        safe = subject_name.replace(".", "_").replace("-", "_")
+        expected_bundle = safe + ".attestation.jsonl"
+        expected_offline = safe + ".offline.json"
+        expected_control = safe + ".no-public-good.json"
+        verify_no_public_good_control(
+            root / expected_control,
+            root,
+            expected_subject_name=subject_name,
+            expected_subject_sha256=by_name[subject_name]["sha256"],
+            expected_bundle_name=expected_bundle,
+            expected_bundle_sha256=retained[expected_bundle]["sha256"],
+            expected_offline_name=expected_offline,
+            expected_offline_sha256=retained[expected_offline]["sha256"],
+            expected_root_sha256=root_sha256,
+        )
 
     print(
         "verified D6U retained attestation packet: "
