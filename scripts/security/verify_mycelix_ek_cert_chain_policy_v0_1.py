@@ -3043,6 +3043,8 @@ def self_test() -> int:
                 return 1
 
         selection_mutations = [
+            ("observed-delta-crl-indicator-extension", lambda x: x["root"]["crl_extensions"].update({"2.5.29.27": {"critical": True}})),
+            ("observed-issuing-distribution-point-extension", lambda x: x["root"]["crl_extensions"].update({"2.5.29.28": {"critical": True}})),
             ("crl-authoritative-object-identity", lambda x: x["root"]["selection"].update({"crl_der_sha256": "92" * 32})),
             ("crl-authoritative-issuer-certificate-identity", lambda x: x["root"]["selection"].update({"issuer_certificate_sha256": "93" * 32})),
             ("crl-scope-completeness-substitution", lambda x: x["root"]["selection"].update({"scope": "limited-reason-scope"})),
@@ -3163,7 +3165,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("56 contract vectors plus 20 structural parser controls plus 8 CRL semantic controls: PASS")
+    print("63 contract vectors plus 20 structural parser controls plus 15 CRL semantic controls: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
