@@ -9,7 +9,7 @@
 //! - HDC-Encoded Parametric Designs (Generative CAD Commons)
 //! - Proof of Grounded Fabrication (PoGF) for metabolic accountability
 //! - Anticipatory Repair Loop for autopoietic maintenance
-//! - Cincinnati Algorithm for teleomorphic quality monitoring
+//! - Fabrication Process Monitoring (FPM) for deterministic process analysis
 
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -1878,6 +1878,12 @@ impl SafetyClass {
         }
     }
 }
+
+// =============================================================================
+// FABRICATION PROCESS MONITORING (FPM)
+// =============================================================================
+
+pub mod fpm;
 
 // =============================================================================
 // LSH (LOCALITY-SENSITIVE HASHING) FOR HDC SEARCH
