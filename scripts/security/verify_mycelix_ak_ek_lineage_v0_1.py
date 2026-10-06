@@ -104,6 +104,8 @@ def run_public_name_verifier(binding: dict[str, Any]) -> dict[str, Any]:
             return result("DENY", "ak-public-name-result-verifier-id-mismatch")
         expected_input_sha = sha256_file(input_path)
         expected_output_sha = sha256_file(output_path)
+        if generated.get("input_sha256") != expected_input_sha:
+            return result("DENY", "ak-public-name-result-input-digest-mismatch")
         if binding.get("input_sha256") != expected_input_sha:
             return result("DENY", "ak-public-name-verifier-input-digest-mismatch")
         if binding.get("output_sha256") != expected_output_sha:
@@ -702,6 +704,7 @@ def self_test() -> int:
         ("public-name-verifier-substitution", "DENY", lambda x: x["public_name_binding"].update({"verifier_id": "other-verifier"})),
         ("public-name-source-substitution", "DENY", lambda x: x["public_name_binding"].update({"source_sha256": "12" * 32})),
         ("public-name-input-substitution", "DENY", lambda x: mutate_public_name_input(x)),
+        ("public-name-output-substitution", "DENY", lambda x: x["public_name_binding"].update({"output_sha256": "13" * 32})),
         ("public-name-area-substitution", "DENY", lambda x: x["public_name_binding"].update({"public_area_sha256": "13" * 32})),
         ("ek-credential-binding-substitution", "DENY", lambda x: x["ek_credential"].update({"bound_ek_public_sha256": "dd" * 32})),
         ("ek-credential-unavailable", "INDETERMINATE", lambda x: x["ek_credential"].update({"state": "INDETERMINATE"})),
