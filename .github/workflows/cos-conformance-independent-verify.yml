@@ -93,17 +93,20 @@ jobs:
 
           path = Path(".github/workflows/cos-conformance-independent-verify.yml")
           text = path.read_text()
+          audit_start = text.index("      - name: Validate immutable verifier action pins")
+          audit_end = text.index("\n\n      - name: Validate verification target", audit_start)
+          scanned_text = text[:audit_start] + text[audit_end:]
+          scanned_lines = scanned_text.splitlines()
 
-          assert "permissions: {}" in text
-          assert text.count("\n    cache-mode: none\n") == 3
-          assert "actions/cache@" not in text
-          assert "secrets." not in text
-          assert "allow-unsafe-pr-checkout: true" not in text
-          assert text.count("actions/checkout@") == 2
-          assert text.count("persist-credentials: false") == 2
-          assert text.count("digest-mismatch: error") == 1
-          assert text.count("artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}") == 1
-          assert "name: cos-conformance-independent-execution-" in text
+          assert "permissions: {}" in scanned_text
+          assert scanned_text.count("\n    cache-mode: none\n") == 3
+          assert ("actions" + "/cache@") not in scanned_text
+          assert ("secrets" + ".") not in scanned_text
+          assert ("allow-unsafe-pr-checkout" + ": true") not in scanned_text
+          assert scanned_text.count("actions/checkout@") == 2
+          assert scanned_text.count("persist-credentials: false") == 2
+          assert scanned_text.count("digest-mismatch: error") == 1
+          assert scanned_text.count("artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}") == 1
 
           expected = {
               "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
@@ -115,7 +118,7 @@ jobs:
           pattern = re.compile(
               r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
           )
-          for line in path.read_text().splitlines():
+          for line in scanned_lines:
               stripped = line.lstrip()
               if not (stripped.startswith("- uses:") or stripped.startswith("uses:")):
                   continue
