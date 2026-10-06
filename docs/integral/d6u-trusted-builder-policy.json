@@ -266,7 +266,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-      "blob_sha": "c7f36ab104197e8deaac94a5fdcdf967a315e467"
+      "blob_sha": "3ea629986424bd8f7860119a70f900c346b78ce4"
     },
     "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
       "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
