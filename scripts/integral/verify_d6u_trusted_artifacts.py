@@ -19,6 +19,8 @@ if not __debug__:
 ROOT = Path(__file__).parents[2]
 POLICY = ROOT / "docs/integral/d6u-trusted-builder-policy.json"
 
+MAX_GITHUB_JSON_BYTES = 8 * 1024 * 1024
+
 
 def github_get(repo: str, api_path: str, token: str) -> dict:
     url = f"https://api.github.com/repos/{repo}{api_path}"
@@ -32,7 +34,12 @@ def github_get(repo: str, api_path: str, token: str) -> dict:
         },
     )
     with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+        payload = response.read(MAX_GITHUB_JSON_BYTES + 1)
+        if len(payload) > MAX_GITHUB_JSON_BYTES:
+            raise RuntimeError(
+                f"GitHub API response exceeded {MAX_GITHUB_JSON_BYTES} bytes"
+            )
+        return json.loads(payload)
 
 
 def sha256(path: Path) -> str:
