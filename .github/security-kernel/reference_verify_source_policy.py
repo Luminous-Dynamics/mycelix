@@ -384,6 +384,20 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if exact_count(l, f'TRUSTED_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"') != 1:
         fail("S1 trusted workflow blob pin mismatch")
     require_no_fail_open_controls(l, "S1")
+    joined = "\n".join(l)
+    for forbidden in (
+        'docker rm -f "$name" >/dev/null 2>&1 || true',
+    ):
+        if forbidden in joined:
+            fail(f"S1 sandbox cleanup must not mask Docker errors: {forbidden!r}")
+    for required in (
+        'remaining="$(docker ps -aq --filter "name=^/${name}$")"',
+        'if ! docker rm -f "$name" >/dev/null 2>&1; then',
+        "security-kernel sandbox cleanup failed",
+        "security-kernel sandbox container remains after cleanup",
+    ):
+        if required not in joined:
+            fail(f"S1 fail-closed sandbox teardown control missing: {required!r}")
     require_no_yaml_reuse_syntax(l, S1)
     require_explicit_bash_for_run_steps(l, S1)
     require_no_duplicate_step_keys(l, S1)
