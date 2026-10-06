@@ -12,6 +12,10 @@ import urllib.request
 from zipfile import BadZipFile, ZipFile
 
 
+
+if not __debug__:
+    raise RuntimeError("trusted D6U program must not run with Python optimization enabled")
+
 ROOT = pathlib.Path(__file__).parents[2]
 POLICY = ROOT / "docs/integral/d6u-trusted-builder-policy.json"
 
