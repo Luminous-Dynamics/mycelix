@@ -456,6 +456,55 @@ jobs:
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
+  # Finance integration currently executes standalone-only test inputs.
+  # Keep it informational and independent until its test corpus is canonicalized
+  # or given its own explicit provenance proof.
+  finance-integration-authority-guard:
+    name: Finance Integration Authority Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce informational integration boundary
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+          match = re.search(
+              r"(?ms)^  ci-pass:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\s*$|\Z)",
+              text,
+          )
+          assert match, "ci-pass job block not found"
+          body = match.group("body")
+
+          needs_match = re.search(
+              r"(?ms)^    needs:\n(?P<needs>.*?)(?=^    runs-on:)",
+              body,
+          )
+          assert needs_match, "ci-pass needs block not found"
+          needs = needs_match.group("needs")
+
+          assert "test-finance-integration" not in needs, (
+              "standalone-only Finance integration must remain outside ci-pass.needs"
+          )
+          assert "test-finance-integration" not in body, (
+              "standalone-only Finance integration must remain informational and "
+              "must not influence ci-pass"
+          )
+
+          integration = re.search(
+              r"(?ms)^  test-finance-integration:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\s*$|\Z)",
+              text,
+          )
+          assert integration, "Finance integration job missing"
+          integration_body = integration.group("body")
+          assert "needs: changes" in integration_body
+          assert "Finance Integration (SweetConductor)" in integration_body
+          PY
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
@@ -467,7 +516,7 @@ jobs:
       - test-hearth
       - test-finance
       - finance-source-parity
-      - test-finance-integration
+      - finance-integration-authority-guard
       - test-governance
       - test-identity
       - test-personal
@@ -485,9 +534,6 @@ jobs:
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
           echo "Finance: ${{ needs.test-finance.result }}"
-          # Reported but not gated below — expected red until the finance
-          # zomes/tests are synced from the monorepo. See the job's own comment.
-          echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
           echo "Governance: ${{ needs.test-governance.result }}"
           echo "Identity: ${{ needs.test-identity.result }}"
           echo "Personal: ${{ needs.test-personal.result }}"
