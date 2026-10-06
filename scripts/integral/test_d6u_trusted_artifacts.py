@@ -267,7 +267,6 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
             "contents": "read",
         },
         "signer": {
-            "actions": "read",
             "contents": "read",
             "id-token": "write",
             "attestations": "write",
