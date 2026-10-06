@@ -452,6 +452,28 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             fail(f"S1 vendor resource profile mismatch: {key}")
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
+    if "CANDIDATE_ROOT: " not in joined:
+        fail("S1 candidate host staging root binding missing")
+    if 'candidate_root="$CANDIDATE_ROOT"' not in joined:
+        fail("S1 candidate staging root binding missing")
+    if 'test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"' not in joined:
+        fail("S1 candidate staging root identity check missing")
+    if 'rm -rf -- "$candidate_root"' not in joined or 'install -d -m 0700 -- "$candidate_root"' not in joined:
+        fail("S1 candidate staging root lifecycle missing")
+    if 'lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"' not in joined:
+        fail("S1 locked dependency identity is not bound to the host staging root")
+    if "source_volume_spec_after" not in joined or "candidate_volume_mountpoint" not in joined:
+        fail("S1 post-execution source-volume identity verification missing")
+    if "actual bounded candidate source volume remained immutable" not in joined:
+        fail("S1 source immutability check must target the actual bounded source volume")
+    if "Cleanup candidate source substrate" not in joined or "!cancelled()" not in joined:
+        fail("S1 candidate source cleanup lifecycle missing")
+    if "steps.resolve_source.outcome" not in joined:
+        fail("S1 candidate source cleanup must be bound to successful acquisition")
+    if 'if ! docker volume rm "$candidate_volume_name" >/dev/null 2>&1; then' not in joined:
+        fail("S1 source volume failure-trap cleanup missing")
+    if 'if ! docker volume rm "$CANDIDATE_VOLUME_NAME" >/dev/null 2>&1; then' not in joined:
+        fail("S1 final candidate source volume cleanup missing")
     joined = "\n".join(l)
     for key, expected in (("SOURCE_RESOURCE_PROFILE", SOURCE_RESOURCE_PROFILE), ("SOURCE_MAX_BYTES", SOURCE_MAX_BYTES), ("SOURCE_MAX_INODES", SOURCE_MAX_INODES), ("SOURCE_TMPFS_SIZE", SOURCE_TMPFS_SIZE), ("SOURCE_TMPFS_NR_INODES", SOURCE_TMPFS_NR_INODES)):
         if exact_count(l, f'  {key}: "{expected}"') != 1:
