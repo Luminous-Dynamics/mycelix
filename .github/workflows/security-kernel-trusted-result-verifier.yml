@@ -24,7 +24,7 @@ env:
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
-  REFERENCE_VERIFIER_BLOB_SHA: "4d5bf644ceaebf208ba1c0520b18a92f4702ecd6"
+  REFERENCE_VERIFIER_BLOB_SHA: "8cecbae7c8be8082598340ac7340743640bf50b2"
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
   CAUSAL_JOIN_VERIFIER_BLOB_SHA: "41aa3e0f70544c55aeff07136a477d93012d50fe"
 
@@ -659,8 +659,10 @@ jobs:
           evidence_binding["artifact_id"] = int(artifact["id"])
           evidence_binding["artifact_digest"] = artifact_digest
           evidence_binding["receipt_content_sha256"] = receipt_content_sha256
+          evidence_binding["causal_reference_snapshot_sha256"] = causal_reference_snapshot_sha256
           expected_evidence_binding_keys = expected_execution_binding_keys | {
               "artifact_name", "artifact_id", "artifact_digest", "receipt_content_sha256",
+              "causal_reference_snapshot_sha256",
           }
           assert set(evidence_binding) == expected_evidence_binding_keys, "final evidence binding schema drift"
 
@@ -677,6 +679,7 @@ jobs:
               ("artifact_id", evidence_binding["artifact_id"] + 1),
               ("artifact_digest", "sha256:" + "3" * 64),
               ("receipt_content_sha256", "4" * 64),
+              ("causal_reference_snapshot_sha256", "7" * 64),
           ):
               mutated = dict(evidence_binding)
               mutated[field] = replacement
