@@ -475,6 +475,11 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "gh attestation verify" not in verifier
 
     assert "id-token: write" in signer
+    assert "uses: actions/download-artifact@" not in signer
+    assert "subject-checksums: ${{ steps.subject_manifest.outputs.manifest }}" in signer
+    assert "predicate-path: ${{ steps.commitment_predicate.outputs.predicate }}" in signer
+    assert "${{ needs.verifier.outputs.canonical_predicate_sha256 }}" in signer
+    assert "d6u-attestation-commitment.json" in signer
     assert "attestations: write" in signer
     assert "uses: actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2" in signer
     assert "gh attestation verify" not in signer
