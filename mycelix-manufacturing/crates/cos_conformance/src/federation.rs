@@ -3602,7 +3602,9 @@ mod tests {
             "test-opaque-identity-v1",
             state_machine_trace_external_verifier_identity_sha256(b"test-rfc3161-verifier-v1-identity"),
         )
-        .expect("identity-bound policy must build");
+        .expect("identity-bound policy must build")
+        .with_maximum_verification_age_seconds(60)
+        .expect("freshness policy must build");
         let admission = first
             .admit_under_policy(&policy)
             .expect("policy should admit the exact verifier claim");
@@ -3885,7 +3887,9 @@ mod tests {
             "test-opaque-identity-v1",
             state_machine_trace_external_verifier_identity_sha256(b"test-rfc3161-verifier-v1-identity"),
         )
-        .expect("identity-bound policy must build");
+        .expect("identity-bound policy must build")
+        .with_maximum_verification_age_seconds(60)
+        .expect("freshness policy must build");
 
         let admission = result
             .admit_under_policy(&policy)
