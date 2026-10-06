@@ -1100,6 +1100,31 @@ mod tests {
     }
 
     #[test]
+    fn slashed_stake_cannot_change_status_without_governance_proof() {
+        let mut original = valid_stake();
+        original.status = StakeStatus::Slashed;
+
+        for target in [StakeStatus::Jailed, StakeStatus::Unbonding] {
+            let mut updated = original.clone();
+            updated.status = target;
+            updated.unbonding_until = None;
+
+            let result = validate_stake_update_terms(
+                &AgentPubKey::from_raw_36(vec![0; 36]),
+                &AgentPubKey::from_raw_36(vec![0; 36]),
+                &original,
+                &updated,
+            );
+
+            assert!(
+                matches!(result, ValidateCallbackResult::Invalid(msg)
+                    if msg.contains("Slashed stakes require explicit governance authorization")),
+                "post-slash status escalation must fail closed"
+            );
+        }
+    }
+
+    #[test]
     fn withdrawal_terminalization_requires_zero_remaining_stake() {
         let mut original = valid_stake();
         original.status = StakeStatus::Unbonding;
