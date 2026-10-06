@@ -17,7 +17,7 @@ on:
 # evidence run remains independently addressable for the exact source SHA that
 # produced it.
 concurrency:
-  group: cos-conformance-evidence-${{ github.sha }}
+  group: cos-conformance-evidence-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: false
 
 permissions:
@@ -135,6 +135,7 @@ jobs:
           sha256sum evidence/Cargo.lock | awk '{print $1}' > evidence/cargo-lock-sha256.txt
 
       - name: Generate machine-readable report
+        id: generate_report
         run: |
           mkdir -p evidence
           cd mycelix-manufacturing
@@ -166,6 +167,7 @@ jobs:
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           WORKFLOW_NAME: ${{ github.workflow }}
           CONFORMANCE_TEST_OUTCOME: ${{ steps.conformance_test.outcome || 'skipped' }}
+          REPORT_GENERATION_OUTCOME: ${{ steps.generate_report.outcome || 'skipped' }}
           REPORT_VALIDATION_OUTCOME: ${{ steps.validate_evidence_report.outcome || 'skipped' }}
         run: |
           test_exit_code="null"
@@ -184,11 +186,11 @@ jobs:
           if [[ -f evidence/cargo-lock-sha256.txt ]]; then
             dependency_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
           fi
-          case "${CONFORMANCE_TEST_OUTCOME}:${REPORT_VALIDATION_OUTCOME}" in
-            success:success)
+          case "${CONFORMANCE_TEST_OUTCOME}:${REPORT_GENERATION_OUTCOME}:${REPORT_VALIDATION_OUTCOME}" in
+            success:success:success)
               qualification_result="passed"
               ;;
-            skipped:skipped|cancelled:skipped|skipped:cancelled|cancelled:cancelled)
+            skipped:skipped:skipped|cancelled:skipped:skipped|skipped:cancelled:skipped|skipped:skipped:cancelled|cancelled:cancelled:cancelled)
               qualification_result="not_run"
               ;;
             *)
@@ -218,6 +220,7 @@ jobs:
             "qualification_result": "$qualification_result",
             "conformance_test_outcome": "$CONFORMANCE_TEST_OUTCOME",
             "conformance_test_exit_code": $test_exit_code,
+            "report_generation_outcome": "$REPORT_GENERATION_OUTCOME",
             "report_validation_outcome": "$REPORT_VALIDATION_OUTCOME"
           }
           JSON
@@ -251,6 +254,7 @@ jobs:
           assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
           allowed_outcomes = {"success", "failure", "cancelled", "skipped"}
           assert envelope["conformance_test_outcome"] in allowed_outcomes
+          assert envelope["report_generation_outcome"] in allowed_outcomes
           assert envelope["report_validation_outcome"] in allowed_outcomes
           exit_code = envelope["conformance_test_exit_code"]
           if envelope["conformance_test_outcome"] == "success":
@@ -261,9 +265,11 @@ jobs:
               assert exit_code is None
           if envelope["qualification_result"] == "passed":
               assert envelope["conformance_test_outcome"] == "success"
+              assert envelope["report_generation_outcome"] == "success"
               assert envelope["report_validation_outcome"] == "success"
           elif envelope["qualification_result"] == "not_run":
               assert envelope["conformance_test_outcome"] in {"skipped", "cancelled"}
+              assert envelope["report_generation_outcome"] in {"skipped", "cancelled"}
               assert envelope["report_validation_outcome"] in {"skipped", "cancelled"}
           else:
               assert (
