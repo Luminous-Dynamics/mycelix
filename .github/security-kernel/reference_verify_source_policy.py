@@ -276,6 +276,14 @@ def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
     flush()
 
 
+def inject_masked_docker_cleanup(raw: bytes) -> bytes:
+    marker = b'          container_name="security-kernel-negative-controls-$RANDOM"\n'
+    replacement = marker + b'          docker rm -f "$container_name" >/dev/null 2>&1 || true\n'
+    if marker not in raw:
+        fail("masked Docker cleanup regression fixture marker missing")
+    return raw.replace(marker, replacement, 1)
+
+
 def require_no_yaml_reuse_syntax(lines_: list[str], description: str) -> None:
     for line in lines_:
         # Block-scalar command bodies are intentionally excluded; only structural YAML
@@ -385,7 +393,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 trusted workflow blob input binding mismatch")
     require_no_fail_open_controls(l, "S1")
     joined = "\n".join(l)
-    if re.search(r'docker rm -f "\\$[A-Za-z0-9_]+" >/dev/null 2>&1 \\|\\| true', joined):
+    if any("docker rm -f " in line and "|| true" in line for line in l):
         fail("S1 sandbox setup/cleanup must not force-remove an existing container or mask Docker errors")
     for required in (
         'if docker ps -aq --filter "name=^/${container_name}$" | grep -q .; then',
@@ -581,6 +589,14 @@ def main() -> None:
         lambda: verify_s1(inject_extra_permission_with_blank(raw["s1"]), s1_sha),
         "S1 blank-separated security-events: write",
     )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_masked_docker_cleanup(raw["s1"]),
+            s1_sha,
+        ),
+        "masked pre-run Docker cleanup",
+    )
+
     expect_rejection(
         lambda: verify_s2(
             inject_extra_permission_with_blank(raw["s2"]),
