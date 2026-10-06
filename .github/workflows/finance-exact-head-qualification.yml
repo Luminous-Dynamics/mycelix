@@ -86,6 +86,8 @@ jobs:
           assert text.count("workflow_run:") == 1
           assert text.count("name: Resolve exact qualification subject") == 1
           assert text.count("name: Revalidate live PR subject") == 1
+          assert text.count("name: Capture trusted substrate policy") == 1
+          assert "RUNNER_TEMP" in text
           assert "ref: refs/heads/main" in text
           assert "github.ref == 'refs/heads/main'" in text
           assert text.count("name: Checkout exact PR head") == 1
@@ -98,6 +100,16 @@ jobs:
           assert text.count("name: Classify exact Finance substrate") == 1
           assert "cancel-in-progress: false" in text
           PY
+
+      - name: Capture trusted substrate policy
+        id: trusted_policy
+        run: |
+          set -euo pipefail
+          trusted_policy="${RUNNER_TEMP}/finance-substrate-policy.json"
+          test -f docs/integral/finance-substrate-policy.json
+          cp docs/integral/finance-substrate-policy.json "${trusted_policy}"
+          printf 'trusted_policy_path=%s\n' "${trusted_policy}" >> "${GITHUB_OUTPUT}"
+          printf 'trusted_policy_sha256=%s\n' "$(sha256sum "${trusted_policy}" | awk '{print $1}')" >> "${GITHUB_OUTPUT}"
 
       - name: Resolve exact qualification subject
         id: subject
@@ -215,7 +227,7 @@ jobs:
           from pathlib import Path
 
           lock_path = Path("mycelix-finance/Cargo.lock")
-          policy_path = Path("docs/integral/finance-substrate-policy.json")
+          policy_path = Path("${{ steps.trusted_policy.outputs.trusted_policy_path }}")
 
           policy = json.loads(policy_path.read_text(encoding="utf-8"))
           assert policy["schema_version"] == 1
@@ -363,6 +375,7 @@ jobs:
           holochain_zome_types_version=${{ steps.substrate.outputs.holochain_zome_types_version || '' }}
           holochain_serialized_bytes_version=${{ steps.substrate.outputs.holochain_serialized_bytes_version || '' }}
           cargo_lock_sha256=${{ steps.substrate.outputs.cargo_lock_sha256 || '' }}
+          trusted_policy_sha256=${{ steps.trusted_policy.outputs.trusted_policy_sha256 || '' }}
           live_pr_head_sha=${{ steps.live_pr.outputs.live_head_sha || '' }}
           live_pr_state=${{ steps.live_pr.outputs.live_state || '' }}
           live_pr_draft=${{ steps.live_pr.outputs.live_draft || '' }}
