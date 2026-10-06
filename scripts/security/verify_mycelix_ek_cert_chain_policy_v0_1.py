@@ -1127,6 +1127,8 @@ def validate_crl_semantics(
             reason = int.from_bytes(reason_content, "big")
             if reason != int(expected_entry["reason_code"]):
                 raise ValueError(f"{label} CRL reasonCode mismatch")
+            if observed_entry["entry_identity_sha256"] != str(expected_entry["entry_identity_sha256"]):
+                raise ValueError(f"{label} revoked-entry DER identity mismatch")
             if observed_entry["revocation_date"]["text"] != str(expected_entry["revocation_date"]):
                 raise ValueError(f"{label} revocationDate mismatch")
             if observed_entry["revocation_date"]["unix"] > crl["this_update"]["unix"]:
