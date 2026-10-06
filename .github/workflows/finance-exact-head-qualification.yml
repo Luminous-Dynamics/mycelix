@@ -1,9 +1,9 @@
 name: Finance Exact-Head Qualification
 
 on:
-  pull_request_target:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_run:
+    workflows: ["Finance Qualification Request"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -17,10 +17,9 @@ on:
 
 permissions: {}
 
-# This workflow is deliberately independent of supersedable merge CI.
-# One qualification subject gets one non-cancellable evidence run.
+# Independent qualification evidence must never be superseded by generic PR CI.
 concurrency:
-  group: finance-exact-head-qualification-${{ inputs.expected_head_sha || github.event.pull_request.head.sha }}
+  group: finance-exact-head-qualification-${{ inputs.expected_head_sha || github.event.workflow_run.pull_requests[0].head.sha || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -28,22 +27,24 @@ jobs:
     name: Qualify exact Finance subject
     if: >-
       ${{ github.event_name == 'workflow_dispatch' ||
-          (github.event.pull_request.draft == false &&
-           github.event.pull_request.head_repository.full_name == github.repository) }}
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.event == 'pull_request' &&
+           github.event.workflow_run.pull_requests[0].head.repo.full_name == github.repository &&
+           github.event.workflow_run.pull_requests[0].base.ref == 'main') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: read
       pull-requests: read
     steps:
-      - name: Checkout trusted workflow revision
+      - name: Checkout trusted verifier revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
           clean: true
           persist-credentials: false
 
-      - name: Capture trusted workflow identity
+      - name: Capture trusted verifier identity
         id: trusted
         run: |
           set -euo pipefail
@@ -76,7 +77,7 @@ jobs:
           }
           for action, ref in refs:
               assert expected.get(action) == ref, f"unexpected action pin: {action}@{ref}"
-          assert "pull_request_target:" in text
+          assert "workflow_run:" in text
           assert "cancel-in-progress: false" in text
           PY
 
@@ -85,17 +86,16 @@ jobs:
         env:
           INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
           INPUT_EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || '' }}
-          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
-          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
-          EVENT_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          EVENT_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || '' }}
+          EVENT_HEAD_SHA: ${{ github.event.workflow_run.pull_requests[0].head.sha || '' }}
+          EVENT_BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha || '' }}
         run: |
           set -euo pipefail
           pr_number="${INPUT_PR_NUMBER:-${EVENT_PR_NUMBER}}"
           expected_head_sha="${INPUT_EXPECTED_HEAD_SHA:-${EVENT_HEAD_SHA}}"
           base_sha="${EVENT_BASE_SHA:-}"
           test -n "${pr_number}"
-          test "${expected_head_sha}" != "$(printf '%0.s0' {1..40})"
-          test "$(printf '%s' "${expected_head_sha}" | wc -c)" -eq 40
+          printf '%s\n' "${expected_head_sha}" | grep -Eq '^[0-9a-f]{40}$'
           printf 'pr_number=%s\n' "${pr_number}" >> "${GITHUB_OUTPUT}"
           printf 'expected_head_sha=%s\n' "${expected_head_sha}" >> "${GITHUB_OUTPUT}"
           printf 'base_sha=%s\n' "${base_sha}" >> "${GITHUB_OUTPUT}"
@@ -148,12 +148,19 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence
+          result=FAIL
+          if [ "${{ steps.fmt.outcome }}" = "success" ] &&
+             [ "${{ steps.tests.outcome }}" = "success" ] &&
+             [ "${{ steps.artifact_guard.outcome }}" = "success" ]; then
+            result=PASS
+          fi
           cat > evidence/finance-exact-head-qualification.txt <<EOF
-          result=$([ "${{ steps.fmt.outcome }}" = "success" ] && [ "${{ steps.tests.outcome }}" = "success" ] && [ "${{ steps.artifact_guard.outcome }}" = "success" ] && echo PASS || echo FAIL)
+          result=${result}
           pr_number=${{ steps.subject.outputs.pr_number }}
           subject_sha=${{ steps.checkout.outputs.tested_head_sha || '' }}
           expected_head_sha=${{ steps.subject.outputs.expected_head_sha }}
           base_sha=${{ steps.subject.outputs.base_sha }}
+          upstream_request_run_id=${{ github.event.workflow_run.id || '' }}
           workflow_run_id=${{ github.run_id }}
           workflow_run_attempt=${{ github.run_attempt }}
           trusted_workflow_sha=${{ steps.trusted.outputs.trusted_workflow_sha }}
