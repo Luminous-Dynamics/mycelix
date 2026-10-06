@@ -23,6 +23,8 @@ pub enum EntryTypes {
     FpmRegistrationAnchor(FpmRegistrationAnchor),
     #[entry_type(visibility = "public")]
     FpmProvenanceAnchor(FpmProvenanceAnchor),
+    #[entry_type(visibility = "public")]
+    FpmAcquisitionRootAnchor(FpmAcquisitionRootAnchor),
 }
 
 #[hdk_link_types]
@@ -96,6 +98,19 @@ pub struct FpmProvenanceAnchor {
     pub witness_digest: String,
 }
 
+pub const FPM_ACQUISITION_ROOT_ANCHOR_SCHEMA_VERSION: &str =
+    "fpm.acquisition-root.anchor.v1";
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FpmAcquisitionRootAnchor {
+    pub schema_version: String,
+    pub source_system_id: String,
+    pub capture_reference: String,
+    pub artifact_digest: String,
+    pub root_digest: String,
+}
+
 #[hdk_extern]
 pub fn genesis_self_check(_: GenesisSelfCheckData) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
@@ -113,6 +128,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::VerificationRequest(r) => validate_verification_request(r),
             EntryTypes::FpmRegistrationAnchor(a) => validate_fpm_registration_anchor(a),
             EntryTypes::FpmProvenanceAnchor(a) => validate_fpm_provenance_anchor(a),
+            EntryTypes::FpmAcquisitionRootAnchor(a) => validate_fpm_acquisition_root_anchor(a),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterCreateLink { link_type, tag, .. } => {
@@ -277,6 +293,53 @@ fn validate_fpm_registration_anchor(
     if computed_digest != anchor.envelope_digest {
         return Ok(ValidateCallbackResult::Invalid(
             "FPM registration anchor envelope digest mismatch".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate an FPM acquisition-root anchor entry.
+fn validate_fpm_acquisition_root_anchor(
+    anchor: FpmAcquisitionRootAnchor,
+) -> ExternResult<ValidateCallbackResult> {
+    if anchor.schema_version != FPM_ACQUISITION_ROOT_ANCHOR_SCHEMA_VERSION {
+        return Ok(ValidateCallbackResult::Invalid(
+            "unsupported FPM acquisition-root anchor schema".into(),
+        ));
+    }
+    for (name, value, max_len) in [
+        ("source_system_id", &anchor.source_system_id, 128usize),
+        ("capture_reference", &anchor.capture_reference, 256usize),
+    ] {
+        if value.is_empty()
+            || value != value.trim()
+            || value.len() > max_len
+            || value.chars().any(char::is_control)
+        {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "invalid FPM acquisition-root {name}"
+            )));
+        }
+    }
+    for (name, value) in [
+        ("artifact_digest", &anchor.artifact_digest),
+        ("root_digest", &anchor.root_digest),
+    ] {
+        if value.len() != 64
+            || !value.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "{name} must be canonical lowercase SHA-256"
+            )));
+        }
+    }
+    if acquisition_root_binding_digest(
+        &anchor.source_system_id,
+        &anchor.capture_reference,
+        &anchor.artifact_digest,
+    ) != anchor.root_digest {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM acquisition-root digest mismatch".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
