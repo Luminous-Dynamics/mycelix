@@ -6,6 +6,8 @@ use fabrication_common::fpm_registration_qualification::{
     qualify_registration_structure, StructuralQualificationOutcome,
 };
 
+use hdi::prelude::AgentPubKey;
+
 fn digest(ch: char) -> String {
     std::iter::repeat(ch).take(64).collect()
 }
@@ -37,7 +39,10 @@ fn envelope(method: AlignmentMethod) -> RegistrationEnvelope {
 #[test]
 fn structural_profile_qualifies_consistent_metadata_only() {
     let result =
-        qualify_registration_structure(&envelope(AlignmentMethod::ExactCorrelationId), "v1")
+        qualify_registration_structure(
+        &envelope(AlignmentMethod::ExactCorrelationId),
+        &AgentPubKey::from_raw_36(vec![1u8; 36]),
+    )
             .expect("qualification");
     assert_eq!(result.registration_state, RegistrationState::Consistent);
     assert_eq!(result.outcome, StructuralQualificationOutcome::Qualified);
@@ -47,7 +52,11 @@ fn structural_profile_qualifies_consistent_metadata_only() {
 fn unregistered_metadata_is_insufficient_evidence() {
     let mut registration = envelope(AlignmentMethod::ExactCorrelationId);
     registration.alignment_method = None;
-    let result = qualify_registration_structure(&registration, "v1").expect("qualification");
+    let result = qualify_registration_structure(
+        &registration,
+        &AgentPubKey::from_raw_36(vec![1u8; 36]),
+    )
+    .expect("qualification");
     assert_eq!(result.outcome, StructuralQualificationOutcome::InsufficientEvidence);
 }
 
@@ -94,7 +103,9 @@ fn qualification_receipt_is_self_verifiable() {
 #[test]
 fn different_verifiers_produce_distinct_qualification_digests() {
     let registration = envelope(AlignmentMethod::ExactCorrelationId);
-    let a = qualify_registration_structure(&registration, "verifier-a").expect("a");
-    let b = qualify_registration_structure(&registration, "verifier-b").expect("b");
+    let a = let a_verifier = AgentPubKey::from_raw_36(vec![1u8; 36]);
+    let b_verifier = AgentPubKey::from_raw_36(vec![2u8; 36]);
+    let a = qualify_registration_structure(&registration, &a_verifier).expect("a");
+    let b = qualify_registration_structure(&registration, &b_verifier).expect("b");
     assert_ne!(a.qualification_digest, b.qualification_digest);
 }
