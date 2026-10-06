@@ -26,9 +26,9 @@ env:
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   REFERENCE_VERIFIER_BLOB_SHA: "24b5ea20e3a5946b106c22ece9fedcdb85e9c7db"
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
-  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "2c9d4d48dab41255944e48300893a62c668b5d4a"
+  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "23033164c0f9f73fcea4976a02029977538b68e0"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "e972c487cf7b098fab782071bffc5ff097411182"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "cfb8dbeed70ea20fd539906df82b265849a77628"
   TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-result-verifier.yml"
 
 jobs:
