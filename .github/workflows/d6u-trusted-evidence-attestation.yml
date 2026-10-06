@@ -459,6 +459,8 @@ EOF
 
           gh attestation trusted-root > "$retention_dir/trusted_root.jsonl"
           test -s "$retention_dir/trusted_root.jsonl"
+          test "$(wc -c < "$retention_dir/trusted_root.jsonl")" -le 2097152
+          test "$(wc -l < "$retention_dir/trusted_root.jsonl")" -le 64
           cp -- "$RUNNER_TEMP/d6u-auditor-handoff/d6u-trusted-evidence-predicate.json" "$retention_dir/d6u-trusted-evidence-predicate.json"
           test -s "$retention_dir/d6u-trusted-evidence-predicate.json"
           test ! -L "$retention_dir/d6u-trusted-evidence-predicate.json"
@@ -491,14 +493,17 @@ EOF
             bundle="$retention_dir/$safe.attestation.jsonl"
             cp -- "${bundles[0]}" "$bundle"
             test -s "$bundle"
+            test "$(wc -c < "$bundle")" -le 4194304
 
             online_report="$retention_dir/$safe.online.json"
             gh attestation verify "$subject"               --repo "$GITHUB_REPOSITORY"               --limit 8               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml"               --signer-digest "$GITHUB_WORKFLOW_SHA"               --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"               --cert-oidc-issuer "https://token.actions.githubusercontent.com"               --source-digest "$GITHUB_SHA"               --source-ref "$GITHUB_REF"               --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"               --deny-self-hosted-runners               --format=json > "$online_report"
             test -s "$online_report"
+            test "$(wc -c < "$online_report")" -le 4194304
 
             offline_report="$retention_dir/$safe.offline.json"
             gh attestation verify "$subject"               --repo "$GITHUB_REPOSITORY"               --bundle "$bundle"               --custom-trusted-root "$retention_dir/trusted_root.jsonl"               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml"               --signer-digest "$GITHUB_WORKFLOW_SHA"               --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"               --cert-oidc-issuer "https://token.actions.githubusercontent.com"               --source-digest "$GITHUB_SHA"               --source-ref "$GITHUB_REF"               --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"               --deny-self-hosted-runners               --format=json > "$offline_report"
             test -s "$offline_report"
+            test "$(wc -c < "$offline_report")" -le 4194304
 
             control_raw="$RUNNER_TEMP/d6u-no-public-good-$safe.output"
             set +e
@@ -506,6 +511,7 @@ EOF
             status="$?"
             set -e
             test "$status" -ne 0
+            test "$(wc -c < "$control_raw")" -le 4194304
 
             control="$retention_dir/$safe.no-public-good.json"
             CONTROL_EXIT_STATUS="$status" python3 - "$control" "$control_raw" "$subject" "$bundle" "$retention_dir/trusted_root.jsonl" "$offline_report" <<'PY'
