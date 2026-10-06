@@ -773,9 +773,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_exchange(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     exchange: TendExchange,
 ) -> ExternResult<ValidateCallbackResult> {
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "TendExchange",
+        "provider_did",
+        &exchange.provider_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
     // String length checks — prevent DHT bloat
     if exchange.provider_did.len() > MAX_DID_LEN
         || exchange.receiver_did.len() > MAX_DID_LEN
@@ -1704,6 +1713,22 @@ mod tests {
             validate_create_exchange(EntryCreationAction::Create(make_create()), valid_exchange())
                 .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_exchange_rejects_provider_did_forgery() {
+        let mut ex = valid_exchange();
+        ex.provider_did = "did:mycelix:not-the-author".into();
+
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        ).unwrap();
+
+        assert!(matches!(
+            result,
+            ValidateCallbackResult::Invalid(msg) if msg.contains("provider_did")
+        ));
     }
 
     #[test]
