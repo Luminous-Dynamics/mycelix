@@ -24,6 +24,7 @@ S1_BLOB = "42b9bfe548a90475ce1a4dc531c76991facd2111"
 S2_PATH = ".github/workflows/security-kernel-trusted-result-verifier.yml"
 BINDING_PATH = ".github/security-kernel/reference_verify_execution_binding.py"
 CAUSAL_PATH = ".github/security-kernel/reference_verify_causal_join.py"
+POLICY_PATH = ".github/security-kernel/reference_verify_source_policy.py"
 EXPECTED_JOB_NAME = "Independent Security Kernel"
 
 REQUIRED_S1_STEPS = (
@@ -181,6 +182,7 @@ def verify(snapshot: object) -> dict:
         "verifier_workflow_blob_sha",
         "reference_verifier_blob_sha",
         "causal_join_verifier_blob_sha",
+        "source_policy_verifier_blob_sha",
     }
     repository = need(snapshot["repository"], "repository object")
     run = need(snapshot["run"], "workflow run")
@@ -220,18 +222,21 @@ def verify(snapshot: object) -> dict:
     assert snapshot["s1_workflow_blob_sha"] == S1_BLOB
 
     workflow_snapshots = snapshot["workflow_file_snapshots"]
-    expected_snapshot_keys = {"s0", "s1", "s2", "binding", "causal"}
+    expected_snapshot_keys = {"s0", "s1", "s2", "binding", "causal", "policy"}
     event_verifier_sha = snapshot["event"]["verifier_workflow_sha"]
     event_verifier_blob_sha = snapshot["event"]["verifier_workflow_blob_sha"]
     event_binding_blob_sha = snapshot["event"]["reference_verifier_blob_sha"]
     event_causal_blob_sha = snapshot["event"]["causal_join_verifier_blob_sha"]
+    event_policy_blob_sha = snapshot["event"]["source_policy_verifier_blob_sha"]
     assert set(workflow_snapshots) == expected_snapshot_keys
     assert re.fullmatch(r"[0-9a-f]{40}", event_verifier_sha)
     assert re.fullmatch(r"[0-9a-f]{40}", event_verifier_blob_sha)
     assert re.fullmatch(r"[0-9a-f]{40}", event_binding_blob_sha)
     assert re.fullmatch(r"[0-9a-f]{40}", event_causal_blob_sha)
+    assert re.fullmatch(r"[0-9a-f]{40}", event_policy_blob_sha)
     assert event_binding_blob_sha == snapshot["workflow_file_snapshots"]["binding"]["sha"]
     assert event_causal_blob_sha == snapshot["workflow_file_snapshots"]["causal"]["sha"]
+    assert event_policy_blob_sha == snapshot["workflow_file_snapshots"]["policy"]["sha"]
 
     def verify_file_snapshot(name: str, expected_path: str, expected_ref: str, expected_sha: str | None = None):
         record = workflow_snapshots[name]
@@ -255,6 +260,7 @@ def verify(snapshot: object) -> dict:
     verify_file_snapshot("s2", S2_PATH, event_verifier_sha, event_verifier_blob_sha)
     verify_file_snapshot("binding", BINDING_PATH, event_verifier_sha, event_binding_blob_sha)
     verify_file_snapshot("causal", CAUSAL_PATH, event_verifier_sha, event_causal_blob_sha)
+    verify_file_snapshot("policy", POLICY_PATH, event_verifier_sha, event_policy_blob_sha)
 
     title = run.get("display_title", "")
     match = re.fullmatch(
@@ -460,6 +466,11 @@ def assert_mutation_rejected(snapshot: dict) -> int:
         "causal verifier bytes",
         ("workflow_file_snapshots", "causal", "content"),
         snapshot["workflow_file_snapshots"]["causal"]["content"] + "AA==",
+    )
+    add(
+        "policy verifier bytes",
+        ("workflow_file_snapshots", "policy", "content"),
+        snapshot["workflow_file_snapshots"]["policy"]["content"] + "AA==",
     )
 
     for label, path, replacement in mutations:
