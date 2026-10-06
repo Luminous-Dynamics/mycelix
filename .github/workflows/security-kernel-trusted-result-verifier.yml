@@ -26,7 +26,7 @@ env:
   REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   REFERENCE_VERIFIER_BLOB_SHA: "8cecbae7c8be8082598340ac7340743640bf50b2"
   CAUSAL_JOIN_VERIFIER_PATH: ".github/security-kernel/reference_verify_causal_join.py"
-  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "41aa3e0f70544c55aeff07136a477d93012d50fe"
+  CAUSAL_JOIN_VERIFIER_BLOB_SHA: "2d058012d9c95ce5aac3c236e3bde8a262bacb22"
 
 jobs:
   verify:
