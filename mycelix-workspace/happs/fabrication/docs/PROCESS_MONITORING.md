@@ -109,3 +109,26 @@ The FPM architecture therefore treats data registration, inference, and physical
 ## Migration
 
 Legacy Cincinnati types and APIs should not be renamed blindly. Once the FPM schemas have been qualified, the naming migration can introduce new canonical types while retaining explicit deserialization compatibility for existing records.
+## Exact contextual baseline boundary
+
+FPM context binding is implemented separately from the raw detector so that a statistically unusual value is not confused with a context change.
+
+A `ProcessContext` records, when available, the process phase, layer, move class, commanded speed, target temperatures, acquisition clock domain, sensor source identity, and calibration-profile commitment. Baseline construction requires the source observations to carry one exact common context.
+
+The contextual selector is deliberately **exact-match only** in v1:
+
+- exact context -> detector may run;
+- context mismatch -> explicit `ContextMismatch` error;
+- missing required registration/discriminator -> explicit `IncompleteContext` error;
+- mixed-context baseline source window -> rejected rather than pooled.
+
+There is no implicit nearest-context, global-baseline, or "best effort" fallback. Explicit compatibility rules can be added later as a separately versioned policy, but they must never be inferred from statistical similarity.
+
+The contextual detection provenance records both the context commitment and a combined digest over the detector result and context. This keeps raw detector evidence distinguishable from the stronger claim that the baseline was selected under an exact registered process context.
+
+## Registration and physical validation boundary
+
+Context binding is necessary but not sufficient for multimodal registration or physical quality claims. ISO/ASTM 52953:2025 establishes requirements for registering process-monitoring and quality-control data, including multimodal data registration. ISO/ASTM TR 52958:2026 describes a flaw-detection workflow that uses process monitoring together with seeded flaws and CT validation. These support keeping data registration, inference, and independent physical validation as separate evidence layers. citeturn831155search0turn831155search1
+
+The next research layer is therefore a separately versioned multimodal registration contract covering source-local clocks, alignment, calibration/profile identity, and explicit handling of missing or conflicting context. It should not silently convert alignment uncertainty into a normal or healthy result.
+
