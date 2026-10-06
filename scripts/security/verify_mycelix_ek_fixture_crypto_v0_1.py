@@ -734,6 +734,8 @@ def self_test() -> int:
             return 1
 
         selection_cases = [
+            ("observed-delta-crl-indicator-extension", lambda x: x["root"]["crl_extensions"].update({"2.5.29.27": {"critical": True}})),
+            ("observed-issuing-distribution-point-extension", lambda x: x["root"]["crl_extensions"].update({"2.5.29.28": {"critical": True}})),
             ("authoritative CRL object", lambda x: x["root"]["selection"].update({"crl_der_sha256": "92" * 32})),
             ("authoritative issuer certificate", lambda x: x["root"]["selection"].update({"issuer_certificate_sha256": "93" * 32})),
             ("complete direct-issuer scope", lambda x: x["root"]["selection"].update({"scope": "limited-reason-scope"})),
