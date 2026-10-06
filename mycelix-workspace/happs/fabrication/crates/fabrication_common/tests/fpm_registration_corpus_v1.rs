@@ -14,6 +14,7 @@ fn sample(source: &str, modality: &str, sequence: u64) -> ModalityObservationRef
         modality: modality.into(),
         clock_domain: "ptp-domain-1".into(),
         source_sequence: sequence,
+        correlation_id: format!("frame-{sequence}"),
         source_timestamp_micros: Some(1_000_000),
         calibration_profile_digest: digest('a'),
         process_context_digest: digest('b'),
