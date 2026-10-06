@@ -1988,7 +1988,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("48 adversarial mutations plus canonical and key-order control: PASS")
+    print("44 adversarial mutations plus canonical/key-order control and 5 structural parser controls: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
