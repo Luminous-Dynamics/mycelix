@@ -7,7 +7,10 @@
     "repository": "Luminous-Dynamics/mycelix",
     "head_sha": "2f3ccf4044d07c49e6aa1e4df4802d5e61c6847b",
     "corpus_path": "docs/governance/ARTIFICIAL_SOVEREIGNTY_QUALIFICATION_CORPUS_V1.json",
-    "corpus_git_blob_sha": "c04430e65a53974d00fe2d87af9888c6f2a6cd98"
+    "corpus_git_blob_sha": "c04430e65a53974d00fe2d87af9888c6f2a6cd98",
+    "tree_sha": "3e734b9c3a553cc96fc29222af99c5d17b08b297",
+    "fixture_path": "docs/qualification/fixtures/ARTIFICIAL_SOVEREIGNTY_QUALIFICATION_CORPUS_V1.json",
+    "fixture_git_blob_sha": "c04430e65a53974d00fe2d87af9888c6f2a6cd98"
   },
   "expected_semantics": {
     "canonical_encoding": "UTF-8 compact JSON array of [id,scenario,expected_outcome,forbidden_inference], sorted by id",
