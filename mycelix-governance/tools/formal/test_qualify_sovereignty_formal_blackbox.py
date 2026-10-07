@@ -279,6 +279,16 @@ def main() -> None:
         replace_file(tmp / "docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json", mutate_scope)
         assert_reject(tmp, "mutated Alloy scope", lambda out: "Alloy command omitted expected scope: 5 Subject" in out)
 
+        subprocess.run(["git", "checkout", "--", "."], cwd=tmp, check=True)
+
+        def mutate_crosswalk(value: str) -> str:
+            data = json.loads(value)
+            data["formal_subject_head"] = "0" * 40
+            return json.dumps(data, indent=2) + "\n"
+
+        replace_file(tmp / "docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json", mutate_crosswalk)
+        assert_reject(tmp, "mutated formal crosswalk", lambda out: "formal crosswalk subject head mismatch" in out)
+
         if hashlib.sha256(PROFILE.read_bytes()).hexdigest() != profile_sha:
             raise AssertionError("selftest source profile changed unexpectedly")
 
