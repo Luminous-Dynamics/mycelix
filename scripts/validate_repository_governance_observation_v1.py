@@ -620,6 +620,10 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             "governance_state": "VERIFIED",
             "reason": "all_required_controls_observed_in_an_acceptable_control_plane",
             "mismatches": [],
+            "observation_warnings": [
+                finding for finding in branch_mismatches
+                if finding.startswith("branch_protection_")
+            ],
             "claim_ceiling": "RepositoryGovernanceVerified",
             "authoritative_admin_observation": True,
             "grants_trusted_verifier_root": True,
@@ -917,16 +921,19 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
+    assert result["observation_warnings"] == ["branch_protection_admin_unavailable:403"]
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=401))
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
+    assert result["observation_warnings"] == ["branch_protection_admin_unavailable:401"]
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=500))
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
+    assert result["observation_warnings"] == ["branch_protection_observation_unavailable:500"]
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=403))
     x["rulesets"]["entries"][0]["rules"] = [
