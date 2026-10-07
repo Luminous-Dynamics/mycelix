@@ -1,4 +1,5 @@
 pub mod app;
+pub mod reconciliation;
 pub mod domain;
 pub mod ui;
 
