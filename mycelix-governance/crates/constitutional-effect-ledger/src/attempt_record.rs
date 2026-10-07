@@ -78,10 +78,11 @@ fn attempt_state_tag(state: AttemptRecordState) -> u8 {
         AttemptRecordState::Reserved => 2,
         AttemptRecordState::DispatchPending => 3,
         AttemptRecordState::Invoked => 4,
-        AttemptRecordState::Executed => 5,
-        AttemptRecordState::Failed => 6,
-        AttemptRecordState::Indeterminate => 7,
-        AttemptRecordState::NotEntered => 8,
+        AttemptRecordState::InvocationClaimed => 5,
+        AttemptRecordState::Executed => 6,
+        AttemptRecordState::Failed => 7,
+        AttemptRecordState::Indeterminate => 8,
+        AttemptRecordState::NotEntered => 9,
     }
 }
 
@@ -196,6 +197,7 @@ pub enum AttemptRecordState {
     Reserved,
     DispatchPending,
     Invoked,
+    InvocationClaimed,
     Executed,
     Failed,
     Indeterminate,
@@ -210,6 +212,7 @@ impl AttemptRecordState {
                 | Self::Reserved
                 | Self::DispatchPending
                 | Self::Invoked
+                | Self::InvocationClaimed
                 | Self::Indeterminate
         )
     }
@@ -225,7 +228,8 @@ impl AttemptRecordState {
                 | (Self::Reserved, Self::DispatchPending)
                 | (Self::DispatchPending, Self::Invoked)
                 | (Self::DispatchPending, Self::Indeterminate)
-                | (Self::Invoked, Self::Indeterminate)
+                | (Self::Invoked, Self::InvocationClaimed)
+                | (Self::InvocationClaimed, Self::Indeterminate)
         )
     }
 
@@ -914,6 +918,26 @@ impl AtomicActionFenceModelV1 {
         )
     }
 
+    /// Atomically claim the one concrete invocation slot for this attempt.
+    ///
+    /// The claim is itself a durable state transition. A second invocation caller
+    /// must fail because the attempt is no longer in Invoked state. In a Holochain
+    /// source-chain deployment, concurrent claim transactions on the same author
+    /// race for the chain head; only one can become the new current head.
+    pub fn mark_invocation_claimed(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.transition_state(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            AttemptRecordState::InvocationClaimed,
+        )
+    }
+
     pub fn mark_indeterminate(
         &mut self,
         action_key: &ActionKeyV1,
@@ -965,6 +989,7 @@ impl AtomicActionFenceModelV1 {
             next_state,
             AttemptRecordState::DispatchPending
                 | AttemptRecordState::Invoked
+                | AttemptRecordState::InvocationClaimed
                 | AttemptRecordState::Indeterminate
         ) && (current.provider_reference_seed_digest.is_none()
             || current.provider_reference_descriptor_digest.is_none())
@@ -1016,7 +1041,9 @@ impl AtomicActionFenceModelV1 {
         }
         if !matches!(
             current.state,
-            AttemptRecordState::Invoked | AttemptRecordState::Indeterminate
+            AttemptRecordState::Invoked
+                | AttemptRecordState::InvocationClaimed
+                | AttemptRecordState::Indeterminate
         ) {
             return Err(if current.state.is_terminal() {
                 ActionFenceMutationError::AlreadyClosed
@@ -1273,6 +1300,7 @@ mod tests {
             AttemptRecordState::Reserved,
             AttemptRecordState::DispatchPending,
             AttemptRecordState::Invoked,
+            AttemptRecordState::InvocationClaimed,
             AttemptRecordState::Executed,
             AttemptRecordState::Failed,
             AttemptRecordState::Indeterminate,
@@ -1287,7 +1315,8 @@ mod tests {
                         | (AttemptRecordState::Reserved, AttemptRecordState::DispatchPending)
                         | (AttemptRecordState::DispatchPending, AttemptRecordState::Invoked)
                         | (AttemptRecordState::DispatchPending, AttemptRecordState::Indeterminate)
-                        | (AttemptRecordState::Invoked, AttemptRecordState::Indeterminate)
+                        | (AttemptRecordState::Invoked, AttemptRecordState::InvocationClaimed)
+                        | (AttemptRecordState::InvocationClaimed, AttemptRecordState::Indeterminate)
                 );
                 assert_eq!(
                     current.allows_transition_to(next),
@@ -1455,6 +1484,79 @@ mod tests {
             AtomicAdmissionDecision::ActionInFlight
         );
         assert!(model.validate_invariants().is_ok());
+    }
+
+    #[test]
+    fn invocation_claim_is_single_use() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let owner = attempt("attempt-1");
+        model
+            .admit(
+                &key(),
+                &owner,
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+        model
+            .mark_dispatch_pending(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invoked(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+
+        assert_eq!(
+            model.mark_invocation_claimed(
+                &key(),
+                &owner,
+                "owner-token-attempt-1",
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            model.mark_invocation_claimed(
+                &key(),
+                &owner,
+                "owner-token-attempt-1",
+            ),
+            Err(ActionFenceMutationError::InvalidTransition)
+        );
+        assert_eq!(
+            model.attempt(owner.digest()).unwrap().state,
+            AttemptRecordState::InvocationClaimed
+        );
+    }
+
+    #[test]
+    fn invocation_claim_keeps_fence_occupied_across_restart_model() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let owner = attempt("attempt-1");
+        model
+            .admit(
+                &key(),
+                &owner,
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+        model
+            .mark_dispatch_pending(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invoked(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invocation_claimed(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+
+        assert_eq!(
+            model
+                .admit(
+                    &key(),
+                    &attempt("attempt-2"),
+                    record("attempt-2", "operation-2", AttemptRecordState::Consumed),
+                )
+                .unwrap(),
+            AtomicAdmissionDecision::ActionInFlight
+        );
     }
 
     #[test]
