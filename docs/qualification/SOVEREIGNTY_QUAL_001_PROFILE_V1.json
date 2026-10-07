@@ -1,0 +1,29 @@
+{
+  "profile_schema": "qual-001-independent-verifier-profile-v1",
+  "profile_id": "SOV-AI-QUAL-001-V1",
+  "role": "independent-qualification-verifier",
+  "authoritative_for": "artificial-sovereignty-qualification-corpus-v1 semantic corpus equivalence only",
+  "subject": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "head_sha": "2f3ccf4044d07c49e6aa1e4df4802d5e61c6847b",
+    "corpus_path": "docs/governance/ARTIFICIAL_SOVEREIGNTY_QUALIFICATION_CORPUS_V1.json",
+    "corpus_git_blob_sha": "c04430e65a53974d00fe2d87af9888c6f2a6cd98"
+  },
+  "expected_semantics": {
+    "canonical_encoding": "UTF-8 compact JSON array of [id,scenario,expected_outcome,forbidden_inference], sorted by id",
+    "sha256": "542743bdf4e175c62c5e4e7e3282310904dd17fbccd01061dee6ce870e0d2d0c",
+    "vector_count": 60
+  },
+  "required_candidate_metadata": {
+    "schema_version": "artificial-sovereignty-qualification-corpus-v1",
+    "status": "research-candidate",
+    "authority": "non-authoritative",
+    "qualified": false
+  },
+  "evidence_boundary": [
+    "No legal recognition is established.",
+    "No sovereignty or personhood is granted.",
+    "No runtime authority is granted.",
+    "This profile qualifies only the frozen candidate corpus semantics."
+  ]
+}
