@@ -1,5 +1,12 @@
 #![deny(unsafe_code)]
 
+pub mod provider_reference;
+pub use provider_reference::{
+    ProviderReferenceDescriptorV1, ProviderReferenceError, ProviderReferenceResult,
+    ProviderReferenceSeedV1, PROVIDER_REFERENCE_DESCRIPTOR_PREFIX,
+    PROVIDER_REFERENCE_SEED_PREFIX, PROVIDER_REFERENCE_SEED_SCHEMA_VERSION,
+};
+
 use constitutional_treasury_effect_provider::EffectIntent;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
