@@ -1104,6 +1104,18 @@ mod tests {
     use super::*;
 
     // =========================================================================
+    // Governance authority tests
+    // =========================================================================
+
+    #[test]
+    fn empty_legacy_governance_roster_never_bootstraps_authority() {
+        assert!(
+            governance::verify_governance_or_bootstrap_from_links(Vec::new()).is_err(),
+            "an empty mutable roster must never authorize governance bootstrap"
+        );
+    }
+
+    // =========================================================================
     // Pagination tests
     // =========================================================================
 
