@@ -48,6 +48,22 @@ fn require_opaque(label: &str, value: &str, max_len: usize) -> LedgerResult<()> 
     }
 }
 
+fn require_tagged_digest(label: &str, value: &str, prefix: &str) -> LedgerResult<()> {
+    let digest = value
+        .strip_prefix(prefix)
+        .ok_or_else(|| violation(format!("{label} must use {prefix}<hex>")))?;
+    if digest.len() != 64
+        || !digest
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(violation(format!(
+            "{label} must contain exactly 64 lowercase hexadecimal digits"
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReplaySafety {
     Unknown,
@@ -212,7 +228,11 @@ impl ActionIntent {
             &self.native_replay_identity,
             MAX_COMMITMENT_LEN,
         )?;
-        require_opaque("action_key_digest", &self.action_key_digest, MAX_COMMITMENT_LEN)?;
+        require_tagged_digest(
+            "action_key_digest",
+            &self.action_key_digest,
+            ACTION_KEY_PREFIX,
+        )?;
 
         Ok(())
     }
@@ -272,7 +292,11 @@ impl ActionAttempt {
         require_opaque("attempt operation_id", &self.operation_id, MAX_ID_LEN)?;
         require_opaque("attempt action_id", &self.action_id, MAX_ID_LEN)?;
         require_opaque("attempt_id", &self.attempt_id, MAX_ID_LEN)?;
-        require_opaque("attempt_identity", &self.attempt_identity, MAX_COMMITMENT_LEN)?;
+        require_tagged_digest(
+            "attempt_identity",
+            &self.attempt_identity,
+            ATTEMPT_IDENTITY_PREFIX,
+        )?;
         require_opaque(
             "native_replay_identity",
             &self.native_replay_identity,
@@ -987,6 +1011,21 @@ fn validate_resolution(
 mod tests {
     use super::*;
 
+    fn fake_digest(prefix: &str, label: &str) -> String {
+        format!("{}{}", prefix, blake3::hash(label.as_bytes()).to_hex())
+    }
+
+    fn action_key_digest(ordinal: u32) -> String {
+        fake_digest(ACTION_KEY_PREFIX, &format!("action-key-{ordinal}"))
+    }
+
+    fn attempt_identity(ordinal: u32) -> String {
+        fake_digest(
+            ATTEMPT_IDENTITY_PREFIX,
+            &format!("attempt-identity-{ordinal}"),
+        )
+    }
+
     fn capability(replay_safe: bool) -> CapabilitySnapshot {
         CapabilitySnapshot {
             action_type: "TransferCredits".into(),
@@ -1034,7 +1073,7 @@ mod tests {
             action_commitment: format!("commitment-{ordinal}"),
             capability: capability(replay_safe),
             native_replay_identity: format!("native-replay-{ordinal}"),
-            action_key_digest: format!("constitutional-action-key-v1:test-{ordinal}"),
+            action_key_digest: action_key_digest(ordinal),
         }
     }
 
@@ -1043,12 +1082,12 @@ mod tests {
             operation_id: "op-1".into(),
             action_id: format!("action-{ordinal}"),
             attempt_id: format!("attempt-{ordinal}-1"),
-            attempt_identity: format!("constitutional-attempt-identity-v1:attempt-{ordinal}-1"),
+            attempt_identity: attempt_identity(ordinal),
             attempt_ordinal: 1,
             event_seq: seq,
             started_at_unix_ms: seq,
             native_replay_identity: format!("native-replay-{ordinal}"),
-            action_key_digest: format!("constitutional-action-key-v1:test-{ordinal}"),
+            action_key_digest: action_key_digest(ordinal),
             retry_authorization: RetryAuthorization::Initial,
         }
     }
@@ -1185,7 +1224,7 @@ mod tests {
             event_seq: 4,
             started_at_unix_ms: 4,
             native_replay_identity: "native-replay-0".into(),
-            action_key_digest: "constitutional-action-key-v1:test-0".into(),
+            action_key_digest: action_key_digest(0),
             retry_authorization: RetryAuthorization::ReplaySafe,
         };
 
