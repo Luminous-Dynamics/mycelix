@@ -320,12 +320,35 @@ echo
 # mycelix-workspace/ also contains mycelix-workspace/mycelix-<cluster>/
 # subdirectories left over from an earlier consolidation attempt — stale,
 # partial (sometimes empty) duplicates of the real top-level cluster
-# directories already synced above. Excluded here so this wholesale sync
-# doesn't ship dead duplicate code to the public repo alongside the real
-# copies. mycelix-pulse is the one cluster that genuinely lives inside
+# directories already synced above. They must never be present in the
+# standalone repo because CLUSTERS above already exports the canonical copy.
+#
+# This is enforced in two layers:
+#   1. remove any stale nested mirrors from the disposable standalone clone
+#      before rsync (the clone is reset to origin/main at the top of every run);
+#   2. exclude every MOVED_TO_WORKSPACE cluster from the wholesale workspace
+#      rsync so a future sync cannot recreate the duplicate path.
+#
+# mycelix-pulse is the one cluster that genuinely lives inside
 # mycelix-workspace and is NOT excluded.
+info "=== Removing stale nested moved-cluster mirrors ==="
+for cluster in "${MOVED_TO_WORKSPACE[@]}"; do
+    stale_path="${STANDALONE_REPO}/mycelix-workspace/${cluster}"
+    if [ -e "$stale_path" ]; then
+        info "Removing stale nested ${cluster}/ mirror"
+        rm -rf -- "$stale_path"
+    fi
+done
+echo
+
+WORKSPACE_DUPLICATE_EXCLUDES=()
+for cluster in "${MOVED_TO_WORKSPACE[@]}"; do
+    WORKSPACE_DUPLICATE_EXCLUDES+=(--exclude="/${cluster}/")
+done
+
 info "=== Syncing mycelix-workspace ==="
 sync_dir "${MONOREPO_ROOT}/mycelix-workspace" "${STANDALONE_REPO}/mycelix-workspace" \
+    "${WORKSPACE_DUPLICATE_EXCLUDES[@]}" \
     --exclude='/mycelix-supplychain/' \
     --exclude='/mycelix-health/'
     # mycelix-core's and mycelix-praxis's excludes removed 2026-07-02 — both moved here with real
