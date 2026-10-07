@@ -127,6 +127,10 @@ jobs:
           assert "effective-rules-payload-after.json" in scanned_text
           assert "repository-payload-after.json" in scanned_text
           assert "branch-payload-after.json" in scanned_text
+          assert "rulesets-payload-after.json" in scanned_text
+          assert "rulesets-after/${ruleset_id}.json" in scanned_text
+          assert "branch-protection-payload-after.json" in scanned_text
+          assert "branch-protection-http-status-after.txt" in scanned_text
           assert "rulesets/${ruleset_id}.json" in scanned_text
           assert "set(index_ids) == set(full_ids)" in scanned_text
           PY
