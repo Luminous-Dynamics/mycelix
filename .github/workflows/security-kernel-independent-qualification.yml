@@ -50,7 +50,6 @@ env:
   SOURCE_TMPFS_SIZE: "1024m"
   SOURCE_TMPFS_NR_INODES: "300000"
   SOURCE_AUDIT_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
-  CANDIDATE_ROOT: "${{ runner.temp }}/security-kernel-candidate-root"
 
 jobs:
   qualify:
@@ -329,7 +328,7 @@ jobs:
 
           candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
           test "${#candidate_tree}" -eq 40
-          candidate_root="$CANDIDATE_ROOT"
+          candidate_root="$RUNNER_TEMP/security-kernel-candidate-root"
           test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"
           rm -rf -- "$candidate_root"
           install -d -m 0700 -- "$candidate_root"
@@ -405,7 +404,7 @@ jobs:
 
       - name: Static trust-surface audit
         env:
-          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root
         shell: bash
         run: |
           set -euo pipefail
@@ -552,7 +551,7 @@ jobs:
       - name: Snapshot exact candidate source identity
         id: snapshot_source
         env:
-          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root
           CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
         shell: bash
         run: |
@@ -606,7 +605,7 @@ jobs:
       - name: Snapshot locked dependency identity
         id: locked_dependency_identity
         env:
-          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root
         shell: bash
         run: |
           set -euo pipefail
@@ -698,7 +697,7 @@ jobs:
       - name: Prepare locked dependency subject
         id: dependency_subject
         env:
-          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root
         shell: bash
         run: |
           set -euo pipefail
@@ -1134,10 +1133,10 @@ jobs:
         if: ${{ !cancelled() && steps.resolve_source.outcome == 'success' }}
         env:
           CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
-          CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
         shell: bash
         run: |
           set -euo pipefail
+          CANDIDATE_ROOT="$RUNNER_TEMP/security-kernel-candidate-root"
           test "$CANDIDATE_ROOT" = "$RUNNER_TEMP/security-kernel-candidate-root"
           if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then
             echo "security-kernel candidate source volume inventory query failed before cleanup" >&2
