@@ -55,6 +55,8 @@ jobs:
         run: cargo test --workspace --manifest-path mycelix-finance/Cargo.toml
       - name: Run Finance update predecessor audit
         run: python3 scripts/security/finance_update_integrity_audit.py
+      - name: Verify Finance substrate target
+        run: python3 scripts/security/verify_finance_substrate_truth.py --mode target
       - name: Emit immutable qualification evidence
         run: |
           set -euo pipefail
