@@ -178,6 +178,13 @@ def _evaluate_rulesets(ruleset_entries: list[Any]) -> tuple[str, list[str]]:
 def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
     validate_policy(policy)
     validate_observation_shape(observation)
+    expected_policy_digest = hashlib.sha256(
+        json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    require(
+        observation.get("policy_sha256") == expected_policy_digest,
+        "policy_sha256 does not match the evaluator policy",
+    )
 
     branch = observation.get("branch")
     require(isinstance(branch, dict), "branch observation missing")
@@ -362,7 +369,9 @@ def fixture_observation(protection_status: int = 200, admin_status: str = "verif
         "repository_id": REPOSITORY_ID,
         "target_ref": TARGET_REF,
         "observed_at_utc": "2026-10-07T00:00:00Z",
-        "policy_sha256": "1" * 64,
+        "policy_sha256": hashlib.sha256(
+            json.dumps(fixture_policy(), sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
         "branch_payload_base64": base64.b64encode(branch_raw).decode(),
         "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
         "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
@@ -403,6 +412,29 @@ def self_test() -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "UNVERIFIED"
     assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(protection_status=404))
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation())
+    x["policy_sha256"] = "f" * 64
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("policy digest substitution must be rejected")
+
+    x = copy.deepcopy(fixture_observation())
+    x["branch_payload_base64"] = base64.b64encode(b'{"name":"attacker"}').decode()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("raw branch payload substitution must be rejected")
 
     x = copy.deepcopy(fixture_observation())
     x["admin_observation"]["protection"]["block_force_push"] = False
