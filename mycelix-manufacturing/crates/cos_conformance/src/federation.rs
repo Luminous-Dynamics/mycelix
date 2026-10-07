@@ -1728,6 +1728,7 @@ impl FederationExternalVerificationTrustPolicyV1 {
             accepted_verifier_profiles,
             accepted_claims,
             required_anchor_reference_sha256: None,
+            required_verifier_profile_sha256: None,
             required_witness_kind: None,
             required_witness_profile: None,
             required_verifier_identity_kind: None,
@@ -1758,6 +1759,15 @@ impl FederationExternalVerificationTrustPolicyV1 {
         {
             return Err(
                 FederationExternalVerificationTrustPolicyViolation::InvalidRequiredAnchorReferenceDigest
+            );
+        }
+        if self
+            .required_verifier_profile_sha256
+            .as_deref()
+            .is_some_and(|value| !state_machine_trace_is_sha256_digest(value))
+        {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::InvalidRequiredVerifierProfileDigest
             );
         }
         if self.required_witness_profile.is_some() != self.required_witness_kind.is_some() {
@@ -1872,6 +1882,9 @@ impl FederationExternalVerificationTrustPolicyV1 {
     pub fn required_anchor_reference_sha256(&self) -> Option<&str> {
         self.required_anchor_reference_sha256.as_deref()
     }
+    pub fn required_verifier_profile_sha256(&self) -> Option<&str> {
+        self.required_verifier_profile_sha256.as_deref()
+    }
     pub fn required_witness_kind(&self) -> Option<FederationStateMachineTraceExternalWitnessKind> { self.required_witness_kind }
     pub fn required_witness_profile(&self) -> Option<&str> { self.required_witness_profile.as_deref() }
     pub fn required_verifier_identity_kind(&self) -> Option<FederationExternalVerifierIdentityKind> {
@@ -1893,6 +1906,22 @@ impl FederationExternalVerificationTrustPolicyV1 {
     }
     pub fn maximum_verification_age_seconds(&self) -> Option<u64> {
         self.maximum_verification_age_seconds
+    }
+
+    pub fn try_new_bound_verifier_profile_sha256(
+        &self,
+        verifier_profile_sha256: impl Into<String>,
+    ) -> Result<Self, FederationExternalVerificationTrustPolicyViolation> {
+        let verifier_profile_sha256 = verifier_profile_sha256.into();
+        if !state_machine_trace_is_sha256_digest(&verifier_profile_sha256) {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::InvalidRequiredVerifierProfileDigest
+            );
+        }
+        let mut policy = self.clone();
+        policy.required_verifier_profile_sha256 = Some(verifier_profile_sha256);
+        policy.validate()?;
+        Ok(policy)
     }
 
     pub fn try_new_bound_anchor_reference(
@@ -1994,6 +2023,7 @@ impl FederationExternalVerificationTrustPolicyV1 {
             accepted_verifier_profiles: self.accepted_verifier_profiles.clone(),
             accepted_claims: self.accepted_claims.clone(),
             required_anchor_reference_sha256: self.required_anchor_reference_sha256.clone(),
+            required_verifier_profile_sha256: self.required_verifier_profile_sha256.clone(),
             required_witness_kind: self.required_witness_kind,
             required_witness_profile: self.required_witness_profile.clone(),
             required_verifier_identity_kind: self.required_verifier_identity_kind,
