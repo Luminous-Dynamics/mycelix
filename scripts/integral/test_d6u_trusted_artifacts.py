@@ -97,7 +97,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 49
+    assert policy["policy_version"] == 50
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -294,6 +294,11 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     }
     assert set(uses) == expected_uses
 
+    assert policy["attestation_publication"] == {
+        "push_to_registry": False,
+        "create_storage_record": False,
+        "show_summary": False,
+    }
     assert policy["trusted_permissions"] == {
         "verifier": {
             "actions": "read",
@@ -653,6 +658,7 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "predicate-path: ${{ steps.commitment_predicate.outputs.predicate }}" in signer
     assert "push-to-registry: false" in signer
     assert "create-storage-record: false" in signer
+    assert "show-summary: false" in signer
     assert "${{ needs.verifier.outputs.canonical_predicate_sha256 }}" in signer
     assert "d6u-attestation-commitment.json" in signer
     assert "attestations: write" in signer
@@ -2493,7 +2499,7 @@ def test_trusted_builder_documentation_is_current() -> None:
     documentation = (root / "docs/integral/d6u-trusted-builder.md").read_text(
         encoding="utf-8"
     )
-    assert "Current trusted policy revision: v49." in documentation
+    assert "Current trusted policy revision: v50." in documentation
     assert "sixty-four deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
