@@ -259,6 +259,10 @@ pub fn mark_timelock_ready(input: MarkTimelockReadyInput) -> ExternResult<Record
         ))));
     }
 
+    // READY is an authorization-admission state, not a cosmetic label. Require
+    // the threshold-signing verifier to succeed before the status is committed.
+    let _signature = require_verified_threshold_signature(&current_timelock.proposal_id)?;
+
     let ready_timelock = Timelock {
         status: TimelockStatus::Ready,
         ..current_timelock
