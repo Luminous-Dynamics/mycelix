@@ -279,6 +279,7 @@ jobs:
           mkdir -p evidence/governance
 
           gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload.json
+          gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload.json
           gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload.json
           policy_hash="$(python - <<'PY'
           import hashlib
