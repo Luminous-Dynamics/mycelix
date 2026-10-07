@@ -97,7 +97,11 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 50
+    assert policy["policy_version"] == 52
+    assert policy["repository_identity"] == {
+        "full_name": "Luminous-Dynamics/mycelix",
+        "repository_id": 1176351975,
+    }
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -2126,6 +2130,10 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
         "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
         "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
         "artifact_max_total_bytes": 4096,
+        "repository_identity": {
+            "full_name": "Luminous-Dynamics/mycelix",
+            "repository_id": 900,
+        },
     }
     event = {
         "workflow_run": {
@@ -2178,8 +2186,10 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
         os.environ,
         {
             "GITHUB_TOKEN": "token",
+        "D6U_TRUSTED_REPOSITORY_ID": "9001",
             "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
             "D6U_TRIGGER_HEAD_SHA": "a" * 40,
+            "D6U_TRUSTED_REPOSITORY_ID": "900",
         },
         clear=False,
     ), patch.object(fetcher, "github_get", side_effect=fake_github_get):
@@ -2196,6 +2206,7 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
             os.environ,
             {
                 "GITHUB_TOKEN": "token",
+        "D6U_TRUSTED_REPOSITORY_ID": "9001",
                 "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
                 "D6U_TRIGGER_HEAD_SHA": "a" * 40,
             },
@@ -2231,6 +2242,7 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
             os.environ,
             {
                 "GITHUB_TOKEN": "token",
+        "D6U_TRUSTED_REPOSITORY_ID": "9001",
                 "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
                 "D6U_TRIGGER_HEAD_SHA": "a" * 40,
             },
@@ -2251,6 +2263,7 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
         os.environ,
         {
             "GITHUB_TOKEN": "token",
+        "D6U_TRUSTED_REPOSITORY_ID": "9001",
             "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
             "D6U_TRIGGER_HEAD_SHA": "a" * 40,
         },
@@ -2273,7 +2286,11 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
         "auditor_handoff": {
             "artifact_name_template": "d6u-trusted-auditor-handoff-run-{run_id}-attempt-{run_attempt}",
             "artifact_max_archive_bytes": 1024,
-        }
+        },
+        "repository_identity": {
+            "full_name": "Luminous-Dynamics/mycelix",
+            "repository_id": 9001,
+        },
     }
     env = {
         "GITHUB_RUN_ID": "501",
@@ -2283,6 +2300,7 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
         "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
         "D6U_TRIGGER_HEAD_SHA": "a" * 40,
         "GITHUB_TOKEN": "token",
+        "D6U_TRUSTED_REPOSITORY_ID": "9001",
     }
     current_run = {
         "id": 501,
@@ -2332,6 +2350,20 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
             "handoff artifact was accepted after current workflow head changed",
         )
 
+    bad_repository_run = json.loads(json.dumps(current_run))
+    bad_repository_run["repository"]["id"] = 9002
+    with patch.dict(os.environ, env, clear=False), patch.object(
+        fetcher,
+        "github_get",
+        side_effect=lambda _repo, api_path, _token: (
+            bad_repository_run if api_path == "/actions/runs/501" else payload
+        ),
+    ):
+        assert_rejected(
+            lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
+            "handoff artifact was accepted from a different current repository ID",
+        )
+
     bad_branch_run = dict(current_run)
     bad_branch_run["head_branch"] = "unexpected-branch"
     with patch.dict(os.environ, env, clear=False), patch.object(
@@ -2354,7 +2386,11 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
         "auditor_handoff": {
             "artifact_name_template": "d6u-trusted-auditor-handoff-run-{run_id}-attempt-{run_attempt}",
             "artifact_max_archive_bytes": 1024,
-        }
+        },
+        "repository_identity": {
+            "full_name": "Luminous-Dynamics/mycelix",
+            "repository_id": 9001,
+        },
     }
     env = {
         "GITHUB_RUN_ID": "501",
@@ -2364,6 +2400,7 @@ def test_current_run_handoff_artifact_rejects_oversized_archive_metadata() -> No
         "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
         "D6U_TRIGGER_HEAD_SHA": "b" * 40,
         "GITHUB_TOKEN": "token",
+        "D6U_TRUSTED_REPOSITORY_ID": "9001",
     }
     current_run = {
         "id": 501,
@@ -2591,7 +2628,7 @@ def test_trusted_builder_documentation_is_current() -> None:
     documentation = (root / "docs/integral/d6u-trusted-builder.md").read_text(
         encoding="utf-8"
     )
-    assert "Current trusted policy revision: v50." in documentation
+    assert "Current trusted policy revision: v52." in documentation
     assert "sixty-four deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
