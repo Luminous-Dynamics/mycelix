@@ -13,8 +13,8 @@
   "formal_subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v2-subject",
-    "head_sha": "fdffab27308e8eb148efd4b9f577b5a32129b962",
-    "tree_sha": "48b1959a41647fde7aac2c81d71585327ef00eab",
+    "head_sha": "c49fcea68c0ad17372533fbb4637968f1601528d",
+    "tree_sha": "f091465ec47d7fb7fe5940415138b06d898ac648",
     "models": [
       {
         "name": "TLA+ temporal sovereignty model",
@@ -26,7 +26,7 @@
       {
         "name": "Alloy structural sovereignty model",
         "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als",
-        "git_blob_sha": "334e6dc54068e7f1d03dd81790d110207c76648f"
+        "git_blob_sha": "f2dae6f035f756e6eeec87ddf49ddee3f7ce2ff1"
       }
     ],
     "reference_explorer": {
@@ -83,7 +83,8 @@
       "SafeStateCannotSettleDispute",
       "EmergencyLifetimeIsBounded",
       "ForkCannotMultiplyPoliticalWeight"
-    ]
+    ],
+    "bitwidth": 4
   },
   "negative_controls": {
     "tla": {
@@ -138,7 +139,8 @@
       "exact solver and finite scope recorded",
       "postflight input immutability",
       "detached fixture blobs equal frozen formal-subject blobs",
-      "detached reference-explorer blob equals frozen formal-subject reference-explorer blob"
+      "detached reference-explorer blob equals frozen formal-subject reference-explorer blob",
+      "explicit Alloy integer bitwidth is recorded and checked"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
@@ -165,8 +167,8 @@
     },
     "alloy": {
       "path": "docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als",
-      "git_blob_sha": "334e6dc54068e7f1d03dd81790d110207c76648f",
-      "source_git_blob_sha": "334e6dc54068e7f1d03dd81790d110207c76648f"
+      "git_blob_sha": "f2dae6f035f756e6eeec87ddf49ddee3f7ce2ff1",
+      "source_git_blob_sha": "f2dae6f035f756e6eeec87ddf49ddee3f7ce2ff1"
     },
     "reference_explorer": {
       "path": "docs/qualification/fixtures/formal/sovereignty_reference_explorer.py",
