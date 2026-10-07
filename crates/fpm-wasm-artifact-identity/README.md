@@ -34,6 +34,8 @@ The returned `MatchedFpmWasmArtifactIdentity` is deliberately Serialize-only and
 
 The approval record itself uses `serde(deny_unknown_fields)`, so an unknown/future field cannot be silently ignored during deserialization. A schema extension must therefore be explicitly versioned rather than becoming an invisible policy change.
 
+The native Holochain hash prefix is also part of the identity boundary. The verifier rejects a 39-byte value whose primitive prefix identifies another hash domain (for example, `InlineHash`) even when the length is otherwise valid. This prevents representation-domain confusion between executable WASM and non-WASM zome identities.
+
 ## Nonclaims
 
 This crate does not establish:
@@ -57,7 +59,7 @@ The verifier rejects artifacts above `holo_hash::MAX_HASHABLE_CONTENT_LEN` befor
 
 ## Dependency-closure note
 
-The production dependency pins `holo_hash = 0.7.0`. The test-only canonical oracle additionally pins `holochain_types = 0.7.0`.
+The production dependency pins `holo_hash = 0.7.0`. The test-only canonical oracle additionally pins `holochain_types = 0.7.0`. The adversarial suite covers wrong-prefix hash-domain substitution, schema/profile substitution, split SHA-256/WasmHash approval, malformed encodings, and oversized inputs.
 
 These version pins establish the intended package versions, not a reproducible dependency closure. The standalone workspace currently has no checked-in `Cargo.lock`; that is tracked separately in #4494.
 
