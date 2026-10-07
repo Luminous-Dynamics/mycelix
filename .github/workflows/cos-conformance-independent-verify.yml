@@ -94,10 +94,16 @@ jobs:
         run: |
           python - <<'PY'
           import re
+          import textwrap
           from pathlib import Path
 
           path = Path(".github/workflows/cos-conformance-independent-verify.yml")
           text = path.read_text()
+
+          python_blocks = re.findall(r"python - <<'PY'\\n([\\s\\S]*?)\\n\\s*PY\\b", text)
+          assert len(python_blocks) >= 13, f"expected embedded Python heredocs, found {len(python_blocks)}"
+          for index, block in enumerate(python_blocks):
+              compile(textwrap.dedent(block), f"<verifier-python-heredoc-{index}>", "exec")
           audit_start = text.index("      - name: Validate immutable verifier action pins")
           audit_end = text.index("\n\n      - name: Validate verification target", audit_start)
           scanned_text = text[:audit_start] + text[audit_end:]
@@ -1029,7 +1035,7 @@ jobs:
           assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2"
           assert envelope["claim_ceiling"] == "ReferenceModelOnly"
           assert sha40.fullmatch(envelope["expected_head_sha"])
-           assert sha40.fullmatch(envelope["base_sha"])
+          assert sha40.fullmatch(envelope["base_sha"])
           assert envelope["base_ref"] == "main"
           assert sha40.fullmatch(envelope["tested_commit_sha"])
           assert envelope["expected_head_sha"] == envelope["tested_commit_sha"]
@@ -1042,7 +1048,7 @@ jobs:
           assert sha64.fullmatch(envelope["raw_execution_artifact_digest"])
           assert envelope["pr_number"].isdigit()
           assert envelope["head_repository"] == envelope["repository"]
-           assert envelope["base_repository"] == envelope["repository"]
+          assert envelope["base_repository"] == envelope["repository"]
           assert isinstance(envelope["trigger_workflow_id"], int) and envelope["trigger_workflow_id"] >= 0
           assert envelope["trigger_workflow_path"]
           assert envelope["trigger_repository"] == envelope["repository"]
