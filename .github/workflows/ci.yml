@@ -211,11 +211,15 @@ jobs:
   finance-exact-head:
     name: Finance Exact-Head Qualification
     needs: changes
+    # Qualification is deliberately independent of fork-identity heuristics:
+    # this workflow never uses secrets, and the subject is pinned explicitly below.
+    # Keep the dependency result explicit so a successful path classification
+    # cannot be turned into a silently skipped exact-head evidence job.
     if: >-
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.draft == false &&
-      github.event.pull_request.head_repository.full_name == github.repository))
-      && (needs.changes.outputs.finance == 'true' || github.event_name != 'pull_request')
+      always() && needs.changes.result == 'success' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      needs.changes.outputs.finance == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
