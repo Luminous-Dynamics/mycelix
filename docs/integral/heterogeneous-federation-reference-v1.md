@@ -379,4 +379,4 @@ The hosted exact-head qualifier is itself treated as part of the evidence bounda
 - `dtolnay/rust-toolchain` at the signed `master` commit selected for this qualification tranche;
 - `actions/upload-artifact` v7.0.1.
 
-The qualification receipt records the workflow provenance, exact PR head, source and manifest digests, step conclusions, and the `ReferenceModelOnly` claim ceiling. These fields describe the evaluator execution and do not upgrade the semantic model into production, runtime, or external validation evidence.
+The qualification workflow pins Rust 1.99.0 for the semantic run in addition to pinning the evaluator action implementations. The receipt records the workflow provenance, exact PR head, source and manifest digests, step conclusions, and the `ReferenceModelOnly` claim ceiling. These fields describe the evaluator execution and do not upgrade the semantic model into production, runtime, or external validation evidence.
