@@ -20,6 +20,10 @@ integrity:
     max_recognitions_per_cycle: 10
     recognition_base_weight: 1.0
 
+    # Governance bootstrap authority used for singleton root creation.
+    # Must be populated with the deployment authority's AgentPubKey before
+    # BilateralBalance roots can be created. Null is intentionally fail-closed.
+    governance_bootstrap_authority: ~
     # MYCEL thresholds
     mycel_apprentice_max: 0.3      # Graduate above this
     mycel_steward_min: 0.7         # Steward tier above this

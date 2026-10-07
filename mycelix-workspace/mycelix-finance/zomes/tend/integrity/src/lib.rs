@@ -60,6 +60,26 @@ const MAX_RESOLUTION_LEN: usize = 4096;
 const MAX_CULTURAL_ALIAS_LEN: usize = 64;
 
 // =============================================================================
+// DNA AUTHORITY
+// =============================================================================
+
+#[dna_properties]
+pub struct FinanceDnaProperties {
+    #[serde(default)]
+    pub governance_bootstrap_authority: Option<AgentPubKey>,
+}
+
+fn governance_bootstrap_authority() -> ExternResult<AgentPubKey> {
+    FinanceDnaProperties::try_from_dna_properties()?
+        .governance_bootstrap_authority
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Governance bootstrap authority is not configured in DNA properties".into(),
+            ))
+        })
+}
+
+// =============================================================================
 // ENTRY TYPES
 // =============================================================================
 
@@ -1512,33 +1532,107 @@ fn validate_oracle_state_transition(
     ValidateCallbackResult::Valid
 }
 
+fn validate_bilateral_balance_shape(
+    action_timestamp: &Timestamp,
+    bal: &BilateralBalance,
+) -> ValidateCallbackResult {
+    if bal.dao_a_did.len() > MAX_DID_LEN || bal.dao_b_did.len() > MAX_DID_LEN {
+        return ValidateCallbackResult::Invalid("DID exceeds maximum length".into());
+    }
+    if !bal.dao_a_did.starts_with("did:") || !bal.dao_b_did.starts_with("did:") {
+        return ValidateCallbackResult::Invalid("DAO DIDs must be valid".into());
+    }
+    if bal.dao_a_did >= bal.dao_b_did {
+        return ValidateCallbackResult::Invalid(
+            "dao_a_did must be alphabetically before dao_b_did (canonical ordering)".into(),
+        );
+    }
+    if bal.last_settled_at != *action_timestamp || bal.last_updated_at != *action_timestamp {
+        return ValidateCallbackResult::Invalid(
+            "New BilateralBalance timestamps must equal the Holochain action timestamp".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn bilateral_balance_same_pair(left: &BilateralBalance, right: &BilateralBalance) -> bool {
+    left.dao_a_did == right.dao_a_did && left.dao_b_did == right.dao_b_did
+}
+
+/// Prove that a new BilateralBalance root is unique for its canonical DAO pair.
+///
+/// Root creation is restricted to the deployment-configured bootstrap authority.
+/// The authority's contiguous prior source-chain activity is the deterministic
+/// singleton witness. Matching prior root entries are retrieved by action hash
+/// and decoded; missing dependencies propagate as unresolved validation rather
+/// than being interpreted as proof that the pair is unused.
+///
+/// Ordinary BilateralBalance updates remain separately authorized and are not
+/// constrained by this root-only author check.
+fn validate_bilateral_balance_root_singleton(
+    action: &Create,
+    bal: &BilateralBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    let authority = governance_bootstrap_authority()?;
+    if action.author != authority {
+        return Ok(ValidateCallbackResult::Invalid(
+            "BilateralBalance roots must be authored by the configured DNA bootstrap authority"
+                .into(),
+        ));
+    }
+
+    let expected_entry_type = EntryType::App(UnitEntryTypes::BilateralBalance.try_into()?);
+    let prior_activity =
+        must_get_agent_activity(action.author.clone(), ChainFilter::new(action.prev_action().clone()))?;
+
+    for activity in prior_activity {
+        let prior_action = &activity.action.hashed.content;
+        if !matches!(prior_action, Action::Create(_))
+            || prior_action.entry_type() != Some(&expected_entry_type)
+        {
+            continue;
+        }
+
+        let prior_record = must_get_valid_record(activity.action.hashed.hash.clone())?;
+        let prior_balance = prior_record
+            .entry()
+            .to_app_option::<BilateralBalance>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Prior BilateralBalance root deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Prior BilateralBalance root entry is missing".into(),
+                ))
+            })?;
+
+        if bilateral_balance_same_pair(&prior_balance, bal) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A BilateralBalance root already exists for this canonical DAO pair".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_create_bilateral_balance(
     action: EntryCreationAction,
     bal: BilateralBalance,
 ) -> ExternResult<ValidateCallbackResult> {
-    if bal.dao_a_did.len() > MAX_DID_LEN || bal.dao_b_did.len() > MAX_DID_LEN {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID exceeds maximum length".into(),
-        ));
+    let EntryCreationAction::Create(create_action) = action else {
+        unreachable!("BilateralBalance creation validation receives a Create action");
+    };
+
+    let shape = validate_bilateral_balance_shape(create_action.timestamp(), &bal);
+    if !matches!(shape, ValidateCallbackResult::Valid) {
+        return Ok(shape);
     }
-    if !bal.dao_a_did.starts_with("did:") || !bal.dao_b_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DAO DIDs must be valid".into(),
-        ));
-    }
-    if bal.dao_a_did >= bal.dao_b_did {
-        return Ok(ValidateCallbackResult::Invalid(
-            "dao_a_did must be alphabetically before dao_b_did (canonical ordering)".into(),
-        ));
-    }
-    if bal.last_settled_at != *action.timestamp()
-        || bal.last_updated_at != *action.timestamp()
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "New BilateralBalance timestamps must equal the Holochain action timestamp".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+
+    validate_bilateral_balance_root_singleton(&create_action, &bal)
 }
 
 fn validate_update_bilateral_balance(
@@ -2379,11 +2473,8 @@ mod tests {
         balance.last_updated_at = action_time;
 
         assert!(matches!(
-            validate_create_bilateral_balance(
-                EntryCreationAction::Create(action),
-                balance,
-            ),
-            Ok(ValidateCallbackResult::Valid)
+            validate_bilateral_balance_shape(&action_time, &balance),
+            ValidateCallbackResult::Valid
         ));
 
         let mut future_balance = valid_bilateral_balance();
@@ -2392,11 +2483,35 @@ mod tests {
         let mut future_action = make_create();
         future_action.timestamp = action_time;
         assert!(matches!(
-            validate_create_bilateral_balance(
-                EntryCreationAction::Create(future_action),
-                future_balance,
-            ),
-            Ok(ValidateCallbackResult::Invalid(_))
+            validate_bilateral_balance_shape(&action_time, &future_balance),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn bilateral_balance_pair_matching_is_exact() {
+        let left = valid_bilateral_balance();
+        let mut same = left.clone();
+        same.net_balance = -999;
+        same.last_updated_at = ts(999_999);
+        assert!(bilateral_balance_same_pair(&left, &same));
+
+        let mut other = left.clone();
+        other.dao_b_did = "did:mycelix:dao-c".into();
+        assert!(!bilateral_balance_same_pair(&left, &other));
+    }
+
+    #[test]
+    fn bilateral_balance_shape_preserves_canonical_order() {
+        let action_time = ts(2_000_000);
+        let mut invalid = valid_bilateral_balance();
+        invalid.dao_a_did = "did:mycelix:dao-z".into();
+        invalid.dao_b_did = "did:mycelix:dao-a".into();
+        invalid.last_settled_at = action_time;
+        invalid.last_updated_at = action_time;
+        assert!(matches!(
+            validate_bilateral_balance_shape(&action_time, &invalid),
+            ValidateCallbackResult::Invalid(_)
         ));
     }
 
