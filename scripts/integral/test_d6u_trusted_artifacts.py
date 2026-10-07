@@ -468,6 +468,20 @@ def test_record_metadata_is_canonicalized() -> None:
         "tampered verifier blob identity was accepted",
     )
 
+    tampered = dict(record)
+    tampered["unexpected_record_field"] = "attacker-controlled"
+    assert_rejected(
+        lambda: verify_record_metadata(tampered, policy),
+        "extra runtime evidence record field was accepted",
+    )
+
+    tampered = dict(record)
+    tampered.pop("claim_ceiling")
+    assert_rejected(
+        lambda: verify_record_metadata(tampered, policy),
+        "missing runtime evidence record field was accepted",
+    )
+
 
 def test_policy_pins_current_trusted_workflow() -> None:
     root = Path(__file__).parents[2]
