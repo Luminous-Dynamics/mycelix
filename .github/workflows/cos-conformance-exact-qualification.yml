@@ -33,7 +33,7 @@ env:
 jobs:
   qualify:
     name: Exact PR-head COS conformance
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout exact PR head
@@ -50,6 +50,18 @@ jobs:
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$HEAD_SHA"
           echo "Exact event head: $actual"
+
+      - name: Capture runner provenance
+        id: runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner label: ubuntu-24.04"
+          echo "Runner OS: ${RUNNER_OS}"
+          echo "Runner architecture: ${RUNNER_ARCH}"
+          echo "Runner image OS: ${ImageOS:-unknown}"
+          echo "Runner image version: ${ImageVersion:-unknown}"
+          echo "Kernel: $(uname -srmo)"
 
       - name: Reject superseded PR-head runs
         if: ${{ github.event_name == 'pull_request' }}
@@ -201,6 +213,12 @@ jobs:
             "checkout_action": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             "rust_toolchain_action": "dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067",
             "upload_artifact_action": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "runner_label": "ubuntu-24.04",
+            "runner_os": "${RUNNER_OS}",
+            "runner_arch": "${RUNNER_ARCH}",
+            "runner_image_os": "${ImageOS:-unknown}",
+            "runner_image_version": "${ImageVersion:-unknown}",
+            "runner_kernel": "$(uname -srmo)",
             "event": "${{ github.event_name }}",
             "pull_request_number": "${{ github.event.pull_request.number || '' }}",
             "event_head_sha": "${HEAD_SHA}",
@@ -216,6 +234,7 @@ jobs:
             "boundary_conclusion": "${{ steps.boundary.conclusion }}",
             "federation_source_sha256": "$(sha256sum "$source" | cut -d' ' -f1)",
             "cargo_manifest_sha256": "$(sha256sum "$MANIFEST" | cut -d' ' -f1)",
+            "receipt_file_sha256": "$(sha256sum qualification-receipt/cos-exact-qualification-receipt.json | cut -d' ' -f1)",
             "claim_ceiling": "ReferenceModelOnly",
             "qualification_scope": "Exact PR-head COS semantic conformance only"
           }
@@ -223,9 +242,28 @@ jobs:
           jq -e '.schema == "cos-exact-qualification-receipt-v1" and .event_head_sha == .checked_out_head_sha and .claim_ceiling == "ReferenceModelOnly"' qualification-receipt/cos-exact-qualification-receipt.json
 
       - name: Upload exact qualification receipt
+        id: upload_receipt
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cos-exact-qualification-receipt
           path: qualification-receipt/cos-exact-qualification-receipt.json
+          archive: false
           if-no-files-found: error
+
+      - name: Publish receipt artifact provenance
+        if: ${{ always() }}
+        env:
+          ARTIFACT_ID: ${{ steps.upload_receipt.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload_receipt.outputs.artifact-digest }}
+          RECEIPT_FILE_SHA256: "$(sha256sum qualification-receipt/cos-exact-qualification-receipt.json | cut -d' ' -f1)"
+        shell: bash
+        run: |
+          {
+            echo "### COS exact qualification receipt provenance"
+            echo
+            echo "- Artifact ID: ${ARTIFACT_ID:-unavailable}"
+            echo "- Artifact digest: ${ARTIFACT_DIGEST:-unavailable}"
+            echo "- Receipt file SHA-256: ${RECEIPT_FILE_SHA256}"
+            echo "- Runner image: ubuntu-24.04 (${ImageOS:-unknown} ${ImageVersion:-unknown})"
+          } >> "$GITHUB_STEP_SUMMARY"
