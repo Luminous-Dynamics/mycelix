@@ -364,27 +364,47 @@ fn validate_update_currency(
     original_action: &ActionHash,
     def: CurrencyDefinition,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Parameters must still be valid after update
     if let Err(e) = def.params.validate() {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "Updated parameters violate constitutional limits: {}",
             e
         )));
     }
-    // Enforce status transition rules
-    if let Ok(original_record) = must_get_valid_record(original_action.clone()) {
-        if let Ok(Some(original)) = original_record
-            .entry()
-            .to_app_option::<CurrencyDefinition>()
-        {
-            if original.status != def.status && !original.status.can_transition_to(&def.status) {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid currency status transition: {:?} → {:?}",
-                    original.status, def.status
-                )));
-            }
-        }
+
+    let original_record = must_get_valid_record(original_action.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<CurrencyDefinition>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode original CurrencyDefinition predecessor: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original currency update predecessor is not a CurrencyDefinition entry".into(),
+            ))
+        })?;
+
+    if original.status != def.status && !original.status.can_transition_to(&def.status) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid currency status transition: {:?} → {:?}",
+            original.status, def.status
+        )));
     }
+
+    if original.id != def.id
+        || original.creator_dao_did != def.creator_dao_did
+        || original.governance_proposal_id != def.governance_proposal_id
+        || original.params != def.params
+        || original.created_at != def.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Currency identity, authorization reference, parameters, and creation timestamp are immutable across updates"
+                .into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 

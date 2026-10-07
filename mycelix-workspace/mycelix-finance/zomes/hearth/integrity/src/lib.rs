@@ -458,12 +458,30 @@ fn validate_create_pool(
 }
 
 fn validate_update_pool(
-    _action: Update,
+    action: Update,
     pool: CommonsPool,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Pool can be updated (status changes, governance updates via DAO vote)
-    if pool.name.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Pool name required".into()));
+    if pool.name.is_empty() { return Ok(ValidateCallbackResult::Invalid("Pool name required".into())); }
+    if !pool.total_resources.is_finite() || !pool.lifetime_contributions.is_finite() || !pool.lifetime_allocations.is_finite()
+        || pool.total_resources < 0.0 || pool.lifetime_contributions < 0.0 || pool.lifetime_allocations < 0.0 {
+        return Ok(ValidateCallbackResult::Invalid("Pool resource totals must be finite and non-negative".into()));
+    }
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<CommonsPool>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode CommonsPool predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("CommonsPool predecessor has wrong type".into())))?;
+    if o.id != pool.id || o.dao_did != pool.dao_did || o.resource_type != pool.resource_type || o.created != pool.created {
+        return Ok(ValidateCallbackResult::Invalid("CommonsPool identity/resource type is immutable".into()));
+    }
+    if pool.lifetime_contributions < o.lifetime_contributions || pool.lifetime_allocations < o.lifetime_allocations || pool.contributor_count < o.contributor_count {
+        return Ok(ValidateCallbackResult::Invalid("CommonsPool lifetime counters cannot move backwards".into()));
+    }
+    match (&o.status,&pool.status) {
+        (PoolStatus::Proposed,PoolStatus::Proposed|PoolStatus::Active|PoolStatus::Closed)
+        | (PoolStatus::Active,PoolStatus::Active|PoolStatus::Paused|PoolStatus::WindingDown|PoolStatus::Closed)
+        | (PoolStatus::Paused,PoolStatus::Paused|PoolStatus::Active|PoolStatus::WindingDown|PoolStatus::Closed)
+        | (PoolStatus::WindingDown,PoolStatus::WindingDown|PoolStatus::Closed)
+        | (PoolStatus::Closed,PoolStatus::Closed) => {}
+        _ => return Ok(ValidateCallbackResult::Invalid("Invalid CommonsPool status transition".into())),
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -551,14 +569,38 @@ fn validate_create_request(
 }
 
 fn validate_update_request(
-    _action: Update,
+    action: Update,
     request: AllocationRequest,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Request can be updated (status, vote tallies)
-    if request.amount <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Amount must be positive".into(),
-        ));
+    if request.amount <= 0.0 || !request.amount.is_finite() {
+        return Ok(ValidateCallbackResult::Invalid("Amount must be a positive finite number".into()));
+    }
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<AllocationRequest>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode AllocationRequest predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("AllocationRequest predecessor has wrong type".into())))?;
+    if o.id != request.id || o.pool_id != request.pool_id || o.requester_did != request.requester_did
+        || o.recipient_did != request.recipient_did || o.amount != request.amount
+        || o.justification != request.justification || o.need_category != request.need_category
+        || o.voting_deadline != request.voting_deadline || o.created != request.created {
+        return Ok(ValidateCallbackResult::Invalid("AllocationRequest identity and terms are immutable".into()));
+    }
+    if request.votes_for < o.votes_for || request.votes_against < o.votes_against || request.total_vote_weight < o.total_vote_weight {
+        return Ok(ValidateCallbackResult::Invalid("AllocationRequest vote tallies cannot move backwards".into()));
+    }
+    match (&o.status,&request.status) {
+        (RequestStatus::Voting,RequestStatus::Voting|RequestStatus::Approved|RequestStatus::Rejected|RequestStatus::Withdrawn|RequestStatus::Expired)
+        | (RequestStatus::Approved,RequestStatus::Approved|RequestStatus::Disbursed)
+        | (RequestStatus::Rejected,RequestStatus::Rejected)
+        | (RequestStatus::Withdrawn,RequestStatus::Withdrawn)
+        | (RequestStatus::Expired,RequestStatus::Expired)
+        | (RequestStatus::Disbursed,RequestStatus::Disbursed) => {}
+        _ => return Ok(ValidateCallbackResult::Invalid("Invalid AllocationRequest status transition".into())),
+    }
+    if o.resolved.is_some() && o.resolved != request.resolved {
+        return Ok(ValidateCallbackResult::Invalid("Resolution timestamp is immutable once set".into()));
+    }
+    if matches!(request.status,RequestStatus::Approved|RequestStatus::Rejected|RequestStatus::Withdrawn|RequestStatus::Disbursed|RequestStatus::Expired) && request.resolved.is_none() {
+        return Ok(ValidateCallbackResult::Invalid("Terminal request state requires resolved timestamp".into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }

@@ -469,14 +469,22 @@ fn validate_create_allocation(
 }
 
 fn validate_update_allocation(
-    _action: Update,
+    action: Update,
     allocation: CgcAllocation,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Can only decrease remaining (as gifts are made)
-    if allocation.gifted + allocation.remaining != allocation.total_allocated {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Gifted + remaining must equal total allocated".into(),
-        ));
+    if allocation.gifted.saturating_add(allocation.remaining) != allocation.total_allocated {
+        return Ok(ValidateCallbackResult::Invalid("Gifted + remaining must equal total allocated".into()));
+    }
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<CgcAllocation>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode CgcAllocation predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("CgcAllocation predecessor has wrong type".into())))?;
+    if o.member_did != allocation.member_did || o.cycle_id != allocation.cycle_id
+        || o.total_allocated != allocation.total_allocated || o.created != allocation.created
+        || o.expires != allocation.expires {
+        return Ok(ValidateCallbackResult::Invalid("CGC allocation identity and allocation terms are immutable".into()));
+    }
+    if allocation.gifted < o.gifted || allocation.remaining > o.remaining {
+        return Ok(ValidateCallbackResult::Invalid("CGC allocation consumption cannot move backwards".into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -499,10 +507,20 @@ fn validate_create_recognition(
 }
 
 fn validate_update_recognition(
-    _action: Update,
-    _recognition: CgcRecognition,
+    action: Update,
+    recognition: CgcRecognition,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Recognition can be updated as more gifts are received
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<CgcRecognition>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode CgcRecognition predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("CgcRecognition predecessor has wrong type".into())))?;
+    if o.member_did != recognition.member_did || o.cycle_id != recognition.cycle_id {
+        return Ok(ValidateCallbackResult::Invalid("CGC recognition identity is immutable".into()));
+    }
+    if recognition.total_received < o.total_received
+        || recognition.unique_givers < o.unique_givers
+        || recognition.max_from_single_giver < o.max_from_single_giver {
+        return Ok(ValidateCallbackResult::Invalid("CGC recognition totals cannot move backwards".into()));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -547,10 +565,24 @@ fn validate_create_flag(
 }
 
 fn validate_update_flag(
-    _action: Update,
-    _flag: CgcHighActivityFlag,
+    action: Update,
+    flag: CgcHighActivityFlag,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Flags can be updated by Audit Guild
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<CgcHighActivityFlag>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode CgcHighActivityFlag predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("CgcHighActivityFlag predecessor has wrong type".into())))?;
+    if o.member_did != flag.member_did || o.cycle_id != flag.cycle_id || o.flag_reason != flag.flag_reason
+        || o.total_received != flag.total_received || o.max_single_source != flag.max_single_source
+        || o.flagged_at != flag.flagged_at {
+        return Ok(ValidateCallbackResult::Invalid("CGC flag identity and trigger evidence are immutable".into()));
+    }
+    match (&o.audit_status,&flag.audit_status) {
+        (AuditStatus::PendingReview,AuditStatus::PendingReview|AuditStatus::UnderInvestigation|AuditStatus::Cleared|AuditStatus::ConfirmedGaming)
+        | (AuditStatus::UnderInvestigation,AuditStatus::UnderInvestigation|AuditStatus::Cleared|AuditStatus::ConfirmedGaming)
+        | (AuditStatus::Cleared,AuditStatus::Cleared)
+        | (AuditStatus::ConfirmedGaming,AuditStatus::ConfirmedGaming) => {}
+        _ => return Ok(ValidateCallbackResult::Invalid("Invalid CGC audit-status transition".into())),
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 

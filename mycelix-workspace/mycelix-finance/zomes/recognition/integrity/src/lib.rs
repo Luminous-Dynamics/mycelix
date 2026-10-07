@@ -416,72 +416,56 @@ fn validate_create_mycel_state(
 }
 
 fn validate_update_mycel_state(
-    _action: Update,
+    action: Update,
     state: MemberMycelState,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Validate member DID format (must remain a valid DID)
     if !state.member_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Member must be a valid DID".into(),
-        ));
+        return Ok(ValidateCallbackResult::Invalid("Member must be a valid DID".into()));
     }
-
-    // NaN/Infinity guard
-    if !state.mycel_score.is_finite()
-        || !state.participation.is_finite()
-        || !state.recognition.is_finite()
-        || !state.validation.is_finite()
+    if !state.mycel_score.is_finite() || !state.participation.is_finite()
+        || !state.recognition.is_finite() || !state.validation.is_finite()
         || !state.longevity.is_finite()
+        || state.mycel_score < 0.0 || state.mycel_score > 1.0
+        || !(0.0..=1.0).contains(&state.participation)
+        || !(0.0..=1.0).contains(&state.recognition)
+        || !(0.0..=1.0).contains(&state.validation)
+        || !(0.0..=1.0).contains(&state.longevity)
     {
         return Ok(ValidateCallbackResult::Invalid(
-            "MYCEL score and components must be finite numbers".into(),
+            "MYCEL score and components must be finite values in [0,1]".into(),
         ));
     }
-
-    // MYCEL score must be 0.0-1.0
-    if state.mycel_score < 0.0 || state.mycel_score > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "MYCEL score must be between 0.0 and 1.0".into(),
-        ));
-    }
-
-    // All components must be 0.0-1.0
-    for (name, value) in [
-        ("participation", state.participation),
-        ("recognition", state.recognition),
-        ("validation", state.validation),
-        ("longevity", state.longevity),
-    ] {
-        if !(0.0..=1.0).contains(&value) {
-            return Ok(ValidateCallbackResult::Invalid(format!(
-                "{} component must be between 0.0 and 1.0",
-                name
-            )));
-        }
-    }
-
-    // Note: member_did immutability (cannot change which member this state belongs to)
-    // cannot be fully enforced here because integrity validation does not have access
-    // to fetch the original entry from the DHT. The coordinator must enforce this.
-
-    // Apprentices must have a mentor
     if state.is_apprentice && state.mentor_did.is_none() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Apprentice must have a mentor DID".into(),
-        ));
+        return Ok(ValidateCallbackResult::Invalid("Apprentice must have a mentor DID".into()));
     }
-
-    // Validate mentor DID if present
     if let Some(ref mentor) = state.mentor_did {
         if !mentor.starts_with("did:") {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Mentor must be a valid DID".into(),
-            ));
+            return Ok(ValidateCallbackResult::Invalid("Mentor must be a valid DID".into()));
         }
     }
-
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<MemberMycelState>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("Failed to decode original MemberMycelState predecessor: {e:?}")))
+    })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+        "Original MYCEL state predecessor is not a MemberMycelState entry".into()
+    )))?;
+    if original.member_did != state.member_did || original.created_at != state.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "MYCEL state identity and creation provenance are immutable across updates".into(),
+        ));
+    }
+    if state.active_months < original.active_months || state.recognitions_given_this_cycle < original.recognitions_given_this_cycle {
+        return Ok(ValidateCallbackResult::Invalid("MYCEL lifetime counters cannot move backwards".into()));
+    }
+    if !original.is_apprentice && state.is_apprentice {
+        return Ok(ValidateCallbackResult::Invalid("A graduated member cannot revert to apprentice status".into()));
+    }
+    if original.is_apprentice && !state.is_apprentice && state.mycel_score < MYCEL_APPRENTICE_MAX {
+        return Ok(ValidateCallbackResult::Invalid("Apprentice cannot graduate below the MYCEL threshold".into()));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
+
 
 fn validate_create_allocation(
     action: EntryCreationAction,
@@ -526,17 +510,27 @@ fn validate_create_allocation(
 }
 
 fn validate_update_allocation(
-    _action: Update,
+    action: Update,
     alloc: RecognitionAllocation,
 ) -> ExternResult<ValidateCallbackResult> {
     if alloc.count > MAX_RECOGNITIONS_PER_CYCLE {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Cannot exceed {} recognitions per cycle",
-            MAX_RECOGNITIONS_PER_CYCLE
-        )));
+        return Ok(ValidateCallbackResult::Invalid(format!("Cannot exceed {} recognitions per cycle", MAX_RECOGNITIONS_PER_CYCLE)));
+    }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<RecognitionAllocation>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("Failed to decode original RecognitionAllocation predecessor: {e:?}")))
+    })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+        "Original recognition allocation predecessor is not a RecognitionAllocation entry".into()
+    )))?;
+    if original.recognizer_did != alloc.recognizer_did || original.cycle_id != alloc.cycle_id {
+        return Ok(ValidateCallbackResult::Invalid("Recognition allocation identity is immutable across updates".into()));
+    }
+    if alloc.count < original.count || alloc.count > original.count.saturating_add(1) {
+        return Ok(ValidateCallbackResult::Invalid("Recognition allocation count may only increase by one".into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
+
 
 #[cfg(test)]
 mod tests {
