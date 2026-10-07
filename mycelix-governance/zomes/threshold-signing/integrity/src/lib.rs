@@ -308,6 +308,8 @@ pub enum EntryTypes {
 
 #[hdk_link_types]
 pub enum LinkTypes {
+    /// Deterministic committee ID anchor → committee record
+    CommitteeById,
     /// Committee to its members
     CommitteeToMember,
     /// Committee to signatures it has produced
@@ -395,6 +397,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             tag: _,
             action: _,
         } => match link_type {
+            LinkTypes::CommitteeById => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CommitteeToMember => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CommitteeToSignature => Ok(ValidateCallbackResult::Valid),
             LinkTypes::SignatureToShare => Ok(ValidateCallbackResult::Valid),
