@@ -36,7 +36,7 @@ It pins:
 - the `ReferenceModelOnly` claim ceiling;
 - the public-transparency Tlog requirement and retained offline-attestation packet schema/limits.
 
-Before signing, the trusted verifier obtains the complete Git tree for the triggering run's exact `head_sha`. The D6S success status is not treated as sufficient proof by itself: the canonical verifier programs and canonical reference inputs are independently pinned in the trusted policy. It requires every policy-listed tracked path to resolve to an ordinary Git blob with an allowed file mode and the exact expected SHA. A truncated tree, missing path, blob mismatch, symlink mode, submodule/non-blob entry, or inherited Cargo configuration fails closed. The privileged workflow also fails closed if its own workflow-ref or pinned workflow blob does not match the reviewed policy. The artifact's self-reported hashes therefore cannot substitute for repository state.
+Before signing, the trusted verifier obtains the complete Git tree for the triggering run's exact `head_sha`. The D6S success status is not treated as sufficient proof by itself: the canonical verifier programs and canonical reference inputs are independently pinned in the trusted policy. It requires every policy-listed tracked path to resolve to an ordinary Git blob with an allowed file mode and the exact expected SHA. A truncated tree, missing path, blob mismatch, symlink mode, submodule/non-blob entry, or inherited Cargo configuration fails closed. The privileged workflow also fails closed if its own workflow-ref or pinned workflow blob does not match the reviewed policy. The artifact's self-reported hashes therefore cannot substitute for repository state. The runtime evidence record is also treated as a closed-world schema: every policy-listed field must be present exactly once, and unknown fields are rejected rather than silently tolerated.
 
 ## Artifact boundary
 
@@ -79,4 +79,4 @@ The trusted attestation workflow is deliberately not branch-executable. GitHub d
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v48.
+Current trusted policy revision: v49.
