@@ -273,6 +273,8 @@ jobs:
         id: governance
         env:
           GH_TOKEN: ${{ github.token }}
+          TRUSTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_sha }}
+          TRUSTED_WORKFLOW_FILE_BLOB_SHA: ${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}
         run: |
           set -euo pipefail
           mkdir -p evidence/governance
