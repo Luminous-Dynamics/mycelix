@@ -461,6 +461,8 @@ EOF
               --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1" \
               --deny-self-hosted-runners \
               --format=json > "$report"
+            test -s "$report"
+            test "$(wc -c < "$report")" -le 4194304
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-auditor-handoff" \
             D6U_TRUSTED_POLICY_VERSION="57" \
