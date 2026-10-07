@@ -5558,6 +5558,71 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn external_verification_statement_wire_shape_is_closed_world_for_v2() {
+        let anchor = state_machine_trace_external_evidence_anchor_reference(
+            1,
+            "subject-v1",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            b"witness",
+            1_791_010_000,
+        )
+        .expect("anchor reference must build");
+
+        let statement = state_machine_trace_external_evidence_verification_statement(
+            anchor.anchor_reference_sha256(),
+            2,
+            "rfc3161-verifier-v1",
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-key-v1",
+            b"identity",
+            FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            b"report",
+            1_791_010_001,
+        )
+        .expect("verification statement must build");
+
+        let value =
+            serde_json::to_value(&statement).expect("verification statement must serialize");
+        let object = value
+            .as_object()
+            .expect("verification statement must serialize as an object");
+        let actual = object.keys().map(String::as_str).collect::<BTreeSet<_>>();
+        let expected = [
+            "schema_version",
+            "statement_profile",
+            "hash_algorithm",
+            "hash_encoding",
+            "anchor_reference_schema_version",
+            "anchor_reference_profile",
+            "anchor_reference_sha256",
+            "verifier_schema_version",
+            "verifier_profile",
+            "verifier_identity_kind",
+            "verifier_identity_profile",
+            "verifier_identity_hash_algorithm",
+            "verifier_identity_hash_encoding",
+            "verifier_identity_sha256",
+            "verification_claim",
+            "verifier_report_hash_algorithm",
+            "verifier_report_hash_encoding",
+            "verifier_report_sha256",
+            "claimed_verified_at_unix_seconds",
+            "statement_sha256",
+        ]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+
+        assert_eq!(actual, expected);
+        assert_eq!(
+            statement.schema_version(),
+            FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION
+        );
+    }
+
     fn external_verification_policy_is_canonical_and_content_addressed() {
         let left = FederationExternalVerificationTrustPolicyV1::try_new(
             2,
