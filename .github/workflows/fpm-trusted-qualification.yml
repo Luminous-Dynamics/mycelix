@@ -473,7 +473,10 @@ jobs:
               "receipt_sha256": os.environ["RECEIPT_SHA256"],
               "artifact": {
                   "id": int(os.environ["ARTIFACT_ID"]),
-                  "sha256": os.environ["ARTIFACT_DIGEST"],
+                  # upload-artifact exposes this output as bare 64-hex SHA-256.
+                  # The Actions artifact API independently represents the same digest as
+                  # the prefixed `sha256:<hex>` value.
+                  "sha256_hex": os.environ["ARTIFACT_DIGEST"],
                   "url": os.environ["ARTIFACT_URL"],
                   "retention_days": 90,
                   "immutable_after_upload": True,
