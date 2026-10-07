@@ -27,7 +27,7 @@ jobs:
         env:
           EXPECTED_VERIFIER_SHA: ${{ github.sha }}
         run: |
-          set -eu
+          set -euo pipefail
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$EXPECTED_VERIFIER_SHA"
 
@@ -69,3 +69,4 @@ jobs:
           set -eu
           test "$(git -C subject status --porcelain)" = ""
           test "$(git status --porcelain)" = ""
+
