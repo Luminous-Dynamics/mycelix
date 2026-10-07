@@ -174,6 +174,42 @@ def require_exact_job_keys(
         fail(f"{description}: job key census mismatch: expected {expected!r}, found {actual!r}")
 
 
+def require_exact_job_values(
+    lines_: list[str],
+    job_name: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    matches = [
+        i
+        for i, line in enumerate(lines_)
+        if line.strip() == f"{job_name}:" and len(line) - len(line.lstrip(" ")) == 2
+    ]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one job named {job_name!r}")
+    start = matches[0]
+    end = len(lines_)
+    for i in range(start + 1, len(lines_)):
+        if lines_[i] and not lines_[i].startswith((" ", "\t")):
+            end = i
+            break
+    actual = {}
+    for line in lines_[start + 1:end]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent != 4:
+            continue
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):\s+(.+)", line.strip())
+        if not match:
+            continue
+        key = match.group(1)
+        if key in actual:
+            fail(f"{description}: duplicate direct job scalar key {key!r}")
+        actual[key] = f"{key}: {match.group(2)}"
+    found = tuple(actual.get(entry.split(":", 1)[0]) for entry in expected)
+    if found != expected:
+        fail(f"{description}: job scalar value mismatch: expected {expected!r}, found {found!r}")
 def require_exact_root_mapping(
     lines_: list[str],
     mapping_name: str,
@@ -645,6 +681,48 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail(f"S0 external action census mismatch: {external_uses(l)!r}")
     if local_uses(l) != ("./.github/workflows/security-kernel-independent-qualification.yml",):
         fail("S0 local reusable workflow census mismatch")
+    require_exact_job_values(
+        l,
+        "resolve",
+        (
+            "name: Resolve exact pull request subject",
+            "runs-on: ubuntu-24.04",
+            "cache-mode: none",
+            "timeout-minutes: 10",
+        ),
+        "S0 resolve",
+    )
+    require_exact_job_values(
+        l,
+        "qualify",
+        (
+            "name: Execute exact candidate qualification",
+            "cache-mode: none",
+            "uses: ./.github/workflows/security-kernel-independent-qualification.yml",
+        ),
+        "S0 qualify",
+    )
+    require_exact_job_values(
+        l,
+        "qualify",
+        (
+            "name: Independent Security Kernel",
+            "runs-on: ubuntu-24.04",
+            "timeout-minutes: 45",
+        ),
+        "S1 qualify",
+    )
+    require_exact_job_values(
+        l,
+        "verify",
+        (
+            "name: Independently verify qualification result",
+            "runs-on: ubuntu-24.04",
+            "cache-mode: none",
+            "timeout-minutes: 15",
+        ),
+        "S2 verify",
+    )
     require_exact_root_mapping(
         l,
         "env",
@@ -1616,6 +1694,45 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 root concurrency group drift",
+    )
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b"    runs-on: ubuntu-24.04\n",
+                b"    runs-on: ubuntu-22.04\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 job runner drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"    timeout-minutes: 45\n",
+                b"    timeout-minutes: 44\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 job timeout drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b"    cache-mode: none\n",
+                b"    cache-mode: altered\n",
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 job cache-mode drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
