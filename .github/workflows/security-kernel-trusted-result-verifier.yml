@@ -19,7 +19,7 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "4fd4570f9fbfe7da92a07642a42250d8718fad53"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "856b10657bd930de3e46b6c9b592a43dd336626a"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "66b8ae69d4ebf3dbe4ffc5dbe432a5278cb64722"
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
@@ -27,7 +27,7 @@ env:
   EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "18dca202667b1dc26f57c588efcab42087c8a49e"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "3dd705b917e42e15c3958d2114ee2302fe5dbaf0"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "1a00d002c5367fb4d96b0abd407229a64d0a7cce"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -510,7 +510,7 @@ jobs:
               "vendor_tmpfs_size","vendor_tmpfs_nr_inodes","vendor_config_resource_profile","vendor_config_max_bytes","vendor_config_max_inodes",
               "vendor_config_tmpfs_size","vendor_config_tmpfs_nr_inodes","vendor_config_volume_name","vendor_config_volume_spec",
               "vendor_config_observed_bytes","vendor_config_observed_inodes","vendor_config_digest",
-              "vendor_tmpfs_size","vendor_tmpfs_nr_inodes","vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","vendor_resource_measurement","vendor_digest",
+              "vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","vendor_resource_measurement","vendor_digest",
               "sandbox_negative_controls","sandbox_negative_controls_log_sha256","dependency_substrate_postflight",
               "git_fetch_image","sandbox_image","sandbox_network","sandbox_rootfs","sandbox_user",
               "sandbox_capabilities","sandbox_no_new_privileges","source_event","trusted_dispatcher_workflow",
