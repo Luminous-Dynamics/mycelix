@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import hashlib
 import json
 import re
@@ -148,6 +149,23 @@ def require_sha256_prefixed(value: Any, field: str) -> str:
     if not isinstance(value, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
         fail(f"{field} is not sha256:<64 lowercase hex>")
     return value
+
+
+def validate_artifact_lifetime(item: dict[str, Any], label: str) -> tuple[str, str]:
+    created = item.get("created_at")
+    expires = item.get("expires_at")
+    if not isinstance(created, str) or not isinstance(expires, str):
+        fail(f"{label} artifact timestamps are missing")
+    try:
+        created_dt = dt.datetime.fromisoformat(created.replace("Z", "+00:00"))
+        expires_dt = dt.datetime.fromisoformat(expires.replace("Z", "+00:00"))
+    except ValueError as exc:
+        fail(f"{label} artifact timestamp is invalid: {exc}")
+    if created_dt.tzinfo is None or expires_dt.tzinfo is None:
+        fail(f"{label} artifact timestamps must be timezone-aware")
+    if expires_dt <= created_dt:
+        fail(f"{label} artifact expires_at is not after created_at")
+    return created, expires
 
 
 def verify_receipt(
@@ -457,6 +475,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     for item, label in ((primary_artifact, "receipt"), (index_artifact, "index")):
         if item["expired"] is not False:
             fail(f"{label} artifact is expired")
+        validate_artifact_lifetime(item, label)
         if item["size_in_bytes"] <= 0:
             fail(f"{label} artifact is empty")
         if item["workflow_run"]["id"] != trusted_run["id"]:
@@ -513,9 +532,13 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         "receipt_content_sha256": receipt_digest,
         "receipt_artifact_id": primary_artifact["id"],
         "receipt_artifact_digest": primary_artifact["digest"],
+        "receipt_artifact_created_at": primary_artifact["created_at"],
+        "receipt_artifact_expires_at": primary_artifact["expires_at"],
         "index_content_sha256": index_digest,
         "index_artifact_id": index_artifact["id"],
         "index_artifact_digest": index_artifact["digest"],
+        "index_artifact_created_at": index_artifact["created_at"],
+        "index_artifact_expires_at": index_artifact["expires_at"],
         "trusted_policy_sha": receipt["trusted_policy_sha"],
         "trusted_policy_blob_sha": receipt["trusted_policy_blob_sha"],
         "independent_verifier_workflow_sha": verifier_sha,

@@ -87,10 +87,10 @@ def snapshot(root: Path) -> None:
     }
     artifacts = {"artifacts": [
         {"id": RECEIPT_ARTIFACT, "name": f"fpm-trusted-qualification-{SUBJECT}",
-         "expired": False, "size_in_bytes": 1, "digest": f"sha256:{ARTIFACT_SHA}",
+         "expired": False, "created_at": "2026-10-07T20:00:00Z", "expires_at": "2027-01-05T20:00:00Z", "size_in_bytes": 1, "digest": f"sha256:{ARTIFACT_SHA}",
          "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID}},
         {"id": INDEX_ARTIFACT, "name": f"fpm-trusted-qualification-index-{SUBJECT}",
-         "expired": False, "size_in_bytes": 1, "digest": f"sha256:{ARTIFACT_SHA}",
+         "expired": False, "created_at": "2026-10-07T20:00:01Z", "expires_at": "2027-01-05T20:00:01Z", "size_in_bytes": 1, "digest": f"sha256:{ARTIFACT_SHA}",
          "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID}},
     ]}
     trusted = {"id": TRUSTED_RUN, "name": TW_NAME, "path": TW_PATH, "event": "workflow_run",
@@ -203,6 +203,10 @@ def main() -> None:
         expect_failure(
             root, "artifact-binding-index.json", "index.artifact.id",
             lambda x: x["artifact"].__setitem__("id", RECEIPT_ARTIFACT + 1),
+        )
+        expect_failure(
+            root, "artifacts.json", "artifact-expiry-order",
+            lambda x: x["artifacts"][0].__setitem__("expires_at", "2026-10-07T19:59:59Z"),
         )
 
         raw = (root / "qualification-receipt.json").read_bytes()
