@@ -636,11 +636,25 @@ fn validate_create_payment_channel(
 }
 
 fn validate_update_payment_channel(
-    _action: Update,
-    _channel: PaymentChannel,
+    action: Update,
+    channel: PaymentChannel,
 ) -> ExternResult<ValidateCallbackResult> {
+    if channel.party_a == channel.party_b || (channel.currency != "SAP" && channel.currency != "TEND") {
+        return Ok(ValidateCallbackResult::Invalid("Invalid payment channel parties/currency".into()));
+    }
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<PaymentChannel>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode PaymentChannel predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("PaymentChannel predecessor has wrong type".into())))?;
+    if o.id != channel.id || o.party_a != channel.party_a || o.party_b != channel.party_b
+        || o.currency != channel.currency || o.opened != channel.opened {
+        return Ok(ValidateCallbackResult::Invalid("PaymentChannel identity/configuration is immutable".into()));
+    }
+    if channel.last_updated < o.last_updated || (o.closed.is_some() && channel.closed != o.closed) || (o.closed.is_some() && channel.closed.is_none()) {
+        return Ok(ValidateCallbackResult::Invalid("PaymentChannel timestamps/closure cannot move backwards".into()));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
+
 
 fn validate_create_receipt(
     _action: EntryCreationAction,
