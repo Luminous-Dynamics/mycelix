@@ -766,7 +766,89 @@ pub struct MarkExecutionInvokedInput {
     pub timelock_id: String,
 }
 
-/// Invoke an execution attempt whose INVOKED marker is already durable.
+/// Commit a single-use invocation claim after INVOKED is durable.
+///
+/// This is intentionally a separate source-chain transaction from the actual
+/// provider call. A second concurrent claimant cannot also move the same
+/// attempt out of Invoked once one claim has committed.
+#[hdk_extern]
+pub fn claim_execution_invocation(
+    input: ClaimExecutionInvocationInput,
+) -> ExternResult<Record> {
+    if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Timelock ID must be 1-256 characters".into()
+        )));
+    }
+
+    let caller = caller_did()?;
+    let current_record = find_latest_execution_attempt(&input.timelock_id)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No execution attempt exists for invocation claim".into()
+        )))?;
+
+    let current: ExecutionAttempt = current_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid execution attempt entry".into()
+        )))?;
+
+    if current.executor != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the execution-attempt owner may claim invocation".into()
+        )));
+    }
+    if current.status != ExecutionAttemptStatus::Invoked {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution attempt must be Invoked before claiming provider entry, current: {:?}",
+            current.status
+        ))));
+    }
+
+    let timelock_record = find_timelock_by_id(&input.timelock_id)?;
+    let timelock: Timelock = timelock_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid timelock entry during invocation claim".into()
+        )))?;
+
+    let action_key = execution_action_key(&timelock.actions)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+
+    if current.action_key_digest != action_key.digest()
+        || current.action_digest != action_key.material_action_digest()
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invocation claim action identity does not match the durable attempt".into()
+        )));
+    }
+
+    let updated = ExecutionAttempt {
+        status: ExecutionAttemptStatus::InvocationClaimed,
+        updated_at: sys_time()?,
+        ..current
+    };
+
+    let action_hash = update_entry(
+        current_record.action_address().clone(),
+        &EntryTypes::ExecutionAttempt(updated),
+    )?;
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Invocation claim could not be read after commit".into()
+    )))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ClaimExecutionInvocationInput {
+    pub timelock_id: String,
+}
+
+/// Invoke an execution attempt whose invocation claim is already durable.
 ///
 /// An ambiguous/error return is never promoted to terminal FAILED here.
 #[hdk_extern]
@@ -796,9 +878,9 @@ pub fn invoke_execution(input: InvokeExecutionInput) -> ExternResult<Record> {
             "Only the execution-attempt owner may invoke".into()
         )));
     }
-    if current_attempt.status != ExecutionAttemptStatus::Invoked {
+    if current_attempt.status != ExecutionAttemptStatus::InvocationClaimed {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Execution attempt must be Invoked before effect entry, current: {:?}",
+            "Execution attempt must have a committed InvocationClaimed state before effect entry, current: {:?}",
             current_attempt.status
         )));
     }
@@ -815,6 +897,17 @@ pub fn invoke_execution(input: InvokeExecutionInput) -> ExternResult<Record> {
     if timelock.status != TimelockStatus::Ready {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Timelock is no longer Ready; refusing invocation".into()
+        )));
+    }
+
+    let action_key = execution_action_key(&timelock.actions)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+    if current_attempt.action_key_digest != action_key.digest()
+        || current_attempt.action_digest != action_key.material_action_digest()
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Current timelock material action no longer matches the committed execution attempt"
+                .into()
         )));
     }
 
@@ -2032,6 +2125,14 @@ mod tests {
         let a = execution_action_key(r#"[{"type":"EmitEvent","event":"x"}]"#).unwrap();
         let b = execution_action_key(r#"[{"type":"EmitEvent","event":"y"}]"#).unwrap();
         assert_ne!(a.digest(), b.digest());
+    }
+
+    #[test]
+    fn invocation_claim_requires_same_material_action_identity() {
+        let key_a = execution_action_key(r#"[{"type":"EmitEvent","event":"x"}]"#).unwrap();
+        let key_b = execution_action_key(r#"[{"type":"EmitEvent","event":"y"}]"#).unwrap();
+        assert_ne!(key_a.digest(), key_b.digest());
+        assert_ne!(key_a.material_action_digest(), key_b.material_action_digest());
     }
 
     #[test]
