@@ -371,20 +371,27 @@ fn validate_update_currency(
             e
         )));
     }
-    // Enforce status transition rules
-    if let Ok(original_record) = must_get_valid_record(original_action.clone()) {
-        if let Ok(Some(original)) = original_record
-            .entry()
-            .to_app_option::<CurrencyDefinition>()
-        {
-            if original.status != def.status && !original.status.can_transition_to(&def.status) {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid currency status transition: {:?} → {:?}",
-                    original.status, def.status
-                )));
-            }
-        }
+
+    // Predecessor resolution is authoritative. A missing or malformed predecessor
+    // is an unresolved dependency/error, never a valid update.
+    let original_record = must_get_valid_record(original_action.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<CurrencyDefinition>()?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "CurrencyDefinition update predecessor has no CurrencyDefinition entry".into()
+            ))
+        })?;
+
+    // Enforce status transition rules against the exact predecessor.
+    if original.status != def.status && !original.status.can_transition_to(&def.status) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid currency status transition: {:?} → {:?}",
+            original.status, def.status
+        )));
     }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -741,14 +748,16 @@ mod tests {
     }
 
     #[test]
-    fn test_currency_update_valid() {
+    fn test_currency_update_requires_resolvable_predecessor() {
         let mut def = valid_currency_def();
         def.status = CurrencyStatus::Active;
         def.params.credit_limit = 80;
-        // Dummy action hash — must_get_valid_record will fail gracefully outside WASM
         let dummy_hash = ActionHash::from_raw_36(vec![0; 36]);
-        let result = validate_update_currency(&dummy_hash, def).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Valid));
+
+        // Outside a live Holochain conductor the predecessor cannot resolve.
+        // The validator must not turn that dependency failure into Valid.
+        let result = validate_update_currency(&dummy_hash, def);
+        assert!(result.is_err());
     }
 
     #[test]
