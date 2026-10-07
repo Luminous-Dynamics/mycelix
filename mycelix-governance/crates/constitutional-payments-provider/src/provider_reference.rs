@@ -336,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn profile_rotation_preserves_semantic_seed() {
+    fn profile_rotation_preserves_seed_but_changes_wire_reference() {
         let a = seed("grant-1", "action-1", "acct-1", "stripe-live-acct-1", 1);
         let a_profile = a.carriage_descriptor("profile-integrity-a", 1).unwrap();
         let b_profile = a.carriage_descriptor("profile-integrity-b", 1).unwrap();
@@ -344,6 +344,10 @@ mod tests {
         assert_eq!(a_profile.seed_digest(), a.digest());
         assert_eq!(b_profile.seed_digest(), a.digest());
         assert_ne!(a_profile.digest(), b_profile.digest());
+
+        let a_ref = a_profile.render_reference("stripe:").unwrap();
+        let b_ref = b_profile.render_reference("stripe:").unwrap();
+        assert_ne!(a_ref, b_ref);
     }
 
     #[test]
@@ -357,14 +361,18 @@ mod tests {
     }
 
     #[test]
-    fn wire_prefix_rotation_does_not_change_descriptor_identity() {
+    fn wire_prefix_rotation_changes_only_wire_syntax() {
         let seed = seed("grant-1", "action-1", "acct-1", "stripe-live-acct-1", 1);
         let descriptor = seed.carriage_descriptor("profile-integrity-a", 1).unwrap();
 
-        let a = descriptor.render_reference("stripe:");
-        let b = descriptor.render_reference("payments:");
-        assert_ne!(a.unwrap(), b.unwrap());
-        assert_eq!(descriptor.digest(), descriptor.digest());
+        let descriptor_digest = descriptor.digest().to_string();
+        let a = descriptor.render_reference("stripe:").unwrap();
+        let b = descriptor.render_reference("payments:").unwrap();
+
+        assert_ne!(a, b);
+        assert_eq!(descriptor.digest(), descriptor_digest);
+        assert!(a.starts_with("stripe:"));
+        assert!(b.starts_with("payments:"));
     }
 
     #[test]
