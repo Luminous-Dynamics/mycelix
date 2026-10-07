@@ -235,25 +235,84 @@ def _ref_pattern_matches_main(pattern: Any, default_branch: str) -> bool:
     )
 
 
-def _ruleset_targets_main(entry: Any, default_branch: str) -> bool:
+def _repository_condition_state(conditions: dict[str, Any]) -> str:
+    selectors = {
+        key: conditions.get(key)
+        for key in ("repository_name", "repository_id", "repository_property")
+        if key in conditions
+    }
+    if not selectors:
+        return "MATCH"
+
+    if len(selectors) != 1:
+        return "UNVERIFIED"
+
+    key, selector = next(iter(selectors.items()))
+    if key == "repository_name":
+        if not isinstance(selector, dict):
+            return "UNVERIFIED"
+        includes = selector.get("include")
+        excludes = selector.get("exclude")
+        if not isinstance(includes, list) or not isinstance(excludes, list):
+            return "UNVERIFIED"
+        if not all(isinstance(pattern, str) and pattern for pattern in includes + excludes):
+            return "UNVERIFIED"
+        return (
+            "MATCH"
+            if any(fnmatch.fnmatchcase(REPOSITORY, pattern) for pattern in includes)
+            and not any(fnmatch.fnmatchcase(REPOSITORY, pattern) for pattern in excludes)
+            else "NOT_MATCH"
+        )
+
+    if key == "repository_id":
+        if not isinstance(selector, dict):
+            return "UNVERIFIED"
+        ids = selector.get("repository_ids")
+        if not isinstance(ids, list):
+            return "UNVERIFIED"
+        if not all(isinstance(value, int) and not isinstance(value, bool) for value in ids):
+            return "UNVERIFIED"
+        return "MATCH" if REPOSITORY_ID in ids else "NOT_MATCH"
+
+    # Custom repository properties are not currently retained in the observation.
+    return "UNVERIFIED"
+
+
+def _ruleset_target_state(entry: Any, default_branch: str) -> str:
     if not isinstance(entry, dict):
-        return False
+        return "UNVERIFIED"
     if entry.get("target") != "branch" or entry.get("enforcement") != "active":
-        return False
+        return "NOT_APPLICABLE"
     conditions = entry.get("conditions")
     if not isinstance(conditions, dict):
-        return False
+        return "UNVERIFIED"
+
+    repo_state = _repository_condition_state(conditions)
+    if repo_state == "UNVERIFIED":
+        return "UNVERIFIED"
+    if repo_state == "NOT_MATCH":
+        return "NOT_APPLICABLE"
+
     ref_name = conditions.get("ref_name")
     if not isinstance(ref_name, dict):
-        return False
+        return "UNVERIFIED"
     includes = ref_name.get("include")
     excludes = ref_name.get("exclude")
     if not isinstance(includes, list) or not isinstance(excludes, list):
-        return False
+        return "UNVERIFIED"
+    if not all(isinstance(pattern, str) and pattern for pattern in includes + excludes):
+        return "UNVERIFIED"
+
     return (
-        any(_ref_pattern_matches_main(pattern, default_branch) for pattern in includes)
+        "MATCH"
+        if any(_ref_pattern_matches_main(pattern, default_branch) for pattern in includes)
         and not any(_ref_pattern_matches_main(pattern, default_branch) for pattern in excludes)
+        else "NOT_APPLICABLE"
     )
+
+
+def _ruleset_targets_main(entry: Any, default_branch: str) -> bool:
+    return _ruleset_target_state(entry, default_branch) == "MATCH"
 
 
 def _validate_ruleset_bypass_actors(entry: dict[str, Any], prefix: str) -> str | None:
@@ -305,22 +364,21 @@ def _evaluate_rulesets(
         if entry.get("target") != "branch" or entry.get("enforcement") != "active":
             continue
         conditions = entry.get("conditions")
-        if not isinstance(conditions, dict):
-            return "UNVERIFIED", [f"ruleset[{index}]_conditions_not_enumerated"]
-        ref_name = conditions.get("ref_name")
-        if not isinstance(ref_name, dict):
-            return "UNVERIFIED", [f"ruleset[{index}]_ref_name_conditions_not_enumerated"]
-        includes = ref_name.get("include")
-        excludes = ref_name.get("exclude")
-        if not isinstance(includes, list) or not isinstance(excludes, list):
-            return "UNVERIFIED", [f"ruleset[{index}]_target_patterns_not_enumerated"]
+        target_state = _ruleset_target_state(entry, default_branch)
+        if target_state == "UNVERIFIED":
+            return "UNVERIFIED", [f"ruleset[{index}]_target_conditions_not_enumerated"]
+        if target_state == "NOT_APPLICABLE":
+            continue
         # ~DEFAULT_BRANCH is resolved only against the observed repository
         # default branch; evaluation itself refuses any default branch other
         # than the policy target, so this remains fail-closed.
 
     targeted: list[dict[str, Any]] = []
-    for entry in ruleset_entries:
-        if _ruleset_targets_main(entry, default_branch):
+    for index, entry in enumerate(ruleset_entries):
+        target_state = _ruleset_target_state(entry, default_branch)
+        if target_state == "UNVERIFIED":
+            return "UNVERIFIED", [f"ruleset[{index}]_target_conditions_not_enumerated"]
+        if target_state == "MATCH":
             targeted.append(entry)
 
     if not targeted:
@@ -1209,6 +1267,45 @@ def self_test(policy: dict[str, Any]) -> None:
     x["admin_observation"]["source"] = "github_token"
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["Luminous-Dynamics/*"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["some-other-repository"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] != "VERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["conditions"]["repository_id"] = {
+        "repository_ids": [REPOSITORY_ID],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["conditions"]["repository_property"] = {
+        "include": [{"name": "governance", "value": "enabled"}],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("unobserved repository property targeting must fail closed")
 
     x = copy.deepcopy(fixture_observation(policy))
     del x["rulesets"]["entries"][0]["name"]
