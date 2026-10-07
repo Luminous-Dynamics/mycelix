@@ -1,0 +1,19 @@
+[package]
+name = "fpm-wasm-artifact-identity"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Versioned cross-binding between SHA-256 artifact identity and Holochain 0.7 WasmHash"
+
+[workspace]
+
+[dependencies]
+bytes = "1"
+holo_hash = { version = "=0.7.0", features = ["serialization"] }
+holochain_serialized_bytes = "=0.0.57"
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
