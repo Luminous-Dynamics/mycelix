@@ -27,6 +27,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   MANIFEST: mycelix-manufacturing/Cargo.toml
+  RUST_TOOLCHAIN: 1.99.0
   HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
@@ -67,6 +68,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master @ 2026-10-01
         with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: rustfmt, clippy
 
       - name: Format COS conformance
@@ -201,6 +203,7 @@ jobs:
             "event_head_sha": "${HEAD_SHA}",
             "checked_out_head_sha": "$(git rev-parse HEAD)",
             "base_sha": "${{ github.event.pull_request.base.sha || '' }}",
+            "rust_toolchain": "${{ env.RUST_TOOLCHAIN }}",
             "job_status": "${{ job.status }}",
             "fmt_conclusion": "${{ steps.fmt.conclusion }}",
             "test_conclusion": "${{ steps.test.conclusion }}",
