@@ -442,8 +442,8 @@ def require_exact_actions(actual: tuple[str, ...], expected: tuple[str, ...], de
 
 
 def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
-    require_python_heredocs_compile(l, "VERIFY_S0")
     l = lines(raw)
+    require_python_heredocs_compile(l, "VERIFY_S0")
     if exact_count(l, "name: Security Kernel Qualification — Trusted Dispatcher") != 1:
         fail("S0 name mismatch")
     if top_level_keys_after(l, "on:") != ("pull_request_target",):
@@ -486,8 +486,8 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
 
 
 def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
-    require_python_heredocs_compile(l, "VERIFY_S1")
     l = lines(raw)
+    require_python_heredocs_compile(l, "VERIFY_S1")
     if exact_count(l, "name: Security Kernel Independent Qualification") != 1:
         fail("S1 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_call",):
@@ -526,9 +526,6 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         ("VENDOR_CONFIG_MAX_INODES", "64"), ("VENDOR_CONFIG_TMPFS_SIZE", "16m"),
         ("VENDOR_CONFIG_TMPFS_NR_INODES", "64"),
     ):
-        if exact_count(l, f'  {key}: "{expected}"') != 1:
-            fail(f"S1 vendor resource profile mismatch: {key}")
-    require_no_fail_open_controls(l, "S1")
         if exact_count(l, f'  {key}: "{expected}"') != 1:
             fail(f"S1 vendor resource profile mismatch: {key}")
     require_no_fail_open_controls(l, "S1")
@@ -672,6 +669,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 bounded vendor-config volume read-only mount count mismatch")
     if exact_count(l, VENDOR_CONFIG_VOLUME_INSPECT) != 1:
         fail("S1 vendor-config volume instantiation must be independently inspected")
+    if 'if docker volume inspect "$vendor_volume_name"' in joined:
         fail("S1 vendor collision detection must not treat volume-inspect failure as absence")
     if 'if [ "$status" -ne 0 ] && docker volume inspect "$vendor_volume_name"' in joined:
         fail("S1 vendor cleanup must not use masked volume-inspect status")
@@ -700,8 +698,6 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "vendor volume remains after cleanup", "vendor-config volume remains after cleanup",
         "dependency_substrate=passed",
     ):
-        if required not in joined:
-            fail(f"S1 vendor resource-bound control missing: {required!r}")
         if required not in joined:
             fail(f"S1 vendor resource-bound control missing: {required!r}")
     if any("docker rm -f " in line and "|| true" in line for line in l):
@@ -736,8 +732,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
 
 
 def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_execution_sha: str, expected_policy_sha: str) -> None:
-    require_python_heredocs_compile(l, "VERIFY_S2")
     l = lines(raw)
+    require_python_heredocs_compile(l, "VERIFY_S2")
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
         fail("S2 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_run",):
@@ -1062,7 +1058,6 @@ def main() -> None:
         lambda: verify_s1(raw["s1"].replace(VENDOR_VOLUME_INSPECT.encode(), b'vendor_volume_spec="wrong|volume|driver|options"', 1), s1_sha),
         "vendor volume instantiated-option mismatch",
     )
-    expect_rejection(
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(VENDOR_CONFIG_VOLUME_CREATE.encode(), b'docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=16m', 1), s1_sha),
         "vendor-config tmpfs without inode ceiling",
