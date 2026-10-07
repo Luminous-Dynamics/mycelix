@@ -30,6 +30,7 @@ NEGATIVE_TLA = {
     "fork-weight": "ForkWeightRemainsOne",
 }
 EXPECTED_ALLOY_SAT = {
+    "NontrivialCapabilityWithoutAuthority",
     "ProviderDependencyAndExplicitAuthorityRemainDistinct",
     "NontrivialContractWithinAuthorityAndBudget",
     "NontrivialProtectedDispute",
