@@ -676,6 +676,10 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     for required in (
         'if ! existing_vendor_volumes="$(docker volume ls --format \'{{.Name}}\')"; then',
         'if ! remaining_vendor_volumes="$(docker volume ls --format \'{{.Name}}\')"; then',
+        'if ! cleanup_vendor_volumes="$(docker volume ls --format \'{{.Name}}\')"; then',
+        'if printf "%s\\n" "$cleanup_vendor_volumes" | grep -Fxq "$vendor_config_volume_name"; then',
+        'if ! docker volume rm "$vendor_config_volume_name" >/dev/null 2>&1; then status=1; fi',
+        'if printf "%s\\n" "$remaining_vendor_volumes" | grep -Fxq "$vendor_config_volume_name"; then status=1; fi',
     ):
         if required not in joined:
             fail(f"S1 vendor fail-closed inventory control missing: {required!r}")
@@ -687,6 +691,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 cargo vendor config output must terminate on bounded vendor-config volume")
     if 'vendor_config="$RUNNER_TEMP/' in joined:
         fail("S1 vendor-config must not use a host-backed runner-temp file")
+    if 'if ! docker volume rm "$vendor_config_volume_name" >/dev/null 2>&1; then :; fi' in joined:
+        fail("S1 vendor-config cleanup must not mask Docker volume-removal failures")
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
     for required in (
         'vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"',
@@ -1075,10 +1081,12 @@ def main() -> None:
         "unbounded vendor-config output target",
     )
     expect_rejection(
-        lambda: verify_s1(raw["s1"].replace(b'if ! docker volume rm "$VENDOR_CONFIG_VOLUME_NAME" >/dev/null; then
-', b'# vendor-config cleanup removed
-', 1), s1_sha),
+        lambda: verify_s1(raw["s1"].replace(b'if ! docker volume rm "$VENDOR_CONFIG_VOLUME_NAME" >/dev/null; then\n', b'# vendor-config cleanup removed\n', 1), s1_sha),
         "vendor-config cleanup removed",
+    )
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(b'if ! docker volume rm "$vendor_config_volume_name" >/dev/null 2>&1; then status=1; fi', b'if ! docker volume rm "$vendor_config_volume_name" >/dev/null 2>&1; then :; fi', 1), s1_sha),
+        "masked vendor-config cleanup error",
     )
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(SOURCE_VOLUME_CREATE.encode(), b'docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m', 1), s1_sha),
