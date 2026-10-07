@@ -89,6 +89,102 @@ fn fence_state_tag(state: ActionFenceState) -> u8 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TerminalOutcomeV1 {
+    Executed,
+    Failed,
+}
+
+fn terminal_outcome_tag(outcome: TerminalOutcomeV1) -> u8 {
+    match outcome {
+        TerminalOutcomeV1::Executed => 1,
+        TerminalOutcomeV1::Failed => 2,
+    }
+}
+
+/// Identity of independently verified terminal outcome evidence.
+///
+/// The attempt owner and the outcome verifier are intentionally separate
+/// authorities. This type binds the verifier's evidence to the exact same-action
+/// key and concrete attempt being transitioned.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TerminalEvidenceV1 {
+    action_key_digest: String,
+    attempt_identity: String,
+    outcome: TerminalOutcomeV1,
+    evidence_commitment: String,
+    verifier_identity: String,
+    digest: String,
+}
+
+impl TerminalEvidenceV1 {
+    pub fn new(
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        outcome: TerminalOutcomeV1,
+        evidence_commitment: impl Into<String>,
+        verifier_identity: impl Into<String>,
+    ) -> Result<Self, String> {
+        let evidence_commitment = evidence_commitment.into();
+        let verifier_identity = verifier_identity.into();
+
+        require_tagged_hash(
+            "action_key_digest",
+            action_key.digest(),
+            crate::ACTION_KEY_PREFIX,
+        )?;
+        require_tagged_hash(
+            "attempt_identity",
+            attempt_identity.digest(),
+            crate::ATTEMPT_IDENTITY_PREFIX,
+        )?;
+        require_opaque("evidence_commitment", &evidence_commitment, MAX_REF_LEN)?;
+        require_opaque("verifier_identity", &verifier_identity, MAX_REF_LEN)?;
+
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-TERMINAL-EVIDENCE\0V1\0");
+        hasher.update(&ATTEMPT_RECORD_SCHEMA_VERSION.to_be_bytes());
+        push_str(&mut hasher, action_key.digest());
+        push_str(&mut hasher, attempt_identity.digest());
+        hasher.update(&[terminal_outcome_tag(outcome)]);
+        push_str(&mut hasher, &evidence_commitment);
+        push_str(&mut hasher, &verifier_identity);
+
+        Ok(Self {
+            action_key_digest: action_key.digest().to_owned(),
+            attempt_identity: attempt_identity.digest().to_owned(),
+            outcome,
+            evidence_commitment,
+            verifier_identity,
+            digest: tagged("constitutional-terminal-evidence-v1:", hasher.finalize()),
+        })
+    }
+
+    pub fn action_key_digest(&self) -> &str {
+        &self.action_key_digest
+    }
+
+    pub fn attempt_identity(&self) -> &str {
+        &self.attempt_identity
+    }
+
+    pub fn outcome(&self) -> TerminalOutcomeV1 {
+        self.outcome
+    }
+
+    pub fn evidence_commitment(&self) -> &str {
+        &self.evidence_commitment
+    }
+
+    pub fn verifier_identity(&self) -> &str {
+        &self.verifier_identity
+    }
+
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AttemptRecordState {
     Consumed,
@@ -138,6 +234,7 @@ pub struct AttemptRecordV1 {
     pub provider_audience: String,
     pub adapter_identity: String,
     pub ownership_token_digest: String,
+    pub terminal_evidence_digest: Option<String>,
     pub state: AttemptRecordState,
     pub not_entered_marker: Option<String>,
 }
@@ -213,6 +310,7 @@ impl AttemptRecordV1 {
             provider_audience,
             adapter_identity,
             ownership_token_digest,
+            terminal_evidence_digest: None,
             state,
             not_entered_marker: None,
         };
@@ -286,6 +384,26 @@ impl AttemptRecordV1 {
             );
         }
 
+        if matches!(
+            self.state,
+            AttemptRecordState::Executed | AttemptRecordState::Failed
+        ) && self.terminal_evidence_digest.is_none()
+        {
+            return Err("terminal outcome requires terminal_evidence_digest".into());
+        }
+        if !matches!(
+            self.state,
+            AttemptRecordState::Executed | AttemptRecordState::Failed
+        ) && self.terminal_evidence_digest.is_some()
+        {
+            return Err(
+                "terminal_evidence_digest is only valid for terminal outcomes".into(),
+            );
+        }
+        if let Some(evidence) = &self.terminal_evidence_digest {
+            require_opaque("terminal_evidence_digest", evidence, MAX_REF_LEN)?;
+        }
+
         if self.state == AttemptRecordState::NotEntered && self.not_entered_marker.is_none() {
             return Err("NotEntered requires an explicit not_entered_marker".into());
         }
@@ -323,6 +441,10 @@ impl AttemptRecordV1 {
         push_str(&mut hasher, &self.provider_audience);
         push_str(&mut hasher, &self.adapter_identity);
         push_str(&mut hasher, &self.ownership_token_digest);
+        push_str(
+            &mut hasher,
+            self.terminal_evidence_digest.as_deref().unwrap_or(""),
+        );
         hasher.update(&[attempt_state_tag(self.state)]);
         push_str(&mut hasher, self.not_entered_marker.as_deref().unwrap_or(""));
         tagged(ATTEMPT_RECORD_PREFIX, hasher.finalize())
