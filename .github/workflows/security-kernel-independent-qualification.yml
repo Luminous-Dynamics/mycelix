@@ -981,7 +981,7 @@ jobs:
           test "$candidate_volume_spec_after" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
           candidate_volume_mountpoint="$(docker volume inspect --format '{{.Mountpoint}}' "$CANDIDATE_VOLUME_NAME")"
           test "$(stat -f -c '%T' "$candidate_volume_mountpoint")" = "tmpfs"
-          python3 - "$candidate_volume_mountpoint" "$EXPECTED_SOURCE_DIGEST" <<'PY'
+          python3 - "$candidate_volume_mountpoint" "$EXPECTED_SOURCE_DIGEST" <<'PY' > "$RUNNER_TEMP/security-kernel-executed-source-digest.txt"
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1]); expected=sys.argv[2].strip(); digest=hashlib.sha256()
           for path in sorted(root.rglob("*")):
@@ -994,17 +994,9 @@ jobs:
           after=digest.hexdigest(); assert expected==after, f"candidate source mutated during qualification: {expected} != {after}"
           print(f"executed_source_digest={after}")
           PY
-          executed_source_digest="$(python3 - "$candidate_volume_mountpoint" "$EXPECTED_SOURCE_DIGEST" <<'PY'
-          import hashlib, pathlib, stat, sys
-          root=pathlib.Path(sys.argv[1]); digest=hashlib.sha256()
-          for path in sorted(root.rglob("*")):
-              rel=path.relative_to(root); mode=path.lstat().st_mode
-              if stat.S_ISLNK(mode) or (path.is_file() and not stat.S_ISREG(mode)): raise SystemExit(1)
-              if path.is_dir(): continue
-              content=path.read_bytes(); relative=rel.as_posix().encode(); digest.update(stat.S_IMODE(mode).to_bytes(4,"big")); digest.update(len(relative).to_bytes(8,"big")); digest.update(relative); digest.update(len(content).to_bytes(8,"big")); digest.update(content)
-          print(digest.hexdigest())
-          PY
-          )"
+          executed_source_digest="$(sed -n 's/^executed_source_digest=//p' "$RUNNER_TEMP/security-kernel-executed-source-digest.txt")"
+          printf "%s" "$executed_source_digest" | grep -Eq '^[0-9a-f]{64}$'
+          printf 'executed_source_digest=%s\n' "$executed_source_digest" >> "$GITHUB_OUTPUT"
           printf "%s" "$executed_source_digest" | grep -Eq '^[0-9a-f]{64}$'
           printf 'executed_source_digest=%s\n' "$executed_source_digest" >> "$GITHUB_OUTPUT"
           echo "PASS: bounded Docker tmpfs candidate source remained immutable through qualification"
