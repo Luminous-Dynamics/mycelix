@@ -135,6 +135,7 @@ pub enum FpmAttestationQualificationReason {
     AttestationFormatMismatch,
     EmptyVerifierIdentity,
     EmptyVerifierVersion,
+    InvalidVerifierBuilderId,
     NotAppraised,
 }
 
@@ -242,6 +243,11 @@ pub fn qualify_source_attestation(
     if !valid_label(&input.claim.verifier_version) {
         reasons.insert(FpmAttestationQualificationReason::EmptyVerifierVersion);
     }
+    if !is_valid_fpm_verifier_builder_id(&input.expected_verifier_builder_id)
+        || !is_valid_fpm_verifier_builder_id(&input.claim.verifier_builder_id)
+    {
+        reasons.insert(FpmAttestationQualificationReason::InvalidVerifierBuilderId);
+    }
     if !is_canonical_digest(&input.claim.reference_values_digest) {
         reasons.insert(FpmAttestationQualificationReason::ReferenceValuesMissing);
     }
@@ -278,6 +284,7 @@ pub fn qualify_source_attestation(
                 | FpmAttestationQualificationReason::InvalidEvidenceFormat
                 | FpmAttestationQualificationReason::EmptyVerifierIdentity
                 | FpmAttestationQualificationReason::EmptyVerifierVersion
+                | FpmAttestationQualificationReason::InvalidVerifierBuilderId
         )
     }) {
         FpmAttestationQualificationStatus::InvalidEvidence
@@ -454,6 +461,20 @@ mod tests {
         assert!(result
             .reasons
             .contains(&FpmAttestationQualificationReason::VerifierProfileMismatch));
+    }
+
+    #[test]
+    fn malformed_builder_identity_is_invalid() {
+        let mut input = input();
+        input.claim.verifier_builder_id = "  builder ".into();
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::InvalidEvidence
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::InvalidVerifierBuilderId));
     }
 
     #[test]
