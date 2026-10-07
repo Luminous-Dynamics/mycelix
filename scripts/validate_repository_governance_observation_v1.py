@@ -1277,14 +1277,14 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
 
-    x = copy.deepcopy(fixture_observation(policy))
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403, admin_status="unverified"))
     x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
         "include": ["some-other-repository"],
         "exclude": [],
     }
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
-    assert result["governance_state"] != "VERIFIED"
+    assert result["governance_state"] == "UNVERIFIED"
 
     x = copy.deepcopy(fixture_observation(policy))
     x["rulesets"]["entries"][0]["conditions"]["repository_id"] = {
@@ -1300,12 +1300,13 @@ def self_test(policy: dict[str, Any]) -> None:
         "exclude": [],
     }
     _refresh_bound_fixture_payloads(x)
+    # The property-targeted copy is deliberately evaluated with the secondary
+    # classic witness unavailable so it cannot be masked by that control plane.
     try:
-        evaluate(policy, x)
+        result = evaluate(policy, x)
     except EvidenceError:
-        pass
-    else:
-        raise AssertionError("unobserved repository property targeting must fail closed")
+        raise AssertionError("unsupported repository property targeting must be represented as UNVERIFIED")
+    assert result["governance_state"] == "UNVERIFIED"
 
     x = copy.deepcopy(fixture_observation(policy))
     del x["rulesets"]["entries"][0]["name"]
