@@ -1,12 +1,17 @@
-use crate::domain::{InstitutionProfile, SecurityState, WorkspaceContext};
-use crate::ui::{AuthorityNotice, SecurityBadge, SecurityLegend};
+use crate::reconciliation::ReconciliationPage;
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
-use crate::reconciliation::ReconciliationPage;
 use leptos_router::{
-    components::{A, Route, Router, Routes},
+    components::{Route, Router, Routes},
     StaticSegment,
 };
+
+#[cfg(feature = "demo")]
+use crate::domain::{InstitutionProfile, SecurityState, WorkspaceContext};
+#[cfg(feature = "demo")]
+use crate::ui::{AuthorityNotice, SecurityBadge, SecurityLegend};
+#[cfg(feature = "demo")]
+use leptos_router::components::A;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
