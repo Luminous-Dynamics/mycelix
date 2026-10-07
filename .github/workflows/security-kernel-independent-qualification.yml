@@ -303,7 +303,7 @@ jobs:
 
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
-          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --env CANDIDATE_TREE="$candidate_tree"             --volume "$candidate_volume_name:/output:rw"             "$FETCH_IMAGE" /bin/bash -euo pipefail -c '
+          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m,nr_inodes=600000             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --env CANDIDATE_TREE="$candidate_tree"             --volume "$candidate_volume_name:/output:rw"             "$FETCH_IMAGE" /bin/bash -euo pipefail -c '
               set -euo pipefail
               export XDG_CONFIG_HOME=/tmp/config
               mkdir -p /tmp/config /tmp/repository
@@ -352,7 +352,7 @@ jobs:
             --security-opt=no-new-privileges:true --security-opt=seccomp=default \
             --pids-limit=256 --memory=1g --memory-swap=1g --cpus=2 \
             --ulimit=nofile=4096:4096 --ulimit=core=0:0 --ipc=private --pid=private --cgroupns=private \
-            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m,nr_inodes=20000 \
             --volume "$candidate_volume_name:/source:ro" \
             "$FETCH_IMAGE" tar -C /source -cf - . | tar -C "$candidate_root" -xf - --no-same-owner; then
             source_copy_status=1
@@ -665,7 +665,7 @@ jobs:
             --ipc=private \
             --pid=private \
             --cgroupns=private \
-            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m,nr_inodes=8192 \
             --env HOME=/tmp \
             --env GITHUB_TOKEN= \
             --env GH_TOKEN= \
@@ -770,8 +770,8 @@ jobs:
             --pids-limit=256 --memory=2g --memory-swap=2g --cpus=2 \
             --ulimit=nofile=4096:4096 --ulimit=core=0:0 \
             --user "$runner_uid:$runner_gid" --ipc=private --pid=private --cgroupns=private \
-            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m \
-            --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m,nr_inodes=20000 \
+            --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m,nr_inodes=150000 \
             --volume "$vendor_volume_name:/vendor:rw" \
             --volume "$DEPENDENCY_ROOT:/subject:ro" \
             --volume "$vendor_config:/vendor-config:rw" \
@@ -878,7 +878,7 @@ jobs:
             --ipc=private \
             --pid=private \
             --cgroupns=private \
-            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m,nr_inodes=8192 \
             --volume "$CANDIDATE_VOLUME_NAME:/source:ro" \
             --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
             --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
@@ -1012,9 +1012,9 @@ jobs:
               --ipc=private \
               --pid=private \
               --cgroupns=private \
-              --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m \
-              --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m \
-              --tmpfs /target:rw,nosuid,nodev,size=8g \
+              --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m,nr_inodes=32768 \
+              --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m,nr_inodes=150000 \
+              --tmpfs /target:rw,nosuid,nodev,size=8g,nr_inodes=600000 \
               --volume "$CANDIDATE_VOLUME_NAME:/source:ro" \
               --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
               --workdir /source/crates/mycelix-bridge-common \
@@ -1226,7 +1226,7 @@ jobs:
             --pids-limit=128 --memory=256m --memory-swap=256m --cpus=1 \
             --ulimit=nofile=2048:2048 --ulimit=core=0:0 \
             --user "$runner_uid:$runner_gid" --ipc=private --pid=private --cgroupns=private \
-            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m,nr_inodes=8192 \
             --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
             "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
               python3 - "$EXPECTED_VENDOR_DIGEST" /vendor <<\PY
