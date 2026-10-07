@@ -44,7 +44,9 @@ jobs:
       expected_head_sha: ${{ steps.target_binding.outputs.expected_head_sha }}
       base_sha: ${{ steps.target_binding.outputs.base_sha }}
       base_ref: ${{ steps.target_binding.outputs.base_ref }}
+      base_repository_id: ${{ steps.target_binding.outputs.base_repository_id }}
       base_repository: ${{ steps.target_binding.outputs.base_repository }}
+      head_repository_id: ${{ steps.target_binding.outputs.head_repository_id }}
       head_repository: ${{ steps.target_binding.outputs.head_repository }}
       trigger_run_id: ${{ steps.target_binding.outputs.trigger_run_id }}
       trigger_workflow_id: ${{ steps.target_binding.outputs.trigger_workflow_id }}
@@ -198,6 +200,8 @@ jobs:
             trigger_workflow_id_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.workflow_id')"
             trigger_workflow_path_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.path')"
             trigger_repository_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.repository.full_name')"
+            trigger_repository_id_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.repository.id')"
+            trigger_head_repository_id_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.head_repository_id')"
             trigger_pr_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq --arg pr "${PR_NUMBER}" '.pull_requests[] | select((.number|tostring)==$pr) | .head.sha' | head -n 1)"
             test "${trigger_head_sha}" = "${EXPECTED_HEAD_SHA}"
             test "${trigger_pr_head_sha}" = "${EXPECTED_HEAD_SHA}"
@@ -205,15 +209,21 @@ jobs:
             test "${trigger_workflow_id_live}" = "374065836"
             test "${trigger_workflow_path_live}" = ".github/workflows/cos-conformance-evidence.yml"
             test "${trigger_repository_live}" = "${GITHUB_REPOSITORY}"
+            test "${trigger_repository_id_live}" = "1176351975"
+            test "${trigger_head_repository_id_live}" = "1176351975"
             test -n "${trigger_head_branch}"
           fi
 
 
+          repository_id="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.id')"
+          test "${repository_id}" = "1176351975"
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          head_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.id')"
           base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
           base_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.ref')"
           base_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.full_name')"
+          base_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.id')"
           pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
 
           test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
@@ -224,6 +234,10 @@ jobs:
             echo "independent verifier accepts same-repository PR heads only: ${head_repository}" >&2
             exit 1
           }
+          test "${head_repository_id}" = "${repository_id}" || {
+            echo "independent verifier requires the PR head repository id to match this repository: ${head_repository_id}" >&2
+            exit 1
+          }
           printf '%s\n' "${base_sha}" | grep -Eq '^[0-9a-f]{40}$'
           test "${base_ref}" = "main" || {
             echo "independent verifier requires the PR base ref to be main: ${base_ref}" >&2
@@ -231,6 +245,10 @@ jobs:
           }
           test "${base_repository}" = "${GITHUB_REPOSITORY}" || {
             echo "independent verifier requires the PR base to be this repository: ${base_repository}" >&2
+            exit 1
+          }
+          test "${base_repository_id}" = "${repository_id}" || {
+            echo "independent verifier requires the PR base repository id to match this repository: ${base_repository_id}" >&2
             exit 1
           }
           test "${pull_request_state}" = "open" || {
@@ -243,7 +261,9 @@ jobs:
             printf 'expected_head_sha=%s\n' "${EXPECTED_HEAD_SHA}"
             printf 'base_sha=%s\n' "${base_sha}"
             printf 'base_ref=%s\n' "${base_ref}"
+            printf 'base_repository_id=%s\n' "${base_repository_id}"
             printf 'base_repository=%s\n' "${base_repository}"
+            printf 'head_repository_id=%s\n' "${head_repository_id}"
             printf 'head_repository=%s\n' "${head_repository}"
             printf 'trigger_run_id=%s\n' "${TRIGGER_RUN_ID}"
             printf 'trigger_workflow_id=%s\n' "${TRIGGER_WORKFLOW_ID}"
@@ -978,7 +998,9 @@ jobs:
             "expected_head_sha": "${{ needs.prepare.outputs.expected_head_sha }}",
             "base_sha": "${{ needs.prepare.outputs.base_sha }}",
             "base_ref": "${{ needs.prepare.outputs.base_ref }}",
+            "base_repository_id": "${{ needs.prepare.outputs.base_repository_id }}",
             "base_repository": "${{ needs.prepare.outputs.base_repository }}",
+            "head_repository_id": "${{ needs.prepare.outputs.head_repository_id }}",
             "tested_commit_sha": "${tested_commit_sha}",
             "head_repository": "${{ needs.prepare.outputs.head_repository }}",
             "trusted_workflow_sha": "${{ needs.prepare.outputs.trusted_workflow_sha }}",
@@ -1037,6 +1059,8 @@ jobs:
           assert sha40.fullmatch(envelope["expected_head_sha"])
           assert sha40.fullmatch(envelope["base_sha"])
           assert envelope["base_ref"] == "main"
+          assert str(envelope["base_repository_id"]) == "1176351975"
+          assert str(envelope["head_repository_id"]) == "1176351975"
           assert sha40.fullmatch(envelope["tested_commit_sha"])
           assert envelope["expected_head_sha"] == envelope["tested_commit_sha"]
           assert sha40.fullmatch(envelope["trusted_workflow_sha"])
