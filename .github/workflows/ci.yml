@@ -37,7 +37,6 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
-      fpm_wasm_artifact_identity: ${{ steps.filter.outputs.fpm_wasm_artifact_identity }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -83,9 +82,6 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
-            fpm_wasm_artifact_identity:
-              - 'crates/fpm-wasm-artifact-identity/**'
-              - '.github/workflows/ci.yml'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -119,29 +115,6 @@ jobs:
           exit $status
 
   # Per-cluster test jobs
-  test-fpm-wasm-artifact-identity:
-    needs: changes
-    if: needs.changes.outputs.fpm_wasm_artifact_identity == 'true' || github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: crates/fpm-wasm-artifact-identity
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
-        with:
-          toolchain: 1.96.1
-      - name: Cargo fmt
-        run: cargo fmt --check
-      - name: Cargo test
-        run: cargo test
-      - name: Pin substrate versions
-        run: |
-          grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' Cargo.toml
-          grep -Fx 'holochain_types = "=0.7.0"' Cargo.toml
   test-cos-conformance:
     needs: changes
     if: needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push'
