@@ -131,6 +131,7 @@ pub fn adaptive_override_threshold(failed_attempts: u32) -> f64 {
 pub enum ExecutionAttemptStatus {
     DispatchPending,
     Invoked,
+    InvocationClaimed,
     Succeeded,
     Failed,
     Indeterminate,
@@ -472,9 +473,9 @@ pub fn check_update_execution_attempt(
                 return Err("NotEntered cannot carry provider outcome evidence".into());
             }
         }
-        (ExecutionAttemptStatus::Invoked, ExecutionAttemptStatus::Succeeded)
+        (ExecutionAttemptStatus::InvocationClaimed, ExecutionAttemptStatus::Succeeded)
         | (ExecutionAttemptStatus::Indeterminate, ExecutionAttemptStatus::Succeeded)
-        | (ExecutionAttemptStatus::Invoked, ExecutionAttemptStatus::Failed)
+        | (ExecutionAttemptStatus::InvocationClaimed, ExecutionAttemptStatus::Failed)
         | (ExecutionAttemptStatus::Indeterminate, ExecutionAttemptStatus::Failed) => {
             if updated
                 .outcome_evidence_commitment
@@ -487,6 +488,20 @@ pub fn check_update_execution_attempt(
             }
             if updated.not_entered_marker.is_some() {
                 return Err("terminal provider outcome cannot carry a not-entered marker".into());
+            }
+        }
+        (ExecutionAttemptStatus::Invoked, ExecutionAttemptStatus::InvocationClaimed) => {
+            if updated.outcome_evidence_commitment.is_some()
+                || updated.not_entered_marker.is_some()
+            {
+                return Err("InvocationClaimed attempt cannot carry terminal evidence".into());
+            }
+        }
+        (ExecutionAttemptStatus::InvocationClaimed, ExecutionAttemptStatus::Indeterminate) => {
+            if updated.outcome_evidence_commitment.is_some()
+                || updated.not_entered_marker.is_some()
+            {
+                return Err("Indeterminate claim cannot carry terminal evidence".into());
             }
         }
         (ExecutionAttemptStatus::Invoked, ExecutionAttemptStatus::Indeterminate) => {
@@ -918,6 +933,34 @@ mod tests {
             ExecutionStatus::Indeterminate,
             ExecutionStatus::Failed
         );
+    }
+
+    #[test]
+    fn execution_attempt_requires_single_use_invocation_claim() {
+        let now = Timestamp::from_micros(1);
+        let base = ExecutionAttempt {
+            id: "execution-attempt-1".into(),
+            timelock_id: "timelock-1".into(),
+            proposal_id: "proposal-1".into(),
+            action_digest: "constitutional-material-action-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            action_key_digest: "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            attempt_identity: "constitutional-attempt-identity-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            native_replay_identity: "native-replay-1".into(),
+            executor: "did:mycelix:executor".into(),
+            status: ExecutionAttemptStatus::Invoked,
+            prepared_at: now,
+            updated_at: now,
+            outcome_evidence_commitment: None,
+            not_entered_marker: None,
+        };
+        let mut claimed = base.clone();
+        claimed.status = ExecutionAttemptStatus::InvocationClaimed;
+
+        assert!(check_update_execution_attempt(&base, &claimed).is_ok());
+
+        let mut second_claim = claimed.clone();
+        second_claim.updated_at = Timestamp::from_micros(2);
+        assert!(check_update_execution_attempt(&claimed, &second_claim).is_err());
     }
 
     #[test]
