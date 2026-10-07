@@ -1526,6 +1526,11 @@ pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN: &str =
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ALGORITHM: &str = "sha-256";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ENCODING: &str =
     "sha256-lowercase-hex-v1";
+pub const FEDERATION_EXTERNAL_VERIFICATION_POLICY_ADMISSION_HASH_DOMAIN: &str =
+    "integral-federation-external-verification-policy-admission-sha256-v1";
+pub const FEDERATION_EXTERNAL_VERIFICATION_POLICY_ADMISSION_HASH_ALGORITHM: &str = "sha-256";
+pub const FEDERATION_EXTERNAL_VERIFICATION_POLICY_ADMISSION_HASH_ENCODING: &str =
+    "serde-json-struct-order-v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationExternalVerificationPolicyDecision {
@@ -1602,6 +1607,31 @@ pub struct FederationExternalVerificationTrustPolicyV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct FederationExternalVerificationPolicyAdmissionHashView {
+    hash_domain: String,
+    hash_algorithm: String,
+    hash_encoding: String,
+    policy_sha256: String,
+    anchor_reference_sha256: String,
+    witness_kind: FederationStateMachineTraceExternalWitnessKind,
+    witness_profile: String,
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: String,
+    verifier_identity_sha256: String,
+    verifier_profile: String,
+    verifier_schema_version: u16,
+    claim: FederationStateMachineTraceExternalVerificationClaim,
+    statement_sha256: String,
+    claimed_verified_at_unix_seconds: u64,
+    evaluated_at_unix_seconds: u64,
+    verification_age_seconds: u64,
+    verifier_identity_use_method: Option<FederationExternalVerifierIdentityUseMethod>,
+    verifier_identity_use_profile: Option<String>,
+    verifier_identity_use_statement_sha256: Option<String>,
+    verifier_identity_use_evidence_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct FederationExternalVerificationTrustPolicyHashView {
     hash_domain: String,
     schema_version: u16,
@@ -1639,6 +1669,7 @@ struct FederationExternalVerificationTrustPolicyHashView {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationExternalVerificationPolicyAdmissionV1 {
+    admission_sha256: String,
     policy_sha256: String,
     anchor_reference_sha256: String,
     witness_kind: FederationStateMachineTraceExternalWitnessKind,
@@ -2219,7 +2250,8 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             }
         }
 
-        Ok(FederationExternalVerificationPolicyAdmissionV1 {
+        let mut admission = FederationExternalVerificationPolicyAdmissionV1 {
+            admission_sha256: String::new(),
             policy_sha256: policy
                 .policy_sha256()
                 .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?,
@@ -2244,11 +2276,51 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
                 .map(|identity_use| identity_use.identity_use_statement_sha256().to_owned()),
             verifier_identity_use_evidence_sha256: identity_use
                 .map(|identity_use| identity_use.use_evidence_sha256().to_owned()),
-        })
+        };
+        admission.admission_sha256 =
+            federation_external_verification_policy_admission_sha256(&admission);
+        Ok(admission)
     }
 }
 
+fn federation_external_verification_policy_admission_sha256(
+    admission: &FederationExternalVerificationPolicyAdmissionV1,
+) -> String {
+    let view = FederationExternalVerificationPolicyAdmissionHashView {
+        hash_domain: FEDERATION_EXTERNAL_VERIFICATION_POLICY_ADMISSION_HASH_DOMAIN.into(),
+        hash_algorithm: FEDERATION_EXTERNAL_VERIFICATION_POLICY_ADMISSION_HASH_ALGORITHM.into(),
+        hash_encoding: FEDERATION_EXTERNAL_VERIFICATION_POLICY_ADMISSION_HASH_ENCODING.into(),
+        policy_sha256: admission.policy_sha256.clone(),
+        anchor_reference_sha256: admission.anchor_reference_sha256.clone(),
+        witness_kind: admission.witness_kind,
+        witness_profile: admission.witness_profile.clone(),
+        verifier_identity_kind: admission.verifier_identity_kind,
+        verifier_identity_profile: admission.verifier_identity_profile.clone(),
+        verifier_identity_sha256: admission.verifier_identity_sha256.clone(),
+        verifier_profile: admission.verifier_profile.clone(),
+        verifier_schema_version: admission.verifier_schema_version,
+        claim: admission.claim,
+        statement_sha256: admission.statement_sha256.clone(),
+        claimed_verified_at_unix_seconds: admission.claimed_verified_at_unix_seconds,
+        evaluated_at_unix_seconds: admission.evaluated_at_unix_seconds,
+        verification_age_seconds: admission.verification_age_seconds,
+        verifier_identity_use_method: admission.verifier_identity_use_method,
+        verifier_identity_use_profile: admission.verifier_identity_use_profile.clone(),
+        verifier_identity_use_statement_sha256:
+            admission.verifier_identity_use_statement_sha256.clone(),
+        verifier_identity_use_evidence_sha256:
+            admission.verifier_identity_use_evidence_sha256.clone(),
+    };
+    let bytes = serde_json::to_vec(&view)
+        .expect("external policy admission hash view must be serializable");
+    state_machine_domain_separated_sha256(
+        FEDERATION_EXTERNAL_VERIFICATION_POLICY_ADMISSION_HASH_DOMAIN,
+        &bytes,
+    )
+}
+
 impl FederationExternalVerificationPolicyAdmissionV1 {
+    pub fn admission_sha256(&self) -> &str { &self.admission_sha256 }
     pub fn policy_sha256(&self) -> &str { &self.policy_sha256 }
     pub fn anchor_reference_sha256(&self) -> &str { &self.anchor_reference_sha256 }
     pub fn witness_kind(&self) -> FederationStateMachineTraceExternalWitnessKind { self.witness_kind }
@@ -5289,6 +5361,15 @@ mod tests {
             typed_admission.verifier_identity_use_evidence_sha256(),
             identity_use.use_evidence_sha256(),
             "admission receipt must preserve the identity-use evidence digest"
+        );
+        assert_eq!(typed_admission.admission_sha256(), raw_admission.admission_sha256());
+
+        let mut changed = typed_admission.clone();
+        changed.evaluated_at_unix_seconds += 1;
+        assert_ne!(
+            typed_admission.admission_sha256(),
+            federation_external_verification_policy_admission_sha256(&changed),
+            "changing a decision input must change the admission content address"
         );
         assert_eq!(typed_admission, raw_admission);
     }
