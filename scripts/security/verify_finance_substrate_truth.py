@@ -80,7 +80,6 @@ def main() -> int:
             "holochain_integrity_types": target["holochain"],
             "holo_hash": target["holochain"],
             "hdk_derive": target["holochain"],
-            "holochain_serialized_bytes": matrix["current_declaration"]["cargo"]["holochain_serialized_bytes"],
         }
         if observed_cargo[0] != expected:
             errors.append(
