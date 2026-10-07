@@ -210,6 +210,8 @@ def main() -> int:
         fail("Alloy model lacks derived EmergencyActive predicate")
 
     workflow = args.workflow.read_text(encoding="utf-8")
+    if f"NIXPKGS_REV: {pins['nixpkgs_rev']}" not in workflow:
+        fail("workflow Nixpkgs pin mismatch")
     expected_actions = pins["github_actions"]
     for action, sha in expected_actions.items():
         needle = {
@@ -222,6 +224,14 @@ def main() -> int:
     for tool_name, tool in pins["tools"].items():
         if tool["url"] not in workflow or tool["sha256"] not in workflow:
             fail(f"workflow tool pin mismatch for {tool_name}")
+    if f"TLA_URL: {pins['tools']['tla2tools']['url']}" not in workflow:
+        fail("workflow TLA URL pin mismatch")
+    if f"TLA_SHA256: {pins['tools']['tla2tools']['sha256']}" not in workflow:
+        fail("workflow TLA SHA256 pin mismatch")
+    if f"ALLOY_URL: {pins['tools']['alloy']['url']}" not in workflow:
+        fail("workflow Alloy URL pin mismatch")
+    if f"ALLOY_SHA256: {pins['tools']['alloy']['sha256']}" not in workflow:
+        fail("workflow Alloy SHA256 pin mismatch")
 
     evidence = args.evidence_dir.resolve()
     evidence.mkdir(parents=True, exist_ok=True)
