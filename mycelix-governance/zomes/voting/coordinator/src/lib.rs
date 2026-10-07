@@ -68,6 +68,137 @@ enum ProposalStatusMirror {
     Failed,
 }
 
+fn tier_security_rank(tier: &ProposalTier) -> u8 {
+    match tier {
+        ProposalTier::Basic => 0,
+        ProposalTier::Major => 1,
+        ProposalTier::Constitutional => 2,
+    }
+}
+
+/// Conservative minimum tier for proposal types whose schema does not carry an
+/// explicit tier. The historic tally path defaults to Major, so non-constitutional
+/// proposals retain that minimum while constitutional proposals require the strictest tier.
+fn minimum_tier_for_proposal_type(proposal_type: &ProposalTypeMirror) -> ProposalTier {
+    match proposal_type {
+        ProposalTypeMirror::Constitutional => ProposalTier::Constitutional,
+        ProposalTypeMirror::Standard
+        | ProposalTypeMirror::Emergency
+        | ProposalTypeMirror::Parameter
+        | ProposalTypeMirror::Funding => ProposalTier::Major,
+    }
+}
+
+fn load_proposal_for_approval(proposal_id: &str) -> ExternResult<ProposalMirror> {
+    let extern_io = governance_utils::call_local(
+        "proposals",
+        "get_proposal",
+        proposal_id.to_owned(),
+    )
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Approval tally refused: proposal lookup failed: {e}"
+    ))))?;
+
+    let record: Option<Record> = extern_io.decode().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Approval tally refused: proposal lookup response could not be decoded: {e}"
+        )))
+    })?;
+
+    let record = record.ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+        "Approval tally refused: proposal '{}' was not found.",
+        proposal_id
+    ))))?;
+
+    let proposal: ProposalMirror = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Approval tally refused: proposal entry could not be decoded: {e}"
+        )))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Approval tally refused: proposal record has no entry.".into()
+        )))?;
+
+    if proposal.id != proposal_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Approval tally refused: proposal lookup returned a mismatched ID.".into()
+        )));
+    }
+
+    let now = sys_time()?;
+    match proposal.status {
+        ProposalStatusMirror::Active => {
+            if now < proposal.voting_ends {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Approval tally refused: voting period has not ended.".into()
+                )));
+            }
+        }
+        ProposalStatusMirror::Ended => {}
+        ProposalStatusMirror::Approved | ProposalStatusMirror::Signed => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Approval tally refused: proposal has already entered an approval/signature state."
+                    .into()
+            )));
+        }
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Approval tally refused: proposal is not in an approvable voting state.".into()
+            )));
+        }
+    }
+
+    Ok(proposal)
+}
+
+fn enforce_tally_threshold_policy(
+    proposal: &ProposalMirror,
+    requested_tier: &ProposalTier,
+    quorum_override: Option<f64>,
+    approval_override: Option<f64>,
+) -> ExternResult<()> {
+    let minimum = minimum_tier_for_proposal_type(&proposal.proposal_type);
+    if tier_security_rank(requested_tier) < tier_security_rank(&minimum) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Approval tally refused: requested {:?} is weaker than canonical minimum {:?} for this proposal type.",
+            requested_tier, minimum
+        ))));
+    }
+
+    if let Some(quorum) = quorum_override {
+        if !quorum.is_finite() || !(0.0..=1.0).contains(&quorum) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Approval tally refused: quorum override must be finite and within 0..=1."
+                    .into()
+            )));
+        }
+        if quorum < requested_tier.quorum_requirement() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Approval tally refused: quorum override cannot weaken the requested tier."
+                    .into()
+            )));
+        }
+    }
+
+    if let Some(approval) = approval_override {
+        if !approval.is_finite() || !(0.0..=1.0).contains(&approval) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Approval tally refused: approval override must be finite and within 0..=1."
+                    .into()
+            )));
+        }
+        if approval < requested_tier.approval_threshold() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Approval tally refused: approval override cannot weaken the requested tier."
+                    .into()
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 // ============================================================================
 // REAL-TIME SIGNALS
 // ============================================================================
@@ -1765,6 +1896,14 @@ pub fn tally_votes(input: TallyVotesInput) -> ExternResult<Record> {
     }
 
     let tier = input.tier.unwrap_or(ProposalTier::Major);
+    let proposal = load_proposal_for_approval(&input.proposal_id)?;
+    enforce_tally_threshold_policy(
+        &proposal,
+        &tier,
+        input.quorum_override,
+        input.approval_override,
+    )?;
+
     let quorum_threshold = input
         .quorum_override
         .unwrap_or_else(|| tier.quorum_requirement());
@@ -1773,14 +1912,14 @@ pub fn tally_votes(input: TallyVotesInput) -> ExternResult<Record> {
         .unwrap_or_else(|| tier.approval_threshold());
 
     // Validate overrides
-    if quorum_threshold < 0.0 || quorum_threshold > 1.0 {
+    if !quorum_threshold.is_finite() || quorum_threshold < 0.0 || quorum_threshold > 1.0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Quorum threshold must be between 0 and 1".into()
+            "Quorum threshold must be finite and between 0 and 1".into()
         )));
     }
-    if approval_threshold < 0.0 || approval_threshold > 1.0 {
+    if !approval_threshold.is_finite() || approval_threshold < 0.0 || approval_threshold > 1.0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Approval threshold must be between 0 and 1".into()
+            "Approval threshold must be finite and between 0 and 1".into()
         )));
     }
 
@@ -1853,6 +1992,9 @@ pub fn tally_phi_votes(input: TallyPhiVotesInput) -> ExternResult<Record> {
             "Proposal ID must be 1-256 characters".into()
         )));
     }
+
+    let proposal = load_proposal_for_approval(&input.proposal_id)?;
+    enforce_tally_threshold_policy(&proposal, &input.tier, None, None)?;
 
     let proposal_anchor = format!("phi_proposal:{}", input.proposal_id);
     let links = get_links(
@@ -2034,6 +2176,13 @@ pub fn tally_phi_votes(input: TallyPhiVotesInput) -> ExternResult<Record> {
         0.0
     };
     let approved = quorum_reached && approval_rate >= approval_threshold;
+
+    if approved && input.generate_reflection == Some(false) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Approval tally refused: collective safety reflection cannot be disabled for an approval-producing tally."
+                .into()
+        )));
+    }
 
     let now = sys_time()?;
 
@@ -2264,9 +2413,13 @@ pub fn tally_phi_votes(input: TallyPhiVotesInput) -> ExternResult<Record> {
                     }
                 }
             }
-            Err(_) => {
-                // Reflection generation failed — proceed without circuit breaker
-                // (fail-open: we don't block governance on reflection failures)
+            Err(e) if approved => {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Approval tally refused: mandatory safety reflection failed: {e:?}"
+                ))));
+            }
+            Err(e) => {
+                debug!("Non-approval tally reflection failed: {:?}", e);
             }
         }
     }
