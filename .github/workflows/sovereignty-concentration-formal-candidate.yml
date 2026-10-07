@@ -73,6 +73,14 @@ jobs:
             printf "%s  %s\n" "6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d" "$RUNNER_TEMP/sov-concentration-tools/alloy.jar" | sha256sum --check --strict
           '
 
+      - name: Preflight candidate verifier syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mycelix-governance/tools/formal/qualify_sovereignty_concentration_formal.py
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json >/dev/null
+          python3 -m json.tool mycelix-governance/tools/formal/concentration_pins.json >/dev/null
+
       - name: Fetch exact frozen subject
         env:
           SUBJECT_SHA: \${{ steps.subject.outputs.sha }}
@@ -104,7 +112,7 @@ jobs:
               --alloy-class-dir "$RUNNER_TEMP/sov-concentration-java" \
               --tla-jar "$RUNNER_TEMP/sov-concentration-tools/tla2tools.jar" \
               --alloy-jar "$RUNNER_TEMP/sov-concentration-tools/alloy.jar" \
-              --evidence-dir "$RUNNER_TEMP/sov-concentration-evidence"
+              --evidence-dir "$RUNNER_TEMP/sov-concentration-evidence"               --crosswalk docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json
 
       - name: Verify repository postflight is clean
         if: always()
