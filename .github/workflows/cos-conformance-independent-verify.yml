@@ -107,7 +107,7 @@ jobs:
           assert ("allow-unsafe-pr-checkout" + ": true") not in scanned_text
           assert scanned_text.count("actions/checkout@") == 3
           assert scanned_text.count("persist-credentials: false") == 3
-          assert scanned_text.count("digest-mismatch: error") == 1
+          assert scanned_text.count("digest-mismatch: error") == 2
           assert scanned_text.count("artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}") == 1
           assert "actions/artifacts/${EXPECTED_ARTIFACT_ID}" in scanned_text
 
