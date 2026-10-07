@@ -149,60 +149,54 @@ impl SettlementRailProfile {
         Ok(())
     }
 
-    /// Whether a claim may be admitted under this profile's configured
-    /// high-assurance settlement boundary.
-    pub fn admits_high_assurance_claim(
+    /// Admit a claim only when independently observed external evidence is
+    /// bound to it and satisfies this rail profile's configured boundary.
+    pub fn admits_high_assurance_settlement(
         &self,
         claim: &SettlementClaim,
+        receipt: &SettlementReceipt,
     ) -> Result<(), SettlementValidationError> {
         self.validate()?;
         claim.validate()?;
 
-        if claim.rail_id != self.rail_id {
+        if claim.rail_id != self.rail_id || receipt.rail_id != self.rail_id {
             return Err(SettlementValidationError::ProfileMismatch);
         }
 
-        if claim.chain_id != self.chain_id {
+        if claim.chain_id != self.chain_id || receipt.chain_id != self.chain_id {
             return Err(SettlementValidationError::ChainIdMismatch);
         }
 
-        if claim.configuration_digest != self.configuration_digest {
+        if claim.configuration_digest != self.configuration_digest
+            || receipt.configuration_digest != self.configuration_digest
+        {
             return Err(SettlementValidationError::ConfigurationMismatch);
-        }
-
-        if claim.amount_minor_units == 0 {
-            return Err(SettlementValidationError::InvalidField {
-                field: "amount_minor_units",
-                reason: "must be greater than zero",
-            });
         }
 
         if claim.amount_minor_units > self.max_exposure_minor_units {
             return Err(SettlementValidationError::ExposureExceeded);
         }
 
-        if claim.finality.assurance_rank() < self.configured_finality.assurance_rank() {
+        receipt.bind_to_claim(claim)?;
+
+        if receipt.finality.assurance_rank() < self.configured_finality.assurance_rank() {
             return Err(SettlementValidationError::InsufficientFinality);
         }
 
-        match &claim.finality {
+        match &receipt.finality {
             SettlementFinality::BridgeFinal
             | SettlementFinality::EconomicallyFinal
             | SettlementFinality::Reconciled => {}
             _ => return Err(SettlementValidationError::InsufficientFinality),
         }
 
-        if claim.proof_or_attestation_ref.is_none() {
+        if receipt.proof_or_attestation_ref.is_none() {
             return Err(SettlementValidationError::MissingProofOrAttestation);
-        }
-
-        if claim.reconciled != matches!(&claim.finality, SettlementFinality::Reconciled) {
-            return Err(SettlementValidationError::ReconciliationStateMismatch);
         }
 
         Ok(())
     }
-}
+    
 
 /// One external settlement observation associated with a Mycelix economic event.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -420,10 +414,33 @@ mod tests {
         }
     }
 
+    fn receipt() -> SettlementReceipt {
+        SettlementReceipt {
+            receipt_id: "receipt-1".into(),
+            settlement_claim_id: "claim-1".into(),
+            rail_id: "polygon-pos-mainnet".into(),
+            chain_id: 137,
+            asset_id: "SAP".into(),
+            token_contract: Some("0x0000000000000000000000000000000000000001".into()),
+            amount_minor_units: 100,
+            unit: "micro-SAP".into(),
+            transaction_or_message_id: "0xtx".into(),
+            block_reference: Some("block-1".into()),
+            proof_or_attestation_ref: Some("proof-1".into()),
+            finality: SettlementFinality::Reconciled,
+            reconciled: true,
+            adapter_version: "polygon-adapter-v1".into(),
+            configuration_digest: "config-v1".into(),
+            observed_at_micros: 11,
+            known_at_micros: 21,
+            supersedes_receipt_id: None,
+        }
+    }
+
     #[test]
-    fn valid_claim_admits() {
+    fn valid_settlement_admits() {
         let p = profile();
-        assert!(p.admits_high_assurance_claim(&claim()).is_ok());
+        assert!(p.admits_high_assurance_settlement(&claim(), &receipt()).is_ok());
     }
 
     #[test]
@@ -432,7 +449,7 @@ mod tests {
         let mut c = claim();
         c.chain_id = 1;
         assert_eq!(
-            p.admits_high_assurance_claim(&c),
+            p.admits_high_assurance_settlement(&c, &receipt()),
             Err(SettlementValidationError::ChainIdMismatch)
         );
     }
@@ -443,7 +460,7 @@ mod tests {
         let mut c = claim();
         c.configuration_digest = "config-v2".into();
         assert_eq!(
-            p.admits_high_assurance_claim(&c),
+            p.admits_high_assurance_settlement(&c, &receipt()),
             Err(SettlementValidationError::ConfigurationMismatch)
         );
     }
@@ -454,7 +471,7 @@ mod tests {
         let mut c = claim();
         c.proof_or_attestation_ref = None;
         assert_eq!(
-            p.admits_high_assurance_claim(&c),
+            p.admits_high_assurance_settlement(&c, &receipt()),
             Err(SettlementValidationError::MissingProofOrAttestation)
         );
     }
@@ -466,7 +483,7 @@ mod tests {
         c.finality = SettlementFinality::Included;
         c.reconciled = false;
         assert_eq!(
-            p.admits_high_assurance_claim(&c),
+            p.admits_high_assurance_settlement(&c, &receipt()),
             Err(SettlementValidationError::InsufficientFinality)
         );
     }
@@ -482,12 +499,26 @@ mod tests {
     }
 
     #[test]
+    fn receipt_must_match_claim_terms() {
+        let p = profile();
+        let mut r = receipt();
+        r.amount_minor_units += 1;
+        assert_eq!(
+            p.admits_high_assurance_settlement(&claim(), &r),
+            Err(SettlementValidationError::InvalidField {
+                field: "claim_receipt_binding",
+                reason: "claim and receipt identities or settlement terms differ",
+            })
+        );
+    }
+
+    #[test]
     fn exposure_limit_fails_closed() {
         let p = profile();
         let mut c = claim();
         c.amount_minor_units = p.max_exposure_minor_units + 1;
         assert_eq!(
-            p.admits_high_assurance_claim(&c),
+            p.admits_high_assurance_settlement(&c, &receipt()),
             Err(SettlementValidationError::ExposureExceeded)
         );
     }
