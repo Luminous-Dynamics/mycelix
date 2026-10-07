@@ -63,9 +63,10 @@ def step(st, kind, *args):
         if p in A[s]: return None
         A[s].add(p); E[s].add(p)
 
-    elif kind in ("jurisdiction", "jurisdiction-bad"):
+    elif kind in ("grant-jurisdiction", "grant-jurisdiction-bad"):
         j = args[1]
-        J[s].add(j)
+        if j in J[s]: return None
+        J[s].add(j); EJ[s].add(j)
         if kind.endswith("-bad"): A[s].add("power-a")
 
     elif kind in ("gatekeep", "gatekeep-bad"):
@@ -111,7 +112,7 @@ def violations(st):
 NORMAL = (
     [("accumulate", s, r) for s in SUBJECTS for r in RESOURCES] +
     [("grant", s, p) for s in SUBJECTS for p in POWERS] +
-    [("jurisdiction", s, j) for s in SUBJECTS for j in JURISDICTIONS] +
+    [("grant-jurisdiction", s, j) for s in SUBJECTS for j in JURISDICTIONS] +
     [("gatekeep", s, t, r) for s in SUBJECTS for t in SUBJECTS for r in RESOURCES] +
     [("acquire", s, t, r) for s in SUBJECTS for t in SUBJECTS for r in RESOURCES] +
     [("critical", s, r) for s in SUBJECTS for r in CRITICAL]
