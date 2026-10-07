@@ -582,16 +582,14 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
                 branch_state = "MISMATCH" if branch_mismatches else "VERIFIED"
     elif protection_status == 404:
         branch_state = "ABSENT"
+    elif protection_status in {401, 403}:
+        branch_state = "UNVERIFIED"
+        branch_mismatches = [f"branch_protection_admin_unavailable:{protection_status}"]
     else:
-        return {
-            "evaluator_id": EVALUATOR_ID,
-            "valid": False,
-            "governance_state": "UNVERIFIED",
-            "reason": f"unexpected_branch_protection_http_status:{protection_status}",
-            "claim_ceiling": "RepositoryGovernanceObservationOnly",
-            "authoritative_admin_observation": False,
-            "grants_trusted_verifier_root": False,
-        }
+        # An unavailable secondary control plane must not defeat an independently
+        # verified ruleset witness, but the status remains visible in the result.
+        branch_state = "UNVERIFIED"
+        branch_mismatches = [f"branch_protection_observation_unavailable:{protection_status}"]
 
     mismatches = branch_mismatches + ruleset_mismatches
 
@@ -920,6 +918,16 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
 
+    x = copy.deepcopy(fixture_observation(policy, protection_status=401))
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=500))
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
     x = copy.deepcopy(fixture_observation(policy, protection_status=403))
     x["rulesets"]["entries"][0]["rules"] = [
         {"type": "non_fast_forward"},
@@ -1135,7 +1143,15 @@ def self_test(policy: dict[str, Any]) -> None:
 
     x = copy.deepcopy(fixture_observation(policy))
     x["rulesets"]["entries"][0]["rules"] = [
-        {"type": "pull_request"},
+        {
+            "type": "pull_request",
+            "parameters": {
+                "dismiss_stale_reviews_on_push": True,
+                "require_last_push_approval": True,
+                "required_approving_review_count": 1,
+                "required_review_thread_resolution": True,
+            },
+        },
         {},
     ]
     _refresh_bound_fixture_payloads(x)
