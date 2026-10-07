@@ -74,6 +74,7 @@ def validate_policy(policy: Any) -> None:
     require(policy.get("version") == 1, "policy version drift")
     require(policy.get("repository") == REPOSITORY, "policy repository drift")
     require(policy.get("repository_id") == REPOSITORY_ID, "policy repository id drift")
+    require(policy.get("organization_id") == ORGANIZATION_ID, "policy organization id drift")
     require(policy.get("target_ref") == TARGET_REF, "policy target ref drift")
     required = policy.get("required_controls")
     require(isinstance(required, dict), "required_controls missing")
@@ -116,6 +117,14 @@ def validate_policy(policy: Any) -> None:
     require(
         observation_contract.get("applicable_rulesets_must_be_aggregated") is True,
         "ruleset aggregation contract drift",
+    )
+    require(
+        observation_contract.get("ruleset_repository_targeting_must_be_evaluated") is True,
+        "ruleset repository-targeting contract drift",
+    )
+    require(
+        observation_contract.get("repository_subject_identity_must_be_bound") is True,
+        "repository subject identity contract drift",
     )
 
     fail_closed = policy.get("fail_closed")
@@ -836,6 +845,7 @@ def fixture_policy() -> dict[str, Any]:
         "version": 1,
         "repository": REPOSITORY,
         "repository_id": REPOSITORY_ID,
+        "organization_id": ORGANIZATION_ID,
         "target_ref": TARGET_REF,
         "observation_contract": {
             "live_control_plane_required": True,
@@ -844,6 +854,8 @@ def fixture_policy() -> dict[str, Any]:
             "admin_observation_required_for_verified": True,
             "secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists": True,
             "applicable_rulesets_must_be_aggregated": True,
+            "ruleset_repository_targeting_must_be_evaluated": True,
+            "repository_subject_identity_must_be_bound": True,
         },
         "fail_closed": {
             "contradiction_dominates_secondary_observation_unavailability": True,
