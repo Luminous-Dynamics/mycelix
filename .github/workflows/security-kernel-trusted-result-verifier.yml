@@ -19,15 +19,15 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "1028268cd824091e013ed71e7b643b6622188215"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "bb61668af4d06414d8a150ba248f0bab58e8cbfc"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "ba1589f20b434740a1c52ef1f5daf3b6b49962a4"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "37ec95bf2ca147cabc7c42fdea37bba961eabf13"
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
   RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"
   EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "18dca202667b1dc26f57c588efcab42087c8a49e"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "faf3d28f4b67f3748254ae59a20e0f8d9b244926"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "cd1205141ec1c6e2cf4bcac28d5cc527db37f128"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -641,7 +641,7 @@ jobs:
           for key in (
               "candidate_source_tree_entry_count","candidate_source_file_count","candidate_source_total_path_bytes",
               "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
-              "source_max_bytes","source_max_inodes","source_copy_bytes","source_copy_files","source_copy_inodes",
+              "source_max_bytes","source_max_inodes","source_archive_max_bytes","dependency_manifest_max_bytes","dependency_lock_max_bytes","source_copy_bytes","source_copy_files","source_copy_inodes",
               "vendor_max_bytes","vendor_max_files","vendor_max_inodes","vendor_tmpfs_nr_inodes","vendor_config_max_bytes","vendor_config_max_inodes","vendor_config_tmpfs_nr_inodes","vendor_config_observed_bytes","vendor_config_observed_inodes",
               "vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","s1_run_id","s1_run_attempt",
           ):
