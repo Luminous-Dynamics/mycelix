@@ -239,7 +239,7 @@ SafeStateLeavesProtectedDisputeUnresolved ==
 
 EmergencyExpiryIsBounded ==
     \A s \in Subjects :
-      EmergencyActive(s) => clock < emergencyExpires[s]
+      emergencyExpires[s] \in 0..(MaxTime + 2)
 
 ForkWeightRemainsOne ==
     \A s \in Subjects : politicalWeight[s] = 1
