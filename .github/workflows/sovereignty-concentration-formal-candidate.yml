@@ -25,14 +25,14 @@ jobs:
       - name: Checkout exact candidate subject
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: \${{ github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
 
       - name: Verify exact checkout
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "\${{ github.sha }}"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
 
       - name: Validate candidate contracts
         run: |
@@ -48,8 +48,8 @@ jobs:
           crosswalk=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json").read_text())
           assert profile["status"] == "candidate-verification-profile"
           assert profile["authority"] == "non-authoritative"
-          assert profile["semantic_subject"]["head_sha"] == "\${{ github.sha }}"
-          assert crosswalk["formal_subject_head"] == "\${{ github.sha }}"
+          assert profile["semantic_subject"]["head_sha"] == "${{ github.sha }}"
+          assert crosswalk["formal_subject_head"] == "${{ github.sha }}"
           assert crosswalk["formal_subject_tree"] == profile["semantic_subject"]["tree_sha"]
           print("CANDIDATE CONTRACT PASS: exact subject identity and non-authoritative boundary")
           PY
