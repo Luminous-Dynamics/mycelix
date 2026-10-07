@@ -217,7 +217,10 @@ def require_no_fail_open_controls(lines_: list[str], description: str) -> None:
 
 def require_no_fail_open_probe_conditions(lines_: list[str], description: str) -> None:
     for line in lines_:
-        if re.match(r"\s*if\s+(?:docker|git|find)\b.*\|\s*grep\b", line):
+        if re.match(
+            r"\s*if\s+(?:docker|git|find|sort|df|du|sha256sum|stat|tar)\b.*\|\s*grep\b",
+            line,
+        ):
             fail(f"{description}: external probe failure is masked by an if-pipeline: {line!r}")
 
 
@@ -807,6 +810,18 @@ def main() -> None:
             s1_sha,
         ),
         "negative-control container cleanup trap removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"          set -euo pipefail\n",
+                b"          set -euo pipefail\n          if sort /dev/null | grep -q .; then exit 1; fi\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "unchecked sort pipeline inside conditional",
     )
 
     expect_rejection(
