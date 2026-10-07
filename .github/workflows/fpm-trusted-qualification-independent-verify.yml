@@ -218,33 +218,68 @@ jobs:
           cp "$receipt_file" snapshot/qualification-receipt.json
           cp "$index_file" snapshot/artifact-binding-index.json
 
+      - name: Extract evidence targets with strict JSON parser
+        id: target
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          def reject_duplicates(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise SystemExit(f"duplicate JSON key: {key!r}")
+                  result[key] = value
+              return result
+
+          raw = Path("snapshot/qualification-receipt.json").read_bytes()
+          if not raw.endswith(b"\n") or raw[:-1].endswith(b"\n"):
+              raise SystemExit("receipt must have exactly one trailing LF")
+          receipt = json.loads(raw[:-1].decode("utf-8"), object_pairs_hook=reject_duplicates)
+          canonical = json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+          if canonical != raw[:-1]:
+              raise SystemExit("receipt is not canonical JSON")
+          if not re.fullmatch(r"[1-9][0-9]*", str(receipt["pr_number"])):
+              raise SystemExit("invalid PR number")
+          if not re.fullmatch(r"[1-9][0-9]*", str(receipt["upstream_workflow_run_id"])):
+              raise SystemExit("invalid candidate workflow run ID")
+          if not re.fullmatch(r"[0-9a-f]{40}", receipt["subject_sha"]):
+              raise SystemExit("invalid subject SHA")
+          if not re.fullmatch(r"[0-9a-f]{40}", receipt["trusted_policy_sha"]):
+              raise SystemExit("invalid trusted policy SHA")
+          if receipt["lock_mode"] not in {"tracked", "generated_for_run"}:
+              raise SystemExit("invalid lock mode")
+          with open("$GITHUB_OUTPUT", "w", encoding="utf-8") as output:
+              output.write(f"pr_number={receipt['pr_number']}\n")
+              output.write(f"candidate_run_id={receipt['upstream_workflow_run_id']}\n")
+              output.write(f"subject_sha={receipt['subject_sha']}\n")
+              output.write(f"policy_sha={receipt['trusted_policy_sha']}\n")
+              output.write(f"lock_mode={receipt['lock_mode']}\n")
+          PY
+
       - name: Resolve evidence-linked GitHub objects
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.target.outputs.pr_number }}
+          CANDIDATE_RUN_ID: ${{ steps.target.outputs.candidate_run_id }}
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          POLICY_SHA: ${{ steps.target.outputs.policy_sha }}
+          LOCK_MODE: ${{ steps.target.outputs.lock_mode }}
         run: |
           set -euo pipefail
-          PR_NUMBER="$(jq -r '.pr_number' snapshot/qualification-receipt.json)"
-          CANDIDATE_RUN_ID="$(jq -r '.upstream_workflow_run_id' snapshot/qualification-receipt.json)"
-          SUBJECT_SHA="$(jq -r '.subject_sha' snapshot/qualification-receipt.json)"
-          POLICY_SHA="$(jq -r '.trusted_policy_sha' snapshot/qualification-receipt.json)"
-          LOCK_MODE="$(jq -r '.lock_mode' snapshot/qualification-receipt.json)"
-
-          test "$PR_NUMBER" -ge 1
-          printf '%s\n' "$CANDIDATE_RUN_ID" | grep -Eq '^[0-9]+$'
-          printf '%s\n' "$SUBJECT_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s\n' "$POLICY_SHA" | grep -Eq '^[0-9a-f]{40}$'
-
           gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" > snapshot/candidate-run.json
           gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > snapshot/pull-request.json
           gh api "repos/${GITHUB_REPOSITORY}/commits/${SUBJECT_SHA}" > snapshot/subject-commit.json
           gh api "repos/${GITHUB_REPOSITORY}/contents/crates/fpm-wasm-artifact-identity/Cargo.toml?ref=${SUBJECT_SHA}" > snapshot/manifest.json
           gh api "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/fpm-trusted-qualification.yml?ref=${POLICY_SHA}" > snapshot/policy-file.json
           if [ "$LOCK_MODE" = "tracked" ]; then
-            gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/Cargo.lock?ref=${SUBJECT_SHA}" > snapshot/candidate-lock.json
+            gh api "repos/${GITHUB_REPOSITORY}/contents/crates/fpm-wasm-artifact-identity/Cargo.lock?ref=${SUBJECT_SHA}" > snapshot/candidate-lock.json
           else
             printf '%s\n' '{"mode":"generated_for_run"}' > snapshot/candidate-lock.json
           fi
-
       - name: Run independent raw-object verifier
         id: reference
         run: |
