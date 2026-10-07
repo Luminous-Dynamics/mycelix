@@ -1047,6 +1047,18 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["governance_state"] == "MISMATCH"
     assert result["grants_trusted_verifier_root"] is False
 
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["bypass_actors"] = [{
+        "actor_type": "DeployKey",
+        "actor_id": None,
+        "bypass_mode": "pull_request",
+    }]
+_refresh_bound_fixture_payloads(x)
+result = evaluate(policy, x)
+assert result["governance_state"] == "UNVERIFIED"
+assert result["grants_trusted_verifier_root"] is False
+
     x = copy.deepcopy(fixture_observation(policy))
     x["rulesets"]["entries"][0]["bypass_actors"] = [{"actor_type": "User", "actor_id": 7}]
     _refresh_bound_fixture_payloads(x)
