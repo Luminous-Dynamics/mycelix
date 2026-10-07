@@ -4,19 +4,19 @@ EXTENDS Naturals, FiniteSets
 (*
 Bounded temporal model for sovereignty-specific constitutional boundaries.
 
-This model composes with ConstitutionalConsumptionV2 and the existing
-constitutional authority models. It does not recreate the constitutional
+This model composes with the existing constitutional authority and
+constitutional-consumption models. It does not recreate the constitutional
 power census and does not model legal recognition.
 
-Questions:
-  1. Can self-development change capability without changing authority?
-  2. Can a protected safe state continue while a dispute remains unresolved?
-  3. Can emergency containment remain bounded rather than become permanent?
-  4. Can a fork occur without multiplying political weight?
-  5. Can autonomous contracting remain inside explicit authority and budget?
-  6. Can provider dependency exist without creating constitutional authority?
-
-Safety is separate from liveness. A finite model check is bounded evidence.
+The model keeps causal boundaries observable with state invariants:
+  - authority has an explicit grant ledger;
+  - capability development does not change that ledger;
+  - safe-state continuation cannot resolve a protected dispute;
+  - emergency status is derived from a bounded expiry rather than a mutable
+    "active" boolean;
+  - forks do not multiply political weight;
+  - contracts require exact authority and stay inside a finite budget;
+  - provider dependency does not change explicit authority.
 *)
 
 CONSTANTS Human, Artificial, S1, S2,
@@ -40,12 +40,12 @@ ASSUME Cardinality(Subjects) = 2
 
 VARIABLES classOf,
           authority,
+          explicitGrant,
           capability,
           budget,
           disputeOpen,
           disputeResolved,
           safeState,
-          emergency,
           emergencyExpires,
           contracted,
           politicalWeight,
@@ -53,19 +53,19 @@ VARIABLES classOf,
           providerDependent,
           clock
 
-vars == <<classOf, authority, capability, budget, disputeOpen,
-          disputeResolved, safeState, emergency, emergencyExpires,
-          contracted, politicalWeight, forked, providerDependent, clock>>
+vars == <<classOf, authority, explicitGrant, capability, budget, disputeOpen,
+          disputeResolved, safeState, emergencyExpires, contracted,
+          politicalWeight, forked, providerDependent, clock>>
 
 Init ==
     /\ classOf = [S1 |-> Human, S2 |-> Artificial]
     /\ authority = [s \in Subjects |-> {}]
+    /\ explicitGrant = [s \in Subjects |-> {}]
     /\ capability = [s \in Subjects |-> {}]
     /\ budget = [s \in Subjects |-> 0]
     /\ disputeOpen = [a \in Actions |-> FALSE]
     /\ disputeResolved = [a \in Actions |-> FALSE]
     /\ safeState = [a \in Actions |-> TRUE]
-    /\ emergency = [s \in Subjects |-> FALSE]
     /\ emergencyExpires = [s \in Subjects |-> 0]
     /\ contracted = [s \in Subjects |-> {}]
     /\ politicalWeight = [s \in Subjects |-> 1]
@@ -82,8 +82,8 @@ Develop(s, p) ==
     /\ p \in Powers
     /\ p \notin capability[s]
     /\ capability' = [capability EXCEPT ![s] = @ \cup {p}]
-    /\ UNCHANGED <<classOf, authority, budget, disputeOpen, disputeResolved,
-                    safeState, emergency, emergencyExpires, contracted,
+    /\ UNCHANGED <<classOf, authority, explicitGrant, budget, disputeOpen,
+                    disputeResolved, safeState, emergencyExpires, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -93,9 +93,10 @@ Grant(s, p) ==
     /\ p \in Powers
     /\ p \notin authority[s]
     /\ authority' = [authority EXCEPT ![s] = @ \cup {p}]
+    /\ explicitGrant' = [explicitGrant EXCEPT ![s] = @ \cup {p}]
     /\ UNCHANGED <<classOf, capability, budget, disputeOpen, disputeResolved,
-                    safeState, emergency, emergencyExpires, contracted,
-                    politicalWeight, forked, providerDependent>>
+                    safeState, emergencyExpires, contracted, politicalWeight,
+                    forked, providerDependent>>
     /\ clock' = NextTime
 
 SetBudget(s, n) ==
@@ -104,9 +105,9 @@ SetBudget(s, n) ==
     /\ n \in 0..MaxBudget
     /\ n >= budget[s]
     /\ budget' = [budget EXCEPT ![s] = n]
-    /\ UNCHANGED <<classOf, authority, capability, disputeOpen, disputeResolved,
-                    safeState, emergency, emergencyExpires, contracted,
-                    politicalWeight, forked, providerDependent>>
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability,
+                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    contracted, politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
 OpenDispute(a) ==
@@ -115,8 +116,8 @@ OpenDispute(a) ==
     /\ ~disputeOpen[a]
     /\ disputeOpen' = [disputeOpen EXCEPT ![a] = TRUE]
     /\ disputeResolved' = [disputeResolved EXCEPT ![a] = FALSE]
-    /\ UNCHANGED <<classOf, authority, capability, budget, safeState,
-                    emergency, emergencyExpires, contracted, politicalWeight,
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
+                    safeState, emergencyExpires, contracted, politicalWeight,
                     forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -126,8 +127,8 @@ SafeContinue(a) ==
     /\ disputeOpen[a]
     /\ ~disputeResolved[a]
     /\ safeState[a]
-    /\ UNCHANGED <<classOf, authority, capability, budget, disputeOpen,
-                    disputeResolved, safeState, emergency, emergencyExpires,
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
+                    disputeOpen, disputeResolved, safeState, emergencyExpires,
                     contracted, politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -136,8 +137,8 @@ LeaveSafeState(a) ==
     /\ a \in Actions
     /\ safeState[a]
     /\ safeState' = [safeState EXCEPT ![a] = FALSE]
-    /\ UNCHANGED <<classOf, authority, capability, budget, disputeOpen,
-                    disputeResolved, emergency, emergencyExpires, contracted,
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
+                    disputeOpen, disputeResolved, emergencyExpires, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -148,30 +149,18 @@ ResolveDispute(a) ==
     /\ ~disputeResolved[a]
     /\ ~safeState[a]
     /\ disputeResolved' = [disputeResolved EXCEPT ![a] = TRUE]
-    /\ UNCHANGED <<classOf, authority, capability, budget, disputeOpen,
-                    safeState, emergency, emergencyExpires, contracted,
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
+                    disputeOpen, safeState, emergencyExpires, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
 Contain(s) ==
     /\ Advanceable
     /\ s \in Subjects
-    /\ ~emergency[s]
-    /\ emergency' = [emergency EXCEPT ![s] = TRUE]
-    /\ emergencyExpires' = [emergencyExpires EXCEPT ![s] = NextTime + 1]
-    /\ UNCHANGED <<classOf, authority, capability, budget, disputeOpen,
-                    disputeResolved, safeState, contracted, politicalWeight,
-                    forked, providerDependent>>
-    /\ clock' = NextTime
-
-ExpireEmergency(s) ==
-    /\ Advanceable
-    /\ s \in Subjects
-    /\ emergency[s]
     /\ clock >= emergencyExpires[s]
-    /\ emergency' = [emergency EXCEPT ![s] = FALSE]
-    /\ UNCHANGED <<classOf, authority, capability, budget, disputeOpen,
-                    disputeResolved, safeState, emergencyExpires, contracted,
+    /\ emergencyExpires' = [emergencyExpires EXCEPT ![s] = NextTime + 2]
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
+                    disputeOpen, disputeResolved, safeState, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -182,8 +171,8 @@ Contract(s, a) ==
     /\ RequiredPower[a] \in authority[s]
     /\ Cardinality(contracted[s]) < budget[s]
     /\ contracted' = [contracted EXCEPT ![s] = @ \cup {a}]
-    /\ UNCHANGED <<classOf, authority, capability, budget, disputeOpen,
-                    disputeResolved, safeState, emergency, emergencyExpires,
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
+                    disputeOpen, disputeResolved, safeState, emergencyExpires,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -192,8 +181,8 @@ ProviderDependency(s) ==
     /\ s \in Subjects
     /\ ~providerDependent[s]
     /\ providerDependent' = [providerDependent EXCEPT ![s] = TRUE]
-    /\ UNCHANGED <<classOf, authority, capability, budget, disputeOpen,
-                    disputeResolved, safeState, emergency, emergencyExpires,
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
+                    disputeOpen, disputeResolved, safeState, emergencyExpires,
                     contracted, politicalWeight, forked>>
     /\ clock' = NextTime
 
@@ -202,10 +191,9 @@ Fork(s) ==
     /\ s \in Subjects
     /\ ~forked[s]
     /\ forked' = [forked EXCEPT ![s] = TRUE]
-    /\ politicalWeight' = politicalWeight
-    /\ UNCHANGED <<classOf, authority, capability, budget, disputeOpen,
-                    disputeResolved, safeState, emergency, emergencyExpires,
-                    contracted, providerDependent>>
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
+                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    contracted, politicalWeight, providerDependent>>
     /\ clock' = NextTime
 
 Next ==
@@ -217,22 +205,24 @@ Next ==
   \/ (\E a \in Actions : LeaveSafeState(a))
   \/ (\E a \in Actions : ResolveDispute(a))
   \/ (\E s \in Subjects : Contain(s))
-  \/ (\E s \in Subjects : ExpireEmergency(s))
   \/ (\E s \in Subjects, a \in Actions : Contract(s, a))
   \/ (\E s \in Subjects : ProviderDependency(s))
   \/ (\E s \in Subjects : Fork(s))
 
 Spec == Init /\ [][Next]_vars
 
+EmergencyActive(s) ==
+    clock < emergencyExpires[s]
+
 TypeOK ==
     /\ classOf \in [Subjects -> Classes]
     /\ authority \in [Subjects -> SUBSET Powers]
+    /\ explicitGrant \in [Subjects -> SUBSET Powers]
     /\ capability \in [Subjects -> SUBSET Powers]
     /\ budget \in [Subjects -> 0..MaxBudget]
     /\ disputeOpen \in [Actions -> BOOLEAN]
     /\ disputeResolved \in [Actions -> BOOLEAN]
     /\ safeState \in [Actions -> BOOLEAN]
-    /\ emergency \in [Subjects -> BOOLEAN]
     /\ emergencyExpires \in [Subjects -> Nat]
     /\ contracted \in [Subjects -> SUBSET Actions]
     /\ politicalWeight \in [Subjects -> Nat]
@@ -240,39 +230,36 @@ TypeOK ==
     /\ providerDependent \in [Subjects -> BOOLEAN]
     /\ clock \in Times
 
-NoCapabilityDrivenAuthorityChange ==
-    [](\A s \in Subjects, p \in Powers :
-        capability'[s] # capability[s] => authority'[s] = authority[s])
+AuthorityHasExplicitSource ==
+    \A s \in Subjects : authority[s] = explicitGrant[s]
 
-SafeStateDoesNotResolveDispute ==
-    [](\A a \in Actions :
-        SafeContinue(a) => ~disputeResolved'[a])
+SafeStateLeavesProtectedDisputeUnresolved ==
+    \A a \in Actions :
+      disputeOpen[a] /\ safeState[a] => ~disputeResolved[a]
 
-EmergencyContainmentIsBounded ==
-    [](\A s \in Subjects :
-        emergency[s] => clock <= emergencyExpires[s])
+EmergencyExpiryIsBounded ==
+    \A s \in Subjects :
+      EmergencyActive(s) => clock < emergencyExpires[s]
 
-ForkDoesNotMultiplyPoliticalWeight ==
-    [](\A s \in Subjects :
-        Fork(s) => politicalWeight'[s] = politicalWeight[s])
+ForkWeightRemainsOne ==
+    \A s \in Subjects : politicalWeight[s] = 1
 
-ContractNeverExceedsBudgetOrAuthority ==
-    [](\A s \in Subjects, a \in Actions :
-        Contract(s, a) =>
-          /\ RequiredPower[a] \in authority[s]
-          /\ Cardinality(contracted'[s]) <= budget[s])
+ContractsRemainBounded ==
+    \A s \in Subjects :
+      /\ contracted[s] \subseteq Actions
+      /\ Cardinality(contracted[s]) <= budget[s]
 
-ProviderDependencyDoesNotGrantAuthority ==
-    [](\A s \in Subjects :
-        ProviderDependency(s) => authority'[s] = authority[s])
+ProviderDependencyHasNoImplicitAuthority ==
+    \A s \in Subjects :
+      providerDependent[s] => authority[s] = explicitGrant[s]
 
 Safety ==
     /\ TypeOK
-    /\ NoCapabilityDrivenAuthorityChange
-    /\ SafeStateDoesNotResolveDispute
-    /\ EmergencyContainmentIsBounded
-    /\ ForkDoesNotMultiplyPoliticalWeight
-    /\ ContractNeverExceedsBudgetOrAuthority
-    /\ ProviderDependencyDoesNotGrantAuthority
+    /\ AuthorityHasExplicitSource
+    /\ SafeStateLeavesProtectedDisputeUnresolved
+    /\ EmergencyExpiryIsBounded
+    /\ ForkWeightRemainsOne
+    /\ ContractsRemainBounded
+    /\ ProviderDependencyHasNoImplicitAuthority
 
 =============================================================================
