@@ -522,6 +522,9 @@ jobs:
                       if not line.strip() or line.lstrip().startswith("#"):
                           continue
                       indent = len(line) - len(line.lstrip(" "))
+                      if indent <= 8 and re.fullmatch(r"\s*[A-Za-z0-9_-]+\s*:\s*\{.*", line):
+                          raise AssertionError(f"candidate workflow contains flow-style mapping: {line!r}")
+                      indent = len(line) - len(line.lstrip(" "))
                       root_match = re.fullmatch(r"([A-Za-z0-9_-]+)\s*:", line)
                       if indent == 0 and root_match:
                           key = root_match.group(1)
@@ -707,6 +710,18 @@ jobs:
                   pass
               else:
                   raise AssertionError("candidate structural with-parser accepted mutated checkout ref")
+
+              mutated_flow_mapping = workflow.replace(
+                  "jobs:\n",
+                  "jobs: {parser-flow-bypass: {runs-on: self-hosted, steps: [{name: Flow bypass, run: true}]} }\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_flow_mapping)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted a flow-style unsafe job mapping")
 
               mutated_duplicate_job_mapping = workflow + (
                   "\n    steps:\n"
