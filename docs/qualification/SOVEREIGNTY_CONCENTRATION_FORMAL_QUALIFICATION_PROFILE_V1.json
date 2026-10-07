@@ -81,7 +81,8 @@
       "exact Alloy integer bitwidth",
       "bounded reference exploration",
       "exact frozen subject SHA/tree are resolved before tool execution",
-      "exact verifier/profile/crosswalk blobs are bound in the candidate receipt"
+      "exact verifier/profile/crosswalk blobs are bound in the candidate receipt",
+      "candidate verifier code and crosswalk are exact-bound inputs"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
@@ -97,9 +98,9 @@
   ],
   "verifier": {
     "qualifier_path": "mycelix-governance/tools/formal/qualify_sovereignty_concentration_formal.py",
-    "qualifier_blob_sha": "2b31ac404166cc3f98b23bb2666c8ef90732c573",
+    "qualifier_blob_sha": "156c20e521f7cac463ff7907275cadb285272d61",
     "alloy_runner_path": "mycelix-governance/tools/formal/SovereigntyConcentrationAlloyQualificationRunner.java",
-    "alloy_runner_blob_sha": "82ea95bf7d12a60070c80c201c7ebb45644af754",
+    "alloy_runner_blob_sha": "4ec1c1b35234cc0a3186872228e449207431d5f7",
     "pins_path": "mycelix-governance/tools/formal/concentration_pins.json",
     "pins_blob_sha": "e9a7978e5d192441a62d00d94e32bc6e92adc0a6",
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json",
