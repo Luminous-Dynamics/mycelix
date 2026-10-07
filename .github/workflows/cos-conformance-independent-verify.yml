@@ -279,7 +279,6 @@ jobs:
           mkdir -p evidence/governance
 
           gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload.json
-          gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload.json
           gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload.json
           policy_hash="$(python - <<'PY'
           import hashlib
@@ -468,6 +467,10 @@ jobs:
               "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
               "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
               "rulesets_payload_sha256": hashlib.sha256(rulesets_raw).hexdigest(),
+              "effective_rules_payload_base64": base64.b64encode(effective_rules_raw).decode(),
+              "effective_rules_payload_sha256": hashlib.sha256(effective_rules_raw).hexdigest(),
+              "branch_protection_payload_base64": base64.b64encode(protection_raw).decode(),
+              "branch_protection_payload_sha256": hashlib.sha256(protection_raw).hexdigest(),
               "branch": {
                   "name": branch.get("name"),
                   "target_ref": "refs/heads/main",
