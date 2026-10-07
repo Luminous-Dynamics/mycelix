@@ -41,14 +41,14 @@ EXPECTED_ALLOY_UNSAT = {
     "AuthorizedContractsUseRequiredAuthority",
     "ContractsStayWithinBudget",
     "SafeStateCannotSettleDispute",
-    "EmergencyTimestampsNonNegative",
+    "EmergencyLifetimeIsBounded",
     "ForkCannotMultiplyPoliticalWeight",
 }
 ALLOY_NEGATIVE_FACTS = {
     "AuthorizedContractRequiresExactAuthority": "AuthorizedContractsUseRequiredAuthority",
     "ContractFitsBudget": "ContractsStayWithinBudget",
     "SafeStateLeavesDisputeUnresolved": "SafeStateCannotSettleDispute",
-    "EmergencyTimestampDomain": "EmergencyTimestampsNonNegative",
+    "EmergencyBoundedLifetime": "EmergencyLifetimeIsBounded",
     "ForkPreservesWeight": "ForkCannotMultiplyPoliticalWeight",
 }
 
