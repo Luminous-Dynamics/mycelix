@@ -1075,26 +1075,25 @@ def main() -> None:
         "unbounded vendor-config output target",
     )
     expect_rejection(
-        lambda: verify_s1(raw["s1"].replace(b'if ! docker volume rm "$VENDOR_CONFIG_VOLUME_NAME" >/dev/null; then\n', b'# vendor-config cleanup removed\n', 1), s1_sha),
+        lambda: verify_s1(raw["s1"].replace(b'if ! docker volume rm "$VENDOR_CONFIG_VOLUME_NAME" >/dev/null; then
+', b'# vendor-config cleanup removed
+', 1), s1_sha),
         "vendor-config cleanup removed",
     )
-
-        s1_sha),
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(SOURCE_VOLUME_CREATE.encode(), b'docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m', 1), s1_sha),
         "candidate source tmpfs without inode ceiling",
     )
     expect_rejection(
-        lambda: verify_s1(raw["s1"].replace(SOURCE_VOLUME_RW.encode(), b'--volume "$candidate_root:/output:rw"', 1),
-        s1_sha),
+        lambda: verify_s1(raw["s1"].replace(SOURCE_VOLUME_RW.encode(), b'--volume "$candidate_root:/output:rw"', 1), s1_sha),
         "writable host-backed candidate source root",
     )
     expect_rejection(
-        lambda: verify_s1(raw["s1"].replace(SOURCE_VOLUME_INSPECT.encode(), b'candidate_volume_spec="wrong|volume|driver|options"', 1),
-        s1_sha),
+        lambda: verify_s1(raw["s1"].replace(SOURCE_VOLUME_INSPECT.encode(), b'candidate_volume_spec="wrong|volume|driver|options"', 1), s1_sha),
         "candidate source instantiated-option mismatch",
     )
     expect_rejection(
-        lambda: verify_s1(raw["s1"].replace(b"trap source_volume_cleanup_on_failure EXIT", b"# source cleanup trap removed", 1),
-        s1_sha),
+        lambda: verify_s1(raw["s1"].replace(b"trap source_volume_cleanup_on_failure EXIT", b"# source cleanup trap removed", 1), s1_sha),
         "candidate source cleanup trap removed",
     )
 
