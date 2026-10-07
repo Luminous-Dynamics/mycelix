@@ -13,8 +13,8 @@
   "formal_subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v2-subject",
-    "head_sha": "45ec7f54244ec4a9bff02655d7dc2b0784bc83d2",
-    "tree_sha": "eca42ef0af0ee91073ca374e068752d74f6731e1",
+    "head_sha": "86483d6604f7f7e84fc09e512425c0363a2b9459",
+    "tree_sha": "39cbe055023b38a8345f319af2b6f6946145532c",
     "models": [
       {
         "name": "TLA+ temporal sovereignty model",
@@ -28,7 +28,11 @@
         "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als",
         "git_blob_sha": "b61f7c0c71cd29f5673d9c58183dfa8842ae3c40"
       }
-    ]
+    ],
+    "reference_explorer": {
+      "path": "mycelix-governance/tools/formal/sovereignty_reference_explorer.py",
+      "git_blob_sha": "0dbdbf1f50c78191dcd5e137e4b2370c24db62ce"
+    }
   },
   "tla": {
     "invariants": [
@@ -131,7 +135,8 @@
       "all Alloy structural negative controls expose SAT counterexamples",
       "exact solver and finite scope recorded",
       "postflight input immutability",
-      "detached fixture blobs equal frozen formal-subject blobs"
+      "detached fixture blobs equal frozen formal-subject blobs",
+      "detached reference-explorer blob equals frozen formal-subject reference-explorer blob"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
@@ -160,6 +165,11 @@
       "path": "docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als",
       "git_blob_sha": "b61f7c0c71cd29f5673d9c58183dfa8842ae3c40",
       "source_git_blob_sha": "b61f7c0c71cd29f5673d9c58183dfa8842ae3c40"
+    },
+    "reference_explorer": {
+      "path": "docs/qualification/fixtures/formal/sovereignty_reference_explorer.py",
+      "git_blob_sha": "0dbdbf1f50c78191dcd5e137e4b2370c24db62ce",
+      "source_git_blob_sha": "0dbdbf1f50c78191dcd5e137e4b2370c24db62ce"
     }
   }
 }
