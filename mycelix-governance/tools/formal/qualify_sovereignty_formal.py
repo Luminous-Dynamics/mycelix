@@ -44,6 +44,14 @@ EXPECTED_ALLOY_UNSAT = {
     "EmergencyLifetimeIsBounded",
     "ForkCannotMultiplyPoliticalWeight",
 }
+REFERENCE_CONTROLS = {
+    "develop": "AuthorityHasExplicitSource",
+    "safe-continue": "SafeStateLeavesProtectedDisputeUnresolved",
+    "contain": "EmergencyExpiryIsBounded",
+    "contract": "ContractsRemainBounded",
+    "provider": "ProviderDependencyHasNoImplicitAuthority",
+    "fork": "ForkWeightRemainsOne",
+}
 ALLOY_NEGATIVE_FACTS = {
     "AuthorizedContractRequiresExactAuthority": "AuthorizedContractsUseRequiredAuthority",
     "ContractFitsBudget": "ContractsStayWithinBudget",
@@ -129,6 +137,8 @@ def assert_profile(profile: dict) -> None:
         fail("profile Alloy SAT command set mismatch")
     if set(alloy.get("expected_unsat", [])) != EXPECTED_ALLOY_UNSAT:
         fail("profile Alloy UNSAT command set mismatch")
+    if profile.get("negative_controls", {}).get("reference") != REFERENCE_CONTROLS:
+        fail("profile reference negative-control contract mismatch")
     if profile.get("negative_controls", {}).get("tla") != NEGATIVE_TLA:
         fail("profile TLA negative-control contract mismatch")
     if profile.get("negative_controls", {}).get("alloy") != ALLOY_NEGATIVE_FACTS:
@@ -340,8 +350,16 @@ def main() -> int:
     try:
         ref = run([sys.executable, str(args.reference_explorer)])
         receipt["reference_explorer"] = record_command(evidence, "reference-explorer", [sys.executable, str(args.reference_explorer)], ref)
-        if ref.returncode != 0 or "BOUNDED REFERENCE EXPLORATION PASS: semantic smoke evidence only" not in ref.stdout:
+        if ref.returncode != 0:
             fail("reference explorer smoke evidence failed")
+        for control, target in REFERENCE_CONTROLS.items():
+            expected = f"NEGATIVE PASS: {control} -> {target} counterexample"
+            if expected not in ref.stdout:
+                fail(f"reference explorer missing expected control output: {control}")
+        if "CANONICAL PASS: no invariant violation through depth 4" not in ref.stdout:
+            fail("reference explorer missing canonical bounded result")
+        if "BOUNDED REFERENCE EXPLORATION PASS: semantic smoke evidence only" not in ref.stdout:
+            fail("reference explorer final smoke evidence marker missing")
 
         tla_cmd = ["java", "-cp", str(args.tla_jar), "tlc2.TLC", "-workers", "1",
                    "-config", str(args.cfg), str(args.tla)]
