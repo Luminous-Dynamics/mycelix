@@ -143,30 +143,30 @@ OperateCritical(s, r) ==
     /\ clock' = NextTime
 
 Next ==
-      (\\E s \in Subjects, r \in Resources : Accumulate(s, r))
-  \/ (\\E s \in Subjects, p \in Powers : GrantAuthority(s, p))
-  \/ (\\E s \in Subjects, j \in Jurisdictions : GrantJurisdiction(s, j))
-  \/ (\\E s \in Subjects, t \in Subjects, r \in Resources :
+      (\E s \in Subjects, r \in Resources : Accumulate(s, r))
+  \/ (\E s \in Subjects, p \in Powers : GrantAuthority(s, p))
+  \/ (\E s \in Subjects, j \in Jurisdictions : GrantJurisdiction(s, j))
+  \/ (\E s \in Subjects, t \in Subjects, r \in Resources :
         Gatekeep(s, t, r))
-  \/ (\\E s \in Subjects, t \in Subjects, r \in Resources :
+  \/ (\E s \in Subjects, t \in Subjects, r \in Resources :
         Acquire(s, t, r))
-  \/ (\\E s \in Subjects, r \in CriticalResources : OperateCritical(s, r))
+  \/ (\E s \in Subjects, r \in CriticalResources : OperateCritical(s, r))
 
-Spec == Init /\\ [][Next]_vars
+Spec == Init /\ [][Next]_vars
 
 TypeOK ==
-    /\\ resourceControl \in [Subjects -> SUBSET Resources]
-    /\\ authority \in [Subjects -> SUBSET Powers]
-    /\\ explicitGrant \in [Subjects -> SUBSET Powers]
-    /\\ jurisdiction \in [Subjects -> SUBSET Jurisdictions]
-    /\\ explicitJurisdictionGrant \in [Subjects -> SUBSET Jurisdictions]
-    /\\ politicalWeight \in [Subjects -> Nat]
-    /\\ switchingCost \in [Subjects -> 0..MaxSwitchingCost]
-    /\\ reviewRequired \in [Subjects -> BOOLEAN]
-    /\\ acquired \in [Subjects -> SUBSET Resources]
-    /\\ gatekeeping \in [Subjects -> SUBSET Resources]
-    /\\ criticalOperator \in [Resources -> SUBSET Subjects]
-    /\\ clock \in 0..MaxTime
+    /\ resourceControl \in [Subjects -> SUBSET Resources]
+    /\ authority \in [Subjects -> SUBSET Powers]
+    /\ explicitGrant \in [Subjects -> SUBSET Powers]
+    /\ jurisdiction \in [Subjects -> SUBSET Jurisdictions]
+    /\ explicitJurisdictionGrant \in [Subjects -> SUBSET Jurisdictions]
+    /\ politicalWeight \in [Subjects -> Nat]
+    /\ switchingCost \in [Subjects -> 0..MaxSwitchingCost]
+    /\ reviewRequired \in [Subjects -> BOOLEAN]
+    /\ acquired \in [Subjects -> SUBSET Resources]
+    /\ gatekeeping \in [Subjects -> SUBSET Resources]
+    /\ criticalOperator \in [Resources -> SUBSET Subjects]
+    /\ clock \in 0..MaxTime
 
 AuthorityHasExplicitSource ==
     \A s \in Subjects : authority[s] = explicitGrant[s]
