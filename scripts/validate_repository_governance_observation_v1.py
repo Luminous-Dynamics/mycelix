@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import copy
+import hashlib
 import json
 import re
 from datetime import datetime, timezone
@@ -46,6 +48,21 @@ def sha256(value: Any, label: str) -> str:
     return value
 
 
+def validate_bound_raw_payload(observation: Any, name: str) -> bytes:
+    raw_field = f"{name}_payload_base64"
+    digest_field = f"{name}_payload_sha256"
+    encoded = observation.get(raw_field)
+    expected_digest = sha256(observation.get(digest_field), digest_field)
+    require(isinstance(encoded, str) and encoded != "", f"{raw_field} missing")
+    try:
+        raw = base64.b64decode(encoded, validate=True)
+    except (ValueError, TypeError) as exc:
+        raise EvidenceError(f"{raw_field} is not valid base64") from exc
+    actual_digest = hashlib.sha256(raw).hexdigest()
+    require(actual_digest == expected_digest, f"{digest_field} does not match {raw_field}")
+    return raw
+
+
 def validate_policy(policy: Any) -> None:
     require(isinstance(policy, dict), "policy must be an object")
     require(policy.get("schema") == POLICY_SCHEMA, "policy schema drift")
@@ -79,8 +96,83 @@ def validate_observation_shape(observation: Any) -> None:
     require(observation.get("target_ref") == TARGET_REF, "observation target ref drift")
     parse_ts(observation.get("observed_at_utc"))
     sha256(observation.get("policy_sha256"), "policy_sha256")
-    for name in ("branch_payload", "rulesets_payload"):
-        sha256(observation.get(f"{name}_sha256"), f"{name}_sha256")
+    validate_bound_raw_payload(observation, "branch")
+    validate_bound_raw_payload(observation, "rulesets")
+
+
+def _ruleset_targets_main(entry: Any) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    if entry.get("target") != "branch" or entry.get("enforcement") != "active":
+        return False
+    conditions = entry.get("conditions")
+    if not isinstance(conditions, dict):
+        return False
+    ref_name = conditions.get("ref_name")
+    if not isinstance(ref_name, dict):
+        return False
+    includes = ref_name.get("include")
+    if not isinstance(includes, list):
+        return False
+    return TARGET_REF in includes or "~DEFAULT_BRANCH" in includes or "~ALL" in includes
+
+
+def _evaluate_rulesets(ruleset_entries: list[Any]) -> tuple[str, list[str]]:
+    targeted: list[dict[str, Any]] = []
+    for entry in ruleset_entries:
+        if _ruleset_targets_main(entry):
+            targeted.append(entry)
+
+    if not targeted:
+        return "MISMATCH", ["no_active_main_targeting_ruleset"]
+
+    failures: list[str] = []
+    for index, entry in enumerate(targeted):
+        prefix = f"ruleset[{index}]"
+        rules = entry.get("rules")
+        if not isinstance(rules, list):
+            return "UNVERIFIED", [f"{prefix}_rules_not_enumerated"]
+
+        bypass = entry.get("bypass_actors")
+        if not isinstance(bypass, list):
+            return "UNVERIFIED", [f"{prefix}_bypass_actors_not_enumerated"]
+        if len(bypass) != 0:
+            failures.append(f"{prefix}_bypass_set_not_minimized")
+
+        pull_rules = [
+            rule for rule in rules
+            if isinstance(rule, dict) and rule.get("type") == "pull_request"
+        ]
+        if not pull_rules:
+            failures.append(f"{prefix}_pull_request_required")
+            continue
+
+        merged_parameters: dict[str, Any] = {}
+        for rule in pull_rules:
+            parameters = rule.get("parameters")
+            if isinstance(parameters, dict):
+                merged_parameters.update(parameters)
+        if merged_parameters.get("required_approving_review_count") != 1:
+            failures.append(f"{prefix}_required_approving_review_count")
+        for key in (
+            "dismiss_stale_reviews_on_push",
+            "require_last_push_approval",
+            "required_review_thread_resolution",
+        ):
+            if merged_parameters.get(key) is not True:
+                failures.append(f"{prefix}_{key}")
+
+        rule_types = {
+            rule.get("type")
+            for rule in rules
+            if isinstance(rule, dict)
+        }
+        if "non_fast_forward" not in rule_types:
+            failures.append(f"{prefix}_block_force_push")
+        if "deletion" not in rule_types:
+            failures.append(f"{prefix}_block_deletion")
+
+    return ("MISMATCH" if failures else "VERIFIED"), failures
 
 
 def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
@@ -130,7 +222,45 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             "grants_trusted_verifier_root": False,
         }
 
-    if protection_status != 200:
+    ruleset_state, ruleset_mismatches = _evaluate_rulesets(ruleset_entries)
+
+    branch_state = "UNAVAILABLE"
+    branch_mismatches: list[str] = []
+    if protection_status == 200:
+        protection = admin.get("protection")
+        if not isinstance(protection, dict):
+            branch_state = "UNVERIFIED"
+            branch_mismatches = ["verified_admin_protection_missing"]
+        else:
+            expected = policy["required_controls"]
+            if protection.get("pull_request_required") is not True:
+                branch_mismatches.append("pull_request_required")
+            if protection.get("required_approving_review_count") != expected["required_approving_review_count"]:
+                branch_mismatches.append("required_approving_review_count")
+            for key in (
+                "dismiss_stale_reviews_on_push",
+                "require_last_push_approval",
+                "required_review_thread_resolution",
+                "block_force_push",
+                "block_deletion",
+            ):
+                if protection.get(key) is not True:
+                    branch_mismatches.append(key)
+
+            bypass = protection.get("bypass_actors")
+            if not isinstance(bypass, list):
+                branch_state = "UNVERIFIED"
+                branch_mismatches.append("bypass_actors_not_enumerated")
+            else:
+                if expected["bypass_set_must_be_minimized"] and len(bypass) != 0:
+                    branch_mismatches.append("bypass_set_not_minimized")
+                if len(bypass) != len({json.dumps(x, sort_keys=True) for x in bypass}):
+                    branch_mismatches.append("duplicate_bypass_identity")
+            if branch_state != "UNVERIFIED":
+                branch_state = "MISMATCH" if branch_mismatches else "VERIFIED"
+    elif protection_status == 404:
+        branch_state = "UNAVAILABLE"
+    else:
         return {
             "evaluator_id": EVALUATOR_ID,
             "valid": False,
@@ -141,54 +271,41 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             "grants_trusted_verifier_root": False,
         }
 
-    protection = admin.get("protection")
-    require(isinstance(protection, dict), "verified admin protection missing")
-    failures: list[str] = []
+    if branch_state == "VERIFIED" or ruleset_state == "VERIFIED":
+        return {
+            "evaluator_id": EVALUATOR_ID,
+            "valid": True,
+            "governance_state": "VERIFIED",
+            "reason": "all_required_controls_observed_in_an_acceptable_control_plane",
+            "mismatches": [],
+            "claim_ceiling": "RepositoryGovernanceVerified",
+            "authoritative_admin_observation": True,
+            "grants_trusted_verifier_root": True,
+        }
 
-    expected = policy["required_controls"]
-    if protection.get("pull_request_required") is not True:
-        failures.append("pull_request_required")
-    if protection.get("required_approving_review_count") != expected["required_approving_review_count"]:
-        failures.append("required_approving_review_count")
-    for key in (
-        "dismiss_stale_reviews_on_push",
-        "require_last_push_approval",
-        "required_review_thread_resolution",
-        "block_force_push",
-        "block_deletion",
-    ):
-        if protection.get(key) is not True:
-            failures.append(key)
-
-    bypass = protection.get("bypass_actors")
-    if not isinstance(bypass, list):
-        failures.append("bypass_actors_not_enumerated")
-    else:
-        if expected["bypass_set_must_be_minimized"] and len(bypass) != 0:
-            failures.append("bypass_set_not_minimized")
-        if len(bypass) != len({json.dumps(x, sort_keys=True) for x in bypass}):
-            failures.append("duplicate_bypass_identity")
-
-    if failures:
+    if branch_state == "UNVERIFIED" or ruleset_state == "UNVERIFIED":
+        mismatches = branch_mismatches + ruleset_mismatches
         return {
             "evaluator_id": EVALUATOR_ID,
             "valid": False,
-            "governance_state": "MISMATCH",
-            "reason": "required_governance_controls_mismatch",
-            "mismatches": failures,
+            "governance_state": "UNVERIFIED",
+            "reason": "acceptable_control_plane_observation_incomplete",
+            "mismatches": mismatches,
             "claim_ceiling": "RepositoryGovernanceObservationOnly",
             "authoritative_admin_observation": True,
             "grants_trusted_verifier_root": False,
         }
 
+    mismatches = branch_mismatches + ruleset_mismatches
     return {
         "evaluator_id": EVALUATOR_ID,
-        "valid": True,
-        "governance_state": "VERIFIED",
-        "reason": "all_required_repository_governance_controls_observed",
-        "claim_ceiling": "RepositoryGovernanceVerified",
+        "valid": False,
+        "governance_state": "MISMATCH",
+        "reason": "required_governance_controls_mismatch",
+        "mismatches": mismatches,
+        "claim_ceiling": "RepositoryGovernanceObservationOnly",
         "authoritative_admin_observation": True,
-        "grants_trusted_verifier_root": True,
+        "grants_trusted_verifier_root": False,
     }
 
 
@@ -214,6 +331,30 @@ def fixture_policy() -> dict[str, Any]:
 
 
 def fixture_observation(protection_status: int = 200, admin_status: str = "verified") -> dict[str, Any]:
+    ruleset_entry = {
+        "id": 1,
+        "target": "branch",
+        "enforcement": "active",
+        "conditions": {"ref_name": {"include": [TARGET_REF], "exclude": []}},
+        "bypass_actors": [],
+        "rules": [
+            {
+                "type": "pull_request",
+                "parameters": {
+                    "dismiss_stale_reviews_on_push": True,
+                    "require_last_push_approval": True,
+                    "required_approving_review_count": 1,
+                    "required_review_thread_resolution": True,
+                },
+            },
+            {"type": "non_fast_forward"},
+            {"type": "deletion"},
+        ],
+    }
+    branch_payload = {"name": "main", "protected": True}
+    rulesets_payload = [ruleset_entry]
+    branch_raw = json.dumps(branch_payload, separators=(",", ":"), sort_keys=True).encode()
+    rulesets_raw = json.dumps(rulesets_payload, separators=(",", ":"), sort_keys=True).encode()
     return {
         "schema": SCHEMA,
         "version": 1,
@@ -222,10 +363,12 @@ def fixture_observation(protection_status: int = 200, admin_status: str = "verif
         "target_ref": TARGET_REF,
         "observed_at_utc": "2026-10-07T00:00:00Z",
         "policy_sha256": "1" * 64,
-        "branch_payload_sha256": "2" * 64,
-        "rulesets_payload_sha256": "3" * 64,
-        "branch": {"name": "main", "target_ref": TARGET_REF, "protected": True},
-        "rulesets": {"entries": [{"id": 1, "enforcement": "active"}]},
+        "branch_payload_base64": base64.b64encode(branch_raw).decode(),
+        "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
+        "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
+        "rulesets_payload_sha256": hashlib.sha256(rulesets_raw).hexdigest(),
+        "branch": branch_payload,
+        "rulesets": {"entries": rulesets_payload},
         "branch_protection_api": {"http_status": protection_status},
         "admin_observation": {
             "status": admin_status,
@@ -245,7 +388,9 @@ def fixture_observation(protection_status: int = 200, admin_status: str = "verif
 
 def self_test() -> None:
     policy = fixture_policy()
-    evaluate(policy, fixture_observation())
+    positive = evaluate(policy, fixture_observation())
+    assert positive["governance_state"] == "VERIFIED"
+    assert positive["grants_trusted_verifier_root"] is True
 
     x = copy.deepcopy(fixture_observation())
     x["branch"]["protected"] = False
@@ -256,7 +401,7 @@ def self_test() -> None:
 
     x = copy.deepcopy(fixture_observation(protection_status=403))
     result = evaluate(policy, x)
-    assert result["governance_state"] in {"UNVERIFIED", "MISMATCH"}
+    assert result["governance_state"] == "UNVERIFIED"
     assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation())
@@ -284,8 +429,9 @@ def main() -> int:
             print(json.dumps({
                 "evaluator_id": EVALUATOR_ID,
                 "self_test": "PASS",
-                "governance_state": "VERIFIED",
-                "grants_trusted_verifier_root": True,
+                "governance_state": "NOT_RUN",
+                "synthetic_positive_case": "VERIFIED",
+                "grants_trusted_verifier_root": False,
             }, sort_keys=True))
             return 0
 
