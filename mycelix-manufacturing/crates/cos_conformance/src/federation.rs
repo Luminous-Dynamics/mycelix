@@ -1061,6 +1061,54 @@ pub fn state_machine_trace_external_evidence_verification_statement_with_request
     Ok(statement)
 }
 
+/// Builds an external verification statement bound to both an exact verifier-profile
+/// descriptor and exact relying-party request-context bytes.
+pub fn state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence_and_request_context(
+    anchor_reference_sha256: &str,
+    verifier_schema_version: u16,
+    verifier_profile: &str,
+    verifier_profile_evidence: &[u8],
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: &str,
+    verifier_identity_material: &[u8],
+    verification_claim: FederationStateMachineTraceExternalVerificationClaim,
+    verifier_report: &[u8],
+    request_context: &[u8],
+    claimed_verified_at_unix_seconds: u64,
+) -> Result<
+    FederationStateMachineTraceExternalEvidenceVerificationStatement,
+    FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation,
+> {
+    if verifier_profile_evidence.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierProfileEvidence
+        );
+    }
+    if request_context.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyRequestContext
+        );
+    }
+    let mut statement = state_machine_trace_external_evidence_verification_statement(
+        anchor_reference_sha256,
+        verifier_schema_version,
+        verifier_profile,
+        verifier_identity_kind,
+        verifier_identity_profile,
+        verifier_identity_material,
+        verification_claim,
+        verifier_report,
+        claimed_verified_at_unix_seconds,
+    )?;
+    statement.verifier_profile_sha256 =
+        Some(state_machine_trace_external_verifier_profile_sha256(verifier_profile_evidence));
+    statement.request_context_sha256 =
+        Some(state_machine_trace_external_verification_request_context_sha256(request_context));
+    statement.statement_sha256 =
+        state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+    Ok(statement)
+}
+
 /// Builds an external verification statement with an explicit content-addressed
 /// verifier-profile descriptor supplied by the adapter.
 pub fn state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence(
