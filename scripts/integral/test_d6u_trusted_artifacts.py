@@ -97,7 +97,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 54
+    assert policy["policy_version"] == 55
     assert policy["repository_identity"] == {
         "full_name": "Luminous-Dynamics/mycelix",
         "repository_id": 1176351975,
@@ -2556,6 +2556,43 @@ def test_bounded_artifact_download_rejects_stream_overflow() -> None:
             )
 
 
+def test_github_api_reader_uses_non_forwarding_redirect_handler() -> None:
+    import fetch_d6u_trusted_artifact as fetcher
+
+    class EmptyResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self, _size):
+            return b"{}"
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            assert request.full_url.startswith("https://api.github.com/")
+            assert request.headers["Authorization"] == "Bearer token"
+            assert timeout == 30
+            return EmptyResponse()
+
+    with patch.object(
+        fetcher.urllib.request,
+        "build_opener",
+        return_value=FakeOpener(),
+    ) as build_opener:
+        assert fetcher.github_get(
+            "Luminous-Dynamics/mycelix",
+            "/actions/runs/1",
+            "token",
+        ) == {}
+    assert len(build_opener.call_args.args) == 1
+    assert isinstance(
+        build_opener.call_args.args[0],
+        fetcher.NoAuthorizationRedirectHandler,
+    )
+
+
 def test_artifact_redirect_strips_authorization_header() -> None:
     import fetch_d6u_trusted_artifact as fetcher
 
@@ -2653,7 +2690,7 @@ def test_trusted_builder_documentation_is_current() -> None:
     documentation = (root / "docs/integral/d6u-trusted-builder.md").read_text(
         encoding="utf-8"
     )
-    assert "Current trusted policy revision: v54." in documentation
+    assert "Current trusted policy revision: v55." in documentation
     assert "sixty-four deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
