@@ -62,6 +62,27 @@ jobs:
       - name: Validate governance policy JSON
         run: python -m json.tool docs/ci/repository_governance_policy_v1.json >/dev/null
 
+
+      - name: Validate governance policy contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          policy = json.loads(Path("docs/ci/repository_governance_policy_v1.json").read_text())
+          required = policy["required_controls"]
+          assert required["bypass_actors_must_be_enumerated"] is True
+          assert required["bypass_set_must_be_minimized"] is True
+          contract = policy["observation_contract"]
+          assert contract["live_control_plane_required"] is True
+          assert contract["raw_payloads_required"] is True
+          assert contract["raw_payload_sha256_required"] is True
+          assert contract["admin_observation_required_for_verified"] is True
+          assert contract["secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists"] is True
+          assert contract["applicable_rulesets_must_be_aggregated"] is True
+          assert policy["fail_closed"]["contradiction_dominates_secondary_observation_unavailability"] is True
+          PY
+
       - name: Validate independent verifier YAML
         run: ruby -e 'require "yaml"; YAML.load_file(".github/workflows/cos-conformance-independent-verify.yml")'
 
