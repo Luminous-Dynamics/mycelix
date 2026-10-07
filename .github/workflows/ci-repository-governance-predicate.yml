@@ -90,6 +90,7 @@ jobs:
           assert contract["applicable_rulesets_must_be_aggregated"] is True
           assert contract["ruleset_repository_targeting_must_be_evaluated"] is True
           assert contract["ruleset_source_scope_must_be_validated"] is True
+          assert contract["effective_rule_provenance_must_be_bound"] is True
           assert contract["repository_subject_identity_must_be_bound"] is True
           assert policy["organization_id"] == 216969177
           assert '"ruleset_source_scope_must_be_validated": true' in Path("docs/ci/repository_governance_policy_v1.json").read_text()
@@ -182,6 +183,9 @@ jobs:
           assert "branch-protection-payload-after.json" in scanned_text
           assert "branch-protection-http-status-after.txt" in scanned_text
           assert "rulesets/${ruleset_id}.json" in scanned_text
+          assert "ruleset_id" in scanned_text
+          assert "ruleset_source_type" in scanned_text
+          assert "ruleset_source" in scanned_text
           assert "set(index_ids) == set(full_ids)" in scanned_text
           assert "1176351975" in scanned_text
           PY
