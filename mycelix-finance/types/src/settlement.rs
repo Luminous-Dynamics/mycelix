@@ -477,13 +477,14 @@ mod tests {
     }
 
     #[test]
-    fn insufficient_finality_fails_closed() {
+    fn insufficient_receipt_finality_fails_closed() {
         let p = profile();
-        let mut c = claim();
-        c.finality = SettlementFinality::Included;
-        c.reconciled = false;
+        let c = claim();
+        let mut r = receipt();
+        r.finality = SettlementFinality::Included;
+        r.reconciled = false;
         assert_eq!(
-            p.admits_high_assurance_settlement(&c, &receipt()),
+            p.admits_high_assurance_settlement(&c, &r),
             Err(SettlementValidationError::InsufficientFinality)
         );
     }
