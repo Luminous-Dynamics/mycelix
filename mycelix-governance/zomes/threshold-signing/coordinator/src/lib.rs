@@ -30,10 +30,7 @@ pub fn get_committee(committee_id: String) -> ExternResult<Option<Record>> {
         )));
     }
 
-    // Anchor lookup is itself an entry hash, so the address can be reconstructed
-    // from public input. We search current DHT links from the deterministic anchor.
-    let anchor = format!("committee:{}", committee_id);
-    let anchor_entry_hash = hash_entry(Anchor(anchor.clone()))
+    let anchor_entry_hash = hash_entry(Anchor(format!("committee:{}", committee_id)))
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
 
     let links = get_links(
@@ -41,8 +38,15 @@ pub fn get_committee(committee_id: String) -> ExternResult<Option<Record>> {
         GetStrategy::default(),
     )?;
 
-    let link = links.into_iter().max_by_key(|link| link.timestamp);
-    let Some(link) = link else {
+    if links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Ambiguous committee ID '{}': {} committee records are linked to the deterministic ID anchor.",
+            committee_id,
+            links.len()
+        ))));
+    }
+
+    let Some(link) = links.into_iter().next() else {
         return Ok(None);
     };
 
@@ -113,25 +117,6 @@ pub enum ThresholdSignal {
     },
 }
 
-fn deterministic_anchor_hash(
-    anchor: &str,
-) -> ExternResult<EntryHash> {
-    let action_hash = create_entry(&EntryTypes::Anchor(Anchor(anchor.to_owned())))?;
-    let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Could not read deterministic anchor after creation".into())
-    ))?;
-    record
-        .entry()
-        .as_option()
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Deterministic anchor record has no entry".into()
-        )))?
-        .as_entry_hash()
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Deterministic anchor record is not an entry".into()
-        )))
-}
-
 // ── Committee Management ─────────────────────────────────────────────────────
 
 /// Input for creating a new signing committee.
@@ -168,35 +153,10 @@ pub fn create_committee(input: CreateCommitteeInput) -> ExternResult<Record> {
 
     let action_hash = create_entry(&EntryTypes::SigningCommittee(committee))?;
 
-    let anchor_action_hash = create_entry(&EntryTypes::Anchor(Anchor(
-        format!("committee:{}", input.committee_id)
-    )))?;
-    let anchor_record = get(anchor_action_hash.clone(), GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Committee anchor could not be read after creation".into()
-        )))?;
-    let committee_anchor = anchor_record
-        .entry()
-        .to_app_option::<Anchor>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Committee anchor entry could not be decoded".into()
-        )))?;
-    let _ = committee_anchor;
-
-    // Resolve the entry hash of the newly-created anchor record without relying
-    // on a caller-supplied lookup value.
-    let committee_anchor_hash = {
-        let mut found: Option<EntryHash> = None;
-        if let Some(record) = get(anchor_action_hash, GetOptions::default())? {
-            if let Some(entry) = record.entry().as_option() {
-                found = entry.as_entry_hash();
-            }
-        }
-        found.ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Committee anchor is not an entry hash".into()
-        )))?
-    };
+    let committee_anchor = Anchor(format!("committee:{}", input.committee_id));
+    let committee_anchor_hash = hash_entry(committee_anchor.clone())
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let _anchor_action_hash = create_entry(&EntryTypes::Anchor(committee_anchor))?;
 
     create_link(
         committee_anchor_hash,
