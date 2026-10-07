@@ -2480,7 +2480,7 @@ def test_trusted_builder_documentation_is_current() -> None:
         encoding="utf-8"
     )
     assert "Current trusted policy revision: v48." in documentation
-    assert "sixty-three deterministic checks" in documentation
+    assert "sixty-four deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
     assert "The redirect boundary remains HTTPS-only" in documentation
