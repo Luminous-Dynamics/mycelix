@@ -416,9 +416,20 @@ fn validate_create_mycel_state(
 }
 
 fn validate_update_mycel_state(
-    _action: Update,
+    action: Update,
     state: MemberMycelState,
 ) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<MemberMycelState>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("Failed to decode original MemberMycelState predecessor: {e:?}")))
+    })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+        "Original MYCEL state predecessor is not a MemberMycelState entry".into()
+    )))?;
+    if original.member_did != state.member_did || original.created_at != state.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "MYCEL state identity and creation provenance are immutable across updates".into(),
+        ));
+    }
     // Validate member DID format (must remain a valid DID)
     if !state.member_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -480,6 +491,23 @@ fn validate_update_mycel_state(
         }
     }
 
+    if state.active_months < original.active_months
+        || state.recognitions_given_this_cycle < original.recognitions_given_this_cycle
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "MYCEL lifetime counters cannot move backwards".into(),
+        ));
+    }
+    if !original.is_apprentice && state.is_apprentice {
+        return Ok(ValidateCallbackResult::Invalid(
+            "A graduated member cannot revert to apprentice status".into(),
+        ));
+    }
+    if original.is_apprentice && !state.is_apprentice && state.mycel_score < MYCEL_APPRENTICE_MAX {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Apprentice cannot graduate below the MYCEL threshold".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -526,9 +554,25 @@ fn validate_create_allocation(
 }
 
 fn validate_update_allocation(
-    _action: Update,
+    action: Update,
     alloc: RecognitionAllocation,
 ) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<RecognitionAllocation>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("Failed to decode original RecognitionAllocation predecessor: {e:?}")))
+    })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+        "Original recognition allocation predecessor is not a RecognitionAllocation entry".into()
+    )))?;
+    if original.recognizer_did != alloc.recognizer_did || original.cycle_id != alloc.cycle_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recognition allocation identity is immutable across updates".into(),
+        ));
+    }
+    if alloc.count < original.count || alloc.count > original.count.saturating_add(1) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recognition allocation count may only increase by one".into(),
+        ));
+    }
     if alloc.count > MAX_RECOGNITIONS_PER_CYCLE {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "Cannot exceed {} recognitions per cycle",
