@@ -192,6 +192,7 @@ pub struct FederationStateMachineTraceExternalEvidenceVerificationStatement {
     anchor_reference_sha256: String,
     verifier_schema_version: u16,
     verifier_profile: String,
+    verifier_profile_sha256: Option<String>,
     verifier_identity_kind: FederationExternalVerifierIdentityKind,
     verifier_identity_profile: String,
     verifier_identity_hash_algorithm: String,
@@ -213,6 +214,7 @@ impl FederationStateMachineTraceExternalEvidenceVerificationStatement {
     pub fn anchor_reference_sha256(&self) -> &str { &self.anchor_reference_sha256 }
     pub fn verifier_schema_version(&self) -> u16 { self.verifier_schema_version }
     pub fn verifier_profile(&self) -> &str { &self.verifier_profile }
+    pub fn verifier_profile_sha256(&self) -> Option<&str> { self.verifier_profile_sha256.as_deref() }
     pub fn verifier_identity_kind(&self) -> FederationExternalVerifierIdentityKind { self.verifier_identity_kind }
     pub fn verifier_identity_profile(&self) -> &str { &self.verifier_identity_profile }
     pub fn verifier_identity_sha256(&self) -> &str { &self.verifier_identity_sha256 }
@@ -266,6 +268,7 @@ pub struct FederationStateMachineTraceExternalEvidenceVerificationResult {
     witness_profile: String,
     verifier_schema_version: u16,
     verifier_profile: String,
+    verifier_profile_sha256: Option<String>,
     verifier_identity_kind: FederationExternalVerifierIdentityKind,
     verifier_identity_profile: String,
     verifier_identity_sha256: String,
@@ -302,6 +305,10 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
 
     pub fn verifier_profile(&self) -> &str {
         &self.verifier_profile
+    }
+
+    pub fn verifier_profile_sha256(&self) -> Option<&str> {
+        self.verifier_profile_sha256.as_deref()
     }
 
     pub fn verifier_identity_kind(&self) -> FederationExternalVerifierIdentityKind {
@@ -350,15 +357,19 @@ pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITN
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_ANCHOR_REFERENCE_WITNESS_HASH_ENCODING: &str =
     "sha256-lowercase-hex-v1";
 
-pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 2;
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 3;
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_PROFILE: &str =
-    "integral-federation-trace-external-evidence-verification-statement-v2";
+    "integral-federation-trace-external-evidence-verification-statement-v3";
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_DOMAIN: &str =
     "integral-federation-trace-external-evidence-verification-statement-sha256-v1";
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ALGORITHM: &str =
     "sha-256";
 pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_HASH_ENCODING: &str =
     "serde-json-struct-order-v1";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_VERIFIER_PROFILE_HASH_ALGORITHM: &str =
+    "sha-256";
+pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_VERIFIER_PROFILE_HASH_ENCODING: &str =
+    "sha256-lowercase-hex-v1";
 
 pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION: u16 = 2;
 pub const FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_PROFILE: &str =
@@ -444,6 +455,7 @@ struct FederationStateMachineTraceExternalEvidenceVerificationStatementHashView 
     anchor_reference_sha256: String,
     verifier_schema_version: u16,
     verifier_profile: String,
+    verifier_profile_sha256: Option<String>,
     verifier_identity_kind: FederationExternalVerifierIdentityKind,
     verifier_identity_profile: String,
     verifier_identity_hash_algorithm: String,
@@ -519,6 +531,12 @@ pub fn state_machine_trace_external_verifier_identity_sha256(bytes: &[u8]) -> St
     format!("sha256:{digest:x}")
 }
 
+/// Content-addresses an adapter-supplied verifier-profile descriptor.
+pub fn state_machine_trace_external_verifier_profile_sha256(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!("sha256:{digest:x}")
+}
+
 fn state_machine_trace_is_sha256_digest(value: &str) -> bool {
     let Some(hex) = value.strip_prefix("sha256:") else {
         return false;
@@ -576,6 +594,7 @@ fn state_machine_trace_external_evidence_verification_statement_sha256(
         anchor_reference_sha256: statement.anchor_reference_sha256.clone(),
         verifier_schema_version: statement.verifier_schema_version,
         verifier_profile: statement.verifier_profile.clone(),
+        verifier_profile_sha256: statement.verifier_profile_sha256.clone(),
         verifier_identity_kind: statement.verifier_identity_kind,
         verifier_identity_profile: statement.verifier_identity_profile.clone(),
         verifier_identity_hash_algorithm: statement.verifier_identity_hash_algorithm.clone(),
@@ -953,6 +972,7 @@ pub fn state_machine_trace_external_evidence_verification_statement(
             anchor_reference_sha256: anchor_reference_sha256.into(),
             verifier_schema_version,
             verifier_profile: verifier_profile.into(),
+            verifier_profile_sha256: None,
             verifier_identity_kind,
             verifier_identity_profile: verifier_identity_profile.into(),
             verifier_identity_hash_algorithm:
@@ -1191,6 +1211,7 @@ pub fn validate_state_machine_trace_external_evidence_verification_statement_cha
         witness_profile: anchor_reference.witness_profile.clone(),
         verifier_schema_version: statement.verifier_schema_version,
         verifier_profile: statement.verifier_profile.clone(),
+        verifier_profile_sha256: statement.verifier_profile_sha256.clone(),
         verifier_identity_kind: statement.verifier_identity_kind,
         verifier_identity_profile: statement.verifier_identity_profile.clone(),
         verifier_identity_sha256: statement.verifier_identity_sha256.clone(),
