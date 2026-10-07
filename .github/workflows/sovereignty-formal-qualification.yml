@@ -7,6 +7,9 @@ on:
       - 'mycelix-governance/specs/ArtificialSovereigntyV1.tla'
       - 'mycelix-governance/specs/ArtificialSovereigntyV1.cfg'
       - 'mycelix-governance/specs/ArtificialSovereigntyV1NegativeControls.tla'
+      - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla'
+      - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.cfg'
+      - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als'
       - 'mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als'
       - 'mycelix-governance/tools/formal/sovereignty_reference_explorer.py'
       - 'mycelix-governance/tools/formal/qualify_sovereignty_formal.py'
@@ -79,9 +82,9 @@ jobs:
             python3 mycelix-governance/tools/formal/qualify_sovereignty_formal.py \
               --profile docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json \
               --pins mycelix-governance/tools/formal/pins.json \
-              --tla mycelix-governance/specs/ArtificialSovereigntyV1.tla \
-              --cfg mycelix-governance/specs/ArtificialSovereigntyV1.cfg \
-              --alloy mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als \
+              --tla docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla \
+              --cfg docs/qualification/fixtures/formal/ArtificialSovereigntyV1.cfg \
+              --alloy docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als \
               --negative-tla mycelix-governance/specs/ArtificialSovereigntyV1NegativeControls.tla \
               --alloy-runner-java mycelix-governance/tools/formal/SovereigntyAlloyQualificationRunner.java \
               --alloy-runner-class-dir "$RUNNER_TEMP/sov-formal-java" \
