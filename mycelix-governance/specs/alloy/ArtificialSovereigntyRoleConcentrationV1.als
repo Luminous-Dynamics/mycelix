@@ -31,6 +31,11 @@ fact FullControlRequiresIndependentReview {
     roleCount[s] = 4 implies independentReview[s]
 }
 
+fact ReviewerRoleDisjointness {
+  all s, r: Subject |
+    r in s.externalReviewers implies no r.roles
+}
+
 pred ConcentratedRolesWithFinding {
   some s: Subject |
     roleCount[s] >= 2 and
@@ -44,7 +49,7 @@ pred FullControlWithIndependentReview {
 }
 
 pred FullControlWithRoleDisjointReview {
-  some s: Subject, r: Subject |
+  some s, r: Subject |
     roleCount[s] = 4 and
     r in s.externalReviewers and
     r != s and
@@ -65,6 +70,12 @@ pred SameRoleReviewerFullControl {
     some r.roles
 }
 
+pred ReviewerRoleDriftState {
+  some disj s, r: Subject |
+    r in s.externalReviewers and
+    some r.roles
+}
+
 run ConcentratedRolesWithFinding
   for 4 int, 4 Subject, 4 Role
 
@@ -78,6 +89,9 @@ run SelfReviewOnlyFullControl
   for 4 int, 4 Subject, 4 Role
 
 run SameRoleReviewerFullControl
+  for 4 int, 4 Subject, 4 Role
+
+run ReviewerRoleDriftState
   for 4 int, 4 Subject, 4 Role
 
 assert RoleConcentrationRequiresFindingInvariant {
@@ -95,6 +109,11 @@ assert SelfReviewAloneDoesNotCountAsIndependentReview {
     s.externalReviewers = {s} implies not independentReview[s]
 }
 
+assert ReviewerCannotHoldQualificationRole {
+  all s, r: Subject |
+    r in s.externalReviewers implies no r.roles
+}
+
 check RoleConcentrationRequiresFindingInvariant
   for 4 int, 4 Subject, 4 Role expect 0
 
@@ -103,3 +122,6 @@ check FullControlRequiresIndependentReviewInvariant
 
 check SelfReviewAloneDoesNotCountAsIndependentReview
   for 4 int, 4 Subject expect 0
+
+check ReviewerCannotHoldQualificationRole
+  for 4 int, 4 Subject, 4 Role expect 0
