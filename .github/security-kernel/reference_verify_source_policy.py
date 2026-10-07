@@ -35,7 +35,8 @@ VENDOR_VOLUME_INSPECT = "vendor_volume_spec=\"$(docker volume inspect --format '
 VENDOR_CONFIG_VOLUME_CREATE = "docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=16m,nr_inodes=64"
 VENDOR_CONFIG_VOLUME_RW = '--volume "$vendor_config_volume_name:/vendor-config:rw"'
 VENDOR_CONFIG_VOLUME_RO = '--volume "$VENDOR_CONFIG_VOLUME_NAME:/vendor-config:ro"'
-VENDOR_CONFIG_VOLUME_INSPECT = 'vendor_config_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$vendor_config_volume_name")"'
+VENDOR_CONFIG_VOLUME_INSPECT = "vendor_config_volume_spec=\"$(docker volume inspect --format '{{.Driver}}|{{index .Options \"type\"}}|{{index .Options \"device\"}}|{{index .Options \"o\"}}' \"$vendor_config_volume_name\")\""
+SOURCE_RESOURCE_PROFILE = "v1"
 SOURCE_MAX_BYTES = "1073741824"
 SOURCE_MAX_INODES = "300000"
 SOURCE_TMPFS_SIZE = "1024m"
