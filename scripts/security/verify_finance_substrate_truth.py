@@ -36,7 +36,7 @@ CARGO_KEYS = (
 
 def cargo_value(text: str, key: str) -> str | None:
     m = re.search(rf"^\s*{re.escape(key)}\s*=\s*=?\"([^\"]+)\"", text, re.M)
-    return m.group(1) if m else None
+    return m.group(1).lstrip('=') if m else None
 
 def holonix_ref(text: str) -> str | None:
     m = re.search(r'url\s*=\s*"github:holochain/holonix/([^\"]+)"', text)
