@@ -49,6 +49,7 @@ pub fn App() -> impl IntoView {
     }
 }
 
+#[cfg(feature = "demo")]
 #[component]
 fn InstitutionHomePage() -> impl IntoView {
     let profile = RwSignal::new(InstitutionProfile::Bank);
@@ -237,6 +238,27 @@ fn InstitutionHomePage() -> impl IntoView {
     }
 }
 
+#[cfg(not(feature = "demo"))]
+#[component]
+fn InstitutionHomePage() -> impl IntoView {
+    view! {
+        <section class="nonproduction-boundary">
+            <span class="eyebrow">"FINANCIAL CONTROL PLANE"</span>
+            <h1>"Live integration required"</h1>
+            <p class="muted">
+                "The default build does not expose synthetic financial balances or simulated institutional state."
+            </p>
+            <div class="authority-notice demo" role="alert">
+                <strong>"No live financial context is configured"</strong>
+                <span>
+                    "The production workspace must obtain its tenant, legal entity, principal, institution profile and policy context from an authenticated authority boundary."
+                </span>
+            </div>
+        </section>
+    }
+}
+
+#[cfg(feature = "demo")]
 #[component]
 fn MetricCard(title: &'static str, value: &'static str, detail: &'static str) -> impl IntoView {
     view! {
@@ -248,6 +270,7 @@ fn MetricCard(title: &'static str, value: &'static str, detail: &'static str) ->
     }
 }
 
+#[cfg(feature = "demo")]
 #[component]
 fn SettlementRow(name: &'static str, amount: &'static str, state: SecurityState) -> impl IntoView {
     view! {
