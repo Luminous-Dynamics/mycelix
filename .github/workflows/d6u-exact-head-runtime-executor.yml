@@ -65,11 +65,17 @@ jobs:
       - name: Verify D6U manifest
         run: python3 scripts/integral/verify_d6u_runtime_manifest.py
 
+      - name: Assert isolated Cargo configuration
+        run: |
+          set -euo pipefail
+          test ! -e "$CARGO_HOME/config"
+          test ! -e "$CARGO_HOME/config.toml"
+
       - name: Check formatting
         working-directory: d6u-runtime-harness
         run: cargo fmt --all -- --check
 
-      - name: Generate locked dependency graph
+      - name: Generate dependency graph
         working-directory: d6u-runtime-harness
         run: cargo generate-lockfile
 
@@ -193,9 +199,23 @@ PY
           cargo metadata --format-version 1 --locked > "$metadata_path"
           test "$(sha256sum "$metadata_path" | cut -d' ' -f1)" = "$D6U_METADATA_GENERATED_SHA256"
 
+      - name: Assert isolated Cargo configuration after runtime test
+        if: success()
+        run: |
+          set -euo pipefail
+          test ! -e "$CARGO_HOME/config"
+          test ! -e "$CARGO_HOME/config.toml"
+
       - name: Clippy D6U runtime boundary
         working-directory: d6u-runtime-harness
         run: cargo clippy --locked --test d6u_authority_boundary -- -D warnings
+
+      - name: Assert isolated Cargo configuration after clippy
+        if: success()
+        run: |
+          set -euo pipefail
+          test ! -e "$CARGO_HOME/config"
+          test ! -e "$CARGO_HOME/config.toml"
 
       - name: Assert dependency graph before evidence capture
         if: success()
