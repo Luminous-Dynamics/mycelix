@@ -43,7 +43,7 @@ SOURCE_TMPFS_SIZE = "1024m"
 SOURCE_TMPFS_NR_INODES = "300000"
 SOURCE_VOLUME_CREATE = "docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
 SOURCE_VOLUME_RW = '--volume "$candidate_volume_name:/output:rw"'
-SOURCE_VOLUME_RO = '--volume "$candidate_volume_name:/source:ro"'
+SOURCE_VOLUME_RO = '--volume "$CANDIDATE_VOLUME_NAME:/source:ro"'
 SOURCE_VOLUME_INSPECT = "candidate_volume_spec=\"$(docker volume inspect --format '{{.Driver}}|{{index .Options \"type\"}}|{{index .Options \"device\"}}|{{index .Options \"o\"}}' \"$candidate_volume_name\")\""
 FETCH_TMPFS_PROFILE = "--tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m,nr_inodes=600000"
 SMALL_TMPFS_128_PROFILE = "--tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m,nr_inodes=20000"
@@ -555,50 +555,25 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate resolution must revalidate repository ID after commit resolution")
     if 'assert post_repository_obj.get("disabled") is not True' not in joined:
         fail("S1 candidate resolution must reject a repository disabled after commit resolution")
-    if 'candidate_root="$CANDIDATE_ROOT"' not in joined:
-        fail("S1 candidate staging root binding missing")
-    if 'test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"' not in joined:
-        fail("S1 candidate staging root identity check missing")
-    if 'rm -rf -- "$candidate_root"' not in joined or 'install -d -m 0700 -- "$candidate_root"' not in joined:
-        fail("S1 candidate staging root lifecycle missing")
-    if 'lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"' not in joined:
-        fail("S1 locked dependency identity is not bound to the host staging root")
+    if "CANDIDATE_ROOT" in joined or "candidate_root" in joined or "security-kernel-candidate-root" in joined:
+        fail("S1 must not contain a runner-backed candidate staging root")
+    if "candidate_volume_mountpoint=" not in joined:
+        fail("S1 candidate volume mountpoint discovery missing")
+    if "stat -f -c" not in joined or "tmpfs" not in joined:
+        fail("S1 candidate volume filesystem type gate missing")
     for required in (
-        'manifest_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml"',
-        "manifest_bytes=","lock_bytes=",
-        'test "$manifest_bytes" -le "$DEPENDENCY_MANIFEST_MAX_BYTES"',
-        'test "$lock_bytes" -le "$DEPENDENCY_LOCK_MAX_BYTES"',
+        "source_staging_digest", "source_digest", "executed_source_digest", "source_resource_metrics",
+        "dependency_source_mode=bounded-candidate-volume", "manifest_path=", "lock_path=",
+        "DEPENDENCY_MANIFEST_MAX_BYTES", "DEPENDENCY_LOCK_MAX_BYTES",
     ):
         if required not in joined:
-            fail(f"S1 dependency host-staging preflight missing: {required!r}")
-    if 'install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"' not in joined or 'install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"' not in joined:
-        fail("S1 locked dependency subject must be copied from the trusted host staging root")
-    if 'install -m 0444 "$CANDIDATE_VOLUME_NAME/' in joined:
-        fail("S1 host-side dependency preparation must not treat a Docker volume name as a filesystem path")
-    if joined.count('python3 - "$CANDIDATE_ROOT" <<\'PY\'') != 1:
-        fail("S1 acquisition source digest routine must target the explicit candidate staging root")
-    if 'python3 - "$candidate_volume_name"' in joined or 'python3 - "$CANDIDATE_VOLUME_NAME"' in joined:
-        fail("S1 host-side Python source digest must not treat a Docker volume name as a filesystem path")
-    if "source_volume_spec_after" not in joined or "candidate_volume_mountpoint" not in joined:
-        fail("S1 post-execution source-volume identity verification missing")
-    if 'python3 - "$CANDIDATE_ROOT" "$candidate_volume_mountpoint_snapshot" <<\'PY\' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"' not in joined:
-        fail("S1 source snapshot must bind the trusted staging root and actual volume mountpoint")
-    for required in (
-        "dependency_manifest_max_bytes=$DEPENDENCY_MANIFEST_MAX_BYTES",
-        "dependency_lock_max_bytes=$DEPENDENCY_LOCK_MAX_BYTES",
-    ):
-        if required not in joined:
-            fail(f"S1 host-staging receipt field missing: {required!r}")
-    if "source_staging_digest" not in joined or "executed_source_digest" not in joined:
-        fail("S1 exact source-equivalence digest fields missing")
-    if 'test "$source_staging_digest" = "$executed_source_digest"' not in joined:
-        fail("S1 must require staging/executed source digest equality before qualification")
-    if 'source_staging_digest=%s\\nexecuted_source_digest=%s\\n' not in joined:
-        fail("S1 source-equivalence receipt fields missing")
-    if 'echo "source_staging_digest=$SOURCE_STAGING_DIGEST"' not in joined or 'echo "executed_source_digest=$EXECUTED_SOURCE_DIGEST"' not in joined:
-        fail("S1 receipt must publish both source-equivalence digests")
-    if "actual bounded candidate source volume remained immutable" not in joined:
-        fail("S1 source immutability check must target the actual bounded source volume")
+            fail(f"S1 single-substrate control missing: {required!r}")
+    if "test \"$source_staging_digest\" = \"$source_digest\"" not in joined:
+        fail("S1 pre-execution source digest equality missing")
+    if "source_copy_pipeline_status" in joined or "bounded_source_archive" in joined:
+        fail("S1 obsolete host staging/archive pipeline residue detected")
+    if "DEPENDENCY_ROOT:" in joined or "/subject/Cargo.toml" in joined:
+        fail("S1 host-backed dependency subject residue detected")
     if "Final teardown barrier" not in joined or "if: ${{ !cancelled() }}" not in joined:
         fail("S1 final teardown barrier missing or cancellation semantics weakened")
     if 'candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"' not in joined:
@@ -611,10 +586,6 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 final teardown volume removal must be fail-closed")
     if 'if ! remaining_volumes="$(docker volume ls --format \'{{.Name}}\')"; then' not in joined:
         fail("S1 final teardown must re-inventory after removal")
-    if 'test "$candidate_root" = "${RUNNER_TEMP}/security-kernel-candidate-root"' not in joined:
-        fail("S1 final teardown host root identity missing")
-    if 'rm -rf -- "$candidate_root"' not in joined:
-        fail("S1 final teardown host root removal missing")
     if 'printf "%s\\n" "$existing_volumes" | grep -Fxq "$volume_name"' not in joined:
         fail("S1 final teardown ownership gate missing")
     if "final teardown volume remains" not in joined:
@@ -650,33 +621,23 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate source volume create profile mismatch")
     if exact_count(l, SOURCE_VOLUME_RW) != 1:
         fail("S1 candidate source acquisition must use one bounded Docker volume for writes")
-    if exact_count(l, SOURCE_VOLUME_RO) != 1:
-        fail("S1 candidate source staging must use exactly one read-only bounded source-volume mount")
+    if exact_count(l, SOURCE_VOLUME_CREATE) != 1:
+        fail("S1 candidate source volume create profile mismatch")
+    if exact_count(l, SOURCE_VOLUME_RW) != 1:
+        fail("S1 candidate source volume write mount count mismatch")
+    if exact_count(l, SOURCE_VOLUME_RO) != 3:
+        fail("S1 candidate source volume read-only mount count mismatch")
     if exact_count(l, SOURCE_VOLUME_INSPECT) != 1:
-        fail("S1 candidate source volume instantiation must be independently inspected")
+        fail("S1 candidate source volume inspection count mismatch")
     if 'test "$candidate_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"' not in joined:
-        fail("S1 candidate source volume instantiated options mismatch")
-    if 'set -o pipefail' not in joined or 'tar -C "$candidate_root" -xf - --no-same-owner' not in joined:
-        fail("S1 bounded candidate-source staging pipeline must fail closed")
-    for required in (
-        "bounded_source_archive()",
-        "bounded_source_archive |",
-        'source_copy_pipeline_status=("${PIPESTATUS[@]}")',
-        'test "${source_copy_pipeline_status[0]}" -eq 0',
-        'test "${source_copy_pipeline_status[1]}" -eq 0',
-        'test "${source_copy_pipeline_status[2]}" -eq 0',
-    ):
+        fail("S1 candidate source volume instantiated profile mismatch")
+    if 'test "$(stat -f -c \'%T\' "$candidate_volume_mountpoint")" = "tmpfs"' not in joined:
+        fail("S1 candidate volume filesystem type check missing")
+    for required in ("source_volume_name=","source_volume_spec=","source_copy_bytes=","source_copy_files=","source_copy_inodes="):
         if required not in joined:
-            fail(f"S1 bounded host source-copy control missing: {required!r}")
-    for required in ("source_volume_name=", "source_volume_spec=", "source_copy_bytes=", "source_copy_files=", "source_copy_inodes="):
-        if required not in joined:
-            fail(f"S1 source resource receipt field missing: {required!r}")
+            fail(f"S1 candidate source receipt field missing: {required!r}")
     if 'test "$source_copy_bytes" -le "$SOURCE_MAX_BYTES"' not in joined or 'test "$source_copy_files" -le 200000' not in joined or 'test "$source_copy_inodes" -le "$SOURCE_MAX_INODES"' not in joined:
-        fail("S1 bounded source staging copy must enforce declared resource ceilings")
-    if "source_volume_cleanup_on_failure" not in joined or "trap source_volume_cleanup_on_failure EXIT" not in joined:
-        fail("S1 candidate source volume cleanup must be fail-closed")
-    if "negative_control_cleanup_on_exit()" not in joined or "trap negative_control_cleanup_on_exit EXIT" not in joined:
-        fail("S1 negative-control container cleanup trap missing")
+        fail("S1 bounded candidate source volume usage ceilings missing")
     if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
         fail("S1 vendor resource volume create profile mismatch")
     if exact_count(l, VENDOR_VOLUME_RW) != 1:
@@ -711,7 +672,10 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor volume instantiated options mismatch")
     if 'test "$vendor_config_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=16m,nr_inodes=64"' not in joined:
         fail("S1 vendor-config volume instantiated options mismatch")
-    if 'cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config/config.toml' not in joined:
+    if "cargo vendor --locked --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml /vendor > /vendor-config/config.toml" not in joined:
+        fail("S1 cargo vendor must read candidate dependencies directly from bounded source volume")
+    if "DEPENDENCY_ROOT:" in joined or "/subject/Cargo.toml" in joined:
+        fail("S1 host-backed dependency subject residue detected")
         fail("S1 cargo vendor config output must terminate on bounded vendor-config volume")
     if 'vendor_config="$RUNNER_TEMP/' in joined:
         fail("S1 vendor-config must not use a host-backed runner-temp file")
@@ -1083,19 +1047,7 @@ def main() -> None:
 
     expect_rejection(
         lambda: verify_s1(
-            raw["s1"].replace(b"            bounded_source_archive |\n", b"            # bounded source archive guard removed\n", 1),
-            s1_sha,
-        ),
-        "bounded source archive host sink guard removed",
-    )
-    expect_rejection(
-        lambda: verify_s1(
-            raw["s1"].replace(b'          test "$lock_bytes" -le "$DEPENDENCY_LOCK_MAX_BYTES"\n', b'          # dependency lock host sink ceiling removed\n', 1),
-            s1_sha,
-        ),
-        "dependency lockfile host staging ceiling removed",
-    )
-    expect_rejection(
+    expect_rejection(,        lambda: verify_s1(,            raw["s1"].replace(,                b'test "$(stat -f -c '%T' "$candidate_volume_mountpoint")" = "tmpfs"\n',,                b"# candidate tmpfs identity removed\n",,                1,,            ),,            s1_sha,,        ),,        "candidate Docker tmpfs identity check removed",,    ),    expect_rejection(,        lambda: verify_s1(,            raw["s1"].replace(,                b'--volume "$CANDIDATE_VOLUME_NAME:/source:ro"',,                b'--volume "$candidate_root:/source:ro"',,                1,,            ),,            s1_sha,,        ),,        "candidate source read-only mount replaced with host-backed root",,    ),    expect_rejection(,        lambda: verify_s1(,            raw["s1"].replace(,                b"dependency_source_mode=bounded-candidate-volume",,                b"dependency_source_mode=host-copy",,                1,,            ),,            s1_sha,,        ),,        "host-backed dependency subject reintroduced",,    )
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
         "negative-control transcript capture ceiling weakened",
     )
