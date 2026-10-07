@@ -6,6 +6,7 @@ on:
       - qual-001-sov-ai-verifier-v1
     paths:
       - 'docs/qualification/SOVEREIGNTY_QUAL_001_PROFILE_V1.json'
+      - 'docs/qualification/fixtures/ARTIFICIAL_SOVEREIGNTY_QUALIFICATION_CORPUS_V1.json'
       - 'tools/qualification/verify_sovereignty_v1_independent.py'
       - '.github/workflows/sovereignty-qual-001-independent.yml'
   workflow_dispatch:
@@ -13,12 +14,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: sovereignty-qual-001-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout exact verifier head
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
@@ -28,45 +33,27 @@ jobs:
           EXPECTED_VERIFIER_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          actual="$(git rev-parse HEAD)"
-          test "$actual" = "$EXPECTED_VERIFIER_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_VERIFIER_SHA"
 
-      - name: Read frozen subject commitment
+      - name: Read frozen subject commitments
         id: profile
         run: |
+          set -euo pipefail
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           p=json.load(open("docs/qualification/SOVEREIGNTY_QUAL_001_PROFILE_V1.json", encoding="utf-8"))
-          print("subject_sha="+p["subject"]["head_sha"])
-          print("subject_path="+p["subject"]["corpus_path"])
+          s=p["subject"]
+          print("subject_sha="+s["head_sha"])
+          print("subject_tree="+s["tree_sha"])
+          print("subject_path="+s["fixture_path"])
           PY
 
-      - name: Checkout exact subject
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ steps.profile.outputs.subject_sha }}
-          path: subject
-          fetch-depth: 1
-          clean: true
-
-      - name: Verify exact subject checkout
-        env:
-          EXPECTED_SUBJECT_SHA: ${{ steps.profile.outputs.subject_sha }}
+      - name: Verify exact candidate fixture and semantic commitment
         run: |
-          set -eu
-          actual="$(git -C subject rev-parse HEAD)"
-          test "$actual" = "$EXPECTED_SUBJECT_SHA"
-          tree="$(git -C subject rev-parse 'HEAD^{tree}')"
-          printf '%s\n' "$tree" > /tmp/subject-tree-sha
-
-      - name: Run independent verifier
-        run: |
-          set -eu
-          python3 tools/qualification/verify_sovereignty_v1_independent.py             --subject "subject/${{ steps.profile.outputs.subject_path }}"             --profile "docs/qualification/SOVEREIGNTY_QUAL_001_PROFILE_V1.json"             --subject-commit "${{ steps.profile.outputs.subject_sha }}"             --subject-tree "$(cat /tmp/subject-tree-sha)"             --verifier-commit "${{ github.sha }}"
+          set -euo pipefail
+          python3 tools/qualification/verify_sovereignty_v1_independent.py             --subject "${{ steps.profile.outputs.subject_path }}"             --profile "docs/qualification/SOVEREIGNTY_QUAL_001_PROFILE_V1.json"             --subject-commit "${{ steps.profile.outputs.subject_sha }}"             --subject-tree "${{ steps.profile.outputs.subject_tree }}"             --verifier-commit "${{ github.sha }}"
 
       - name: Postflight immutability
         run: |
-          set -eu
-          test "$(git -C subject status --porcelain)" = ""
+          set -euo pipefail
           test "$(git status --porcelain)" = ""
-
