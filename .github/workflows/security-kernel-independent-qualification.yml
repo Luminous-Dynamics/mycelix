@@ -623,7 +623,23 @@ jobs:
                   lines = text.splitlines()
                   root_permissions = [line for line in lines if line == "permissions:"]
                   assert len(root_permissions) == 1, f"candidate workflow must contain exactly one root permissions mapping: {root_permissions!r}"
-                  assert not any(re.fullmatch(r"\s{2}pull_request_target:\s*.*", line) for line in lines), "candidate workflow must not contain a structural pull_request_target trigger"
+                  root_jobs = [line for line in lines if line == "jobs:"]
+                  assert len(root_jobs) == 1, f"candidate workflow must contain exactly one root jobs mapping: {root_jobs!r}"
+                  assert any(re.fullmatch(r"  [A-Za-z0-9_-]+:\s*", line) for line in lines), "candidate workflow must contain at least one block job mapping"
+                  assert any(line == "    steps:" for line in lines), "candidate workflow must contain at least one block steps mapping"
+                  for structural_key, expected_indent in (
+                      ("permissions", 0),
+                      ("jobs", 0),
+                      ("steps", 4),
+                      ("with", 8),
+                  ):
+                      pattern = re.compile(rf"^\s{{{expected_indent}}}{re.escape(structural_key)}:\s*(?:\S.*)?$")
+                      for line in lines:
+                          if pattern.fullmatch(line) and line != (" " * expected_indent + structural_key + ":"):
+                              raise AssertionError(
+                                  f"candidate workflow {structural_key!r} must be a block mapping, not an inline/scalar node: {line!r}"
+                              )
+                  assert not any("pull_request_target" in line for line in lines), "candidate workflow must not contain the privileged pull_request_target event in any lexical representation"
                   runner_entries = [
                       line for line in lines
                       if re.fullmatch(r"    runs-on\s*:.*", line)
@@ -710,6 +726,42 @@ jobs:
                   pass
               else:
                   raise AssertionError("candidate structural with-parser accepted mutated checkout ref")
+
+              mutated_block_scalar_jobs = workflow.replace(
+                  "jobs:\n",
+                  "jobs: |\n    runs-on: ubuntu-24.04\n      - name: Fake checkout\n        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n        with:\n          ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}" + "\n          persist-credentials: false\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_block_scalar_jobs)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted block-scalar text as the jobs mapping")
+
+              mutated_inline_steps = workflow.replace(
+                  "    steps:\n",
+                  "    steps: []\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_inline_steps)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted an inline non-mapping steps node")
+
+              mutated_inline_with = workflow.replace(
+                  "        with:\n",
+                  "        with: {ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}" + ", persist-credentials: false}\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_inline_with)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted an inline non-mapping with node")
 
               mutated_scalar_privileged_trigger = workflow.replace(
                   "on:\n",
