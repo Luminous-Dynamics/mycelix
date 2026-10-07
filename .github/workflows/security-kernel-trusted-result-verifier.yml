@@ -19,15 +19,15 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "d151778eafa8a20ab4ed22a9fdb1c905c5af43d7"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "e2447a3e02d5d275613a3baa725c2282a6e5be3a"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "804a61ca4133363b1e049c529397835eae702167"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "fa871f5ebe1250497c284527596daa923aa2bbb9"
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
   RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"
   EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "18dca202667b1dc26f57c588efcab42087c8a49e"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "428844ce3fa5878397c1e19c255d2d2c9a5bb51e"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "0c6e546f6b6d780fb1238cf623e1851fb477fd21"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
