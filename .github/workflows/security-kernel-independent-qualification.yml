@@ -44,6 +44,11 @@ env:
   VENDOR_MAX_INODES: "150000"
   VENDOR_TMPFS_SIZE: "1024m"
   VENDOR_TMPFS_NR_INODES: "150000"
+  VENDOR_CONFIG_RESOURCE_PROFILE: "v1"
+  VENDOR_CONFIG_MAX_BYTES: "16777216"
+  VENDOR_CONFIG_MAX_INODES: "64"
+  VENDOR_CONFIG_TMPFS_SIZE: "16m"
+  VENDOR_CONFIG_TMPFS_NR_INODES: "64"
   SOURCE_RESOURCE_PROFILE: "v1"
   SOURCE_MAX_BYTES: "1073741824"
   SOURCE_MAX_INODES: "300000"
@@ -745,7 +750,8 @@ jobs:
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
           vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          vendor_config="$RUNNER_TEMP/security-kernel-vendor-config.toml"
+          vendor_config_volume_name="security-kernel-vendor-config-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          vendor_config_volume_name="security-kernel-vendor-config-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           vendor_metrics="$RUNNER_TEMP/security-kernel-vendor-metrics.txt"
           if ! existing_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
             echo "security-kernel vendor volume inventory query failed" >&2
@@ -755,26 +761,34 @@ jobs:
             echo "security-kernel vendor volume name collision" >&2
             exit 1
           fi
-          rm -f "$vendor_config" "$vendor_metrics"
-          install -m 0600 /dev/null "$vendor_config"
+          if printf "%s\n" "$existing_vendor_volumes" | grep -Fxq "$vendor_config_volume_name"; then
+            echo "security-kernel vendor-config volume name collision" >&2
+            exit 1
+          fi
+          rm -f "$vendor_metrics"
           install -m 0600 /dev/null "$vendor_metrics"
-          docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000 "$vendor_volume_name" >/dev/null
-          vendor_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$vendor_volume_name")"
-          test "$vendor_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"
           vendor_cleanup_on_failure() {
             local status=$?
             if [ "$status" -ne 0 ]; then
-              if ! docker volume rm "$vendor_volume_name" >/dev/null 2>&1; then status=1; fi
+              if ! docker volume rm "$vendor_config_volume_name" >/dev/null 2>&1; then :; fi
+              if ! docker volume rm "$vendor_volume_name" >/dev/null 2>&1; then :; fi
               if ! remaining_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
                 status=1
-              elif printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$vendor_volume_name"; then
-                status=1
+              else
+                if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$vendor_volume_name"; then status=1; fi
+                if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$vendor_config_volume_name"; then status=1; fi
               fi
             fi
             trap - EXIT
             exit "$status"
           }
           trap vendor_cleanup_on_failure EXIT
+          docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000 "$vendor_volume_name" >/dev/null
+          docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=16m,nr_inodes=64 "$vendor_config_volume_name" >/dev/null
+          vendor_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$vendor_volume_name")"
+          vendor_config_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$vendor_config_volume_name")"
+          test "$vendor_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"
+          test "$vendor_config_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=16m,nr_inodes=64"
           set +e
           docker run --rm --platform=linux/amd64 --pull=never \
             --network=bridge --read-only --cap-drop=ALL \
@@ -786,56 +800,76 @@ jobs:
             --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m,nr_inodes=150000 \
             --volume "$vendor_volume_name:/vendor:rw" \
             --volume "$DEPENDENCY_ROOT:/subject:ro" \
-            --volume "$vendor_config:/vendor-config:rw" \
+            --volume "$vendor_config_volume_name:/vendor-config:rw" \
             --volume "$vendor_metrics:/vendor-metrics:rw" \
             --env HOME=/cargo-home --env CARGO_HOME=/cargo-home \
             --env VENDOR_MAX_BYTES="$VENDOR_MAX_BYTES" --env VENDOR_MAX_FILES="$VENDOR_MAX_FILES" --env VENDOR_MAX_INODES="$VENDOR_MAX_INODES" \
+            --env VENDOR_CONFIG_MAX_BYTES="$VENDOR_CONFIG_MAX_BYTES" --env VENDOR_CONFIG_MAX_INODES="$VENDOR_CONFIG_MAX_INODES" \
             --env GITHUB_TOKEN= --env GH_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_URL= --env ACTIONS_RUNTIME_TOKEN= \
             "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               set -euo pipefail
-              /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config
-          python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" /vendor /vendor-metrics <<\PY
-          import hashlib, pathlib, stat, sys
-          max_bytes=int(sys.argv[1]); max_files=int(sys.argv[2]); max_inodes=int(sys.argv[3])
-          vendor=pathlib.Path(sys.argv[4]); metrics=pathlib.Path(sys.argv[5]); digest=hashlib.sha256()
-          total=0; files=0; inodes=0
-          for path in sorted(vendor.rglob('*')):
-              inodes += 1; rel=path.relative_to(vendor); mode=path.lstat().st_mode
-              if stat.S_ISLNK(mode) or (not path.is_dir() and not stat.S_ISREG(mode)): raise SystemExit('vendor contains forbidden file type')
-              if path.is_dir(): continue
-              files += 1; content=path.read_bytes(); total += len(content)
-              if files > max_files or total > max_bytes or inodes > max_inodes: raise SystemExit('vendor resource ceiling exceeded')
-              relative=rel.as_posix().encode(); digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
-          metrics.write_text(f'vendor_observed_bytes={total}\nvendor_observed_files={files}\nvendor_observed_inodes={inodes}\nvendor_digest={digest.hexdigest()}\n', encoding='utf-8')
-          PY
+              /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config/config.toml
+              python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" "$VENDOR_CONFIG_MAX_BYTES" "$VENDOR_CONFIG_MAX_INODES" /vendor /vendor-config /vendor-metrics <<'PY'
+              import hashlib, pathlib, stat, sys
+              max_bytes=int(sys.argv[1]); max_files=int(sys.argv[2]); max_inodes=int(sys.argv[3])
+              config_max_bytes=int(sys.argv[4]); config_max_inodes=int(sys.argv[5])
+              vendor=pathlib.Path(sys.argv[6]); config_root=pathlib.Path(sys.argv[7]); metrics=pathlib.Path(sys.argv[8]); digest=hashlib.sha256()
+              total=0; files=0; inodes=0
+              for path in sorted(vendor.rglob("*")):
+                  inodes += 1; rel=path.relative_to(vendor); mode=path.lstat().st_mode
+                  if stat.S_ISLNK(mode) or (not path.is_dir() and not stat.S_ISREG(mode)): raise SystemExit("vendor contains forbidden file type")
+                  if path.is_dir(): continue
+                  files += 1; content=path.read_bytes(); total += len(content)
+                  if files > max_files or total > max_bytes or inodes > max_inodes: raise SystemExit("vendor resource ceiling exceeded")
+                  relative=rel.as_posix().encode(); digest.update(stat.S_IMODE(mode).to_bytes(4,"big")); digest.update(len(relative).to_bytes(8,"big")); digest.update(relative); digest.update(len(content).to_bytes(8,"big")); digest.update(content)
+              config=pathlib.Path("/vendor-config/config.toml")
+              config_mode=config.lstat().st_mode if config.exists() else 0
+              if not config.exists() or stat.S_ISLNK(config_mode) or not stat.S_ISREG(config_mode): raise SystemExit("vendor config is missing or not a regular file")
+              config_size=config.stat().st_size
+              config_entries=list(config_root.iterdir())
+              config_inode_count=len(config_entries)
+              if config_size <= 0 or config_size > config_max_bytes: raise SystemExit("vendor config exceeds bounded substrate")
+              if config_inode_count < 1 or config_inode_count > config_max_inodes: raise SystemExit("vendor config inode ceiling exceeded")
+              if config_inode_count != 1 or config_entries[0].name != "config.toml": raise SystemExit("vendor config substrate contains unexpected entries")
+              config_digest=hashlib.sha256(config.read_bytes()).hexdigest()
+              metrics.write_text(f"vendor_observed_bytes={total}\nvendor_observed_files={files}\nvendor_observed_inodes={inodes}\nvendor_digest={digest.hexdigest()}\nvendor_config_observed_bytes={config_size}\nvendor_config_observed_inodes={config_inode_count}\nvendor_config_digest={config_digest}\n", encoding="utf-8")
+              PY
           CONTAINER_SCRIPT
           status=$?
           set -e
           if [ "$status" -ne 0 ]; then exit "$status"; fi
-          test -s "$vendor_config"
           test -s "$vendor_metrics"
           vendor_observed_bytes="$(sed -n 's/^vendor_observed_bytes=//p' "$vendor_metrics")"
           vendor_observed_files="$(sed -n 's/^vendor_observed_files=//p' "$vendor_metrics")"
           vendor_observed_inodes="$(sed -n 's/^vendor_observed_inodes=//p' "$vendor_metrics")"
           vendor_digest="$(sed -n 's/^vendor_digest=//p' "$vendor_metrics")"
-          for value in "$vendor_observed_bytes" "$vendor_observed_files" "$vendor_observed_inodes"; do printf "%s" "$value" | grep -Eq '^[0-9]+$'; done
+          vendor_config_observed_bytes="$(sed -n 's/^vendor_config_observed_bytes=//p' "$vendor_metrics")"
+          vendor_config_observed_inodes="$(sed -n 's/^vendor_config_observed_inodes=//p' "$vendor_metrics")"
+          vendor_config_digest="$(sed -n 's/^vendor_config_digest=//p' "$vendor_metrics")"
+          for value in "$vendor_observed_bytes" "$vendor_observed_files" "$vendor_observed_inodes" "$vendor_config_observed_bytes" "$vendor_config_observed_inodes"; do printf "%s" "$value" | grep -Eq '^[0-9]+$'; done
           printf "%s" "$vendor_digest" | grep -Eq '^[0-9a-f]{64}$'
+          printf "%s" "$vendor_config_digest" | grep -Eq '^[0-9a-f]{64}$'
           test "$vendor_observed_bytes" -le "$VENDOR_MAX_BYTES"
           test "$vendor_observed_files" -le "$VENDOR_MAX_FILES"
           test "$vendor_observed_inodes" -le "$VENDOR_MAX_INODES"
-          printf 'vendor_volume_name=%s\nvendor_config=%s\nvendor_metrics=%s\nvendor_digest=%s\nvendor_observed_bytes=%s\nvendor_observed_files=%s\nvendor_observed_inodes=%s\n' "$vendor_volume_name" "$vendor_config" "$vendor_metrics" "$vendor_digest" "$vendor_observed_bytes" "$vendor_observed_files" "$vendor_observed_inodes" >> "$GITHUB_OUTPUT"
+          test "$vendor_config_observed_bytes" -le "$VENDOR_CONFIG_MAX_BYTES"
+          test "$vendor_config_observed_inodes" -le "$VENDOR_CONFIG_MAX_INODES"
+          printf 'vendor_volume_name=%s\nvendor_config_volume_name=%s\nvendor_metrics=%s\nvendor_volume_spec=%s\nvendor_config_volume_spec=%s\nvendor_digest=%s\nvendor_config_digest=%s\nvendor_observed_bytes=%s\nvendor_observed_files=%s\nvendor_observed_inodes=%s\nvendor_config_observed_bytes=%s\nvendor_config_observed_inodes=%s\n' "$vendor_volume_name" "$vendor_config_volume_name" "$vendor_metrics" "$vendor_volume_spec" "$vendor_config_volume_spec" "$vendor_digest" "$vendor_config_digest" "$vendor_observed_bytes" "$vendor_observed_files" "$vendor_observed_inodes" "$vendor_config_observed_bytes" "$vendor_config_observed_inodes" >> "$GITHUB_OUTPUT"
           trap - EXIT
-          echo "PASS: locked dependency closure acquired inside a Docker-managed bounded tmpfs volume"
+          echo "PASS: locked dependency closure acquired inside Docker-managed bounded tmpfs volumes"
           echo "vendor_digest=$vendor_digest"
           echo "vendor_observed_bytes=$vendor_observed_bytes"
           echo "vendor_observed_files=$vendor_observed_files"
           echo "vendor_observed_inodes=$vendor_observed_inodes"
+          echo "vendor_config_digest=$vendor_config_digest"
+          echo "vendor_config_observed_bytes=$vendor_config_observed_bytes"
+          echo "vendor_config_observed_inodes=$vendor_config_observed_inodes"
       - name: Execute sandbox negative controls
         id: sandbox_negative_controls
         env:
           CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
           VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
-          VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
+          VENDOR_CONFIG_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_name }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         shell: bash
         run: |
@@ -893,7 +927,7 @@ jobs:
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m,nr_inodes=8192 \
             --volume "$CANDIDATE_VOLUME_NAME:/source:ro" \
             --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
-            --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
+            --volume "$VENDOR_CONFIG_VOLUME_NAME:/vendor-config:ro" \
             --volume "$sentinel:/trusted-sentinel:ro" \
             --env GITHUB_TOKEN= \
             --env GH_TOKEN= \
@@ -972,7 +1006,7 @@ jobs:
         env:
           CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
           VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
-          VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
+          VENDOR_CONFIG_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_name }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         run: |
           set -euo pipefail
@@ -1030,7 +1064,7 @@ jobs:
               --volume "$CANDIDATE_VOLUME_NAME:/source:ro" \
               --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
               --workdir /source/crates/mycelix-bridge-common \
-              --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
+              --volume "$VENDOR_CONFIG_VOLUME_NAME:/vendor-config:ro" \
               --env HOME=/cargo-home \
               --env CARGO_HOME=/cargo-home \
               --env RUSTUP_HOME=/dev/null \
@@ -1211,6 +1245,9 @@ jobs:
         id: dependency_postflight
         env:
           VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
+          VENDOR_CONFIG_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_name }}
+          EXPECTED_VENDOR_CONFIG_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_config_digest }}
+          EXPECTED_VENDOR_CONFIG_BYTES: ${{ steps.vendor_dependencies.outputs.vendor_config_observed_bytes }}
           EXPECTED_VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         shell: bash
@@ -1228,6 +1265,10 @@ jobs:
                 status=1
               fi
             fi
+          if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_CONFIG_VOLUME_NAME"; then
+            echo "security-kernel vendor-config volume remains after cleanup" >&2
+            exit 1
+          fi
             trap - EXIT
             exit "$status"
           }
@@ -1240,8 +1281,9 @@ jobs:
             --user "$runner_uid:$runner_gid" --ipc=private --pid=private --cgroupns=private \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m,nr_inodes=8192 \
             --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
+            --volume "$VENDOR_CONFIG_VOLUME_NAME:/vendor-config:ro" \
             "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
-          python3 - "$EXPECTED_VENDOR_DIGEST" /vendor <<\PY
+          python3 - "$EXPECTED_VENDOR_DIGEST" "$EXPECTED_VENDOR_CONFIG_DIGEST" "$EXPECTED_VENDOR_CONFIG_BYTES" /vendor <<\PY
           import hashlib, pathlib, stat, sys
           expected=sys.argv[1]; vendor=pathlib.Path(sys.argv[2]); digest=hashlib.sha256()
           for path in sorted(vendor.rglob('*')):
@@ -1251,10 +1293,19 @@ jobs:
               relative=rel.as_posix().encode(); content=path.read_bytes()
               digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
           observed=digest.hexdigest()
+          config=pathlib.Path("/vendor-config/config.toml")
+          config_mode=config.lstat().st_mode if config.exists() else 0
+          if not config.exists() or stat.S_ISLNK(config_mode) or not stat.S_ISREG(config_mode): raise SystemExit("vendor config substrate missing or not regular")
+          if config.stat().st_size != int(sys.argv[3]): raise SystemExit("vendor config size changed")
+          if hashlib.sha256(config.read_bytes()).hexdigest() != sys.argv[2]: raise SystemExit("vendor config substrate mutated")
           if observed != expected: raise SystemExit(f'vendor substrate mutated: {expected} != {observed}')
           print('PASS: vendored dependency substrate remained immutable and regular-file-only')
           PY
           CONTAINER_SCRIPT
+          if ! docker volume rm "$VENDOR_CONFIG_VOLUME_NAME" >/dev/null; then
+            echo "security-kernel vendor-config volume cleanup failed" >&2
+            exit 1
+          fi
           if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null; then
             echo "security-kernel vendor volume cleanup failed" >&2
             exit 1
@@ -1305,6 +1356,16 @@ jobs:
           VENDOR_MAX_INODES: ${{ env.VENDOR_MAX_INODES }}
           VENDOR_TMPFS_SIZE: ${{ env.VENDOR_TMPFS_SIZE }}
           VENDOR_TMPFS_NR_INODES: ${{ env.VENDOR_TMPFS_NR_INODES }}
+          VENDOR_CONFIG_RESOURCE_PROFILE: ${{ env.VENDOR_CONFIG_RESOURCE_PROFILE }}
+          VENDOR_CONFIG_MAX_BYTES: ${{ env.VENDOR_CONFIG_MAX_BYTES }}
+          VENDOR_CONFIG_MAX_INODES: ${{ env.VENDOR_CONFIG_MAX_INODES }}
+          VENDOR_CONFIG_TMPFS_SIZE: ${{ env.VENDOR_CONFIG_TMPFS_SIZE }}
+          VENDOR_CONFIG_TMPFS_NR_INODES: ${{ env.VENDOR_CONFIG_TMPFS_NR_INODES }}
+          VENDOR_CONFIG_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_name }}
+          VENDOR_CONFIG_VOLUME_SPEC: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_spec }}
+          VENDOR_CONFIG_OBSERVED_BYTES: ${{ steps.vendor_dependencies.outputs.vendor_config_observed_bytes }}
+          VENDOR_CONFIG_OBSERVED_INODES: ${{ steps.vendor_dependencies.outputs.vendor_config_observed_inodes }}
+          VENDOR_CONFIG_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_config_digest }}
           VENDOR_OBSERVED_BYTES: ${{ steps.vendor_dependencies.outputs.vendor_observed_bytes }}
           VENDOR_OBSERVED_FILES: ${{ steps.vendor_dependencies.outputs.vendor_observed_files }}
           VENDOR_OBSERVED_INODES: ${{ steps.vendor_dependencies.outputs.vendor_observed_inodes }}
@@ -1355,6 +1416,16 @@ jobs:
             echo "vendor_max_inodes=$VENDOR_MAX_INODES"
             echo "vendor_tmpfs_size=$VENDOR_TMPFS_SIZE"
             echo "vendor_tmpfs_nr_inodes=$VENDOR_TMPFS_NR_INODES"
+            echo "vendor_config_resource_profile=$VENDOR_CONFIG_RESOURCE_PROFILE"
+            echo "vendor_config_max_bytes=$VENDOR_CONFIG_MAX_BYTES"
+            echo "vendor_config_max_inodes=$VENDOR_CONFIG_MAX_INODES"
+            echo "vendor_config_tmpfs_size=$VENDOR_CONFIG_TMPFS_SIZE"
+            echo "vendor_config_tmpfs_nr_inodes=$VENDOR_CONFIG_TMPFS_NR_INODES"
+            echo "vendor_config_volume_name=$VENDOR_CONFIG_VOLUME_NAME"
+            echo "vendor_config_volume_spec=$VENDOR_CONFIG_VOLUME_SPEC"
+            echo "vendor_config_observed_bytes=$VENDOR_CONFIG_OBSERVED_BYTES"
+            echo "vendor_config_observed_inodes=$VENDOR_CONFIG_OBSERVED_INODES"
+            echo "vendor_config_digest=$VENDOR_CONFIG_DIGEST"
             echo "vendor_observed_bytes=$VENDOR_OBSERVED_BYTES"
             echo "vendor_observed_files=$VENDOR_OBSERVED_FILES"
             echo "vendor_observed_inodes=$VENDOR_OBSERVED_INODES"
@@ -1449,7 +1520,7 @@ jobs:
           set -euo pipefail
           candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          for volume_name in "$candidate_volume_name" "$vendor_volume_name"; do
+          for volume_name in "$candidate_volume_name" "$vendor_volume_name" "$vendor_config_volume_name"; do
             if ! existing_volumes="$(docker volume ls --format '{{.Name}}')"; then
               echo "security-kernel final teardown volume inventory query failed" >&2
               exit 1
