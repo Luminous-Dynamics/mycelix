@@ -299,6 +299,25 @@ pub fn check_create_proposal(proposal: &Proposal) -> Result<(), String> {
     Ok(())
 }
 
+fn proposal_update_requires_author(original: &Proposal, updated: &Proposal) -> bool {
+    let semantic_change = original.title != updated.title
+        || original.description != updated.description
+        || original.proposal_type != updated.proposal_type
+        || original.actions != updated.actions
+        || original.discussion_url != updated.discussion_url;
+
+    if semantic_change {
+        return true;
+    }
+
+    matches!(
+        (&original.status, &updated.status),
+        (ProposalStatus::Draft, ProposalStatus::Active)
+            | (ProposalStatus::Draft, ProposalStatus::Cancelled)
+            | (ProposalStatus::Active, ProposalStatus::Cancelled)
+    )
+}
+
 pub fn check_update_proposal(original: &Proposal, updated: &Proposal) -> Result<(), String> {
     if updated.id != original.id {
         return Err("Cannot change proposal ID".into());
@@ -541,12 +560,6 @@ fn validate_update_proposal(
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
     let original_record = must_get_valid_record(original_action_hash)?;
-
-    if action.author() != original_record.action().author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Only the original proposal author may update the proposal".into(),
-        ));
-    }
     let original_proposal: Proposal = original_record
         .entry()
         .to_app_option()
@@ -554,6 +567,15 @@ fn validate_update_proposal(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original proposal not found".into()
         )))?;
+
+    if proposal_update_requires_author(&original_proposal, &proposal)
+        && action.author() != original_record.action().author()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Semantic proposal edits and author-controlled status transitions require the original proposal author"
+                .into(),
+        ));
+    }
 
     match check_update_proposal(&original_proposal, &proposal) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
@@ -673,6 +695,34 @@ mod tests {
             updated: ts(1000000),
             version: 1,
         }
+    }
+
+    #[test]
+    fn test_status_only_governance_updates_do_not_require_proposal_author() {
+        let mut original = make_proposal();
+        original.status = ProposalStatus::Ended;
+        let mut approved = original.clone();
+        approved.status = ProposalStatus::Approved;
+        approved.version += 1;
+        assert!(!proposal_update_requires_author(&original, &approved));
+    }
+
+    #[test]
+    fn test_author_controlled_status_updates_require_proposal_author() {
+        let original = make_proposal();
+        let mut active = original.clone();
+        active.status = ProposalStatus::Active;
+        active.version += 1;
+        assert!(proposal_update_requires_author(&original, &active));
+    }
+
+    #[test]
+    fn test_draft_semantic_edits_require_proposal_author() {
+        let original = make_proposal();
+        let mut edited = original.clone();
+        edited.title = "changed".into();
+        edited.version += 1;
+        assert!(proposal_update_requires_author(&original, &edited));
     }
 
     #[test]
