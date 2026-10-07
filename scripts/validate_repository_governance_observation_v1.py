@@ -266,7 +266,7 @@ def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
         return False
     # GitHub does not support '^' as a bracket-expression complement.
     # Refuse that Python-only interpretation rather than risking a false match.
-    if re.search(r"\\\[\\\^", pattern):
+    if re.search(r"\[^", pattern):
         return False
     value_parts = value.split("/")
     pattern_parts = pattern.split("/")
