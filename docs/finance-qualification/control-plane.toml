@@ -1,0 +1,25 @@
+schema = "MYCELIX-FINANCE-QUALIFICATION-CONTROL-V1"
+trusted_branch = "main"
+request_workflow = ".github/workflows/finance-qualification-request.yml"
+verifier_workflow = ".github/workflows/finance-exact-head-qualification.yml"
+candidate_execution = "exact-pr-head"
+verifier_execution = "trusted-default-branch"
+qualification_concurrency_cancellable = false
+pr_head_must_remain_current = true
+same_repository_only = true
+base_ref = "main"
+bootstrap_status = "not-self-qualified"
+bootstrap_exception = "first-control-plane-landing-only"
+pull_request_target_execution = false
+
+[claims]
+queued = false
+cancelled = false
+skipped = false
+superseded = false
+successful_exact_head_run_required = true
+
+[scope]
+application_runtime_security = false
+substrate_version_reconciliation = false
+governance_authority_reconciliation = false
