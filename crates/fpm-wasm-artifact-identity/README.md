@@ -53,7 +53,7 @@ The contract also does not require the artifact bytes to be a semantically valid
 
 ## Resource bound
 
-The verifier rejects artifacts above 16,000,000 bytes before invoking HoloHash's synchronous constructor. This matches the documented HoloHash 0.7 synchronous hashing ceiling and prevents oversized hostile input from reaching a panic-prone path.
+The verifier rejects artifacts above `holo_hash::MAX_HASHABLE_CONTENT_LEN` before invoking HoloHash's synchronous constructor. In Holochain 0.7.0 this substrate constant is 16,000,000 bytes (16 MB), so the verifier cannot silently drift from the dependency's panic boundary.
 
 ## Dependency-closure note
 
@@ -66,3 +66,7 @@ These version pins establish the intended package versions, not a reproducible d
 The production dependency uses `holo_hash 0.7.0` with `default-features = false` and only the `hashing` feature enabled. This avoids pulling HoloHash's default Wasmer support into the verifier when no WASM runtime is executed by this crate.
 
 The test-only `holochain_types 0.7.0` oracle is intentionally separate from the production dependency surface.
+
+## Qualification-gate hardening
+
+The FPM job is downstream of the repository's `changes` gate. Both actions used by that gate are pinned to immutable commit SHAs, and the checkout disables persisted GitHub credentials. This prevents a mutable action tag or leftover checkout credential from becoming part of the FPM qualification path.
