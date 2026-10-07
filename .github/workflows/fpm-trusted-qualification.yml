@@ -266,7 +266,7 @@ jobs:
           GITHUB_STEP_SUMMARY: /dev/null
         run: |
           set -euo pipefail
-          sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             TMPDIR="${FPM_UNTRUSTED_TMP}"             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'umask 077; cd "$1" && cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
+          sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             TMPDIR="${FPM_UNTRUSTED_TMP}"             CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'umask 077; cd "$1" && cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
 
       - name: Cargo test against immutable candidate source
         id: tests
@@ -277,7 +277,7 @@ jobs:
           GITHUB_STEP_SUMMARY: /dev/null
         run: |
           set -euo pipefail
-          sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             TMPDIR="${FPM_UNTRUSTED_TMP}"             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'umask 077; cd "$1" && cargo test --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
+          sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             TMPDIR="${FPM_UNTRUSTED_TMP}"             CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'umask 077; cd "$1" && cargo test --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
 
       - name: Postflight source and live-PR reconciliation
         id: postflight
