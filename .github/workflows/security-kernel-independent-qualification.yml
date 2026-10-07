@@ -830,6 +830,22 @@ jobs:
             echo "security-kernel negative-control container name collision" >&2
             exit 1
           fi
+          negative_control_cleanup_on_exit() {
+            local status=$?
+            if ! remaining_containers="$(docker ps -aq --filter "name=^/${container_name}$")"; then
+              status=1
+            elif [ -n "$remaining_containers" ]; then
+              if ! docker rm -f "$container_name" >/dev/null 2>&1; then status=1; fi
+              if ! post_cleanup_containers="$(docker ps -aq --filter "name=^/${container_name}$")"; then
+                status=1
+              elif [ -n "$post_cleanup_containers" ]; then
+                status=1
+              fi
+            fi
+            trap - EXIT
+            exit "$status"
+          }
+          trap negative_control_cleanup_on_exit EXIT
           {
           timeout --signal=TERM --kill-after=20s 3m docker run --name "$container_name" --rm --platform=linux/amd64 --pull=never \
             --network=none \
