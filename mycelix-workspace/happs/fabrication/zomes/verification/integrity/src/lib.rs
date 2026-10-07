@@ -142,11 +142,11 @@ pub struct FpmVerificationKeyTrustAnchor {
 pub const FPM_ATTESTATION_CHALLENGE_SCHEMA_VERSION: &str =
     "fpm.attestation.challenge.v2";
 pub const FPM_SOURCE_ATTESTATION_ANCHOR_SCHEMA_VERSION: &str =
-    "fpm.attestation.result-anchor.v1";
+    "fpm.attestation.result-anchor.v2";
 pub const FPM_ATTESTATION_CHALLENGE_USE_SCHEMA_VERSION: &str =
     "fpm.attestation.challenge-use.v1";
 pub const FPM_EAT_COSE_VERIFICATION_ANCHOR_SCHEMA_VERSION: &str =
-    "fpm.attestation.eat-cose-verification.v1";
+    "fpm.attestation.eat-cose-verification.v2";
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -195,6 +195,10 @@ pub struct FpmEatCoseVerificationAnchor {
     pub eat_profile_uri: String,
     pub key_id: Vec<u8>,
     pub verification_key_digest: String,
+    pub verifier_implementation_digest: String,
+    pub verifier_build_provenance_digest: String,
+    pub verifier_builder_id: String,
+    pub verifier_profile_digest: String,
 }
 
 #[hdk_entry_helper]
@@ -743,6 +747,10 @@ fn validate_fpm_eat_cose_verification_anchor(
         || !valid_attestation_identifier(&anchor.audience, 256)
         || !valid_attestation_identifier(&anchor.eat_profile_uri, 512)
         || anchor.eat_profile_uri != FPM_EAT_PROFILE_URI
+        || !is_canonical_fpm_verifier_digest(&anchor.verifier_implementation_digest)
+        || !is_canonical_fpm_verifier_digest(&anchor.verifier_build_provenance_digest)
+        || !is_valid_fpm_verifier_builder_id(&anchor.verifier_builder_id)
+        || !is_canonical_fpm_verifier_digest(&anchor.verifier_profile_digest)
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid or unsupported FPM EAT/COSE verification profile".into(),
