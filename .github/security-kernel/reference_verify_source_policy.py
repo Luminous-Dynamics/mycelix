@@ -485,8 +485,8 @@ def require_exact_run_prefix(
         if indent != 10:
             fail(f"{description}: unexpected run-prefix indentation: {line!r}")
         actual.append(line[10:])
-    if tuple(actual[:len(expected)]) != expected or len(actual) < len(expected):
-        fail(f"{description}: run prefix mismatch: expected {expected!r}, found {tuple(actual[:len(expected)])!r}")
+    if tuple(actual) != expected:
+        fail(f"{description}: run prefix mismatch: expected {expected!r}, found {tuple(actual)!r}")
 def require_exact_step_ids(
     lines_: list[str],
     expected: tuple[tuple[str, str | None], ...],
@@ -2272,6 +2272,45 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 trusted-workflow ancestry guard drift",
+    )
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'          test "${ACTIONS_CACHE_MODE:-}" = "none"\n',
+                b'          test "${ACTIONS_CACHE_MODE:-}" = "none"\n          true\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 inserted runtime guard before network call",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"\n',
+                b'          test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"\n          true\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 inserted runtime command before network call",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'          test "${ACTIONS_CACHE_MODE:-}" = "none"\n',
+                b'          test "${ACTIONS_CACHE_MODE:-}" = "none"\n          true\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 inserted runtime command before network call",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
