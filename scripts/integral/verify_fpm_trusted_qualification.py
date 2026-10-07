@@ -18,6 +18,7 @@ CANDIDATE_WORKFLOW_ID = 377461322
 CANDIDATE_WORKFLOW_PATH = ".github/workflows/fpm-wasm-artifact-identity.yml"
 TRUSTED_WORKFLOW_NAME = "FPM trusted qualification policy"
 TRUSTED_WORKFLOW_PATH = ".github/workflows/fpm-trusted-qualification.yml"
+INDEPENDENT_WORKFLOW_PATH = ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
 
 MANIFEST_PATH = "crates/fpm-wasm-artifact-identity/Cargo.toml"
 MANIFEST_BLOB_SHA = "c94b53f61ed8a9bfb6249b1b339550dddd074d6c"
@@ -156,6 +157,7 @@ def verify_receipt(
     commit: dict[str, Any],
     manifest: dict[str, Any],
     policy_file: dict[str, Any],
+    verifier_control: dict[str, Any],
 ) -> str:
     if set(receipt) != RECEIPT_KEYS:
         fail(
@@ -305,6 +307,20 @@ def verify_receipt(
     if receipt["promotion_authority"] != "pending_repository_governance_evidence":
         fail("unexpected promotion authority")
 
+    if verifier_control["repository"] != BASE_REPOSITORY:
+        fail("independent verifier repository mismatch")
+    if verifier_control["path"] != INDEPENDENT_WORKFLOW_PATH:
+        fail("independent verifier path mismatch")
+    if verifier_control["ref"] != "refs/heads/main":
+        fail("independent verifier ref mismatch")
+    verifier_sha = require_hex(verifier_control["workflow_sha"], 40, "independent verifier workflow_sha")
+    verifier_blob_sha = require_hex(
+        verifier_control["workflow_blob_sha"], 40, "independent verifier workflow_blob_sha"
+    )
+    expected_workflow_ref = f"{BASE_REPOSITORY}/{INDEPENDENT_WORKFLOW_PATH}@refs/heads/main"
+    if verifier_control["workflow_ref"] != expected_workflow_ref:
+        fail("independent verifier workflow_ref mismatch")
+
     canonical = json.dumps(
         receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True
     ).encode("utf-8")
@@ -373,6 +389,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     commit = json.loads((snapshot_dir / "subject-commit.json").read_text(encoding="utf-8"))
     manifest = json.loads((snapshot_dir / "manifest.json").read_text(encoding="utf-8"))
     policy_file = json.loads((snapshot_dir / "policy-file.json").read_text(encoding="utf-8"))
+    verifier_control = json.loads((snapshot_dir / "verifier-control.json").read_text(encoding="utf-8"))
     artifacts = json.loads((snapshot_dir / "artifacts.json").read_text(encoding="utf-8"))
 
     artifact_items = artifacts.get("artifacts")
@@ -431,6 +448,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         commit=commit,
         manifest=manifest,
         policy_file=policy_file,
+        verifier_control=verifier_control,
     )
 
     verify_index(
@@ -464,6 +482,8 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         "index_artifact_digest": index_artifact["digest"],
         "trusted_policy_sha": receipt["trusted_policy_sha"],
         "trusted_policy_blob_sha": receipt["trusted_policy_blob_sha"],
+        "independent_verifier_workflow_sha": verifier_sha,
+        "independent_verifier_workflow_blob_sha": verifier_blob_sha,
         "reference_result": "verified",
         "qualification_pass": True,
     }
