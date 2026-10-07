@@ -514,22 +514,12 @@ pub struct PublishProposalReferenceInput {
 pub fn transfer_credits(input: TransferCreditsInput) -> ExternResult<Record> {
     check_transfer_credits_input(&input).map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
 
-    // Record the transfer as a governance event
-    broadcast_governance_event(BroadcastGovernanceEventInput {
-        event_type: GovernanceEventType::ProposalExecuted,
-        proposal_id: None,
-        subject: format!(
-            "Credit transfer: {} -> {} ({} credits)",
-            input.from, input.to, input.amount
-        ),
-        payload: serde_json::to_string(&serde_json::json!({
-            "type": "transfer_credits",
-            "from": input.from,
-            "to": input.to,
-            "amount": input.amount,
-        }))
-        .unwrap_or_default(),
-    })
+    // FAIL-CLOSED: this endpoint is provenance-only today. It is not the authoritative
+    // fund-movement owner and therefore cannot report a successful transfer.
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "transfer_credits is disabled: authoritative fund-movement effect owner is not wired."
+            .into(),
+    )))
 }
 
 /// Input for credit transfers via cross-zome call
