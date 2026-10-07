@@ -102,10 +102,8 @@ def validate_observation_shape(observation: Any) -> None:
     require(isinstance(branch_raw, dict), "branch raw payload must be an object")
     require(isinstance(rulesets_raw, list), "rulesets raw payload must be a list")
     require(
-        observation.get("branch") == {
-            "name": branch_raw.get("name"),
-            "protected": branch_raw.get("protected"),
-        },
+        observation.get("branch", {}).get("name") == branch_raw.get("name")
+        and observation.get("branch", {}).get("protected") == branch_raw.get("protected"),
         "normalized branch observation does not match raw branch payload",
     )
     require(
