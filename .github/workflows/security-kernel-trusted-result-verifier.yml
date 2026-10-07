@@ -858,7 +858,7 @@ jobs:
           artifact_digest = artifact.get("digest")
           assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest or ""), "negative-control transcript artifact digest is not canonical"
           artifact_size = int(artifact.get("size_in_bytes", 0))
-          assert 0 < artifact_size <= 1024 * 1024, "negative-control transcript artifact size is outside verifier bounds"
+          assert 0 < artifact_size <= 65536, "negative-control transcript artifact size exceeds the 64 KiB capture ceiling"
           transcript_expires_at = artifact.get("expires_at")
           assert isinstance(transcript_expires_at, str) and transcript_expires_at, "negative-control transcript artifact has no expiration timestamp"
           transcript_expiry = datetime.datetime.fromisoformat(transcript_expires_at.replace("Z", "+00:00"))
@@ -902,7 +902,7 @@ jobs:
           try:
               with urllib.request.build_opener(NoRedirect).open(download_url, timeout=30) as response:
                   assert response.status == 200, f"negative-control transcript redirect target returned HTTP {response.status}"
-                  downloaded = response.read(1024 * 1024 + 1)
+                  downloaded = response.read(65536 + 1)
           except urllib.error.HTTPError as error:
               raise AssertionError(
                   f"negative-control transcript redirect target performed an unexpected second HTTP redirect/status: {error.code}"
