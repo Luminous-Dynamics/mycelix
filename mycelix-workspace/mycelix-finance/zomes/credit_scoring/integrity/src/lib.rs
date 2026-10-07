@@ -177,37 +177,19 @@ fn validate_update_credit_profile(
     action: Update,
     profile: CreditProfile,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Bind updates too. Binding create alone would be incoherent: the update path
-    // was the easier hole — `update_matl_score` is a public extern taking an
-    // arbitrary `did` AND an arbitrary `matl_score`, so at the DHT level any peer
-    // could rewrite anyone's score.
-    //
-    // Safe to bind: both coordinator update paths (`update_credit_score:258`,
-    // `update_matl_score:476`) locate the profile with `query()`, which reads the
-    // CALLER'S OWN source chain only — so they can already only touch profiles the
-    // caller authored. Binding matches that de-facto behaviour and additionally
-    // enforces it against a malicious peer that bypasses the coordinator.
-    //
-    // (Aside: that `query()` usage is a fresh instance of the chain-local-read bug
-    // class tracked in MASTER_ROADMAP P0-#1 — here it happens to fail safe, but
-    // `update_credit_score` silently no-ops for any profile not on the caller's
-    // chain. Flagged, not fixed here — it is a coordinator correctness bug, not an
-    // integrity one.)
-    //
-    // NOTE: on `Update`, `author` is a FIELD; on `EntryCreationAction` it is a
-    // method. Hence the asymmetry with `validate_create_credit_profile` above.
     let author_did = did_for_author(&action.author);
-    if let ValidateCallbackResult::Invalid(msg) =
-        require_did_is_author("CreditProfile", "did", &profile.did, &author_did)
-    {
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author("CreditProfile","did",&profile.did,&author_did) {
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
-
-    // Apply same rules as creation
-    if profile.computed_score < 0.0 || profile.computed_score > 1000.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Credit score must be between 0 and 1000".into(),
-        ));
+    if profile.computed_score < 0.0 || profile.computed_score > 1000.0 || !profile.computed_score.is_finite()
+        || !profile.matl_score.is_finite() || profile.matl_score < 0.0 || profile.matl_score > 1.0 {
+        return Ok(ValidateCallbackResult::Invalid("Credit profile score fields are invalid".into()));
+    }
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<CreditProfile>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode CreditProfile predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("CreditProfile predecessor has wrong type".into())))?;
+    if o.did != profile.did || profile.account_age_days < o.account_age_days || profile.version <= o.version || profile.last_updated < o.last_updated {
+        return Ok(ValidateCallbackResult::Invalid("Credit profile identity/version/time provenance is inconsistent".into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -227,13 +209,30 @@ fn validate_create_payment_record(
 
 /// Validate payment record update
 fn validate_update_payment_record(
-    _action: Update,
+    action: Update,
     record: PaymentRecord,
 ) -> ExternResult<ValidateCallbackResult> {
-    if record.amount <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Payment amount must be positive".into(),
-        ));
+    if record.amount <= 0.0 || !record.amount.is_finite() {
+        return Ok(ValidateCallbackResult::Invalid("Payment amount must be positive and finite".into()));
+    }
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<PaymentRecord>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode PaymentRecord predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("PaymentRecord predecessor has wrong type".into())))?;
+    if o.id != record.id || o.profile_did != record.profile_did || o.loan_id != record.loan_id
+        || o.amount != record.amount || o.currency != record.currency || o.due_date != record.due_date {
+        return Ok(ValidateCallbackResult::Invalid("Payment record identity and economic terms are immutable".into()));
+    }
+    match (&o.status,&record.status) {
+        (PaymentStatus::Pending,PaymentStatus::Pending)
+        | (PaymentStatus::Pending,PaymentStatus::OnTime)
+        | (PaymentStatus::Pending,PaymentStatus::Late)
+        | (PaymentStatus::Pending,PaymentStatus::Missed)
+        | (PaymentStatus::Pending,PaymentStatus::Forgiven)
+        | (a,b) if a==b => {}
+        _ => return Ok(ValidateCallbackResult::Invalid("Invalid payment-record status transition".into())),
+    }
+    if o.paid_date.is_some() && o.paid_date != record.paid_date {
+        return Ok(ValidateCallbackResult::Invalid("Payment paid_date is immutable once set".into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
