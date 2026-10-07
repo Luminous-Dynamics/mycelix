@@ -163,3 +163,23 @@ summary:focus-visible {
 @media (max-width: 900px) {
   .reconciliation-layout { grid-template-columns: 1fr; }
 }
+
+.freshness-summary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid #e7eaf0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.freshness-summary > span { color: #667085; font-size: 12px; line-height: 1.4; }
+
+.badge.freshness-badge { font-size: 11px; }
+.freshness-fresh { color: #157f5b; }
+.freshness-aging { color: #a15c00; }
+.freshness-stale { color: #b42318; }
+.freshness-unknown { color: #667085; }
+
