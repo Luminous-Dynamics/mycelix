@@ -351,6 +351,7 @@ fn validate_update_treasury(
             "Reserve ratio must be a finite number between 0 and 1".into(),
         ));
     }
+
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original = original_record.entry().to_app_option::<Treasury>().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -361,6 +362,7 @@ fn validate_update_treasury(
             "Original treasury update predecessor is not a Treasury entry".into(),
         ))
     })?;
+
     if original.id != treasury.id
         || original.name != treasury.name
         || original.description != treasury.description
@@ -371,6 +373,38 @@ fn validate_update_treasury(
             "Treasury identity and immutable configuration cannot change across updates".into(),
         ));
     }
+
+    if original.managers != treasury.managers {
+        let author_did = did_for_author(&action.author);
+        if !original.managers.contains(&author_did) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Manager-set changes must be authored by an existing treasury manager".into(),
+            ));
+        }
+
+        let added = treasury
+            .managers
+            .iter()
+            .filter(|m| !original.managers.contains(m))
+            .count();
+        let removed = original
+            .managers
+            .iter()
+            .filter(|m| !treasury.managers.contains(m))
+            .count();
+        if added + removed != 1 {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Manager-set update must add or remove exactly one manager".into(),
+            ));
+        }
+    }
+
+    if treasury.last_updated < original.last_updated {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Treasury last_updated cannot move backwards".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -514,6 +548,11 @@ fn validate_update_allocation(
             "Executed allocation must record an execution timestamp".into(),
         ));
     }
+    if original.executed.is_some() && original.executed != allocation.executed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Allocation execution timestamp is immutable after execution".into(),
+        ));
+    }
     if allocation.status != AllocationStatus::Executed && allocation.executed.is_some() {
         return Ok(ValidateCallbackResult::Invalid(
             "Allocation executed timestamp may only be set for Executed status".into(),
@@ -523,6 +562,24 @@ fn validate_update_allocation(
         if !allocation.approved_by.contains(prior) {
             return Ok(ValidateCallbackResult::Invalid(
                 "Allocation approvals cannot be removed by update".into(),
+            ));
+        }
+    }
+    let added_approvals: Vec<&String> = allocation
+        .approved_by
+        .iter()
+        .filter(|approver| !original.approved_by.contains(approver))
+        .collect();
+    if added_approvals.len() > 1 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "An allocation update may append at most one approval".into(),
+        ));
+    }
+    if let Some(added) = added_approvals.first() {
+        let author_did = did_for_author(&action.author);
+        if *added != &author_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New allocation approval must equal the update author's DID".into(),
             ));
         }
     }
