@@ -365,7 +365,6 @@ jobs:
           test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"
           rm -rf -- "$candidate_root"
           install -d -m 0700 -- "$candidate_root"
-          source_copy_status=0
           set -o pipefail
           bounded_source_archive() {
             python3 - "$SOURCE_ARCHIVE_MAX_BYTES" <<'PY'
@@ -402,10 +401,6 @@ jobs:
           test "${source_copy_pipeline_status[0]}" -eq 0
           test "${source_copy_pipeline_status[1]}" -eq 0
           test "${source_copy_pipeline_status[2]}" -eq 0
-          if [ "$source_copy_status" -ne 0 ]; then
-            echo "security-kernel bounded candidate-source staging copy failed" >&2
-            exit 1
-          fi
           source_copy_bytes="$(du -sb "$candidate_root" | awk '{print $1}')"
           source_copy_files="$(find "$candidate_root" -type f -print | wc -l)"
           source_copy_inodes="$(find "$candidate_root" -mindepth 1 -print | wc -l)"
@@ -667,6 +662,7 @@ jobs:
         run: |
           set -euo pipefail
           manifest_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml"
+          lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"
           test -f "$manifest_path"
           test -f "$lock_path"
           test ! -L "$manifest_path"
