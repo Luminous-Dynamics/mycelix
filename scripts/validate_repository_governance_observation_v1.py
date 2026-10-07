@@ -424,9 +424,6 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             "verified administration observation requires an external administration credential",
         )
 
-    if protection_status in {401, 403}:
-        admin_visibility = "unverified"
-
     default_branch = observation.get("default_branch")
     require(
         default_branch == "main",
@@ -514,6 +511,9 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
 
     mismatches = branch_mismatches + ruleset_mismatches
 
+    # An observed contradiction is stronger than an unavailable secondary
+    # control-plane view, but a complete verified control-plane witness can
+    # qualify on its own.
     if "MISMATCH" in {branch_state, ruleset_state}:
         reason = (
             "observable_governance_control_mismatch"
@@ -525,18 +525,6 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             "valid": False,
             "governance_state": "MISMATCH",
             "reason": reason,
-            "mismatches": mismatches,
-            "claim_ceiling": "RepositoryGovernanceObservationOnly",
-            "authoritative_admin_observation": True,
-            "grants_trusted_verifier_root": False,
-        }
-
-    if "UNVERIFIED" in {branch_state, ruleset_state}:
-        return {
-            "evaluator_id": EVALUATOR_ID,
-            "valid": False,
-            "governance_state": "UNVERIFIED",
-            "reason": "acceptable_control_plane_observation_incomplete",
             "mismatches": mismatches,
             "claim_ceiling": "RepositoryGovernanceObservationOnly",
             "authoritative_admin_observation": True,
@@ -814,6 +802,16 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=403))
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403))
+    x["rulesets"]["entries"][0]["rules"] = [
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "UNVERIFIED"
     assert result["grants_trusted_verifier_root"] is False
