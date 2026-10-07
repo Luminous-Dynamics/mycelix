@@ -47,23 +47,6 @@ jobs:
           mkdir -m 700 "$cargo_home"
           mkdir -m 700 "$rustup_home"
 
-      - name: Require preinstalled rustup
-        env:
-          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
-          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
-        run: |
-          set -euo pipefail
-          rustup_path="$(command -v rustup)"
-          test -n "$rustup_path"
-          test -x "$rustup_path"
-          case "$rustup_path" in
-            "$GITHUB_WORKSPACE"/*)
-              echo "rustup path unexpectedly resides in the PR workspace" >&2
-              exit 1
-              ;;
-          esac
-          rustup --version
-
       - name: Reject ambient Cargo and Rust overrides
         run: |
           set -euo pipefail
@@ -83,6 +66,23 @@ jobs:
             esac
           done < <(env)
           test "$forbidden" -eq 0
+
+      - name: Require preinstalled rustup
+        env:
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
+        run: |
+          set -euo pipefail
+          rustup_path="$(command -v rustup)"
+          test -n "$rustup_path"
+          test -x "$rustup_path"
+          case "$rustup_path" in
+            "$GITHUB_WORKSPACE"/*)
+              echo "rustup path unexpectedly resides in the PR workspace" >&2
+              exit 1
+              ;;
+          esac
+          rustup --version
 
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
