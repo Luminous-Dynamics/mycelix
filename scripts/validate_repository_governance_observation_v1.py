@@ -466,6 +466,30 @@ def self_test() -> None:
         raise AssertionError("raw branch payload substitution must be rejected")
 
     x = copy.deepcopy(fixture_observation())
+    raw_branch = json.dumps(
+        {"name": "attacker", "protected": True},
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    x["branch_payload_base64"] = base64.b64encode(raw_branch).decode()
+    x["branch_payload_sha256"] = hashlib.sha256(raw_branch).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("rehashed raw branch substitution must be rejected at normalization binding")
+
+    x = copy.deepcopy(fixture_observation())
+    x["admin_observation"]["source"] = "github_token"
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("a non-administration observation source must not qualify for VERIFIED")
+
+    x = copy.deepcopy(fixture_observation())
     x["admin_observation"]["protection"]["block_force_push"] = False
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
