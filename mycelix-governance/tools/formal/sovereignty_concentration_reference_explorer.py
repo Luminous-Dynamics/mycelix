@@ -134,6 +134,8 @@ def explore(transitions):
     return None,[]
 
 def weakened(kind):
+    if kind == "gatekeep-review":
+        return [("gatekeep-bad-review", *tr[1:]) if tr[0] == "gatekeep" else tr for tr in NORMAL]
     return [(kind+"-bad", *tr[1:]) if tr[0] == kind else tr for tr in NORMAL]
 
 def main():
@@ -145,6 +147,7 @@ def main():
         ("gatekeep","AuthorityHasExplicitSource"),
         ("acquire","JurisdictionHasExplicitSource"),
         ("critical","JurisdictionHasExplicitSource"),
+        ("gatekeep-review","HighSwitchingCostTriggersReview"),
     ]:
         path,bad=explore(weakened(kind))
         assert path is not None and target in bad,(kind,path,bad)
