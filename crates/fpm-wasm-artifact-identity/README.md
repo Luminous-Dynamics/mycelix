@@ -32,6 +32,8 @@ This makes the approved pair itself a bound object rather than trusting either d
 
 The returned `MatchedFpmWasmArtifactIdentity` is deliberately Serialize-only and has private fields. There is no deserialization path for manufacturing a matched result.
 
+The approval record itself uses `serde(deny_unknown_fields)`, so an unknown/future field cannot be silently ignored during deserialization. A schema extension must therefore be explicitly versioned rather than becoming an invisible policy change.
+
 ## Nonclaims
 
 This crate does not establish:
