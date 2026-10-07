@@ -20,6 +20,7 @@ CW_PATH = ".github/workflows/fpm-wasm-artifact-identity.yml"
 TW_NAME = "FPM trusted qualification policy"
 TW_PATH = ".github/workflows/fpm-trusted-qualification.yml"
 IW_PATH = ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
+WORKFLOW_PATH = Path(__file__).parents[2] / ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
 MANIFEST = "crates/fpm-wasm-artifact-identity/Cargo.toml"
 MANIFEST_SHA = "c94b53f61ed8a9bfb6249b1b339550dddd074d6c"
 
@@ -139,7 +140,18 @@ def expect_failure(base: Path, target: str, label: str, mutator) -> None:
         shutil.rmtree(root)
 
 
+def assert_workflow_target_extractor_dependencies() -> None:
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    marker = "      - name: Extract evidence targets with strict JSON parser\n"
+    next_marker = "      - name: Resolve evidence-linked GitHub objects\n"
+    assert marker in workflow and next_marker in workflow
+    block = workflow.split(marker, 1)[1].split(next_marker, 1)[0]
+    assert "import os" in block, "strict target extractor must import os for GITHUB_OUTPUT"
+    assert "with open(os.environ[\"GITHUB_OUTPUT\"]" in block
+
+
 def main() -> None:
+    assert_workflow_target_extractor_dependencies()
     with tempfile.TemporaryDirectory(prefix="fpm-ref-corpus-") as td:
         root = Path(td)
         snapshot(root)
