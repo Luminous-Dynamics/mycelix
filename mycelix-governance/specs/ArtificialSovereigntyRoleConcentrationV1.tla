@@ -33,11 +33,17 @@ IndependentReviewRecorded(s) ==
       /\ reviewer # s
       /\ \A role \in Roles : reviewer \notin roleHolder[role]
 
+ReviewerRoleDisjointness ==
+    \A subject \in Subjects, reviewer \in Subjects :
+      reviewer \in externalReviewers[subject]
+        => \A role \in Roles : reviewer \notin roleHolder[role]
+
 AssignRole(s, r) ==
     /\ Advanceable
     /\ s \in Subjects
     /\ r \in Roles
     /\ s \notin roleHolder[r]
+    /\ ~(\E subject \in Subjects : s \in externalReviewers[subject])
     /\ LET currentRoles ==
           Cardinality({x \in Roles : s \in roleHolder[x]})
        IN
@@ -61,6 +67,7 @@ RecordExternalReview(s, reviewer) ==
     /\ reviewer \in Subjects
     /\ reviewer # s
     /\ \A role \in Roles : reviewer \notin roleHolder[role]
+    /\ ~(\E subject \in Subjects : reviewer \in externalReviewers[subject])
     /\ externalReviewers' =
          [externalReviewers EXCEPT ![s] = @ \cup {reviewer}]
     /\ UNCHANGED <<roleHolder, conflictFinding>>
@@ -93,5 +100,6 @@ Safety ==
     /\ TypeOK
     /\ RoleConcentrationRequiresFinding
     /\ FullControlRequiresIndependentExternalReview
+    /\ ReviewerRoleDisjointness
 
 ================================================================================
