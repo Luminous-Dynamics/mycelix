@@ -69,10 +69,14 @@ def main() -> int:
     parser.add_argument("--tla-jar", type=Path, required=True)
     parser.add_argument("--alloy-jar", type=Path, required=True)
     parser.add_argument("--evidence-dir", type=Path, required=True)
+    parser.add_argument("--pins", type=Path, required=True)
     args = parser.parse_args()
 
     args.evidence_dir.mkdir(parents=True, exist_ok=True)
     profile = json.loads(args.profile.read_text(encoding="utf-8"))
+    pins = json.loads(args.pins.read_text(encoding="utf-8"))
+    if pins["schema"] != "mycelix.sovereignty-concentration-formal-tool-pins.v1":
+        fail("unexpected concentration tool pin schema")
     if profile["status"] != "candidate-verification-profile" or profile["authority"] != "non-authoritative":
         fail("profile is not an explicitly non-authoritative candidate profile")
     if profile["profile_id"] != "SOV-AI-CONCENTRATION-FORMAL-QUAL-001-V1":
@@ -89,25 +93,15 @@ def main() -> int:
         if git_blob(path.read_bytes()) != expected:
             fail(f"candidate formal byte mismatch: {path}")
 
-    pins = {
-        "tla2tools": {
-            "version": "1.7.4",
-            "sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
-        },
-        "alloy": {
-            "version": "6.2.0",
-            "sha256": "6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d",
-        },
-    }
-    if sha256(args.tla_jar) != pins["tla2tools"]["sha256"]:
+    if sha256(args.tla_jar) != pins["tools"]["tla2tools"]["sha256"]:
         fail("TLA tool hash mismatch")
-    if sha256(args.alloy_jar) != pins["alloy"]["sha256"]:
+    if sha256(args.alloy_jar) != pins["tools"]["alloy"]["sha256"]:
         fail("Alloy tool hash mismatch")
 
     baseline = {
         str(p): sha256(p)
         for p in [
-            args.profile, args.tla, args.cfg, args.negative_tla, args.alloy
+            args.profile, args.pins, args.tla, args.cfg, args.negative_tla, args.alloy
         ]
     }
 
@@ -123,7 +117,7 @@ def main() -> int:
             "alloy": model["alloy"]["git_blob_sha"],
             "reference": model["reference"]["git_blob_sha"],
         },
-        "tools": pins,
+        "tools": pins["tools"],
         "tla": {"canonical": {}, "negative_controls": {}},
         "alloy": {"canonical": {}, "scope": profile["models"]["alloy"]["scope"]},
         "reference": {},
