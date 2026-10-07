@@ -787,6 +787,214 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         ),
         S1,
     )
+    require_exact_step_mapping(
+        l,
+        "Verify trusted pull-request-target invocation",
+        "env",
+        (
+            "TOKEN: ${{ github.token }}",
+            "RUN_ID: ${{ github.run_id }}",
+            "PR_NUMBER: ${{ github.event.pull_request.number }}",
+            "HEAD_SHA: ${{ github.event.pull_request.head.sha }}",
+            "HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}",
+            "BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}",
+            "BASE_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.base.repo.id }}",
+            "BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}",
+            "CANDIDATE_PR: ${{ inputs.candidate_pr }}",
+            "CANDIDATE_SHA: ${{ inputs.candidate_sha }}",
+            "CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}",
+            "CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}",
+            "HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}",
+            "CALLED_WORKFLOW_REF: ${{ job.workflow_ref }}",
+            "CALLED_WORKFLOW_SHA: ${{ job.workflow_sha }}",
+            "CALLED_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}",
+            "CALLED_WORKFLOW_FILE_PATH: ${{ job.workflow_file_path }}",
+            "TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}",
+            "WORKFLOW_SHA: ${{ github.workflow_sha }}",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Resolve exact candidate source",
+        "env",
+        (
+            "CANDIDATE_SHA: ${{ inputs.candidate_sha }}",
+            "CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}",
+            "TOKEN: ${{ github.token }}",
+            "FETCH_IMAGE: \"docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329\"",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Static trust-surface audit",
+        "env",
+        (
+            "CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Snapshot exact candidate source identity",
+        "env",
+        (
+            "CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Snapshot locked dependency identity",
+        "env",
+        (
+            "CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Pull and preflight pinned sandbox image",
+        "env",
+        (
+            "SANDBOX_IMAGE: \"docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d\"",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Prepare locked dependency subject",
+        "env",
+        (
+            "CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Vendor locked dependency closure in fetch sandbox",
+        "env",
+        (
+            "DEPENDENCY_ROOT: ${{ steps.dependency_subject.outputs.dependency_root }}",
+            "SANDBOX_IMAGE: \"docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d\"",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Execute sandbox negative controls",
+        "env",
+        (
+            "CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src",
+            "VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}",
+            "VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}",
+            "SANDBOX_IMAGE: \"docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d\"",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Execute candidate qualification in disposable networkless sandbox",
+        "env",
+        (
+            "CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src",
+            "VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}",
+            "VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}",
+            "SANDBOX_IMAGE: \"docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d\"",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Verify candidate source immutability",
+        "env",
+        (
+            "CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src",
+            "EXPECTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Verify dependency substrate immutability",
+        "env",
+        (
+            "VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}",
+            "EXPECTED_VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}",
+            "SANDBOX_IMAGE: \"docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d\"",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Emit qualification receipt",
+        "env",
+        (
+            "CANDIDATE_SHA: ${{ inputs.candidate_sha }}",
+            "CANDIDATE_PR: ${{ inputs.candidate_pr }}",
+            "CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}",
+            "CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}",
+            "CALLED_WORKFLOW_REF: ${{ job.workflow_ref }}",
+            "CALLED_WORKFLOW_SHA: ${{ job.workflow_sha }}",
+            "CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}",
+            "SOURCE_TREE_ENTRY_COUNT: ${{ steps.resolve_source.outputs.source_tree_entry_count }}",
+            "SOURCE_FILE_COUNT: ${{ steps.resolve_source.outputs.source_file_count }}",
+            "SOURCE_TOTAL_PATH_BYTES: ${{ steps.resolve_source.outputs.source_total_path_bytes }}",
+            "SOURCE_TOTAL_BYTES: ${{ steps.resolve_source.outputs.source_total_bytes }}",
+            "SOURCE_MAX_BLOB_BYTES: ${{ steps.resolve_source.outputs.source_max_blob_bytes }}",
+            "SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}",
+            "LOCK_PACKAGE_COUNT: ${{ steps.locked_dependency_identity.outputs.lock_package_count }}",
+            "LOCK_DEPENDENCY_EDGES: ${{ steps.locked_dependency_identity.outputs.lock_dependency_edges }}",
+            "VENDOR_RESOURCE_PROFILE: ${{ env.VENDOR_RESOURCE_PROFILE }}",
+            "VENDOR_MAX_BYTES: ${{ env.VENDOR_MAX_BYTES }}",
+            "VENDOR_MAX_FILES: ${{ env.VENDOR_MAX_FILES }}",
+            "VENDOR_MAX_INODES: ${{ env.VENDOR_MAX_INODES }}",
+            "VENDOR_TMPFS_SIZE: ${{ env.VENDOR_TMPFS_SIZE }}",
+            "VENDOR_TMPFS_NR_INODES: ${{ env.VENDOR_TMPFS_NR_INODES }}",
+            "VENDOR_OBSERVED_BYTES: ${{ steps.vendor_dependencies.outputs.vendor_observed_bytes }}",
+            "VENDOR_OBSERVED_FILES: ${{ steps.vendor_dependencies.outputs.vendor_observed_files }}",
+            "VENDOR_OBSERVED_INODES: ${{ steps.vendor_dependencies.outputs.vendor_observed_inodes }}",
+            "VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}",
+            "NEGATIVE_CONTROLS: ${{ steps.sandbox_negative_controls.outputs.negative_controls }}",
+            "NEGATIVE_CONTROLS_LOG_DIGEST: ${{ steps.sandbox_negative_controls.outputs.negative_controls_log_digest }}",
+            "DEPENDENCY_POSTFLIGHT: ${{ steps.dependency_postflight.outputs.dependency_substrate }}",
+            "LOCK_DIGEST: ${{ steps.locked_dependency_identity.outputs.lock_digest }}",
+            "RUST_VERSION: ${{ steps.sandbox_preflight.outputs.rust_version }}",
+            "RUST_COMMIT: ${{ steps.sandbox_preflight.outputs.rust_commit }}",
+            "FETCH_IMAGE: \"docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329\"",
+        ),
+        "S1",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Verify retained qualification receipt",
+        "env",
+        (
+            "TOKEN: ${{ github.token }}",
+            "EXPECTED_ARTIFACT_ID: ${{ steps.receipt_upload.outputs.artifact-id }}",
+            "EXPECTED_ARTIFACT_DIGEST: ${{ steps.receipt_upload.outputs.artifact-digest }}",
+            "EXPECTED_ARTIFACT_NAME: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt",
+            "RUN_ID: ${{ github.run_id }}",
+            "BASE_REPOSITORY: \"Luminous-Dynamics/mycelix\"",
+            "RECEIPT_PATH: ${{ runner.temp }}/security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt",
+        ),
+        "S1",
+    )
+
     if local_uses(l):
         fail(f"S1 unexpectedly contains local reusable workflow calls: {local_uses(l)!r}")
     if exact_count(l, f'FETCH_IMAGE: "{GIT_FETCH_IMAGE}"') != 1:
@@ -993,6 +1201,71 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         ),
         "S2",
     )
+    require_exact_step_mapping(
+        l,
+        "Verify trusted dispatcher, reusable S1, and qualification gates",
+        "env",
+        (
+            "TOKEN: ${{ github.token }}",
+            "RUN_ID: ${{ github.event.workflow_run.id }}",
+            "RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}",
+        ),
+        "S2",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Verify retained negative-control evidence binding",
+        "env",
+        (
+            "TOKEN: ${{ github.token }}",
+            "BASE_REPOSITORY: \"Luminous-Dynamics/mycelix\"",
+            "BASE_REPOSITORY_ID: \"1176351975\"",
+            "RUN_ID: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}",
+            "RUN_ATTEMPT: ${{ steps.verify_result.outputs.trusted_dispatch_run_attempt }}",
+            "CANDIDATE_SHA: ${{ steps.verify_result.outputs.candidate_sha }}",
+            "CANDIDATE_PR: ${{ steps.verify_result.outputs.candidate_pr }}",
+            "RECEIPT_LOG_SHA256: ${{ steps.verify_result.outputs.sandbox_negative_controls_log_sha256 }}",
+            "PARENT_EVIDENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.evidence_binding_sha256 }}",
+            "RECEIPT_ARTIFACT_EXPIRES_AT: ${{ steps.verify_result.outputs.receipt_artifact_expires_at }}",
+        ),
+        "S2",
+    )
+
+    require_exact_step_mapping(
+        l,
+        "Verify official receipt transport and publish verified result",
+        "env",
+        (
+            "RECEIPT_ROOT: ${{ runner.temp }}/security-kernel-official-receipt",
+            "NEGATIVE_CONTROLS_ROOT: ${{ runner.temp }}/security-kernel-official-negative-controls",
+            "EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_name }}",
+            "EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_digest }}",
+            "EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_SIZE: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_size }}",
+            "EXPECTED_NEGATIVE_CONTROLS_LOG_SHA256: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_content_sha256 }}",
+            "EVIDENCE_RETENTION_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.evidence_retention_binding_sha256 }}",
+            "SOURCE_POLICY_REFERENCE_RESULT_SHA256: ${{ steps.verify_result.outputs.source_policy_reference_result_sha256 }}",
+            "EXECUTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.execution_reference_binding_sha256 }}",
+            "RETENTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.retention_reference_binding_sha256 }}",
+            "EXPECTED_ARTIFACT_NAME: ${{ steps.verify_result.outputs.artifact_name }}",
+            "EXPECTED_ARTIFACT_DIGEST: ${{ steps.verify_result.outputs.artifact_digest }}",
+            "EXPECTED_ARTIFACT_SIZE: ${{ steps.verify_result.outputs.artifact_size }}",
+            "CANDIDATE_SHA: ${{ steps.verify_result.outputs.candidate_sha }}",
+            "CANDIDATE_PR: ${{ steps.verify_result.outputs.candidate_pr }}",
+            "CANDIDATE_REPOSITORY: ${{ steps.verify_result.outputs.candidate_repository }}",
+            "CANDIDATE_REPOSITORY_ID: ${{ steps.verify_result.outputs.candidate_repository_id }}",
+            "TRUSTED_WORKFLOW_SHA: ${{ steps.verify_result.outputs.trusted_dispatcher_workflow_sha }}",
+            "S0_BLOB_SHA: ${{ steps.verify_result.outputs.trusted_dispatcher_workflow_blob_sha }}",
+            "S1_BLOB_SHA: ${{ steps.verify_result.outputs.trusted_s1_workflow_blob_sha }}",
+            "VERIFIER_WORKFLOW_SHA: ${{ steps.verify_result.outputs.verifier_workflow_sha }}",
+            "VERIFIER_BLOB_SHA: ${{ steps.verify_result.outputs.verifier_workflow_blob_sha }}",
+            "ARTIFACT_ID: ${{ steps.verify_result.outputs.artifact_id }}",
+            "EXECUTION_BINDING_SHA256: ${{ steps.verify_result.outputs.execution_binding_sha256 }}",
+            "EVIDENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.evidence_binding_sha256 }}",
+        ),
+        "S2",
+    )
+
     if local_uses(l):
         fail("S2 unexpectedly contains local reusable workflow calls")
     for key, expected in (
@@ -1251,6 +1524,33 @@ def main() -> None:
         "S2 root env expected job-name drift",
     )
 
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"\n',
+                b'          SANDBOX_IMAGE: "docker.io/library/rust@sha256:' + b"0" * 64 + b'"\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 step-level sandbox image drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}\n',
+                b'          RUN_ATTEMPT: ${{ github.run_attempt }}\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 step-level workflow run-attempt drift",
+    )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
         if marker not in raw:
