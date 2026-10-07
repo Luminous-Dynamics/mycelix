@@ -34,6 +34,7 @@ from verify_d6u_trusted_artifacts import (
     verify_executor_workflow_against_run_head,
     verify_lock,
     verify_lock_graph_against_manifest,
+    _git_blob_sha1,
     verify_required_tracked_blobs,
     verify_record_metadata,
     verify_trigger_run_record,
@@ -2837,44 +2838,52 @@ def test_github_api_reader_uses_non_forwarding_redirect_handler() -> None:
 
 def test_artifact_redirect_strips_authorization_header() -> None:
     import fetch_d6u_trusted_artifact as fetcher
+    import verify_d6u_trusted_artifacts as verifier
 
-    request = fetcher.urllib.request.Request(
-        "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/artifacts/9001/zip",
-        headers={"Authorization": "Bearer secret"},
-    )
-    redirected = fetcher.NoAuthorizationRedirectHandler().redirect_request(
-        request,
-        None,
-        302,
-        "Found",
-        {},
-        "https://objects.githubusercontent.com/example/archive.zip",
-    )
-    assert redirected is not None
-    assert redirected.headers.get("Authorization") is None
-
-    assert_rejected(
-        lambda: fetcher.NoAuthorizationRedirectHandler().redirect_request(
+    for module in (fetcher, verifier):
+        request = module.urllib.request.Request(
+            "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/artifacts/9001/zip",
+            headers={"Authorization": "Bearer secret"},
+        )
+        redirected = module.NoAuthorizationRedirectHandler().redirect_request(
             request,
             None,
             302,
             "Found",
             {},
-            "http://objects.githubusercontent.com/example/archive.zip",
-        ),
-        "plaintext artifact redirect was accepted",
-    )
-    assert_rejected(
-        lambda: fetcher.NoAuthorizationRedirectHandler().redirect_request(
-            request,
-            None,
-            302,
-            "Found",
-            {},
-            "https://user:secret@objects.githubusercontent.com/example/archive.zip",
-        ),
-        "credential-bearing artifact redirect URL was accepted",
-    )
+            "https://objects.githubusercontent.com/example/archive.zip",
+        )
+        assert redirected is not None
+        assert redirected.headers.get("Authorization") is None
+
+        assert_rejected(
+            lambda module=module: module.NoAuthorizationRedirectHandler().redirect_request(
+                request,
+                None,
+                302,
+                "Found",
+                {},
+                "http://objects.githubusercontent.com/example/archive.zip",
+            ),
+            f"plaintext redirect was accepted by {module.__name__}",
+        )
+        assert_rejected(
+            lambda module=module: module.NoAuthorizationRedirectHandler().redirect_request(
+                request,
+                None,
+                302,
+                "Found",
+                {},
+                "https://user:secret@objects.githubusercontent.com/example/archive.zip",
+            ),
+            f"credential-bearing redirect URL was accepted by {module.__name__}",
+        )
+
+
+def test_git_blob_sha1_uses_git_object_framing() -> None:
+    content = b"hello\n"
+    expected = hashlib.sha1(b"blob 6\0hello\n").hexdigest()
+    assert _git_blob_sha1(content) == expected
 
 
 def test_trusted_zip_entry_count_is_preflighted_before_zip_parsing() -> None:
@@ -2932,11 +2941,11 @@ def test_trusted_builder_documentation_is_current() -> None:
     documentation = (root / "docs/integral/d6u-trusted-builder.md").read_text(
         encoding="utf-8"
     )
-    assert "Current trusted policy revision: v56." in documentation
-    assert "sixty-five deterministic checks" in documentation
+    assert "Current trusted policy revision: v59." in documentation
+    assert "seventy-one deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
-    assert "rejects non-HTTPS redirects" in documentation
+    assert "keeps redirects on HTTPS" in documentation
     assert "rejects URL userinfo" in documentation
 
 
@@ -3061,6 +3070,7 @@ if __name__ == "__main__":
         test_current_run_handoff_artifact_rejects_oversized_archive_metadata,
         test_bounded_artifact_download_rejects_stream_overflow,
         test_artifact_redirect_strips_authorization_header,
+        test_git_blob_sha1_uses_git_object_framing,
         test_trusted_zip_entry_count_is_preflighted_before_zip_parsing,
         test_trusted_zip_rejects_unknown_configured_compression,
         test_trusted_zip_rejects_non_zlib_compression,
