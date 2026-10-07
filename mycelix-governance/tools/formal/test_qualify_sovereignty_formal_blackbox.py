@@ -171,6 +171,7 @@ if "SovereigntyAlloyQualificationRunner" in args:
         "ForkPreservesWeight": "ForkCannotMultiplyPoliticalWeight",
     }.get(negative_fact)
     sat = {
+        "NontrivialCapabilityWithoutAuthority",
         "ProviderDependencyAndExplicitAuthorityRemainDistinct",
         "NontrivialContractWithinAuthorityAndBudget",
         "NontrivialProtectedDispute",
