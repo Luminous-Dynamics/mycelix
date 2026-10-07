@@ -4725,18 +4725,20 @@ mod tests {
             3
         );
 
-        let mut legacy = statement.clone();
-        legacy.schema_version = 1;
-        assert_eq!(
-            validate_state_machine_trace_external_evidence_verification_statement_binding(
-                &anchor_reference.anchor_reference_sha256,
-                b"legacy-schema-report",
-                &legacy,
-            ),
-            Err(
-                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedSchemaVersion
-            )
-        );
+        for legacy_version in [1, 2] {
+            let mut legacy = statement.clone();
+            legacy.schema_version = legacy_version;
+            assert_eq!(
+                validate_state_machine_trace_external_evidence_verification_statement_binding(
+                    &anchor_reference.anchor_reference_sha256,
+                    b"legacy-schema-report",
+                    &legacy,
+                ),
+                Err(
+                    FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::UnsupportedSchemaVersion
+                )
+            );
+        }
     }
 
     #[test]
@@ -5563,7 +5565,7 @@ mod tests {
             policy.validate(),
             Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedSchemaVersion)
         );
-        for legacy_version in [1, 2, 3] {
+        for legacy_version in [1, 2, 3, 4] {
             policy.schema_version = legacy_version;
             assert_eq!(
                 policy.validate(),
