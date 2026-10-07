@@ -64,7 +64,7 @@ jobs:
           test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
           test -n "$HEAD_REPOSITORY"
           python3 - <<'PY'
-          import json, os, re, urllib.request
+          import json, os, re, subprocess, urllib.request
           repo=os.environ["BASE_REPOSITORY"]
           pr_number=int(os.environ["PR_NUMBER"])
           req=urllib.request.Request(
@@ -106,6 +106,38 @@ jobs:
               assert document.get("encoding") == "base64"
               return base64.b64decode(document["content"]).decode("utf-8")
 
+          def assert_bash_run_blocks_compile(workflow_text):
+              lines = workflow_text.splitlines()
+              blocks = 0
+              i = 0
+              while i < len(lines):
+                  if re.fullmatch(r" {8}run:\s*\|", lines[i]):
+                      content_indent = 10
+                      i += 1
+                      script_lines = []
+                      while i < len(lines):
+                          line = lines[i]
+                          if line.strip() and len(line) - len(line.lstrip(" ")) < content_indent:
+                              break
+                          if line.strip():
+                              assert len(line) >= content_indent, f"run block indentation underflow at line {i + 1}"
+                              script_lines.append(line[content_indent:])
+                          else:
+                              script_lines.append("")
+                          i += 1
+                      script = "\n".join(script_lines).rstrip() + "\n"
+                      checked = subprocess.run(
+                          ["bash", "-n"],
+                          input=script,
+                          text=True,
+                          capture_output=True,
+                      )
+                      assert checked.returncode == 0, checked.stderr
+                      blocks += 1
+                      continue
+                  i += 1
+              assert blocks == 1, f"expected exactly one S0 bash run block, found {blocks}"
+
           dispatcher_file = fetch_file(".github/workflows/security-kernel-trusted-dispatch.yml")
           s1_file = fetch_file(os.environ["TRUSTED_INDEPENDENT_WORKFLOW_PATH"])
           assert dispatcher_file["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
@@ -113,6 +145,8 @@ jobs:
           assert re.fullmatch(r"[0-9a-f]{40}", s1_file.get("sha", ""))
           s1_blob_sha = s1_file["sha"]
           dispatcher_text = decode_file(dispatcher_file)
+          assert_bash_run_blocks_compile(dispatcher_text)
+          print("PASS: S0 exact dispatcher workflow shell syntax is valid")
           registered_s1 = re.findall(
               r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*$',
               dispatcher_text,

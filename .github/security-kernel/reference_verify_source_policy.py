@@ -76,6 +76,7 @@ S1_STEPS = (
 
 S2_STEPS = (
     "Checkout exact verifier workflow commit",
+    "Audit trusted verifier shell syntax",
     "Verify trusted dispatcher, reusable S1, and qualification gates",
     "Verify retained negative-control evidence binding",
     "Download retained qualification receipt through official artifact client",
@@ -444,6 +445,13 @@ def require_exact_actions(actual: tuple[str, ...], expected: tuple[str, ...], de
 def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     l = lines(raw)
     require_python_heredocs_compile(l, "VERIFY_S0")
+    joined = "\n".join(l)
+    if "def assert_bash_run_blocks_compile(workflow_text):" not in joined:
+        fail("S0 trusted shell syntax audit helper missing")
+    if "assert_bash_run_blocks_compile(dispatcher_text)" not in joined:
+        fail("S0 trusted shell syntax audit invocation missing")
+    if "assert blocks == 1" not in joined:
+        fail("S0 shell syntax audit must require exactly one trusted run block")
     if exact_count(l, "name: Security Kernel Qualification — Trusted Dispatcher") != 1:
         fail("S0 name mismatch")
     if top_level_keys_after(l, "on:") != ("pull_request_target",):
@@ -733,6 +741,13 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
 def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_execution_sha: str, expected_policy_sha: str) -> None:
     l = lines(raw)
     require_python_heredocs_compile(l, "VERIFY_S2")
+    joined = "\n".join(l)
+    if 'trusted_s2_workflow=Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-trusted-result-verifier.yml"' not in joined:
+        fail("S2 shell syntax audit must target the trusted S2 workflow bytes")
+    if 'subprocess.run(["bash","-n"], input=script, text=True, capture_output=True)' not in joined:
+        fail("S2 must syntax-check every run block with bash -n")
+    if "blocks != 4" not in joined:
+        fail("S2 shell syntax audit must require exactly four trusted run blocks")
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
         fail("S2 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_run",):
@@ -923,6 +938,50 @@ def main() -> None:
         "unchecked git pipeline inside conditional",
     )
 
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b"          assert_bash_run_blocks_compile(dispatcher_text)\n",
+                b"          # trusted shell syntax audit removed\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 trusted shell syntax audit removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'trusted_s2_workflow=Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-trusted-result-verifier.yml"',
+                b'trusted_s2_workflow=Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-independent-qualification.yml"',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 trusted shell-audit target replaced",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'subprocess.run(["bash","-n"], input=script, text=True, capture_output=True)',
+                b'subprocess.run(["true"], input=script, text=True, capture_output=True)',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 bash syntax audit removed",
+    )
 
     expect_rejection(
         lambda: verify_s2(

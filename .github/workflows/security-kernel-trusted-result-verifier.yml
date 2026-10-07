@@ -19,7 +19,7 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "a6a46e6ac6bb832090f15358c7b79f1cad2e5c16"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "1a3834abe01a18501dbd86ae8ff4e6a0d5777e3a"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "4a821a3dee3885560c95e7b81e38bb9deda7f343"
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
@@ -27,7 +27,7 @@ env:
   EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "18dca202667b1dc26f57c588efcab42087c8a49e"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "1d1b38fb74799d803d2754e3165f290cd58a6bd7"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "ced4d884f929976edeec0c6a28d868067b4f4972"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -43,6 +43,52 @@ jobs:
           ref: ${{ github.workflow_sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Audit trusted verifier shell syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, subprocess
+          from pathlib import Path
+
+          trusted_s2_workflow = Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-trusted-result-verifier.yml"
+          lines = trusted_s2_workflow.read_text(encoding="utf-8").splitlines()
+          blocks = 0
+          i = 0
+          while i < len(lines):
+              if re.fullmatch(r" {8}run:\s*\|", lines[i]):
+                  content_indent = 10
+                  i += 1
+                  script_lines = []
+                  while i < len(lines):
+                      line = lines[i]
+                      if line.strip() and len(line) - len(line.lstrip(" ")) < content_indent:
+                          break
+                      if line.strip():
+                          if len(line) < content_indent:
+                              raise AssertionError(f"run block indentation underflow at line {i + 1}")
+                          script_lines.append(line[content_indent:])
+                      else:
+                          script_lines.append("")
+                      i += 1
+                  script = "\n".join(script_lines).rstrip() + "\n"
+                  checked = subprocess.run(
+                      ["bash", "-n"],
+                      input=script,
+                      text=True,
+                      capture_output=True,
+                  )
+                  if checked.returncode != 0:
+                      raise AssertionError(checked.stderr)
+                  blocks += 1
+                  continue
+              i += 1
+
+          if blocks != 4:
+              raise AssertionError(f"expected exactly four trusted S2 bash run blocks, found {blocks}")
+          print("PASS: S2 exact verifier workflow shell syntax is valid")
+          PY
 
       - name: Verify trusted dispatcher, reusable S1, and qualification gates
         id: verify_result
