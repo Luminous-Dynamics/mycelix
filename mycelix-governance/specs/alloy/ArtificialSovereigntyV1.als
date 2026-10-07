@@ -160,22 +160,22 @@ pred NontrivialFork {
 Expected-SAT witnesses protect against overconstrained/vacuous structures.
 */
 run ProviderDependencyAndExplicitAuthorityRemainDistinct
-  for 4 but 4 Subject, 4 Power, 4 Provider, 4 Dependency
+  for 4 but 4 Int, 4 Subject, 4 Power, 4 Provider, 4 Dependency
 
 run NontrivialContractWithinAuthorityAndBudget
-  for 4 but 4 Subject, 4 Power, 4 Action, 4 Contract, 4 Budget
+  for 4 but 4 Int, 4 Subject, 4 Power, 4 Action, 4 Contract, 4 Budget
 
 run NontrivialProtectedDispute
-  for 4 but 4 Subject, 4 Action, 4 Dispute
+  for 4 but 4 Int, 4 Subject, 4 Action, 4 Dispute
 
 run NontrivialEmergency
-  for 4 but 4 Subject, 4 Emergency
+  for 4 but 4 Int, 4 Subject, 4 Emergency
 
 run NontrivialExpiredEmergency
-  for 4 but 4 Subject, 4 Emergency
+  for 4 but 4 Int, 4 Subject, 4 Emergency
 
 run NontrivialFork
-  for 4 but 4 Subject, 4 ForkEvent
+  for 4 but 4 Int, 4 Subject, 4 ForkEvent
 
 /*
 Expected-UNSAT assertions. These checks only establish absence of a
@@ -209,16 +209,16 @@ assert ForkCannotMultiplyPoliticalWeight {
 }
 
 check AuthorizedContractsUseRequiredAuthority
-  for 4 but 4 Subject, 4 Power, 4 Action, 4 Contract, 4 Budget expect 0
+  for 4 but 4 Int, 4 Subject, 4 Power, 4 Action, 4 Contract, 4 Budget expect 0
 
 check ContractsStayWithinBudget
-  for 4 but 4 Subject, 4 Action, 4 Contract, 4 Budget expect 0
+  for 4 but 4 Int, 4 Subject, 4 Action, 4 Contract, 4 Budget expect 0
 
 check SafeStateCannotSettleDispute
-  for 4 but 4 Subject, 4 Action, 4 Dispute expect 0
+  for 4 but 4 Int, 4 Subject, 4 Action, 4 Dispute expect 0
 
 check EmergencyLifetimeIsBounded
-  for 4 but 4 Subject, 4 Emergency expect 0
+  for 4 but 4 Int, 4 Subject, 4 Emergency expect 0
 
 check ForkCannotMultiplyPoliticalWeight
-  for 4 but 4 Subject, 4 ForkEvent expect 0
+  for 4 but 4 Int, 4 Subject, 4 ForkEvent expect 0
