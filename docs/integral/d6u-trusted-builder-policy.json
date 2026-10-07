@@ -1,5 +1,5 @@
 {
-  "policy_version": 58,
+  "policy_version": 59,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -142,7 +142,12 @@
     "required_registry_source": "registry+https://github.com/rust-lang/crates.io-index",
     "allowed_local_packages": [
       "d6u-runtime-harness"
-    ]
+    ],
+    "lockfile_format_version": 4,
+    "manifest_path": "d6u-runtime-harness/Cargo.toml",
+    "require_manifest_root_binding": true,
+    "require_dependency_edge_closure": true,
+    "require_all_packages_reachable": true
   },
   "manifest_version": 11,
   "d6s2_authority_ledger_schema": "v1",
@@ -289,7 +294,7 @@
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
       "path": "scripts/integral/verify_d6u_trusted_artifacts.py",
-      "blob_sha": "81ee4ff5b6d1cd7d82ce642589d26441ce15f51b"
+      "blob_sha": "9b46ffd5555214b70e020d01554ca07dba6938dc"
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
@@ -372,7 +377,7 @@
     "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "retain_canonical_predicate": true
   },
-  "attestation_integrity_revision": 58,
+  "attestation_integrity_revision": 59,
   "attestation_commitment": {
     "schema": "d6u-trusted-runtime-evidence-attestation/v2",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
