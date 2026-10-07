@@ -100,6 +100,7 @@ def validate_observation_shape(observation: Any) -> None:
     sha256(observation.get("policy_sha256"), "policy_sha256")
     repository_raw = validate_bound_raw_payload(observation, "repository")
     branch_raw = validate_bound_raw_payload(observation, "branch")
+    rulesets_index_raw = validate_bound_raw_payload(observation, "rulesets_index")
     rulesets_raw = validate_bound_raw_payload(observation, "rulesets")
     protection_raw = validate_bound_raw_payload(observation, "branch_protection")
     require(isinstance(repository_raw, dict), "repository raw payload must be an object")
@@ -111,7 +112,25 @@ def validate_observation_shape(observation: Any) -> None:
         "normalized default_branch observation does not match raw repository payload",
     )
     require(isinstance(branch_raw, dict), "branch raw payload must be an object")
+    require(isinstance(rulesets_index_raw, list), "rulesets index raw payload must be a list")
     require(isinstance(rulesets_raw, list), "rulesets raw payload must be a list")
+    index_ids = [entry.get("id") for entry in rulesets_index_raw if isinstance(entry, dict)]
+    full_ids = [entry.get("id") for entry in rulesets_raw if isinstance(entry, dict)]
+    require(len(index_ids) == len(rulesets_index_raw), "rulesets index entry is not an object")
+    require(len(full_ids) == len(rulesets_raw), "full ruleset entry is not an object")
+    require(all(isinstance(value, int) for value in index_ids), "rulesets index id missing")
+    require(all(isinstance(value, int) for value in full_ids), "full ruleset id missing")
+    require(len(index_ids) == len(set(index_ids)), "duplicate ruleset ids in index")
+    require(len(full_ids) == len(set(full_ids)), "duplicate ruleset ids in full rulesets")
+    require(set(index_ids) == set(full_ids), "ruleset index/full object id sets differ")
+    index_by_id = {entry["id"]: entry for entry in rulesets_index_raw}
+    for entry in rulesets_raw:
+        summary = index_by_id[entry["id"]]
+        for key in ("id", "name", "source_type", "source", "enforcement", "updated_at"):
+            require(
+                entry.get(key) == summary.get(key),
+                f"ruleset full object diverges from index summary: {entry['id']}:{key}",
+            )
     require(
         observation.get("branch", {}).get("name") == branch_raw.get("name")
         and observation.get("branch", {}).get("protected") == branch_raw.get("protected"),
@@ -596,6 +615,12 @@ def fixture_observation(
     }
     branch_payload = {"name": "main", "protected": True}
     rulesets_payload = [ruleset_entry]
+    rulesets_index_payload = [
+        {
+            key: ruleset_entry[key]
+            for key in ("id", "name", "source_type", "source", "enforcement", "updated_at")
+        }
+    ]
     protection_payload = {
         "required_pull_request_reviews": {
             "dismiss_stale_reviews": True,
@@ -610,6 +635,9 @@ def fixture_observation(
     }
     branch_raw = json.dumps(branch_payload, separators=(",", ":"), sort_keys=True).encode()
     rulesets_raw = json.dumps(rulesets_payload, separators=(",", ":"), sort_keys=True).encode()
+    rulesets_index_raw = json.dumps(
+        rulesets_index_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
     protection_raw = json.dumps(protection_payload, separators=(",", ":"), sort_keys=True).encode()
     repository_raw = json.dumps(
         {
@@ -635,6 +663,8 @@ def fixture_observation(
         ).hexdigest(),
         "branch_payload_base64": base64.b64encode(branch_raw).decode(),
         "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
+        "rulesets_index_payload_base64": base64.b64encode(rulesets_index_raw).decode(),
+        "rulesets_index_payload_sha256": hashlib.sha256(rulesets_index_raw).hexdigest(),
         "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
         "rulesets_payload_sha256": hashlib.sha256(rulesets_raw).hexdigest(),
         "branch_protection_payload_base64": base64.b64encode(protection_raw).decode(),
@@ -684,13 +714,26 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
         separators=(",", ":"),
         sort_keys=True,
     ).encode()
+    rulesets_payload = observation["rulesets"]["entries"]
     rulesets_raw = json.dumps(
-        observation["rulesets"]["entries"],
+        rulesets_payload,
         separators=(",", ":"),
         sort_keys=True,
     ).encode()
+    rulesets_index_payload = [
+        {
+            key: entry[key]
+            for key in ("id", "name", "source_type", "source", "enforcement", "updated_at")
+        }
+        for entry in rulesets_payload
+    ]
+    rulesets_index_raw = json.dumps(
+        rulesets_index_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
     observation["branch_payload_base64"] = base64.b64encode(branch_raw).decode()
     observation["branch_payload_sha256"] = hashlib.sha256(branch_raw).hexdigest()
+    observation["rulesets_index_payload_base64"] = base64.b64encode(rulesets_index_raw).decode()
+    observation["rulesets_index_payload_sha256"] = hashlib.sha256(rulesets_index_raw).hexdigest()
     observation["rulesets_payload_base64"] = base64.b64encode(rulesets_raw).decode()
     observation["rulesets_payload_sha256"] = hashlib.sha256(rulesets_raw).hexdigest()
 
