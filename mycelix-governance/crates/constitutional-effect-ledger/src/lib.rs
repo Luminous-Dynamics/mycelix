@@ -1185,6 +1185,17 @@ mod tests {
     }
 
     #[test]
+    fn malformed_typed_identity_is_rejected() {
+        let mut first = intent(0, false);
+        first.action_key_digest = "constitutional-action-key-v1:not-a-digest".into();
+        assert!(first.validate().is_err());
+
+        let mut attempt = initial_attempt(0, 1);
+        attempt.attempt_identity = "constitutional-attempt-identity-v1:not-a-digest".into();
+        assert!(attempt.validate_against_intent(&intent(0, false)).is_err());
+    }
+
+    #[test]
     fn native_replay_identity_is_mandatory() {
         let mut first = intent(0, false);
         first.native_replay_identity.clear();
@@ -1219,7 +1230,7 @@ mod tests {
             operation_id: "op-1".into(),
             action_id: "action-0".into(),
             attempt_id: "attempt-0-2".into(),
-            attempt_identity: "constitutional-attempt-identity-v1:attempt-0-2".into(),
+            attempt_identity: attempt_identity(0),
             attempt_ordinal: 2,
             event_seq: 4,
             started_at_unix_ms: 4,
