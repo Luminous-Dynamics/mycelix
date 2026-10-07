@@ -3,6 +3,12 @@ pub use action_key::{
     ActionKeyV1, AttemptIdentityV1, ACTION_KEY_PREFIX, ACTION_KEY_SCHEMA_VERSION,
     ATTEMPT_IDENTITY_PREFIX, ATTEMPT_IDENTITY_SCHEMA_VERSION,
 };
+pub mod attempt_record;
+pub use attempt_record::{
+    ActionFenceMutationError, ActionFenceRecordV1, ActionFenceState, AtomicActionFenceModelV1,
+    AtomicAdmissionDecision, AttemptRecordState, AttemptRecordV1,
+    ACTION_FENCE_RECORD_PREFIX, ATTEMPT_RECORD_PREFIX, ATTEMPT_RECORD_SCHEMA_VERSION,
+};
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -183,7 +189,8 @@ pub struct ActionIntent {
     pub ordinal: u32,
     pub action_commitment: String,
     pub capability: CapabilitySnapshot,
-    pub idempotency_identity: Option<String>,
+    pub native_replay_identity: Option<String>,
+    pub action_key_digest: String,
 }
 
 impl ActionIntent {
@@ -197,9 +204,10 @@ impl ActionIntent {
         )?;
         self.capability.validate()?;
 
-        if let Some(identity) = &self.idempotency_identity {
-            require_opaque("idempotency_identity", identity, MAX_COMMITMENT_LEN)?;
+        if let Some(identity) = &self.native_replay_identity {
+            require_opaque("native_replay_identity", identity, MAX_COMMITMENT_LEN)?;
         }
+        require_opaque("action_key_digest", &self.action_key_digest, MAX_COMMITMENT_LEN)?;
 
         Ok(())
     }
@@ -245,10 +253,12 @@ pub struct ActionAttempt {
     pub operation_id: String,
     pub action_id: String,
     pub attempt_id: String,
+    pub attempt_identity: String,
     pub attempt_ordinal: u32,
     pub event_seq: u64,
     pub started_at_unix_ms: u64,
-    pub idempotency_identity: Option<String>,
+    pub native_replay_identity: String,
+    pub action_key_digest: String,
     pub retry_authorization: RetryAuthorization,
 }
 
@@ -257,6 +267,13 @@ impl ActionAttempt {
         require_opaque("attempt operation_id", &self.operation_id, MAX_ID_LEN)?;
         require_opaque("attempt action_id", &self.action_id, MAX_ID_LEN)?;
         require_opaque("attempt_id", &self.attempt_id, MAX_ID_LEN)?;
+        require_opaque("attempt_identity", &self.attempt_identity, MAX_COMMITMENT_LEN)?;
+        require_opaque(
+            "native_replay_identity",
+            &self.native_replay_identity,
+            MAX_COMMITMENT_LEN,
+        )?;
+        require_opaque("action_key_digest", &self.action_key_digest, MAX_COMMITMENT_LEN)?;
 
         if self.operation_id != intent.operation_id || self.action_id != intent.action_id {
             return Err(violation("attempt identity does not match action intent"));
@@ -267,10 +284,16 @@ impl ActionAttempt {
         if self.event_seq == 0 {
             return Err(violation("attempt event_seq must be >= 1"));
         }
-        if self.idempotency_identity != intent.idempotency_identity {
-            return Err(violation(
-                "attempt changed the action's stable idempotency identity",
-            ));
+        if self.native_replay_identity.is_empty() {
+            return Err(violation("native_replay_identity must be present for every attempt"));
+        }
+        if let Some(intent_replay_identity) = &intent.native_replay_identity {
+            if &self.native_replay_identity != intent_replay_identity {
+                return Err(violation("attempt changed the native replay identity"));
+            }
+        }
+        if self.action_key_digest != intent.action_key_digest {
+            return Err(violation("attempt changed the same-action key digest"));
         }
 
         match (&self.retry_authorization, self.attempt_ordinal) {
@@ -994,7 +1017,8 @@ mod tests {
             ordinal,
             action_commitment: format!("commitment-{ordinal}"),
             capability: capability(replay_safe),
-            idempotency_identity: Some(format!("idem-{ordinal}")),
+            native_replay_identity: Some(format!("native-replay-{ordinal}")),
+            action_key_digest: "constitutional-action-key-v1:test".into(),
         }
     }
 
@@ -1003,10 +1027,12 @@ mod tests {
             operation_id: "op-1".into(),
             action_id: format!("action-{ordinal}"),
             attempt_id: format!("attempt-{ordinal}-1"),
+            attempt_identity: format!("constitutional-attempt-identity-v1:attempt-{ordinal}-1"),
             attempt_ordinal: 1,
             event_seq: seq,
             started_at_unix_ms: seq,
-            idempotency_identity: Some(format!("idem-{ordinal}")),
+            native_replay_identity: format!("native-replay-{ordinal}"),
+            action_key_digest: "constitutional-action-key-v1:test".into(),
             retry_authorization: RetryAuthorization::Initial,
         }
     }
@@ -1111,10 +1137,12 @@ mod tests {
             operation_id: "op-1".into(),
             action_id: "action-0".into(),
             attempt_id: "attempt-0-2".into(),
+            attempt_identity: "constitutional-attempt-identity-v1:attempt-0-2".into(),
             attempt_ordinal: 2,
             event_seq: 4,
             started_at_unix_ms: 4,
-            idempotency_identity: Some("idem-0".into()),
+            native_replay_identity: "native-replay-0".into(),
+            action_key_digest: "constitutional-action-key-v1:test".into(),
             retry_authorization: RetryAuthorization::ReplaySafe,
         };
 
