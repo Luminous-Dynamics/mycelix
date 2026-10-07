@@ -109,7 +109,7 @@ Production material actions require the separately authenticated and authorized 
 
 Every consequential semantic distinction must be available without relying solely on color, animation, icons or hover interaction.
 
-Current W3C guidance identifies WCAG 2.2 as the latest WCAG 2.x recommendation, and the 2026 EN 301 549 version uses WCAG 2.2. citeturn661869search4turn661869search3
+Current W3C guidance identifies WCAG 2.2 as the latest WCAG 2.x recommendation. See the W3C WCAG 2.2 recommendation.
 
 ## Integration rule
 
