@@ -76,7 +76,7 @@ def run_cli(root: Path, env_extra: dict[str, str]) -> subprocess.CompletedProces
         "--alloy-runner-class-dir", "fake-class-dir",
         "--tla-jar", "fake-tla.jar",
         "--alloy-jar", "fake-alloy.jar",
-        "--evidence-dir", "evidence",
+        "--evidence-dir", str(root.parent / (root.name + "-evidence")),
         "--workflow", ".github/workflows/sovereignty-formal-qualification.yml",
         "--reference-explorer", "mycelix-governance/tools/formal/sovereignty_reference_explorer.py",
     ]
@@ -226,6 +226,7 @@ def main() -> None:
         tmp = Path(directory)
         profile_sha, _ = prepare_workspace(tmp)
 
+        evidence_dir = tmp.parent / (tmp.name + "-evidence")
         baseline = run_cli(tmp, {"PATH": f"{tmp / 'fake-bin'}:{os.environ['PATH']}"})
         if baseline.returncode != 0 or '"result": "QualifiedExactHead"' not in baseline.stdout:
             raise AssertionError(f"baseline black-box verification failed:\n{baseline.stdout}")
@@ -236,7 +237,7 @@ def main() -> None:
         )
         assert_reject(tmp, "mutated TLA fixture", lambda out: "TLA fixture blob mismatch" in out)
 
-        shutil.rmtree(tmp / "evidence", ignore_errors=True)
+        shutil.rmtree(evidence_dir, ignore_errors=True)
         subprocess.run(["git", "checkout", "--", "."], cwd=tmp, check=True)
 
         replace_file(
