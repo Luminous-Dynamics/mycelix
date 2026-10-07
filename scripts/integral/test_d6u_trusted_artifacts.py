@@ -697,8 +697,12 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
         if line.strip()
     }
     assert observed_verifier_outputs == expected_verifier_outputs
-    assert verifier.count("needs.verifier.outputs.") == 0
-    assert signer.count("needs.verifier.outputs.") == 4
+    verifier_output_references = re.findall(
+        r"needs\.verifier\.outputs\.([A-Za-z0-9_]+)",
+        signer,
+    )
+    assert set(verifier_output_references) == expected_verifier_outputs
+    assert len(verifier_output_references) == 8
 
     assert "subject-checksums: ${{ steps.subject_manifest.outputs.manifest }}" in signer
     assert "predicate-path: ${{ steps.commitment_predicate.outputs.predicate }}" in signer
