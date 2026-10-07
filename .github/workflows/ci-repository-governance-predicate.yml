@@ -89,8 +89,10 @@ jobs:
           assert contract["secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists"] is True
           assert contract["applicable_rulesets_must_be_aggregated"] is True
           assert contract["ruleset_repository_targeting_must_be_evaluated"] is True
+          assert contract["ruleset_source_scope_must_be_validated"] is True
           assert contract["repository_subject_identity_must_be_bound"] is True
           assert policy["organization_id"] == 216969177
+          assert '"ruleset_source_scope_must_be_validated": true' in Path("docs/ci/repository_governance_policy_v1.json").read_text()
           assert policy["fail_closed"]["contradiction_dominates_secondary_observation_unavailability"] is True
           PY
 
