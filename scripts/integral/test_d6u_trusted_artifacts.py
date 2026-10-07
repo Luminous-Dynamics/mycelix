@@ -2438,8 +2438,63 @@ def test_trusted_zip_rejects_non_zlib_compression() -> None:
             )
 
 
+
+def test_registry_is_complete_and_unique() -> None:
+    import ast
+
+    source_path = Path(__file__).resolve()
+    tree = ast.parse(source_path.read_text(encoding="utf-8"))
+
+    defined = [
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
+    ]
+    registry = None
+    for node in tree.body:
+        if not isinstance(node, ast.If):
+            continue
+        if not (
+            isinstance(node.test, ast.Compare)
+            and isinstance(node.test.left, ast.Name)
+            and node.test.left.id == "__name__"
+            and len(node.test.ops) == 1
+            and isinstance(node.test.ops[0], ast.Eq)
+            and len(node.test.comparators) == 1
+            and isinstance(node.test.comparators[0], ast.Constant)
+            and node.test.comparators[0].value == "__main__"
+        ):
+            continue
+        for statement in node.body:
+            if not isinstance(statement, ast.Assign):
+                continue
+            if not any(
+                isinstance(target, ast.Name) and target.id == "tests"
+                for target in statement.targets
+            ):
+                continue
+            value = statement.value
+            if not isinstance(value, (ast.List, ast.Tuple)):
+                raise AssertionError("trusted test registry is not a list/tuple")
+            registry = [
+                element.id
+                for element in value.elts
+                if isinstance(element, ast.Name)
+            ]
+            break
+        break
+
+    assert registry is not None, "trusted test registry was not found"
+    assert len(defined) == len(set(defined)), "duplicate test function definitions found"
+    assert len(registry) == len(set(registry)), "duplicate tests in executable registry"
+    assert registry == defined, (
+        f"test registry mismatch: defined={defined!r}, registered={registry!r}"
+    )
+
+
 if __name__ == "__main__":
     tests = [
+        test_registry_is_complete_and_unique,
         test_policy_pins_d6s_prerequisite_boundary,
         test_record_metadata_is_canonicalized,
         test_policy_pins_current_trusted_workflow,
