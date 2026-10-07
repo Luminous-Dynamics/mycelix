@@ -1,0 +1,87 @@
+name: FPM trusted qualification policy
+
+on:
+  workflow_run:
+    workflows: ["FPM WASM artifact identity"]
+    types: [completed]
+    branches: [main]
+
+# This workflow is intentionally defined on main. A pull request cannot
+# replace this policy before it is merged. It executes the candidate head only
+# with a read-only token and no repository secrets.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: crates/fpm-wasm-artifact-identity
+    steps:
+      - name: Assert PR candidate metadata
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          BASE_REF: ${{ github.event.workflow_run.pull_requests[0].base.ref }}
+        run: |
+          set -eu
+          test -n "$EXPECTED_SHA"
+          test -n "$PR_NUMBER"
+          test "$BASE_REF" = "main"
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Assert exact candidate checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -eu
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          echo "EXACT_HEAD=$actual"
+
+      - name: Verify candidate qualification surface exists
+        run: |
+          set -eu
+          test -f .github/workflows/fpm-wasm-artifact-identity.yml
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.96.1
+          components: rustfmt
+
+      - name: Record exact toolchain identity
+        run: |
+          set -eu
+          rustc +1.96.1 --version --verbose
+          test "$(rustc +1.96.1 --version --verbose | sed -ne 's/^release: //p')" = "1.96.1"
+          test "$(rustc +1.96.1 --version --verbose | sed -ne 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+
+      - name: Verify dependency policy before Cargo execution
+        env:
+          EXPECTED_MANIFEST_BLOB_SHA: c94b53f61ed8a9bfb6249b1b339550dddd074d6c
+        run: |
+          set -eu
+          test ! -e .cargo/config.toml
+          test ! -e .cargo/config
+          test ! -e crates/fpm-wasm-artifact-identity/.cargo/config.toml
+          test ! -e crates/fpm-wasm-artifact-identity/.cargo/config
+          actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
+          test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
+          grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
+          grep -Fx 'holochain_types = "=0.7.0"' crates/fpm-wasm-artifact-identity/Cargo.toml
+
+      - name: Cargo fmt
+        run: cargo fmt --check
+
+      - name: Cargo test
+        run: cargo test
