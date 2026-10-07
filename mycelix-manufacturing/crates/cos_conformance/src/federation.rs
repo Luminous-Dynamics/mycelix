@@ -1518,9 +1518,9 @@ pub fn validate_federation_external_verifier_identity_use_statement_chain(
     })
 }
 
-pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 3;
+pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 4;
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE: &str =
-    "integral-federation-external-verification-trust-policy-v3";
+    "integral-federation-external-verification-trust-policy-v4";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN: &str =
     "integral-federation-external-verification-trust-policy-sha256-v1";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ALGORITHM: &str = "sha-256";
@@ -1539,6 +1539,7 @@ pub enum FederationExternalVerificationPolicyDecision {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationExternalVerificationPolicyAdmissionViolation {
     RejectedClaim,
+    AnchorReferenceNotAdmitted,
     VerifierSchemaTooOld,
     VerifierProfileNotAdmitted,
     WitnessKindNotAdmitted,
@@ -1570,6 +1571,7 @@ pub enum FederationExternalVerificationTrustPolicyViolation {
     WitnessBindingIncomplete,
     EmptyVerifierIdentityProfile,
     InvalidVerifierIdentityDigest,
+    InvalidRequiredAnchorReferenceDigest,
     VerifierIdentityBindingIncomplete,
     EmptyVerifierIdentityUseProfile,
     VerifierIdentityUseBindingIncomplete,
@@ -1588,6 +1590,7 @@ pub struct FederationExternalVerificationTrustPolicyV1 {
     minimum_verifier_schema_version: u16,
     accepted_verifier_profiles: Vec<String>,
     accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
+    required_anchor_reference_sha256: Option<String>,
     required_witness_kind: Option<FederationStateMachineTraceExternalWitnessKind>,
     required_witness_profile: Option<String>,
     required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
@@ -1608,6 +1611,7 @@ struct FederationExternalVerificationTrustPolicyHashView {
     minimum_verifier_schema_version: u16,
     accepted_verifier_profiles: Vec<String>,
     accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
+    required_anchor_reference_sha256: Option<String>,
     required_witness_kind: Option<FederationStateMachineTraceExternalWitnessKind>,
     required_witness_profile: Option<String>,
     required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
@@ -1636,6 +1640,7 @@ struct FederationExternalVerificationTrustPolicyHashView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationExternalVerificationPolicyAdmissionV1 {
     policy_sha256: String,
+    anchor_reference_sha256: String,
     witness_kind: FederationStateMachineTraceExternalWitnessKind,
     witness_profile: String,
     verifier_identity_kind: FederationExternalVerifierIdentityKind,
@@ -1673,6 +1678,7 @@ impl FederationExternalVerificationTrustPolicyV1 {
             minimum_verifier_schema_version,
             accepted_verifier_profiles,
             accepted_claims,
+            required_anchor_reference_sha256: None,
             required_witness_kind: None,
             required_witness_profile: None,
             required_verifier_identity_kind: None,
@@ -1695,6 +1701,15 @@ impl FederationExternalVerificationTrustPolicyV1 {
         }
         if self.minimum_verifier_schema_version == 0 {
             return Err(FederationExternalVerificationTrustPolicyViolation::InvalidMinimumVerifierSchemaVersion);
+        }
+        if self
+            .required_anchor_reference_sha256
+            .as_deref()
+            .is_some_and(|value| !state_machine_trace_is_sha256_digest(value))
+        {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::InvalidRequiredAnchorReferenceDigest
+            );
         }
         if self.required_witness_profile.is_some() != self.required_witness_kind.is_some() {
             return Err(FederationExternalVerificationTrustPolicyViolation::WitnessBindingIncomplete);
@@ -1805,6 +1820,9 @@ impl FederationExternalVerificationTrustPolicyV1 {
     pub fn minimum_verifier_schema_version(&self) -> u16 { self.minimum_verifier_schema_version }
     pub fn accepted_verifier_profiles(&self) -> &[String] { &self.accepted_verifier_profiles }
     pub fn accepted_claims(&self) -> &[FederationStateMachineTraceExternalVerificationClaim] { &self.accepted_claims }
+    pub fn required_anchor_reference_sha256(&self) -> Option<&str> {
+        self.required_anchor_reference_sha256.as_deref()
+    }
     pub fn required_witness_kind(&self) -> Option<FederationStateMachineTraceExternalWitnessKind> { self.required_witness_kind }
     pub fn required_witness_profile(&self) -> Option<&str> { self.required_witness_profile.as_deref() }
     pub fn required_verifier_identity_kind(&self) -> Option<FederationExternalVerifierIdentityKind> {
@@ -1826,6 +1844,22 @@ impl FederationExternalVerificationTrustPolicyV1 {
     }
     pub fn maximum_verification_age_seconds(&self) -> Option<u64> {
         self.maximum_verification_age_seconds
+    }
+
+    pub fn try_new_bound_anchor_reference(
+        &self,
+        anchor_reference_sha256: impl Into<String>,
+    ) -> Result<Self, FederationExternalVerificationTrustPolicyViolation> {
+        let anchor_reference_sha256 = anchor_reference_sha256.into();
+        if !state_machine_trace_is_sha256_digest(&anchor_reference_sha256) {
+            return Err(
+                FederationExternalVerificationTrustPolicyViolation::InvalidRequiredAnchorReferenceDigest
+            );
+        }
+        let mut policy = self.clone();
+        policy.required_anchor_reference_sha256 = Some(anchor_reference_sha256);
+        policy.validate()?;
+        Ok(policy)
     }
 
     pub fn try_new_bound(
@@ -1910,6 +1944,7 @@ impl FederationExternalVerificationTrustPolicyV1 {
             minimum_verifier_schema_version: self.minimum_verifier_schema_version,
             accepted_verifier_profiles: self.accepted_verifier_profiles.clone(),
             accepted_claims: self.accepted_claims.clone(),
+            required_anchor_reference_sha256: self.required_anchor_reference_sha256.clone(),
             required_witness_kind: self.required_witness_kind,
             required_witness_profile: self.required_witness_profile.clone(),
             required_verifier_identity_kind: self.required_verifier_identity_kind,
@@ -2077,6 +2112,14 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             }
         };
 
+        if let Some(required_anchor_reference_sha256) = policy.required_anchor_reference_sha256() {
+            if required_anchor_reference_sha256 != self.anchor_reference_sha256() {
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::AnchorReferenceNotAdmitted,
+                );
+            }
+        }
+
         if required_witness_kind != self.witness_kind() {
             return Err(
                 FederationExternalVerificationPolicyAdmissionViolation::WitnessKindNotAdmitted,
@@ -2180,6 +2223,7 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             policy_sha256: policy
                 .policy_sha256()
                 .map_err(FederationExternalVerificationPolicyAdmissionViolation::PolicyInvalid)?,
+            anchor_reference_sha256: self.anchor_reference_sha256().into(),
             witness_kind: self.witness_kind(),
             witness_profile: self.witness_profile().into(),
             verifier_identity_kind: self.verifier_identity_kind(),
@@ -2206,6 +2250,7 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
 
 impl FederationExternalVerificationPolicyAdmissionV1 {
     pub fn policy_sha256(&self) -> &str { &self.policy_sha256 }
+    pub fn anchor_reference_sha256(&self) -> &str { &self.anchor_reference_sha256 }
     pub fn witness_kind(&self) -> FederationStateMachineTraceExternalWitnessKind { self.witness_kind }
     pub fn witness_profile(&self) -> &str { &self.witness_profile }
     pub fn verifier_identity_kind(&self) -> FederationExternalVerifierIdentityKind {
@@ -5327,15 +5372,17 @@ mod tests {
             policy.validate(),
             Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedSchemaVersion)
         );
-        policy.schema_version = 2;
-        assert_eq!(
-            policy.validate(),
-            Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedSchemaVersion)
-        );
+        for legacy_version in [1, 2, 3] {
+            policy.schema_version = legacy_version;
+            assert_eq!(
+                policy.validate(),
+                Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedSchemaVersion)
+            );
+        }
 
         policy.schema_version = FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION;
         policy.policy_profile =
-            "integral-federation-external-verification-trust-policy-v2".into();
+            "integral-federation-external-verification-trust-policy-v3".into();
         assert_eq!(
             policy.validate(),
             Err(FederationExternalVerificationTrustPolicyViolation::UnsupportedPolicyProfile)
@@ -5359,10 +5406,89 @@ mod tests {
             policy.schema_version(),
             FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION
         );
-        assert_eq!(FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION, 3);
+        assert_eq!(FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION, 4);
         assert_eq!(
             policy.policy_profile(),
             FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE
+        );
+    }
+
+    #[test]
+    fn external_verification_policy_anchor_reference_binding_is_content_addressed_and_fail_closed() {
+        let base = FederationExternalVerificationTrustPolicyV1::try_new(
+            2,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("base policy must build");
+
+        let anchor_a =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let anchor_b =
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+        assert_eq!(
+            base.try_new_bound_anchor_reference("not-a-digest"),
+            Err(
+                FederationExternalVerificationTrustPolicyViolation::InvalidRequiredAnchorReferenceDigest
+            )
+        );
+
+        let policy_a = base
+            .try_new_bound_anchor_reference(anchor_a)
+            .expect("anchor-bound policy A must build");
+        let policy_a_repeated = base
+            .try_new_bound_anchor_reference(anchor_a)
+            .expect("repeated anchor-bound policy A must build");
+        let policy_b = base
+            .try_new_bound_anchor_reference(anchor_b)
+            .expect("anchor-bound policy B must build");
+
+        assert_eq!(
+            policy_a.required_anchor_reference_sha256(),
+            Some(anchor_a)
+        );
+        assert_eq!(
+            policy_a.policy_sha256().unwrap(),
+            policy_a_repeated.policy_sha256().unwrap()
+        );
+        assert_ne!(policy_a.policy_sha256().unwrap(), policy_b.policy_sha256().unwrap());
+
+        let result_a = FederationStateMachineTraceExternalEvidenceVerificationResult {
+            anchor_reference_sha256: anchor_a.into(),
+            anchor_reference_schema_version: 1,
+            anchor_reference_profile: "anchor-v1".into(),
+            witness_kind: FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            witness_profile: "tsa-token-v1".into(),
+            verifier_schema_version: 2,
+            verifier_profile: "rfc3161-verifier-v1".into(),
+            verifier_identity_kind: FederationExternalVerifierIdentityKind::PublicKey,
+            verifier_identity_profile: "rfc3161-key-v1".into(),
+            verifier_identity_sha256:
+                "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
+            claim: FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+            verifier_report_sha256:
+                "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".into(),
+            claimed_verified_at_unix_seconds: 1_791_010_000,
+            statement_sha256:
+                "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".into(),
+        };
+        let mut result_b = result_a.clone();
+        result_b.anchor_reference_sha256 = anchor_b.into();
+
+        let policy_a = policy_a
+            .with_maximum_verification_age_seconds(100)
+            .expect("freshness policy must build");
+
+        let admission = result_a
+            .admit_under_policy_at(&policy_a, 1_791_010_001)
+            .expect("exact anchor-bound result must admit");
+        assert_eq!(admission.anchor_reference_sha256(), anchor_a);
+        assert_eq!(
+            result_b.admit_under_policy_at(&policy_a, 1_791_010_001),
+            Err(
+                FederationExternalVerificationPolicyAdmissionViolation::AnchorReferenceNotAdmitted
+            )
         );
     }
 
