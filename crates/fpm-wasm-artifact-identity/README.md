@@ -10,9 +10,9 @@ The two outputs are different identity domains and are never treated as intercha
 
 For the Holochain side, the crate delegates to `holo_hash = 0.7.0` and its typed `WasmHash` constructor. Holochain's `DnaWasm` model defines WASM hashing over the exact code bytes with `hash_type::Wasm`.
 
-The test suite contains an independent cross-check against Holochain 0.7's `DnaWasm` implementation: `holochain_raw_byte_derivation_matches_canonical_dna_wasm`. That test exists specifically to prevent a future change in the helper's byte-to-`SerializedBytes` conversion from silently changing the hash domain.
+The test suite contains a direct cross-check against Holochain 0.7's canonical `DnaWasm` wrapper: `holochain_raw_byte_derivation_matches_canonical_dna_wasm`. That test exists specifically to prevent a future change in the helper's byte-to-`DnaWasm`/`SerializedBytes` boundary from silently changing the hashable byte domain.
 
-The The exact upstream release reference is Holochain tag `holochain-0.7.0`, resolving to commit `84cdce7d4df17b95189324d5cecc3f1bfd5db30f`. The production crate does not depend on the Holochain conductor/types crate; the canonical implementation is used only as a test oracle.
+The The exact upstream release reference is Holochain tag `holochain-0.7.0`, resolving to commit `84cdce7d4df17b95189324d5cecc3f1bfd5db30f`. This anchors the wrapper contract to the release source, not to a moving development branch. The production crate does not depend on the Holochain conductor/types crate; the canonical implementation is used only as a test oracle.
 
 For the supply-chain side, the crate independently computes SHA-256 over those same bytes.
 
