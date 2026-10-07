@@ -90,7 +90,8 @@
       "independent reviewer is role-disjoint from the concentrated subject",
       "exact qualifier/pins/runner/crosswalk/workflow blobs are bound",
       "reviewer-role drift remains forbidden after review assignment",
-      "reviewer-role drift negative control is executed and preserved"
+      "reviewer-role drift negative control is executed and preserved",
+      "candidate semantic linter passes before formal execution"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
@@ -120,6 +121,8 @@
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_CROSSWALK_V2.json",
     "crosswalk_blob_sha": "ed03122f18d64beee81ecfcfb908933b0f6e52aa",
     "workflow_path": ".github/workflows/sovereignty-role-concentration-formal-candidate.yml",
-    "workflow_git_blob_sha": "c8bf53ac83b90f966ed942543b11b1e2cb488e2a"
+    "workflow_git_blob_sha": "c8bf53ac83b90f966ed942543b11b1e2cb488e2a",
+    "linter_path": "mycelix-governance/tools/formal/lint_sovereignty_role_concentration.py",
+    "linter_blob_sha": "6d7d0b49890cfa3878aa1cb6353b0568b9b4925a"
   }
 }
