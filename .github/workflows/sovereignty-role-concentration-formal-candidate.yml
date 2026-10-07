@@ -9,6 +9,7 @@ on:
       - 'mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1NegativeControls.tla'
       - 'mycelix-governance/specs/alloy/ArtificialSovereigntyRoleConcentrationV1.als'
       - 'mycelix-governance/tools/formal/sovereignty_role_concentration_reference_explorer.py'
+      - 'mycelix-governance/tools/formal/lint_sovereignty_role_concentration.py'
       - 'mycelix-governance/tools/formal/qualify_sovereignty_role_concentration_formal.py'
       - 'mycelix-governance/tools/formal/SovereigntyRoleConcentrationAlloyQualificationRunner.java'
       - 'mycelix-governance/tools/formal/role_concentration_pins.json'
@@ -56,7 +57,9 @@ jobs:
           set -euo pipefail
           python3 -m py_compile \
             mycelix-governance/tools/formal/qualify_sovereignty_role_concentration_formal.py \
-            mycelix-governance/tools/formal/sovereignty_role_concentration_reference_explorer.py
+            mycelix-governance/tools/formal/sovereignty_role_concentration_reference_explorer.py \
+            mycelix-governance/tools/formal/lint_sovereignty_role_concentration.py
+          python3 mycelix-governance/tools/formal/lint_sovereignty_role_concentration.py
           python3 -m json.tool \
             docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V2.json >/dev/null
           python3 -m json.tool \
@@ -103,6 +106,7 @@ jobs:
               --profile docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V2.json \
               --pins mycelix-governance/tools/formal/role_concentration_pins.json \
               --crosswalk docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_CROSSWALK_V2.json \
+              --linter mycelix-governance/tools/formal/lint_sovereignty_role_concentration.py \
               --alloy-runner mycelix-governance/tools/formal/SovereigntyRoleConcentrationAlloyQualificationRunner.java \
               --alloy-class-dir "$RUNNER_TEMP/sov-role-java" \
               --tla-jar "$RUNNER_TEMP/sov-role-tools/tla2tools.jar" \
