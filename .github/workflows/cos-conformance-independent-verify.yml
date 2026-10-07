@@ -289,8 +289,43 @@ jobs:
           )"
 
           ruleset_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
+          mkdir -p evidence/governance/rulesets
           GH_TOKEN="${ruleset_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" \
-            | jq 'add' > evidence/governance/rulesets-payload.json
+            | jq 'add' > evidence/governance/rulesets-index-payload.json
+
+          mapfile -t ruleset_ids < <(jq -r '.[].id' evidence/governance/rulesets-index-payload.json)
+          for ruleset_id in "${ruleset_ids[@]}"; do
+            GH_TOKEN="${ruleset_token}" gh api \
+              "repos/${GITHUB_REPOSITORY}/rulesets/${ruleset_id}?includes_parents=true" \
+              > "evidence/governance/rulesets/${ruleset_id}.json"
+          done
+
+          if ((${#ruleset_ids[@]} == 0)); then
+            printf '[]\n' > evidence/governance/rulesets-payload.json
+          else
+            jq -s '.' evidence/governance/rulesets/*.json > evidence/governance/rulesets-payload.json
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          index = json.loads(Path("evidence/governance/rulesets-index-payload.json").read_text())
+          full = json.loads(Path("evidence/governance/rulesets-payload.json").read_text())
+          assert isinstance(index, list)
+          assert isinstance(full, list)
+          index_ids = [entry.get("id") for entry in index]
+          full_ids = [entry.get("id") for entry in full]
+          assert all(isinstance(value, int) for value in index_ids)
+          assert all(isinstance(value, int) for value in full_ids)
+          assert len(index_ids) == len(set(index_ids))
+          assert len(full_ids) == len(set(full_ids))
+          assert set(index_ids) == set(full_ids)
+          for entry in full:
+              assert isinstance(entry.get("bypass_actors"), list)
+              assert isinstance(entry.get("conditions"), dict)
+              assert isinstance(entry.get("rules"), list)
+          PY
 
           protection_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
           admin_source="repository_administration_secret"
