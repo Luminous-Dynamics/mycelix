@@ -197,8 +197,12 @@ def verify_receipt(
         fail("receipt base SHA mismatch")
 
     policy_sha = require_hex(receipt["trusted_policy_sha"], 40, "trusted_policy_sha")
-    if policy_sha != trusted_run.get("workflow_sha"):
-        fail("receipt trusted policy SHA does not equal trusted run workflow SHA")
+    if policy_sha != trusted_run.get("head_sha"):
+        fail("receipt trusted policy SHA does not equal trusted workflow run head SHA")
+    if trusted_run.get("head_branch") != "main":
+        fail("trusted workflow run is not on the default branch")
+    if trusted_run.get("repository", {}).get("id") != BASE_REPOSITORY_ID:
+        fail("trusted workflow run repository ID mismatch")
     if receipt["trusted_policy_ref"] != "refs/heads/main":
         fail("receipt trusted policy ref mismatch")
     if receipt["trusted_policy_blob_sha"] != policy_file.get("sha"):
