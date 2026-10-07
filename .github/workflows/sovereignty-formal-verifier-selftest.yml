@@ -1,0 +1,54 @@
+name: Sovereignty formal verifier self-test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/tools/formal/qualify_sovereignty_formal.py'
+      - 'mycelix-governance/tools/formal/test_qualify_sovereignty_formal_blackbox.py'
+      - 'mycelix-governance/tools/formal/pins.json'
+      - 'docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json'
+      - '.github/workflows/sovereignty-formal-qualification.yml'
+      - '.github/workflows/sovereignty-formal-verifier-selftest.yml'
+      - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla'
+      - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.cfg'
+      - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als'
+      - 'mycelix-governance/specs/ArtificialSovereigntyV1NegativeControls.tla'
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# Candidate-owned regression only. This workflow is not an authoritative
+# qualification source and must never be interpreted as a formal PASS.
+permissions:
+  contents: read
+
+jobs:
+  self-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Python syntax and JSON validation
+        run: |
+          set -euo pipefail
+          python3 -m py_compile             mycelix-governance/tools/formal/qualify_sovereignty_formal.py             mycelix-governance/tools/formal/test_qualify_sovereignty_formal_blackbox.py             mycelix-governance/tools/formal/sovereignty_reference_explorer.py
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
+          python3 -m json.tool mycelix-governance/tools/formal/pins.json >/dev/null
+
+      - name: Run black-box verifier corpus
+        run: |
+          set -euo pipefail
+          python3 mycelix-governance/tools/formal/test_qualify_sovereignty_formal_blackbox.py
