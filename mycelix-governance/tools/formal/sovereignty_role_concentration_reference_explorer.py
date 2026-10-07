@@ -169,12 +169,13 @@ def main():
         assert path is not None and target in bad, (name, path, bad)
         print(f"NEGATIVE PASS: {name} -> {target} counterexample at depth {len(path)}")
 
-    seed = initial()
-    st1 = step(seed, "review", "s1", "s2")
-    assert st1 is not None
-    path, bad = explore([("reviewer-role-drift-bad", "s1", "s2", "operator")])
-    assert path is None or "ReviewerRoleDisjointness" in bad
-    print("NEGATIVE PASS: reviewer-role-drift -> ReviewerRoleDisjointness control prepared")
+    drift_extra = [
+        ("reviewer-role-drift-bad", "s1", "s2", "operator"),
+        ("reviewer-role-drift-bad", "s2", "s1", "operator"),
+    ]
+    path, bad = explore(NORMAL + drift_extra)
+    assert path is not None and "ReviewerRoleDisjointness" in bad, (path, bad)
+    print(f"NEGATIVE PASS: reviewer-role-drift -> ReviewerRoleDisjointness counterexample at depth {len(path)}")
 
     print("BOUNDED ROLE-CONCENTRATION REFERENCE EXPLORATION PASS: smoke evidence only")
 
