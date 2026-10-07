@@ -41,3 +41,7 @@ This crate does not establish:
 Those remain separate boundaries tracked in FPM #4453 and #4437.
 
 The contract also does not require the artifact bytes to be a semantically valid WASM module. Byte identity is intentionally separated from module validation and deployment qualification.
+
+## Resource bound
+
+The verifier rejects artifacts above 16,000,000 bytes before invoking HoloHash's synchronous constructor. This matches the documented HoloHash 0.7 synchronous hashing ceiling and prevents oversized hostile input from reaching a panic-prone path.
