@@ -195,19 +195,6 @@ PY
           fi
           rm -f "$tampered_lock"
 
-      - name: Clippy D6U runtime boundary
-        working-directory: d6u-runtime-harness
-        env:
-          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
-        run: cargo +1.96.1 clippy --locked --test d6u_authority_boundary --manifest-path Cargo.toml -- -D warnings
-
-      - name: Assert isolated Cargo configuration after clippy
-        if: success()
-        run: |
-          set -euo pipefail
-          test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
-          test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
-
       - name: Capture runtime source integrity
         id: runtime_source
         working-directory: d6u-runtime-harness
@@ -232,6 +219,54 @@ PY
           source_sha="$(sha256sum "$digest_input" | cut -d' ' -f1)"
           printf '%s\n' "$source_sha" | grep -Eq '^[0-9a-f]{64}$'
           echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Clippy D6U runtime boundary
+        working-directory: d6u-runtime-harness
+        env:
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+        run: |
+          set -euo pipefail
+          env_file="$GITHUB_ENV"
+          path_file="$GITHUB_PATH"
+          test ! -s "$env_file"
+          test ! -s "$path_file"
+          cargo +1.96.1 clippy --locked --test d6u_authority_boundary --manifest-path Cargo.toml -- -D warnings
+          test ! -s "$env_file"
+          test ! -s "$path_file"
+
+      - name: Assert pre-runtime inputs after clippy
+        if: success()
+        working-directory: d6u-runtime-harness
+        env:
+          EXPECTED_LOCK_SHA: ${{ steps.generated_graph.outputs.lock_sha }}
+          EXPECTED_SOURCE_SHA: ${{ steps.runtime_source.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$(sha256sum Cargo.lock | cut -d' ' -f1)" = "$EXPECTED_LOCK_SHA"
+          digest_input="$(mktemp "$RUNNER_TEMP/d6u-runtime-source-hashes-after-clippy.XXXXXX")"
+          trap 'rm -f "$digest_input"' EXIT
+          sha256sum \
+            Cargo.toml \
+            rust-toolchain.toml \
+            src/lib.rs \
+            tests/d6u_authority_boundary.rs \
+            ../docs/integral/d6u-runtime-manifest.json \
+            ../docs/integral/d6s-canon-2-manifest.json \
+            ../docs/integral/d6s-canon-2-authority-boundary-fixture.json \
+            ../docs/integral/d6s-canon-1-golden-vectors.json \
+            ../scripts/integral/verify_d6u_runtime_evidence.py \
+            ../scripts/integral/verify_d6u_runtime_record.py \
+            ../scripts/integral/verify_d6u_runtime_lock.py \
+            ../.github/workflows/d6s-canonical-qualification.yml \
+            > "$digest_input"
+          test "$(sha256sum "$digest_input" | cut -d' ' -f1)" = "$EXPECTED_SOURCE_SHA"
+
+      - name: Assert isolated Cargo configuration after clippy
+        if: success()
+        run: |
+          set -euo pipefail
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
       - name: Test D6U runtime boundary
         working-directory: d6u-runtime-harness
