@@ -98,9 +98,15 @@ jobs:
         run: |
           python - <<'PY'
           import re
+          import textwrap
           from pathlib import Path
 
           text = Path(".github/workflows/cos-conformance-independent-verify.yml").read_text()
+
+          python_blocks = re.findall(r"python - <<'PY'\n([\s\S]*?)\n\s*PY\b", text)
+          assert len(python_blocks) >= 13, f"expected embedded Python heredocs, found {len(python_blocks)}"
+          for index, block in enumerate(python_blocks):
+              compile(textwrap.dedent(block), f"<verifier-python-heredoc-{index}>", "exec")
           pattern = re.compile(
               r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
           )
@@ -152,6 +158,8 @@ jobs:
           assert "observer_workflow_file_blob_sha" in scanned_text
           assert "observer_run_id" in scanned_text
           assert "base_sha" in scanned_text
+          assert "base_ref" in scanned_text
+          assert 'test "${base_ref}" = "main"' in scanned_text
           assert "base_repository" in scanned_text
           assert "rulesets-index-payload.json" in scanned_text
           assert "rulesets-index-after-payload.json" in scanned_text
