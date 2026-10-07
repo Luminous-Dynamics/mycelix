@@ -574,7 +574,7 @@ fn validate_create_savings_pool(
 }
 
 fn validate_update_savings_pool(
-    _action: Update,
+    action: Update,
     pool: SavingsPool,
 ) -> ExternResult<ValidateCallbackResult> {
     if pool.target_amount == 0 {
@@ -587,9 +587,31 @@ fn validate_update_savings_pool(
             "Yield rate must be a finite non-negative number".into(),
         ));
     }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<SavingsPool>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original SavingsPool predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original savings-pool update predecessor is not a SavingsPool entry".into(),
+        ))
+    })?;
+    if original.id != pool.id
+        || original.treasury_id != pool.treasury_id
+        || original.name != pool.name
+        || original.currency != pool.currency
+        || original.members != pool.members
+        || original.created != pool.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SavingsPool identity and immutable configuration cannot change across updates".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate CommonsPool
 /// Validate CommonsPool: reserve ratio must never drop below 25%.
 /// inalienable_reserve / (inalienable_reserve + available_balance) >= 0.25
 /// Exception: total is 0 (empty pool is valid).
