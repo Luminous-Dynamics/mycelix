@@ -42,6 +42,23 @@ BadSelfReviewFullControl(s) ==
     /\ externalReviewers' = [externalReviewers EXCEPT ![s] = {s}]
     /\ clock' = NextTime
 
+BadSameRoleReviewFullControl(s, reviewer) ==
+    /\ Advanceable
+    /\ s \in Subjects
+    /\ reviewer \in Subjects
+    /\ reviewer # s
+    /\ Cardinality({r \in Roles : s \in roleHolder[r]}) = 0
+    /\ roleHolder' =
+         [roleHolder EXCEPT
+            ![Operator] = @ \cup {s},
+            ![Verifier] = @ \cup {s},
+            ![EvidenceArchive] = @ \cup {s},
+            ![Adjudicator] = @ \cup {s},
+            ![Operator] = @ \cup {s, reviewer}]
+    /\ conflictFinding' = [conflictFinding EXCEPT ![s] = TRUE]
+    /\ externalReviewers' = [externalReviewers EXCEPT ![s] = {reviewer}]
+    /\ clock' = NextTime
+
 NegativeNext ==
       Next
   \/ IF Control = "role-conflict" THEN
@@ -53,6 +70,10 @@ NegativeNext ==
      ELSE FALSE
   \/ IF Control = "self-review-full-control" THEN
         \E s \in Subjects : BadSelfReviewFullControl(s)
+     ELSE FALSE
+  \/ IF Control = "same-role-review-full-control" THEN
+        \E s \in Subjects, reviewer \in Subjects :
+          BadSameRoleReviewFullControl(s, reviewer)
      ELSE FALSE
 
 NegativeSpec == Init /\ [][NegativeNext]_vars
