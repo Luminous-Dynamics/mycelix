@@ -108,6 +108,7 @@ def main() -> int:
     parser.add_argument("--alloy-jar", type=Path, required=True)
     parser.add_argument("--evidence-dir", type=Path, required=True)
     parser.add_argument("--pins", type=Path, required=True)
+    parser.add_argument("--workflow", type=Path, required=True)
     args = parser.parse_args()
 
     args.evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -118,6 +119,24 @@ def main() -> int:
     if pins["schema"] != "mycelix.sovereignty-concentration-formal-tool-pins.v1":
         fail("unexpected concentration tool pin schema")
     execution = profile["execution"]
+    workflow = args.workflow.read_text(encoding="utf-8")
+    expected_actions = pins["github_actions"]
+    action_needles = {
+        "checkout": "actions/checkout@",
+        "install_nix": "cachix/install-nix-action@",
+        "upload_artifact": "actions/upload-artifact@",
+    }
+    for name, prefix in action_needles.items():
+        if prefix + expected_actions[name] not in workflow:
+            fail("workflow action pin mismatch: " + name)
+    if f"NIXPKGS_REV: {pins['nixpkgs_rev']}" not in workflow:
+        fail("workflow Nixpkgs pin mismatch")
+    for name, tool in pins["tools"].items():
+        env_prefix = "TLA" if name == "tla2tools" else "ALLOY"
+        if f"{env_prefix}_URL: {tool['url']}" not in workflow:
+            fail("workflow tool URL pin mismatch: " + name)
+        if f"{env_prefix}_SHA256: {tool['sha256']}" not in workflow:
+            fail("workflow tool SHA256 pin mismatch: " + name)
     for path, expected, label in [
         (Path(execution["classifier"]["path"]), execution["classifier"]["git_blob_sha"], "classifier"),
         (Path(execution["alloy_runner"]["path"]), execution["alloy_runner"]["git_blob_sha"], "Alloy runner"),
@@ -185,6 +204,9 @@ def main() -> int:
             args.profile, args.pins, args.tla, args.cfg, args.negative_tla, args.alloy
         ]
     }
+
+    if args.workflow.as_posix() != ".github/workflows/sovereignty-concentration-formal-candidate.yml":
+        fail("workflow path is not the frozen concentration candidate workflow")
 
     receipt = {
         "receipt_schema": "sovereignty-concentration-candidate-receipt-v1",
