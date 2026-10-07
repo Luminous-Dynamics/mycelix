@@ -101,6 +101,14 @@
       "SafeStateLeavesDisputeUnresolved": "SafeStateCannotSettleDispute",
       "ForkPreservesWeight": "ForkCannotMultiplyPoliticalWeight",
       "EmergencyBoundedLifetime": "EmergencyLifetimeIsBounded"
+    },
+    "reference": {
+      "develop": "AuthorityHasExplicitSource",
+      "safe-continue": "SafeStateLeavesProtectedDisputeUnresolved",
+      "contain": "EmergencyExpiryIsBounded",
+      "contract": "ContractsRemainBounded",
+      "provider": "ProviderDependencyHasNoImplicitAuthority",
+      "fork": "ForkWeightRemainsOne"
     }
   },
   "verifier": {
@@ -140,7 +148,8 @@
       "postflight input immutability",
       "detached fixture blobs equal frozen formal-subject blobs",
       "detached reference-explorer blob equals frozen formal-subject reference-explorer blob",
-      "explicit Alloy integer bitwidth is recorded and checked"
+      "explicit Alloy integer bitwidth is recorded and checked",
+      "every reference negative control emits its profiled counterexample marker"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
