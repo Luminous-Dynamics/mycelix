@@ -21,30 +21,23 @@ BadAssignFourthWithoutIndependentReview(s, r) ==
     /\ s \notin roleHolder[r]
     /\ Cardinality({x \in Roles : s \in roleHolder[x]}) = 3
     /\ conflictFinding[s]
-    /\ ~(\E reviewer \in Subjects :
-          /\ reviewer \in externalReviewers[s]
-          /\ reviewer # s)
+    /\ ~IndependentReviewRecorded(s)
     /\ roleHolder' = [roleHolder EXCEPT ![r] = @ \cup {s}]
     /\ UNCHANGED <<conflictFinding, externalReviewers>>
     /\ clock' = NextTime
 
-BadSelfReview(s) ==
+BadSelfReviewFullControl(s) ==
     /\ Advanceable
     /\ s \in Subjects
-    /\ externalReviewers' = [externalReviewers EXCEPT ![s] = @ \cup {s}]
-    /\ UNCHANGED <<roleHolder, conflictFinding>>
-    /\ clock' = NextTime
-
-BadAssignFourthAfterSelfReview(s, r) ==
-    /\ Advanceable
-    /\ s \in Subjects
-    /\ r \in Roles
-    /\ s \notin roleHolder[r]
-    /\ Cardinality({x \in Roles : s \in roleHolder[x]}) = 3
-    /\ conflictFinding[s]
-    /\ s \in externalReviewers[s]
-    /\ roleHolder' = [roleHolder EXCEPT ![r] = @ \cup {s}]
-    /\ UNCHANGED <<conflictFinding, externalReviewers>>
+    /\ Cardinality({r \in Roles : s \in roleHolder[r]}) = 0
+    /\ roleHolder' =
+         [roleHolder EXCEPT
+            ![Operator] = @ \cup {s},
+            ![Verifier] = @ \cup {s},
+            ![EvidenceArchive] = @ \cup {s},
+            ![Adjudicator] = @ \cup {s}]
+    /\ conflictFinding' = [conflictFinding EXCEPT ![s] = TRUE]
+    /\ externalReviewers' = [externalReviewers EXCEPT ![s] = {s}]
     /\ clock' = NextTime
 
 NegativeNext ==
@@ -57,17 +50,8 @@ NegativeNext ==
         \E s \in Subjects, r \in Roles :
           BadAssignFourthWithoutIndependentReview(s, r)
      ELSE FALSE
-  \/ IF Control = "self-review" THEN
-        \E s \in Subjects :
-          BadSelfReview(s)
-     ELSE FALSE
   \/ IF Control = "self-review-full-control" THEN
-        \E s \in Subjects :
-          BadSelfReview(s)
-     ELSE FALSE
-  \/ IF Control = "self-review-full-control-assign" THEN
-        \E s \in Subjects, r \in Roles :
-          BadAssignFourthAfterSelfReview(s, r)
+        \E s \in Subjects : BadSelfReviewFullControl(s)
      ELSE FALSE
 
 NegativeSpec == Init /\ [][NegativeNext]_vars
