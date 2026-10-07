@@ -58,3 +58,9 @@ The verifier rejects artifacts above 16,000,000 bytes before invoking HoloHash's
 The production dependency pins `holo_hash = 0.7.0`. The test-only canonical oracle additionally pins `holochain_types = 0.7.0`.
 
 These version pins establish the intended package versions, not a reproducible dependency closure. The standalone workspace currently has no checked-in `Cargo.lock`; that is tracked separately in #4494.
+
+## Production feature surface
+
+The production dependency uses `holo_hash 0.7.0` with `default-features = false` and only the `hashing` feature enabled. This avoids pulling HoloHash's default Wasmer support into the verifier when no WASM runtime is executed by this crate.
+
+The test-only `holochain_types 0.7.0` oracle is intentionally separate from the production dependency surface.
