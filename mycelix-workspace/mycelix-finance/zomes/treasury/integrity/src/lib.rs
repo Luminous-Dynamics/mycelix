@@ -465,12 +465,73 @@ fn validate_create_allocation(
 }
 
 fn validate_update_allocation(
-    _action: Update,
+    action: Update,
     allocation: Allocation,
 ) -> ExternResult<ValidateCallbackResult> {
     if allocation.amount == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Allocation amount must be positive".into(),
+        ));
+    }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<Allocation>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original Allocation predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original allocation update predecessor is not an Allocation entry".into(),
+        ))
+    })?;
+    if original.id != allocation.id
+        || original.treasury_id != allocation.treasury_id
+        || original.proposal_id != allocation.proposal_id
+        || original.recipient_did != allocation.recipient_did
+        || original.amount != allocation.amount
+        || original.currency != allocation.currency
+        || original.purpose != allocation.purpose
+        || original.created != allocation.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Allocation identity and economic terms cannot change across updates".into(),
+        ));
+    }
+    match (&original.status, &allocation.status) {
+        (AllocationStatus::Proposed, AllocationStatus::Proposed)
+        | (AllocationStatus::Proposed, AllocationStatus::Approved)
+        | (AllocationStatus::Proposed, AllocationStatus::Rejected)
+        | (AllocationStatus::Proposed, AllocationStatus::Cancelled)
+        | (AllocationStatus::Approved, AllocationStatus::Executed)
+        | (AllocationStatus::Approved, AllocationStatus::Cancelled) => {}
+        (from, to) if from == to => {}
+        _ => return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid allocation status transition: {:?} -> {:?}",
+            original.status, allocation.status
+        ))),
+    }
+    if allocation.status == AllocationStatus::Executed && allocation.executed.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Executed allocation must record an execution timestamp".into(),
+        ));
+    }
+    if allocation.status != AllocationStatus::Executed && allocation.executed.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Allocation executed timestamp may only be set for Executed status".into(),
+        ));
+    }
+    for prior in &original.approved_by {
+        if !allocation.approved_by.contains(prior) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Allocation approvals cannot be removed by update".into(),
+            ));
+        }
+    }
+    if !matches!(
+        allocation.status,
+        AllocationStatus::Proposed | AllocationStatus::Approved
+    ) && allocation.approved_by != original.approved_by {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Terminal allocation transitions must preserve the approval set".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
