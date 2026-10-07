@@ -40,6 +40,7 @@ def main() -> int:
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--subject-commit", required=True)
     parser.add_argument("--subject-tree", required=True)
+    parser.add_argument("--verifier-commit", required=True)
     args = parser.parse_args()
 
     profile, profile_bytes = load_json(args.profile)
@@ -104,6 +105,7 @@ def main() -> int:
         },
         "verifier": {
             "profile_id": profile["profile_id"],
+            "head_sha": args.verifier_commit,
             "profile_sha256": hashlib.sha256(profile_bytes).hexdigest(),
             "implementation": "independent-zero-network-v1",
             "implementation_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
