@@ -347,6 +347,11 @@ fn resolve_fpm_eat_cose_verification_anchor_impl(
         || verification.audience != anchor.claim.audience
         || verification.key_id != anchor.claim.verification_key_id
         || verification.verification_key_digest != anchor.claim.verification_key_digest
+        || verification.verifier_implementation_digest != anchor.claim.verifier_implementation_digest
+        || verification.verifier_build_provenance_digest
+            != anchor.claim.verifier_build_provenance_digest
+        || verification.verifier_builder_id != anchor.claim.verifier_builder_id
+        || verification.verifier_profile_digest != anchor.claim.verifier_profile_digest
         || verification.nonce_digest != anchor.claim.challenge_nonce_digest
     {
         return Err(fpm_attestation_error(
@@ -365,6 +370,10 @@ fn resolve_fpm_eat_cose_verification_anchor_impl(
         || challenge.audience != anchor.audience
         || challenge.verification_key_id != anchor.key_id
         || challenge.verification_key_digest != anchor.verification_key_digest
+        || challenge.verifier_implementation_digest != anchor.verifier_implementation_digest
+        || challenge.verifier_build_provenance_digest != anchor.verifier_build_provenance_digest
+        || challenge.verifier_builder_id != anchor.verifier_builder_id
+        || challenge.verifier_profile_digest != anchor.verifier_profile_digest
         || challenge.nonce_digest != anchor.nonce_digest
     {
         return Err(fpm_attestation_error(
@@ -392,6 +401,10 @@ fn resolve_fpm_eat_cose_verification_anchor_impl(
         eat_profile_uri: anchor.eat_profile_uri,
         key_id: anchor.key_id,
         verification_key_digest: anchor.verification_key_digest,
+        verifier_implementation_digest: anchor.verifier_implementation_digest,
+        verifier_build_provenance_digest: anchor.verifier_build_provenance_digest,
+        verifier_builder_id: anchor.verifier_builder_id,
+        verifier_profile_digest: anchor.verifier_profile_digest,
         author: *record.action().author(),
         signer: *record.action().signer(),
         timestamp: record.action().timestamp(),
@@ -511,6 +524,10 @@ fn create_fpm_eat_cose_verification_anchor_impl(
         eat_profile_uri,
         key_id,
         verification_key_digest: result.verification.verification_key_digest,
+        verifier_implementation_digest: challenge.verifier_implementation_digest,
+        verifier_build_provenance_digest: challenge.verifier_build_provenance_digest,
+        verifier_builder_id: challenge.verifier_builder_id,
+        verifier_profile_digest: challenge.verifier_profile_digest,
     };
 
     let action_hash = create_entry(EntryTypes::FpmEatCoseVerificationAnchor(anchor))?;
@@ -762,6 +779,9 @@ fn validate_attestation_claim_against_challenge(
         expected_acquisition_root_digest: challenge.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: challenge.nonce_digest.clone(),
         expected_attestation_format: challenge.attestation_format.clone(),
+        expected_verifier_implementation_digest: challenge.verifier_implementation_digest.clone(),
+        expected_verifier_build_provenance_digest: challenge.verifier_build_provenance_digest.clone(),
+        expected_verifier_builder_id: challenge.verifier_builder_id.clone(),
         expected_verifier_profile_digest: challenge.verifier_profile_digest.clone(),
         expected_appraisal_policy_digest: challenge.appraisal_policy_digest.clone(),
         expected_reference_values_digest: challenge.reference_values_digest.clone(),
@@ -1300,6 +1320,9 @@ fn create_fpm_source_attestation_anchor_impl(
         attestation_format: challenge.attestation_format.clone(),
         verifier_id: input.verifier_id,
         verifier_version: input.verifier_version,
+        verifier_implementation_digest: challenge.verifier_implementation_digest.clone(),
+        verifier_build_provenance_digest: challenge.verifier_build_provenance_digest.clone(),
+        verifier_builder_id: challenge.verifier_builder_id.clone(),
         verifier_profile_digest: challenge.verifier_profile_digest.clone(),
         appraisal_policy_digest: challenge.appraisal_policy_digest.clone(),
         reference_values_digest: challenge.reference_values_digest.clone(),
