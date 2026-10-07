@@ -218,7 +218,8 @@ def require_no_fail_open_controls(lines_: list[str], description: str) -> None:
         if re.search(r"\balways\(\)|\bfailure\(\)", line):
             fail(f"{description}: forbidden fail-open status check: {line!r}")
         normalized = line.replace(" ", "")
-        if "cancelled()" in normalized and "!cancelled()" not in normalized:
+        without_negated_cancelled = normalized.replace("!cancelled()", "")
+        if "cancelled()" in without_negated_cancelled:
             fail(f"{description}: positive cancelled() status check is forbidden: {line!r}")
 
 
@@ -851,6 +852,18 @@ def main() -> None:
         ),
         "positive cancelled() cleanup condition",
     )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"        if: ${{ !cancelled() }}\n",
+                b"        if: ${{ !cancelled() && cancelled() }}\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "mixed negated and positive cancelled() status condition",
+    )
+
 
 
     expect_rejection(
