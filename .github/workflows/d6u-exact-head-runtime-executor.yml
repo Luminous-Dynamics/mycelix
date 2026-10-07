@@ -302,13 +302,35 @@ jobs:
       - name: Prepare isolated runtime container image
         env:
           DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
-          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
         run: |
           set -euo pipefail
           docker --context default pull --platform linux/amd64 ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
           docker --context default image inspect ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
             --format '{{index .RepoDigests 0}}' \
             | grep -Fx 'ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b'
+      - name: Verify runtime container isolation controls
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+        run: |
+          set -euo pipefail
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit 32 \
+            --ulimit nofile=256:256 \
+            --ulimit core=0 \
+            --memory 512m \
+            --memory-swap 512m \
+            --tmpfs /tmp:rw,nosuid,nodev,size=2g \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
+            sh -c 'test "$(cat /proc/sys/kernel/osrelease)" != ""; test -e /sys/class/net/lo; test ! -e /var/run/docker.sock; test -w /tmp; ! touch /etc/d6u-host-write-probe'
+
       - name: Clippy D6U runtime boundary
         env:
           DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
@@ -479,28 +501,6 @@ jobs:
           done
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
-
-      - name: Verify runtime container isolation controls
-        env:
-          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
-          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
-        run: |
-          set -euo pipefail
-          docker --context default run --rm --pull=never --init \
-            --platform linux/amd64 \
-            --network none \
-            --read-only \
-            --cap-drop=ALL \
-            --security-opt=no-new-privileges \
-            --pids-limit 32 \
-            --ulimit nofile=256:256 \
-            --ulimit core=0 \
-            --memory 512m \
-            --tmpfs /tmp:rw,nosuid,nodev,size=2g \
-            --env HOME=/tmp \
-            --env TMPDIR=/tmp \
-            ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
-            sh -c 'test "$(cat /proc/sys/kernel/osrelease)" != ""; test -e /sys/class/net/lo; test ! -e /var/run/docker.sock; test -w /tmp; ! touch /etc/d6u-host-write-probe'
 
       - name: Test D6U runtime boundary
         env:
