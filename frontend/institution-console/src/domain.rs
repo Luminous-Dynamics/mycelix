@@ -154,12 +154,16 @@ impl WorkspaceContext {
     }
 
     pub fn is_authority_bound(&self) -> bool {
-        self.tenant_id.is_some()
-            && self.legal_entity_id.is_some()
-            && self.principal_id.is_some()
+        nonempty(&self.tenant_id)
+            && nonempty(&self.legal_entity_id)
+            && nonempty(&self.principal_id)
             && self.profile.is_some()
-            && self.policy_version.is_some()
+            && nonempty(&self.policy_version)
     }
+}
+
+fn nonempty(value: &Option<String>) -> bool {
+    value.as_ref().is_some_and(|value| !value.trim().is_empty())
 }
 
 #[cfg(test)]
@@ -216,9 +220,15 @@ mod tests {
 
         let missing_tenant = WorkspaceContext {
             tenant_id: None,
-            ..complete
+            ..complete.clone()
         };
         assert!(!missing_tenant.is_authority_bound());
+
+        let blank_entity = WorkspaceContext {
+            legal_entity_id: Some("   ".into()),
+            ..complete
+        };
+        assert!(!blank_entity.is_authority_bound());
     }
 
     #[test]
