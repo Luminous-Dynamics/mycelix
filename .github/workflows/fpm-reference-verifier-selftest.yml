@@ -1,0 +1,47 @@
+name: FPM reference verifier self-test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/integral/verify_fpm_trusted_qualification.py"
+      - "scripts/integral/test_verify_fpm_trusted_qualification.py"
+      - ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
+      - ".github/workflows/fpm-reference-verifier-selftest.yml"
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# Candidate-owned validation only. This is not an independent trust root and
+# must never be interpreted as promotion evidence.
+permissions:
+  contents: read
+
+jobs:
+  self-test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Python syntax check
+        run: |
+          set -euo pipefail
+          python3 -m py_compile             scripts/integral/verify_fpm_trusted_qualification.py             scripts/integral/test_verify_fpm_trusted_qualification.py
+
+      - name: Run adversarial reference-verifier corpus
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/test_verify_fpm_trusted_qualification.py
