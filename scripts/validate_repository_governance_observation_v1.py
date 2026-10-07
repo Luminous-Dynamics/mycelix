@@ -99,6 +99,7 @@ def validate_observation_shape(observation: Any) -> None:
     sha256(observation.get("policy_sha256"), "policy_sha256")
     branch_raw = validate_bound_raw_payload(observation, "branch")
     rulesets_raw = validate_bound_raw_payload(observation, "rulesets")
+    protection_raw = validate_bound_raw_payload(observation, "branch_protection")
     require(isinstance(branch_raw, dict), "branch raw payload must be an object")
     require(isinstance(rulesets_raw, list), "rulesets raw payload must be a list")
     require(
@@ -110,6 +111,16 @@ def validate_observation_shape(observation: Any) -> None:
         observation.get("rulesets", {}).get("entries") == rulesets_raw,
         "normalized ruleset observation does not match raw rulesets payload",
     )
+    protection_api = observation.get("branch_protection_api")
+    require(isinstance(protection_api, dict), "branch protection API observation missing")
+    protection_status = protection_api.get("http_status")
+    require(isinstance(protection_status, int), "branch protection http_status must be integer")
+    if protection_status == 200:
+        normalized_protection = _normalize_branch_protection(protection_raw)
+        require(
+            observation.get("admin_observation", {}).get("protection") == normalized_protection,
+            "normalized admin protection does not match raw branch protection payload",
+        )
 
 
 def _ruleset_targets_main(entry: Any) -> bool:
@@ -185,6 +196,60 @@ def _evaluate_rulesets(ruleset_entries: list[Any]) -> tuple[str, list[str]]:
             failures.append(f"{prefix}_block_deletion")
 
     return ("MISMATCH" if failures else "VERIFIED"), failures
+
+
+def _normalize_branch_protection(source: Any) -> dict[str, Any]:
+    require(isinstance(source, dict), "branch protection raw payload must be an object")
+    review = source.get("required_pull_request_reviews")
+    enforce_admins = source.get("enforce_admins") or {}
+    allow_force_pushes = source.get("allow_force_pushes")
+    allow_deletions = source.get("allow_deletions")
+    bypass: list[dict[str, Any]] = []
+
+    if isinstance(review, dict):
+        allowances = review.get("bypass_pull_request_allowances") or {}
+        for actor in allowances.get("users") or []:
+            bypass.append({"actor_type": "User", "actor_id": actor})
+        for actor in allowances.get("teams") or []:
+            bypass.append({"actor_type": "Team", "actor_id": actor})
+        for actor in allowances.get("apps") or []:
+            bypass.append({"actor_type": "Integration", "actor_id": actor})
+    if enforce_admins.get("enabled") is not True:
+        bypass.append({"actor_type": "RepositoryAdministrator"})
+
+    return {
+        "pull_request_required": isinstance(review, dict),
+        "required_approving_review_count": (
+            review.get("required_approving_review_count")
+            if isinstance(review, dict)
+            else 0
+        ),
+        "dismiss_stale_reviews_on_push": (
+            review.get("dismiss_stale_reviews") is True
+            if isinstance(review, dict)
+            else False
+        ),
+        "require_last_push_approval": (
+            review.get("require_last_push_approval") is True
+            if isinstance(review, dict)
+            else False
+        ),
+        "required_conversation_resolution": (
+            source.get("required_conversation_resolution") is True
+        ),
+        "block_force_push": (
+            isinstance(allow_force_pushes, dict)
+            and allow_force_pushes.get("enabled") is False
+        ),
+        "block_deletion": (
+            isinstance(allow_deletions, dict)
+            and allow_deletions.get("enabled") is False
+        ),
+        "bypass_actors": bypass,
+        "administrator_bypass_prevented": (
+            enforce_admins.get("enabled") is True
+        ),
+    }
 
 
 def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
@@ -409,8 +474,21 @@ def fixture_observation(protection_status: int = 200, admin_status: str = "verif
     }
     branch_payload = {"name": "main", "protected": True}
     rulesets_payload = [ruleset_entry]
+    protection_payload = {
+        "required_pull_request_reviews": {
+            "dismiss_stale_reviews": True,
+            "require_last_push_approval": True,
+            "required_approving_review_count": 1,
+            "bypass_pull_request_allowances": {"users": [], "teams": [], "apps": []},
+        },
+        "enforce_admins": {"enabled": True},
+        "required_conversation_resolution": True,
+        "allow_force_pushes": {"enabled": False},
+        "allow_deletions": {"enabled": False},
+    }
     branch_raw = json.dumps(branch_payload, separators=(",", ":"), sort_keys=True).encode()
     rulesets_raw = json.dumps(rulesets_payload, separators=(",", ":"), sort_keys=True).encode()
+    protection_raw = json.dumps(protection_payload, separators=(",", ":"), sort_keys=True).encode()
     return {
         "schema": SCHEMA,
         "version": 1,
@@ -425,6 +503,8 @@ def fixture_observation(protection_status: int = 200, admin_status: str = "verif
         "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
         "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
         "rulesets_payload_sha256": hashlib.sha256(rulesets_raw).hexdigest(),
+        "branch_protection_payload_base64": base64.b64encode(protection_raw).decode(),
+        "branch_protection_payload_sha256": hashlib.sha256(protection_raw).hexdigest(),
         "branch": branch_payload,
         "rulesets": {"entries": rulesets_payload},
         "branch_protection_api": {"http_status": protection_status},
@@ -467,6 +547,26 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
     observation["branch_payload_sha256"] = hashlib.sha256(branch_raw).hexdigest()
     observation["rulesets_payload_base64"] = base64.b64encode(rulesets_raw).decode()
     observation["rulesets_payload_sha256"] = hashlib.sha256(rulesets_raw).hexdigest()
+    protection_raw = json.dumps(
+        _normalize_branch_protection(
+            {
+                "required_pull_request_reviews": {
+                    "dismiss_stale_reviews": True,
+                    "require_last_push_approval": True,
+                    "required_approving_review_count": 1,
+                    "bypass_pull_request_allowances": {"users": [], "teams": [], "apps": []},
+                },
+                "enforce_admins": {"enabled": True},
+                "required_conversation_resolution": True,
+                "allow_force_pushes": {"enabled": False},
+                "allow_deletions": {"enabled": False},
+            }
+        ),
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    observation["branch_protection_payload_base64"] = base64.b64encode(protection_raw).decode()
+    observation["branch_protection_payload_sha256"] = hashlib.sha256(protection_raw).hexdigest()
 
 
 def self_test() -> None:
