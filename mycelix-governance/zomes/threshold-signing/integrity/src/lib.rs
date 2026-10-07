@@ -1155,7 +1155,7 @@ mod tests {
     fn test_complete_committee_missing_public_key() {
         let committee =
             make_test_committee_complete(None, vec![make_valid_commitment_set_bytes(2)]);
-        let result = check_committee_update_validity(&committee);
+        let result = check_committee_update_validity(&committee, &committee);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("must have a public key"));
     }
@@ -1166,7 +1166,7 @@ mod tests {
         // threshold=2 but only 1 commitment set
         let committee =
             make_test_committee_complete(Some(pk), vec![make_valid_commitment_set_bytes(2)]);
-        let result = check_committee_update_validity(&committee);
+        let result = check_committee_update_validity(&committee, &committee);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Need at least 2"));
     }
