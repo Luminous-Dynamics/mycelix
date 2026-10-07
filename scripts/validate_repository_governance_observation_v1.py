@@ -150,6 +150,10 @@ def _evaluate_rulesets(ruleset_entries: list[Any]) -> tuple[str, list[str]]:
         return "ABSENT", []
 
     failures: list[str] = []
+    all_rule_types: set[Any] = set()
+    approval_counts: list[int] = []
+    merged_parameters: dict[str, bool] = {}
+
     for index, entry in enumerate(targeted):
         prefix = f"ruleset[{index}]"
         rules = entry.get("rules")
@@ -159,41 +163,48 @@ def _evaluate_rulesets(ruleset_entries: list[Any]) -> tuple[str, list[str]]:
         bypass = entry.get("bypass_actors")
         if not isinstance(bypass, list):
             return "UNVERIFIED", [f"{prefix}_bypass_actors_not_enumerated"]
-        if len(bypass) != 0:
+        if bypass:
             failures.append(f"{prefix}_bypass_set_not_minimized")
 
-        pull_rules = [
-            rule for rule in rules
-            if isinstance(rule, dict) and rule.get("type") == "pull_request"
-        ]
-        if not pull_rules:
-            failures.append(f"{prefix}_pull_request_required")
-            continue
-
-        merged_parameters: dict[str, Any] = {}
-        for rule in pull_rules:
+        for rule in rules:
+            if not isinstance(rule, dict):
+                continue
+            all_rule_types.add(rule.get("type"))
+            if rule.get("type") != "pull_request":
+                continue
             parameters = rule.get("parameters")
-            if isinstance(parameters, dict):
-                merged_parameters.update(parameters)
-        if merged_parameters.get("required_approving_review_count") != 1:
-            failures.append(f"{prefix}_required_approving_review_count")
-        for key in (
-            "dismiss_stale_reviews_on_push",
-            "require_last_push_approval",
-            "required_review_thread_resolution",
-        ):
-            if merged_parameters.get(key) is not True:
-                failures.append(f"{prefix}_{key}")
+            if not isinstance(parameters, dict):
+                return "UNVERIFIED", [f"{prefix}_pull_request_parameters_not_enumerated"]
+            count = parameters.get("required_approving_review_count")
+            if isinstance(count, int):
+                approval_counts.append(count)
+            for key in (
+                "dismiss_stale_reviews_on_push",
+                "require_last_push_approval",
+                "required_review_thread_resolution",
+            ):
+                if parameters.get(key) is True:
+                    merged_parameters[key] = True
 
-        rule_types = {
-            rule.get("type")
-            for rule in rules
-            if isinstance(rule, dict)
-        }
-        if "non_fast_forward" not in rule_types:
-            failures.append(f"{prefix}_block_force_push")
-        if "deletion" not in rule_types:
-            failures.append(f"{prefix}_block_deletion")
+    if not approval_counts:
+        failures.append("required_approving_review_count_not_observed")
+    elif max(approval_counts) != 1:
+        failures.append("required_approving_review_count")
+
+    for key in (
+        "dismiss_stale_reviews_on_push",
+        "require_last_push_approval",
+        "required_review_thread_resolution",
+    ):
+        if merged_parameters.get(key) is not True:
+            failures.append(key)
+
+    if "pull_request" not in all_rule_types:
+        failures.append("pull_request_required")
+    if "non_fast_forward" not in all_rule_types:
+        failures.append("block_force_push")
+    if "deletion" not in all_rule_types:
+        failures.append("block_deletion")
 
     return ("MISMATCH" if failures else "VERIFIED"), failures
 
@@ -619,6 +630,35 @@ def self_test() -> None:
     assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(protection_status=404))
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(protection_status=404))
+    second = copy.deepcopy(x["rulesets"]["entries"][0])
+    x["rulesets"]["entries"][0]["rules"] = [
+        {
+            "type": "pull_request",
+            "parameters": {
+                "dismiss_stale_reviews_on_push": True,
+                "required_approving_review_count": 1,
+            },
+        },
+    ]
+    second["id"] = 2
+    second["rules"] = [
+        {
+            "type": "pull_request",
+            "parameters": {
+                "require_last_push_approval": True,
+                "required_review_thread_resolution": True,
+            },
+        },
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    x["rulesets"]["entries"].append(second)
+    _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
