@@ -782,20 +782,20 @@ jobs:
             "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               set -euo pipefail
               /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config
-              python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" /vendor /vendor-metrics <<\PY
-              import hashlib, pathlib, stat, sys
-              max_bytes=int(sys.argv[1]); max_files=int(sys.argv[2]); max_inodes=int(sys.argv[3])
-              vendor=pathlib.Path(sys.argv[4]); metrics=pathlib.Path(sys.argv[5]); digest=hashlib.sha256()
-              total=0; files=0; inodes=0
-              for path in sorted(vendor.rglob('*')):
-                  inodes += 1; rel=path.relative_to(vendor); mode=path.lstat().st_mode
-                  if stat.S_ISLNK(mode) or (not path.is_dir() and not stat.S_ISREG(mode)): raise SystemExit('vendor contains forbidden file type')
-                  if path.is_dir(): continue
-                  files += 1; content=path.read_bytes(); total += len(content)
-                  if files > max_files or total > max_bytes or inodes > max_inodes: raise SystemExit('vendor resource ceiling exceeded')
-                  relative=rel.as_posix().encode(); digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
-              metrics.write_text(f'vendor_observed_bytes={total}\nvendor_observed_files={files}\nvendor_observed_inodes={inodes}\nvendor_digest={digest.hexdigest()}\n', encoding='utf-8')
-              PY
+          python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" /vendor /vendor-metrics <<\PY
+          import hashlib, pathlib, stat, sys
+          max_bytes=int(sys.argv[1]); max_files=int(sys.argv[2]); max_inodes=int(sys.argv[3])
+          vendor=pathlib.Path(sys.argv[4]); metrics=pathlib.Path(sys.argv[5]); digest=hashlib.sha256()
+          total=0; files=0; inodes=0
+          for path in sorted(vendor.rglob('*')):
+              inodes += 1; rel=path.relative_to(vendor); mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode) or (not path.is_dir() and not stat.S_ISREG(mode)): raise SystemExit('vendor contains forbidden file type')
+              if path.is_dir(): continue
+              files += 1; content=path.read_bytes(); total += len(content)
+              if files > max_files or total > max_bytes or inodes > max_inodes: raise SystemExit('vendor resource ceiling exceeded')
+              relative=rel.as_posix().encode(); digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
+          metrics.write_text(f'vendor_observed_bytes={total}\nvendor_observed_files={files}\nvendor_observed_inodes={inodes}\nvendor_digest={digest.hexdigest()}\n', encoding='utf-8')
+          PY
           CONTAINER_SCRIPT
           status=$?
           set -e
@@ -1229,19 +1229,19 @@ jobs:
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m,nr_inodes=8192 \
             --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
             "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
-              python3 - "$EXPECTED_VENDOR_DIGEST" /vendor <<\PY
-              import hashlib, pathlib, stat, sys
-              expected=sys.argv[1]; vendor=pathlib.Path(sys.argv[2]); digest=hashlib.sha256()
-              for path in sorted(vendor.rglob('*')):
-                  rel=path.relative_to(vendor); mode=path.lstat().st_mode
-                  if stat.S_ISLNK(mode) or (not path.is_dir() and not stat.S_ISREG(mode)): raise SystemExit(f'forbidden vendor file type: {rel}')
-                  if path.is_dir(): continue
-                  relative=rel.as_posix().encode(); content=path.read_bytes()
-                  digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
-              observed=digest.hexdigest()
-              if observed != expected: raise SystemExit(f'vendor substrate mutated: {expected} != {observed}')
-              print('PASS: vendored dependency substrate remained immutable and regular-file-only')
-              PY
+          python3 - "$EXPECTED_VENDOR_DIGEST" /vendor <<\PY
+          import hashlib, pathlib, stat, sys
+          expected=sys.argv[1]; vendor=pathlib.Path(sys.argv[2]); digest=hashlib.sha256()
+          for path in sorted(vendor.rglob('*')):
+              rel=path.relative_to(vendor); mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode) or (not path.is_dir() and not stat.S_ISREG(mode)): raise SystemExit(f'forbidden vendor file type: {rel}')
+              if path.is_dir(): continue
+              relative=rel.as_posix().encode(); content=path.read_bytes()
+              digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
+          observed=digest.hexdigest()
+          if observed != expected: raise SystemExit(f'vendor substrate mutated: {expected} != {observed}')
+          print('PASS: vendored dependency substrate remained immutable and regular-file-only')
+          PY
           CONTAINER_SCRIPT
           if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null; then
             echo "security-kernel vendor volume cleanup failed" >&2
