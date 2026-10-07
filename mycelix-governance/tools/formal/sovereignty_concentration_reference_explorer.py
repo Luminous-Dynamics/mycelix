@@ -69,13 +69,14 @@ def step(st, kind, *args):
         J[s].add(j); EJ[s].add(j)
         if kind.endswith("-bad"): A[s].add("power-a")
 
-    elif kind in ("gatekeep", "gatekeep-bad"):
+    elif kind in ("gatekeep", "gatekeep-bad", "gatekeep-bad-review"):
         target, r = args[1], args[2]
         if target == s or r not in R[s] or r in G[s]: return None
         G[s].add(r)
         S[target] = min(MAX_SWITCHING_COST, S[target] + 1)
-        RR[target] = RR[target] or S[target] >= REVIEW_THRESHOLD
-        if kind.endswith("-bad"): A[target].add("power-a")
+        if kind != "gatekeep-bad-review":
+            RR[target] = RR[target] or S[target] >= REVIEW_THRESHOLD
+        if kind in ("gatekeep-bad",): A[target].add("power-a")
 
     elif kind in ("acquire", "acquire-bad"):
         target, r = args[1], args[2]
