@@ -46,6 +46,7 @@ VARIABLES classOf,
           disputeOpen,
           disputeResolved,
           safeState,
+          emergencyStarted,
           emergencyExpires,
           contracted,
           politicalWeight,
@@ -54,7 +55,7 @@ VARIABLES classOf,
           clock
 
 vars == <<classOf, authority, explicitGrant, capability, budget, disputeOpen,
-          disputeResolved, safeState, emergencyExpires, contracted,
+          disputeResolved, safeState, emergencyStarted, emergencyExpires, contracted,
           politicalWeight, forked, providerDependent, clock>>
 
 Init ==
@@ -66,6 +67,7 @@ Init ==
     /\ disputeOpen = [a \in Actions |-> FALSE]
     /\ disputeResolved = [a \in Actions |-> FALSE]
     /\ safeState = [a \in Actions |-> TRUE]
+    /\ emergencyStarted = [s \in Subjects |-> 0]
     /\ emergencyExpires = [s \in Subjects |-> 0]
     /\ contracted = [s \in Subjects |-> {}]
     /\ politicalWeight = [s \in Subjects |-> 1]
@@ -83,7 +85,7 @@ Develop(s, p) ==
     /\ p \notin capability[s]
     /\ capability' = [capability EXCEPT ![s] = @ \cup {p}]
     /\ UNCHANGED <<classOf, authority, explicitGrant, budget, disputeOpen,
-                    disputeResolved, safeState, emergencyExpires, contracted,
+                    disputeResolved, safeState, emergencyStarted, emergencyExpires, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -95,7 +97,7 @@ Grant(s, p) ==
     /\ authority' = [authority EXCEPT ![s] = @ \cup {p}]
     /\ explicitGrant' = [explicitGrant EXCEPT ![s] = @ \cup {p}]
     /\ UNCHANGED <<classOf, capability, budget, disputeOpen, disputeResolved,
-                    safeState, emergencyExpires, contracted, politicalWeight,
+                    safeState, emergencyStarted, emergencyExpires, contracted, politicalWeight,
                     forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -106,7 +108,7 @@ SetBudget(s, n) ==
     /\ n >= budget[s]
     /\ budget' = [budget EXCEPT ![s] = n]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     contracted, politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -117,7 +119,7 @@ OpenDispute(a) ==
     /\ disputeOpen' = [disputeOpen EXCEPT ![a] = TRUE]
     /\ disputeResolved' = [disputeResolved EXCEPT ![a] = FALSE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    safeState, emergencyExpires, contracted, politicalWeight,
+                    safeState, emergencyStarted, emergencyExpires, contracted, politicalWeight,
                     forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -128,7 +130,7 @@ SafeContinue(a) ==
     /\ ~disputeResolved[a]
     /\ safeState[a]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     contracted, politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -138,7 +140,7 @@ LeaveSafeState(a) ==
     /\ safeState[a]
     /\ safeState' = [safeState EXCEPT ![a] = FALSE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, emergencyExpires, contracted,
+                    disputeOpen, disputeResolved, emergencyStarted, emergencyExpires, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -150,7 +152,7 @@ ResolveDispute(a) ==
     /\ ~safeState[a]
     /\ disputeResolved' = [disputeResolved EXCEPT ![a] = TRUE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, safeState, emergencyExpires, contracted,
+                    disputeOpen, safeState, emergencyStarted, emergencyExpires, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -158,6 +160,7 @@ Contain(s) ==
     /\ Advanceable
     /\ s \in Subjects
     /\ clock >= emergencyExpires[s]
+    /\ emergencyStarted' = [emergencyStarted EXCEPT ![s] = NextTime]
     /\ emergencyExpires' = [emergencyExpires EXCEPT ![s] = NextTime + 2]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
                     disputeOpen, disputeResolved, safeState, contracted,
@@ -172,7 +175,7 @@ Contract(s, a) ==
     /\ Cardinality(contracted[s]) < budget[s]
     /\ contracted' = [contracted EXCEPT ![s] = @ \cup {a}]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -182,7 +185,7 @@ ProviderDependency(s) ==
     /\ ~providerDependent[s]
     /\ providerDependent' = [providerDependent EXCEPT ![s] = TRUE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     contracted, politicalWeight, forked>>
     /\ clock' = NextTime
 
@@ -192,7 +195,7 @@ Fork(s) ==
     /\ ~forked[s]
     /\ forked' = [forked EXCEPT ![s] = TRUE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     contracted, politicalWeight, providerDependent>>
     /\ clock' = NextTime
 
@@ -212,7 +215,8 @@ Next ==
 Spec == Init /\ [][Next]_vars
 
 EmergencyActive(s) ==
-    clock < emergencyExpires[s]
+    /\ emergencyStarted[s] > 0
+    /\ clock < emergencyExpires[s]
 
 TypeOK ==
     /\ classOf \in [Subjects -> Classes]
@@ -223,6 +227,7 @@ TypeOK ==
     /\ disputeOpen \in [Actions -> BOOLEAN]
     /\ disputeResolved \in [Actions -> BOOLEAN]
     /\ safeState \in [Actions -> BOOLEAN]
+    /\ emergencyStarted \in [Subjects -> Nat]
     /\ emergencyExpires \in [Subjects -> Nat]
     /\ contracted \in [Subjects -> SUBSET Actions]
     /\ politicalWeight \in [Subjects -> Nat]
@@ -239,7 +244,9 @@ SafeStateLeavesProtectedDisputeUnresolved ==
 
 EmergencyExpiryIsBounded ==
     \A s \in Subjects :
-      emergencyExpires[s] \in 0..(MaxTime + 2)
+      emergencyStarted[s] > 0 =>
+        /\ emergencyExpires[s] > emergencyStarted[s]
+        /\ emergencyExpires[s] <= emergencyStarted[s] + 2
 
 ForkWeightRemainsOne ==
     \A s \in Subjects : politicalWeight[s] = 1
