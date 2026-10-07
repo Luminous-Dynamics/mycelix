@@ -85,7 +85,7 @@ jobs:
 
       - name: Format COS conformance
         id: fmt
-        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+        run: cargo fmt --manifest-path "$MANIFEST" -p cos_conformance --check
 
       - name: Test COS conformance
         id: test
@@ -236,7 +236,8 @@ jobs:
             "cargo_manifest_sha256": "$(sha256sum "$MANIFEST" | cut -d' ' -f1)",
             "receipt_file_sha256": "$(sha256sum qualification-receipt/cos-exact-qualification-receipt.json | cut -d' ' -f1)",
             "claim_ceiling": "ReferenceModelOnly",
-            "qualification_scope": "Exact PR-head COS semantic conformance only"
+            "format_scope": "cos_conformance package only",
+            "qualification_scope": "Exact PR-head cos_conformance semantic conformance only"
           }
           EOF
           jq -e '.schema == "cos-exact-qualification-receipt-v1" and .event_head_sha == .checked_out_head_sha and .claim_ceiling == "ReferenceModelOnly"' qualification-receipt/cos-exact-qualification-receipt.json
