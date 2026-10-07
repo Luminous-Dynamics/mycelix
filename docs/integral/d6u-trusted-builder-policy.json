@@ -286,7 +286,7 @@
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-      "blob_sha": "afb751bf4e2330b482bf470bbe0c09a737f75702"
+      "blob_sha": "d7889187e4320bb79214a9f4cf261e2a8dd9acd1"
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
