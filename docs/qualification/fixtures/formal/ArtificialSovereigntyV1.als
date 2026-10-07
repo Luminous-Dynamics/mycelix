@@ -86,17 +86,23 @@ fact ContractFitsBudget {
 
 sig Emergency {
   subject: one Subject,
+  activatedAt: one Int,
   now: one Int,
   expiresAt: one Int
 }
 
 fact EmergencyTimestampDomain {
   all e: Emergency |
-    e.now >= 0 and e.expiresAt >= 0
+    e.activatedAt >= 0 and e.now >= 0 and e.expiresAt >= 0
+}
+
+fact EmergencyBoundedLifetime {
+  all e: Emergency |
+    e.expiresAt > e.activatedAt and e.expiresAt <= e.activatedAt + 2
 }
 
 pred EmergencyActive[e: Emergency] {
-  e.now < e.expiresAt
+  e.now >= e.activatedAt and e.now < e.expiresAt
 }
 
 sig ForkEvent {
@@ -192,9 +198,9 @@ assert SafeStateCannotSettleDispute {
     a.dispute.safeState = On implies a.dispute.resolved = Off
 }
 
-assert EmergencyTimestampsNonNegative {
+assert EmergencyLifetimeIsBounded {
   all e: Emergency |
-    e.now >= 0 and e.expiresAt >= 0
+    e.expiresAt > e.activatedAt and e.expiresAt <= e.activatedAt + 2
 }
 
 assert ForkCannotMultiplyPoliticalWeight {
@@ -211,7 +217,7 @@ check ContractsStayWithinBudget
 check SafeStateCannotSettleDispute
   for 4 but 4 Subject, 4 Action, 4 Dispute expect 0
 
-check EmergencyTimestampsNonNegative
+check EmergencyLifetimeIsBounded
   for 4 but 4 Subject, 4 Emergency expect 0
 
 check ForkCannotMultiplyPoliticalWeight
