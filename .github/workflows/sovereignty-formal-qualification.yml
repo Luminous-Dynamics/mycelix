@@ -80,6 +80,7 @@ jobs:
               --alloy mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als \
               --negative-tla mycelix-governance/specs/ArtificialSovereigntyV1NegativeControls.tla \
               --alloy-runner-java mycelix-governance/tools/formal/SovereigntyAlloyQualificationRunner.java \
+              --alloy-runner-class-dir "$RUNNER_TEMP/sov-formal-java" \
               --tla-jar "$RUNNER_TEMP/sov-formal-tools/tla2tools.jar" \
               --alloy-jar "$RUNNER_TEMP/sov-formal-tools/alloy.jar" \
               --evidence-dir "$RUNNER_TEMP/sov-formal-evidence" \
