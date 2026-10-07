@@ -1005,6 +1005,8 @@ def fixture_policy() -> dict[str, Any]:
             "ruleset_repository_targeting_must_be_evaluated": True,
             "repository_subject_identity_must_be_bound": True,
             "ruleset_source_scope_must_be_validated": True,
+            "ruleset_condition_schema_must_match_source_type": True,
+            "ruleset_source_identity_must_match_source_type": True,
             "effective_rule_provenance_must_be_bound": True,
             "effective_rule_definition_must_match_observed_ruleset": True,
         },
