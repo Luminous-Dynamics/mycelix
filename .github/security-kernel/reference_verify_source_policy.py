@@ -373,44 +373,46 @@ def require_no_yaml_reuse_syntax(lines_: list[str], description: str) -> None:
 def require_python_heredocs_compile(lines_: list[str], description: str) -> None:
     """Compile every Python heredoc after YAML block indentation is removed."""
     i = 0
-    run_content_indent = None
     while i < len(lines_):
         line = lines_[i]
-        if re.fullmatch(r"(?P<indent>\\s{8})run:\s*\\|?\\s*", line):
-            run_content_indent = 10
+        match = re.fullmatch(r"(?P<indent> {8})run:\s*\|?\s*", line)
+        if not match:
             i += 1
-            while i < len(lines_):
-                current = lines_[i]
-                if current.strip() and len(current) - len(current.lstrip(" ")) < run_content_indent:
-                    break
-                if "python3 -" in current and "<<" in current:
-                    j = i + 1
-                    body = []
-                    while j < len(lines_) and lines_[j].strip() != "PY":
-                        heredoc_line = lines_[j]
-                        if heredoc_line.strip():
-                            indent = len(heredoc_line) - len(heredoc_line.lstrip(" "))
-                            if indent < run_content_indent:
-                                fail(f"{description}: Python heredoc escapes YAML block indentation at line {j + 1}")
-                            body.append(heredoc_line[run_content_indent:])
-                        else:
-                            body.append("")
-                        j += 1
-                    if j >= len(lines_):
-                        fail(f"{description}: unterminated Python heredoc starting at line {i + 1}")
-                    try:
-                        compile(
-                            "\n".join(body),
-                            f"<{description}-python-heredoc-{i + 1}>",
-                            "exec",
-                        )
-                    except SyntaxError as exc:
-                        fail(f"{description}: Python heredoc syntax invalid: {exc}")
-                    i = j
-                i += 1
-            run_content_indent = None
             continue
+        content_indent = len(match.group("indent")) + 2
         i += 1
+        while i < len(lines_):
+            current = lines_[i]
+            if current.strip() and len(current) - len(current.lstrip(" ")) < content_indent:
+                break
+            if "python3 -" in current and "<<" in current:
+                j = i + 1
+                body = []
+                while j < len(lines_) and lines_[j].strip() != "PY":
+                    heredoc_line = lines_[j]
+                    if heredoc_line.strip():
+                        indent = len(heredoc_line) - len(heredoc_line.lstrip(" "))
+                        if indent < content_indent:
+                            fail(f"{description}: Python heredoc escapes YAML block indentation at line {j + 1}")
+                        body.append(heredoc_line[content_indent:])
+                    else:
+                        body.append("")
+                    j += 1
+                if j >= len(lines_):
+                    fail(f"{description}: unterminated Python heredoc starting at line {i + 1}")
+                delimiter_indent = len(lines_[j]) - len(lines_[j].lstrip(" "))
+                if delimiter_indent != content_indent:
+                    fail(f"{description}: Python heredoc delimiter indentation drift at line {j + 1}")
+                try:
+                    compile(
+                        "\n".join(body),
+                        f"<{description}-python-heredoc-{i + 1}>",
+                        "exec",
+                    )
+                except SyntaxError as exc:
+                    fail(f"{description}: Python heredoc syntax invalid: {exc}")
+                i = j
+            i += 1
 
 
 def require_following(lines_: list[str], step_name: str, expected_line: str, description: str) -> None:
