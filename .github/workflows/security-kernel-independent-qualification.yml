@@ -566,7 +566,15 @@ jobs:
                   root_permissions = [line for line in lines if line == "permissions:"]
                   assert len(root_permissions) == 1, f"candidate workflow must contain exactly one root permissions mapping: {root_permissions!r}"
                   assert not any(re.fullmatch(r"\s{2}pull_request_target:\s*.*", line) for line in lines), "candidate workflow must not contain a structural pull_request_target trigger"
-                  assert sum(line == "    runs-on: ubuntu-24.04" for line in lines) == 1, "candidate workflow must contain exactly one structural ubuntu-24.04 runner"
+                  runner_entries = [
+                      line for line in lines
+                      if re.fullmatch(r"    runs-on\s*:.*", line)
+                  ]
+                  assert runner_entries == ["    runs-on: ubuntu-24.04"], f"candidate workflow runner census mismatch: {runner_entries!r}"
+                  assert not any(
+                      re.fullmatch(r"    uses\s*:.*", line)
+                      for line in lines
+                  ), "candidate workflow must not invoke a reusable workflow at job level"
                   assert candidate_permissions(text) == [("contents: read",)]
                   steps = candidate_step_maps(text)
                   assert steps, "candidate workflow must contain at least one structural named step"
@@ -608,6 +616,30 @@ jobs:
                   pass
               else:
                   raise AssertionError("candidate structural runner parser accepted comment-only ubuntu-24.04 evidence")
+
+              mutated_extra_runner = workflow.replace(
+                  "jobs:\n",
+                  "jobs:\n  parser-runner-bypass:\n    runs-on: self-hosted\n    steps:\n      - name: Harmless parser regression\n        run: true\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_extra_runner)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural runner parser accepted an additional unsafe runner")
+
+              mutated_reusable_job = workflow.replace(
+                  "jobs:\n",
+                  "jobs:\n  parser-reusable-workflow-bypass:\n    uses: attacker/example/.github/workflows/reusable.yml@main\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_reusable_job)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural action parser accepted a job-level reusable workflow")
 
               mutated_ref = workflow.replace(
                   "          ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}\n",
