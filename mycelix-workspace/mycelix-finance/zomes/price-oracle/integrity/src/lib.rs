@@ -250,18 +250,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::ReporterAccuracy(acc) => validate_reporter_accuracy(&acc),
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             },
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
-                // Price reports are immutable once submitted
+            OpEntry::UpdateEntry { app_entry, action, .. } => match app_entry {
                 EntryTypes::PriceReport(_) => Ok(ValidateCallbackResult::Invalid(
                     "Price reports cannot be updated — submit a new report instead".into(),
                 )),
-                // Consensus entries are replaced, not updated
-                EntryTypes::PriceConsensus(consensus) => validate_consensus(&consensus),
-                // Baskets can be updated by creator
-                EntryTypes::BasketDefinition(basket) => validate_basket(&basket),
-                EntryTypes::VolatilityAlert(_) => Ok(ValidateCallbackResult::Valid),
-                // Accuracy is mutable — updated after each consensus round
-                EntryTypes::ReporterAccuracy(acc) => validate_reporter_accuracy(&acc),
+                EntryTypes::PriceConsensus(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Consensus entries are append-only; create a new consensus instead".into(),
+                )),
+                EntryTypes::BasketDefinition(basket) => validate_update_basket(action, basket),
+                EntryTypes::VolatilityAlert(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Volatility alerts are immutable".into(),
+                )),
+                EntryTypes::ReporterAccuracy(acc) => validate_update_accuracy(action, acc),
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
                     "Anchors cannot be updated".into(),
                 )),
@@ -320,6 +320,19 @@ fn validate_consensus(consensus: &PriceConsensus) -> ExternResult<ValidateCallba
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_update_basket(
+    action: Update,
+    basket: BasketDefinition,
+) -> ExternResult<ValidateCallbackResult> {
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<BasketDefinition>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode BasketDefinition predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("BasketDefinition predecessor has wrong type".into())))?;
+    if o.creator_did != basket.creator_did || o.created_at != basket.created_at {
+        return Ok(ValidateCallbackResult::Invalid("Basket creator/provenance is immutable".into()));
+    }
+    validate_basket(&basket)
+}
+
 fn validate_basket(basket: &BasketDefinition) -> ExternResult<ValidateCallbackResult> {
     if basket.name.is_empty() || basket.name.len() > MAX_BASKET_NAME_LEN {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -355,6 +368,19 @@ fn validate_basket(basket: &BasketDefinition) -> ExternResult<ValidateCallbackRe
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_accuracy(
+    action: Update,
+    acc: ReporterAccuracy,
+) -> ExternResult<ValidateCallbackResult> {
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<ReporterAccuracy>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode ReporterAccuracy predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("ReporterAccuracy predecessor has wrong type".into())))?;
+    if o.reporter_did != acc.reporter_did || acc.report_count < o.report_count || acc.updated_at < o.updated_at {
+        return Ok(ValidateCallbackResult::Invalid("ReporterAccuracy identity/provenance cannot move backwards".into()));
+    }
+    validate_reporter_accuracy(&acc)
 }
 
 fn validate_reporter_accuracy(acc: &ReporterAccuracy) -> ExternResult<ValidateCallbackResult> {
