@@ -382,7 +382,7 @@ def main() -> int:
         scope = profile["alloy"]["scope"]
         for row in rows:
             command_text = row["command"]
-            if f"for {scope["overall"]}" not in command_text:
+            if f"for {scope['overall']}" not in command_text:
                 fail("Alloy command omitted expected overall scope: " + row["label"])
             for name in ["Subject", "Power", "Provider", "Dependency", "Action", "Contract", "Budget", "Dispute", "Emergency", "ForkEvent"]:
                 token = f"{scope[name]} {name}"
