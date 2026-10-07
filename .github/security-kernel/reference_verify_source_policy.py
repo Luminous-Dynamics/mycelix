@@ -459,6 +459,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate sandbox image digest pin mismatch")
     if exact_count(l, 'TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}') != 1:
         fail("S1 trusted workflow blob input binding mismatch")
+    if exact_count(l, 'CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}') != 1:
+        fail("S1 candidate repository ID binding mismatch")
     for key, expected in (("VENDOR_RESOURCE_PROFILE", "v2"), ("VENDOR_MAX_BYTES", "1073741824"), ("VENDOR_MAX_FILES", "100000"), ("VENDOR_MAX_INODES", "150000"), ("VENDOR_TMPFS_SIZE", "1024m"), ("VENDOR_TMPFS_NR_INODES", "150000")):
         if exact_count(l, f'  {key}: "{expected}"') != 1:
             fail(f"S1 vendor resource profile mismatch: {key}")
@@ -475,6 +477,14 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 source acquisition must construct candidate staging root from the runner environment")
     if 'candidate_root="$CANDIDATE_ROOT"' in joined:
         fail("S1 source acquisition must not depend on a workflow-level runner context binding")
+    if 'python3 - "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$CANDIDATE_SHA" <<\'PY\' > "$RUNNER_TEMP/security-kernel-candidate-tree.env"' not in joined:
+        fail("S1 candidate resolution must bind repository name, repository ID, and candidate SHA together")
+    if 'assert repository_obj.get("full_name") == repository' not in joined:
+        fail("S1 candidate resolution must revalidate repository full-name identity")
+    if 'assert repository_obj.get("id") == repository_id' not in joined:
+        fail("S1 candidate resolution must revalidate repository ID identity")
+    if 'assert repository_obj.get("disabled") is not True' not in joined:
+        fail("S1 candidate resolution must reject a disabled repository")
     if 'candidate_root="$CANDIDATE_ROOT"' not in joined:
         fail("S1 candidate staging root binding missing")
     if 'test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"' not in joined:
@@ -810,6 +820,18 @@ def main() -> None:
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(VENDOR_VOLUME_RW.encode(), b'--volume "$vendor_root:/vendor:rw"', 1), s1_sha),
         "writable host-backed vendor root",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'assert repository_obj.get("id") == repository_id, "GitHub candidate repository ID changed during candidate resolution"\n',
+                b'# repository ID temporal check removed\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "candidate repository ID revalidation removed",
     )
 
     expect_rejection(
