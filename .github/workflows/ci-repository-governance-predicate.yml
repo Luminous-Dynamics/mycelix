@@ -88,6 +88,9 @@ jobs:
           assert contract["admin_observation_required_for_verified"] is True
           assert contract["secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists"] is True
           assert contract["applicable_rulesets_must_be_aggregated"] is True
+          assert contract["ruleset_repository_targeting_must_be_evaluated"] is True
+          assert contract["repository_subject_identity_must_be_bound"] is True
+          assert policy["organization_id"] == 216969177
           assert policy["fail_closed"]["contradiction_dominates_secondary_observation_unavailability"] is True
           PY
 
