@@ -2,13 +2,9 @@
 //!
 //! SHA-256 remains the supply-chain artifact subject. Holochain 0.7 WasmHash
 //! remains the native typed identity exposed by the Holochain substrate.
-//! Positive derivation delegates HoloHash construction to holo_hash 0.7.0.
+//! Positive derivation uses holo_hash's canonical typed hashing API.
 
-use bytes::Bytes;
-use holo_hash::{
-    hash_type, HashableContent, HashableContentBytes, HashableContentExt, WasmHash,
-};
-use holochain_serialized_bytes::prelude::{SerializedBytes, UnsafeBytes};
+use holo_hash::{hash_type, HashableContentExtSync, WasmHash};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -24,31 +20,6 @@ pub struct FpmWasmArtifactIdentity {
     pub holochain_profile: String,
     pub artifact_sha256: String,
     pub wasm_hash_raw_39: Vec<u8>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FpmWasmArtifact {
-    code: Bytes,
-}
-
-impl FpmWasmArtifact {
-    pub fn new(code: Vec<u8>) -> Self {
-        Self { code: code.into() }
-    }
-}
-
-impl HashableContent for FpmWasmArtifact {
-    type HashType = hash_type::Wasm;
-
-    fn hash_type(&self) -> Self::HashType {
-        hash_type::Wasm
-    }
-
-    fn hashable_content(&self) -> HashableContentBytes {
-        HashableContentBytes::Content(SerializedBytes::from(UnsafeBytes::from(
-            self.code.clone().to_vec(),
-        )))
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -96,21 +67,16 @@ pub fn validate_identity_shape(
     Ok(())
 }
 
-pub async fn derive_identity(
-    code: Vec<u8>,
+pub fn derive_identity(
+    code: &[u8],
 ) -> Result<FpmWasmArtifactIdentity, FpmArtifactIdentityError> {
-    if code.is_empty() {
-        return Err(FpmArtifactIdentityError::EmptyArtifact);
-    }
-    if code.len() > MAX_ARTIFACT_BYTES {
-        return Err(FpmArtifactIdentityError::ArtifactTooLarge);
-    }
+    validate_artifact_size(code)?;
 
-    let wasm_hash = WasmHash::with_data(&FpmWasmArtifact::new(code.clone())).await;
+    let wasm_hash = WasmHash::with_data_sync(code.to_vec());
     let identity = FpmWasmArtifactIdentity {
         schema_version: SCHEMA_VERSION.into(),
         holochain_profile: HOLOCHAIN_PROFILE.into(),
-        artifact_sha256: sha256_hex(&code),
+        artifact_sha256: sha256_hex(code),
         wasm_hash_raw_39: wasm_hash.get_raw_39().to_vec(),
     };
 
@@ -118,19 +84,13 @@ pub async fn derive_identity(
     Ok(identity)
 }
 
-pub async fn verify_approved_artifact_against_observed_wasm_hash(
+pub fn verify_approved_artifact_against_observed_wasm_hash(
     identity: &FpmWasmArtifactIdentity,
     artifact_code: &[u8],
     observed_wasm_hash_raw_39: &[u8],
 ) -> Result<(), FpmArtifactIdentityError> {
     validate_identity_shape(identity)?;
-
-    if artifact_code.is_empty() {
-        return Err(FpmArtifactIdentityError::EmptyArtifact);
-    }
-    if artifact_code.len() > MAX_ARTIFACT_BYTES {
-        return Err(FpmArtifactIdentityError::ArtifactTooLarge);
-    }
+    validate_artifact_size(artifact_code)?;
 
     if sha256_hex(artifact_code) != identity.artifact_sha256 {
         return Err(FpmArtifactIdentityError::Sha256Mismatch);
@@ -142,13 +102,23 @@ pub async fn verify_approved_artifact_against_observed_wasm_hash(
 
     let observed = WasmHash::try_from_raw_39(observed_wasm_hash_raw_39.to_vec())
         .map_err(|_| FpmArtifactIdentityError::InvalidWasmHashType)?;
-    let derived = WasmHash::with_data(&FpmWasmArtifact::new(artifact_code.to_vec())).await;
+    let derived = WasmHash::with_data_sync(artifact_code.to_vec());
 
     if observed.get_raw_39() != derived.get_raw_39() {
         return Err(FpmArtifactIdentityError::WasmHashMismatch);
     }
 
     Ok(())
+}
+
+fn validate_artifact_size(code: &[u8]) -> Result<(), FpmArtifactIdentityError> {
+    if code.is_empty() {
+        Err(FpmArtifactIdentityError::EmptyArtifact)
+    } else if code.len() > MAX_ARTIFACT_BYTES {
+        Err(FpmArtifactIdentityError::ArtifactTooLarge)
+    } else {
+        Ok(())
+    }
 }
 
 fn is_canonical_sha256(value: &str) -> bool {
@@ -166,48 +136,46 @@ mod tests {
         b"(module (func (export \"verify\")))".to_vec()
     }
 
-    #[tokio::test]
-    async fn exact_identity_is_derived_from_exact_bytes() {
+    #[test]
+    fn exact_identity_is_derived_from_exact_bytes() {
         let code = artifact();
-        let identity = derive_identity(code.clone()).await.unwrap();
+        let identity = derive_identity(&code).unwrap();
 
         assert_eq!(identity.artifact_sha256, sha256_hex(&code));
         assert_eq!(identity.wasm_hash_raw_39.len(), HOLOHASH_RAW_39_LEN);
         assert!(validate_identity_shape(&identity).is_ok());
     }
 
-    #[tokio::test]
-    async fn one_byte_mutation_changes_both_identity_domains() {
+    #[test]
+    fn one_byte_mutation_changes_both_identity_domains() {
         let code = artifact();
-        let identity = derive_identity(code.clone()).await.unwrap();
+        let identity = derive_identity(&code).unwrap();
 
         let mut mutated = code;
         mutated[10] ^= 0x01;
-        let other = derive_identity(mutated).await.unwrap();
+        let other = derive_identity(&mutated).unwrap();
 
         assert_ne!(identity.artifact_sha256, other.artifact_sha256);
         assert_ne!(identity.wasm_hash_raw_39, other.wasm_hash_raw_39);
     }
 
-    #[tokio::test]
-    async fn exact_observed_hash_qualifies() {
+    #[test]
+    fn exact_observed_hash_qualifies() {
         let code = artifact();
-        let identity = derive_identity(code.clone()).await.unwrap();
+        let identity = derive_identity(&code).unwrap();
 
         verify_approved_artifact_against_observed_wasm_hash(
             &identity,
             &code,
             &identity.wasm_hash_raw_39,
         )
-        .await
         .unwrap();
     }
 
-    #[tokio::test]
-    async fn substituted_sha256_denies_even_with_correct_wasm_hash() {
+    #[test]
+    fn substituted_sha256_denies_even_with_correct_wasm_hash() {
         let code = artifact();
-        let identity = derive_identity(code.clone()).await.unwrap();
-
+        let identity = derive_identity(&code).unwrap();
         let mut changed = identity.clone();
         changed.artifact_sha256 = sha256_hex(b"different artifact");
 
@@ -217,19 +185,16 @@ mod tests {
                 &code,
                 &identity.wasm_hash_raw_39,
             )
-            .await
             .unwrap_err(),
             FpmArtifactIdentityError::Sha256Mismatch
         );
     }
 
-    #[tokio::test]
-    async fn substituted_wasm_hash_denies_even_with_correct_sha256() {
+    #[test]
+    fn substituted_wasm_hash_denies_even_with_correct_sha256() {
         let code = artifact();
-        let identity = derive_identity(code.clone()).await.unwrap();
-        let other = derive_identity(b"(module (func (export \"other\")))".to_vec())
-            .await
-            .unwrap();
+        let identity = derive_identity(&code).unwrap();
+        let other = derive_identity(b"(module (func (export \"other\")))").unwrap();
 
         assert_eq!(
             verify_approved_artifact_against_observed_wasm_hash(
@@ -237,34 +202,32 @@ mod tests {
                 &code,
                 &other.wasm_hash_raw_39,
             )
-            .await
             .unwrap_err(),
             FpmArtifactIdentityError::WasmHashMismatch
         );
     }
 
-    #[tokio::test]
-    async fn malformed_wasm_hash_denies() {
+    #[test]
+    fn malformed_wasm_hash_denies() {
         let code = artifact();
-        let identity = derive_identity(code.clone()).await.unwrap();
+        let identity = derive_identity(&code).unwrap();
 
         let mut bad = identity.wasm_hash_raw_39.clone();
         bad.pop();
 
         assert_eq!(
             verify_approved_artifact_against_observed_wasm_hash(&identity, &code, &bad)
-                .await
                 .unwrap_err(),
             FpmArtifactIdentityError::InvalidWasmHashLength
         );
     }
 
-    #[tokio::test]
-    async fn mismatched_pair_cannot_qualify() {
+    #[test]
+    fn mismatched_pair_cannot_qualify() {
         let left = b"(module (func (export \"left\")))".to_vec();
         let right = b"(module (func (export \"right\")))".to_vec();
-        let left_identity = derive_identity(left.clone()).await.unwrap();
-        let right_identity = derive_identity(right).await.unwrap();
+        let left_identity = derive_identity(&left).unwrap();
+        let right_identity = derive_identity(&right).unwrap();
 
         assert_eq!(
             verify_approved_artifact_against_observed_wasm_hash(
@@ -272,9 +235,21 @@ mod tests {
                 &left,
                 &right_identity.wasm_hash_raw_39,
             )
-            .await
             .unwrap_err(),
             FpmArtifactIdentityError::WasmHashMismatch
+        );
+    }
+
+    #[test]
+    fn empty_and_oversized_artifacts_are_rejected() {
+        assert_eq!(
+            derive_identity(&[]).unwrap_err(),
+            FpmArtifactIdentityError::EmptyArtifact
+        );
+        let oversized = vec![0u8; MAX_ARTIFACT_BYTES + 1];
+        assert_eq!(
+            derive_identity(&oversized).unwrap_err(),
+            FpmArtifactIdentityError::ArtifactTooLarge
         );
     }
 
