@@ -37,13 +37,13 @@ def step(st, kind, *args):
         role = args[1]
         if s not in SUBJECTS or role not in ROLES or s in H[role]:
             return None
+        current_critical = sum(s in H[r] for r in CRITICAL)
+        if kind == "assign" and role in CRITICAL:
+            if current_critical >= 1 and not F[s]:
+                return None
+            if current_critical >= 2 and not R[s]:
+                return None
         H[role].add(s)
-        critical_count = sum(s in H[r] for r in CRITICAL)
-        if kind == "assign" and critical_count >= 2:
-            F[s] = F[s] or False
-        if kind == "assign-bad":
-            F[s] = F[s]
-            R[s] = R[s]
     elif kind == "finding":
         if F[s]:
             return None
@@ -99,7 +99,7 @@ def main():
     print("CANONICAL PASS: no bounded role-concentration invariant violation through depth 4")
     for kind, target in [
         ("assign", "RoleConcentrationRequiresFinding"),
-        ("finding", "ExternalReviewRequiredForFullControlConcentration"),
+        ("assign-full-control", "ExternalReviewRequiredForFullControlConcentration"),
     ]:
         path, bad = explore(weaken(kind))
         assert path is not None and target in bad, (kind, path, bad)
