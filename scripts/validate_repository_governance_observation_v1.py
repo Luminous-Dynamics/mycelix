@@ -1316,7 +1316,7 @@ def self_test(policy: dict[str, Any]) -> None:
     else:
         raise AssertionError("missing bypass enumeration must be rejected")
 
-    x = copy.deepcopy(fixture_observation(policy))
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["rules"][0]["parameters"]["required_approving_review_count"] = True
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
