@@ -1309,7 +1309,7 @@ def test_lockfile_format_version_is_pinned() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "Cargo.lock"
         path.write_text(
-            'version = 3\\n\n[[package]]\\nname = "d6u-runtime-harness"\\nversion = "0.1.0"\\n',
+            'version = 3\n\n[[package]]\nname = "d6u-runtime-harness"\nversion = "0.1.0"\n',
             encoding="utf-8",
         )
         assert_rejected(
