@@ -576,6 +576,41 @@ def require_exact_run_sequence(
     window = len(expected)
     if sum(1 for i in range(0, len(actual) - window + 1) if tuple(actual[i:i + window]) == expected) != 1:
         fail(f"{description}: expected exact run sequence is missing or duplicated")
+
+def require_exact_run_prefix_boundary(
+    lines_: list[str],
+    step_name: str,
+    expected_prefix: tuple[str, ...],
+    expected_following: tuple[str, ...],
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    start = matches[0]
+    run_indexes = []
+    for i in range(start + 1, len(lines_)):
+        if lines_[i].strip() == "run: |" and len(lines_[i]) - len(lines_[i].lstrip(" ")) == 8:
+            run_indexes.append(i)
+        if re.fullmatch(r"\s{6}- name: .+", lines_[i]):
+            break
+    if len(run_indexes) != 1:
+        fail(f"{description}: expected exactly one run mapping under {step_name!r}")
+    actual = []
+    for line in lines_[run_indexes[0] + 1:]:
+        if re.fullmatch(r"\s{6}- name: .+", line):
+            break
+        if line and len(line) - len(line.lstrip(" ")) < 10:
+            fail(f"{description}: unexpected run indentation: {line!r}")
+        actual.append(line[10:] if line else "")
+    if tuple(actual[:len(expected_prefix)]) != expected_prefix:
+        fail(f"{description}: exact runtime guard prefix drifted")
+    cursor = len(expected_prefix)
+    while cursor < len(actual) and not actual[cursor].strip():
+        cursor += 1
+    if tuple(actual[cursor:cursor + len(expected_following)]) != expected_following:
+        fail(f"{description}: unexpected command inserted at the guarded boundary")
+
 def require_exact_run_prefix(
     lines_: list[str],
     step_name: str,
@@ -1092,7 +1127,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     ),
         "S0 resolver output-producer binding",
     )
-    require_exact_run_prefix(
+    require_exact_run_prefix_boundary(
         l,
         "Verify trusted dispatcher context and exact PR identity",
         (
@@ -1113,7 +1148,8 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
             "test \"$BASE_BRANCH_EVENT\" = \"$BASE_BRANCH\"",
             "test -n \"$HEAD_REPOSITORY\"",
         ),
-        "S0 runtime guard prefix",
+        ("python3 - <<'PY'",),
+        "S0 runtime guard prefix and first network-boundary command",
     )
     require_exact_root_scalar(l, "name", "Security Kernel Qualification — Trusted Dispatcher", S0)
     require_exact_root_scalar(
@@ -1185,7 +1221,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
 def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     l = lines(raw)
     require_exact_top_level_keys(l, ("name", "on", "permissions", "cache-mode", "concurrency", "env", "jobs"), S1)
-    require_exact_run_prefix(
+    require_exact_run_prefix_boundary(
         l,
         "Verify trusted pull-request-target invocation",
         (
@@ -1216,7 +1252,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             "test \"$HEAD_REPOSITORY_ID\" = \"$CANDIDATE_REPOSITORY_ID\"",
             "test \"$CALLED_WORKFLOW_SHA\" = \"$WORKFLOW_SHA\"",
         ),
-        "S1 runtime guard prefix",
+        ("python3 - <<'PY'",),
+        "S1 runtime guard prefix and first network-boundary command",
     )
     require_exact_root_scalar(l, "name", "Security Kernel Independent Qualification", S1)
     if exact_count(l, "name: Security Kernel Independent Qualification") != 1:
@@ -2010,7 +2047,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
 def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_execution_sha: str, expected_policy_sha: str) -> None:
     l = lines(raw)
     require_exact_top_level_keys(l, ("name", "on", "permissions", "concurrency", "env", "jobs"), S2)
-    require_exact_run_prefix(
+    require_exact_run_prefix_boundary(
         l,
         "Verify trusted dispatcher, reusable S1, and qualification gates",
         (
@@ -2039,7 +2076,11 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
             "git fetch --no-tags origin \"refs/heads/main:refs/remotes/origin/main\"",
             "git merge-base --is-ancestor \"$GITHUB_WORKFLOW_SHA\" \"refs/remotes/origin/main\"",
         ),
-        "S2 runtime guard prefix",
+        (
+            'export WORKFLOW_BLOB_SHA="$workflow_blob_sha"',
+            "python3 - <<'PY'",
+        ),
+        "S2 runtime guard prefix and first network-boundary commands",
     )
     require_exact_root_scalar(l, "name", "Security Kernel Qualification — Trusted Result Verifier", S2)
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
@@ -2878,6 +2919,45 @@ def main() -> None:
         ),
         "S2 inserted runtime command before network call",
     )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'          test -n "$HEAD_REPOSITORY"\n',
+                b'          test -n "$HEAD_REPOSITORY"\n          echo "mutated-runtime-boundary"\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 command inserted before API boundary",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"\n',
+                b'          test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"\n          echo "mutated-runtime-boundary"\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 command inserted before API boundary",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'          git merge-base --is-ancestor "$GITHUB_WORKFLOW_SHA" "refs/remotes/origin/main"\n',
+                b'          git merge-base --is-ancestor "$GITHUB_WORKFLOW_SHA" "refs/remotes/origin/main"\n          echo "mutated-runtime-boundary"\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 command inserted before verifier-boundary commands",
+    )
+
     expect_rejection(
         lambda: verify_s1(
             raw["s1"].replace(
