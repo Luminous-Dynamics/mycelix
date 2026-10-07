@@ -45,6 +45,7 @@
     "ruleset_source_scope_must_be_validated": true,
     "ruleset_condition_schema_must_match_source_type": true,
     "ruleset_source_identity_must_match_source_type": true,
+    "github_ref_pattern_pathname_semantics_must_be_bound": true,
     "effective_rule_provenance_must_be_bound": true,
     "effective_rule_definition_must_match_observed_ruleset": true
   },
