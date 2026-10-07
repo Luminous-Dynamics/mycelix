@@ -306,6 +306,15 @@ pub fn check_update_proposal(original: &Proposal, updated: &Proposal) -> Result<
     if updated.author != original.author {
         return Err("Cannot change proposal author".into());
     }
+    if updated.created != original.created {
+        return Err("Cannot change proposal creation time".into());
+    }
+    if updated.voting_starts != original.voting_starts {
+        return Err("Cannot change proposal voting start after creation".into());
+    }
+    if updated.voting_ends != original.voting_ends {
+        return Err("Cannot change proposal voting end after creation".into());
+    }
     if updated.status != original.status {
         let valid = matches!(
             (&original.status, &updated.status),
@@ -332,9 +341,10 @@ pub fn check_update_proposal(original: &Proposal, updated: &Proposal) -> Result<
         && (updated.title != original.title
             || updated.description != original.description
             || updated.actions != original.actions
-            || updated.proposal_type != original.proposal_type)
+            || updated.proposal_type != original.proposal_type
+            || updated.discussion_url != original.discussion_url)
     {
-        return Err("Cannot modify proposal content after leaving Draft status".into());
+        return Err("Cannot modify proposal semantic content after leaving Draft status".into());
     }
     if updated.version != original.version + 1 {
         return Err("Version must be incremented by 1".into());
@@ -492,11 +502,17 @@ fn validate_create_proposal(
 
 /// Validate proposal update
 fn validate_update_proposal(
-    _action: Update,
+    action: Update,
     proposal: Proposal,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
     let original_record = must_get_valid_record(original_action_hash)?;
+
+    if action.author() != original_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original proposal author may update the proposal".into(),
+        ));
+    }
     let original_proposal: Proposal = original_record
         .entry()
         .to_app_option()
@@ -623,6 +639,31 @@ mod tests {
             updated: ts(1000000),
             version: 1,
         }
+    }
+
+    #[test]
+    fn test_proposal_temporal_fields_are_immutable_after_creation() {
+        let original = valid_proposal();
+        let mut changed_start = original.clone();
+        changed_start.voting_starts = ts(4_000_000);
+        assert!(check_update_proposal(&original, &changed_start).is_err());
+
+        let mut changed_end = original.clone();
+        changed_end.voting_ends = ts(5_000_000);
+        assert!(check_update_proposal(&original, &changed_end).is_err());
+
+        let mut changed_created = original.clone();
+        changed_created.created = ts(9_000_000);
+        assert!(check_update_proposal(&original, &changed_created).is_err());
+    }
+
+    #[test]
+    fn test_proposal_discussion_url_is_immutable_after_draft() {
+        let mut original = valid_proposal();
+        original.status = ProposalStatus::Active;
+        let mut changed = original.clone();
+        changed.discussion_url = Some("https://example.invalid/changed".into());
+        assert!(check_update_proposal(&original, &changed).is_err());
     }
 
     #[test]
