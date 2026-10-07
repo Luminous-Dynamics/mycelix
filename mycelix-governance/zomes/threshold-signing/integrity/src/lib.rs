@@ -474,12 +474,11 @@ pub fn check_committee_update_validity(
     original: &SigningCommittee,
     updated: &SigningCommittee,
 ) -> Result<(), String> {
+    // Committee identity and policy material is immutable from creation onward.
     if updated.id != original.id
         || updated.name != original.name
         || updated.threshold != original.threshold
         || updated.member_count != original.member_count
-        || updated.public_key != original.public_key
-        || updated.commitments != original.commitments
         || updated.scope != original.scope
         || updated.created_at != original.created_at
         || updated.epoch != original.epoch
@@ -488,8 +487,7 @@ pub fn check_committee_update_validity(
         || updated.pq_required != original.pq_required
     {
         return Err(
-            "Committee authorization material is immutable; only lifecycle phase/active may change"
-                .into(),
+            "Committee identity/policy material is immutable after creation".into(),
         );
     }
 
@@ -511,8 +509,27 @@ pub fn check_committee_update_validity(
         ));
     }
 
+    // DKG material may converge before completion, but once Complete has been
+    // reached it becomes part of the authorization root and can never change.
+    if matches!(original.phase, DkgPhase::Complete | DkgPhase::Disbanded)
+        && (updated.public_key != original.public_key
+            || updated.commitments != original.commitments)
+    {
+        return Err(
+            "Completed committee cryptographic material is immutable".into(),
+        );
+    }
+
     if updated.phase == DkgPhase::Disbanded && updated.active {
         return Err("Disbanded committee cannot remain active".into());
+    }
+
+    if updated.active && matches!(updated.phase, DkgPhase::Disbanded) {
+        return Err("Disbanded committee cannot be active".into());
+    }
+
+    if !updated.active && !matches!(updated.phase, DkgPhase::Disbanded) {
+        return Err("Inactive committee must be Disbanded".into());
     }
 
     if updated.phase == DkgPhase::Complete {
