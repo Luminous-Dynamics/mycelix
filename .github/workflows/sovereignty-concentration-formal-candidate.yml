@@ -1,0 +1,66 @@
+name: Sovereignty concentration formal candidate
+
+on:
+  push:
+    branches: [sov-ai-formal-v3-concentration-subject]
+    paths:
+      - 'mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.tla'
+      - 'mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.cfg'
+      - 'mycelix-governance/specs/ArtificialSovereigntyConcentrationV1NegativeControls.tla'
+      - 'mycelix-governance/specs/alloy/ArtificialSovereigntyConcentrationV1.als'
+      - 'mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py'
+      - 'docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json'
+      - 'docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json'
+      - '.github/workflows/sovereignty-concentration-formal-candidate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: \${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "\${{ github.sha }}"
+
+      - name: Validate candidate contracts
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json >/dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          profile=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json").read_text())
+          crosswalk=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json").read_text())
+          assert profile["status"] == "candidate-verification-profile"
+          assert profile["authority"] == "non-authoritative"
+          assert profile["semantic_subject"]["head_sha"] == "\${{ github.sha }}"
+          assert crosswalk["formal_subject_head"] == "\${{ github.sha }}"
+          assert crosswalk["formal_subject_tree"] == profile["semantic_subject"]["tree_sha"]
+          print("CANDIDATE CONTRACT PASS: exact subject identity and non-authoritative boundary")
+          PY
+
+      - name: Run bounded reference oracle
+        run: |
+          set -euo pipefail
+          python3 mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py
+
+      - name: Candidate nonclaim gate
+        run: |
+          set -euo pipefail
+          test "$(git status --porcelain)" = ""
+          echo "NON-AUTHORITATIVE: bounded concentration candidate evidence only"
