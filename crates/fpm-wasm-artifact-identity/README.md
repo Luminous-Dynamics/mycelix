@@ -12,7 +12,7 @@ For the Holochain side, the crate delegates to `holo_hash = 0.7.0` and its typed
 
 The test suite contains an independent cross-check against Holochain 0.7's `DnaWasm` implementation: `holochain_raw_byte_derivation_matches_canonical_dna_wasm`. That test exists specifically to prevent a future change in the helper's byte-to-`SerializedBytes` conversion from silently changing the hash domain.
 
-The current upstream reference audited for that canonical definition is Holochain commit `6308d28224a319546e2bb02c90e26c5c9ca10f37`. The production crate does not depend on the Holochain conductor/types crate; the canonical implementation is used only as a test oracle.
+The The exact upstream release reference is Holochain tag `holochain-0.7.0`, resolving to commit `84cdce7d4df17b95189324d5cecc3f1bfd5db30f`. The production crate does not depend on the Holochain conductor/types crate; the canonical implementation is used only as a test oracle.
 
 For the supply-chain side, the crate independently computes SHA-256 over those same bytes.
 
