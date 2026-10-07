@@ -97,7 +97,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 57
+    assert policy["policy_version"] == 58
     assert policy["repository_identity"] == {
         "full_name": "Luminous-Dynamics/mycelix",
         "repository_id": 1176351975,
@@ -193,6 +193,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["trusted_attestation_verifier"]["blob_sha"] == policy["trusted_programs"][
         "scripts/integral/verify_d6u_trusted_attestation.py"
     ]["blob_sha"]
+    assert policy["attestation_verification"]["max_report_bytes"] == 4194304
     assert policy["attestation_verification"]["predicate_type"] == (
         "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1"
     )
@@ -660,6 +661,7 @@ def test_retention_workflow_bounds_inputs_before_verification() -> None:
         Path(__file__).parents[2]
         / ".github/workflows/d6u-trusted-evidence-attestation.yml"
     ).read_text(encoding="utf-8")
+    assert 'wc -c < "$report")" -le 4194304' in workflow
     assert 'wc -c < "$retention_dir/trusted_root.jsonl")" -le 2097152' in workflow
     assert 'wc -l < "$retention_dir/trusted_root.jsonl")" -le 64' in workflow
     assert 'wc -c < "$bundle")" -le 4194304' in workflow
