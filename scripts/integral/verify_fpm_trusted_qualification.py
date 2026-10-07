@@ -180,6 +180,7 @@ def verify_receipt(
     policy_file: dict[str, Any],
     verifier_control: dict[str, Any],
     candidate_lock: dict[str, Any],
+    main_ref: dict[str, Any],
 ) -> tuple[str, str, str]:
     if set(receipt) != RECEIPT_KEYS:
         fail(
@@ -213,6 +214,9 @@ def verify_receipt(
     require_hex(receipt["base_sha"], 40, "base_sha")
     if receipt["base_sha"] != pr["base"]["sha"]:
         fail("receipt base SHA mismatch")
+    if main_ref.get("ref") != "refs/heads/main":
+        fail("live main ref does not name refs/heads/main")
+    main_sha = require_hex(main_ref.get("object", {}).get("sha"), 40, "live main ref SHA")
 
     policy_sha = require_hex(receipt["trusted_policy_sha"], 40, "trusted_policy_sha")
     if policy_sha != trusted_run.get("head_sha"):
@@ -428,6 +432,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     policy_file = json.loads((snapshot_dir / "policy-file.json").read_text(encoding="utf-8"))
     verifier_control = json.loads((snapshot_dir / "verifier-control.json").read_text(encoding="utf-8"))
     candidate_lock = json.loads((snapshot_dir / "candidate-lock.json").read_text(encoding="utf-8"))
+    main_ref = json.loads((snapshot_dir / "main-ref.json").read_text(encoding="utf-8"))
     artifacts = json.loads((snapshot_dir / "artifacts.json").read_text(encoding="utf-8"))
 
     artifact_items = artifacts.get("artifacts")
@@ -498,6 +503,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         policy_file=policy_file,
         verifier_control=verifier_control,
         candidate_lock=candidate_lock,
+        main_ref=main_ref,
     )
 
     verify_index(
@@ -517,6 +523,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         pr["state"] == "open"
         and pr["draft"] is False
         and pr["head"]["sha"] == receipt_subject
+        and pr["base"]["sha"] == main_sha
     )
 
     return {

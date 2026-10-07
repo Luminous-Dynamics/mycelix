@@ -116,6 +116,7 @@ def snapshot(root: Path) -> None:
         "subject-commit.json": commit, "manifest.json": manifest,
         "policy-file.json": policy, "verifier-control.json": control,
         "candidate-lock.json": {"mode": "generated_for_run"},
+        "main-ref.json": {"ref": "refs/heads/main", "object": {"sha": BASE}},
     }
     for name, value in files.items():
         write(root / name, value)
@@ -217,6 +218,23 @@ def main() -> None:
         ) + b"\n"
         (root / "qualification-receipt.json").write_bytes(duplicate)
         assert run(root).returncode != 0, "duplicate JSON key accepted"
+
+        fresh = mutated_case(
+            root,
+            "pull-request.json",
+            lambda x: (x.__setitem__("state", "open"), x.__setitem__("draft", False)),
+        )
+        try:
+            (fresh / "main-ref.json").write_bytes(
+                cjson({"ref": "refs/heads/main", "object": {"sha": "a" * 40}}) + b"\n"
+            )
+            result = run(fresh)
+            assert result.returncode == 0, result.stderr + result.stdout
+            verified = json.loads(result.stdout)
+            assert verified["historical_qualification_valid"] is True
+            assert verified["current_promotion_eligible"] is False
+        finally:
+            shutil.rmtree(fresh)
 
         snapshot(root)
         raw = (root / "qualification-receipt.json").read_bytes()

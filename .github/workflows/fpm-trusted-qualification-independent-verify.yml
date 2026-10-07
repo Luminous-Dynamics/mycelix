@@ -274,6 +274,7 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" > snapshot/candidate-run.json
           gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > snapshot/pull-request.json
           gh api "repos/${GITHUB_REPOSITORY}/commits/${SUBJECT_SHA}" > snapshot/subject-commit.json
+          gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" > snapshot/main-ref.json
           gh api "repos/${GITHUB_REPOSITORY}/contents/crates/fpm-wasm-artifact-identity/Cargo.toml?ref=${SUBJECT_SHA}" > snapshot/manifest.json
           gh api "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/fpm-trusted-qualification.yml?ref=${POLICY_SHA}" > snapshot/policy-file.json
           if [ "$LOCK_MODE" = "tracked" ]; then
