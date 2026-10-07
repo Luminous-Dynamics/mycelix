@@ -293,13 +293,16 @@ def main() -> None:
         shutil.rmtree(evidence_dir, ignore_errors=True)
         subprocess.run(["git", "checkout", "--", "."], cwd=tmp, check=True)
 
-        replace_file(
-            tmp / "mycelix-governance/tools/formal/qualify_sovereignty_formal.py",
-            lambda value: value.replace(
-                '    if actual != expected:\n        fail(f"{label} blob mismatch: expected {expected}, got {actual}")',
-                '    if False:\n        fail(f"{label} blob mismatch: expected {expected}, got {actual}")',
-            ),
-        )
+        verifier_path = tmp / "mycelix-governance/tools/formal/qualify_sovereignty_formal.py"
+        verifier_before = verifier_path.read_text(encoding="utf-8")
+        original_guard = '    if actual != expected:\n        fail(f"{label} blob mismatch: expected {expected}, got {actual}")'
+        weakened_guard = '    if False:\n        fail(f"{label} blob mismatch: expected {expected}, got {actual}")'
+        if verifier_before.count(original_guard) != 1:
+            raise AssertionError("verifier-code mutation target is absent or ambiguous")
+        verifier_after = verifier_before.replace(original_guard, weakened_guard)
+        if original_guard in verifier_after or verifier_after.count(weakened_guard) != 1:
+            raise AssertionError("verifier-code mutation was not applied exactly once")
+        verifier_path.write_text(verifier_after, encoding="utf-8")
         replace_file(
             tmp / "docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla",
             lambda value: value + "\n(* verifier-code mutation target *)\n",
