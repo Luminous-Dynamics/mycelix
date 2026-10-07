@@ -1,0 +1,392 @@
+name: Finance Exact-Head Qualification
+
+on:
+  workflow_run:
+    workflows: ["Finance Qualification Request"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Same-repository PR to qualify"
+        required: true
+        type: string
+      expected_head_sha:
+        description: "Exact PR head SHA to qualify"
+        required: true
+        type: string
+
+permissions: {}
+
+# Independent qualification evidence must never be superseded by generic PR CI.
+concurrency:
+  group: finance-exact-head-qualification-${{ github.event.workflow_run.pull_requests[0].head.sha || github.event.inputs.expected_head_sha || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    name: Qualify exact Finance subject
+    if: >-
+      ${{ (github.event_name == 'workflow_run' &&
+            github.event.workflow_run.conclusion == 'success' &&
+            github.event.workflow_run.event == 'pull_request' &&
+            github.event.workflow_run.pull_requests[0].head.repo.full_name == github.repository &&
+            github.event.workflow_run.pull_requests[0].base.ref == 'main') ||
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Always take the verifier from the repository's default branch.
+          # Manual dispatch must not be able to select an untrusted workflow ref.
+          ref: refs/heads/main
+          clean: true
+          persist-credentials: false
+
+      - name: Capture trusted verifier identity
+        id: trusted
+        run: |
+          set -euo pipefail
+          trusted_sha="$(git rev-parse HEAD)"
+          workflow_blob="$(git rev-parse HEAD:.github/workflows/finance-exact-head-qualification.yml)"
+          printf 'trusted_workflow_sha=%s\n' "${trusted_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'trusted_workflow_ref=refs/heads/main\n' >> "${GITHUB_OUTPUT}"
+          printf 'trusted_workflow_blob_sha=%s\n' "${workflow_blob}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate immutable action pins and workflow shape
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path(".github/workflows/finance-exact-head-qualification.yml")
+          text = path.read_text()
+
+          refs = re.findall(r"uses:\s*([^@\s]+)@([^\s#]+)", text)
+          assert refs, "no third-party actions discovered"
+          for action, ref in refs:
+              assert re.fullmatch(r"[0-9a-f]{40}", ref), (
+                  f"action is not pinned to a full SHA: {action}@{ref}"
+              )
+
+          expected = {
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "dtolnay/rust-toolchain": "7e38f4b43b4db5c8dd498af069a4f6196df1d067",
+              "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+          }
+          for action, ref in refs:
+              assert expected.get(action) == ref, f"unexpected action pin: {action}@{ref}"
+
+          assert text.count("workflow_dispatch:") == 1
+          assert text.count("workflow_run:") == 1
+          assert text.count("name: Resolve exact qualification subject") == 1
+          assert text.count("name: Revalidate live PR subject") == 1
+          assert text.count("name: Capture trusted substrate policy") == 1
+          assert "RUNNER_TEMP" in text
+          assert "ref: refs/heads/main" in text
+          assert "github.ref == 'refs/heads/main'" in text
+          assert text.count("name: Checkout exact PR head") == 1
+          assert text.count("id: checkout") == 1
+          assert text.count("id: artifact_guard") == 1
+          assert text.count("id: tree_immutability") == 1
+          assert text.count("name: Emit qualification receipt") == 1
+          assert text.count("name: Upload immutable qualification evidence") == 1
+          assert "docs/integral/finance-substrate-policy.json" in text
+          assert text.count("name: Classify exact Finance substrate") == 1
+          assert "cancel-in-progress: false" in text
+          PY
+
+      - name: Capture trusted substrate policy
+        id: trusted_policy
+        run: |
+          set -euo pipefail
+          trusted_policy="${RUNNER_TEMP}/finance-substrate-policy.json"
+          test -f docs/integral/finance-substrate-policy.json
+          cp docs/integral/finance-substrate-policy.json "${trusted_policy}"
+          printf 'trusted_policy_path=%s\n' "${trusted_policy}" >> "${GITHUB_OUTPUT}"
+          printf 'trusted_policy_sha256=%s\n' "$(sha256sum "${trusted_policy}" | awk '{print $1}')" >> "${GITHUB_OUTPUT}"
+
+      - name: Resolve exact qualification subject
+        id: subject
+        env:
+          EVENT_PR_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number || github.event.workflow_run.pull_requests[0].number || '' }}
+          EVENT_REQUESTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.expected_head_sha || github.event.workflow_run.pull_requests[0].head.sha || '' }}
+          EVENT_BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha || '' }}
+        run: |
+          set -euo pipefail
+
+          pr_number="${EVENT_PR_NUMBER}"
+          expected_head_sha="${EVENT_REQUESTED_HEAD_SHA}"
+          base_sha="${EVENT_BASE_SHA}"
+
+          printf '%s\n' "${pr_number}" | grep -Eq '^[0-9]+$'
+          printf '%s\n' "${expected_head_sha}" | grep -Eq '^[0-9a-f]{40}$'
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")"
+            api_head_sha="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["head"]["sha"])')"
+            api_head_repo="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["head"]["repo"]["full_name"])')"
+            api_base_ref="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["base"]["ref"])')"
+            base_sha="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["base"]["sha"])')"
+
+            test "${api_head_sha}" = "${expected_head_sha}"
+            test "${api_head_repo}" = "${GITHUB_REPOSITORY}"
+            test "${api_base_ref}" = "main"
+            resolution_mode=workflow_dispatch
+          else
+            resolution_mode=workflow_run
+            printf '%s\n' "${base_sha}" | grep -Eq '^[0-9a-f]{40}$'
+            request_head_repo="${{ github.event.workflow_run.pull_requests[0].head.repo.full_name }}"
+            request_base_ref="${{ github.event.workflow_run.pull_requests[0].base.ref }}"
+            test "${request_head_repo}" = "${GITHUB_REPOSITORY}"
+            test "${request_base_ref}" = "main"
+          fi
+
+          printf 'pr_number=%s\n' "${pr_number}" >> "${GITHUB_OUTPUT}"
+          printf 'expected_head_sha=%s\n' "${expected_head_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'base_sha=%s\n' "${base_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'resolution_mode=%s\n' "${resolution_mode}" >> "${GITHUB_OUTPUT}"
+
+      - name: Revalidate live PR subject
+        id: live_pr
+        env:
+          PR_NUMBER: ${{ steps.subject.outputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ steps.subject.outputs.expected_head_sha }}
+        run: |
+          set -euo pipefail
+          pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          state="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+          draft="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["draft"]).lower())')"
+          base_ref="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["base"]["ref"])')"
+          head_sha="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["head"]["sha"])')"
+          head_repo="$(printf '%s' "${pr_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["head"]["repo"]["full_name"])')"
+
+          test "${state}" = "open"
+          test "${draft}" = "false"
+          test "${base_ref}" = "main"
+          test "${head_repo}" = "${GITHUB_REPOSITORY}"
+          test "${head_sha}" = "${EXPECTED_HEAD_SHA}"
+          printf 'live_head_sha=%s
+' "${head_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'live_state=%s
+' "${state}" >> "${GITHUB_OUTPUT}"
+          printf 'live_draft=%s
+' "${draft}" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.subject.outputs.expected_head_sha }}
+          clean: true
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert exact PR-head checkout
+        id: checkout
+        run: |
+          set -euo pipefail
+          git clean -ffdx
+          actual_head_sha="$(git rev-parse HEAD)"
+          expected_tree_sha="$(git rev-parse HEAD^{tree})"
+          test "${actual_head_sha}" = "${{ steps.subject.outputs.expected_head_sha }}"
+          printf 'tested_head_sha=%s\n' "${actual_head_sha}" >> "${GITHUB_OUTPUT}"
+          printf 'subject_tree_sha=%s\n' "${expected_tree_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Assert no tracked Finance Python environments
+        id: artifact_guard
+        run: |
+          set -euo pipefail
+          forbidden="$(git ls-tree -r --name-only HEAD | grep -E '^mycelix-finance/(\.venv|venv|env)(/|$)' || true)"
+          test -z "${forbidden}"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # pinned action commit
+        with:
+          toolchain: 1.96.1
+          components: rustfmt
+
+      - name: Assert Rust identity
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
+          test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+
+      - name: Classify exact Finance substrate
+        id: substrate
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import tomllib
+          from pathlib import Path
+
+          lock_path = Path("mycelix-finance/Cargo.lock")
+          policy_path = Path("${{ steps.trusted_policy.outputs.trusted_policy_path }}")
+
+          policy = json.loads(policy_path.read_text(encoding="utf-8"))
+          assert policy["schema_version"] == 1
+          assert set(policy["families"]) == {"holochain-0.6", "holochain-0.7"}
+
+          lock = tomllib.loads(lock_path.read_text(encoding="utf-8"))
+          versions = {}
+          for package in lock["package"]:
+              name = package["name"]
+              if name in {
+                  "hdk",
+                  "hdi",
+                  "hdk_derive",
+                  "holo_hash",
+                  "holochain_integrity_types",
+                  "holochain_zome_types",
+                  "holochain_serialized_bytes",
+              } and name not in versions:
+                  versions[name] = package["version"]
+
+          required = {
+              "hdk",
+              "hdi",
+              "hdk_derive",
+              "holo_hash",
+              "holochain_integrity_types",
+              "holochain_zome_types",
+              "holochain_serialized_bytes",
+          }
+          missing = sorted(required - versions.keys())
+          assert not missing, f"Finance substrate lock missing packages: {missing}"
+
+          hdk = versions["hdk"]
+          hdi = versions["hdi"]
+          holo_hash = versions["holo_hash"]
+          integrity = versions["holochain_integrity_types"]
+          zome = versions["holochain_zome_types"]
+          derive = versions["hdk_derive"]
+
+          family = None
+          if (
+              hdk.startswith("0.6.") and
+              hdi.startswith("0.7.") and
+              holo_hash.startswith("0.6.") and
+              integrity.startswith("0.6.") and
+              zome.startswith("0.6.") and
+              derive.startswith("0.6.")
+          ):
+              family = "holochain-0.6"
+          elif (
+              hdk == "0.7.0" and
+              hdi == "0.8.0" and
+              holo_hash == "0.7.0" and
+              integrity == "0.7.0" and
+              zome == "0.7.0" and
+              derive == "0.7.0"
+          ):
+              family = "holochain-0.7"
+
+          assert family is not None, (
+              "Finance Cargo.lock does not resolve to a supported coherent "
+              "Holochain substrate family"
+          )
+
+          digest = hashlib.sha256(lock_path.read_bytes()).hexdigest()
+          print(f"substrate_family={family}")
+          print(f"hdk_version={hdk}")
+          print(f"hdi_version={hdi}")
+          print(f"hdk_derive_version={derive}")
+          print(f"holo_hash_version={holo_hash}")
+          print(f"holochain_integrity_types_version={integrity}")
+          print(f"holochain_zome_types_version={zome}")
+          print(f"holochain_serialized_bytes_version={versions['holochain_serialized_bytes']}")
+          print(f"cargo_lock_sha256={digest}")
+
+          with open("${GITHUB_OUTPUT}", "a", encoding="utf-8") as out:
+              out.write(f"substrate_family={family}\n")
+              out.write(f"hdk_version={hdk}\n")
+              out.write(f"hdi_version={hdi}\n")
+              out.write(f"hdk_derive_version={derive}\n")
+              out.write(f"holo_hash_version={holo_hash}\n")
+              out.write(f"holochain_integrity_types_version={integrity}\n")
+              out.write(f"holochain_zome_types_version={zome}\n")
+              out.write(
+                  "holochain_serialized_bytes_version="
+                  f"{versions['holochain_serialized_bytes']}\n"
+              )
+              out.write(f"cargo_lock_sha256={digest}\n")
+          PY
+
+      - name: Check Finance formatting
+        id: fmt
+        run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
+
+      - name: Run Finance workspace tests
+        id: tests
+        run: cargo test --workspace --manifest-path mycelix-finance/Cargo.toml --locked
+
+      - name: Assert executed worktree remained immutable
+        id: tree_immutability
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          actual_tree_sha="$(git rev-parse HEAD^{tree})"
+          test "${actual_tree_sha}" = "${{ steps.checkout.outputs.subject_tree_sha }}"
+          printf 'executed_tree_sha=%s\n' "${actual_tree_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Emit qualification receipt
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          result=FAIL
+          if [ "${{ steps.fmt.outcome }}" = "success" ] &&
+             [ "${{ steps.tests.outcome }}" = "success" ] &&
+             [ "${{ steps.artifact_guard.outcome }}" = "success" ] &&
+             [ "${{ steps.tree_immutability.outcome }}" = "success" ]; then
+            result=PASS
+          fi
+          cat > evidence/finance-exact-head-qualification.txt <<EOF
+          result=${result}
+          pr_number=${{ steps.subject.outputs.pr_number }}
+          subject_sha=${{ steps.checkout.outputs.tested_head_sha || '' }}
+          expected_head_sha=${{ steps.subject.outputs.expected_head_sha }}
+          subject_tree_sha=${{ steps.checkout.outputs.subject_tree_sha }}
+          executed_tree_sha=${{ steps.tree_immutability.outputs.executed_tree_sha || '' }}
+          base_sha=${{ steps.subject.outputs.base_sha }}
+          resolution_mode=${{ steps.subject.outputs.resolution_mode }}
+          upstream_request_run_id=${{ github.event.workflow_run.id || '' }}
+          workflow_run_id=${{ github.run_id }}
+          workflow_run_attempt=${{ github.run_attempt }}
+          trusted_workflow_sha=${{ steps.trusted.outputs.trusted_workflow_sha }}
+          trusted_workflow_ref=${{ steps.trusted.outputs.trusted_workflow_ref }}
+          trusted_workflow_blob_sha=${{ steps.trusted.outputs.trusted_workflow_blob_sha }}
+          workflow_name=${{ github.workflow }}
+          workflow_ref=${{ github.workflow_ref }}
+          workflow_event=${{ github.event_name }}
+          substrate_family=${{ steps.substrate.outputs.substrate_family || '' }}
+          hdk_version=${{ steps.substrate.outputs.hdk_version || '' }}
+          hdi_version=${{ steps.substrate.outputs.hdi_version || '' }}
+          hdk_derive_version=${{ steps.substrate.outputs.hdk_derive_version || '' }}
+          holo_hash_version=${{ steps.substrate.outputs.holo_hash_version || '' }}
+          holochain_integrity_types_version=${{ steps.substrate.outputs.holochain_integrity_types_version || '' }}
+          holochain_zome_types_version=${{ steps.substrate.outputs.holochain_zome_types_version || '' }}
+          holochain_serialized_bytes_version=${{ steps.substrate.outputs.holochain_serialized_bytes_version || '' }}
+          cargo_lock_sha256=${{ steps.substrate.outputs.cargo_lock_sha256 || '' }}
+          trusted_policy_sha256=${{ steps.trusted_policy.outputs.trusted_policy_sha256 || '' }}
+          live_pr_head_sha=${{ steps.live_pr.outputs.live_head_sha || '' }}
+          live_pr_state=${{ steps.live_pr.outputs.live_state || '' }}
+          live_pr_draft=${{ steps.live_pr.outputs.live_draft || '' }}
+          EOF
+          test "${{ steps.checkout.outputs.tested_head_sha || '' }}" = "${{ steps.subject.outputs.expected_head_sha }}"
+
+      - name: Upload immutable qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: finance-exact-head-qualification-${{ steps.subject.outputs.expected_head_sha }}
+          path: evidence/finance-exact-head-qualification.txt
+          if-no-files-found: error
+          retention-days: 30
