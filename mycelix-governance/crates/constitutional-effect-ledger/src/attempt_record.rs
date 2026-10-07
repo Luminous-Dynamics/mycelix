@@ -410,6 +410,10 @@ pub enum AtomicAdmissionDecision {
     DuplicateAttempt,
     ActionInFlight,
     ActionAlreadyExecuted,
+    NativeReplayConflict {
+        existing_operation_id: String,
+        existing_action_key_digest: String,
+    },
     AttemptOwnershipConflict,
 }
 
@@ -470,9 +474,60 @@ pub trait DurableActionFenceStore {
 /// or neither changes. This demonstrates the conflict theorem without claiming
 /// that the in-memory map itself provides crash durability.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+
+/// Durable binding for one native replay identity.
+///
+/// The binding is intentionally separate from ActionKeyV1 and AttemptIdentityV1.
+/// A replay identity may span multiple retries of the same authorized operation,
+/// but may not be silently rebound to another operation or material action.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NativeReplayBindingV1 {
+    pub schema_version: u16,
+    pub native_replay_identity: String,
+    pub operation_id: String,
+    pub action_key_digest: String,
+}
+
+impl NativeReplayBindingV1 {
+    fn new(
+        native_replay_identity: impl Into<String>,
+        operation_id: impl Into<String>,
+        action_key_digest: impl Into<String>,
+    ) -> Result<Self, String> {
+        let out = Self {
+            schema_version: ATTEMPT_RECORD_SCHEMA_VERSION,
+            native_replay_identity: native_replay_identity.into(),
+            operation_id: operation_id.into(),
+            action_key_digest: action_key_digest.into(),
+        };
+        out.validate()?;
+        Ok(out)
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        if self.schema_version != ATTEMPT_RECORD_SCHEMA_VERSION {
+            return Err("unsupported native replay binding schema version".into());
+        }
+        require_opaque(
+            "native_replay_identity",
+            &self.native_replay_identity,
+            MAX_REF_LEN,
+        )?;
+        require_opaque("operation_id", &self.operation_id, MAX_ID_LEN)?;
+        require_tagged_hash(
+            "action_key_digest",
+            &self.action_key_digest,
+            crate::ACTION_KEY_PREFIX,
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AtomicActionFenceModelV1 {
     attempts: BTreeMap<String, AttemptRecordV1>,
     fences: BTreeMap<String, ActionFenceRecordV1>,
+    replay_bindings: BTreeMap<String, NativeReplayBindingV1>,
 }
 
 impl AtomicActionFenceModelV1 {
@@ -520,6 +575,19 @@ impl AtomicActionFenceModelV1 {
             return Ok(AtomicAdmissionDecision::AttemptOwnershipConflict);
         }
 
+        match self.replay_bindings.get(&record.native_replay_identity) {
+            None => {}
+            Some(existing)
+                if existing.operation_id == record.operation_id
+                    && existing.action_key_digest == record.action_key_digest => {}
+            Some(existing) => {
+                return Ok(AtomicAdmissionDecision::NativeReplayConflict {
+                    existing_operation_id: existing.operation_id.clone(),
+                    existing_action_key_digest: existing.action_key_digest.clone(),
+                });
+            }
+        }
+
         match self.fences.get(record.action_key_digest.as_str()) {
             None => {}
             Some(existing) if existing.state.is_closed() => {
@@ -549,6 +617,17 @@ impl AtomicActionFenceModelV1 {
             return Err("constructed action fence does not match attempt record".into());
         }
 
+        let replay_binding = NativeReplayBindingV1::new(
+            record.native_replay_identity.clone(),
+            record.operation_id.clone(),
+            record.action_key_digest.clone(),
+        )?;
+
+        // The replay binding, attempt record, and action fence are committed by this
+        // one reference-model mutation. A durable implementation must map this to one
+        // transaction/linearizable conflict-detecting write.
+        self.replay_bindings
+            .insert(replay_binding.native_replay_identity.clone(), replay_binding);
         self.attempts
             .insert(record.attempt_identity.clone(), record);
         self.fences.insert(fence.action_key_digest.clone(), fence);
@@ -827,6 +906,35 @@ impl AtomicActionFenceModelV1 {
             }
         }
 
+        for (record) in self.attempts.values() {
+            let binding = self
+                .replay_bindings
+                .get(&record.native_replay_identity)
+                .ok_or_else(|| "attempt is missing native replay binding".to_string())?;
+            if binding.operation_id != record.operation_id
+                || binding.action_key_digest != record.action_key_digest
+            {
+                return Err("native replay binding does not match attempt record".into());
+            }
+        }
+
+        for (replay_id, binding) in &self.replay_bindings {
+            binding.validate()?;
+            if replay_id != &binding.native_replay_identity {
+                return Err("native replay binding map key mismatch".into());
+            }
+            let matching = self.attempts.values().find(|attempt| {
+                attempt.native_replay_identity == binding.native_replay_identity
+            });
+            let attempt = matching
+                .ok_or_else(|| "native replay binding references no attempt".to_string())?;
+            if attempt.operation_id != binding.operation_id
+                || attempt.action_key_digest != binding.action_key_digest
+            {
+                return Err("native replay binding references mismatched operation/action".into());
+            }
+        }
+
         for (action_key, fence) in &self.fences {
             fence.validate()?;
             if action_key != &fence.action_key_digest {
@@ -964,6 +1072,64 @@ mod tests {
         assert_ne!(a.action_digest, a.effecting_target_identity);
         assert!(a.provider_reference_seed_digest.is_some());
         assert!(a.provider_reference_descriptor_digest.is_some());
+    }
+
+    #[test]
+    fn native_replay_identity_has_its_own_collision_namespace() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let key = key();
+        let first_owner = attempt("attempt-1");
+        model
+            .admit(
+                &key,
+                &first_owner,
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+
+        let mut second = record("attempt-2", "operation-2", AttemptRecordState::Consumed);
+        second.action_key_digest = key.digest().into();
+        assert!(matches!(
+            model.admit(&key, &attempt("attempt-2"), second).unwrap(),
+            AtomicAdmissionDecision::NativeReplayConflict { .. }
+        ));
+        assert!(model.attempt("constitutional-attempt-identity-v1:attempt-2").is_none());
+    }
+
+    #[test]
+    fn same_native_replay_identity_can_span_retries_of_one_operation_and_action() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let key = key();
+        let first_owner = attempt("attempt-1");
+        model
+            .admit(
+                &key,
+                &first_owner,
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+        model
+            .mark_dispatch_pending(&key, &first_owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invoked(&key, &first_owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .release_after_failed(&key, &first_owner, "owner-token-attempt-1")
+            .unwrap();
+
+        let second_owner = attempt("attempt-2");
+        assert_eq!(
+            model
+                .admit(
+                    &key,
+                    &second_owner,
+                    record("attempt-2", "operation-1", AttemptRecordState::Consumed),
+                )
+                .unwrap(),
+            AtomicAdmissionDecision::Admitted
+        );
+        assert!(model.validate_invariants().is_ok());
     }
 
     #[test]
@@ -1294,17 +1460,21 @@ mod tests {
                 ),
             )
             .is_err());
-        assert!(model
-            .admit(
-                &key(),
-                &attempt("attempt-3"),
-                record(
-                    "attempt-3",
-                    "operation-3",
-                    AttemptRecordState::NotEntered
-                ),
-            )
-            .is_err());
+        assert!(AttemptRecordV1::new(
+            &attempt("attempt-3"),
+            "operation-3",
+            "native-replay-1",
+            key().material_action_digest(),
+            &key(),
+            Some("provider-seed-1".into()),
+            Some("provider-descriptor-1".into()),
+            "stripe-live-account-1",
+            "payments-audience-1",
+            "payments-adapter-v1",
+            "owner-token-attempt-3",
+            AttemptRecordState::NotEntered,
+        )
+        .is_err());
     }
 
 
