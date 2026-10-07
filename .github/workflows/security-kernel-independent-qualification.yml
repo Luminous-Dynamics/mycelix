@@ -54,6 +54,9 @@ env:
   SOURCE_MAX_INODES: "300000"
   SOURCE_TMPFS_SIZE: "1024m"
   SOURCE_TMPFS_NR_INODES: "300000"
+  SOURCE_ARCHIVE_MAX_BYTES: "1073741824"
+  DEPENDENCY_MANIFEST_MAX_BYTES: "2097152"
+  DEPENDENCY_LOCK_MAX_BYTES: "33554432"
   SOURCE_AUDIT_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
 
 jobs:
@@ -364,17 +367,42 @@ jobs:
           install -d -m 0700 -- "$candidate_root"
           source_copy_status=0
           set -o pipefail
-          if ! timeout --signal=TERM --kill-after=20s 5m docker run --rm --platform=linux/amd64 --pull=never \
+          bounded_source_archive() {
+            python3 - "$SOURCE_ARCHIVE_MAX_BYTES" <<'PY'
+          import sys
+          limit=int(sys.argv[1])
+          total=0
+          while True:
+              chunk=sys.stdin.buffer.read(1024 * 1024)
+              if not chunk:
+                  break
+              next_total=total + len(chunk)
+              if next_total > limit:
+                  print(f"security-kernel bounded source archive stream exceeded {limit} bytes", file=sys.stderr)
+                  raise SystemExit(1)
+              sys.stdout.buffer.write(chunk)
+              total=next_total
+          sys.stdout.buffer.flush()
+          PY
+          }
+          set +e
+          timeout --signal=TERM --kill-after=20s 5m docker run --rm --platform=linux/amd64 --pull=never \
             --network=none --read-only --cap-drop=ALL \
             --security-opt=no-new-privileges:true --security-opt=seccomp=default \
             --pids-limit=256 --memory=1g --memory-swap=1g --cpus=2 \
             --ulimit=nofile=4096:4096 --ulimit=core=0:0 --ipc=private --pid=private --cgroupns=private \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m,nr_inodes=20000 \
             --volume "$candidate_volume_name:/source:ro" \
-            "$FETCH_IMAGE" tar -C /source -cf - . | tar -C "$candidate_root" -xf - --no-same-owner; then
-            source_copy_status=1
-          fi
+            "$FETCH_IMAGE" tar -C /source -cf - . |
+            bounded_source_archive |
+            tar -C "$candidate_root" -xf - --no-same-owner
+          source_copy_pipeline_status=("${PIPESTATUS[@]}")
           set -e
+          test "${#source_copy_pipeline_status[@]}" -eq 3
+          test "${source_copy_pipeline_status[0]}" -eq 0
+          test "${source_copy_pipeline_status[1]}" -eq 0
+          test "${source_copy_pipeline_status[2]}" -eq 0
+          if [ "$source_copy_status" -ne 0 ]; then
           if [ "$source_copy_status" -ne 0 ]; then
             echo "security-kernel bounded candidate-source staging copy failed" >&2
             exit 1
@@ -639,6 +667,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          manifest_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml"
+          test -f "$manifest_path"
+          test -f "$lock_path"
+          test ! -L "$manifest_path"
+          test ! -L "$lock_path"
+          manifest_bytes="$(stat -c '%s' "$manifest_path")"
+          lock_bytes="$(stat -c '%s' "$lock_path")"
+          printf "%s" "$manifest_bytes" | grep -Eq "^[0-9]+$"
+          printf "%s" "$lock_bytes" | grep -Eq "^[0-9]+$"
+          test "$manifest_bytes" -le "$DEPENDENCY_MANIFEST_MAX_BYTES"
+          test "$lock_bytes" -le "$DEPENDENCY_LOCK_MAX_BYTES"
           lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"
           lock_digest="$(sha256sum "$lock_path" | awk '{print $1}')"
           test "${#lock_digest}" -eq 64
@@ -1443,6 +1482,9 @@ jobs:
             echo "source_max_inodes=$SOURCE_MAX_INODES"
             echo "source_tmpfs_size=$SOURCE_TMPFS_SIZE"
             echo "source_tmpfs_nr_inodes=$SOURCE_TMPFS_NR_INODES"
+             echo "source_archive_max_bytes=$SOURCE_ARCHIVE_MAX_BYTES"
+             echo "dependency_manifest_max_bytes=$DEPENDENCY_MANIFEST_MAX_BYTES"
+             echo "dependency_lock_max_bytes=$DEPENDENCY_LOCK_MAX_BYTES"
             echo "source_volume_name=$SOURCE_VOLUME_NAME"
             echo "source_volume_spec=$SOURCE_VOLUME_SPEC"
             echo "source_copy_bytes=$SOURCE_COPY_BYTES"
