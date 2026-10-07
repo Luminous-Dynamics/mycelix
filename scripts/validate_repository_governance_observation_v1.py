@@ -291,13 +291,21 @@ def _selector_state(
     )
 
 
-def _repository_condition_state(conditions: dict[str, Any]) -> str:
+def _repository_condition_state(
+    conditions: dict[str, Any],
+    source_type: str,
+) -> str:
     repository_selectors = {
         key: conditions.get(key)
         for key in ("repository_name", "repository_id", "repository_property")
         if key in conditions
     }
     if len(repository_selectors) > 1:
+        return "UNVERIFIED"
+
+    if source_type in {"Organization", "Enterprise"} and not repository_selectors:
+        return "UNVERIFIED"
+    if source_type == "Repository" and repository_selectors:
         return "UNVERIFIED"
 
     if repository_selectors:
@@ -357,11 +365,14 @@ def _ruleset_target_state(entry: Any, default_branch: str) -> str:
         return "UNVERIFIED"
     if entry.get("target") != "branch" or entry.get("enforcement") != "active":
         return "NOT_APPLICABLE"
+    source_type = entry.get("source_type")
+    if source_type not in {"Repository", "Organization", "Enterprise"}:
+        return "UNVERIFIED"
     conditions = entry.get("conditions")
     if not isinstance(conditions, dict):
         return "UNVERIFIED"
 
-    repo_state = _repository_condition_state(conditions)
+    repo_state = _repository_condition_state(conditions, source_type)
     if repo_state == "UNVERIFIED":
         return "UNVERIFIED"
     if repo_state == "NOT_MATCH":
@@ -1383,6 +1394,40 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
 
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Organization"
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Enterprise"
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["mycelix"],
+        "exclude": [],
+    }
+    x["rulesets"]["entries"][0]["conditions"]["organization_name"] = {
+        "include": ["Luminous-Dynamics"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Enterprise"
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["mycelix"],
+        "exclude": [],
+    }
+    x["rulesets"]["entries"][0]["conditions"]["organization_name"] = {
+        "include": ["other-org"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+
     x = copy.deepcopy(fixture_observation(policy))
     x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
         "include": ["mycelix"],
@@ -1422,6 +1467,21 @@ def self_test(policy: dict[str, Any]) -> None:
     except EvidenceError:
         raise AssertionError("unsupported repository property targeting must be represented as UNVERIFIED")
     assert result["governance_state"] == "UNVERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    repository_raw = json.loads(
+        base64.b64decode(x["repository_payload_base64"]).decode("utf-8")
+    )
+    repository_raw["owner"]["id"] = ORGANIZATION_ID + 1
+    repository_bytes = json.dumps(repository_raw, separators=(",", ":"), sort_keys=True).encode()
+    x["repository_payload_base64"] = base64.b64encode(repository_bytes).decode()
+    x["repository_payload_sha256"] = hashlib.sha256(repository_bytes).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("repository owner identity drift must be rejected")
 
     x = copy.deepcopy(fixture_observation(policy))
     del x["rulesets"]["entries"][0]["name"]
