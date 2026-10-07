@@ -473,6 +473,12 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     ).encode("utf-8")
     index_digest = hashlib.sha256(index_canonical).hexdigest()
 
+    current_promotion_eligible = (
+        pr["state"] == "open"
+        and pr["draft"] is False
+        and pr["head"]["sha"] == receipt_subject
+    )
+
     return {
         "schema": "mycelix.fpm.trusted-qualification-reference-v1",
         "repository": BASE_REPOSITORY,
@@ -494,7 +500,8 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         "independent_verifier_workflow_sha": verifier_sha,
         "independent_verifier_workflow_blob_sha": verifier_blob_sha,
         "reference_result": "verified",
-        "qualification_pass": True,
+        "historical_qualification_valid": True,
+        "current_promotion_eligible": current_promotion_eligible,
     }
 
 
