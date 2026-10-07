@@ -290,6 +290,26 @@ def main() -> None:
         replace_file(tmp / "docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json", mutate_crosswalk)
         assert_reject(tmp, "mutated formal crosswalk", lambda out: "formal crosswalk subject head mismatch" in out)
 
+        shutil.rmtree(evidence_dir, ignore_errors=True)
+        subprocess.run(["git", "checkout", "--", "."], cwd=tmp, check=True)
+
+        replace_file(
+            tmp / "mycelix-governance/tools/formal/qualify_sovereignty_formal.py",
+            lambda value: value.replace(
+                '    if actual != expected:\n        fail(f"{label} blob mismatch: expected {expected}, got {actual}")',
+                '    if False:\n        fail(f"{label} blob mismatch: expected {expected}, got {actual}")',
+            ),
+        )
+        replace_file(
+            tmp / "docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla",
+            lambda value: value + "\n(* verifier-code mutation target *)\n",
+        )
+        mutated_verifier = run_cli(tmp, {"PATH": f"{tmp / 'fake-bin'}:{os.environ['PATH']}"})
+        if mutated_verifier.returncode == 0:
+            raise AssertionError(
+                "verifier-code mutation silently accepted a mutated formal fixture"
+            )
+
         if hashlib.sha256(PROFILE.read_bytes()).hexdigest() != profile_sha:
             raise AssertionError("selftest source profile changed unexpectedly")
 
