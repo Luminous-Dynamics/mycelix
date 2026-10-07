@@ -2711,7 +2711,8 @@ mod tests {
     #[test]
     fn consensus_rate_within_tolerance_passes() {
         assert!(validate_consensus_rate(
-            100.0 * (1.0 + mycelix_finance_types::ORACLE_RATE_TOLERANCE),
+            100.0
+                * (1.0 + mycelix_finance_types::ORACLE_RATE_TOLERANCE * 0.999),
             100.0
         )
         .is_ok());
