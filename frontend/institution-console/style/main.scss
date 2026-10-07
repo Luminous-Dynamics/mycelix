@@ -183,3 +183,14 @@ summary:focus-visible {
 .freshness-stale { color: #b42318; }
 .freshness-unknown { color: #667085; }
 
+
+.nonproduction-boundary {
+  max-width: 820px;
+  margin: 10vh auto;
+  padding: 28px;
+  border: 1px solid #e7eaf0;
+  border-radius: 16px;
+  background: #fff;
+}
+.nonproduction-boundary h1 { margin: 6px 0 10px; font-size: 30px; letter-spacing: -.02em; }
+.nonproduction-boundary .authority-notice { margin-top: 20px; }
