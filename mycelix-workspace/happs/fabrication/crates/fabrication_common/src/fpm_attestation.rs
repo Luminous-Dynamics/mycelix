@@ -12,10 +12,10 @@ const SHA256_HEX_LEN: usize = 64;
 const MAX_LABEL_BYTES: usize = 128;
 
 pub const FPM_ATTESTATION_SCHEMA_VERSION: &str =
-    "fpm.registration.source-attestation.v1";
+    "fpm.registration.source-attestation.v2";
 pub const FPM_ATTESTATION_PROFILE_ID: &str =
     "fpm.registration.source-attestation.challenge-bound";
-pub const FPM_ATTESTATION_PROFILE_VERSION: &str = "1";
+pub const FPM_ATTESTATION_PROFILE_VERSION: &str = "2";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FpmAttestationDisposition {
@@ -35,6 +35,9 @@ pub struct FpmSourceAttestationClaim {
     pub attestation_format: String,
     pub verifier_id: String,
     pub verifier_version: String,
+    pub verifier_implementation_digest: String,
+    pub verifier_build_provenance_digest: String,
+    pub verifier_builder_id: String,
     pub verifier_profile_digest: String,
     pub appraisal_policy_digest: String,
     pub reference_values_digest: String,
@@ -63,6 +66,9 @@ impl FpmSourceAttestationClaim {
         append_field(&mut bytes, self.attestation_format.as_bytes());
         append_field(&mut bytes, self.verifier_id.as_bytes());
         append_field(&mut bytes, self.verifier_version.as_bytes());
+        append_field(&mut bytes, self.verifier_implementation_digest.as_bytes());
+        append_field(&mut bytes, self.verifier_build_provenance_digest.as_bytes());
+        append_field(&mut bytes, self.verifier_builder_id.as_bytes());
         append_field(&mut bytes, self.verifier_profile_digest.as_bytes());
         append_field(&mut bytes, self.appraisal_policy_digest.as_bytes());
         append_field(&mut bytes, self.reference_values_digest.as_bytes());
@@ -87,6 +93,9 @@ pub struct FpmAttestationQualificationInput {
     pub expected_acquisition_root_digest: String,
     pub expected_challenge_nonce_digest: String,
     pub expected_attestation_format: String,
+    pub expected_verifier_implementation_digest: String,
+    pub expected_verifier_build_provenance_digest: String,
+    pub expected_verifier_builder_id: String,
     pub expected_verifier_profile_digest: String,
     pub expected_appraisal_policy_digest: String,
     pub expected_reference_values_digest: String,
@@ -114,6 +123,9 @@ pub enum FpmAttestationQualificationReason {
     ChallengeNonceMismatch,
     EvidenceDigestMismatch,
     VerifierProfileMismatch,
+    VerifierImplementationMismatch,
+    VerifierBuildProvenanceMismatch,
+    VerifierBuilderMismatch,
     AppraisalPolicyMismatch,
     ReferenceValuesMissing,
     ReferenceValuesMismatch,
@@ -157,6 +169,8 @@ pub fn qualify_source_attestation(
         &input.expected_acquisition_root_digest,
         &input.expected_challenge_nonce_digest,
         &input.expected_verification_key_digest,
+        &input.expected_verifier_implementation_digest,
+        &input.expected_verifier_build_provenance_digest,
         &input.expected_verifier_profile_digest,
         &input.expected_appraisal_policy_digest,
         &input.expected_reference_values_digest,
@@ -165,6 +179,8 @@ pub fn qualify_source_attestation(
         &input.claim.verification_key_digest,
         &input.claim.challenge_nonce_digest,
         &input.claim.evidence_digest,
+        &input.claim.verifier_implementation_digest,
+        &input.claim.verifier_build_provenance_digest,
         &input.claim.verifier_profile_digest,
         &input.claim.appraisal_policy_digest,
         &input.claim.reference_values_digest,
@@ -195,6 +211,15 @@ pub fn qualify_source_attestation(
     }
     if input.claim.attestation_format != input.expected_attestation_format {
         reasons.insert(FpmAttestationQualificationReason::AttestationFormatMismatch);
+    }
+    if input.claim.verifier_implementation_digest != input.expected_verifier_implementation_digest {
+        reasons.insert(FpmAttestationQualificationReason::VerifierImplementationMismatch);
+    }
+    if input.claim.verifier_build_provenance_digest != input.expected_verifier_build_provenance_digest {
+        reasons.insert(FpmAttestationQualificationReason::VerifierBuildProvenanceMismatch);
+    }
+    if input.claim.verifier_builder_id != input.expected_verifier_builder_id {
+        reasons.insert(FpmAttestationQualificationReason::VerifierBuilderMismatch);
     }
     if input.claim.verifier_profile_digest != input.expected_verifier_profile_digest {
         reasons.insert(FpmAttestationQualificationReason::VerifierProfileMismatch);
@@ -236,6 +261,9 @@ pub fn qualify_source_attestation(
         || reasons.contains(&FpmAttestationQualificationReason::AcquisitionRootMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::ChallengeNonceMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AttestationFormatMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::VerifierImplementationMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::VerifierBuildProvenanceMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::VerifierBuilderMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::VerifierProfileMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AppraisalPolicyMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::ReferenceValuesMismatch)
