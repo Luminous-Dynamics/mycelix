@@ -26,3 +26,30 @@ jobs:
           fetch-depth: 1
       - name: Verify internally consistent declarations
         run: python3 scripts/security/verify_finance_substrate_truth.py --mode current
+
+  runtime-truth:
+    name: Finance measured Holochain runtime truth
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: cachix/install-nix-action@v27
+      - name: Measure Finance Holochain runtime
+        run: |
+          set -euo pipefail
+          holochain_version="$(nix develop ./mycelix-finance#ci --command holochain --version)"
+          hc_version="$(nix develop ./mycelix-finance#ci --command hc --version)"
+          printf 'HOLOCHAIN_RUNTIME_VERSION=%s
+' "$holochain_version"
+          printf 'HC_RUNTIME_VERSION=%s
+' "$hc_version"
+          case "$holochain_version" in
+            *0.7.0*) ;;
+            *) echo "ERROR: measured Holochain runtime is not the 0.7.0 qualification target"; exit 1 ;;
+          esac
+          case "$hc_version" in
+            *0.7.0*) ;;
+            *) echo "ERROR: measured hc runtime is not the 0.7.0 qualification target"; exit 1 ;;
+          esac
