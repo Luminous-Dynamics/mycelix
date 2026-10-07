@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: sovereignty-formal-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
   TLA_URL: https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
