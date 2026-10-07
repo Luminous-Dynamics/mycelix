@@ -198,6 +198,9 @@ def main() -> int:
         fail("formal crosswalk subject head mismatch")
     if crosswalk.get("formal_subject_tree") != profile["formal_subject"]["tree_sha"]:
         fail("formal crosswalk subject tree mismatch")
+    if args.crosswalk.as_posix() != profile["verifier"]["crosswalk_path"]:
+        fail("formal crosswalk path does not match verifier profile")
+    assert_git_blob(args.crosswalk, profile["verifier"]["crosswalk_git_blob_sha"], "formal crosswalk")
     expected_crosswalk_ids = {"capability-authority","safe-dispute","emergency-expiry","fork-weight","contract-budget","contract-authority","provider-authority"}
     mappings = crosswalk.get("mappings", [])
     if {m.get("id") for m in mappings} != expected_crosswalk_ids:
