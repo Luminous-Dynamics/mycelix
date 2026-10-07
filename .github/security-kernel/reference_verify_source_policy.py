@@ -1984,7 +1984,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
             'BASE_REPOSITORY_ID: "1176351975"',
             'BASE_BRANCH: "main"',
             'TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"',
-            'TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "66e8adb99be391aad73e41d94c11c2434861f1c1"',
+            f'TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "{expected_s0_sha}"',
             'INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"',
             f'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"',
             'RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"',
@@ -2330,6 +2330,22 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 root env expected job-name drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "' + s0_sha.encode() + b'"\n',
+                b'  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "66e8adb99be391aad73e41d94c11c2434861f1c1"\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 stale trusted-dispatcher blob pin",
     )
 
     expect_rejection(
