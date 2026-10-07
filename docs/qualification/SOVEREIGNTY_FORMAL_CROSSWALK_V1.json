@@ -2,8 +2,8 @@
   "schema": "mycelix.sovereignty-formal-crosswalk.v1",
   "status": "candidate-verification",
   "authority": "non-authoritative",
-  "formal_subject_head": "fdffab27308e8eb148efd4b9f577b5a32129b962",
-  "formal_subject_tree": "48b1959a41647fde7aac2c81d71585327ef00eab",
+  "formal_subject_head": "058210b95bca7ce9b38de15047cfe6063d1e326e",
+  "formal_subject_tree": "90fccc0d6520c92b1b6c1ec5c8af1dce44e698e7",
   "relationship": "semantic-alignment map only; not a formal refinement proof",
   "layers": [
     {
