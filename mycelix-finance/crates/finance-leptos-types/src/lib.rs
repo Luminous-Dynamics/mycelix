@@ -10,6 +10,9 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod exact_amount;
+pub use exact_amount::ExactMinorAmount;
+
 // ============================================================================
 // TEND (Mutual Credit)
 // ============================================================================
@@ -217,9 +220,11 @@ pub struct SapBalanceView {
 }
 
 impl SapBalanceView {
-    /// Display balance in human-readable SAP units (1 SAP = 1_000_000 micro-SAP).
-    pub fn display_balance(&self) -> f64 {
-        self.balance as f64 / 1_000_000.0
+    /// Exact SAP balance display (1 SAP = 1_000_000 micro-SAP).
+    ///
+    /// No floating-point conversion occurs at the monetary presentation boundary.
+    pub fn display_balance(&self) -> ExactMinorAmount {
+        ExactMinorAmount::new(self.balance as i128, 6)
     }
 }
 
@@ -375,18 +380,22 @@ pub struct TreasuryView {
 }
 
 impl TreasuryView {
-    pub fn display_balance(&self) -> f64 {
-        self.balance as f64 / 1_000_000.0
+    /// Exact treasury balance display in the existing six-decimal minor-unit convention.
+    pub fn display_balance(&self) -> ExactMinorAmount {
+        ExactMinorAmount::new(self.balance as i128, 6)
     }
 
-    pub fn display_reserve(&self) -> f64 {
-        self.inalienable_reserve as f64 / 1_000_000.0
+    /// Exact reserve display in the existing six-decimal minor-unit convention.
+    pub fn display_reserve(&self) -> ExactMinorAmount {
+        ExactMinorAmount::new(self.inalienable_reserve as i128, 6)
     }
 
-    pub fn display_available(&self) -> f64 {
-        self.available as f64 / 1_000_000.0
+    /// Exact available display in the existing six-decimal minor-unit convention.
+    pub fn display_available(&self) -> ExactMinorAmount {
+        ExactMinorAmount::new(self.available as i128, 6)
     }
 
+    /// Reserve ratio is a non-monetary derived metric and may remain floating point.
     pub fn reserve_health(&self) -> f64 {
         if self.balance == 0 {
             return 0.0;
