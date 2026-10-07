@@ -111,6 +111,8 @@ jobs:
           assert scanned_text.count("actions/download-artifact@") == 2
           assert scanned_text.count("actions/upload-artifact@") == 4
           assert "gh api --paginate --slurp" in scanned_text
+          assert "repository-payload.json" in scanned_text
+          assert "default_branch" in scanned_text
           assert "rulesets-index-payload.json" in scanned_text
           assert "rulesets/${ruleset_id}.json" in scanned_text
           assert "set(index_ids) == set(full_ids)" in scanned_text
