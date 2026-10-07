@@ -37,6 +37,29 @@ jobs:
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
 
+      - name: Isolate Docker client state
+        run: |
+          set -euo pipefail
+          docker_config="$RUNNER_TEMP/d6u-docker-config"
+          test ! -e "$docker_config"
+          mkdir -m 700 "$docker_config"
+
+      - name: Reject ambient Docker overrides
+        run: |
+          set -euo pipefail
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              DOCKER_HOST|DOCKER_CONTEXT|DOCKER_TLS_VERIFY|DOCKER_CERT_PATH|DOCKER_CUSTOM_HEADERS|\
+              DOCKER_API_VERSION|DOCKER_DEFAULT_PLATFORM|BUILDKIT_HOST|CONTAINER_HOST|\
+              HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|NO_PROXY)
+                echo "forbidden ambient Docker environment: $name"
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+
       - name: Isolate Rust and Cargo trust roots
         run: |
           set -euo pipefail
@@ -130,10 +153,21 @@ jobs:
           test "$(printf '%s\n' "$rust_version" | awk '{print $2}')" = "1.96.1"
           rust_verbose_commit="$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')"
           test "$rust_verbose_commit" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+          rustc_path="$(rustup +1.96.1 which rustc)"
+          toolchain_dir="$(dirname "$(dirname "$rustc_path")")"
+          case "$toolchain_dir" in
+            "$RUSTUP_HOME/toolchains/1.96.1-"*) ;;
+            *) echo "unexpected Rust toolchain path: $toolchain_dir" >&2; exit 1 ;;
+          esac
+          test -x "$toolchain_dir/bin/rustc"
+          test -x "$toolchain_dir/bin/cargo"
+          test -x "$toolchain_dir/bin/cargo-clippy"
+
           rustfmt_version="$(rustfmt +1.96.1 --version)"
           cargo_version="$(cargo +1.96.1 --version)"
           {
             echo "rust_version=$rust_version"
+            echo "toolchain_dir=$toolchain_dir"
             echo "rust_verbose_commit=$rust_verbose_commit"
             echo "rustfmt_version=$rustfmt_version"
             echo "cargo_version=$cargo_version"
@@ -463,16 +497,20 @@ PY
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
       - name: Prepare isolated runtime container image
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
         run: |
           set -euo pipefail
-          docker pull --platform linux/amd64 ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
-          docker image inspect ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
+          docker --context default pull --platform linux/amd64 ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+          docker --context default image inspect ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
             --format '{{index .RepoDigests 0}}' \
             | grep -Fx 'ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b'
       - name: Verify runtime container isolation controls
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
         run: |
           set -euo pipefail
-          docker run --rm --pull=never --init \
+          docker --context default run --rm --pull=never --init \
             --platform linux/amd64 \
             --network none \
             --read-only \
@@ -490,6 +528,7 @@ PY
 
       - name: Test D6U runtime boundary
         env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
           TEST_BINARY_SHA: ${{ steps.runtime_binary.outputs.binary_sha }}
         run: |
           set -euo pipefail
@@ -497,7 +536,7 @@ PY
           mkdir -m 700 "$output_dir"
           test ! -e "$output_dir/d6u-runtime-test.log"
           test "$TEST_BINARY_SHA" = "$(sha256sum "${{ runner.temp }}/d6u-runtime-test-binary" | cut -d' ' -f1)"
-          docker run --rm --pull=never --init \
+          docker --context default run --rm --pull=never --init \
             --platform linux/amd64 \
             --network none \
             --read-only \
@@ -616,27 +655,27 @@ PY
             echo "attestation_status=deferred-to-trusted-builder"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
-            d6s2_ledger_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6s-canon-2-manifest.json"))["version"])')
+            d6s2_ledger_version="$(jq -er ".version | tostring" ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_authority_ledger_schema=v${d6s2_ledger_version}"
             echo "d6s1_corpus_sha256=$(sha256sum ../docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
             echo "test_log_sha256=$(sha256sum d6u-runtime-test.log | cut -d' ' -f1)"
-            echo "manifest_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["version"])')"
+            echo "manifest_version=$(jq -er ".version | tostring" ../docs/integral/d6u-runtime-manifest.json)"
             echo "manifest_git_blob_sha=$(git hash-object ../docs/integral/d6u-runtime-manifest.json)"
             echo "evidence_verifier_git_blob_sha=$(git hash-object ../scripts/integral/verify_d6u_runtime_evidence.py)"
             echo "lock_verifier_git_blob_sha=$(git hash-object ../scripts/integral/verify_d6u_runtime_lock.py)"
-            supported_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["supported_reference_cases"]))')
+            supported_case_count="$(jq -er ".supported_reference_cases | length | tostring" ../docs/integral/d6u-runtime-manifest.json)"
             observed_case_count=$(grep -c '^D6U_CASE' d6u-runtime-test.log)
-            supplemental_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json")).get("supplemental_substrate_checks", [])))')
+            supplemental_case_count="$(jq -er ".supplemental_substrate_checks // [] | length | tostring" ../docs/integral/d6u-runtime-manifest.json)"
             observed_supplemental_count=$(grep -c '^D6U_SUBSTRATE_CHECK' d6u-runtime-test.log)
-            application_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json")).get("supplemental_application_checks", [])))')
+            application_case_count="$(jq -er ".supplemental_application_checks // [] | length | tostring" ../docs/integral/d6u-runtime-manifest.json)"
             observed_application_count=$(grep -c '^D6U_APPLICATION_CHECK' d6u-runtime-test.log)
             echo "case_coverage=${observed_case_count}-of-${supported_case_count}"
             echo "supplemental_coverage=${observed_supplemental_count}-of-${supplemental_case_count}"
             echo "application_check_coverage=${observed_application_count}-of-${application_case_count}"
-            case_outcome_classes=$(python3 -c 'import json; print(",".join(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["evidence_outcome_classes"]))')
-            holochain_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["substrate"]["holochain"])')
-            hdk_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["substrate"]["hdk"])')
-            hdi_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["substrate"]["hdi"])')
+            case_outcome_classes="$(jq -er ".evidence_outcome_classes | join(",")" ../docs/integral/d6u-runtime-manifest.json)"
+            holochain_version="$(jq -er ".substrate.holochain" ../docs/integral/d6u-runtime-manifest.json)"
+            hdk_version="$(jq -er ".substrate.hdk" ../docs/integral/d6u-runtime-manifest.json)"
+            hdi_version="$(jq -er ".substrate.hdi" ../docs/integral/d6u-runtime-manifest.json)"
             echo "case_outcome_classes=${case_outcome_classes}"
             echo "runtime=holochain-${holochain_version}"
             echo "hdk=${hdk_version}"
@@ -647,9 +686,9 @@ PY
             echo "cargo_lock_sha256=${{ steps.generated_graph.outputs.lock_sha }}"
             echo "test=d6u_authority_boundary:passed"
             echo "supported_cases=${supported_case_count}"
-            unsupported_case_list=$(python3 -c 'import json; print(",".join(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["unsupported_reference_cases"]))')
+            unsupported_case_list="$(jq -er ".unsupported_reference_cases | join(",")" ../docs/integral/d6u-runtime-manifest.json)"
             echo "unsupported_cases=${unsupported_case_list}"
-            claim_ceiling=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["claim_ceiling"])')
+            claim_ceiling="$(jq -er ".claim_ceiling" ../docs/integral/d6u-runtime-manifest.json)"
             echo "claim_ceiling=${claim_ceiling}"
           } | tee d6u-runtime-evidence.txt
 
