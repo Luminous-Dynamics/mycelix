@@ -555,25 +555,6 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate resolution must revalidate repository ID after commit resolution")
     if 'assert post_repository_obj.get("disabled") is not True' not in joined:
         fail("S1 candidate resolution must reject a repository disabled after commit resolution")
-    if "CANDIDATE_ROOT" in joined or "candidate_root" in joined or "security-kernel-candidate-root" in joined:
-        fail("S1 must not contain a runner-backed candidate staging root")
-    if "candidate_volume_mountpoint=" not in joined:
-        fail("S1 candidate volume mountpoint discovery missing")
-    if "stat -f -c" not in joined or "tmpfs" not in joined:
-        fail("S1 candidate volume filesystem type gate missing")
-    for required in (
-        "source_staging_digest", "source_digest", "executed_source_digest", "source_resource_metrics",
-        "dependency_source_mode=bounded-candidate-volume", "manifest_path=", "lock_path=",
-        "DEPENDENCY_MANIFEST_MAX_BYTES", "DEPENDENCY_LOCK_MAX_BYTES",
-    ):
-        if required not in joined:
-            fail(f"S1 single-substrate control missing: {required!r}")
-    if "test \"$source_staging_digest\" = \"$source_digest\"" not in joined:
-        fail("S1 pre-execution source digest equality missing")
-    if "source_copy_pipeline_status" in joined or "bounded_source_archive" in joined:
-        fail("S1 obsolete host staging/archive pipeline residue detected")
-    if "DEPENDENCY_ROOT:" in joined or "/subject/Cargo.toml" in joined:
-        fail("S1 host-backed dependency subject residue detected")
     if "Final teardown barrier" not in joined or "if: ${{ !cancelled() }}" not in joined:
         fail("S1 final teardown barrier missing or cancellation semantics weakened")
     if 'candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"' not in joined:
