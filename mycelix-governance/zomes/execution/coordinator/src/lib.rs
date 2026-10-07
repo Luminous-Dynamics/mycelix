@@ -13,6 +13,48 @@ use mycelix_zome_helpers::get_latest_record;
 use constitutional_effect_ledger::{ActionKeyV1, AttemptIdentityV1};
 use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 
+/// Exact proposal mirror used by the execution admission boundary.
+///
+/// SYNC-MIRROR: field order must match proposals/integrity/src/lib.rs::Proposal.
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+struct ProposalExecutionMirror {
+    id: String,
+    title: String,
+    description: String,
+    proposal_type: ProposalExecutionTypeMirror,
+    author: String,
+    status: ProposalExecutionStatusMirror,
+    actions: String,
+    discussion_url: Option<String>,
+    voting_starts: Timestamp,
+    voting_ends: Timestamp,
+    created: Timestamp,
+    updated: Timestamp,
+    version: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum ProposalExecutionTypeMirror {
+    Standard,
+    Emergency,
+    Constitutional,
+    Parameter,
+    Funding,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+enum ProposalExecutionStatusMirror {
+    Draft,
+    Active,
+    Ended,
+    Approved,
+    Signed,
+    Rejected,
+    Executed,
+    Cancelled,
+    Failed,
+}
+
 /// Mirror type for ThresholdSignature from threshold-signing integrity zome.
 /// Avoids linking the integrity crate (which causes duplicate HDI symbols in WASM).
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
@@ -197,6 +239,11 @@ pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
         )));
     }
 
+    let _proposal = require_admissible_proposal(
+        &input.proposal_id,
+        &input.actions,
+    )?;
+
     let now = sys_time()?;
     let timelock_id = format!("timelock:{}:{}", input.proposal_id, now.as_micros());
 
@@ -321,6 +368,11 @@ pub fn mark_timelock_ready(input: MarkTimelockReadyInput) -> ExternResult<Record
         ))));
     }
 
+    let _proposal = require_admissible_proposal(
+        &current_timelock.proposal_id,
+        &current_timelock.actions,
+    )?;
+
     // READY is an authorization-admission state, not a cosmetic label. Require
     // threshold evidence over the exact material action that this timelock contains.
     let ready_action_key = execution_action_key(&current_timelock.actions)
@@ -443,6 +495,66 @@ fn execution_authorization_digest(
         hasher.update(value.as_bytes());
     }
     *hasher.finalize().as_bytes()
+}
+
+fn require_admissible_proposal(
+    proposal_id: &str,
+    actions: &str,
+) -> ExternResult<ProposalExecutionMirror> {
+    let extern_io = governance_utils::call_local(
+        "proposals",
+        "get_proposal",
+        proposal_id.to_owned(),
+    )
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Refusing execution: proposal lookup failed: {e}"
+    ))))?;
+
+    let record: Option<Record> = extern_io.decode().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: proposal response could not be decoded: {e}"
+        )))
+    })?;
+
+    let record = record.ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+        "Refusing execution: proposal '{}' was not found.",
+        proposal_id
+    ))))?;
+
+    let proposal: ProposalExecutionMirror = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: proposal entry could not be decoded: {e}"
+        )))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: proposal record has no entry.".into()
+        )))?;
+
+    if proposal.id != proposal_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: proposal lookup returned a mismatched proposal ID.".into()
+        )));
+    }
+
+    if !matches!(
+        proposal.status,
+        ProposalExecutionStatusMirror::Approved | ProposalExecutionStatusMirror::Signed
+    ) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: proposal '{}' is not Approved or Signed; current status is {:?}.",
+            proposal_id, proposal.status
+        ))));
+    }
+
+    if proposal.actions != actions {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: timelock actions do not exactly match the approved proposal action bytes."
+                .into()
+        )));
+    }
+
+    Ok(proposal)
 }
 
 fn require_verified_threshold_signature(
@@ -2221,6 +2333,18 @@ mod tests {
             "constitutional:proposal-1:decoy".split_once(':').map(|(_, id)| id),
             Some("proposal-1")
         );
+    }
+
+    #[test]
+    fn only_approved_or_signed_proposal_states_are_admissible() {
+        assert!(matches!(
+            ProposalExecutionStatusMirror::Approved,
+            ProposalExecutionStatusMirror::Approved | ProposalExecutionStatusMirror::Signed
+        ));
+        assert!(!matches!(
+            ProposalExecutionStatusMirror::Active,
+            ProposalExecutionStatusMirror::Approved | ProposalExecutionStatusMirror::Signed
+        ));
     }
 
     #[test]
