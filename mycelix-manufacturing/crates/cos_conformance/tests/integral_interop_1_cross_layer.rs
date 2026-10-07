@@ -356,7 +356,7 @@ fn actual_d6p_fixture() -> (
     ));
 
     // D6N: reconstruct the exact assessment from the D6M observation.
-    let d6n_profile = FinalityQualificationProfileV1 {
+    let mut d6n_profile = FinalityQualificationProfileV1 {
         profile_id: "integral-d6n-finality-profile-1".into(),
         semantic_environment_root: semantic_environment_root.clone(),
         allowed_observation_sources: BTreeSet::from([
@@ -371,7 +371,7 @@ fn actual_d6p_fixture() -> (
     };
     let expected_finality_profile_commitment = d6n_profile.recomputed_commitment();
     d6n_profile.profile_commitment = expected_finality_profile_commitment.clone();
-    let d6n_set = ExternalObservationSetV1 {
+    let mut d6n_set = ExternalObservationSetV1 {
         set_id: "integral-d6n-set-1".into(),
         effect_id: effect.effect_id.clone(),
         effect_lineage_id: effect.lineage_id.clone(),
