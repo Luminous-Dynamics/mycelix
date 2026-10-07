@@ -281,3 +281,65 @@ This document does not establish:
 - that a Polygon transaction is automatically a Mycelix truth event.
 
 The purpose is to keep Polygon useful without allowing external-chain convenience to weaken Mycelix's authority, provenance, privacy, or monetary-conservation boundaries.
+
+
+## Current Polygon PoS operational evidence
+
+The rail profile should encode operational and consensus assumptions separately from application-layer RPC health.
+
+Polygon's 2026 release history includes multiple security/liveness fixes across Bor and Heimdall. In February 2026, Bor v2.5.9 addressed peer-to-peer, header-validation, Heimdall state-sync, and block-number correctness issues, including bugs with potential consensus/correctness impact. Polygon subsequently published further Bor/Heimdall security and liveness fixes in June and August 2026.
+
+Polygon's September 2026 chaos-engineering report also demonstrates an important property for the adapter: under injected network/CPU faults, healthy validators continued consensus while a degraded validator fell behind; the report explicitly ties safety progress to an honest supermajority of voting power.
+
+The current Polygon validator dashboard shows 105 active validators and about 3.52B POL staked. The five largest displayed validator positions account for roughly 42% of that displayed stake; this number must **not** be interpreted as 42% independent control because displayed validator entities may share operators or economic relationships.
+
+Therefore the Mycelix adapter must not infer settlement assurance from:
+
+```text
+RPC availability
+  or
+block inclusion
+  or
+validator count
+  or
+nominal stake totals
+```
+
+Instead, the qualified Polygon rail profile should explicitly bind:
+
+- chain ID 137;
+- exact Bor/Heimdall protocol-version assumptions relevant to the observation;
+- checkpoint/finality evidence class;
+- bridge contract/version identity;
+- required validator/checkpoint condition;
+- node/provider failure-domain assumptions;
+- observed block/reference point;
+- adapter configuration digest;
+- configured exposure ceiling.
+
+### Polygon-specific chaos corpus
+
+Before allowing material external value, exercise at minimum:
+
+1. Bor peer isolation;
+2. Heimdall peer isolation;
+3. Bor/Heimdall desynchronization;
+4. RPC provider stall;
+5. stale RPC response;
+6. competing RPC observations;
+7. validator outage below the configured safety threshold;
+8. proposer/checkpoint delay;
+9. malformed block/header;
+10. invalid or stale checkpoint;
+11. bridge contract pause/upgrade;
+12. duplicate bridge event;
+13. replay across destination chain or bridge version;
+14. relayer compromise;
+15. interrupted Holochain -> Polygon settlement;
+16. interrupted Polygon -> Holochain reconciliation;
+17. claim submitted before required finality;
+18. finality observed, then configuration superseded;
+19. stablecoin freeze/depeg on the external rail;
+20. exposure limit exhaustion.
+
+A passing runtime observation must be recorded as a receipt tied to an exact software/configuration/protocol version. A static test result alone does not establish live Polygon settlement safety.
