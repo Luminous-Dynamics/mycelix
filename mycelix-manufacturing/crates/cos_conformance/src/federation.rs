@@ -6113,6 +6113,96 @@ mod tests {
     }
 
     #[test]
+    fn external_verification_profile_and_request_context_composition_is_canonical() {
+        let anchor = state_machine_trace_external_evidence_anchor_reference(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            b"composition-witness",
+            1_791_021_000,
+        )
+        .expect("anchor reference must build");
+
+        let combined =
+            state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence_and_request_context(
+                &anchor.anchor_reference_sha256,
+                2,
+                "rfc3161-verifier-v1",
+                b"verifier-profile-v1",
+                FederationExternalVerifierIdentityKind::PublicKey,
+                "rfc3161-key-v1",
+                b"composition-identity",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                b"composition-report",
+                b"rp=integral-demo;nonce=composition-A;action=water-maintenance",
+                1_791_021_001,
+            )
+            .expect("combined statement must build");
+
+        let profile_only =
+            state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence(
+                &anchor.anchor_reference_sha256,
+                2,
+                "rfc3161-verifier-v1",
+                b"verifier-profile-v1",
+                FederationExternalVerifierIdentityKind::PublicKey,
+                "rfc3161-key-v1",
+                b"composition-identity",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                b"composition-report",
+                1_791_021_001,
+            )
+            .expect("profile-only statement must build");
+
+        let request_only =
+            state_machine_trace_external_evidence_verification_statement_with_request_context(
+                &anchor.anchor_reference_sha256,
+                2,
+                "rfc3161-verifier-v1",
+                FederationExternalVerifierIdentityKind::PublicKey,
+                "rfc3161-key-v1",
+                b"composition-identity",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                b"composition-report",
+                b"rp=integral-demo;nonce=composition-A;action=water-maintenance",
+                1_791_021_001,
+            )
+            .expect("request-only statement must build");
+
+        assert_eq!(
+            combined.verifier_profile_sha256(),
+            Some(
+                state_machine_trace_external_verifier_profile_sha256(
+                    b"verifier-profile-v1"
+                )
+                .as_str()
+            )
+        );
+        assert_eq!(
+            combined.request_context_sha256(),
+            Some(
+                state_machine_trace_external_verification_request_context_sha256(
+                    b"rp=integral-demo;nonce=composition-A;action=water-maintenance"
+                )
+                .as_str()
+            )
+        );
+        assert_ne!(combined.statement_sha256(), profile_only.statement_sha256());
+        assert_ne!(combined.statement_sha256(), request_only.statement_sha256());
+
+        validate_state_machine_trace_external_evidence_verification_statement_binding_with_request_context(
+            &anchor.anchor_reference_sha256,
+            b"composition-report",
+            Some(b"rp=integral-demo;nonce=composition-A;action=water-maintenance"),
+            &combined,
+        )
+        .expect("combined statement must validate against exact context");
+    }
+
+    #[test]
     fn external_verification_policy_anchor_reference_binding_is_content_addressed_and_fail_closed() {
         let base = FederationExternalVerificationTrustPolicyV1::try_new_bound(
             FederationStateMachineTraceExternalWitnessKind::TimestampToken,
