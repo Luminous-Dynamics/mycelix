@@ -601,10 +601,6 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if exact_count(l, SOURCE_VOLUME_CREATE) != 1:
         fail("S1 candidate source volume create profile mismatch")
     if exact_count(l, SOURCE_VOLUME_RW) != 1:
-        fail("S1 candidate source acquisition must use one bounded Docker volume for writes")
-    if exact_count(l, SOURCE_VOLUME_CREATE) != 1:
-        fail("S1 candidate source volume create profile mismatch")
-    if exact_count(l, SOURCE_VOLUME_RW) != 1:
         fail("S1 candidate source volume write mount count mismatch")
     if exact_count(l, SOURCE_VOLUME_RO) != 3:
         fail("S1 candidate source volume read-only mount count mismatch")
@@ -614,11 +610,14 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate source volume instantiated profile mismatch")
     if 'test "$(stat -f -c \'%T\' "$candidate_volume_mountpoint")" = "tmpfs"' not in joined:
         fail("S1 candidate volume filesystem type check missing")
-    for required in ("source_volume_name=","source_volume_spec=","source_copy_bytes=","source_copy_files=","source_copy_inodes="):
+    for required in ("source_volume_name=","source_volume_spec=","source_copy_bytes=","source_copy_files=","source_copy_inodes=","source_volume_digest="):
         if required not in joined:
-            fail(f"S1 candidate source receipt field missing: {required!r}")
-    if 'test "$source_copy_bytes" -le "$SOURCE_MAX_BYTES"' not in joined or 'test "$source_copy_files" -le 200000' not in joined or 'test "$source_copy_inodes" -le "$SOURCE_MAX_INODES"' not in joined:
-        fail("S1 bounded candidate source volume usage ceilings missing")
+            fail(f"S1 candidate source volume receipt field missing: {required!r}")
+    for required in ('test "$source_copy_bytes" -le "$SOURCE_MAX_BYTES"','test "$source_copy_files" -le 200000','test "$source_copy_inodes" -le "$SOURCE_MAX_INODES"'):
+        if required not in joined:
+            fail(f"S1 candidate source resource ceiling missing: {required!r}")
+    if "source_copy_pipeline_status" in joined or "bounded_source_archive" in joined:
+        fail("S1 obsolete host archive/staging pipeline residue detected")
     if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
         fail("S1 vendor resource volume create profile mismatch")
     if exact_count(l, VENDOR_VOLUME_RW) != 1:
@@ -655,9 +654,10 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor-config volume instantiated options mismatch")
     if "cargo vendor --locked --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml /vendor > /vendor-config/config.toml" not in joined:
         fail("S1 cargo vendor must read candidate dependencies directly from bounded source volume")
+    if "dependency_source_mode=bounded-candidate-volume" not in joined:
+        fail("S1 dependency subject must remain inside the bounded candidate volume")
     if "DEPENDENCY_ROOT:" in joined or "/subject/Cargo.toml" in joined:
         fail("S1 host-backed dependency subject residue detected")
-        fail("S1 cargo vendor config output must terminate on bounded vendor-config volume")
     if 'vendor_config="$RUNNER_TEMP/' in joined:
         fail("S1 vendor-config must not use a host-backed runner-temp file")
     if 'if ! docker volume rm "$vendor_config_volume_name" >/dev/null 2>&1; then :; fi' in joined:
