@@ -463,6 +463,18 @@ mod tests {
     }
 
     #[test]
+    fn posting_total_overflow_fails_closed() {
+        let mut e = event();
+        e.postings = vec![
+            posting(PostingSide::Debit, u128::MAX, "USD"),
+            posting(PostingSide::Debit, 1, "USD"),
+            posting(PostingSide::Credit, u128::MAX, "USD"),
+            posting(PostingSide::Credit, 1, "USD"),
+        ];
+        assert_eq!(e.validate(), Err(ProfessionalFinanceError::NumericOverflow));
+    }
+
+    #[test]
     fn entity_swap_fails_closed() {
         let mut e = event();
         e.postings[0].legal_entity_id = "other".into();
