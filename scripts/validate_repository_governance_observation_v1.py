@@ -268,9 +268,9 @@ def _normalize_branch_protection(source: Any) -> dict[str, Any]:
                 f"branch protection bypass {actor_kind} are not enumerated",
             )
             for actor in actors:
-                actor_id = actor.get("id") if isinstance(actor, dict) else actor
+                actor_id = actor.get("login" if actor_kind == "users" else "slug") if isinstance(actor, dict) else actor
                 require(
-                    isinstance(actor_id, int) and not isinstance(actor_id, bool),
+                    isinstance(actor_id, str) and bool(actor_id),
                     f"branch protection bypass {actor_kind} contain invalid actor identity",
                 )
                 bypass.append({"actor_type": actor_type, "actor_id": actor_id})
