@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed static contract for Finance predecessor-bound update validators."""
 from pathlib import Path
+import re
 import sys
 
 ROOTS = [Path('mycelix-finance/zomes'), Path('mycelix-workspace/mycelix-finance/zomes')]
@@ -83,11 +84,8 @@ for path in files:
     for name, line, body in funcs:
         if 'must_get_valid_record' not in body:
             errors.append(f'{path}:{line}: {name}: missing must_get_valid_record predecessor binding')
-        elif 'if let Ok' in body and 'must_get_valid_record' in body:
-            # This heuristic is intentionally conservative; CI review should inspect any hit.
-            import re
-            if re.search(r'if\s+let\s+Ok\s*\(', body):
-                errors.append(f'{path}:{line}: {name}: potential swallowed predecessor/result pattern')
+        elif re.search(r'if\s+let\s+Ok\s*\([^)]*\)\s*=\s*must_get_valid_record', body):
+            errors.append(f'{path}:{line}: {name}: swallowed must_get_valid_record predecessor dependency')
 
 print(f'Audited {len(files)} Finance integrity zomes across {len(ROOTS)} trees.')
 if errors:
