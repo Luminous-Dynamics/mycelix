@@ -5,8 +5,9 @@
 //! Positive derivation uses holo_hash's canonical typed hashing API.
 
 use holo_hash::{hash_type, HashableContentExtSync, WasmHash};
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
+use std::fmt;
 
 pub const SCHEMA_VERSION: &str = "fpm.verifier-artifact-identity.v1";
 pub const HOLOCHAIN_PROFILE: &str = "holochain-0.7.0-wasmhash-v1";
@@ -16,13 +17,89 @@ pub const HOLOHASH_RAW_39_LEN: usize = 39;
 /// the verifier fails closed before calling the constructor.
 pub const MAX_ARTIFACT_BYTES: usize = holo_hash::MAX_HASHABLE_CONTENT_LEN;
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct FpmWasmArtifactIdentity {
     pub schema_version: String,
     pub holochain_profile: String,
     pub artifact_sha256: String,
     pub wasm_hash_raw_39: Vec<u8>,
+}
+
+impl<'de> Deserialize<'de> for FpmWasmArtifactIdentity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "schema_version",
+            "holochain_profile",
+            "artifact_sha256",
+            "wasm_hash_raw_39",
+        ];
+
+        struct IdentityVisitor;
+
+        impl<'de> de::Visitor<'de> for IdentityVisitor {
+            type Value = FpmWasmArtifactIdentity;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("an FPM WASM artifact identity object")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::MapAccess<'de>,
+            {
+                let mut schema_version = None;
+                let mut holochain_profile = None;
+                let mut artifact_sha256 = None;
+                let mut wasm_hash_raw_39 = None;
+
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "schema_version" => {
+                            if schema_version.is_some() {
+                                return Err(de::Error::duplicate_field("schema_version"));
+                            }
+                            schema_version = Some(map.next_value()?);
+                        }
+                        "holochain_profile" => {
+                            if holochain_profile.is_some() {
+                                return Err(de::Error::duplicate_field("holochain_profile"));
+                            }
+                            holochain_profile = Some(map.next_value()?);
+                        }
+                        "artifact_sha256" => {
+                            if artifact_sha256.is_some() {
+                                return Err(de::Error::duplicate_field("artifact_sha256"));
+                            }
+                            artifact_sha256 = Some(map.next_value()?);
+                        }
+                        "wasm_hash_raw_39" => {
+                            if wasm_hash_raw_39.is_some() {
+                                return Err(de::Error::duplicate_field("wasm_hash_raw_39"));
+                            }
+                            wasm_hash_raw_39 = Some(map.next_value()?);
+                        }
+                        _ => return Err(de::Error::unknown_field(&key, FIELDS)),
+                    }
+                }
+
+                Ok(FpmWasmArtifactIdentity {
+                    schema_version: schema_version
+                        .ok_or_else(|| de::Error::missing_field("schema_version"))?,
+                    holochain_profile: holochain_profile
+                        .ok_or_else(|| de::Error::missing_field("holochain_profile"))?,
+                    artifact_sha256: artifact_sha256
+                        .ok_or_else(|| de::Error::missing_field("artifact_sha256"))?,
+                    wasm_hash_raw_39: wasm_hash_raw_39
+                        .ok_or_else(|| de::Error::missing_field("wasm_hash_raw_39"))?,
+                })
+            }
+        }
+
+        deserializer.deserialize_struct("FpmWasmArtifactIdentity", FIELDS, IdentityVisitor)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -206,12 +283,19 @@ mod tests {
     }
 
     #[test]
-    fn unknown_identity_fields_are_rejected() {
+    fn unknown_and_duplicate_identity_fields_are_rejected() {
         let identity = derive_identity(&artifact()).unwrap();
-        let mut json = serde_json::to_string(&identity).unwrap();
-        json.insert_str(json.len() - 1, ",\"future_field\":true");
 
-        assert!(serde_json::from_str::<FpmWasmArtifactIdentity>(&json).is_err());
+        let mut unknown_json = serde_json::to_string(&identity).unwrap();
+        unknown_json.insert_str(unknown_json.len() - 1, ",\"future_field\":true");
+        assert!(serde_json::from_str::<FpmWasmArtifactIdentity>(&unknown_json).is_err());
+
+        let mut duplicate_json = serde_json::to_string(&identity).unwrap();
+        duplicate_json.insert_str(
+            duplicate_json.len() - 1,
+            &format!(",\"artifact_sha256\":\"{}\"}}", identity.artifact_sha256),
+        );
+        assert!(serde_json::from_str::<FpmWasmArtifactIdentity>(&duplicate_json).is_err());
     }
 
     #[test]
