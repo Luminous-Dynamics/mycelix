@@ -850,9 +850,13 @@ pub struct ClaimExecutionInvocationInput {
 
 /// Invoke an execution attempt whose invocation claim is already durable.
 ///
-/// An ambiguous/error return is never promoted to terminal FAILED here.
+/// IMPORTANT: after execute_actions returns, this function performs no fallible
+/// host writes and makes no status transition. That is deliberate. If an external
+/// effect succeeds but a later local commit fails, the durable InvocationClaimed
+/// state remains occupied and a retry cannot re-enter the provider. Outcome
+/// recording happens in record_execution_observation, which is itself effect-free.
 #[hdk_extern]
-pub fn invoke_execution(input: InvokeExecutionInput) -> ExternResult<Record> {
+pub fn invoke_execution(input: InvokeExecutionInput) -> ExternResult<InvokeExecutionResult> {
     if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Timelock ID must be 1-256 characters".into()
@@ -912,41 +916,134 @@ pub fn invoke_execution(input: InvokeExecutionInput) -> ExternResult<Record> {
     }
 
     let execution_result = execute_actions(&timelock.actions)?;
-    let now = sys_time();
-    let evidence = execution_outcome_evidence(&current_attempt, &execution_result);
+    let observation_evidence_commitment =
+        execution_outcome_evidence(&current_attempt, &execution_result);
 
+    Ok(InvokeExecutionResult {
+        attempt_identity: current_attempt.attempt_identity,
+        action_key_digest: current_attempt.action_key_digest,
+        native_replay_identity: current_attempt.native_replay_identity,
+        success: execution_result.success,
+        result: execution_result.result,
+        error: execution_result.error,
+        observation_evidence_commitment,
+    })
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InvokeExecutionInput {
+    pub timelock_id: String,
+}
+
+/// Ephemeral result returned directly from the effecting invocation call.
+///
+/// This is not a durable receipt and must never be treated as terminal proof by
+/// itself. A separate effect-free recorder persists it as Indeterminate until
+/// authoritative provider evidence can classify the outcome.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InvokeExecutionResult {
+    pub attempt_identity: String,
+    pub action_key_digest: String,
+    pub native_replay_identity: String,
+    pub success: bool,
+    pub result: Option<String>,
+    pub error: Option<String>,
+    pub observation_evidence_commitment: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RecordExecutionObservationInput {
+    pub timelock_id: String,
+    pub attempt_identity: String,
+    pub action_key_digest: String,
+    pub native_replay_identity: String,
+    pub success: bool,
+    pub result: Option<String>,
+    pub error: Option<String>,
+    pub observation_evidence_commitment: String,
+}
+
+/// Persist an effect observation without crossing the effect boundary.
+///
+/// Re-running this function is safe: after a successful commit the attempt is
+/// Indeterminate and a second observation is refused. No provider call occurs
+/// here, so an ambiguous recorder commit cannot cause a duplicate external effect.
+#[hdk_extern]
+pub fn record_execution_observation(
+    input: RecordExecutionObservationInput,
+) -> ExternResult<Record> {
+    if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Timelock ID must be 1-256 characters".into()
+        )));
+    }
+
+    let caller = caller_did()?;
+    let current_record = find_latest_execution_attempt(&input.timelock_id)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No execution attempt exists for observation".into()
+        )))?;
+
+    let current_attempt: ExecutionAttempt = current_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid execution attempt entry".into()
+        )))?;
+
+    if current_attempt.executor != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the execution-attempt owner may record its observation".into()
+        )));
+    }
+    if current_attempt.status != ExecutionAttemptStatus::InvocationClaimed {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution attempt observation must follow InvocationClaimed, current: {:?}",
+            current_attempt.status
+        )));
+    }
+    if input.attempt_identity != current_attempt.attempt_identity
+        || input.action_key_digest != current_attempt.action_key_digest
+        || input.native_replay_identity != current_attempt.native_replay_identity
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Observation identity does not match the committed execution attempt".into()
+        )));
+    }
+
+    let observation_evidence = execution_outcome_evidence(
+        &current_attempt,
+        &ActionExecutionResult {
+            success: input.success,
+            result: input.result.clone(),
+            error: input.error.clone(),
+        },
+    );
+    if observation_evidence != input.observation_evidence_commitment {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Observation evidence commitment does not match the claimed invocation result".into()
+        )));
+    }
+
+    let now = sys_time()?;
     let execution = Execution {
-        id: format!("execution:{}:{}", input.timelock_id, now.as_micros()),
+        id: format!("execution-observation:{}:{}", input.timelock_id, now.as_micros()),
         timelock_id: input.timelock_id.clone(),
         proposal_id: current_attempt.proposal_id.clone(),
         executor: caller,
-        status: if execution_result.success {
-            ExecutionStatus::Success
-        } else {
-            // execute_actions may have entered an effecting boundary and returned
-            // an error, or may have partially applied a batch. Until authoritative
-            // reconciliation proves no effect, this is Indeterminate rather than Failed.
-            ExecutionStatus::Indeterminate
-        },
-        result: execution_result.result.clone(),
-        error: execution_result.error.clone(),
+        status: ExecutionStatus::Indeterminate,
+        result: input.result,
+        error: input.error,
         executed_at: now,
     };
 
     let execution_hash = create_entry(&EntryTypes::Execution(execution))?;
 
     let updated_attempt = ExecutionAttempt {
-        status: if execution_result.success {
-            ExecutionAttemptStatus::Succeeded
-        } else {
-            ExecutionAttemptStatus::Indeterminate
-        },
+        status: ExecutionAttemptStatus::Indeterminate,
         updated_at: now,
-        outcome_evidence_commitment: if execution_result.success {
-            Some(evidence)
-        } else {
-            None
-        },
+        outcome_evidence_commitment: Some(input.observation_evidence_commitment),
         ..current_attempt
     };
 
@@ -955,25 +1052,9 @@ pub fn invoke_execution(input: InvokeExecutionInput) -> ExternResult<Record> {
         &EntryTypes::ExecutionAttempt(updated_attempt),
     )?;
 
-    if execution_result.success {
-        let updated_timelock = Timelock {
-            status: TimelockStatus::Executed,
-            ..timelock
-        };
-        update_entry(
-            timelock_record.action_address().clone(),
-            &EntryTypes::Timelock(updated_timelock),
-        )?;
-    }
-
     get(execution_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Execution outcome could not be read after commit".into()
+        "Execution observation could not be read after commit".into()
     )))
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct InvokeExecutionInput {
-    pub timelock_id: String,
 }
 
 /// Execute a ready timelock
