@@ -1330,6 +1330,20 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     )
     require_exact_run_command_count(
         l,
+        "Pull and preflight pinned sandbox image",
+        r"\bdocker pull\b",
+        1,
+        "S1 sandbox preflight Docker pull command census",
+    )
+    require_exact_run_command_count(
+        l,
+        "Pull and preflight pinned sandbox image",
+        r"\bdocker image inspect\b",
+        1,
+        "S1 sandbox preflight Docker inspect command census",
+    )
+    require_exact_run_command_count(
+        l,
         "Verify dependency substrate immutability",
         r"\bdocker run\b",
         1,
@@ -2704,6 +2718,13 @@ def main() -> None:
             fail(f"additional-docker-run regression fixture marker missing: {marker!r}")
         return raw.replace(marker, insertion + marker, 1)
 
+    def inject_additional_preflight_host_command(raw: bytes, command: bytes, next_step: bytes) -> bytes:
+        marker = next_step
+        if marker not in raw:
+            fail(f"additional-preflight-command regression fixture marker missing: {marker!r}")
+        insertion = b"          " + command + b"\n"
+        return raw.replace(marker, insertion + marker, 1)
+
     def inject_additional_vendor_volume_create(raw: bytes, next_step: bytes) -> bytes:
         marker = next_step
         insertion = b'          docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=64m,nr_inodes=4096 extra-volume >/dev/null\n'
@@ -2721,6 +2742,29 @@ def main() -> None:
         ),
         "S1 additional Docker invocation after candidate sandbox",
     )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_additional_preflight_host_command(
+                raw["s1"],
+                b'docker pull "$SANDBOX_IMAGE"',
+                b"      - name: Prepare locked dependency subject\n",
+            ),
+            s1_sha,
+        ),
+        "S1 additional sandbox image pull",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_additional_preflight_host_command(
+                raw["s1"],
+                b'docker image inspect "$SANDBOX_IMAGE"',
+                b"      - name: Prepare locked dependency subject\n",
+            ),
+            s1_sha,
+        ),
+        "S1 additional sandbox image inspection",
+    )
+
     expect_rejection(
         lambda: verify_s1(
             inject_additional_vendor_volume_create(
