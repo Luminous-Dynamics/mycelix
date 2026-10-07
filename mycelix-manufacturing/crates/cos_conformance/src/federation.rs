@@ -5600,6 +5600,7 @@ mod tests {
             "anchor_reference_sha256",
             "verifier_schema_version",
             "verifier_profile",
+            "verifier_profile_sha256",
             "verifier_identity_kind",
             "verifier_identity_profile",
             "verifier_identity_hash_algorithm",
