@@ -1,0 +1,71 @@
+name: Sovereignty QUAL-001 independent verifier
+
+on:
+  push:
+    branches:
+      - qual-001-sov-ai-verifier-v1
+    paths:
+      - 'docs/qualification/SOVEREIGNTY_QUAL_001_PROFILE_V1.json'
+      - 'tools/qualification/verify_sovereignty_v1_independent.py'
+      - '.github/workflows/sovereignty-qual-001-independent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact verifier head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Verify verifier checkout identity
+        env:
+          EXPECTED_VERIFIER_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_VERIFIER_SHA"
+
+      - name: Read frozen subject commitment
+        id: profile
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          p=json.load(open("docs/qualification/SOVEREIGNTY_QUAL_001_PROFILE_V1.json", encoding="utf-8"))
+          print("subject_sha="+p["subject"]["head_sha"])
+          print("subject_path="+p["subject"]["corpus_path"])
+          PY
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.profile.outputs.subject_sha }}
+          path: subject
+          fetch-depth: 1
+          clean: true
+
+      - name: Verify exact subject checkout
+        env:
+          EXPECTED_SUBJECT_SHA: ${{ steps.profile.outputs.subject_sha }}
+        run: |
+          set -eu
+          actual="$(git -C subject rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SUBJECT_SHA"
+          tree="$(git -C subject rev-parse 'HEAD^{tree}')"
+          printf '%s\n' "$tree" > /tmp/subject-tree-sha
+
+      - name: Run independent verifier
+        run: |
+          set -eu
+          python3 tools/qualification/verify_sovereignty_v1_independent.py             --subject "subject/${{ steps.profile.outputs.subject_path }}"             --profile "docs/qualification/SOVEREIGNTY_QUAL_001_PROFILE_V1.json"             --subject-commit "${{ steps.profile.outputs.subject_sha }}"             --subject-tree "$(cat /tmp/subject-tree-sha)"             --verifier-commit "${{ github.sha }}"
+
+      - name: Postflight immutability
+        run: |
+          set -eu
+          test "$(git -C subject status --porcelain)" = ""
+          test "$(git status --porcelain)" = ""
