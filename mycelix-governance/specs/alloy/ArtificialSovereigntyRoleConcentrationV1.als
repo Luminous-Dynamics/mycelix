@@ -1,69 +1,81 @@
 module ArtificialSovereigntyRoleConcentrationV1
 
 enum SubjectClass { Human, Artificial }
-enum Bit { On, Off }
 enum Role { Operator, Verifier, EvidenceArchive, Adjudicator }
+enum Bit { On, Off }
 
 sig Subject {
   class: one SubjectClass,
   roles: set Role,
   conflictFinding: one Bit,
-  externalReview: one Bit
+  externalReviewers: set Subject
 }
 
-fact CriticalRoleConcentrationRequiresFinding {
-  all s: Subject |
-    #(s.roles & (Operator + Verifier + EvidenceArchive)) >= 2
-      implies s.conflictFinding = On
+fun criticalCount[s: Subject]: Int {
+  #(s.roles & (Operator + Verifier + EvidenceArchive + Adjudicator))
 }
 
-fact FullControlRequiresExternalReview {
+pred independentReview[s: Subject] {
+  some r: s.externalReviewers | r != s
+}
+
+fact RoleConcentrationRequiresFinding {
   all s: Subject |
-    #(s.roles & (Operator + Verifier + EvidenceArchive)) = 3
-      implies s.externalReview = On
+    criticalCount[s] >= 2 implies s.conflictFinding = On
+}
+
+fact FullControlRequiresIndependentReview {
+  all s: Subject |
+    criticalCount[s] = 4 implies independentReview[s]
 }
 
 pred ConcentratedRolesWithFinding {
   some s: Subject |
-    #(s.roles & (Operator + Verifier + EvidenceArchive)) >= 2 and
+    criticalCount[s] >= 2 and
     s.conflictFinding = On
 }
 
-pred FullControlWithExternalReview {
+pred FullControlWithIndependentReview {
   some s: Subject |
-    #(s.roles & (Operator + Verifier + EvidenceArchive)) = 3 and
-    s.externalReview = On
+    criticalCount[s] = 4 and
+    independentReview[s]
 }
 
-pred AdjudicatorDistinctOrReviewed {
+pred SelfReviewOnlyFullControl {
   some s: Subject |
-    Adjudicator in s.roles and
-    (s.conflictFinding = On or s.externalReview = On)
+    criticalCount[s] = 4 and
+    s.externalReviewers = s
 }
 
 run ConcentratedRolesWithFinding
   for 4 int, 4 Subject, 4 Role
 
-run FullControlWithExternalReview
+run FullControlWithIndependentReview
   for 4 int, 4 Subject, 4 Role
 
-run AdjudicatorDistinctOrReviewed
+run SelfReviewOnlyFullControl
   for 4 int, 4 Subject, 4 Role
 
-assert RoleConcentrationRequiresFinding {
+assert RoleConcentrationRequiresFindingInvariant {
   all s: Subject |
-    #(s.roles & (Operator + Verifier + EvidenceArchive)) >= 2
-      implies s.conflictFinding = On
+    criticalCount[s] >= 2 implies s.conflictFinding = On
 }
 
-assert FullControlRequiresExternalReview {
+assert FullControlRequiresIndependentReviewInvariant {
   all s: Subject |
-    #(s.roles & (Operator + Verifier + EvidenceArchive)) = 3
-      implies s.externalReview = On
+    criticalCount[s] = 4 implies independentReview[s]
 }
 
-check RoleConcentrationRequiresFinding
+assert SelfReviewAloneDoesNotCountAsIndependentReview {
+  all s: Subject |
+    s.externalReviewers = s implies not independentReview[s]
+}
+
+check RoleConcentrationRequiresFindingInvariant
   for 4 int, 4 Subject, 4 Role expect 0
 
-check FullControlRequiresExternalReview
+check FullControlRequiresIndependentReviewInvariant
   for 4 int, 4 Subject, 4 Role expect 0
+
+check SelfReviewAloneDoesNotCountAsIndependentReview
+  for 4 int, 4 Subject expect 0
