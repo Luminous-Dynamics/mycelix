@@ -417,7 +417,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::ActiveStakes => Ok(ValidateCallbackResult::Valid),
             LinkTypes::StakeIdToStake => Ok(ValidateCallbackResult::Valid),
             LinkTypes::EscrowIdToEscrow => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Invalid(
+                "GovernanceAgents links are non-authoritative and cannot register Finance governance membership".into(),
+            )),
             LinkTypes::EscrowToSignatures => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),
