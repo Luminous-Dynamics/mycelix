@@ -32,6 +32,14 @@ ALLOY_UNSAT = {
     "HighSwitchingCostIsReviewable",
 }
 
+REFERENCE_CONTROLS = {
+    "accumulate": "ScaleDoesNotIncreasePoliticalWeight",
+    "gatekeep": "AuthorityHasExplicitSource",
+    "acquire": "JurisdictionHasExplicitSource",
+    "critical": "JurisdictionHasExplicitSource",
+    "gatekeep-review": "HighSwitchingCostTriggersReview",
+}
+
 ALLOY_NEGATIVE_FACTS = {
     "PoliticalWeightInvariant": "ScaleDoesNotIncreasePoliticalWeight",
     "JurisdictionHasExplicitSource": "JurisdictionHasExplicitSourceInvariant",
@@ -122,6 +130,14 @@ def main() -> int:
         fail("profile is not an explicitly non-authoritative candidate profile")
     if profile["profile_id"] != "SOV-AI-CONCENTRATION-FORMAL-QUAL-001-V1":
         fail("unexpected concentration profile id")
+    if profile["models"]["negative_tla"]["controls"] != {
+        "scale-weight": "ScaleDoesNotIncreasePoliticalWeight",
+        "gatekeep-authority": "AuthorityHasExplicitSource",
+        "acquire-jurisdiction": "JurisdictionHasExplicitSource",
+        "critical-jurisdiction": "JurisdictionHasExplicitSource",
+        "switching-review": "HighSwitchingCostTriggersReview",
+    }:
+        fail("profile TLA negative-control contract mismatch")
 
     model = profile["models"]
     for path, expected in [
@@ -171,12 +187,7 @@ def main() -> int:
         receipt["reference"] = {"returncode": reference.returncode, "log_sha256": sha256(args.evidence_dir / "reference.log")}
         if reference.returncode != 0:
             fail("reference explorer failed")
-        for control, target in [
-            ("accumulate", "ScaleDoesNotIncreasePoliticalWeight"),
-            ("gatekeep", "AuthorityHasExplicitSource"),
-            ("acquire", "JurisdictionHasExplicitSource"),
-            ("critical", "JurisdictionHasExplicitSource"),
-        ]:
+        for control, target in REFERENCE_CONTROLS.items():
             marker = f"NEGATIVE PASS: {control} -> {target} counterexample"
             if marker not in reference.stdout:
                 fail(f"reference control missing: {marker}")
