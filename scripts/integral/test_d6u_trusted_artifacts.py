@@ -97,7 +97,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 52
+    assert policy["policy_version"] == 54
     assert policy["repository_identity"] == {
         "full_name": "Luminous-Dynamics/mycelix",
         "repository_id": 1176351975,
@@ -763,6 +763,11 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert workflow.count("github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime'") == 3
     assert workflow.count("github.event.workflow_run.repository.full_name == github.repository") == 3
     assert workflow.count("github.event.workflow_run.head_repository.full_name == github.repository") == 3
+    assert workflow.count("github.event.repository.id == github.repository_id") == 3
+    assert workflow.count("github.event.workflow_run.repository.id == github.repository_id") == 3
+    assert workflow.count("github.event.workflow_run.head_repository.id == github.repository_id") == 3
+    assert workflow.count("D6U_TRIGGER_REPOSITORY_ID: " + "${{ github.repository_id }}") == 1
+    assert workflow.count("D6U_TRUSTED_REPOSITORY_ID: " + "${{ github.repository_id }}") == 2
     assert workflow.count("github.event.workflow_run.name == 'D6U Exact-Head Runtime Executor'") == 3
     assert workflow.count("github.event.workflow_run.path == '.github/workflows/d6u-exact-head-runtime-executor.yml'") == 3
     assert "gh attestation verify" not in signer
@@ -2628,7 +2633,7 @@ def test_trusted_builder_documentation_is_current() -> None:
     documentation = (root / "docs/integral/d6u-trusted-builder.md").read_text(
         encoding="utf-8"
     )
-    assert "Current trusted policy revision: v52." in documentation
+    assert "Current trusted policy revision: v54." in documentation
     assert "sixty-four deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
