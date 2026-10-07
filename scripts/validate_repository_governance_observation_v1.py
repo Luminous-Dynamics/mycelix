@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 import copy
+import fnmatch
 import hashlib
 import json
 import re
@@ -123,6 +124,19 @@ def validate_observation_shape(observation: Any) -> None:
         )
 
 
+def _ref_pattern_matches_main(pattern: Any) -> bool:
+    if not isinstance(pattern, str) or pattern == "":
+        return False
+    if pattern == "~ALL":
+        return True
+    if pattern == "~DEFAULT_BRANCH":
+        return False
+    return (
+        fnmatch.fnmatchcase(TARGET_REF, pattern)
+        or fnmatch.fnmatchcase("main", pattern)
+    )
+
+
 def _ruleset_targets_main(entry: Any) -> bool:
     if not isinstance(entry, dict):
         return False
@@ -135,12 +149,32 @@ def _ruleset_targets_main(entry: Any) -> bool:
     if not isinstance(ref_name, dict):
         return False
     includes = ref_name.get("include")
-    if not isinstance(includes, list):
+    excludes = ref_name.get("exclude")
+    if not isinstance(includes, list) or not isinstance(excludes, list):
         return False
-    return TARGET_REF in includes or "~DEFAULT_BRANCH" in includes or "~ALL" in includes
+    return (
+        any(_ref_pattern_matches_main(pattern) for pattern in includes)
+        and not any(_ref_pattern_matches_main(pattern) for pattern in excludes)
+    )
 
 
 def _evaluate_rulesets(ruleset_entries: list[Any]) -> tuple[str, list[str]]:
+    for index, entry in enumerate(ruleset_entries):
+        if not isinstance(entry, dict):
+            return "UNVERIFIED", [f"ruleset[{index}]_entry_not_enumerated"]
+        if entry.get("target") != "branch" or entry.get("enforcement") != "active":
+            continue
+        conditions = entry.get("conditions")
+        if not isinstance(conditions, dict):
+            return "UNVERIFIED", [f"ruleset[{index}]_conditions_not_enumerated"]
+        ref_name = conditions.get("ref_name")
+        if not isinstance(ref_name, dict):
+            return "UNVERIFIED", [f"ruleset[{index}]_ref_name_conditions_not_enumerated"]
+        includes = ref_name.get("include")
+        excludes = ref_name.get("exclude")
+        if not isinstance(includes, list) or not isinstance(excludes, list):
+            return "UNVERIFIED", [f"ruleset[{index}]_target_patterns_not_enumerated"]
+
     targeted: list[dict[str, Any]] = []
     for entry in ruleset_entries:
         if _ruleset_targets_main(entry):
@@ -218,13 +252,28 @@ def _normalize_branch_protection(source: Any) -> dict[str, Any]:
     bypass: list[dict[str, Any]] = []
 
     if isinstance(review, dict):
-        allowances = review.get("bypass_pull_request_allowances") or {}
-        for actor in allowances.get("users") or []:
-            bypass.append({"actor_type": "User", "actor_id": actor})
-        for actor in allowances.get("teams") or []:
-            bypass.append({"actor_type": "Team", "actor_id": actor})
-        for actor in allowances.get("apps") or []:
-            bypass.append({"actor_type": "Integration", "actor_id": actor})
+        allowances = review.get("bypass_pull_request_allowances")
+        require(
+            isinstance(allowances, dict),
+            "branch protection bypass allowances are not enumerated",
+        )
+        for actor_kind, actor_type in (
+            ("users", "User"),
+            ("teams", "Team"),
+            ("apps", "Integration"),
+        ):
+            actors = allowances.get(actor_kind)
+            require(
+                isinstance(actors, list),
+                f"branch protection bypass {actor_kind} are not enumerated",
+            )
+            for actor in actors:
+                actor_id = actor.get("id") if isinstance(actor, dict) else actor
+                require(
+                    isinstance(actor_id, int) and not isinstance(actor_id, bool),
+                    f"branch protection bypass {actor_kind} contain invalid actor identity",
+                )
+                bypass.append({"actor_type": actor_type, "actor_id": actor_id})
     if enforce_admins.get("enabled") is not True:
         bypass.append({"actor_type": "RepositoryAdministrator"})
 
@@ -388,20 +437,26 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             "grants_trusted_verifier_root": False,
         }
 
-    if branch_state == "VERIFIED" or ruleset_state == "VERIFIED":
+    mismatches = branch_mismatches + ruleset_mismatches
+
+    if "MISMATCH" in {branch_state, ruleset_state}:
+        reason = (
+            "observable_governance_control_mismatch"
+            if mismatches
+            else "observable_governance_control_mismatch_without_detail"
+        )
         return {
             "evaluator_id": EVALUATOR_ID,
-            "valid": True,
-            "governance_state": "VERIFIED",
-            "reason": "all_required_controls_observed_in_an_acceptable_control_plane",
-            "mismatches": [],
-            "claim_ceiling": "RepositoryGovernanceVerified",
+            "valid": False,
+            "governance_state": "MISMATCH",
+            "reason": reason,
+            "mismatches": mismatches,
+            "claim_ceiling": "RepositoryGovernanceObservationOnly",
             "authoritative_admin_observation": True,
-            "grants_trusted_verifier_root": True,
+            "grants_trusted_verifier_root": False,
         }
 
-    if branch_state == "UNVERIFIED" or ruleset_state == "UNVERIFIED":
-        mismatches = branch_mismatches + ruleset_mismatches
+    if "UNVERIFIED" in {branch_state, ruleset_state}:
         return {
             "evaluator_id": EVALUATOR_ID,
             "valid": False,
@@ -413,28 +468,24 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             "grants_trusted_verifier_root": False,
         }
 
-    if branch_state in {"ABSENT", "MISMATCH"} and ruleset_state in {"ABSENT", "MISMATCH"}:
-        mismatches = branch_mismatches + ruleset_mismatches
-        if branch_state == "ABSENT" and ruleset_state == "ABSENT":
-            mismatches = ["no_acceptable_control_plane_observed"]
+    if "VERIFIED" in {branch_state, ruleset_state}:
         return {
             "evaluator_id": EVALUATOR_ID,
-            "valid": False,
-            "governance_state": "MISMATCH",
-            "reason": "all_observable_acceptable_control_planes_mismatch",
-            "mismatches": mismatches,
-            "claim_ceiling": "RepositoryGovernanceObservationOnly",
+            "valid": True,
+            "governance_state": "VERIFIED",
+            "reason": "all_required_controls_observed_in_an_acceptable_control_plane",
+            "mismatches": [],
+            "claim_ceiling": "RepositoryGovernanceVerified",
             "authoritative_admin_observation": True,
-            "grants_trusted_verifier_root": False,
+            "grants_trusted_verifier_root": True,
         }
 
-    mismatches = branch_mismatches + ruleset_mismatches
     return {
         "evaluator_id": EVALUATOR_ID,
         "valid": False,
         "governance_state": "MISMATCH",
-        "reason": "required_governance_controls_mismatch",
-        "mismatches": mismatches,
+        "reason": "no_acceptable_control_plane_observed",
+        "mismatches": ["no_acceptable_control_plane_observed"],
         "claim_ceiling": "RepositoryGovernanceObservationOnly",
         "authoritative_admin_observation": True,
         "grants_trusted_verifier_root": False,
@@ -674,6 +725,45 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
 
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/heads/*"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/heads/*"]
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["exclude"] = ["refs/heads/main"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["bypass_actors"] = [{"actor_type": "User", "actor_id": 7}]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    protection_raw = json.loads(
+        base64.b64decode(x["branch_protection_payload_base64"]).decode("utf-8")
+    )
+    del protection_raw["required_pull_request_reviews"]["bypass_pull_request_allowances"]
+    protection_bytes = json.dumps(
+        protection_raw, separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["branch_protection_payload_base64"] = base64.b64encode(protection_bytes).decode()
+    x["branch_protection_payload_sha256"] = hashlib.sha256(protection_bytes).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("missing bypass enumeration must be rejected")
+
     x = copy.deepcopy(fixture_observation(policy))
     x["policy_sha256"] = "f" * 64
     try:
@@ -783,9 +873,10 @@ def main() -> int:
         print(json.dumps({
             "evaluator_id": EVALUATOR_ID,
             "valid": False,
-            "governance_state": "NOT_RUN",
-            "reason": str(exc),
+            "governance_state": "UNVERIFIED",
+            "reason": f"evidence_evaluation_error:{exc}",
             "claim_ceiling": "RepositoryGovernanceObservationOnly",
+            "authoritative_admin_observation": False,
             "grants_trusted_verifier_root": False,
         }, sort_keys=True))
         return 2
