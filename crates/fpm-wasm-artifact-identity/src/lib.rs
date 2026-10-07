@@ -175,6 +175,21 @@ mod tests {
     }
 
     #[test]
+    fn holochain_raw_byte_derivation_matches_canonical_dna_wasm() {
+        use holochain_types::dna::wasm::DnaWasm;
+
+        let code = artifact();
+        let canonical = WasmHash::with_data_sync(&DnaWasm::from(code.clone()));
+        let raw_byte_derivation = WasmHash::with_data_sync(code);
+
+        assert_eq!(
+            canonical.get_raw_39(),
+            raw_byte_derivation.get_raw_39(),
+            "FPM byte-domain derivation must equal Holochain 0.7 DnaWasm derivation",
+        );
+    }
+
+    #[test]
     fn exact_identity_is_derived_from_exact_bytes() {
         let code = artifact();
         let identity = derive_identity(&code).unwrap();
