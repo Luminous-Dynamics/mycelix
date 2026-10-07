@@ -1329,7 +1329,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_exact_run_body_sha256(
         l,
         "Static trust-surface audit",
-        "7c0d14e7cd6c9a6be14b8b4aa810c3f67c9594ab2648b2444873a56f43a74b74",
+        "7152405a575a0a37ab5bbf9de4d8c1b5bcb09fc26f12c4bf6202d3595089f0ee",
         "S1 Static trust-surface audit exact run-body digest",
     )
     require_exact_run_body_sha256(
