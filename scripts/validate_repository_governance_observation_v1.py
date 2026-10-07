@@ -547,26 +547,56 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
     observation["branch_payload_sha256"] = hashlib.sha256(branch_raw).hexdigest()
     observation["rulesets_payload_base64"] = base64.b64encode(rulesets_raw).decode()
     observation["rulesets_payload_sha256"] = hashlib.sha256(rulesets_raw).hexdigest()
-    protection_raw = json.dumps(
-        _normalize_branch_protection(
+
+    normalized = observation["admin_observation"]["protection"]
+    require(isinstance(normalized, dict), "fixture normalized protection missing")
+    users: list[Any] = []
+    teams: list[Any] = []
+    apps: list[Any] = []
+    for actor in normalized.get("bypass_actors", []):
+        actor_type = actor.get("actor_type")
+        if actor_type == "User":
+            users.append(actor.get("actor_id"))
+        elif actor_type == "Team":
+            teams.append(actor.get("actor_id"))
+        elif actor_type == "Integration":
+            apps.append(actor.get("actor_id"))
+        elif actor_type == "RepositoryAdministrator":
+            pass
+        else:
+            raise EvidenceError(f"unsupported fixture bypass actor type: {actor_type}")
+
+    protection_raw = {
+        "required_pull_request_reviews": (
             {
-                "required_pull_request_reviews": {
-                    "dismiss_stale_reviews": True,
-                    "require_last_push_approval": True,
-                    "required_approving_review_count": 1,
-                    "bypass_pull_request_allowances": {"users": [], "teams": [], "apps": []},
+                "dismiss_stale_reviews": normalized["dismiss_stale_reviews_on_push"],
+                "require_last_push_approval": normalized["require_last_push_approval"],
+                "required_approving_review_count": normalized["required_approving_review_count"],
+                "bypass_pull_request_allowances": {
+                    "users": users,
+                    "teams": teams,
+                    "apps": apps,
                 },
-                "enforce_admins": {"enabled": True},
-                "required_conversation_resolution": True,
-                "allow_force_pushes": {"enabled": False},
-                "allow_deletions": {"enabled": False},
             }
+            if normalized["pull_request_required"]
+            else None
         ),
-        separators=(",", ":"),
-        sort_keys=True,
+        "enforce_admins": {
+            "enabled": normalized["administrator_bypass_prevented"]
+        },
+        "required_conversation_resolution": normalized["required_conversation_resolution"],
+        "allow_force_pushes": {
+            "enabled": not normalized["block_force_push"]
+        },
+        "allow_deletions": {
+            "enabled": not normalized["block_deletion"]
+        },
+    }
+    protection_bytes = json.dumps(
+        protection_raw, separators=(",", ":"), sort_keys=True
     ).encode()
-    observation["branch_protection_payload_base64"] = base64.b64encode(protection_raw).decode()
-    observation["branch_protection_payload_sha256"] = hashlib.sha256(protection_raw).hexdigest()
+    observation["branch_protection_payload_base64"] = base64.b64encode(protection_bytes).decode()
+    observation["branch_protection_payload_sha256"] = hashlib.sha256(protection_bytes).hexdigest()
 
 
 def self_test() -> None:
@@ -662,11 +692,13 @@ def self_test() -> None:
 
     x = copy.deepcopy(fixture_observation())
     x["admin_observation"]["protection"]["block_force_push"] = False
+    _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
 
     x = copy.deepcopy(fixture_observation())
-    x["admin_observation"]["protection"]["bypass_actors"] = [{"actor_type": "RepositoryRole"}]
+    x["admin_observation"]["protection"]["bypass_actors"] = [{"actor_type": "User", "actor_id": 123}]
+    _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
 
