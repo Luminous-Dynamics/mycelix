@@ -289,7 +289,8 @@ jobs:
           PY
           )"
 
-          gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" > evidence/governance/rulesets-payload.json
+          ruleset_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
+          GH_TOKEN="${ruleset_token}" gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" > evidence/governance/rulesets-payload.json
 
           protection_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
           admin_source="repository_administration_secret"
