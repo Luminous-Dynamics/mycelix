@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
@@ -158,6 +159,7 @@ def verify_receipt(
     manifest: dict[str, Any],
     policy_file: dict[str, Any],
     verifier_control: dict[str, Any],
+    candidate_lock: dict[str, Any],
 ) -> tuple[str, str, str]:
     if set(receipt) != RECEIPT_KEYS:
         fail(
@@ -273,9 +275,25 @@ def verify_receipt(
 
     if receipt["manifest_blob_sha"] != MANIFEST_BLOB_SHA:
         fail("receipt manifest blob mismatch")
-    require_sha256(receipt["lock_sha256"], "lock_sha256")
-    if receipt["lock_mode"] not in {"tracked", "generated_for_run"}:
+    lock_sha = require_sha256(receipt["lock_sha256"], "lock_sha256")
+    lock_mode = receipt["lock_mode"]
+    if lock_mode not in {"tracked", "generated_for_run"}:
         fail("unknown lock mode")
+    if lock_mode == "tracked":
+        if candidate_lock.get("encoding") != "base64":
+            fail("tracked candidate lockfile was not returned as base64")
+        lock_content_b64 = candidate_lock.get("content")
+        if not isinstance(lock_content_b64, str):
+            fail("tracked candidate lockfile content missing")
+        try:
+            lock_bytes = base64.b64decode("".join(lock_content_b64.split()), validate=True)
+        except (ValueError, base64.binascii.Error) as exc:
+            fail(f"tracked candidate lockfile base64 invalid: {exc}")
+        if hashlib.sha256(lock_bytes).hexdigest() != lock_sha:
+            fail("tracked candidate lockfile digest mismatch")
+    else:
+        if candidate_lock.get("mode") != "generated_for_run":
+            fail("unexpected generated lockfile marker")
 
     if receipt["rustc_version"] != RUSTC_VERSION:
         fail("rustc version mismatch")
@@ -379,6 +397,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     manifest = json.loads((snapshot_dir / "manifest.json").read_text(encoding="utf-8"))
     policy_file = json.loads((snapshot_dir / "policy-file.json").read_text(encoding="utf-8"))
     verifier_control = json.loads((snapshot_dir / "verifier-control.json").read_text(encoding="utf-8"))
+    candidate_lock = json.loads((snapshot_dir / "candidate-lock.json").read_text(encoding="utf-8"))
     artifacts = json.loads((snapshot_dir / "artifacts.json").read_text(encoding="utf-8"))
 
     artifact_items = artifacts.get("artifacts")
@@ -438,6 +457,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         manifest=manifest,
         policy_file=policy_file,
         verifier_control=verifier_control,
+        candidate_lock=candidate_lock,
     )
 
     verify_index(
