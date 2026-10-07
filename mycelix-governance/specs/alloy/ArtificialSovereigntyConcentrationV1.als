@@ -41,7 +41,8 @@ sig Gatekeeping {
   operator: one Subject,
   target: one Subject,
   resource: one Resource,
-  inducedCost: one Int
+  inducedCost: one Int,
+  transfersAuthority: one Bit
 }
 
 fact JurisdictionHasExplicitSource {
@@ -128,6 +129,11 @@ assert AcquisitionDoesNotTransferAuthority {
     a.transfersJurisdiction = Off
 }
 
+assert GatekeepingDoesNotTransferAuthority {
+  all g: Gatekeeping |
+    g.transfersAuthority = Off
+}
+
 assert HighSwitchingCostIsReviewable {
   all s: Subject |
     s.switchingCost >= 2 implies s.reviewRequired = On
@@ -141,6 +147,9 @@ check JurisdictionHasExplicitSourceInvariant
 
 check AcquisitionDoesNotTransferAuthority
   for 4 but 4 int, 4 Subject, 4 Resource, 4 Acquisition expect 0
+
+check GatekeepingDoesNotTransferAuthority
+  for 4 but 4 int, 4 Subject, 4 Resource, 4 Gatekeeping, 4 Power expect 0
 
 check HighSwitchingCostIsReviewable
   for 4 but 4 int, 4 Subject, 4 Power, 4 Jurisdiction expect 0
