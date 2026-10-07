@@ -364,6 +364,15 @@ def main() -> int:
         for label in EXPECTED_ALLOY_UNSAT:
             if by_label[label]["actual"] != "UNSAT" or by_label[label]["expects"] != 0:
                 fail(f"Alloy expected-UNSAT command was not UNSAT/expect-0: {label}")
+        scope = profile["alloy"]["scope"]
+        for row in rows:
+            command_text = row["command"]
+            if f"for {scope["overall"]}" not in command_text:
+                fail("Alloy command omitted expected overall scope: " + row["label"])
+            for name in ["Subject", "Power", "Provider", "Dependency", "Action", "Contract", "Budget", "Dispute", "Emergency", "ForkEvent"]:
+                token = f"{scope[name]} {name}"
+                if token not in command_text:
+                    fail("Alloy command omitted expected scope: " + token + " for " + row["label"])
         receipt["canonical"]["alloy"]["commands"] = rows
         receipt["canonical"]["alloy"]["solver"] = "SAT4J"
         receipt["canonical"]["alloy"]["scope"] = profile["alloy"]["scope"]
