@@ -226,6 +226,13 @@ def main() -> int:
         fail("detached TLA fixture does not equal formal-subject commitments")
     if fixture["alloy"]["git_blob_sha"] != alloy_meta["git_blob_sha"]:
         fail("detached Alloy fixture does not equal formal-subject commitment")
+    reference_meta = formal["reference_explorer"]
+    reference_fixture = fixture["reference_explorer"]
+    if args.reference_explorer.as_posix() != reference_fixture["path"]:
+        fail("formal execution must use the verifier-owned detached reference oracle")
+    assert_git_blob(args.reference_explorer, reference_fixture["git_blob_sha"], "reference oracle fixture")
+    if reference_fixture["git_blob_sha"] != reference_fixture["source_git_blob_sha"] or reference_fixture["git_blob_sha"] != reference_meta["git_blob_sha"]:
+        fail("detached reference oracle does not equal formal-subject commitment")
 
     cfg = args.cfg.read_text(encoding="utf-8")
     if "INIT Init" not in cfg or "NEXT Next" not in cfg or "CHECK_DEADLOCK FALSE" not in cfg:
