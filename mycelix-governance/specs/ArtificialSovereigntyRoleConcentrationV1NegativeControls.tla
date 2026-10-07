@@ -50,11 +50,10 @@ BadSameRoleReviewFullControl(s, reviewer) ==
     /\ Cardinality({r \in Roles : s \in roleHolder[r]}) = 0
     /\ roleHolder' =
          [roleHolder EXCEPT
-            ![Operator] = @ \cup {s},
+            ![Operator] = @ \cup {s, reviewer},
             ![Verifier] = @ \cup {s},
             ![EvidenceArchive] = @ \cup {s},
-            ![Adjudicator] = @ \cup {s},
-            ![Operator] = @ \cup {s, reviewer}]
+            ![Adjudicator] = @ \cup {s}]
     /\ conflictFinding' = [conflictFinding EXCEPT ![s] = TRUE]
     /\ externalReviewers' = [externalReviewers EXCEPT ![s] = {reviewer}]
     /\ clock' = NextTime
