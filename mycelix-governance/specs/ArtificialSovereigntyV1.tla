@@ -108,7 +108,7 @@ SetBudget(s, n) ==
     /\ n >= budget[s]
     /\ budget' = [budget EXCEPT ![s] = n]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     contracted, politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -119,7 +119,7 @@ OpenDispute(a) ==
     /\ disputeOpen' = [disputeOpen EXCEPT ![a] = TRUE]
     /\ disputeResolved' = [disputeResolved EXCEPT ![a] = FALSE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    safeState, emergencyExpires, contracted, politicalWeight,
+                    safeState, emergencyStarted, emergencyExpires, contracted, politicalWeight,
                     forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -130,7 +130,7 @@ SafeContinue(a) ==
     /\ ~disputeResolved[a]
     /\ safeState[a]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     contracted, politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -140,7 +140,7 @@ LeaveSafeState(a) ==
     /\ safeState[a]
     /\ safeState' = [safeState EXCEPT ![a] = FALSE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, emergencyExpires, contracted,
+                    disputeOpen, disputeResolved, emergencyStarted, emergencyExpires, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -152,7 +152,7 @@ ResolveDispute(a) ==
     /\ ~safeState[a]
     /\ disputeResolved' = [disputeResolved EXCEPT ![a] = TRUE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, safeState, emergencyExpires, contracted,
+                    disputeOpen, safeState, emergencyStarted, emergencyExpires, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -175,7 +175,7 @@ Contract(s, a) ==
     /\ Cardinality(contracted[s]) < budget[s]
     /\ contracted' = [contracted EXCEPT ![s] = @ \cup {a}]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -185,7 +185,7 @@ ProviderDependency(s) ==
     /\ ~providerDependent[s]
     /\ providerDependent' = [providerDependent EXCEPT ![s] = TRUE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     contracted, politicalWeight, forked>>
     /\ clock' = NextTime
 
@@ -195,7 +195,7 @@ Fork(s) ==
     /\ ~forked[s]
     /\ forked' = [forked EXCEPT ![s] = TRUE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     contracted, politicalWeight, providerDependent>>
     /\ clock' = NextTime
 
