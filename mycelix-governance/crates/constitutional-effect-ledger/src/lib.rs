@@ -7,8 +7,8 @@ pub mod attempt_record;
 pub use attempt_record::{
     ActionFenceMutationError, ActionFenceRecordV1, ActionFenceState, AtomicActionFenceModelV1,
     AtomicAdmissionDecision, AttemptRecordState, AttemptRecordV1, DurableActionFenceStore,
-    ACTION_FENCE_RECORD_PREFIX, ACTION_FENCE_SCHEMA_VERSION, ATTEMPT_RECORD_PREFIX,
-    ATTEMPT_RECORD_SCHEMA_VERSION,
+    NativeReplayBindingV1, ACTION_FENCE_RECORD_PREFIX, ACTION_FENCE_SCHEMA_VERSION,
+    ATTEMPT_RECORD_PREFIX, ATTEMPT_RECORD_SCHEMA_VERSION,
 };
 
 use serde::{Deserialize, Serialize};
@@ -1122,6 +1122,33 @@ mod tests {
 
         assert_eq!(state.successful_ordinals, vec![0, 1]);
         assert!(!state.integrity_halted);
+    }
+
+    #[test]
+    fn duplicate_action_key_digest_is_rejected_within_one_operation() {
+        let mut second = intent(1, false);
+        second.action_key_digest = intent(0, false).action_key_digest;
+
+        let error = validate_bundle(&EvidenceBundle {
+            operation: operation(2),
+            intents: vec![intent(0, false), second],
+            attempts: vec![],
+            observations: vec![],
+            resolution: None,
+        })
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("requires an explicit repeated-action instance"));
+    }
+
+    #[test]
+    fn native_replay_identity_is_mandatory() {
+        let mut first = intent(0, false);
+        first.native_replay_identity.clear();
+
+        assert!(first.validate().is_err());
     }
 
     #[test]
