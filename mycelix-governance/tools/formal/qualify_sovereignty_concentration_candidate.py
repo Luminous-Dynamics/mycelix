@@ -77,6 +77,17 @@ def main() -> int:
     pins = json.loads(args.pins.read_text(encoding="utf-8"))
     if pins["schema"] != "mycelix.sovereignty-concentration-formal-tool-pins.v1":
         fail("unexpected concentration tool pin schema")
+    execution = profile["execution"]
+    for path, expected, label in [
+        (Path(execution["classifier"]["path"]), execution["classifier"]["git_blob_sha"], "classifier"),
+        (Path(execution["alloy_runner"]["path"]), execution["alloy_runner"]["git_blob_sha"], "Alloy runner"),
+        (Path(execution["pins"]["path"]), execution["pins"]["git_blob_sha"], "pins manifest"),
+        (Path(execution["crosswalk_path"]), execution["crosswalk_git_blob_sha"], "crosswalk"),
+    ]:
+        if git_blob(path.read_bytes()) != expected:
+            fail("candidate execution byte mismatch: " + label)
+    if execution["classifier"]["path"] != Path(__file__).as_posix():
+        fail("classifier execution path is not self-identifying")
     if profile["status"] != "candidate-verification-profile" or profile["authority"] != "non-authoritative":
         fail("profile is not an explicitly non-authoritative candidate profile")
     if profile["profile_id"] != "SOV-AI-CONCENTRATION-FORMAL-QUAL-001-V1":
@@ -194,11 +205,17 @@ def main() -> int:
         labels = {r["label"] for r in rows}
         if labels != ALLOY_SAT | ALLOY_UNSAT:
             fail("Alloy command label set mismatch")
+        scope = profile["models"]["alloy"]["scope"]
         for row in rows:
             if f"{profile['models']['alloy']['bitwidth']} int" not in row["command"]:
                 fail("Alloy integer bitwidth missing from command: " + row["label"])
-            if f"for {profile['models']['alloy']['scope']['overall']}" not in row["command"]:
+            if f"for {scope['overall']}" not in row["command"]:
                 fail("Alloy overall scope missing from command: " + row["label"])
+            for name, count in scope.items():
+                if name == "overall":
+                    continue
+                if f"{count} {name}" not in row["command"]:
+                    fail("Alloy scope missing from command: " + str(count) + " " + name + " for " + row["label"])
         by = {r["label"]: r for r in rows}
         for label in ALLOY_SAT:
             if by[label]["actual"] != "SAT" or by[label]["check"]:
