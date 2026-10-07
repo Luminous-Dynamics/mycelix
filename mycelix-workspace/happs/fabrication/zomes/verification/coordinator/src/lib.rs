@@ -226,6 +226,30 @@ pub struct FpmChallengeEatCoseVerification {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolvedFpmEatCoseVerificationAnchor {
+    pub action_hash: ActionHash,
+    pub entry_hash: EntryHash,
+    pub challenge_action: ActionHash,
+    pub evidence_digest: String,
+    pub payload_digest: String,
+    pub subject_id: String,
+    pub audience: String,
+    pub nonce_digest: String,
+    pub eat_profile_uri: String,
+    pub key_id: Vec<u8>,
+    pub verification_key_digest: String,
+    pub verifier_implementation_digest: String,
+    pub verifier_build_provenance_digest: String,
+    pub verifier_builder_id: String,
+    pub verifier_profile_digest: String,
+    pub author: AgentPubKey,
+    pub signer: AgentPubKey,
+    pub timestamp: Timestamp,
+    pub action_seq: u32,
+    pub prev_action: Option<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateFpmEatCoseVerificationAnchorInput {
     pub challenge_action: ActionHash,
     pub token_bytes: Vec<u8>,
