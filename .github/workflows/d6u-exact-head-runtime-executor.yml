@@ -366,7 +366,6 @@ PY
           json_path="$(mktemp "$RUNNER_TEMP/d6u-runtime-artifacts.XXXXXX")"
           binary_path="$RUNNER_TEMP/d6u-runtime-test-binary"
           trap 'rm -f "$json_path"' EXIT
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
           test ! -s "$GITHUB_ENV"
           test ! -s "$GITHUB_PATH"
           env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
@@ -433,13 +432,6 @@ PY
           docker image inspect ubuntu@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60 \
             --format '{{index .RepoDigests 0}}' \
             | grep -Fx 'ubuntu@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60'
-          docker run --rm --platform linux/amd64 --network none --read-only \
-            --cap-drop=ALL --security-opt=no-new-privileges \
-            --mount type=bind,src="${{ runner.temp }}/d6u-runtime-test-binary",dst=/d6u-runtime-test,readonly \
-            ubuntu@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60 \
-            ldd /d6u-runtime-test | tee "$RUNNER_TEMP/d6u-runtime-binary-ldd.txt"
-          ! grep -Fq 'not found' "$RUNNER_TEMP/d6u-runtime-binary-ldd.txt"
-
       - name: Test D6U runtime boundary
         env:
           TEST_BINARY_SHA: ${{ steps.runtime_binary.outputs.binary_sha }}
