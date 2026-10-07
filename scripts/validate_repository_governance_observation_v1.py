@@ -765,6 +765,7 @@ def fixture_observation(
         "branch_protection_payload_sha256": hashlib.sha256(protection_raw).hexdigest(),
         "branch": branch_payload,
         "rulesets": {"entries": rulesets_payload},
+        "effective_rules": {"entries": effective_rules_payload},
         "branch_protection_api": {"http_status": protection_status},
         "admin_observation": {
             "status": admin_status,
