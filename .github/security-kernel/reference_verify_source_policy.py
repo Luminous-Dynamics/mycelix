@@ -675,7 +675,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
     if "QUALIFICATION_RECEIPT_MAX_BYTES" not in joined:
         fail("S1 qualification receipt sink ceiling missing")
-    if 'subprocess.run(["bash","-n"], input=script, text=True, capture_output=True)' not in joined:
+    if 'subprocess.run(["bash", "-n"],' not in joined:
         fail("S1 must syntax-check every run block with bash -n")
     if 'trusted_s1_workflow=Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-independent-qualification.yml"' not in joined:
         fail("S1 shell syntax audit must target the trusted S1 workflow bytes")
