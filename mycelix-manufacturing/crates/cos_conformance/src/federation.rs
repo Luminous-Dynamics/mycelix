@@ -5733,8 +5733,38 @@ mod tests {
         let profile_a = state_machine_trace_external_verifier_profile_sha256(profile_evidence);
         let profile_b =
             state_machine_trace_external_verifier_profile_sha256(b"verifier-profile-config-v2");
+        let statement_b =
+            state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence(
+                &anchor_reference.anchor_reference_sha256,
+                2,
+                "rfc3161-verifier-v1",
+                b"verifier-profile-config-v2",
+                FederationExternalVerifierIdentityKind::PublicKey,
+                "rfc3161-key-v1",
+                b"profile-bound-verifier-key",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                b"profile-bound-verifier-report",
+                1_791_010_101,
+            )
+            .expect("alternate profile-bound statement must build");
+        let result_b = validate_state_machine_trace_external_evidence_verification_statement_chain(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            witness_artifact,
+            &anchor_reference,
+            b"profile-bound-verifier-report",
+            &statement_b,
+        )
+        .expect("alternate profile-bound result must validate");
         assert_eq!(result.verifier_profile_sha256(), Some(profile_a.as_str()));
+        assert_eq!(result_b.verifier_profile_sha256(), Some(profile_b.as_str()));
         assert_ne!(profile_a, profile_b);
+        assert_ne!(
+            statement.statement_sha256(),
+            statement_b.statement_sha256(),
+            "changing profile evidence must change authenticated statement identity"
+        );
 
         assert_eq!(
             FederationExternalVerificationTrustPolicyV1::try_new_bound(
@@ -5807,10 +5837,8 @@ mod tests {
             )
         );
 
-        let mut changed_profile = result.clone();
-        changed_profile.verifier_profile_sha256 = Some(profile_b);
         assert_eq!(
-            changed_profile.admit_under_policy_at(&policy_a, 1_791_010_102),
+            result_b.admit_under_policy_at(&policy_a, 1_791_010_102),
             Err(
                 FederationExternalVerificationPolicyAdmissionViolation::VerifierProfileDigestNotAdmitted
             )
