@@ -341,6 +341,12 @@ def verify_trigger_run(
 
 
 def verify_record_metadata(record: dict[str, str], policy: dict) -> None:
+    expected_record_fields = set(policy["record_fields"])
+    assert len(expected_record_fields) == len(policy["record_fields"])
+    assert set(record) == expected_record_fields, (
+        f"runtime evidence record schema mismatch: "
+        f"expected={sorted(expected_record_fields)!r}, observed={sorted(record)!r}"
+    )
     assert record["d6s2_authority_ledger_schema"] == policy["d6s2_authority_ledger_schema"]
     assert record["d6s1_corpus_sha256"] == policy["d6s1_corpus_sha256"]
 
