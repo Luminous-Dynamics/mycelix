@@ -83,7 +83,6 @@ jobs:
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
             fpm_wasm_artifact_identity:
               - 'crates/fpm-wasm-artifact-identity/**'
-              - '.github/workflows/fpm-wasm-artifact-identity.yml'
               - '.github/workflows/ci.yml'
 
   # Format check (always runs when CI is admitted)
