@@ -2483,7 +2483,8 @@ def test_trusted_builder_documentation_is_current() -> None:
     assert "sixty-four deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
-    assert "The redirect boundary remains HTTPS-only" in documentation
+    assert "rejects non-HTTPS redirects" in documentation
+    assert "rejects URL userinfo" in documentation
 
 
 def test_registry_is_complete_and_unique() -> None:
