@@ -3,8 +3,8 @@
   "status": "candidate-verification",
   "authority": "non-authoritative",
   "related_issue": 4530,
-  "formal_subject_head": "3535da9e50ae59000bd03fc7951864bbd8181ca5",
-  "formal_subject_tree": "e1a4640554c08ffc1f9e7344d81b3017609ee9eb",
+  "formal_subject_head": "2c447b2160c6a4991b5230806490bb6677e4aca3",
+  "formal_subject_tree": "0b808ff5c2cd99447cdd2eb8c95788b6b036fcdd",
   "mappings": [
     {
       "id": "scale-weight",
