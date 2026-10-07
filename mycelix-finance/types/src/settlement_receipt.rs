@@ -5,7 +5,7 @@
 //! it purports to settle.
 
 use serde::{Deserialize, Serialize};
-use crate::{SettlementClaim, SettlementFinality, SettlementValidationError};
+use super::{SettlementClaim, SettlementFinality, SettlementValidationError};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SettlementReceipt {
@@ -127,5 +127,132 @@ impl SettlementReceipt {
         }
 
         Ok(())
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn claim() -> SettlementClaim {
+        SettlementClaim {
+            settlement_claim_id: "claim-1".into(),
+            mycelix_event_id: "event-1".into(),
+            source_issuance_or_obligation_ref: "obligation-1".into(),
+            rail_id: "polygon-pos-mainnet".into(),
+            chain_id: 137,
+            source_domain: "mycelix".into(),
+            destination_domain: "polygon:137".into(),
+            asset_id: "SAP".into(),
+            token_contract: Some("token-1".into()),
+            amount_minor_units: 100,
+            unit: "micro-SAP".into(),
+            transaction_or_message_id: "0xtx".into(),
+            proof_or_attestation_ref: Some("proof-1".into()),
+            finality: SettlementFinality::BridgeFinal,
+            reconciled: false,
+            adapter_version: "polygon-adapter-v1".into(),
+            configuration_digest: "config-v1".into(),
+            observed_at_micros: 10,
+            known_at_micros: 20,
+            supersedes_claim_id: None,
+        }
+    }
+
+    fn receipt() -> SettlementReceipt {
+        SettlementReceipt {
+            receipt_id: "receipt-1".into(),
+            settlement_claim_id: "claim-1".into(),
+            rail_id: "polygon-pos-mainnet".into(),
+            chain_id: 137,
+            asset_id: "SAP".into(),
+            token_contract: Some("token-1".into()),
+            amount_minor_units: 100,
+            unit: "micro-SAP".into(),
+            transaction_or_message_id: "0xtx".into(),
+            block_reference: Some("block-1".into()),
+            proof_or_attestation_ref: Some("proof-1".into()),
+            finality: SettlementFinality::BridgeFinal,
+            reconciled: false,
+            adapter_version: "polygon-adapter-v1".into(),
+            configuration_digest: "config-v1".into(),
+            observed_at_micros: 11,
+            known_at_micros: 21,
+            supersedes_receipt_id: None,
+        }
+    }
+
+    #[test]
+    fn matching_claim_and_receipt_bind() {
+        assert!(receipt().bind_to_claim(&claim()).is_ok());
+    }
+
+    #[test]
+    fn amount_mutation_fails_closed() {
+        let mut r = receipt();
+        r.amount_minor_units += 1;
+        assert_eq!(
+            r.bind_to_claim(&claim()),
+            Err(SettlementValidationError::InvalidField {
+                field: "claim_receipt_binding",
+                reason: "claim and receipt identities or settlement terms differ",
+            })
+        );
+    }
+
+    #[test]
+    fn chain_substitution_fails_closed() {
+        let mut r = receipt();
+        r.chain_id = 1;
+        assert!(r.validate().is_ok());
+        assert_eq!(
+            r.bind_to_claim(&claim()),
+            Err(SettlementValidationError::InvalidField {
+                field: "claim_receipt_binding",
+                reason: "claim and receipt identities or settlement terms differ",
+            })
+        );
+    }
+
+    #[test]
+    fn proof_mutation_fails_closed() {
+        let mut r = receipt();
+        r.proof_or_attestation_ref = Some("forged-proof".into());
+        assert_eq!(
+            r.bind_to_claim(&claim()),
+            Err(SettlementValidationError::InvalidField {
+                field: "claim_receipt_binding",
+                reason: "claim and receipt identities or settlement terms differ",
+            })
+        );
+    }
+
+    #[test]
+    fn reconciled_state_requires_reconciled_finality() {
+        let mut r = receipt();
+        r.reconciled = true;
+        assert_eq!(
+            r.validate(),
+            Err(SettlementValidationError::ReconciliationStateMismatch)
+        );
+    }
+
+    #[test]
+    fn disputed_receipt_is_not_admissible() {
+        let mut r = receipt();
+        r.finality = SettlementFinality::Disputed;
+        assert_eq!(
+            r.validate(),
+            Err(SettlementValidationError::NonAdmissibleFinality)
+        );
+    }
+
+    #[test]
+    fn serde_roundtrip_is_stable() {
+        let r = receipt();
+        let encoded = serde_json::to_string(&r).unwrap();
+        let decoded: SettlementReceipt = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, r);
     }
 }
