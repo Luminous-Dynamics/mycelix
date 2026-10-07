@@ -98,6 +98,7 @@ fn demo_cases() -> Vec<ReconciliationCase> {
     ]
 }
 
+#[cfg(feature = "demo")]
 #[component]
 pub fn ReconciliationPage() -> impl IntoView {
     let cases = demo_cases();
@@ -260,5 +261,25 @@ fn Detail(label: &'static str, value: String) -> impl IntoView {
             <span>{label}</span>
             <strong>{value}</strong>
         </div>
+    }
+}
+
+#[cfg(not(feature = "demo"))]
+#[component]
+pub fn ReconciliationPage() -> impl IntoView {
+    view! {
+        <section class="nonproduction-boundary">
+            <span class="eyebrow">"RECONCILIATION CONTROL"</span>
+            <h1>"Live reconciliation integration required"</h1>
+            <p class="muted">
+                "The default build does not expose synthetic reconciliation cases. A live workspace must supply an authenticated, evidence-bearing reconciliation snapshot."
+            </p>
+            <div class="authority-notice demo" role="alert">
+                <strong>"No live reconciliation context is configured"</strong>
+                <span>
+                    "Synthetic cases are available only with the explicit demo Cargo feature. Production resolution requires real Finance evidence, authority context and durable receipts."
+                </span>
+            </div>
+        </section>
     }
 }
