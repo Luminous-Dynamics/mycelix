@@ -657,6 +657,13 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     verifier, remainder = jobs
     signer, auditor = remainder.split("\n  auditor:\n", 1)
 
+    assert verifier.count("    permissions:\n") == 1
+    assert signer.count("    permissions:\n") == 1
+    assert auditor.count("    permissions:\n") == 1
+    assert "    permissions:\n      actions: read\n      contents: read\n" in verifier
+    assert "    permissions:\n      contents: read\n      id-token: write\n      attestations: write\n" in signer
+    assert "    permissions:\n      actions: read\n      contents: read\n      attestations: read\n" in auditor
+
     assert "id-token: write" not in verifier
     assert "attestations: write" not in verifier
     assert "uses: actions/attest@" not in verifier
@@ -673,6 +680,26 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "id-token: write" in signer
     assert "actions: read" not in signer
     assert "uses: actions/download-artifact@" not in signer
+    expected_verifier_outputs = {
+        "evidence_sha256",
+        "runtime_test_sha256",
+        "cargo_lock_sha256",
+        "canonical_predicate_sha256",
+    }
+    verifier_output_lines = re.search(
+        r"\n    outputs:\n(?P<body>(?:      [^\n]+\n)+)    steps:",
+        verifier,
+    )
+    assert verifier_output_lines is not None
+    observed_verifier_outputs = {
+        line.strip().split(":", 1)[0]
+        for line in verifier_output_lines.group("body").splitlines()
+        if line.strip()
+    }
+    assert observed_verifier_outputs == expected_verifier_outputs
+    assert verifier.count("needs.verifier.outputs.") == 0
+    assert signer.count("needs.verifier.outputs.") == 4
+
     assert "subject-checksums: ${{ steps.subject_manifest.outputs.manifest }}" in signer
     assert "predicate-path: ${{ steps.commitment_predicate.outputs.predicate }}" in signer
     assert "push-to-registry: false" in signer
