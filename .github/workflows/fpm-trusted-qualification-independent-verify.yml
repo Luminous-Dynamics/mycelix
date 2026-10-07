@@ -102,6 +102,11 @@ jobs:
           assert refs == expected, f"unexpected verifier action set: {refs!r}"
           PY
 
+      - name: Run independent verifier adversarial corpus
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/test_verify_fpm_trusted_qualification.py
+
       - name: Capture upstream trusted run and artifacts
         id: upstream
         env:
