@@ -1028,7 +1028,38 @@ def main() -> None:
 
     expect_rejection(
         lambda: verify_s1(
-    expect_rejection(,        lambda: verify_s1(,            raw["s1"].replace(,                b'test "$(stat -f -c '%T' "$candidate_volume_mountpoint")" = "tmpfs"\n',,                b"# candidate tmpfs identity removed\n",,                1,,            ),,            s1_sha,,        ),,        "candidate Docker tmpfs identity check removed",,    ),    expect_rejection(,        lambda: verify_s1(,            raw["s1"].replace(,                b'--volume "$CANDIDATE_VOLUME_NAME:/source:ro"',,                b'--volume "$candidate_root:/source:ro"',,                1,,            ),,            s1_sha,,        ),,        "candidate source read-only mount replaced with host-backed root",,    ),    expect_rejection(,        lambda: verify_s1(,            raw["s1"].replace(,                b"dependency_source_mode=bounded-candidate-volume",,                b"dependency_source_mode=host-copy",,                1,,            ),,            s1_sha,,        ),,        "host-backed dependency subject reintroduced",,    )
+            raw["s1"].replace(
+                b'test "$(stat -f -c \'%T\' "$candidate_volume_mountpoint")" = "tmpfs"\n',
+                b"# candidate tmpfs identity removed\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "candidate Docker tmpfs identity check removed",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'--volume "$CANDIDATE_VOLUME_NAME:/source:ro"',
+                b'--volume "$candidate_root:/source:ro"',
+                1,
+            ),
+            s1_sha,
+        ),
+        "candidate source read-only mount replaced with host-backed root",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"dependency_source_mode=bounded-candidate-volume",
+                b"dependency_source_mode=host-copy",
+                1,
+            ),
+            s1_sha,
+        ),
+        "host-backed dependency subject reintroduced",
+    )
+    expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
         "negative-control transcript capture ceiling weakened",
     )
