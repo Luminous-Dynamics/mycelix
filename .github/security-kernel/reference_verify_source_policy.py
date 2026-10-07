@@ -687,6 +687,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 qualification receipt line ceiling enforcement missing")
     if "negative_controls_capture_limit=65536" not in joined:
         fail("S1 negative-control transcript capture must declare a 64 KiB host-storage ceiling")
+    if 'git config --global http.followRedirects false' not in joined:
+        fail("S1 hostile Git transport must disable HTTP redirects")
     if "capture_negative_controls_output() {" not in joined:
         fail("S1 negative-control transcript bounded capture function missing")
     if "} 2>&1 | capture_negative_controls_output" not in joined:
@@ -1178,6 +1180,17 @@ def main() -> None:
             s1_sha,
         ),
         "S1 bash syntax audit removed",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"git config --global core.hooksPath /dev/null; git config --global protocol.file.allow never; git config --global protocol.ext.allow never; http.followRedirects false",
+                b"git config --global core.hooksPath /dev/null; git config --global protocol.file.allow never; git config --global protocol.ext.allow never",
+                1,
+            ),
+            s1_sha,
+        ),
+        "Git HTTP redirect fail-closed control removed",
     )
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),

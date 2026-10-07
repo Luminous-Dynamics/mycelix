@@ -265,7 +265,7 @@ jobs:
             --volume "$candidate_volume_name:/output:rw" "$FETCH_IMAGE" /bin/bash -euo pipefail -c '
               set -euo pipefail
               export XDG_CONFIG_HOME=/tmp/config; mkdir -p /tmp/config /tmp/repository /output
-              git config --global core.hooksPath /dev/null; git config --global protocol.file.allow never; git config --global protocol.ext.allow never
+              git config --global core.hooksPath /dev/null; git config --global protocol.file.allow never; git config --global protocol.ext.allow never; git config --global http.followRedirects false
               git -C /tmp/repository init -q; git -C /tmp/repository remote add origin "https://github.com/$CANDIDATE_REPOSITORY.git"
               git -C /tmp/repository -c fetch.fsckObjects=true -c protocol.version=2 fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
               resolved="$(git -C /tmp/repository rev-parse FETCH_HEAD)"; test "$resolved" = "$CANDIDATE_SHA"
