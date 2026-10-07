@@ -32,7 +32,7 @@ It pins:
 - the exact `gh` CLI version and isolated CLI configuration boundary;
 - all native case outcomes and zome reachability;
 - supplemental substrate witnesses;
-- lockfile substrate versions and crates.io provenance;
+- lockfile substrate versions and crates.io provenance, plus a closed-world dependency-source rule requiring every non-local lockfile package to use the reviewed crates.io registry and carry a SHA-256 checksum;
 - the `ReferenceModelOnly` claim ceiling;
 - the public-transparency Tlog requirement and retained offline-attestation packet schema/limits.
 
@@ -79,4 +79,4 @@ The trusted attestation workflow is deliberately not branch-executable. GitHub d
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v55.
+Current trusted policy revision: v56.
