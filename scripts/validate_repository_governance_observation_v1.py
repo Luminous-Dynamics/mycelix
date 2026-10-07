@@ -813,6 +813,9 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
     rulesets_index_raw = json.dumps(
         rulesets_index_payload, separators=(",", ":"), sort_keys=True
     ).encode()
+    effective_rules_raw = json.dumps(
+        effective_rules_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
     observation["branch_payload_base64"] = base64.b64encode(branch_raw).decode()
     observation["branch_payload_sha256"] = hashlib.sha256(branch_raw).hexdigest()
     observation["rulesets_index_payload_base64"] = base64.b64encode(rulesets_index_raw).decode()
