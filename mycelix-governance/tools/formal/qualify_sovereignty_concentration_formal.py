@@ -192,7 +192,13 @@ def main() -> int:
     if sha256_file(args.alloy_jar) != pins["tools"]["alloy"]["sha256"]:
         fail("Alloy tool digest mismatch")
 
-    workflow = Path(".github/workflows/sovereignty-concentration-formal-candidate.yml").read_text(encoding="utf-8")
+    workflow_path = Path(".github/workflows/sovereignty-concentration-formal-candidate.yml")
+    workflow = workflow_path.read_text(encoding="utf-8")
+    workflow_meta = profile.get("verifier", {})
+    if workflow_meta.get("workflow_path") != workflow_path.as_posix():
+        fail("workflow path does not match profile binding")
+    if git_blob_sha1(workflow_path.read_bytes()) != workflow_meta.get("workflow_git_blob_sha"):
+        fail("workflow bytes do not match profile binding")
     for action, sha in pins["github_actions"].items():
         needle = {
             "checkout": f"actions/checkout@{sha}",
