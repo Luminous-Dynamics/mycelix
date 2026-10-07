@@ -3023,6 +3023,45 @@ def main() -> None:
         "S2 extra same-handle output.write",
     )
 
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:\n',
+                b'          echo "mutated-runtime-output-location"\n              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 relocated output producer",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          printf \'source_digest=%s\\n\' "$source_digest" >> "$GITHUB_OUTPUT"\n',
+                b'          echo "mutated-runtime-output-location"\n          printf \'source_digest=%s\\n\' "$source_digest" >> "$GITHUB_OUTPUT"\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 relocated output producer",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:\n',
+                b'           print("mutated-runtime-output-location")\n           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 relocated output producer",
+    )
+
     expect_rejection(
         lambda: verify_s1(
             raw["s1"].replace(
