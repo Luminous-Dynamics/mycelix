@@ -444,7 +444,7 @@ PY
             echo "rust=${{ steps.rust_identity.outputs.rust_version }}"
             echo "rust_verbose_commit=${{ steps.rust_identity.outputs.rust_verbose_commit }}"
             echo "cargo=${{ steps.rust_identity.outputs.cargo_version }}"
-            echo "cargo_lock_sha256=$(sha256sum Cargo.lock | cut -d' ' -f1)"
+            echo "cargo_lock_sha256=${{ steps.generated_graph.outputs.lock_sha }}"
             echo "test=d6u_authority_boundary:passed"
             echo "supported_cases=${supported_case_count}"
             unsupported_case_list=$(python3 -c 'import json; print(",".join(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["unsupported_reference_cases"]))')
