@@ -1,0 +1,128 @@
+name: COS Conformance Exact-Head Qualification Bootstrap
+
+on:
+  pull_request:
+    branches:
+      - myc-int-demo-d6e-heterogeneous-federation
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-manufacturing/crates/cos_conformance/**'
+      - 'mycelix-manufacturing/Cargo.toml'
+      - 'mycelix-manufacturing/Cargo.lock'
+      - 'docs/integral/heterogeneous-federation-reference-v1.md'
+      - '.github/workflows/cos-conformance-exact-qualification.yml'
+      - '.github/workflows/cos-conformance-exact-head-bootstrap.yml'
+      - '.github/workflows/cos-conformance-exact-qualification-bootstrap.yml'
+  workflow_dispatch:
+    inputs:
+      pr_head_sha:
+        description: 'Exact PR head SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: mycelix-manufacturing/Cargo.toml
+  HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.pr_head_sha || github.sha }}
+
+jobs:
+  qualify:
+    name: Exact PR-head COS conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          submodules: recursive
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Prove checkout is exact requested head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$HEAD_SHA"
+          echo "Exact head: $actual"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format COS conformance
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Test COS conformance
+        run: cargo test --manifest-path "$MANIFEST" -p cos_conformance
+
+      - name: Clippy COS conformance
+        run: cargo clippy --manifest-path "$MANIFEST" -p cos_conformance --all-targets -- -D warnings
+
+      - name: Enforce exact external-verification boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='mycelix-manufacturing/crates/cos_conformance/src/federation.rs'
+
+          grep -Fq '//! Claim ceiling: ReferenceModelOnly.' "$source"
+          grep -Fq 'pub enum FederationExternalVerifierIdentityKind' "$source"
+          grep -Fq 'pub enum FederationExternalVerifierIdentityUseMethod' "$source"
+          grep -Fq 'pub struct FederationExternalVerifierIdentityUseStatementV1' "$source"
+          grep -Fq 'pub struct FederationExternalVerifierIdentityUseVerificationResult' "$source"
+          grep -Fq 'pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source"
+          grep -Fq 'pub fn admit_under_policy_with_identity_use_result_at' "$source"
+          grep -Fq 'pub fn try_new_bound_anchor_reference' "$source"
+          grep -Fq 'pub fn try_new_bound_verifier_profile_sha256' "$source"
+          grep -Fq 'pub fn validate_integrity' "$source"
+          grep -Fq 'AnchorReferenceNotAdmitted' "$source"
+          grep -Fq 'VerifierProfileDigestNotAdmitted' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 5' "$source"
+          grep -Fq 'integral-federation-external-verification-trust-policy-v5' "$source"
+          grep -Fq 'FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 3' "$source"
+          grep -Fq 'integral-federation-trace-external-evidence-verification-statement-v3' "$source"
+          grep -Fq 'pub fn external_verification_policy_anchor_reference_binding_is_content_addressed_and_fail_closed' "$source" || true
+
+          if grep -Fq 'self.evaluated_at_unix_seconds' "$source"; then
+            echo 'External verification statement must not expose admission-only evaluation time.'
+            exit 1
+          fi
+          if grep -Fq 'self.verification_age_seconds' "$source"; then
+            echo 'External verification statement must not expose admission-only verification age.'
+            exit 1
+          fi
+          if grep -Fq 'pub pub fn' "$source"; then
+            echo 'Duplicated visibility keyword detected.'
+            exit 1
+          fi
+          if grep -Fq $'#[test]\n    #[test]' "$source"; then
+            echo 'Duplicate adjacent test attributes detected.'
+            exit 1
+          fi
+          if grep -Eq 'reqwest::|hyper::|tonic::|TcpStream|UdpSocket|AdminWebsocket' "$source"; then
+            echo 'COS reference verification boundary must remain transport-neutral.'
+            exit 1
+          fi
+
+          result_context="$(grep -n -B12 -A2 -F 'pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source")"
+          if printf '%s\n' "$result_context" | grep -q 'Deserialize'; then
+            echo 'External verification result must remain non-deserializable.'
+            exit 1
+          fi
+
+          identity_use_context="$(grep -n -B12 -A2 -F 'pub struct FederationExternalVerifierIdentityUseVerificationResult' "$source")"
+          if printf '%s\n' "$identity_use_context" | grep -q 'Deserialize'; then
+            echo 'Typed identity-use capability must remain non-deserializable.'
+            exit 1
+          fi
+
+          admission_context="$(grep -n -B12 -A2 -F 'pub struct FederationExternalVerificationPolicyAdmissionV1' "$source")"
+          if printf '%s\n' "$admission_context" | grep -q 'Deserialize'; then
+            echo 'Policy admission must remain non-deserializable.'
+            exit 1
+          fi
