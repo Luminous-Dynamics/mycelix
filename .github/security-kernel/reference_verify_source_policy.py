@@ -458,6 +458,30 @@ def require_exact_step_mapping(
 
 
 
+def require_exact_step_token_count(
+    lines_: list[str],
+    step_name: str,
+    token: str,
+    expected_count: int,
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    start = matches[0]
+    end = len(lines_)
+    for i in range(start + 1, len(lines_)):
+        if re.fullmatch(r"\s{6}- name: .+", lines_[i]):
+            end = i
+            break
+    actual = lines_[start:end]
+    count = sum(line.count(token) for line in actual)
+    if count != expected_count:
+        fail(
+            f"{description}: expected exactly {expected_count} occurrences of {token!r}, "
+            f"found {count}"
+        )
+
 def require_exact_run_command_count(
     lines_: list[str],
     step_name: str,
@@ -1016,6 +1040,13 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         ),
         "S0",
     )
+    require_exact_step_token_count(
+        l,
+        "Verify trusted dispatcher context and exact PR identity",
+        "GITHUB_OUTPUT",
+        1,
+        "S0 resolver output-channel census",
+    )
     require_exact_run_prefix(
         l,
         "Verify trusted dispatcher context and exact PR identity",
@@ -1321,6 +1352,24 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "S1",
     )
 
+    for step_name, expected_count in (
+        ("Resolve exact candidate source", 1),
+        ("Snapshot exact candidate source identity", 1),
+        ("Snapshot locked dependency identity", 1),
+        ("Pull and preflight pinned sandbox image", 1),
+        ("Prepare locked dependency subject", 1),
+        ("Vendor locked dependency closure in fetch sandbox", 1),
+        ("Execute sandbox negative controls", 1),
+        ("Verify dependency substrate immutability", 1),
+        ("Verify retained qualification receipt", 0),
+    ):
+        require_exact_step_token_count(
+            l,
+            step_name,
+            "GITHUB_OUTPUT",
+            expected_count,
+            f"S1 {step_name} output-channel census",
+        )
     require_exact_run_command_count(
         l,
         "Pull and preflight pinned sandbox image",
@@ -1937,6 +1986,20 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     ):
         if exact_count(l, expected[0]) != expected[1]:
             fail(f"S2 job value mismatch: {expected[0]!r}")
+    require_exact_step_token_count(
+        l,
+        "Verify trusted dispatcher, reusable S1, and qualification gates",
+        "GITHUB_OUTPUT",
+        1,
+        "S2 result-binding output-channel census",
+    )
+    require_exact_step_token_count(
+        l,
+        "Verify retained negative-control evidence binding",
+        "GITHUB_OUTPUT",
+        1,
+        "S2 evidence-binding output-channel census",
+    )
     require_exact_step_mapping(
         l,
         "Checkout exact verifier workflow commit",
@@ -2790,6 +2853,33 @@ def main() -> None:
             s1_sha,
         ),
         "S1 additional vendor volume creation",
+    )
+
+    def inject_extra_output_write(raw: bytes, step_marker: bytes) -> bytes:
+        if step_marker not in raw:
+            fail(f"output-channel regression fixture marker missing: {step_marker!r}")
+        insertion = b'          printf "candidate_sha=%s\\n" "mutated" >> "$GITHUB_OUTPUT"\\n'
+        return raw.replace(step_marker, insertion + step_marker, 1)
+
+    expect_rejection(
+        lambda: verify_s0(
+            inject_extra_output_write(
+                raw["s0"],
+                b"  qualify:\n",
+            ),
+            s1_sha,
+        ),
+        "S0 duplicate GITHUB_OUTPUT write in resolver step",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_extra_output_write(
+                raw["s1"],
+                b"      - name: Verify retained qualification receipt\n",
+            ),
+            s1_sha,
+        ),
+        "S1 unexpected GITHUB_OUTPUT write in receipt verifier step",
     )
 
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
