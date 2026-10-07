@@ -102,6 +102,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "full_name": "Luminous-Dynamics/mycelix",
         "repository_id": 1176351975,
     }
+    assert policy["attestation_integrity_revision"] == policy["policy_version"]
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -2224,17 +2225,19 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
 
     bad_event = json.loads(json.dumps(event))
     bad_event["repository"]["id"] = 901
-    assert_rejected(
-        lambda: expected_artifact("Luminous-Dynamics/mycelix", bad_event, policy),
-        "trigger event with mismatched repository ID was accepted",
-    )
+    with patch.dict(os.environ, {"D6U_TRUSTED_REPOSITORY_ID": "900"}, clear=False):
+        assert_rejected(
+            lambda: expected_artifact("Luminous-Dynamics/mycelix", bad_event, policy),
+            "trigger event with mismatched repository ID was accepted",
+        )
 
     bad_event = json.loads(json.dumps(event))
     bad_event["workflow_run"]["head_repository"]["id"] = 901
-    assert_rejected(
-        lambda: expected_artifact("Luminous-Dynamics/mycelix", bad_event, policy),
-        "trigger run with mismatched head repository ID was accepted",
-    )
+    with patch.dict(os.environ, {"D6U_TRUSTED_REPOSITORY_ID": "900"}, clear=False):
+        assert_rejected(
+            lambda: expected_artifact("Luminous-Dynamics/mycelix", bad_event, policy),
+            "trigger run with mismatched head repository ID was accepted",
+        )
 
     for field, bad_value, message in [
         ("head_branch", "main", "executor artifact with mismatched trigger branch was accepted"),
@@ -2367,6 +2370,20 @@ def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
         assert_rejected(
             lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
             "handoff artifact was accepted from a different current repository ID",
+        )
+
+    bad_head_repository_run = json.loads(json.dumps(current_run))
+    bad_head_repository_run["head_repository"]["id"] = 9002
+    with patch.dict(os.environ, env, clear=False), patch.object(
+        fetcher,
+        "github_get",
+        side_effect=lambda _repo, api_path, _token: (
+            bad_head_repository_run if api_path == "/actions/runs/501" else payload
+        ),
+    ):
+        assert_rejected(
+            lambda: expected_current_run_artifact("Luminous-Dynamics/mycelix", policy),
+            "handoff artifact was accepted from a current run with a different head repository ID",
         )
 
     bad_branch_run = dict(current_run)
