@@ -108,7 +108,7 @@ jobs:
           assert scanned_text.count("secrets.GOVERNANCE_ADMIN_TOKEN") == 1
           assert scanned_text.count("actions/checkout@") == 3
           assert scanned_text.count("actions/download-artifact@") == 2
-          assert scanned_text.count("actions/upload-artifact@") == 3
+          assert scanned_text.count("actions/upload-artifact@") == 4
           PY
 
       - name: Run fail-closed evaluator self-tests
