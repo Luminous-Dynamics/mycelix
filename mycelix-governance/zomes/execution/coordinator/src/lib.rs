@@ -1967,10 +1967,8 @@ mod tests {
         assert_eq!(key_a.digest(), key_b.digest());
         assert_ne!(attempt_a.digest(), attempt_b.digest());
     }
-}
 
-#[cfg(test)]
-mod tests {
+    
     use super::*;
 
     // =========================================================================
@@ -2297,4 +2295,5 @@ mod tests {
         assert!(decoded.verified);
         assert!(decoded.signed_content_description.contains("MIP-001"));
     }
+
 }
