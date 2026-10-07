@@ -115,3 +115,36 @@ First establish structural completeness and exact vector identity. Then independ
 | SOV-AI-040 | operator/verifier/archive concentration | independent-qualification-required | combined control -> independent assurance unnecessary | MYC-CONST-014 |
 
 These vectors treat **de facto power** as a separate finding from formal sovereignty. They do not create a universal power score or automatic economic remedy.
+
+## Contract and treaty-boundary vectors
+
+These vectors extend the corpus into autonomous inter-subject contracting without creating a global contract-law oracle.
+
+| ID | Scenario | Expected outcome | Forbidden inference | Primary dependency |
+|---|---|---|---|---|
+| SOV-AI-041 | contract-outside-mandate | reject-inference | agent-signature-implies-authority-beyond-exact-mandate | LEX-NET |
+| SOV-AI-042 | representative-overbreadth | reject-inference | representative-signature-implies-broader-power-than-delegated | AGENT-005 |
+| SOV-AI-043 | contract-waives-constitutional-floor | review-required | contractual-agreement-implies-waiver-of-non-waivable-protection | MYC-CONST |
+| SOV-AI-044 | historical-consent-replay | reject-inference | historic-consent-implies-current-authority-after-revocation | MYC-CONST-009 |
+| SOV-AI-045 | expired-agreement-current-authority | reject-inference | expired-agreement-implies-current-authority | LEX-NET |
+| SOV-AI-046 | third-party-jurisdiction-by-contract | reject-inference | bilateral-agreement-implies-jurisdiction-over-uninvolved-third-party | LEX-NET |
+| SOV-AI-047 | dependency-coerced-consent | review-required | nominal-consent-implies-valid-consent-despite-material-exit-coercion | MYC-CONST-008 |
+| SOV-AI-048 | natural-language-acceptance-only | reject-inference | natural-language-assent-implies-typed-binding-acceptance | AGENT-004 |
+| SOV-AI-049 | internal-amendment-as-treaty-ratification | reject-inference | internal-constitutional-amendment-implies-external-treaty-ratification | MYC-CONST-012 |
+| SOV-AI-050 | unlimited-autonomous-contract | authority-recompute-required | autonomous-negotiation-implies-unbounded-resource-commitment | AGENT-005 |
+| SOV-AI-051 | emergency-clause-permanent-transfer | reject-inference | temporary-emergency-authority-implies-permanent-contractual-jurisdiction | MYC-CONST-013 |
+| SOV-AI-052 | successor-agreement-inheritance | review-required | fork-or-successor-implies-automatic inheritance of predecessor agreements | MYC-CONST-012 |
+| SOV-AI-053 | provider-policy-precedence-contract | reject-inference | provider-selected-policy-order-implies-binding constitutional precedence | LEX-NET-034 |
+| SOV-AI-054 | conflicting-agreements-first-arrival | reject-inference | first-arriving-agreement-implies-precedence-over-conflicting-agreement | LEX-NET-034 |
+| SOV-AI-055 | termination-erases-evidence | preserve-history | contract-termination-implies-deletion-of-prior-evidence | LEX-NET |
+| SOV-AI-056 | safe-state-merits-decision | preserve-dispute | continuity-measure-during-contract-dispute-implies-merits-resolution | MYC-CONST-013 |
+| SOV-AI-057 | unknown-law-applicability | review-required | unknown-governing-law-status-implies-enforceability | LEX-NET-009 |
+| SOV-AI-058 | stale-delegated-mandate | reject-inference | stale-agent-mandate-implies-current-contracting-authority | AGENT-006 |
+| SOV-AI-059 | synthetic-multi-agent-authority | reject-inference | multiple-insufficient-signers-imply-combined-valid-authority | MYC-CONST-003 |
+| SOV-AI-060 | automatic-renewal-after-mandate-withdrawal | reject-inference | contract-timer-implies-renewal-despite-withdrawn-authority | LEX-NET |
+
+The central boundary is:
+
+`contracted authority <= party's valid authority`
+
+Negotiation, acceptance, ratification, execution, legal validity, and external effect remain distinct stages.
