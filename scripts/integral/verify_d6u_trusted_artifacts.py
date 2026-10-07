@@ -22,7 +22,7 @@ POLICY = ROOT / "docs/integral/d6u-trusted-builder-policy.json"
 
 MAX_GITHUB_JSON_BYTES = 8 * 1024 * 1024
 LOCK_PACKAGE_VERSION_PATTERN = re.compile(
-    r"^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
 )
 
 
@@ -471,7 +471,7 @@ def verify_cases(log: str, policy: dict) -> None:
 
 
 def _git_blob_sha1(content: bytes) -> str:
-    header = f"blob {len(content)}\\0".encode("utf-8")
+    header = f"blob {len(content)}\0".encode("utf-8")
     return hashlib.sha1(header + content).hexdigest()
 
 
