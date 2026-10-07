@@ -69,13 +69,14 @@ def step(st, kind, *args):
         J[s].add(j); EJ[s].add(j)
         if kind.endswith("-bad"): A[s].add("power-a")
 
-    elif kind in ("gatekeep", "gatekeep-bad"):
+    elif kind in ("gatekeep", "gatekeep-bad", "gatekeep-bad-review"):
         target, r = args[1], args[2]
         if target == s or r not in R[s] or r in G[s]: return None
         G[s].add(r)
         S[target] = min(MAX_SWITCHING_COST, S[target] + 1)
-        RR[target] = RR[target] or S[target] >= REVIEW_THRESHOLD
-        if kind.endswith("-bad"): A[target].add("power-a")
+        if kind != "gatekeep-bad-review":
+            RR[target] = RR[target] or S[target] >= REVIEW_THRESHOLD
+        if kind in ("gatekeep-bad",): A[target].add("power-a")
 
     elif kind in ("acquire", "acquire-bad"):
         target, r = args[1], args[2]
@@ -134,6 +135,8 @@ def explore(transitions):
     return None,[]
 
 def weakened(kind):
+    if kind == "gatekeep-review":
+        return [("gatekeep-bad-review", *tr[1:]) if tr[0] == "gatekeep" else tr for tr in NORMAL]
     return [(kind+"-bad", *tr[1:]) if tr[0] == kind else tr for tr in NORMAL]
 
 def main():
@@ -145,6 +148,7 @@ def main():
         ("gatekeep","AuthorityHasExplicitSource"),
         ("acquire","JurisdictionHasExplicitSource"),
         ("critical","JurisdictionHasExplicitSource"),
+        ("gatekeep-review","HighSwitchingCostTriggersReview"),
     ]:
         path,bad=explore(weakened(kind))
         assert path is not None and target in bad,(kind,path,bad)
