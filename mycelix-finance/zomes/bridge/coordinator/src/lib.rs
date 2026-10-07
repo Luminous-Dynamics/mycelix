@@ -2596,6 +2596,37 @@ pub fn get_unread_count(_: ()) -> ExternResult<u32> {
 }
 
 #[cfg(test)]
+mod ac178_authority_tests {
+    use super::*;
+
+    #[test]
+    fn mycel_score_rejects_non_finite_and_out_of_range_values() {
+        for score in [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            -0.01,
+            1.01,
+        ] {
+            assert!(validate_mycel_score(score).is_err());
+        }
+        assert_eq!(validate_mycel_score(0.0).unwrap(), 0.0);
+        assert_eq!(validate_mycel_score(0.5).unwrap(), 0.5);
+        assert_eq!(validate_mycel_score(1.0).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn governance_status_is_explicit() {
+        assert!(classify_governance_proposal_status("Approved").unwrap());
+        assert!(classify_governance_proposal_status("Executed").unwrap());
+        assert!(!classify_governance_proposal_status("Pending").unwrap());
+        assert!(!classify_governance_proposal_status("Rejected").unwrap());
+        assert!(classify_governance_proposal_status("Superseded").is_err());
+        assert!(classify_governance_proposal_status("").is_err());
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
