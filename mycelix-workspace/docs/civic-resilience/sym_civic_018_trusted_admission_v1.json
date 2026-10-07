@@ -18,7 +18,7 @@
   ],
   "expected_blob_sha": {
     ".github/workflows/sym-civic-018-cbor-encoding.yml": "27359c1bc7d130780ca82bababa927a1952f170b",
-    "mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_CBOR_ENCODING_V1.md": "f66bcbf8b3d7f0d87e4fe22c7d60e40d4c5f1a16",
+    "mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_CBOR_ENCODING_V1.md": "6934ff94a16aeadd215db0344c4a190136bbbc28",
     "mycelix-workspace/docs/civic-resilience/sym_civic_018_cbor_encoding_v1.json": "b9be91fb92b929809d580c6f4b86f5516d5144eb",
     "scripts/qualification/sym_civic_018_cbor_encoding_v1.py": "a5d8548fd0aefd41841b8ddb198794b0d8b7605e"
   }
