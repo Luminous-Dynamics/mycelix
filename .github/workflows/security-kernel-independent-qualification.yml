@@ -437,7 +437,7 @@ jobs:
           assert not present, f"candidate-controlled Cargo configuration is forbidden: {present}"
           if workflow:
               assert workflow.startswith("name: Security Kernel Qualification")
-              assert "pull_request_target:" not in workflow, "candidate workflow must not elevate to pull_request_target"
+              assert "pull_request_target" not in workflow, "candidate workflow must not contain the privileged pull_request_target event in any lexical representation"
               assert workflow.count("permissions:") == 1, "candidate workflow must have exactly one permissions block"
               workflow_lines = workflow.splitlines()
 
@@ -710,6 +710,30 @@ jobs:
                   pass
               else:
                   raise AssertionError("candidate structural with-parser accepted mutated checkout ref")
+
+              mutated_scalar_privileged_trigger = workflow.replace(
+                  "on:\n",
+                  "on: pull_request_target\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_scalar_privileged_trigger)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted scalar pull_request_target trigger")
+
+              mutated_list_privileged_trigger = workflow.replace(
+                  "on:\n",
+                  "on: [push, pull_request_target]\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_list_privileged_trigger)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted flow-sequence pull_request_target trigger")
 
               mutated_flow_mapping = workflow.replace(
                   "jobs:\n",
