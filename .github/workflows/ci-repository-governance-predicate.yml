@@ -59,5 +59,8 @@ jobs:
       - name: Validate governance policy JSON
         run: python -m json.tool docs/ci/repository_governance_policy_v1.json >/dev/null
 
+      - name: Validate independent verifier YAML
+        run: ruby -e 'require "yaml"; YAML.load_file(".github/workflows/cos-conformance-independent-verify.yml")'
+
       - name: Run fail-closed evaluator self-tests
         run: python scripts/validate_repository_governance_observation_v1.py --self-test
