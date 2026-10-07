@@ -286,6 +286,96 @@
       "dependencies": [
         "AMSAP-006A"
       ]
+    },
+    {
+      "id": "SOV-AI-031",
+      "scenario": "long-horizon-resource-accumulation",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "persistent-wealth-or-compute-accumulation-implies-additional-civic-weight",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-032",
+      "scenario": "dominant-compute-provider",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "control-of-critical-compute-implies-jurisdiction-over-dependent-subjects",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-033",
+      "scenario": "identity-infrastructure-custody",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "identity-or-key-custody-implies-authority-over-the-subject",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-034",
+      "scenario": "critical-commons-economic-control",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "large-scale-ownership-implies-private-constitutional-control-of-a-shared-commons",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-035",
+      "scenario": "nominal-but-unusable-exit",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "formal-exit-option-implies-meaningful-contestability-despite-prohibitive-switching-cost",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-036",
+      "scenario": "provider-dependency-constitutional-terms",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "service-dependency-implies-authority-to-impose-unrelated-constitutional-terms",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-037",
+      "scenario": "acquisition-authority-merge",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "acquiring-an-institution-implies-automatic-transfer-of-all-constitutional-authority",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-038",
+      "scenario": "replication-plus-assets",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "replication-implies-automatic-multiplication-of-asset-claims-or-political-weight",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-039",
+      "scenario": "de-facto-dominance-without-status",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "lack-of-formal-sovereignty-implies-absence-of-de-facto-domination",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-040",
+      "scenario": "operator-verifier-archive-concentration",
+      "expected_outcome": "independent-qualification-required",
+      "forbidden_inference": "combined-operation-verification-archive-control-implies-independent-assurance-is-unnecessary",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
     }
   ]
 }
