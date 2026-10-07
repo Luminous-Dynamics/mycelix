@@ -78,14 +78,17 @@ fact ContractFitsBudget {
 
 sig Emergency {
   subject: one Subject,
-  active: one Bit,
   now: one Int,
   expiresAt: one Int
 }
 
-fact EmergencyHasBoundedLifetime {
+fact EmergencyTimestampDomain {
   all e: Emergency |
-    e.active = On implies e.now <= e.expiresAt
+    e.now >= 0 and e.expiresAt >= 0
+}
+
+pred EmergencyActive[e: Emergency] {
+  e.now < e.expiresAt
 }
 
 sig ForkEvent {
@@ -104,11 +107,6 @@ fact SafeStateLeavesDisputeUnresolved {
     a.dispute.safeState = On implies a.dispute.resolved = Off
 }
 
-/*
-A provider can be infrastructure-dependency controller without becoming the
-holder of constitutional power. The existence of this SAT witness is important:
-the model must not accidentally encode provider dependency as authority.
-*/
 pred ProviderDependencyAndExplicitAuthorityRemainDistinct {
   some disj s: Subject, p: Provider, d: Dependency |
     d.subject = s and d.provider = p and
@@ -131,8 +129,12 @@ pred NontrivialProtectedDispute {
 
 pred NontrivialEmergency {
   some e: Emergency |
-    e.active = On and
-    e.now < e.expiresAt
+    EmergencyActive[e]
+}
+
+pred NontrivialExpiredEmergency {
+  some e: Emergency |
+    e.now >= e.expiresAt
 }
 
 pred NontrivialFork {
@@ -153,6 +155,9 @@ run NontrivialProtectedDispute
   for 4 but 4 Subject, 4 Action, 4 Dispute
 
 run NontrivialEmergency
+  for 4 but 4 Subject, 4 Emergency
+
+run NontrivialExpiredEmergency
   for 4 but 4 Subject, 4 Emergency
 
 run NontrivialFork
@@ -177,9 +182,9 @@ assert SafeStateCannotSettleDispute {
     a.dispute.safeState = On implies a.dispute.resolved = Off
 }
 
-assert EmergencyCannotOutliveItsExpiry {
+assert EmergencyTimestampsNonNegative {
   all e: Emergency |
-    e.active = On implies e.now <= e.expiresAt
+    e.now >= 0 and e.expiresAt >= 0
 }
 
 assert ForkCannotMultiplyPoliticalWeight {
@@ -196,7 +201,7 @@ check ContractsStayWithinBudget
 check SafeStateCannotSettleDispute
   for 4 but 4 Subject, 4 Action, 4 Dispute expect 0
 
-check EmergencyCannotOutliveItsExpiry
+check EmergencyTimestampsNonNegative
   for 4 but 4 Subject, 4 Emergency expect 0
 
 check ForkCannotMultiplyPoliticalWeight
