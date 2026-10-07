@@ -996,9 +996,341 @@ jobs:
           print(f"executed_source_digest={after}")
           PY
           executed_source_digest="$(sed -n 's/^executed_source_digest=//p' "$RUNNER_TEMP/security-kernel-executed-source-digest.txt")"
-          printf "%s" "$executed_source_digest" | grep -Eq '^[0-9a-f]{64}$'
-          printf 'executed_source_digest=%s\n' "$executed_source_digest" >> "$GITHUB_OUTPUT"
-          printf "%s" "$executed_source_digest" | grep -Eq '^[0-9a-f]{64}$'
+          printf "%s" "$executed_source_digest" | grep -Eq '^[0-9a-f]{64}
+          echo "PASS: bounded Docker tmpfs candidate source remained immutable through qualification"
+      - name: Cleanup candidate source substrate
+        if: ${{ !cancelled() && steps.resolve_source.outcome == 'success' }}
+        env:
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then echo "security-kernel candidate source volume inventory query failed before cleanup" >&2; exit 1; fi
+          if ! printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$CANDIDATE_VOLUME_NAME"; then echo "security-kernel candidate source volume unexpectedly missing before cleanup" >&2; exit 1; fi
+          if ! docker volume rm "$CANDIDATE_VOLUME_NAME" >/dev/null 2>&1; then echo "security-kernel candidate source volume cleanup failed" >&2; exit 1; fi
+          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then echo "security-kernel candidate source volume inventory query failed after cleanup" >&2; exit 1; fi
+          if printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$CANDIDATE_VOLUME_NAME"; then echo "security-kernel candidate source volume remains after cleanup" >&2; exit 1; fi
+          echo "PASS: bounded Docker tmpfs candidate source volume was removed fail-closed; no host staging root existed"
+      - name: Verify dependency substrate immutability
+        id: dependency_postflight
+        env:
+          VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
+          VENDOR_CONFIG_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_name }}
+          EXPECTED_VENDOR_CONFIG_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_config_digest }}
+          EXPECTED_VENDOR_CONFIG_BYTES: ${{ steps.vendor_dependencies.outputs.vendor_config_observed_bytes }}
+          EXPECTED_VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
+          SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner_uid="$(id -u)"
+          runner_gid="$(id -g)"
+          vendor_cleanup_on_failure() {
+            local status=$?
+            if [ "$status" -ne 0 ]; then
+              if ! docker volume rm "$VENDOR_CONFIG_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
+              if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
+              if ! remaining_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
+                status=1
+              else
+                if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then status=1; fi
+                if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_CONFIG_VOLUME_NAME"; then status=1; fi
+              fi
+            fi
+            trap - EXIT
+            exit "$status"
+          }
+          trap vendor_cleanup_on_failure EXIT
+          docker run --rm --platform=linux/amd64 --pull=never \
+            --network=none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges:true --security-opt=seccomp=default \
+            --pids-limit=128 --memory=256m --memory-swap=256m --cpus=1 \
+            --ulimit=nofile=2048:2048 --ulimit=core=0:0 \
+            --user "$runner_uid:$runner_gid" --ipc=private --pid=private --cgroupns=private \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m,nr_inodes=8192 \
+            --volume "$VENDOR_VOLUME_NAME:/vendor:ro" \
+            --volume "$VENDOR_CONFIG_VOLUME_NAME:/vendor-config:ro" \
+            "$SANDBOX_IMAGE" /bin/bash -euo pipefail -c '
+          python3 - "$EXPECTED_VENDOR_DIGEST" "$EXPECTED_VENDOR_CONFIG_DIGEST" "$EXPECTED_VENDOR_CONFIG_BYTES" /vendor <<\PY
+          import hashlib, pathlib, stat, sys
+          expected=sys.argv[1]; vendor=pathlib.Path(sys.argv[2]); digest=hashlib.sha256()
+          for path in sorted(vendor.rglob('*')):
+              rel=path.relative_to(vendor); mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode) or (not path.is_dir() and not stat.S_ISREG(mode)): raise SystemExit(f'forbidden vendor file type: {rel}')
+              if path.is_dir(): continue
+              relative=rel.as_posix().encode(); content=path.read_bytes()
+              digest.update(stat.S_IMODE(mode).to_bytes(4,'big')); digest.update(len(relative).to_bytes(8,'big')); digest.update(relative); digest.update(len(content).to_bytes(8,'big')); digest.update(content)
+          observed=digest.hexdigest()
+          config=pathlib.Path("/vendor-config/config.toml")
+          config_mode=config.lstat().st_mode if config.exists() else 0
+          if not config.exists() or stat.S_ISLNK(config_mode) or not stat.S_ISREG(config_mode): raise SystemExit("vendor config substrate missing or not regular")
+          if config.stat().st_size != int(sys.argv[3]): raise SystemExit("vendor config size changed")
+          if hashlib.sha256(config.read_bytes()).hexdigest() != sys.argv[2]: raise SystemExit("vendor config substrate mutated")
+          if observed != expected: raise SystemExit(f'vendor substrate mutated: {expected} != {observed}')
+          print('PASS: vendored dependency substrate remained immutable and regular-file-only')
+          PY
+          CONTAINER_SCRIPT
+          if ! docker volume rm "$VENDOR_CONFIG_VOLUME_NAME" >/dev/null; then
+            echo "security-kernel vendor-config volume cleanup failed" >&2
+            exit 1
+          fi
+          if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null; then
+            echo "security-kernel vendor volume cleanup failed" >&2
+            exit 1
+          fi
+          if ! remaining_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
+            echo "security-kernel vendor volume inventory query failed after cleanup" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then
+            echo "security-kernel vendor volume remains after cleanup" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_CONFIG_VOLUME_NAME"; then
+            echo "security-kernel vendor-config volume remains after cleanup" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then
+            echo "security-kernel vendor volume remains after cleanup" >&2
+            exit 1
+          fi
+          trap - EXIT
+          printf 'dependency_substrate=passed\n' >> "$GITHUB_OUTPUT"
+          echo "PASS: bounded vendor volume was independently re-hashed and removed fail-closed"
+      - name: Emit qualification receipt
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_PR: ${{ inputs.candidate_pr }}
+          CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
+          CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}
+          CALLED_WORKFLOW_REF: ${{ job.workflow_ref }}
+          CALLED_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
+          SOURCE_TREE_ENTRY_COUNT: ${{ steps.resolve_source.outputs.source_tree_entry_count }}
+          SOURCE_FILE_COUNT: ${{ steps.resolve_source.outputs.source_file_count }}
+          SOURCE_TOTAL_PATH_BYTES: ${{ steps.resolve_source.outputs.source_total_path_bytes }}
+          SOURCE_TOTAL_BYTES: ${{ steps.resolve_source.outputs.source_total_bytes }}
+          SOURCE_MAX_BLOB_BYTES: ${{ steps.resolve_source.outputs.source_max_blob_bytes }}
+          SOURCE_RESOURCE_PROFILE: ${{ env.SOURCE_RESOURCE_PROFILE }}
+          SOURCE_MAX_BYTES: ${{ env.SOURCE_MAX_BYTES }}
+          SOURCE_MAX_INODES: ${{ env.SOURCE_MAX_INODES }}
+          SOURCE_TMPFS_SIZE: ${{ env.SOURCE_TMPFS_SIZE }}
+          SOURCE_TMPFS_NR_INODES: ${{ env.SOURCE_TMPFS_NR_INODES }}
+          SOURCE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
+          SOURCE_VOLUME_SPEC: ${{ steps.resolve_source.outputs.source_volume_spec }}
+          SOURCE_COPY_BYTES: ${{ steps.resolve_source.outputs.source_copy_bytes }}
+          SOURCE_COPY_FILES: ${{ steps.resolve_source.outputs.source_copy_files }}
+          SOURCE_COPY_INODES: ${{ steps.resolve_source.outputs.source_copy_inodes }}
+          SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
+          SOURCE_STAGING_DIGEST: ${{ steps.snapshot_source.outputs.source_staging_digest }}
+          EXECUTED_SOURCE_DIGEST: ${{ steps.verify_candidate_source.outputs.executed_source_digest }}
+          LOCK_PACKAGE_COUNT: ${{ steps.locked_dependency_identity.outputs.lock_package_count }}
+          LOCK_DEPENDENCY_EDGES: ${{ steps.locked_dependency_identity.outputs.lock_dependency_edges }}
+          VENDOR_RESOURCE_PROFILE: ${{ env.VENDOR_RESOURCE_PROFILE }}
+          VENDOR_MAX_BYTES: ${{ env.VENDOR_MAX_BYTES }}
+          VENDOR_MAX_FILES: ${{ env.VENDOR_MAX_FILES }}
+          VENDOR_MAX_INODES: ${{ env.VENDOR_MAX_INODES }}
+          VENDOR_TMPFS_SIZE: ${{ env.VENDOR_TMPFS_SIZE }}
+          VENDOR_TMPFS_NR_INODES: ${{ env.VENDOR_TMPFS_NR_INODES }}
+          VENDOR_CONFIG_RESOURCE_PROFILE: ${{ env.VENDOR_CONFIG_RESOURCE_PROFILE }}
+          VENDOR_CONFIG_MAX_BYTES: ${{ env.VENDOR_CONFIG_MAX_BYTES }}
+          VENDOR_CONFIG_MAX_INODES: ${{ env.VENDOR_CONFIG_MAX_INODES }}
+          VENDOR_CONFIG_TMPFS_SIZE: ${{ env.VENDOR_CONFIG_TMPFS_SIZE }}
+          VENDOR_CONFIG_TMPFS_NR_INODES: ${{ env.VENDOR_CONFIG_TMPFS_NR_INODES }}
+          VENDOR_CONFIG_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_name }}
+          VENDOR_CONFIG_VOLUME_SPEC: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_spec }}
+          VENDOR_CONFIG_OBSERVED_BYTES: ${{ steps.vendor_dependencies.outputs.vendor_config_observed_bytes }}
+          VENDOR_CONFIG_OBSERVED_INODES: ${{ steps.vendor_dependencies.outputs.vendor_config_observed_inodes }}
+          VENDOR_CONFIG_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_config_digest }}
+          VENDOR_OBSERVED_BYTES: ${{ steps.vendor_dependencies.outputs.vendor_observed_bytes }}
+          VENDOR_OBSERVED_FILES: ${{ steps.vendor_dependencies.outputs.vendor_observed_files }}
+          VENDOR_OBSERVED_INODES: ${{ steps.vendor_dependencies.outputs.vendor_observed_inodes }}
+          VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
+          NEGATIVE_CONTROLS: ${{ steps.sandbox_negative_controls.outputs.negative_controls }}
+          NEGATIVE_CONTROLS_LOG_DIGEST: ${{ steps.sandbox_negative_controls.outputs.negative_controls_log_digest }}
+          DEPENDENCY_POSTFLIGHT: ${{ steps.dependency_postflight.outputs.dependency_substrate }}
+          LOCK_DIGEST: ${{ steps.locked_dependency_identity.outputs.lock_digest }}
+          RUST_VERSION: ${{ steps.sandbox_preflight.outputs.rust_version }}
+          RUST_COMMIT: ${{ steps.sandbox_preflight.outputs.rust_commit }}
+          FETCH_IMAGE: "docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329"
+        shell: bash
+        run: |
+          set -euo pipefail
+          CARGO_LOCK_DIGEST="$LOCK_DIGEST"
+          {
+            echo "schema=security-kernel-independent-qualification-v1"
+            echo "candidate_repository=$CANDIDATE_REPOSITORY"
+            echo "candidate_repository_id=$CANDIDATE_REPOSITORY_ID"
+            echo "candidate_pr=$CANDIDATE_PR"
+            echo "candidate_sha=$CANDIDATE_SHA"
+            echo "candidate_tree=$CANDIDATE_TREE"
+            echo "candidate_source_tree_entry_count=$SOURCE_TREE_ENTRY_COUNT"
+            echo "candidate_source_file_count=$SOURCE_FILE_COUNT"
+            echo "candidate_source_total_path_bytes=$SOURCE_TOTAL_PATH_BYTES"
+            echo "candidate_source_total_bytes=$SOURCE_TOTAL_BYTES"
+            echo "candidate_source_max_blob_bytes=$SOURCE_MAX_BLOB_BYTES"
+            echo "candidate_source_digest=$SOURCE_DIGEST"
+            echo "source_staging_digest=$SOURCE_STAGING_DIGEST"
+            echo "executed_source_digest=$EXECUTED_SOURCE_DIGEST"
+            echo "source_resource_profile=$SOURCE_RESOURCE_PROFILE"
+            echo "source_max_bytes=$SOURCE_MAX_BYTES"
+            echo "source_max_inodes=$SOURCE_MAX_INODES"
+            echo "source_tmpfs_size=$SOURCE_TMPFS_SIZE"
+            echo "source_tmpfs_nr_inodes=$SOURCE_TMPFS_NR_INODES"
+             echo "dependency_manifest_max_bytes=$DEPENDENCY_MANIFEST_MAX_BYTES"
+             echo "dependency_lock_max_bytes=$DEPENDENCY_LOCK_MAX_BYTES"
+            echo "source_volume_name=$SOURCE_VOLUME_NAME"
+            echo "source_volume_spec=$SOURCE_VOLUME_SPEC"
+            echo "source_copy_bytes=$SOURCE_COPY_BYTES"
+            echo "source_copy_files=$SOURCE_COPY_FILES"
+            echo "source_copy_inodes=$SOURCE_COPY_INODES"
+            echo "candidate_cargo_lock_format=v4"
+            echo "candidate_cargo_lock_sha256=$CARGO_LOCK_DIGEST"
+            echo "candidate_cargo_lock_package_count=$LOCK_PACKAGE_COUNT"
+            echo "candidate_cargo_lock_dependency_edges=$LOCK_DEPENDENCY_EDGES"
+            echo "vendor_resource_profile=$VENDOR_RESOURCE_PROFILE"
+            echo "vendor_max_bytes=$VENDOR_MAX_BYTES"
+            echo "vendor_max_files=$VENDOR_MAX_FILES"
+            echo "vendor_max_inodes=$VENDOR_MAX_INODES"
+            echo "vendor_tmpfs_size=$VENDOR_TMPFS_SIZE"
+            echo "vendor_tmpfs_nr_inodes=$VENDOR_TMPFS_NR_INODES"
+            echo "vendor_config_resource_profile=$VENDOR_CONFIG_RESOURCE_PROFILE"
+            echo "vendor_config_max_bytes=$VENDOR_CONFIG_MAX_BYTES"
+            echo "vendor_config_max_inodes=$VENDOR_CONFIG_MAX_INODES"
+            echo "vendor_config_tmpfs_size=$VENDOR_CONFIG_TMPFS_SIZE"
+            echo "vendor_config_tmpfs_nr_inodes=$VENDOR_CONFIG_TMPFS_NR_INODES"
+            echo "vendor_config_volume_name=$VENDOR_CONFIG_VOLUME_NAME"
+            echo "vendor_config_volume_spec=$VENDOR_CONFIG_VOLUME_SPEC"
+            echo "vendor_config_observed_bytes=$VENDOR_CONFIG_OBSERVED_BYTES"
+            echo "vendor_config_observed_inodes=$VENDOR_CONFIG_OBSERVED_INODES"
+            echo "vendor_config_digest=$VENDOR_CONFIG_DIGEST"
+            echo "vendor_observed_bytes=$VENDOR_OBSERVED_BYTES"
+            echo "vendor_observed_files=$VENDOR_OBSERVED_FILES"
+            echo "vendor_observed_inodes=$VENDOR_OBSERVED_INODES"
+            echo "vendor_resource_measurement=bounded-pass"
+            echo "vendor_digest=$VENDOR_DIGEST"
+            echo "sandbox_negative_controls=$NEGATIVE_CONTROLS"
+            echo "sandbox_negative_controls_log_sha256=$NEGATIVE_CONTROLS_LOG_DIGEST"
+            echo "dependency_substrate_postflight=$DEPENDENCY_POSTFLIGHT"
+            echo "git_fetch_image=$FETCH_IMAGE"
+            echo "sandbox_image=docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
+            echo "sandbox_network=none"
+            echo "sandbox_rootfs=read-only"
+            echo "sandbox_user=non-root"
+            echo "sandbox_capabilities=all-dropped"
+            echo "sandbox_no_new_privileges=true"
+            echo "source_event=pull_request_target"
+            echo "trusted_dispatcher_workflow=$GITHUB_WORKFLOW_REF"
+            echo "trusted_workflow_ref=$GITHUB_WORKFLOW_REF"
+            echo "trusted_workflow_sha=$GITHUB_WORKFLOW_SHA"
+            echo "trusted_workflow_name=$GITHUB_WORKFLOW"
+            echo "trusted_repository_id=$BASE_REPOSITORY_ID"
+            echo "trusted_workflow_repository=$CALLED_WORKFLOW_REPOSITORY"
+            echo "trusted_workflow_file_path=$CALLED_WORKFLOW_FILE_PATH"
+            echo "trusted_ref_protected=$GITHUB_REF_PROTECTED"
+            echo "cache_mode=${ACTIONS_CACHE_MODE:-}"
+            echo "registered_s1_workflow_blob_sha=$TRUSTED_WORKFLOW_BLOB_SHA"
+            echo "called_workflow_ref=$CALLED_WORKFLOW_REF"
+            echo "called_workflow_sha=$CALLED_WORKFLOW_SHA"
+            echo "s1_run_id=$GITHUB_RUN_ID"
+            echo "s1_run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "rust_version=$RUST_VERSION"
+            echo "rust_commit=$RUST_COMMIT"
+            echo "qualification_pass=true"
+          receipt_path="$RUNNER_TEMP/security-kernel-independent-qualification-${CANDIDATE_SHA}-attempt-${GITHUB_RUN_ATTEMPT}.txt"
+          } > "$receipt_path"
+          receipt_bytes="$(wc -c < "$receipt_path")"
+          receipt_lines="$(wc -l < "$receipt_path")"
+          printf "%s" "$receipt_bytes" | grep -Eq "^[0-9]+$"
+          printf "%s" "$receipt_lines" | grep -Eq "^[0-9]+$"
+          test "$receipt_bytes" -le "$QUALIFICATION_RECEIPT_MAX_BYTES"
+          test "$receipt_lines" -le 128
+          cat "$receipt_path"
+
+      - name: Upload qualification receipt
+        if: success()
+        id: receipt_upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt
+          path: ${{ runner.temp }}/security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt
+          if-no-files-found: error
+          archive: false
+          overwrite: false
+          retention-days: 90
+
+      - name: Verify retained qualification receipt
+        if: success()
+        env:
+          TOKEN: ${{ github.token }}
+          EXPECTED_ARTIFACT_ID: ${{ steps.receipt_upload.outputs.artifact-id }}
+          EXPECTED_ARTIFACT_DIGEST: ${{ steps.receipt_upload.outputs.artifact-digest }}
+          EXPECTED_ARTIFACT_NAME: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt
+          RUN_ID: ${{ github.run_id }}
+          BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+          RECEIPT_PATH: ${{ runner.temp }}/security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf "%s" "$EXPECTED_ARTIFACT_ID" | grep -Eq "^[0-9]+$"
+          printf "%s" "$EXPECTED_ARTIFACT_DIGEST" | grep -Eq "^[0-9a-f]{64}$"
+          local_receipt_digest="$(sha256sum "$RECEIPT_PATH" | awk '{print $1}')"
+          test "$local_receipt_digest" = "$EXPECTED_ARTIFACT_DIGEST"
+          python3 - <<'PY'
+          import json, os, urllib.request
+          repo=os.environ["BASE_REPOSITORY"]
+          artifact_id=os.environ["EXPECTED_ARTIFACT_ID"]
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}",
+              headers={
+                  "Accept":"application/vnd.github+json",
+                  "Authorization":f"Bearer {os.environ['TOKEN']}",
+                  "X-GitHub-Api-Version":"2022-11-28",
+              })
+          with urllib.request.urlopen(req, timeout=20) as response:
+              artifact=json.load(response)
+          assert str(artifact["id"]) == artifact_id
+          assert artifact["name"] == os.environ["EXPECTED_ARTIFACT_NAME"]
+          assert artifact.get("expired") is False
+          assert artifact.get("workflow_run", {}).get("id") == int(os.environ["RUN_ID"])
+          assert artifact.get("digest") == "sha256:" + os.environ["EXPECTED_ARTIFACT_DIGEST"]
+          assert int(artifact.get("size_in_bytes", 0)) > 0
+          print("PASS: retained qualification receipt artifact is bound to this exact workflow run and upload digest")
+          PY
+      - name: Final teardown barrier
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          vendor_config_volume_name="security-kernel-vendor-config-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          for volume_name in "$candidate_volume_name" "$vendor_volume_name" "$vendor_config_volume_name"; do
+            if ! existing_volumes="$(docker volume ls --format '{{.Name}}')"; then
+              echo "security-kernel final teardown volume inventory query failed" >&2
+              exit 1
+            fi
+            if printf "%s\n" "$existing_volumes" | grep -Fxq "$volume_name"; then
+              if ! docker volume rm "$volume_name" >/dev/null 2>&1; then
+                echo "security-kernel final teardown volume removal failed: $volume_name" >&2
+                exit 1
+              fi
+              if ! remaining_volumes="$(docker volume ls --format '{{.Name}}')"; then
+                echo "security-kernel final teardown volume inventory query failed after removal" >&2
+                exit 1
+              fi
+              if printf "%s\n" "$remaining_volumes" | grep -Fxq "$volume_name"; then
+                echo "security-kernel final teardown volume remains: $volume_name" >&2
+                exit 1
+              fi
+            fi
+          done
+          fi
+            echo "security-kernel final teardown host staging root remains" >&2
+            exit 1
+          fi
+          echo "PASS: final non-cancelled teardown left no owned source/vendor volume or candidate staging root"
+
           printf 'executed_source_digest=%s\n' "$executed_source_digest" >> "$GITHUB_OUTPUT"
           echo "PASS: bounded Docker tmpfs candidate source remained immutable through qualification"
       - name: Cleanup candidate source substrate
