@@ -155,9 +155,31 @@ pub fn get_proposal(proposal_id: String) -> ExternResult<Option<Record>> {
             LinkQuery::try_new(entry_hash, LinkTypes::ProposalById)?,
             GetStrategy::default(),
         ) {
-            if let Some(link) = links.into_iter().max_by_key(|l| l.timestamp) {
+            if links.len() > 1 {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Ambiguous proposal ID '{}': {} records are linked to the deterministic ID index.",
+                    proposal_id,
+                    links.len()
+                ))));
+            }
+
+            if let Some(link) = links.into_iter().next() {
                 if let Ok(ah) = ActionHash::try_from(link.target) {
                     if let Some(record) = get(ah, GetOptions::default())? {
+                        let proposal = record
+                            .entry()
+                            .to_app_option::<Proposal>()
+                            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                                "ProposalById index target has no Proposal entry".into()
+                            )))?;
+
+                        if proposal.id != proposal_id {
+                            return Err(wasm_error!(WasmErrorInner::Guest(
+                                "ProposalById index target has a mismatched proposal ID".into()
+                            )));
+                        }
+
                         return Ok(Some(record));
                     }
                 }
