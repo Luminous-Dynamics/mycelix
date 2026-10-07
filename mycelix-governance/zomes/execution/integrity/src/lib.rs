@@ -952,10 +952,8 @@ mod tests {
         succeeded.status = ExecutionAttemptStatus::Succeeded;
         assert!(check_update_execution_attempt(&base, &succeeded).is_err());
     }
-}
 
-#[cfg(test)]
-mod tests {
+
     use super::*;
 
     fn ts(micros: i64) -> Timestamp {
@@ -1505,4 +1503,5 @@ mod tests {
             other => panic!("forged voter_did must be rejected, got {other:?}"),
         }
     }
+
 }
