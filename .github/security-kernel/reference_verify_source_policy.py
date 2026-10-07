@@ -529,7 +529,6 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         if exact_count(l, f'  {key}: "{expected}"') != 1:
             fail(f"S1 vendor resource profile mismatch: {key}")
     for key, expected in (
-        ("SOURCE_ARCHIVE_MAX_BYTES", "1073741824"),
         ("DEPENDENCY_MANIFEST_MAX_BYTES", "2097152"),
         ("DEPENDENCY_LOCK_MAX_BYTES", "33554432"),
     ):
@@ -538,16 +537,10 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
     joined = "\n".join(l)
-    if "CANDIDATE_ROOT: " not in joined:
-        fail("S1 candidate host staging root binding missing")
-    if exact_count(l, "CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root") != 4:
-        fail("S1 candidate staging root must be bound at each required step via the runner context")
-    if exact_count(l, 'CANDIDATE_ROOT: "${{ runner.temp }}/security-kernel-candidate-root"') != 0:
-        fail("S1 runner.temp must not be referenced from workflow-level env")
-    if 'candidate_root="$RUNNER_TEMP/security-kernel-candidate-root"' not in joined:
-        fail("S1 source acquisition must construct candidate staging root from the runner environment")
-    if 'candidate_root="$CANDIDATE_ROOT"' in joined:
-        fail("S1 source acquisition must not depend on a workflow-level runner context binding")
+    if "CANDIDATE_ROOT" in joined or "candidate_root" in joined or "security-kernel-candidate-root" in joined:
+        fail("S1 must not contain a runner-backed candidate staging root")
+    if 'test "$(stat -f -c \'%T\' "$candidate_volume_mountpoint")" = "tmpfs"' not in joined:
+        fail("S1 candidate volume mountpoint must be independently confirmed as tmpfs")
     if 'python3 - "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$CANDIDATE_SHA" <<\'PY\' > "$RUNNER_TEMP/security-kernel-candidate-tree.env"' not in joined:
         fail("S1 candidate resolution must bind repository name, repository ID, and candidate SHA together")
     if 'assert repository_obj.get("full_name") == repository' not in joined:
@@ -591,7 +584,6 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if 'python3 - "$CANDIDATE_ROOT" "$candidate_volume_mountpoint_snapshot" <<\'PY\' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"' not in joined:
         fail("S1 source snapshot must bind the trusted staging root and actual volume mountpoint")
     for required in (
-        "source_archive_max_bytes=$SOURCE_ARCHIVE_MAX_BYTES",
         "dependency_manifest_max_bytes=$DEPENDENCY_MANIFEST_MAX_BYTES",
         "dependency_lock_max_bytes=$DEPENDENCY_LOCK_MAX_BYTES",
     ):
