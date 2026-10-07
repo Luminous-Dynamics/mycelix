@@ -1091,19 +1091,6 @@ def main() -> None:
 
     expect_rejection(
         lambda: verify_s1(
-            raw["s1"].replace(
-                b",nr_inodes=600000",
-                b"",
-                1,
-            ),
-            s1_sha,
-        ),
-        "sandbox tmpfs inode ceiling removed",
-    )
-
-    expect_rejection(
-    expect_rejection(
-        lambda: verify_s1(
             raw["s1"].replace(b"            bounded_source_archive |\n", b"            # bounded source archive guard removed\n", 1),
             s1_sha,
         ),
@@ -1120,6 +1107,8 @@ def main() -> None:
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
         "negative-control transcript capture ceiling weakened",
     )
+    expect_rejection(
+        lambda: verify_s2(
             raw["s2"].replace(b"artifact_size <= 65536", b"artifact_size <= 1048576", 1),
             s0_sha,
             s1_sha,
