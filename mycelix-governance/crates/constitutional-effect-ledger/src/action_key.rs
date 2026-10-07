@@ -19,6 +19,11 @@ pub const ACTION_KEY_SCHEMA_VERSION: u16 = 1;
 pub const ACTION_KEY_PREFIX: &str = "constitutional-action-key-v1:";
 pub const ATTEMPT_IDENTITY_SCHEMA_VERSION: u16 = 1;
 pub const ATTEMPT_IDENTITY_PREFIX: &str = "constitutional-attempt-identity-v1:";
+pub const MATERIAL_ACTION_DIGEST_PREFIX: &str = "constitutional-material-action-v1:";
+pub const EXECUTION_AUTHORIZATION_SCHEMA_VERSION: u16 = 2;
+
+const EXECUTION_AUTHORIZATION_DOMAIN: &[u8] =
+    b"MYCELIX-GOVERNANCE-EXECUTION-AUTHORIZATION\0V2\0";
 
 const MAX_REF_LEN: usize = 512;
 const ACTION_KEY_DOMAIN: &[u8] =
