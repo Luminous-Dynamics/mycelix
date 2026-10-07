@@ -4722,7 +4722,7 @@ mod tests {
         );
         assert_eq!(
             FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION,
-            2
+            3
         );
 
         let mut legacy = statement.clone();
@@ -5597,7 +5597,7 @@ mod tests {
             policy.schema_version(),
             FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION
         );
-        assert_eq!(FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION, 4);
+        assert_eq!(FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION, 5);
         assert_eq!(
             policy.policy_profile(),
             FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE
@@ -5682,6 +5682,137 @@ mod tests {
             result_b.admit_under_policy_at(&policy_a, 1_791_010_001),
             Err(
                 FederationExternalVerificationPolicyAdmissionViolation::AnchorReferenceNotAdmitted
+            )
+        );
+    }
+
+    #[test]
+    fn external_verification_policy_verifier_profile_digest_binding_is_content_addressed_and_fail_closed() {
+        let subject_sha256 =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let witness_artifact = b"profile-bound-witness";
+        let anchor_reference = state_machine_trace_external_evidence_anchor_reference(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            1,
+            "tsa-token-v1",
+            witness_artifact,
+            1_791_010_100,
+        )
+        .expect("anchor reference must build");
+
+        let profile_evidence = b"verifier-profile-config-v1";
+        let statement =
+            state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence(
+                &anchor_reference.anchor_reference_sha256,
+                2,
+                "rfc3161-verifier-v1",
+                profile_evidence,
+                FederationExternalVerifierIdentityKind::PublicKey,
+                "rfc3161-key-v1",
+                b"profile-bound-verifier-key",
+                FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                b"profile-bound-verifier-report",
+                1_791_010_101,
+            )
+            .expect("profile-bound statement must build");
+
+        let result = validate_state_machine_trace_external_evidence_verification_statement_chain(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+            subject_sha256,
+            witness_artifact,
+            &anchor_reference,
+            b"profile-bound-verifier-report",
+            &statement,
+        )
+        .expect("profile-bound result must validate");
+
+        let profile_a = state_machine_trace_external_verifier_profile_sha256(profile_evidence);
+        let profile_b =
+            state_machine_trace_external_verifier_profile_sha256(b"verifier-profile-config-v2");
+        assert_eq!(result.verifier_profile_sha256(), Some(profile_a.as_str()));
+        assert_ne!(profile_a, profile_b);
+
+        assert_eq!(
+            FederationExternalVerificationTrustPolicyV1::try_new_bound(
+                FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+                "tsa-token-v1",
+                2,
+                ["rfc3161-verifier-v1"],
+                [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+            )
+            .expect("base policy must build")
+            .try_new_bound_verifier_profile_sha256("not-a-digest"),
+            Err(
+                FederationExternalVerificationTrustPolicyViolation::InvalidRequiredVerifierProfileDigest
+            )
+        );
+
+        let policy_a = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
+            2,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("base policy must build")
+        .try_new_bound_identity(
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-key-v1",
+            state_machine_trace_external_verifier_identity_sha256(b"profile-bound-verifier-key"),
+        )
+        .expect("identity-bound policy must build")
+        .try_new_bound_verifier_profile_sha256(profile_a.clone())
+        .expect("profile-bound policy A must build")
+        .with_maximum_verification_age_seconds(60)
+        .expect("freshness policy must build");
+
+        let policy_b = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
+            2,
+            ["rfc3161-verifier-v1"],
+            [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+        )
+        .expect("base policy must build")
+        .try_new_bound_identity(
+            FederationExternalVerifierIdentityKind::PublicKey,
+            "rfc3161-key-v1",
+            state_machine_trace_external_verifier_identity_sha256(b"profile-bound-verifier-key"),
+        )
+        .expect("identity-bound policy must build")
+        .try_new_bound_verifier_profile_sha256(profile_b.clone())
+        .expect("profile-bound policy B must build")
+        .with_maximum_verification_age_seconds(60)
+        .expect("freshness policy must build");
+
+        assert_ne!(
+            policy_a.policy_sha256().unwrap(),
+            policy_b.policy_sha256().unwrap()
+        );
+
+        result
+            .admit_under_policy_at(&policy_a, 1_791_010_102)
+            .expect("exact profile-bound result must admit");
+
+        let mut missing_profile = result.clone();
+        missing_profile.verifier_profile_sha256 = None;
+        assert_eq!(
+            missing_profile.admit_under_policy_at(&policy_a, 1_791_010_102),
+            Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierProfileDigestNotAdmitted
+            )
+        );
+
+        let mut changed_profile = result.clone();
+        changed_profile.verifier_profile_sha256 = Some(profile_b);
+        assert_eq!(
+            changed_profile.admit_under_policy_at(&policy_a, 1_791_010_102),
+            Err(
+                FederationExternalVerificationPolicyAdmissionViolation::VerifierProfileDigestNotAdmitted
             )
         );
     }
