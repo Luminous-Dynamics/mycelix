@@ -560,7 +560,6 @@ fn require_admissible_proposal(
 
 fn require_verified_threshold_signature(
     proposal_id: &str,
-    timelock_id: &str,
     action_key_digest: &str,
 ) -> ExternResult<ThresholdSignature> {
     let response = call(
