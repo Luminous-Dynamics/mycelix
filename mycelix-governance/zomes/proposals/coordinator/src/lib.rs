@@ -10,6 +10,26 @@ use hdk::prelude::*;
 use mycelix_bridge_proc::{mycelix_zome_fn, sovereign_gated};
 use mycelix_zome_helpers as _;
 use proposals_integrity::*;
+use constitutional_effect_ledger::{material_action_digest, ActionKeyV1};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ProposalSignatureVerificationMirror {
+    proposal_id: String,
+    action_key_digest: String,
+    signature_id: String,
+    committee_id: String,
+    signer_count: u32,
+    threshold: u32,
+    algorithm: ProposalSignatureAlgorithmMirror,
+    verified: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum ProposalSignatureAlgorithmMirror {
+    Ecdsa,
+    MlDsa65,
+    HybridEcdsaMlDsa65,
+}
 
 // ============================================================================
 // REAL-TIME SIGNALS
@@ -450,7 +470,6 @@ pub fn finalize_proposal_with_signature(input: FinalizeWithSignatureInput) -> Ex
         )));
     }
 
-    // Verify the proposal exists and is in Approved status
     let current_record = get_proposal(input.proposal_id.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Proposal not found".into())
     ))?;
@@ -470,24 +489,49 @@ pub fn finalize_proposal_with_signature(input: FinalizeWithSignatureInput) -> Ex
         ))));
     }
 
-    // Verify threshold signature exists via cross-zome call
-    let sig_io = governance_utils::call_local(
+    let action_key = ActionKeyV1::new(
+        "did:mycelix:governance",
+        "mycelix-governance-execution",
+        material_action_digest(current_proposal.actions.as_bytes()),
+    )
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+
+    let verification_input = serde_json::json!({
+        "proposal_id": input.proposal_id,
+        "action_key_digest": action_key.digest(),
+    });
+
+    let verification_io = governance_utils::call_local(
         "threshold_signing",
-        "get_proposal_signature",
-        input.proposal_id.clone(),
+        "verify_proposal_signature",
+        verification_input,
     )?;
-    if let Ok(maybe_record) = sig_io.decode::<Option<Record>>() {
-        if maybe_record.is_none() {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "No verified threshold signature found for proposal '{}'",
-                input.proposal_id
-            ))));
-        }
+
+    let verification: ProposalSignatureVerificationMirror =
+        verification_io.decode().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Threshold authorization verifier response could not be decoded: {e}"
+            )))
+        })?;
+
+    if !verification.verified {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Threshold authorization verifier did not return a verified result".into()
+        )));
     }
 
-    // Advance proposal to Signed status
+    if verification.proposal_id != current_proposal.id
+        || verification.action_key_digest != action_key.digest()
+        || verification.signature_id != input.signature_id
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Threshold verification result does not match the requested proposal, action, and signature"
+                .into()
+        )));
+    }
+
     update_proposal_status(UpdateStatusInput {
-        proposal_id: input.proposal_id,
+        proposal_id: current_proposal.id,
         new_status: ProposalStatus::Signed,
     })
 }
