@@ -571,6 +571,7 @@ pub trait DurableActionFenceStore {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
+        terminal_evidence: &TerminalEvidenceV1,
     ) -> Result<(), ActionFenceMutationError>;
 
     fn atomically_close_executed(
@@ -578,6 +579,7 @@ pub trait DurableActionFenceStore {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
+        terminal_evidence: &TerminalEvidenceV1,
     ) -> Result<(), ActionFenceMutationError>;
 
     fn atomically_release_not_entered(
@@ -928,11 +930,7 @@ impl AtomicActionFenceModelV1 {
                 | (AttemptRecordState::Reserved, AttemptRecordState::DispatchPending)
                 | (AttemptRecordState::DispatchPending, AttemptRecordState::Invoked)
                 | (AttemptRecordState::DispatchPending, AttemptRecordState::Indeterminate)
-                | (AttemptRecordState::Invoked, AttemptRecordState::Executed)
-                | (AttemptRecordState::Invoked, AttemptRecordState::Failed)
                 | (AttemptRecordState::Invoked, AttemptRecordState::Indeterminate)
-                | (AttemptRecordState::Indeterminate, AttemptRecordState::Executed)
-                | (AttemptRecordState::Indeterminate, AttemptRecordState::Failed)
         );
         if !allowed {
             return Err(ActionFenceMutationError::InvalidTransition);
@@ -942,8 +940,6 @@ impl AtomicActionFenceModelV1 {
             next_state,
             AttemptRecordState::DispatchPending
                 | AttemptRecordState::Invoked
-                | AttemptRecordState::Executed
-                | AttemptRecordState::Failed
                 | AttemptRecordState::Indeterminate
         ) && (current.provider_reference_seed_digest.is_none()
             || current.provider_reference_descriptor_digest.is_none())
@@ -971,18 +967,81 @@ impl AtomicActionFenceModelV1 {
             .ok_or(ActionFenceMutationError::NotOwner)?;
         attempt.state = next_state;
 
-        match next_state {
-            AttemptRecordState::Executed => {
-                let fence = self
-                    .fences
-                    .get_mut(action_key.digest())
-                    .ok_or(ActionFenceMutationError::NotOccupied)?;
-                fence.state = ActionFenceState::Closed;
-            }
-            AttemptRecordState::Failed => {
-                self.fences.remove(action_key.digest());
-            }
-            _ => {}
+        Ok(())
+    }
+
+    fn transition_terminal(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        terminal_evidence: &TerminalEvidenceV1,
+        next_state: AttemptRecordState,
+    ) -> Result<(), ActionFenceMutationError> {
+        let current = self
+            .attempts
+            .get(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+
+        if current.ownership_token_digest != owner_token_digest {
+            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+        }
+        if current.action_key_digest != action_key.digest() {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+        if !matches!(
+            current.state,
+            AttemptRecordState::Invoked | AttemptRecordState::Indeterminate
+        ) {
+            return Err(if current.state.is_terminal() {
+                ActionFenceMutationError::AlreadyClosed
+            } else {
+                ActionFenceMutationError::InvalidTransition
+            });
+        }
+
+        let expected_outcome = match next_state {
+            AttemptRecordState::Executed => TerminalOutcomeV1::Executed,
+            AttemptRecordState::Failed => TerminalOutcomeV1::Failed,
+            _ => return Err(ActionFenceMutationError::InvalidTransition),
+        };
+
+        if terminal_evidence.outcome() != expected_outcome
+            || terminal_evidence.action_key_digest() != action_key.digest()
+            || terminal_evidence.attempt_identity() != attempt_identity.digest()
+        {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+
+        let fence = self
+            .fences
+            .get(action_key.digest())
+            .ok_or(ActionFenceMutationError::NotOccupied)?;
+        if fence.owner_attempt_identity != attempt_identity.digest() {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+        if fence.owner_token_digest != owner_token_digest {
+            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+        }
+        if fence.state.is_closed() {
+            return Err(ActionFenceMutationError::AlreadyClosed);
+        }
+
+        let attempt = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+        attempt.terminal_evidence_digest = Some(terminal_evidence.digest().to_owned());
+        attempt.state = next_state;
+
+        if next_state == AttemptRecordState::Executed {
+            let fence = self
+                .fences
+                .get_mut(action_key.digest())
+                .ok_or(ActionFenceMutationError::NotOccupied)?;
+            fence.state = ActionFenceState::Closed;
+        } else {
+            self.fences.remove(action_key.digest());
         }
 
         Ok(())
