@@ -13,6 +13,7 @@ leptos = "0.8.19"
 leptos_router = "0.8.19"
 leptos_meta = "0.8.19"
 finance-leptos-types = { path = "../../mycelix-finance/crates/finance-leptos-types" }
+mycelix_finance_types = { path = "../../mycelix-finance/types" }
 axum = { version = "0.8", optional = true }
 leptos_axum = { version = "0.8", optional = true }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
