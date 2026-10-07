@@ -864,14 +864,20 @@ mod tests {
         let mut model = AtomicActionFenceModelV1::new();
         assert_eq!(
             model
-                .admit(record("attempt-1", "operation-1", AttemptRecordState::Consumed))
+                .admit(
+                    &key(),
+                    &attempt("attempt-1"),
+                    record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+                )
                 .unwrap(),
             AtomicAdmissionDecision::Admitted
         );
 
         let second = record("attempt-2", "operation-2", AttemptRecordState::Consumed);
         assert_eq!(
-            model.admit(second).unwrap(),
+            model
+                .admit(&key(), &attempt("attempt-2"), second)
+                .unwrap(),
             AtomicAdmissionDecision::ActionInFlight
         );
         assert!(model.validate_invariants().is_ok());
@@ -881,11 +887,15 @@ mod tests {
     fn conflicting_admission_is_atomic_and_leaves_prior_state_unchanged() {
         let mut model = AtomicActionFenceModelV1::new();
         model
-            .admit(record(
-                "attempt-1",
-                "operation-1",
-                AttemptRecordState::Consumed,
-            ))
+            .admit(
+                &key(),
+                &attempt("attempt-1"),
+                record(
+                    "attempt-1",
+                    "operation-1",
+                    AttemptRecordState::Consumed,
+                ),
+            )
             .unwrap();
 
         let before_attempt = model
@@ -896,11 +906,15 @@ mod tests {
 
         assert_eq!(
             model
-                .admit(record(
-                    "attempt-2",
-                    "operation-2",
-                    AttemptRecordState::Consumed,
-                ))
+                .admit(
+                    &key(),
+                    &attempt("attempt-2"),
+                    record(
+                        "attempt-2",
+                        "operation-2",
+                        AttemptRecordState::Consumed,
+                    ),
+                )
                 .unwrap(),
             AtomicAdmissionDecision::ActionInFlight
         );
@@ -927,12 +941,16 @@ mod tests {
         second.effecting_target_identity = "target-1".into();
         second.validate().unwrap();
 
+        let key1 = key();
+        let key2 = ActionKeyV1::new("relying-party", "target-1", "action-2").unwrap();
+        let attempt1 = attempt("attempt-1");
+        let attempt2 = attempt("attempt-2");
         assert_eq!(
-            model.admit(first).unwrap(),
+            model.admit(&key1, &attempt1, first).unwrap(),
             AtomicAdmissionDecision::Admitted
         );
         assert_eq!(
-            model.admit(second).unwrap(),
+            model.admit(&key2, &attempt2, second).unwrap(),
             AtomicAdmissionDecision::Admitted
         );
         assert!(model.validate_invariants().is_ok());
@@ -942,13 +960,15 @@ mod tests {
     fn fresh_authority_and_new_operation_cannot_bypass_fence() {
         let mut model = AtomicActionFenceModelV1::new();
         let first = record("attempt-1", "operation-1", AttemptRecordState::Indeterminate);
-        model.admit(first).unwrap();
+        model.admit(&key(), &attempt("attempt-1"), first).unwrap();
 
         let mut second = record("attempt-2", "operation-2", AttemptRecordState::Consumed);
         second.native_replay_identity = "native-replay-2".into();
 
         assert_eq!(
-            model.admit(second).unwrap(),
+            model
+                .admit(&key(), &attempt("attempt-2"), second)
+                .unwrap(),
             AtomicAdmissionDecision::ActionInFlight
         );
     }
@@ -958,15 +978,27 @@ mod tests {
         let mut model = AtomicActionFenceModelV1::new();
         let first_attempt = attempt("attempt-1");
         let first = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
-        model.admit(first).unwrap();
+        model
+            .admit(&key(), &attempt("attempt-1"), first)
+            .unwrap();
 
+        model
+            .mark_dispatch_pending(&key(), &first_attempt, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invoked(&key(), &first_attempt, "owner-token-attempt-1")
+            .unwrap();
         model
             .close_executed(&key(), &first_attempt, "owner-token-attempt-1")
             .unwrap();
 
         assert_eq!(
             model
-                .admit(record("attempt-2", "operation-2", AttemptRecordState::Consumed))
+                .admit(
+                    &key(),
+                    &attempt("attempt-2"),
+                    record("attempt-2", "operation-2", AttemptRecordState::Consumed),
+                )
                 .unwrap(),
             AtomicAdmissionDecision::ActionAlreadyExecuted
         );
@@ -977,7 +1009,11 @@ mod tests {
         let mut model = AtomicActionFenceModelV1::new();
         let first_attempt = attempt("attempt-1");
         model
-            .admit(record("attempt-1", "operation-1", AttemptRecordState::Consumed))
+            .admit(
+                &key(),
+                &attempt("attempt-1"),
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
             .unwrap();
 
         assert_eq!(
@@ -987,13 +1023,23 @@ mod tests {
         assert!(model.fence(key().digest()).is_some());
 
         model
+            .mark_dispatch_pending(&key(), &first_attempt, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invoked(&key(), &first_attempt, "owner-token-attempt-1")
+            .unwrap();
+        model
             .release_after_failed(&key(), &first_attempt, "owner-token-attempt-1")
             .unwrap();
 
         assert!(model.fence(key().digest()).is_none());
         assert_eq!(
             model
-                .admit(record("attempt-2", "operation-2", AttemptRecordState::Consumed))
+                .admit(
+                    &key(),
+                    &attempt("attempt-2"),
+                    record("attempt-2", "operation-2", AttemptRecordState::Consumed),
+                )
                 .unwrap(),
             AtomicAdmissionDecision::Admitted
         );
@@ -1057,7 +1103,11 @@ mod tests {
         let first_attempt = attempt("attempt-1");
         let second_attempt = attempt("attempt-2");
         model
-            .admit(record("attempt-1", "operation-1", AttemptRecordState::Consumed))
+            .admit(
+                &key(),
+                &first_attempt,
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
             .unwrap();
 
         assert_eq!(
@@ -1076,11 +1126,15 @@ mod tests {
         let mut model = AtomicActionFenceModelV1::new();
         let first = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
         assert_eq!(
-            model.admit(first.clone()).unwrap(),
+            model
+                .admit(&key(), &attempt("attempt-1"), first.clone())
+                .unwrap(),
             AtomicAdmissionDecision::Admitted
         );
         assert_eq!(
-            model.admit(first).unwrap(),
+            model
+                .admit(&key(), &attempt("attempt-1"), first)
+                .unwrap(),
             AtomicAdmissionDecision::DuplicateAttempt
         );
         assert!(model.validate_invariants().is_ok());
@@ -1090,26 +1144,130 @@ mod tests {
     fn terminal_attempts_cannot_be_admitted_as_occupiers() {
         let mut model = AtomicActionFenceModelV1::new();
         assert!(model
-            .admit(record(
-                "attempt-1",
-                "operation-1",
-                AttemptRecordState::Executed
-            ))
+            .admit(
+                &key(),
+                &attempt("attempt-1"),
+                record(
+                    "attempt-1",
+                    "operation-1",
+                    AttemptRecordState::Executed
+                ),
+            )
             .is_err());
         assert!(model
-            .admit(record(
-                "attempt-2",
-                "operation-2",
-                AttemptRecordState::Failed
-            ))
+            .admit(
+                &key(),
+                &attempt("attempt-2"),
+                record(
+                    "attempt-2",
+                    "operation-2",
+                    AttemptRecordState::Failed
+                ),
+            )
             .is_err());
         assert!(model
-            .admit(record(
-                "attempt-3",
-                "operation-3",
-                AttemptRecordState::NotEntered
-            ))
+            .admit(
+                &key(),
+                &attempt("attempt-3"),
+                record(
+                    "attempt-3",
+                    "operation-3",
+                    AttemptRecordState::NotEntered
+                ),
+            )
             .is_err());
+    }
+
+
+    #[test]
+    fn terminal_state_cannot_be_reached_before_invocation() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let owner = attempt("attempt-1");
+        model
+            .admit(
+                &key(),
+                &owner,
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+
+        assert_eq!(
+            model.close_executed(&key(), &owner, "owner-token-attempt-1"),
+            Err(ActionFenceMutationError::InvalidTransition)
+        );
+        assert_eq!(
+            model.release_after_failed(&key(), &owner, "owner-token-attempt-1"),
+            Err(ActionFenceMutationError::InvalidTransition)
+        );
+        assert!(model.fence(key().digest()).is_some());
+    }
+
+    #[test]
+    fn indeterminate_keeps_fence_until_authoritative_resolution() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let owner = attempt("attempt-1");
+        model
+            .admit(
+                &key(),
+                &owner,
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+
+        model
+            .mark_dispatch_pending(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invoked(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_indeterminate(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+
+        assert_eq!(
+            model.admit(
+                &key(),
+                &attempt("attempt-2"),
+                record("attempt-2", "operation-2", AttemptRecordState::Consumed),
+            ).unwrap(),
+            AtomicAdmissionDecision::ActionInFlight
+        );
+    }
+
+    #[test]
+    fn terminal_close_is_replay_stable_but_does_not_reopen() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let owner = attempt("attempt-1");
+        model
+            .admit(
+                &key(),
+                &owner,
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+
+        model
+            .mark_dispatch_pending(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invoked(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .close_executed(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+
+        assert_eq!(
+            model.admit(
+                &key(),
+                &attempt("attempt-2"),
+                record("attempt-2", "operation-2", AttemptRecordState::Consumed),
+            ).unwrap(),
+            AtomicAdmissionDecision::ActionAlreadyExecuted
+        );
+        assert_eq!(
+            model.close_executed(&key(), &owner, "owner-token-attempt-1"),
+            Err(ActionFenceMutationError::AlreadyClosed)
+        );
     }
 
     #[test]
