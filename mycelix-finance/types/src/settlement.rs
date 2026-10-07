@@ -177,7 +177,11 @@ impl SettlementRailProfile {
             return Err(SettlementValidationError::ExposureExceeded);
         }
 
-        match claim.finality {
+        if claim.finality.assurance_rank() < self.configured_finality.assurance_rank() {
+            return Err(SettlementValidationError::InsufficientFinality);
+        }
+
+        match &claim.finality {
             SettlementFinality::BridgeFinal
             | SettlementFinality::EconomicallyFinal
             | SettlementFinality::Reconciled => {}
@@ -188,7 +192,7 @@ impl SettlementRailProfile {
             return Err(SettlementValidationError::MissingProofOrAttestation);
         }
 
-        if claim.reconciled != matches!(claim.finality, SettlementFinality::Reconciled) {
+        if claim.reconciled != matches!(&claim.finality, SettlementFinality::Reconciled) {
             return Err(SettlementValidationError::ReconciliationStateMismatch);
         }
 
@@ -219,6 +223,24 @@ pub struct SettlementClaim {
     pub observed_at_micros: i64,
     pub known_at_micros: i64,
     pub supersedes_claim_id: Option<String>,
+}
+
+impl SettlementFinality {
+    /// Monotonic assurance ordering for admissibility checks.
+    /// Disputed/superseded states are intentionally not ranked as stronger
+    /// finality; they are rejected separately.
+    pub fn assurance_rank(&self) -> u8 {
+        match self {
+            Self::Observed => 0,
+            Self::Submitted => 1,
+            Self::Included => 2,
+            Self::ProbabilisticallyFinal => 3,
+            Self::BridgeFinal => 4,
+            Self::EconomicallyFinal => 5,
+            Self::Reconciled => 6,
+            Self::Disputed | Self::Superseded => 0,
+        }
+    }
 }
 
 impl SettlementClaim {
@@ -270,7 +292,7 @@ impl SettlementClaim {
         }
 
         if matches!(
-            self.finality,
+            &self.finality,
             SettlementFinality::BridgeFinal
                 | SettlementFinality::EconomicallyFinal
                 | SettlementFinality::Reconciled
