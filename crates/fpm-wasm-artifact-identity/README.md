@@ -18,10 +18,13 @@ The resulting pair is therefore a crosswalk for one exact byte string, not a cla
 
 `verify_approved_artifact_against_observed_wasm_hash` requires:
 
-1. the approved SHA-256 identity to be structurally valid;
+1. the approved SHA-256 identity and versioned Holochain profile to be structurally valid;
 2. the supplied artifact bytes to hash to that approved SHA-256;
-3. the observed value to be a valid 39-byte Holochain `WasmHash`;
-4. the observed `WasmHash` to equal the canonical Holochain derivation from those same artifact bytes.
+3. the approved `WasmHash` value to equal the canonical Holochain derivation from those same artifact bytes;
+4. the observed value to be a valid 39-byte Holochain `WasmHash`;
+5. the observed `WasmHash` to equal the canonical Holochain derivation from those same artifact bytes.
+
+This makes the approved pair itself a bound object rather than trusting either digest independently. A split approval record is rejected even when the runtime observation is correct.
 
 The returned `MatchedFpmWasmArtifactIdentity` is deliberately Serialize-only and has private fields. There is no deserialization path for manufacturing a matched result.
 
