@@ -98,6 +98,9 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     assert current_run["id"] == run_id
     assert current_run["run_attempt"] == run_attempt
     assert current_run["repository"]["full_name"] == repo
+    assert int(current_run["repository"]["id"]) == expected_repository_id
+    assert current_run["head_repository"]["full_name"] == repo
+    assert int(current_run["head_repository"]["id"]) == expected_repository_id
     assert current_run["head_branch"] == os.environ["D6U_TRIGGER_HEAD_BRANCH"]
     assert current_run["head_sha"] == os.environ["D6U_TRIGGER_HEAD_SHA"]
     payload = github_get(
