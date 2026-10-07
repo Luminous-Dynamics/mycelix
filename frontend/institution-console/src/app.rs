@@ -2,8 +2,9 @@ use crate::domain::{InstitutionProfile, SecurityState, WorkspaceContext};
 use crate::ui::{AuthorityNotice, SecurityBadge, SecurityLegend};
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
+use crate::reconciliation::ReconciliationPage;
 use leptos_router::{
-    components::{Route, Router, Routes},
+    components::{A, Route, Router, Routes},
     StaticSegment,
 };
 
@@ -41,6 +42,7 @@ pub fn App() -> impl IntoView {
                     </section>
                 }.into_view()>
                     <Route path=StaticSegment("") view=InstitutionHomePage/>
+                    <Route path=StaticSegment("reconciliation") view=ReconciliationPage/>
                 </Routes>
             </main>
         </Router>
@@ -146,7 +148,7 @@ fn InstitutionHomePage() -> impl IntoView {
                                 <span class="eyebrow">"RECONCILIATION"</span>
                                 <h2>"Continuous control"</h2>
                             </div>
-                            <SecurityBadge state=SecurityState::Reconciled/>
+                            <A class="action" href="/reconciliation">"Review queue"</A>
                         </div>
                         <div class="break-row">
                             <div>
