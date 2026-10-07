@@ -1886,7 +1886,11 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
         }
     }
 
-    // Step 3: Forgive TEND balances via tend zome
+    // Step 3: Forgive TEND balances via the authoritative TEND zome.
+    //
+    // An ExitRecord is durable terminal state. A missing, malformed, or
+    // unexpected acknowledgement must therefore abort before the record is
+    // created; it must never be represented by a synthetic empty vector.
     let tend_balances_forgiven: Vec<(String, i32)> = match call(
         CallTargetCell::Local,
         ZomeName::from("tend"),
@@ -1894,11 +1898,23 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
         None,
         input.member_did.clone(),
     ) {
-        Ok(ZomeCallResponse::Ok(extern_io)) => extern_io.decode().unwrap_or_default(),
-        Ok(_) => Vec::new(),
+        Ok(ZomeCallResponse::Ok(extern_io)) => extern_io.decode().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "TEND forgiveness acknowledgement was malformed for {}: {:?}",
+                input.member_did, e
+            )))
+        })?,
+        Ok(other) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "TEND forgiveness authority returned unexpected response for {}: {:?}",
+                input.member_did, other
+            ))));
+        }
         Err(e) => {
-            debug!("Warning: TEND balance forgiveness failed: {:?}", e);
-            Vec::new()
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "TEND forgiveness authority unavailable for {}: {:?}",
+                input.member_did, e
+            ))));
         }
     };
 
