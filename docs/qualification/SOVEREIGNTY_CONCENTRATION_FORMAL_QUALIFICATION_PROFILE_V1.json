@@ -6,9 +6,9 @@
   "related_issue": 4530,
   "semantic_subject": {
     "repository": "Luminous-Dynamics/mycelix",
-    "source_branch": "sov-ai-formal-v3-concentration-subject-main",
-    "head_sha": "9d1f816335ca2cf54b82edbaf6072d249720b2aa",
-    "tree_sha": "d14ab9cc8bafb0b30d93548da13486262a6e1e8f"
+    "source_branch": "sov-ai-formal-v3-concentration-subject-main-current",
+    "head_sha": "916798472b76f27cd7ea3451bb40171c46205bdd",
+    "tree_sha": "610bde646c0ea575cfa85928e8fc1ace34bd2dfe"
   },
   "models": {
     "tla": {
@@ -106,6 +106,8 @@
     "pins": {
       "path": "mycelix-governance/tools/formal/sovereignty_concentration_pins.json",
       "git_blob_sha": "e9a7978e5d192441a62d00d94e32bc6e92adc0a6"
-    }
+    },
+    "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json",
+    "crosswalk_git_blob_sha": "f86bdfe99b88c2c589d28a97bd3bbb477430812a"
   }
 }
