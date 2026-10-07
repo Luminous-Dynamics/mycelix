@@ -52,28 +52,17 @@ jobs:
             experimental-features = nix-command flakes
 
       - name: Run exact pinned TLA+ and Alloy models
+        env:
+          NIXPKGS_REV: ${{ env.NIXPKGS_REV }}
+          TLA_URL: ${{ env.TLA_URL }}
+          TLA_SHA256: ${{ env.TLA_SHA256 }}
+          ALLOY_URL: ${{ env.ALLOY_URL }}
+          ALLOY_SHA256: ${{ env.ALLOY_SHA256 }}
         run: |
           set -euo pipefail
           rm -rf .sov-formal-tools .sov-formal-evidence
           mkdir -p .sov-formal-tools .sov-formal-evidence
-
-          nix shell             "github:NixOS/nixpkgs/${NIXPKGS_REV}#jdk17_headless"             "github:NixOS/nixpkgs/${NIXPKGS_REV}#curl"             "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils"             "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash"             --command bash -euo pipefail -c '
-              curl --fail --location --retry 3 --retry-all-errors                 --output .sov-formal-tools/tla2tools.jar "$TLA_URL"
-              curl --fail --location --retry 3 --retry-all-errors                 --output .sov-formal-tools/alloy.jar "$ALLOY_URL"
-
-              printf "%s  %s\n" "$TLA_SHA256" .sov-formal-tools/tla2tools.jar | sha256sum --check --strict
-              printf "%s  %s\n" "$ALLOY_SHA256" .sov-formal-tools/alloy.jar | sha256sum --check --strict
-
-              cp mycelix-governance/specs/ArtificialSovereigntyV1.tla .sov-formal-evidence/
-              cp mycelix-governance/specs/ArtificialSovereigntyV1.cfg .sov-formal-evidence/
-              cp mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als .sov-formal-evidence/
-
-              java -cp .sov-formal-tools/tla2tools.jar tlc2.TLC                 -workers 1                 -config mycelix-governance/specs/ArtificialSovereigntyV1.cfg                 mycelix-governance/specs/ArtificialSovereigntyV1.tla                 | tee .sov-formal-evidence/tlc.log
-
-              java -jar .sov-formal-tools/alloy.jar                 exec --solver sat4j --type none                 --output .sov-formal-evidence/alloy                 --force --quiet                 mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als                 | tee .sov-formal-evidence/alloy.log
-
-              sha256sum .sov-formal-evidence/tlc.log .sov-formal-evidence/alloy.log                 > .sov-formal-evidence/log-sha256.txt
-            '
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#jdk17_headless" "github:NixOS/nixpkgs/${NIXPKGS_REV}#curl" "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c 'curl --fail --location --retry 3 --retry-all-errors --output .sov-formal-tools/tla2tools.jar "$TLA_URL"; curl --fail --location --retry 3 --retry-all-errors --output .sov-formal-tools/alloy.jar "$ALLOY_URL"; printf "%s  %s\n" "$TLA_SHA256" .sov-formal-tools/tla2tools.jar | sha256sum --check --strict; printf "%s  %s\n" "$ALLOY_SHA256" .sov-formal-tools/alloy.jar | sha256sum --check --strict; cp mycelix-governance/specs/ArtificialSovereigntyV1.tla .sov-formal-evidence/; cp mycelix-governance/specs/ArtificialSovereigntyV1.cfg .sov-formal-evidence/; cp mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als .sov-formal-evidence/; java -cp .sov-formal-tools/tla2tools.jar tlc2.TLC -workers 1 -config mycelix-governance/specs/ArtificialSovereigntyV1.cfg mycelix-governance/specs/ArtificialSovereigntyV1.tla | tee .sov-formal-evidence/tlc.log; java -jar .sov-formal-tools/alloy.jar exec --solver sat4j --type none --output .sov-formal-evidence/alloy --force --quiet mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als | tee .sov-formal-evidence/alloy.log; sha256sum .sov-formal-evidence/tlc.log .sov-formal-evidence/alloy.log > .sov-formal-evidence/log-sha256.txt'
 
       - name: Verify canonical inputs were not modified
         run: |
