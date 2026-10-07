@@ -1,6 +1,6 @@
 use crate::domain::SecurityState;
 use crate::ui::SecurityBadge;
-use mycelix_leptos_core::{AvailabilityState, AvailabilityStateKind, FreshnessBadge, FreshnessLevel};
+use mycelix_leptos_core::{FreshnessBadge, FreshnessLevel};
 use leptos::prelude::*;
 use mycelix_finance_types::{ReconciliationCase, ReconciliationCaseStatus};
 
@@ -120,12 +120,6 @@ pub fn ReconciliationPage() -> impl IntoView {
                     <span>"Evidence review"</span>
                 </div>
                 <FreshnessBadge level=FreshnessLevel::Aging detail="Synthetic snapshot: aging"/>
-                <AvailabilityState
-                    kind=AvailabilityStateKind::Mock
-                    title="Demonstration snapshot"
-                    description="This queue is synthetic and is not an authority or settlement source."
-                    action=None
-                />
             </header>
 
             <div class="reconciliation-layout">
@@ -205,6 +199,11 @@ fn CaseDetail(case: ReconciliationCase) -> impl IntoView {
                     <p class="muted">{case.scope.clone()}</p>
                 </div>
                 <SecurityBadge state=security_state(case.status)/>
+            </div>
+
+            <div class="freshness-summary">
+                <FreshnessBadge level=FreshnessLevel::Aging detail="Case snapshot: synthetic / aging"/>
+                <span>"Freshness describes the read-model snapshot only; it does not establish evidence validity or authority."</span>
             </div>
 
             <div class="detail-grid">
