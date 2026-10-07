@@ -482,6 +482,39 @@ def require_exact_step_token_count(
             f"found {count}"
         )
 
+
+
+def require_exact_run_fragment(
+    lines_: list[str],
+    step_name: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    start = matches[0]
+    run_indexes = []
+    for i in range(start + 1, len(lines_)):
+        if re.fullmatch(r"\s{8}run:\s*\|", lines_[i]):
+            run_indexes.append(i)
+        if re.fullmatch(r"\s{6}- name: .+", lines_[i]):
+            break
+    if len(run_indexes) != 1:
+        fail(f"{description}: expected exactly one run mapping under {step_name!r}")
+    actual = []
+    for line in lines_[run_indexes[0] + 1:]:
+        indent = len(line) - len(line.lstrip(" "))
+        if indent < 10:
+            break
+        actual.append(line[10:])
+    window = len(expected)
+    occurrences = sum(
+        1 for i in range(0, len(actual) - window + 1)
+        if tuple(actual[i:i + window]) == expected
+    )
+    if occurrences != 1:
+        fail(f"{description}: expected exact output-producer fragment is missing or duplicated")
 def require_exact_run_command_count(
     lines_: list[str],
     step_name: str,
@@ -1047,6 +1080,18 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         1,
         "S0 resolver output-channel census",
     )
+    require_exact_run_fragment(
+        l,
+        "Verify trusted dispatcher context and exact PR identity",
+        (
+        "with open(os.environ[\"GITHUB_OUTPUT\"], \"a\", encoding=\"utf-8\") as output:",
+        "    output.write(f\"candidate_pr={pr_number}\\n\")",
+        "    output.write(f\"candidate_sha={os.environ['HEAD_SHA']}\\n\")",
+        "    output.write(f\"candidate_repository={os.environ['HEAD_REPOSITORY']}\\n\")",
+        "    output.write(f\"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\\n\")",
+    ),
+        "S0 resolver output-producer binding",
+    )
     require_exact_run_prefix(
         l,
         "Verify trusted dispatcher context and exact PR identity",
@@ -1370,6 +1415,71 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             expected_count,
             f"S1 {step_name} output-channel census",
         )
+    require_exact_run_fragment(
+        l,
+        "Resolve exact candidate source",
+        (
+        "printf 'candidate_tree=%s\\nsource_tree_entry_count=%s\\nsource_file_count=%s\\nsource_total_path_bytes=%s\\nsource_total_bytes=%s\\nsource_max_blob_bytes=%s\\nfetch_image=%s\\n' \\",
+        "  \"$candidate_tree\" \"$source_tree_entry_count\" \"$source_file_count\" \"$source_total_path_bytes\" \"$source_total_bytes\" \"$source_max_blob_bytes\" \"$FETCH_IMAGE\" >> \"$GITHUB_OUTPUT\"",
+    ),
+        "S1 Resolve exact candidate source output-producer binding",
+    )
+    require_exact_run_fragment(
+        l,
+        "Snapshot exact candidate source identity",
+        (
+        "printf 'source_digest=%s\\n' \"$source_digest\" >> \"$GITHUB_OUTPUT\"",
+    ),
+        "S1 Snapshot exact candidate source identity output-producer binding",
+    )
+    require_exact_run_fragment(
+        l,
+        "Snapshot locked dependency identity",
+        (
+        "printf 'lock_digest=%s\\nlock_package_count=%s\\nlock_dependency_edges=%s\\n' \"$lock_digest\" \"$lock_package_count\" \"$lock_dependency_edges\" >> \"$GITHUB_OUTPUT\"",
+    ),
+        "S1 Snapshot locked dependency identity output-producer binding",
+    )
+    require_exact_run_fragment(
+        l,
+        "Pull and preflight pinned sandbox image",
+        (
+        "printf 'rust_version=%s\\nrust_commit=%s\\n' \"$rust_version\" \"$rust_commit\" >> \"$GITHUB_OUTPUT\"",
+    ),
+        "S1 Pull and preflight pinned sandbox image output-producer binding",
+    )
+    require_exact_run_fragment(
+        l,
+        "Prepare locked dependency subject",
+        (
+        "printf 'dependency_root=%s\\n' \"$dependency_root\" >> \"$GITHUB_OUTPUT\"",
+    ),
+        "S1 Prepare locked dependency subject output-producer binding",
+    )
+    require_exact_run_fragment(
+        l,
+        "Vendor locked dependency closure in fetch sandbox",
+        (
+        "printf 'vendor_volume_name=%s\\nvendor_config=%s\\nvendor_metrics=%s\\nvendor_digest=%s\\nvendor_observed_bytes=%s\\nvendor_observed_files=%s\\nvendor_observed_inodes=%s\\n' \"$vendor_volume_name\" \"$vendor_config\" \"$vendor_metrics\" \"$vendor_digest\" \"$vendor_observed_bytes\" \"$vendor_observed_files\" \"$vendor_observed_inodes\" >> \"$GITHUB_OUTPUT\"",
+    ),
+        "S1 Vendor locked dependency closure in fetch sandbox output-producer binding",
+    )
+    require_exact_run_fragment(
+        l,
+        "Execute sandbox negative controls",
+        (
+        "printf 'negative_controls=passed\\nsentinel_digest=%s\\nnegative_controls_log_digest=%s\\n' \"$sentinel_digest\" \"$negative_controls_log_digest\" >> \"$GITHUB_OUTPUT\"",
+    ),
+        "S1 Execute sandbox negative controls output-producer binding",
+    )
+    require_exact_run_fragment(
+        l,
+        "Verify dependency substrate immutability",
+        (
+        "printf 'dependency_substrate=passed\\n' >> \"$GITHUB_OUTPUT\"",
+    ),
+        "S1 Verify dependency substrate immutability output-producer binding",
+    )
     require_exact_run_command_count(
         l,
         "Pull and preflight pinned sandbox image",
@@ -1999,6 +2109,51 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         "GITHUB_OUTPUT",
         1,
         "S2 evidence-binding output-channel census",
+    )
+    require_exact_run_fragment(
+        l,
+        "Verify trusted dispatcher, reusable S1, and qualification gates",
+        (
+        "with open(os.environ[\"GITHUB_OUTPUT\"], \"a\", encoding=\"utf-8\") as output:",
+        "    output.write(f\"candidate_sha={candidate_sha}\\n\")",
+        "    output.write(f\"candidate_pr={candidate_pr}\\n\")",
+        "    output.write(f\"candidate_repository={candidate_repository}\\n\")",
+        "    output.write(f\"candidate_repository_id={candidate_repo_id}\\n\")",
+        "    output.write(f\"trusted_dispatcher_workflow_sha={workflow_sha}\\n\")",
+        "    output.write(f\"trusted_dispatcher_workflow_id={workflow_id}\\n\")",
+        "    output.write(f\"trusted_dispatcher_workflow_blob_sha={dispatcher_at_run['sha']}\\n\")",
+        "    output.write(f\"trusted_s1_workflow_blob_sha={s1_at_run['sha']}\\n\")",
+        "    output.write(f\"trusted_dispatch_run_id={run_id}\\n\")",
+        "    output.write(f\"trusted_dispatch_run_attempt={run_attempt}\\n\")",
+        "    output.write(f\"artifact_id={artifact['id']}\\n\")",
+        "    output.write(f\"artifact_name={expected_artifact_name}\\n\")",
+        "    output.write(f\"artifact_digest={artifact_digest}\\n\")",
+        "    output.write(f\"artifact_size={artifact['size_in_bytes']}\\n\")",
+        "    output.write(f\"verifier_workflow_sha={os.environ['GITHUB_WORKFLOW_SHA']}\\n\")",
+        "    output.write(f\"verifier_workflow_blob_sha={os.environ['WORKFLOW_BLOB_SHA']}\\n\")",
+        "    output.write(f\"execution_binding_sha256={binding_digest}\\n\")",
+        "    output.write(f\"evidence_binding_sha256={evidence_binding_digest}\\n\")",
+        "    output.write(f\"sandbox_negative_controls_log_sha256={receipt['sandbox_negative_controls_log_sha256']}\\n\")",
+        "    output.write(f\"receipt_artifact_expires_at={receipt_expires_at}\\n\")",
+        "    output.write(f\"source_policy_reference_result_sha256={source_policy_reference_result_sha256}\\n\")",
+        "    output.write(f\"execution_reference_binding_sha256={execution_reference_binding_sha256}\\n\")",
+    ),
+        "S2 result-binding output-producer binding",
+    )
+    require_exact_run_fragment(
+        l,
+        "Verify retained negative-control evidence binding",
+        (
+        "with open(os.environ[\"GITHUB_OUTPUT\"], \"a\", encoding=\"utf-8\") as output:",
+        "    output.write(f\"negative_controls_log_artifact_id={artifact['id']}\\n\")",
+        "    output.write(f\"negative_controls_log_artifact_name={expected_name}\\n\")",
+        "    output.write(f\"negative_controls_log_artifact_digest={artifact_digest}\\n\")",
+        "    output.write(f\"negative_controls_log_artifact_size={artifact_size}\\n\")",
+        "    output.write(f\"negative_controls_log_content_sha256={content_sha256}\\n\")",
+        "    output.write(f\"evidence_retention_binding_sha256={binding_sha256}\\n\")",
+        "    output.write(f\"retention_reference_binding_sha256={retention_reference_digest}\\n\")",
+    ),
+        "S2 evidence-binding output-producer binding",
     )
     require_exact_step_mapping(
         l,
@@ -2880,6 +3035,53 @@ def main() -> None:
             s1_sha,
         ),
         "S1 unexpected GITHUB_OUTPUT write in receipt verifier step",
+    )
+
+
+    def mutate_exact_output_fragment(raw: bytes, old: bytes, new: bytes, description: str) -> bytes:
+        if old not in raw:
+            fail(f"{description}: mutation fixture marker missing")
+        return raw.replace(old, new, 1)
+
+    expect_rejection(
+        lambda: verify_s0(
+            mutate_exact_output_fragment(
+                raw["s0"],
+                b'              output.write(f"candidate_sha={os.environ[\'HEAD_SHA\']}\\n")',
+                b'              output.write(f"candidate_sha={os.environ[\'BASE_REPOSITORY_ID_EVENT\']}\\n")',
+                "S0 same-key candidate_sha mutation",
+            ),
+            s1_sha,
+        ),
+        "S0 same-key candidate_sha mutation",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            mutate_exact_output_fragment(
+                raw["s1"],
+                b'             "$candidate_tree" "$source_tree_entry_count"',
+                b'             "$source_digest" "$source_tree_entry_count"',
+                "S1 same-key candidate_tree value-source mutation",
+            ),
+            s1_sha,
+        ),
+        "S1 same-key candidate_tree value-source mutation",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            mutate_exact_output_fragment(
+                raw["s2"],
+                b'               output.write(f"candidate_sha={candidate_sha}\\n")',
+                b'               output.write(f"candidate_sha={candidate_pr}\\n")',
+                "S2 same-key candidate_sha mutation",
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 same-key candidate_sha mutation",
     )
 
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
