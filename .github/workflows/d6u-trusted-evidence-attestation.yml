@@ -255,6 +255,7 @@ EOF
           subject-checksums: ${{ steps.subject_manifest.outputs.manifest }}
           predicate-type: https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1
           predicate-path: ${{ steps.commitment_predicate.outputs.predicate }}
+          push-to-registry: false
           create-storage-record: false
   auditor:
 
