@@ -75,8 +75,8 @@ jobs:
       - name: Assert isolated Cargo configuration
         run: |
           set -euo pipefail
-          test ! -e "$CARGO_HOME/config"
-          test ! -e "$CARGO_HOME/config.toml"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
       - name: Check formatting
         working-directory: d6u-runtime-harness
@@ -106,6 +106,8 @@ jobs:
             echo "lock_sha=$lock_sha"
             echo "metadata_sha=$metadata_sha"
           } >> "$GITHUB_OUTPUT"
+          test ! -s "$GITHUB_ENV"
+          test ! -s "$GITHUB_PATH"
       - name: Verify resolved substrate lock
         working-directory: d6u-runtime-harness
         run: python3 ../scripts/integral/verify_d6u_runtime_lock.py Cargo.lock
