@@ -143,6 +143,8 @@ jobs:
           assert "observer_workflow_sha" in scanned_text
           assert "observer_workflow_file_blob_sha" in scanned_text
           assert "observer_run_id" in scanned_text
+          assert "base_sha" in scanned_text
+          assert "base_repository" in scanned_text
           assert "rulesets-index-payload.json" in scanned_text
           assert "rulesets-index-after-payload.json" in scanned_text
           assert "effective-rules-payload-after.json" in scanned_text
