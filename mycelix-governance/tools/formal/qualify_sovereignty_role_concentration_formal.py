@@ -112,6 +112,7 @@ def main() -> int:
     ap.add_argument("--tla-jar", type=Path, required=True)
     ap.add_argument("--alloy-jar", type=Path, required=True)
     ap.add_argument("--evidence-dir", type=Path, required=True)
+    ap.add_argument("--linter", type=Path, required=True)
     args = ap.parse_args()
 
     evidence = args.evidence_dir.resolve()
@@ -180,6 +181,7 @@ def main() -> int:
     verifier = profile.get("verifier", {})
     bindings = {
         "qualifier": (Path(__file__), verifier.get("qualifier_path"), verifier.get("qualifier_blob_sha")),
+        "linter": (args.linter, verifier.get("linter_path"), verifier.get("linter_blob_sha")),
         "pins": (args.pins, verifier.get("pins_path"), verifier.get("pins_blob_sha")),
         "crosswalk": (args.crosswalk, verifier.get("crosswalk_path"), verifier.get("crosswalk_blob_sha")),
         "alloy_runner": (args.alloy_runner, verifier.get("alloy_runner_path"), verifier.get("alloy_runner_blob_sha")),
@@ -214,6 +216,11 @@ def main() -> int:
         }[action]
         if needle not in workflow_text:
             fail("workflow action pin mismatch: " + action)
+
+    lint = run([sys.executable, str(args.linter)])
+    receipt_lint = record(evidence, "semantic-linter", [sys.executable, str(args.linter)], lint)
+    if lint.returncode != 0 or "ROLE FORMAL LINT PASS" not in lint.stdout:
+        fail("role semantic linter failed")
 
     baseline = {
         str(args.profile): sha256_file(args.profile),
