@@ -474,6 +474,16 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 host-side Python source digest must not treat a Docker volume name as a filesystem path")
     if "source_volume_spec_after" not in joined or "candidate_volume_mountpoint" not in joined:
         fail("S1 post-execution source-volume identity verification missing")
+    if 'python3 - "$CANDIDATE_ROOT" "$candidate_volume_mountpoint_snapshot" <<\'PY\' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"' not in joined:
+        fail("S1 source snapshot must bind the trusted staging root and actual volume mountpoint")
+    if "source_staging_digest" not in joined or "executed_source_digest" not in joined:
+        fail("S1 exact source-equivalence digest fields missing")
+    if 'test "$source_staging_digest" = "$executed_source_digest"' not in joined:
+        fail("S1 must require staging/executed source digest equality before qualification")
+    if 'source_staging_digest=%s\\nexecuted_source_digest=%s\\n' not in joined:
+        fail("S1 source-equivalence receipt fields missing")
+    if 'echo "source_staging_digest=$SOURCE_STAGING_DIGEST"' not in joined or 'echo "executed_source_digest=$EXECUTED_SOURCE_DIGEST"' not in joined:
+        fail("S1 receipt must publish both source-equivalence digests")
     if "actual bounded candidate source volume remained immutable" not in joined:
         fail("S1 source immutability check must target the actual bounded source volume")
     if "Final teardown barrier" not in joined or "if: ${{ !cancelled() }}" not in joined:
