@@ -595,7 +595,11 @@ def fixture_observation(
 ) -> dict[str, Any]:
     ruleset_entry = {
         "id": 1,
+        "name": "fixture-main-protection",
+        "source_type": "Repository",
+        "source": REPOSITORY,
         "target": "branch",
+        "updated_at": "2026-10-07T00:00:00Z",
         "enforcement": "active",
         "conditions": {"ref_name": {"include": [TARGET_REF], "exclude": []}},
         "bypass_actors": [],
