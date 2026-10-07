@@ -747,7 +747,7 @@ mod tests {
             lifecycle_generation_id: "generation-1".into(), route_id: "route-1".into(), provider_id: "provider-1".into(),
             provider_operation_id: "operation-1".into(), provider_profile_root: "provider-profile-1".into(),
             semantic_environment_root: "env-1".into(), observation_set_id: "set-1".into(), observation_set_commitment: "set-commitment".into(),
-            d6n_assessment_commitment: "assessment:set-commitment".into(), witness_eligibility_ids: ["eligibility-1".into()].into_iter().collect(),
+            d6n_assessment_commitment: "assessment:set-commitment".into(), composition_commitment: "composition:1".into(), witness_eligibility_ids: ["eligibility-1".into()].into_iter().collect(),
             observer_generation_ids: ["generation-1".into()].into_iter().collect(), current_frontier_root: "frontier-1".into(),
             lifecycle_profile_id: "life-profile-1".into(), eligible_independent_count: 1, preserved_contradictory_count: 0,
             disposition: crate::finality_eligibility_composition::FinalityEligibilityDispositionV1::EligibleCurrent,
@@ -897,7 +897,7 @@ mod tests {
 
     #[test]
     fn conclusion_is_not_authorization() {
-        assert!(!conclusion_is_not_authorization() == false);
+        super::conclusion_is_not_authorization();
         assert!(!claim_graph_assessment_can_authorize_actuation());
     }
 

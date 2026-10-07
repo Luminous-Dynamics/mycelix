@@ -1,0 +1,787 @@
+{
+  "schema_version": "D6X-GOLDEN-1",
+  "d6x_schema_version": "D6X-1",
+  "d6x_algorithm_version": "D6X-CLOSURE-4",
+  "canonicalization_version": "D6S-CANON-1",
+  "hash_domain_prefix_hex": "4d5943454c49582d494e54454752414c2d4436532d524543454950542d563100",
+  "closure_identity_domain": "d6x-closure-identity",
+  "certificate_domain": "d6x-dependency-closure",
+  "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+  "generation_note": "D6X-GOLDEN-1 includes a typed authoritative D6N/D6O source corpus so the D6P object consumed by D6X is independently reconstructed before admission.",
+  "vectors": [
+    {
+      "id": "baseline-complete",
+      "description": "Root plus one rule-matched semantic dependency.",
+      "profile_variant": "baseline-any",
+      "projection_variant": "baseline",
+      "expected": {
+        "status": "Complete",
+        "included_node_ids": [
+          "dep",
+          "root"
+        ],
+        "included_edge_ids": [
+          "e1"
+        ],
+        "missing_dependency_ids": [],
+        "cycle_detected": false,
+        "closure_identity_sha256": "bba479cc6561cbb6eb4e4e60b234d15084bebf09741f80698fe0a292edb9697c",
+        "certificate_sha256": "753cd27457ee36c2fbfcc0eb300c46caab20246ab7039eece70dca624a31d9a1"
+      },
+      "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": []
+      }
+    },
+    {
+      "id": "edge-free-complete",
+      "description": "No rule matches the candidate edge; root remains a complete closure.",
+      "profile_variant": "provenance-rule-no-match",
+      "projection_variant": "baseline",
+      "expected": {
+        "status": "Complete",
+        "included_node_ids": [
+          "root"
+        ],
+        "included_edge_ids": [],
+        "missing_dependency_ids": [],
+        "cycle_detected": false,
+        "closure_identity_sha256": "db762c0c578e36e833f02ea12c28610f14479c37fa5bb10708d425305af339cb",
+        "certificate_sha256": "073ec7ebf215d6206d86b31d6588e784e2932852a05bf06ce91cbfb7869c851d"
+      },
+      "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Provenance",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": []
+      }
+    },
+    {
+      "id": "missing-required-node",
+      "description": "An explicitly required node is absent.",
+      "profile_variant": "missing-required-node",
+      "projection_variant": "baseline",
+      "expected": {
+        "status": "BlockedMissingDependency",
+        "included_node_ids": [
+          "dep",
+          "root"
+        ],
+        "included_edge_ids": [
+          "e1"
+        ],
+        "missing_dependency_ids": [
+          "missing"
+        ],
+        "cycle_detected": false,
+        "closure_identity_sha256": "2030b55539c894d7f6cec135edef8f3709c2484fd5f68da73bdae24048faab90",
+        "certificate_sha256": "8e47bdbbdeca409e2c25b0898aba0262271703b33630f4ef4ee6279ea62b177"
+      },
+      "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [
+          "missing"
+        ],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": []
+      }
+    },
+    {
+      "id": "cyclic-complete",
+      "description": "A second selected semantic edge closes a cycle.",
+      "profile_variant": "baseline-any",
+      "projection_variant": "cycle",
+      "expected": {
+        "status": "Complete",
+        "included_node_ids": [
+          "dep",
+          "root"
+        ],
+        "included_edge_ids": [
+          "e1",
+          "e2"
+        ],
+        "missing_dependency_ids": [],
+        "cycle_detected": true,
+        "closure_identity_sha256": "eaeb5a59136f87c1a54113d49c4ca765b19ddc5291382720d74280da78945335",
+        "certificate_sha256": "9ff103909320cd1235d2240864a7867316277de3305193e414327f43a5077139"
+      },
+      "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": [
+          {
+            "op": "add_edge",
+            "edge_id": "e2",
+            "from_node_id": "dep",
+            "to_node_id": "root",
+            "kind": "Supports",
+            "edge_commitment": "edge-e2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "currentness-historical",
+      "description": "Selected CurrentOnly target is explicitly historical.",
+      "profile_variant": "current-only",
+      "projection_variant": "historical",
+      "expected": {
+        "status": "BlockedCurrentness",
+        "included_node_ids": [
+          "dep",
+          "root"
+        ],
+        "included_edge_ids": [
+          "e1"
+        ],
+        "missing_dependency_ids": [],
+        "cycle_detected": false,
+        "closure_identity_sha256": "96a65d0a00ca6ce6c07fcfaf6d28ed97708573ebe7b6315aee0a6afbebc66c6d",
+        "certificate_sha256": "81aeaedff58238170c78df1aca86afb45807456fa1725f893fb5a094cac42cfa"
+      },
+      "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "CurrentOnly"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": [
+          {
+            "op": "set_node",
+            "node_id": "dep",
+            "fields": {
+              "historical_only": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "currentness-frontier-mismatch",
+      "description": "Selected CurrentOnly target declares a different frontier.",
+      "profile_variant": "current-only",
+      "projection_variant": "frontier-mismatch",
+      "expected": {
+        "status": "BlockedCurrentness",
+        "included_node_ids": [
+          "dep",
+          "root"
+        ],
+        "included_edge_ids": [
+          "e1"
+        ],
+        "missing_dependency_ids": [],
+        "cycle_detected": false,
+        "closure_identity_sha256": "96a65d0a00ca6ce6c07fcfaf6d28ed97708573ebe7b6315aee0a6afbebc66c6d",
+        "certificate_sha256": "7568c5746e3c121aeda9e90210237b2758f9ff1c4a052e687360414b89ef6fc8"
+      },
+      "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "CurrentOnly"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": [
+          {
+            "op": "set_node",
+            "node_id": "dep",
+            "fields": {
+              "current_frontier_root": "frontier-old"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "currentness-frontier-omitted",
+      "description": "Selected CurrentOnly target omits frontier metadata.",
+      "profile_variant": "current-only",
+      "projection_variant": "frontier-omitted",
+      "expected": {
+        "status": "BlockedCurrentness",
+        "included_node_ids": [
+          "dep",
+          "root"
+        ],
+        "included_edge_ids": [
+          "e1"
+        ],
+        "missing_dependency_ids": [],
+        "cycle_detected": false,
+        "closure_identity_sha256": "96a65d0a00ca6ce6c07fcfaf6d28ed97708573ebe7b6315aee0a6afbebc66c6d",
+        "certificate_sha256": "60167f53318920b573fd44340ed2325eba289fa7de389b8adfa1428c351429c7"
+      },
+      "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "CurrentOnly"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": [
+          {
+            "op": "set_node",
+            "node_id": "dep",
+            "fields": {
+              "current_frontier_root": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "resource-node-limit",
+      "description": "Node budget stops expansion before the target node is selected.",
+      "profile_variant": "max-nodes-1",
+      "projection_variant": "baseline",
+      "expected": {
+        "status": "BlockedResourceLimit",
+        "included_node_ids": [
+          "root"
+        ],
+        "included_edge_ids": [],
+        "missing_dependency_ids": [],
+        "cycle_detected": false,
+        "closure_identity_sha256": "d39bab33276ce622781d3976dccba03a9ad1443679789baf5b93c46914c2fc93",
+        "certificate_sha256": "de806374e0805aa74a1c2211fe6c57e0e1b22ff6d82b3e9bb854640383b23f36"
+      },
+      "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 1,
+        "max_edges": 1,
+        "projection_mutations": []
+      }
+    },
+    {
+      "id": "resource-edge-limit",
+      "description": "Edge budget stops traversal before the second selected edge can enter the closure.",
+      "profile_variant": "max-edges-1",
+      "projection_variant": "cycle",
+      "expected": {
+        "status": "BlockedResourceLimit",
+        "included_node_ids": [
+          "dep",
+          "root"
+        ],
+        "included_edge_ids": [
+          "e1"
+        ],
+        "missing_dependency_ids": [],
+        "cycle_detected": false,
+        "closure_identity_sha256": "a9353fc7876360b8434ea025c1ffd803ed4dc2ced6f4dc7b3b92ac83c8f267aa",
+        "certificate_sha256": "0f94300671b986935a00864f1ca4ffbd63955ec8a9dc4365b4a08fe305d4321b"
+      },
+      "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 8,
+        "max_edges": 1,
+        "projection_mutations": [
+          {
+            "op": "add_edge",
+            "edge_id": "e2",
+            "from_node_id": "dep",
+            "to_node_id": "root",
+            "kind": "Supports",
+            "edge_commitment": "edge-e2"
+          }
+        ]
+      }
+    }
+  ],
+  "recipe_contract": {
+    "mutation_semantics": "Apply each recipe mutation to that baseline fixture before evaluating D6X. Commitment strings in this corpus are frozen expected outputs, not authority claims.",
+    "cross_runtime_rule": "The recipe is intentionally declarative: another implementation may construct equivalent typed objects rather than depending on Rust test-helper names.",
+    "baseline_projection": "Use fixtures.baseline_projection, fixtures.semantic_environment, and fixtures.derivation_profile as the exact canonical baseline inputs.",
+    "semantic_derivation": "Derived commitments are computed with D6S-CANON-1 and the D6X domains declared above. Apply each vector recipe to the baseline projection/profile, then evaluate D6X.",
+    "authoritative_d6p": "D6X must consume a D6P receipt whose composition is both committed and exactly reconstructible from the typed authoritative D6N/D6O source fixture; receipt/composition equality alone is insufficient."
+  },
+  "fixtures": {
+    "baseline_projection": {
+      "projection_id": "projection",
+      "projection_version": "1",
+      "canonicalization_version": "D6S-CANON-1",
+      "source_dkg_snapshot_commitment": "snapshot",
+      "nodes": {
+        "dep": {
+          "node_id": "dep",
+          "kind": "Evidence",
+          "content_commitment": "content-dep",
+          "node_commitment": "commit-dep",
+          "historical_only": false,
+          "current_frontier_root": "frontier",
+          "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+        },
+        "root": {
+          "node_id": "root",
+          "kind": "Statement",
+          "content_commitment": "content-root",
+          "node_commitment": "commit-root",
+          "historical_only": false,
+          "current_frontier_root": "frontier",
+          "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+        }
+      },
+      "edges": {
+        "e1": {
+          "edge_id": "e1",
+          "from_node_id": "root",
+          "to_node_id": "dep",
+          "kind": "Supports",
+          "edge_commitment": "edge-e1",
+          "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+        }
+      },
+      "d6p_current_receipt_commitments": [],
+      "d6n_context_commitment": null,
+      "d6o_context_commitment": null,
+      "semantic_environment_commitment": "6a3bf6b680d06b58fcdffa74ecc0e0e0a95982c4a072199c5e70831d3d068bd6",
+      "derivation_profile_commitment": "fadf919bce634bd56f53eb6ccd47e51654dd1c505fc4a529616efec8dcc206bc",
+      "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+    },
+    "semantic_environment": {
+      "semantic_profile_id": "sem",
+      "semantic_profile_version": "1",
+      "current_frontier_root": "frontier",
+      "d6p_eligibility_context_root": null,
+      "d6n_observer_context_root": null,
+      "d6o_lifecycle_context_root": null,
+      "membership_authority_scope_root": null,
+      "dependency_snapshot_root": "snapshot",
+      "historical_cutoff": null,
+      "policy_version": "policy-1",
+      "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+    },
+    "derivation_profile": {
+      "profile_id": "derivation",
+      "version": "1",
+      "rule_ids": [
+        "rule"
+      ],
+      "permits_recursive_fixpoint": false,
+      "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+    },
+    "authoritative_d6p": {
+      "receipt": {
+        "receipt_id": "receipt-1",
+        "effect_id": "effect",
+        "effect_lineage_id": "lineage",
+        "lifecycle_generation_id": "gen-1",
+        "route_id": "route",
+        "provider_id": "provider",
+        "provider_operation_id": "operation",
+        "provider_profile_root": "provider-profile",
+        "semantic_environment_root": "env",
+        "observation_set_id": "set-1",
+        "observation_set_commitment": "830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
+        "d6n_assessment_commitment": "assessment:830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
+        "composition_commitment": "a1e7ca5b39fbd95fef484bf0ece21066870d4129ccf740b6122addc9bef01702",
+        "witness_eligibility_ids": [
+          "elig-1"
+        ],
+        "observer_generation_ids": [
+          "gen-1"
+        ],
+        "current_frontier_root": "frontier",
+        "lifecycle_profile_id": "lifecycle",
+        "eligible_independent_count": 1,
+        "preserved_contradictory_count": 0,
+        "disposition": "EligibleCurrent",
+        "qualification_transition_id": "qualified-finality-eligibility-transition",
+        "receipt_commitment": "7c5cc9fe4c6475dd64c3c3f53f3a3e543db57af0c03c05c0e74d8db00fcfa7f5",
+        "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
+      },
+      "composition": {
+        "composition_id": "composition:set-1",
+        "effect_id": "effect",
+        "effect_lineage_id": "lineage",
+        "lifecycle_generation_id": "gen-1",
+        "route_id": "route",
+        "provider_id": "provider",
+        "provider_operation_id": "operation",
+        "provider_profile_root": "provider-profile",
+        "semantic_environment_root": "env",
+        "observation_set_id": "set-1",
+        "observation_set_commitment": "830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
+        "d6n_assessment_commitment": "assessment:830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
+        "lifecycle_profile_id": "lifecycle",
+        "current_frontier_root": "frontier",
+        "eligible_independent_count": 1,
+        "required_independent_observations": 1,
+        "preserved_contradictory_count": 0,
+        "witnesses": [
+          {
+            "observation_id": "obs-1",
+            "observer_id": "observer-1",
+            "observer_generation_id": "gen-1",
+            "d6n_observation_set_id": "set-1",
+            "d6n_observation_set_commitment": "830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
+            "d6n_assessment_item_commitment": "9de08f09e8d3af79ad540992084316aeb593f94d32fb0f53d7edd06148b4f7eb",
+            "d6n_classification": "CorroboratingIndependent",
+            "d6o_eligibility_id": "elig-1",
+            "d6o_disposition": "EligibleCurrent",
+            "d6o_dependency_snapshot_id": "snapshot",
+            "observation_frontier_root": "frontier",
+            "current_frontier_root": "frontier",
+            "lifecycle_profile_id": "lifecycle",
+            "witness_commitment": "bdb4c2a29aef0c88fa6e1c7b5880b200f3d4030ebb86f64026f264e15a7bfe77",
+            "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
+          }
+        ],
+        "disposition": "EligibleCurrent",
+        "qualification_transition_id": "qualified-finality-eligibility-transition",
+        "composition_commitment": "a1e7ca5b39fbd95fef484bf0ece21066870d4129ccf740b6122addc9bef01702",
+        "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
+      },
+      "composition_commitment": "a1e7ca5b39fbd95fef484bf0ece21066870d4129ccf740b6122addc9bef01702"
+    },
+    "authoritative_d6n_d6o": {
+      "effect": {
+        "effect_id": "effect",
+        "lineage_id": "lineage",
+        "generation_id": "gen-1",
+        "request_commitment": "request-1",
+        "semantic_environment_root": "env",
+        "effect_class": "finality-test",
+        "resource_id": "resource-1",
+        "tenant_id": "tenant-1",
+        "amount": "1",
+        "unit": "unit",
+        "authority_claim_id": "authority-1",
+        "consent_claim_id": "consent-1",
+        "idempotency_key": "idempotency-1"
+      },
+      "route": {
+        "route_id": "route",
+        "effect_id": "effect",
+        "substitution_profile_id": "substitution-profile",
+        "provider_id": "provider",
+        "provider_profile_root": "provider-profile",
+        "provider_operation_id": "operation",
+        "route_generation": 1,
+        "lifecycle_generation_id": "gen-1",
+        "request_commitment": "request-1",
+        "semantic_environment_root": "env",
+        "effect_class": "finality-test",
+        "resource_id": "resource-1",
+        "tenant_id": "tenant-1",
+        "amount": "1",
+        "unit": "unit",
+        "authority_claim_id": "authority-1",
+        "consent_claim_id": "consent-1",
+        "idempotency_key": "idempotency-1",
+        "route_frontier_root": "frontier"
+      },
+      "profile": {
+        "profile_id": "finality-profile",
+        "semantic_environment_root": "env",
+        "allowed_observation_sources": [
+          "IndependentObserver"
+        ],
+        "required_independent_observations": 1,
+        "current_frontier_required": true,
+        "provider_reports_may_satisfy_independence": false,
+        "allow_explicit_conflict_resolution": false,
+        "profile_commitment": "aa758c98d0d103ed097088318f1888bed7db3869061307ba65e6c1cd531b8cd5",
+        "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+      },
+      "set": {
+        "set_id": "set-1",
+        "effect_id": "effect",
+        "effect_lineage_id": "lineage",
+        "lifecycle_generation_id": "gen-1",
+        "route_id": "route",
+        "provider_id": "provider",
+        "provider_operation_id": "operation",
+        "provider_profile_root": "provider-profile",
+        "semantic_environment_root": "env",
+        "observation_frontier_root": "frontier",
+        "qualification_profile_id": "finality-profile",
+        "observation_ids": [
+          "obs-1"
+        ],
+        "target_state": "Applied",
+        "set_commitment": "830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
+        "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+      },
+      "assessment": {
+        "set_id": "set-1",
+        "disposition": "QualifiedEvidence",
+        "independent_count": 1,
+        "contradictory_independent_count": 0,
+        "dependent_count": 0,
+        "assessments": [
+          {
+            "observation_id": "obs-1",
+            "observer_id": "observer-1",
+            "independence": "DeclaredIndependent",
+            "classification": "CorroboratingIndependent",
+            "evidence_root": "evidence-1",
+            "custody_root": "custody-1",
+            "observation_commitment": "158460fc739395e4ccb3073fa053e3987f72a20a4f3d71d623a0486c0a0e5d4a",
+            "assessment_commitment": "9de08f09e8d3af79ad540992084316aeb593f94d32fb0f53d7edd06148b4f7eb",
+            "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+          }
+        ],
+        "assessment_commitment": "assessment:830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
+        "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+      },
+      "evidence": [
+        {
+          "observation": {
+            "observation_id": "obs-1",
+            "effect_id": "effect",
+            "effect_lineage_id": "lineage",
+            "lifecycle_generation_id": "gen-1",
+            "route_id": "route",
+            "provider_id": "provider",
+            "provider_operation_id": "operation",
+            "provider_profile_root": "provider-profile",
+            "provider_outcome_id": "outcome-1",
+            "request_commitment": "request-1",
+            "idempotency_key": "idempotency-1",
+            "semantic_environment_root": "env",
+            "observed_frontier_root": "frontier",
+            "observed_state": "Applied",
+            "source": "IndependentObserver",
+            "evidence_root": "evidence-1",
+            "observation_commitment": "158460fc739395e4ccb3073fa053e3987f72a20a4f3d71d623a0486c0a0e5d4a",
+            "claim_ceiling": "External-effect finality evidence only; no provider truth, legal settlement, or actuation authorization claim."
+          },
+          "observer_id": "observer-1",
+          "observer": {
+            "observer_id": "observer-1",
+            "role": "IndependentObserver",
+            "observation_method": "independent-state-read",
+            "provider_relationship": "external",
+            "evidence_root": "evidence-1",
+            "custody_root": "custody-1",
+            "upstream_observer_ids": [],
+            "upstream_evidence_roots": [],
+            "semantic_environment_root": "env",
+            "observation_profile_id": "obs-profile",
+            "independence": "DeclaredIndependent",
+            "independence_commitment": "independence-1",
+            "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+          }
+        }
+      ],
+      "eligibility_receipt": {
+        "eligibility_id": "elig-1",
+        "observation_id": "obs-1",
+        "observer_id": "observer-1",
+        "observer_generation_id": "gen-1",
+        "observation_profile_id": "obs-profile",
+        "semantic_environment_root": "env",
+        "dependency_snapshot_id": "snapshot",
+        "observation_frontier_root": "frontier",
+        "observation_frontier_sequence": 1,
+        "current_frontier_root": "frontier",
+        "current_frontier_sequence": 1,
+        "current_generation_id": "gen-1",
+        "qualification_profile_id": "lifecycle",
+        "provenance": "Live",
+        "classification": "CorroboratingIndependent",
+        "disposition": "EligibleCurrent",
+        "lifecycle_transition_ids": [],
+        "eligibility_commitment": "de735c0f8275c665f8c3c8cd24b9f22f3223c7202352da289ffc6831fd16dcec",
+        "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+      },
+      "lifecycle_profile": {
+        "profile_id": "lifecycle",
+        "semantic_environment_root": "env",
+        "observation_profile_id": "obs-profile",
+        "allowed_roles": [
+          "IndependentObserver"
+        ],
+        "current_frontier_required": true,
+        "historical_evidence_allowed": true,
+        "profile_commitment": "3c8e33dba85573982d071476e86ec48e8a3468265d0056523f1a43212916ac2c",
+        "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+      },
+      "d6o_ledger": {
+        "generations": {
+          "gen-1": {
+            "generation_id": "gen-1",
+            "observer_id": "observer-1",
+            "generation_sequence": 1,
+            "predecessor_generation_id": null,
+            "role": "IndependentObserver",
+            "observation_method": "independent-state-read",
+            "provider_relationship": "external",
+            "evidence_root": "evidence-1",
+            "custody_root": "custody-1",
+            "upstream_observer_ids": [],
+            "upstream_evidence_roots": [],
+            "semantic_environment_root": "env",
+            "observation_profile_id": "obs-profile",
+            "created_frontier_root": "frontier",
+            "created_frontier_sequence": 1,
+            "initial_status": "Active",
+            "generation_commitment": "c023aabeb9779ab216762ea48f5db012cf39c5057ca7546eb69324281c7a4745",
+            "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+          }
+        },
+        "transitions": {},
+        "dependency_snapshots": {
+          "snapshot": {
+            "snapshot_id": "snapshot",
+            "observer_generation_id": "gen-1",
+            "observation_profile_id": "obs-profile",
+            "semantic_environment_root": "env",
+            "evidence_root": "evidence-1",
+            "custody_root": "custody-1",
+            "upstream_observer_ids": [],
+            "upstream_evidence_roots": [],
+            "independence": "DeclaredIndependent",
+            "effective_frontier_root": "frontier",
+            "effective_frontier_sequence": 1,
+            "predecessor_snapshot_id": null,
+            "snapshot_commitment": "7ab5dfe7586df58859ec5cc5c394002ef64758fda55e94bbb7905d02803a8aea",
+            "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+          }
+        },
+        "rotations": {},
+        "eligibility_receipts": {
+          "elig-1": {
+            "eligibility_id": "elig-1",
+            "observation_id": "obs-1",
+            "observer_id": "observer-1",
+            "observer_generation_id": "gen-1",
+            "observation_profile_id": "obs-profile",
+            "semantic_environment_root": "env",
+            "dependency_snapshot_id": "snapshot",
+            "observation_frontier_root": "frontier",
+            "observation_frontier_sequence": 1,
+            "current_frontier_root": "frontier",
+            "current_frontier_sequence": 1,
+            "current_generation_id": "gen-1",
+            "qualification_profile_id": "lifecycle",
+            "provenance": "Live",
+            "classification": "CorroboratingIndependent",
+            "disposition": "EligibleCurrent",
+            "lifecycle_transition_ids": [],
+            "eligibility_commitment": "de735c0f8275c665f8c3c8cd24b9f22f3223c7202352da289ffc6831fd16dcec",
+            "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+          }
+        }
+      },
+      "current_frontier_root": "frontier",
+      "live_generation_id": "gen-1",
+      "required_independent_observations": 1
+    }
+  }
+}

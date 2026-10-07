@@ -501,7 +501,7 @@ mod tests {
         assert!(!bridge_allows(&bridge, &claim));
 
         let wrong_target = reference("account-1", IdentityKind::Account);
-        assert!(!substitution_allowed(&left, &wrong_target, &profile, &claim));
+        assert!(!substitution_allowed(&left, &wrong_target, &profile, &claim, Some(CredentialValidity::Active)));
     }
 
     #[test]

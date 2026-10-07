@@ -33,6 +33,17 @@ Therefore neither layer is sufficient by itself.
 
 D6P is a join, not a new source of truth.
 
+## Evidence identity is single-valued at the join
+
+D6P consumes D6N evidence by observation ID, so the D6N provenance boundary treats
+a duplicate supplied identity as ambiguous input rather than applying last-write-wins.
+This applies even when only one observation ID is required: a conflicting second
+representation cannot be hidden by matching the cardinality check.
+
+The assessment constructor follows the same rule and returns insufficient evidence
+for duplicate observation identities. This keeps source selection deterministic and
+independent of input order.
+
 ## Exact D6N artifact
 
 D6P consumes D6N ObservationSetAssessmentV1 as an exact reference-model artifact.
@@ -44,11 +55,50 @@ The assessment must bind:
 - every observation ID in the observation set;
 - each D6N ObservationClassificationV1.
 
-The current D6N assessment commitment rule is:
+The set-level D6N assessment commitment remains a reference-model artifact:
 
     assessment_commitment == "assessment:" + set_commitment
 
+Each per-observation D6N assessment item now has a separate canonical SHA-256
+commitment over its complete assessment payload, including the exact D6M
+observation commitment. D6P carries and verifies this per-item commitment rather
+than treating the set-level commitment as sufficient identity.
+
 D6P does not recompute a second conflict taxonomy.
+
+## D6M observation identity
+
+D6M observations now carry a canonical, versioned SHA-256 commitment:
+
+    MYCELIX-INTEGRAL-D6M-OBSERVATION-V1\0
+
+The commitment covers the complete observation payload: effect and lineage identity,
+lifecycle generation, route/provider identity, provider outcome identity, request and
+idempotency bindings, semantic environment, observation frontier, observed state,
+source, evidence root, and claim ceiling.
+
+This is an integrity identity, not a provenance oracle. A caller can recompute a
+forged observation commitment after changing a field; authoritative D6N reconstruction
+must still compare the observation to the effect, route, current frontier, and
+observation-set semantics.
+
+The D6N assessment item carries that exact D6M commitment and then commits the full
+assessment item under:
+
+    MYCELIX-INTEGRAL-D6N-ASSESSMENT-V1\0
+
+The resulting chain is:
+
+    D6M observation
+        -> canonical observation commitment
+        -> D6N assessment item
+        -> canonical assessment-item commitment
+        -> D6P witness commitment
+
+This makes semantic substitution visible at each boundary without conflating
+cryptographic integrity with source authority. The conformance tests also mutate
+each committed D6M observation field and each committed D6N assessment field,
+ensuring the reference commitment cannot silently omit a newly relevant field.
 
 ## Exact D6O artifact
 
@@ -85,20 +135,73 @@ D6O binds:
 
 D6P therefore carries both values and requires the caller to supply the exact D6O lifecycle profile ID. It does not incorrectly require the two IDs to be equal.
 
+## Witness commitment
+
+Each D6P witness has a canonical commitment computed over the complete witness
+payload, with the commitment field itself excluded from the payload before hashing.
+This binds the D6N/D6O join's semantic fields together, including observer identity,
+generation and lifecycle bindings, dependency snapshot, classifications, frontiers,
+and claim ceiling.
+
+This commitment provides integrity and exact-object identity; it does not establish
+that the witness was produced by authoritative D6N/D6O sources. That provenance is
+checked separately by the qualified D6P reconstruction path.
+
+## Independence counts are observer-distinct
+
+An independent-witness threshold counts independent observers, not merely
+distinct observation IDs. D6N therefore treats two observations from the same
+observer identity as sharing a dependency even when their evidence and custody
+roots differ.
+
+This prevents one observer from inflating a multi-observer threshold by emitting
+multiple independently classified observations. Distinct observers remain subject
+to the existing evidence/custody/upstream dependency checks as well.
+
+## Cross-layer semantic join binding
+
+D6P does not treat shared observation IDs as sufficient evidence that the D6N and D6O objects describe the same underlying observation.
+
+Each FinalityWitnessEligibilityV1 now carries the exact D6N assessment-item commitment in addition to the D6N observation-set commitment. The qualified D6P reconstruction verifies the witness against the specific D6N assessment item, the specific D6N evidence object, the selected D6O receipt, the observation set, and the requested current frontier.
+
+The join therefore requires all of the following to agree:
+
+- observation identity;
+- observer identity;
+- D6N observation-set identity and commitment;
+- D6N per-observation assessment commitment;
+- exact D6M observation commitment carried by that assessment;
+- D6N classification and evidence/custody roots;
+- D6N observation-to-set semantic fields;
+- D6O generation, eligibility, disposition, and dependency-snapshot identities;
+- observation frontier;
+- current frontier;
+- lifecycle profile.
+
+Conflicting duplicate evidence or receipt representations for the same observation ID are rejected rather than resolved by map insertion order. This makes source selection deterministic and prevents a valid object from one revision being silently paired with a valid object from another revision.
+
+This is an integrity/semantic-binding boundary, not a provenance authority oracle. The authoritative D6N/D6O reconstruction remains responsible for proving that the selected objects actually originate from their respective authoritative sources. This separation is consistent with provenance models that distinguish identified entities/versions from the derivation and generation relationships that establish how an object was produced.
+
 ## Recomputed witness count
 
 D6N exposes an independent_count. D6P does not trust that count as current-finality authority.
 
-Instead, for every D6N CorroboratingIndependent observation:
+Instead, each D6N CorroboratingIndependent observation must first form an exact D6O EligibleCurrent join.
 
-    exact D6O EligibleCurrent receipt
-        -> count 1
+The resulting joins are then grouped by exact observer identity:
+
+    same observer identity
+        -> contributes at most 1
+
+    distinct observer identity
+        + exact D6O EligibleCurrent join
+        -> contributes 1
 
 Anything else:
 
-    -> count 0
+    -> contributes 0
 
-The final current witness count is derived from these exact joins.
+The final current witness count is the cardinality of the eligible observer-identity set.
 
 This prevents a historical D6N assessment from remaining sufficient after observer revocation, generation rotation, dependency change, or other lifecycle invalidation.
 
@@ -183,6 +286,22 @@ Archive evidence may preserve:
 
 It cannot silently become a live current witness.
 
+## Witness registry semantics
+
+The ledger's `witnesses` map is a single-view convenience registry keyed by observation ID.
+
+It intentionally rejects a second witness version for the same observation rather than
+silently replacing an earlier frontier-bound witness. Historical frontier versions are
+retained in immutable D6P compositions, whose canonical commitments include their
+frontier-bound witness material.
+
+Consumers that need to select from the ledger must use an explicit expected frontier:
+
+    witness_at_frontier(observation_id, expected_frontier_root)
+
+This selection check does not establish that the supplied frontier is authoritative.
+The caller must still obtain the authoritative frontier from its trust domain.
+
 ## Terminal receipt semantics
 
 FinalityEligibilityLedgerV1 treats only EligibleCurrent composition receipts as terminal for an effect.
@@ -263,7 +382,11 @@ The module contains source-level tests for:
 23. Symthaea composition remains non-authoritative;
 24. composition cannot authorize actuation;
 25. lifecycle evidence alone cannot establish finality;
-26. arrival order cannot change the eligible witness count.
+26. arrival order cannot change the eligible witness count;
+27. cross-frontier witness replacement is rejected and explicit witness selection requires the expected frontier;
+28. duplicate D6N evidence identities are rejected rather than resolved by last-write-wins;
+29. canonical D6M observation mutations and D6N assessment-item substitutions are rejected at their authoritative boundaries.
+30. multiple observations from the same observer cannot inflate the independent-witness threshold.
 
 ## Claim ceiling
 

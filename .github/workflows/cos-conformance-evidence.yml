@@ -1,0 +1,306 @@
+name: COS Conformance Evidence
+
+on:
+  pull_request:
+    branches: [main, myc-int-demo-d6w-layered-commitments]
+    paths:
+      - '.github/workflows/cos-conformance-evidence.yml'
+      - 'mycelix-manufacturing/crates/cos_conformance/**'
+      - 'mycelix-manufacturing/Cargo.toml'
+      - 'mycelix-manufacturing/Cargo.lock'
+      - 'docs/integral/cos-reference-node-v1.md'
+      - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# This workflow is deliberately non-canceling. Unlike generic CI, each completed
+# evidence run remains independently addressable for the exact source SHA that
+# produced it.
+concurrency:
+  group: cos-conformance-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Assert exact qualification checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual_head_sha="$(git rev-parse HEAD)"
+          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
+            echo "qualification checkout drift: expected ${EXPECTED_HEAD_SHA}, got ${actual_head_sha}" >&2
+            exit 1
+          }
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # pinned action commit
+        with:
+          toolchain: 1.99.0
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: mycelix-manufacturing
+
+      - name: Capture tested revision
+        if: always()
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/tested-commit-sha.txt
+
+      - name: Capture toolchain and workflow identity
+        if: always()
+        env:
+          EXECUTING_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          EXECUTING_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          mkdir -p evidence
+          rustc -Vv > evidence/rustc-version.txt
+          cargo -V > evidence/cargo-version.txt
+          printf '%s\n' "${EXECUTING_WORKFLOW_SHA}" > evidence/executing-workflow-sha.txt
+          printf '%s\n' "${EXECUTING_WORKFLOW_REF}" > evidence/executing-workflow-ref.txt
+          git rev-parse HEAD:.github/workflows/cos-conformance-evidence.yml > evidence/checked-out-workflow-file-blob-sha.txt
+
+      - name: Validate immutable workflow action pins
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          path = Path(".github/workflows/cos-conformance-evidence.yml")
+          expected_refs = {
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "dtolnay/rust-toolchain": "7e38f4b43b4db5c8dd498af069a4f6196df1d067",
+              "Swatinem/rust-cache": "6323deb102c322ba6fcbdcafc7e3dddab59af2b6",
+              "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+          }
+          refs = {}
+          pattern = re.compile(
+              r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
+          )
+
+          for line in path.read_text().splitlines():
+              stripped = line.lstrip()
+              if not (stripped.startswith("- uses:") or stripped.startswith("uses:")):
+                  continue
+              match = pattern.fullmatch(line)
+              assert match, f"workflow action is not pinned to a full SHA: {line!r}"
+              action, sha = match.groups()
+              assert action not in refs, f"duplicate action identity entry: {action}"
+              refs[action] = sha
+
+          assert refs, "workflow must contain at least one Action"
+          assert refs == expected_refs, (
+              "workflow Action set or immutable pin differs from the explicit allowlist: "
+              f"expected={expected_refs!r} actual={refs!r}"
+          )
+          Path("evidence/workflow-action-refs.json").write_text(
+              json.dumps(dict(sorted(refs.items())), indent=2) + "\n"
+          )
+          PY
+
+      - name: Test COS conformance harness
+        id: conformance_test
+        run: |
+          mkdir -p evidence
+          set +e
+          cd mycelix-manufacturing
+          cargo test -p cos_conformance 2>&1 | tee ../evidence/cargo-test.log
+          status=${PIPESTATUS[0]}
+          printf '%s\n' "${status}" > ../evidence/cargo-test.exit-code
+          exit "${status}"
+
+      - name: Capture resolved dependency graph
+        if: always()
+        run: |
+          mkdir -p evidence
+          if [[ ! -f mycelix-manufacturing/Cargo.lock ]]; then
+            echo "Cargo.lock was not produced by the evidence build" > evidence/dependency-lock-error.txt
+            exit 1
+          fi
+          cp mycelix-manufacturing/Cargo.lock evidence/Cargo.lock
+          sha256sum evidence/Cargo.lock | awk '{print $1}' > evidence/cargo-lock-sha256.txt
+
+      - name: Generate machine-readable report
+        id: generate_report
+        run: |
+          mkdir -p evidence
+          cd mycelix-manufacturing
+          cargo run -q -p cos_conformance --bin cos-report > ../evidence/cos-conformance-report.json
+
+      - name: Validate evidence report
+        id: validate_evidence_report
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("evidence/cos-conformance-report.json")
+          assert path.is_file() and path.stat().st_size > 0
+          report = json.loads(path.read_text())
+          assert report["corpus_id"] == "COS-CONF-001"
+          assert report["case_count"] == 32
+          assert report["untested_formal_obligations"] == []
+          assert report["claim_ceiling"] == "ReferenceModelOnly"
+          assert "verified_score" not in json.dumps(report, sort_keys=True)
+          PY
+
+      - name: Write run envelope
+        if: always()
+        env:
+          TARGET_REPOSITORY: ${{ github.repository }}
+          TRIGGER_SHA: ${{ github.sha }}
+          REQUESTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          CONFORMANCE_TEST_OUTCOME: ${{ steps.conformance_test.outcome || 'skipped' }}
+          REPORT_GENERATION_OUTCOME: ${{ steps.generate_report.outcome || 'skipped' }}
+          REPORT_VALIDATION_OUTCOME: ${{ steps.validate_evidence_report.outcome || 'skipped' }}
+        run: |
+          test_exit_code="null"
+          if [[ -f evidence/cargo-test.exit-code ]]; then
+            test_exit_code="$(cat evidence/cargo-test.exit-code)"
+          fi
+          tested_commit_sha="null"
+          if [[ -f evidence/tested-commit-sha.txt ]]; then
+            tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
+          fi
+          workflow_action_refs="{}"
+          if [[ -f evidence/workflow-action-refs.json ]]; then
+            workflow_action_refs="$(cat evidence/workflow-action-refs.json)"
+          fi
+          dependency_lock_sha256="null"
+          if [[ -f evidence/cargo-lock-sha256.txt ]]; then
+            dependency_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
+          fi
+          case "${CONFORMANCE_TEST_OUTCOME}:${REPORT_GENERATION_OUTCOME}:${REPORT_VALIDATION_OUTCOME}" in
+            success:success:success)
+              qualification_result="passed"
+              ;;
+            skipped:skipped:skipped|cancelled:skipped:skipped|skipped:cancelled:skipped|skipped:skipped:cancelled|cancelled:cancelled:cancelled)
+              qualification_result="not_run"
+              ;;
+            *)
+              qualification_result="failed"
+              ;;
+          esac
+          cat > evidence/run-envelope.json <<JSON
+          {
+            "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V2",
+            "claim_ceiling": "ReferenceModelOnly",
+            "repository": "$TARGET_REPOSITORY",
+            "trigger_sha": "$TRIGGER_SHA",
+            "requested_head_sha": "$REQUESTED_HEAD_SHA",
+            "tested_commit_sha": "$tested_commit_sha",
+            "head_repository": "$HEAD_REPOSITORY",
+            "workflow": "$WORKFLOW_NAME",
+            "executing_workflow_sha": "$(cat evidence/executing-workflow-sha.txt 2>/dev/null || printf %s null)",
+            "executing_workflow_ref": "$(cat evidence/executing-workflow-ref.txt 2>/dev/null || printf %s null)",
+            "checked_out_workflow_file_blob_sha": "$(cat evidence/checked-out-workflow-file-blob-sha.txt 2>/dev/null || printf %s null)",
+            "workflow_action_refs": $workflow_action_refs,
+            "rust_toolchain_input": "1.99.0",
+            "dependency_lock_sha256": "$dependency_lock_sha256",
+            "run_id": ${{ github.run_id }},
+            "run_attempt": ${{ github.run_attempt }},
+            "event": "${{ github.event_name }}",
+            "runner_os": "${{ runner.os }}",
+            "qualification_result": "$qualification_result",
+            "conformance_test_outcome": "$CONFORMANCE_TEST_OUTCOME",
+            "conformance_test_exit_code": $test_exit_code,
+            "report_generation_outcome": "$REPORT_GENERATION_OUTCOME",
+            "report_validation_outcome": "$REPORT_VALIDATION_OUTCOME"
+          }
+          JSON
+
+      - name: Validate and seal run envelope
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          path = Path("evidence/run-envelope.json")
+          envelope = json.loads(path.read_text())
+          git_sha_re = re.compile(r"^[0-9a-f]{40}$")
+          sha256_re = re.compile(r"^[0-9a-f]{64}$")
+
+          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-EVIDENCE-V2"
+          assert envelope["claim_ceiling"] == "ReferenceModelOnly"
+          assert envelope["workflow_action_refs"]
+          assert all(git_sha_re.fullmatch(sha) for sha in envelope["workflow_action_refs"].values())
+          assert envelope["rust_toolchain_input"] == "1.99.0"
+          assert sha256_re.fullmatch(envelope["dependency_lock_sha256"])
+          assert git_sha_re.fullmatch(envelope["requested_head_sha"])
+          assert git_sha_re.fullmatch(envelope["tested_commit_sha"])
+          assert git_sha_re.fullmatch(envelope["executing_workflow_sha"])
+          assert envelope["executing_workflow_ref"]
+          assert git_sha_re.fullmatch(envelope["checked_out_workflow_file_blob_sha"])
+          assert all(git_sha_re.fullmatch(sha) for sha in envelope["workflow_action_refs"].values())
+          assert envelope["requested_head_sha"] == envelope["tested_commit_sha"]
+          assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
+          allowed_outcomes = {"success", "failure", "cancelled", "skipped"}
+          assert envelope["conformance_test_outcome"] in allowed_outcomes
+          assert envelope["report_generation_outcome"] in allowed_outcomes
+          assert envelope["report_validation_outcome"] in allowed_outcomes
+          exit_code = envelope["conformance_test_exit_code"]
+          if envelope["conformance_test_outcome"] == "success":
+              assert exit_code == 0
+          elif envelope["conformance_test_outcome"] == "failure":
+              assert isinstance(exit_code, int) and exit_code != 0
+          else:
+              assert exit_code is None
+          if envelope["qualification_result"] == "passed":
+              assert envelope["conformance_test_outcome"] == "success"
+              assert envelope["report_generation_outcome"] == "success"
+              assert envelope["report_validation_outcome"] == "success"
+          elif envelope["qualification_result"] == "not_run":
+              assert envelope["conformance_test_outcome"] in {"skipped", "cancelled"}
+              assert envelope["report_generation_outcome"] in {"skipped", "cancelled"}
+              assert envelope["report_validation_outcome"] in {"skipped", "cancelled"}
+          else:
+              assert (
+                  envelope["conformance_test_outcome"] != "success"
+                  or envelope["report_validation_outcome"] != "success"
+              )
+          PY
+
+          (
+            cd evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+          ) > evidence/SHA256SUMS
+
+      - name: Preserve immutable evidence
+        if: always()
+        id: evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish artifact integrity record
+        if: always() && steps.evidence.outputs.artifact-digest != ''
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## COS evidence artifact
+
+          - artifact-id: ${{ steps.evidence.outputs.artifact-id }}
+          - artifact-digest: ${{ steps.evidence.outputs.artifact-digest }}
+          - artifact-url: ${{ steps.evidence.outputs.artifact-url }}
+          - tested-commit-sha: $(cat evidence/tested-commit-sha.txt 2>/dev/null || printf '%s' 'null')
+          EOF

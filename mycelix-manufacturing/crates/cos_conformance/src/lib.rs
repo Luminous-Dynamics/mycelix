@@ -25,6 +25,9 @@ pub mod evidence_claim_graph;
 pub mod finality_eligibility_composition;
 pub mod canonical_derivation_receipt;
 pub mod layered_derivation_commitment;
+pub mod qualified_dependency_closure_d6x;
+pub mod d6x_resolution_adapter;
+pub mod integral_interop;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
@@ -136,7 +139,7 @@ pub fn evaluate_negative(test_id: &str, b: &Bindings, evidence: Option<&Evidence
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Case {
     pub test_id: &'static str,
     pub formal_obligations: &'static [&'static str],
@@ -183,6 +186,7 @@ pub fn conformance_report_json() -> String {
         records: Vec<Record<'a>>,
         untested_formal_obligations: Vec<&'a str>,
         claim_ceiling: &'a str,
+        claim_scope: &'a str,
     }
 
     let current = Evidence::current_local("report-current", 100);
@@ -235,17 +239,36 @@ pub fn conformance_report_json() -> String {
     let covered: std::collections::BTreeSet<&str> = CASES.iter()
         .flat_map(|case| case.formal_obligations.iter().copied())
         .collect();
-    let untested_formal_obligations = FORMAL_OBLIGATIONS.iter()
+    let untested_formal_obligations: Vec<&str> = FORMAL_OBLIGATIONS.iter()
         .copied()
         .filter(|obligation| !covered.contains(obligation))
         .collect();
+
+    // The machine-readable report is itself an executable evidence boundary:
+    // generation must fail closed if any declared expected outcome disagrees
+    // with the observed reference-harness outcome. This prevents the report
+    // from becoming a passive transcription of tests whose semantics could
+    // drift independently.
+    assert!(
+        records.iter().all(|record|
+            record.expected_negative == record.actual_negative
+                && record.expected_positive == record.actual_positive
+        ),
+        "COS conformance report contains an expected/actual mismatch"
+    );
+    assert!(
+        untested_formal_obligations.is_empty(),
+        "COS conformance report leaves formal obligations uncovered: {:?}",
+        untested_formal_obligations
+    );
 
     serde_json::to_string_pretty(&Report {
         corpus_id: CORPUS_ID,
         case_count: CASES.len() * 2,
         records,
         untested_formal_obligations,
-        claim_ceiling: "Semantic conformance of this reference harness only; no physical, safety, economic, ecological, or Integral-validation claim.",
+        claim_ceiling: "ReferenceModelOnly",
+        claim_scope: "Semantic conformance of this reference harness only; no physical, safety, economic, ecological, or Integral-validation claim.",
     }).expect("report serialization is infallible for these static values")
 }
 
@@ -306,8 +329,8 @@ mod tests {
         assert_eq!(CASES.len(), 16);
         for case in CASES.iter() {
             assert!(!case.formal_obligations.is_empty(), "{} has no formal mapping", case.test_id);
-            for obligation in *case.formal_obligations {
-                assert!(FORMAL_OBLIGATIONS.contains(obligation), "{} maps to unknown {}", case.test_id, obligation);
+            for &obligation in case.formal_obligations.iter() {
+                assert!(FORMAL_OBLIGATIONS.contains(&obligation), "{} maps to unknown {}", case.test_id, obligation);
             }
         }
     }
@@ -323,10 +346,34 @@ mod tests {
     }
 
     #[test]
-    fn report_is_machine_readable_and_claim_bounded() {
+    fn report_is_machine_readable_claim_bounded_and_self_consistent() {
         let report = conformance_report_json();
+        let value: serde_json::Value =
+            serde_json::from_str(&report).expect("report must be valid JSON");
+
+        assert_eq!(value["corpus_id"], CORPUS_ID);
+        assert_eq!(value["case_count"], 32);
+        assert_eq!(
+            value["records"].as_array().map_or(0, |records| records.len()),
+            CASES.len()
+        );
+        assert_eq!(
+            value["untested_formal_obligations"],
+            serde_json::json!([])
+        );
+        assert_eq!(value["claim_ceiling"], "ReferenceModelOnly");
+        assert!(
+            value["claim_scope"]
+                .as_str()
+                .is_some_and(|scope| scope.contains("no physical, safety, economic, ecological"))
+        );
+        assert!(value["records"].as_array().is_some_and(|records| {
+            records.iter().all(|record| {
+                record["expected_negative"] == record["actual_negative"]
+                    && record["expected_positive"] == record["actual_positive"]
+            })
+        }));
         assert!(report.contains("\"COS-CONF-001\""));
-        assert!(report.contains("no physical, safety, economic, ecological"));
         assert!(!report.contains("verified_score"));
     }
 

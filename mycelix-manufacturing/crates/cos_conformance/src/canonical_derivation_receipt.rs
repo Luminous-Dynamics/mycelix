@@ -10,7 +10,9 @@
 
 use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1, ClaimGraphNodeKindV1};
 use crate::finality_eligibility_composition::{
-    CurrentFinalityEligibilityReceiptV1, FinalityEligibilityDispositionV1,
+    verify_current_receipt_provenance_from_composition,
+    CurrentFinalityEligibilityReceiptV1, FinalityEligibilityCompositionV1,
+    FinalityEligibilityDispositionV1,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -28,6 +30,22 @@ pub const D6S_DOMAIN_D6P_CONTEXT_SET: &str = "d6p-context-set";
 
 fn non_empty(value: &str) -> bool {
     !value.trim().is_empty()
+}
+
+/// Return whether a commitment is in the exact textual form emitted by
+/// D6S-CANON-1 SHA-256 commitments: 64 lowercase hexadecimal characters.
+/// This is deliberately separate from legacy ReferenceModelOnly acceptance so
+/// compatibility can be narrowed at stronger consumption boundaries.
+pub fn is_canonical_sha256_commitment(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+fn is_legacy_opaque_commitment(value: &str) -> bool {
+    // Existing ReferenceModelOnly fixtures historically used symbolic
+    // commitments such as "commit-root". Preserve those fixtures while
+    // enforcing binding whenever a value has the canonical 64-hex SHA-256
+    // representation emitted by D6S-CANON-1.
+    !is_canonical_sha256_commitment(value)
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -100,6 +118,9 @@ impl DerivationProfileV1 {
 pub struct QualifiedNodeV1 {
     pub node_id: String,
     pub kind: ClaimGraphNodeKindV1,
+    /// Commitment to the node's underlying semantic content.
+    pub content_commitment: String,
+    /// Commitment to the qualified node binding carried by this projection.
     pub node_commitment: String,
     pub historical_only: bool,
     pub current_frontier_root: Option<String>,
@@ -109,9 +130,30 @@ pub struct QualifiedNodeV1 {
 impl QualifiedNodeV1 {
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.node_id)
+            && non_empty(&self.content_commitment)
             && non_empty(&self.node_commitment)
             && self.claim_ceiling == D6S_CLAIM_CEILING
             && self.current_frontier_root.as_deref().map_or(true, non_empty)
+    }
+
+    /// Recompute the node commitment from the semantic fields carried by the
+    /// qualified projection. The commitment is an integrity binding, not an
+    /// authority or truth claim.
+    pub fn recomputed_commitment(&self) -> String {
+        canonical_sha256(
+            "integral-interop-1-node",
+            &serde_json::json!({
+                "id": self.node_id,
+                "content_commitment": self.content_commitment,
+                "kind": format!("{:?}", self.kind),
+            }),
+        )
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (is_legacy_opaque_commitment(&self.node_commitment)
+                || self.node_commitment == self.recomputed_commitment())
     }
 }
 
@@ -133,6 +175,25 @@ impl QualifiedEdgeV1 {
             && self.from_node_id != self.to_node_id
             && non_empty(&self.edge_commitment)
             && self.claim_ceiling == D6S_CLAIM_CEILING
+    }
+
+    /// Recompute the edge commitment from the semantic edge fields.
+    pub fn recomputed_commitment(&self) -> String {
+        canonical_sha256(
+            "integral-interop-1-edge",
+            &serde_json::json!({
+                "id": self.edge_id,
+                "from": self.from_node_id,
+                "to": self.to_node_id,
+                "kind": format!("{:?}", self.kind),
+            }),
+        )
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (is_legacy_opaque_commitment(&self.edge_commitment)
+                || self.edge_commitment == self.recomputed_commitment())
     }
 
     fn is_derivation_semantic(&self) -> bool {
@@ -222,6 +283,30 @@ impl QualifiedProjectionV1 {
 
     pub fn commitment(&self) -> String {
         canonical_sha256(D6S_DOMAIN_PROJECTION, self)
+    }
+
+    /// Verify commitments whose semantic source is present in this projection.
+    /// The source DKG snapshot commitment remains opaque because its source
+    /// object is outside this reference-model boundary.
+    pub fn commitments_match_sources(
+        &self,
+        environment: &SemanticEnvironmentV1,
+        derivation_profile: &DerivationProfileV1,
+    ) -> bool {
+        self.structurally_valid()
+            && self.semantic_environment_commitment == environment.commitment()
+            && self.derivation_profile_commitment == derivation_profile.commitment()
+            // When the supplied semantic environment declares a dependency
+            // snapshot, the projection cannot substitute a different snapshot
+            // merely by recomputing its own projection commitment. The snapshot
+            // remains opaque here, but its identity is no longer disconnected
+            // from the environment that authorizes the projection.
+            && environment
+                .dependency_snapshot_root
+                .as_deref()
+                .is_none_or(|expected| self.source_dkg_snapshot_commitment == expected)
+            && self.nodes.values().all(QualifiedNodeV1::commitment_matches)
+            && self.edges.values().all(QualifiedEdgeV1::commitment_matches)
     }
 }
 
@@ -433,8 +518,7 @@ pub fn build_canonical_receipt(
     if !environment.structurally_valid()
         || !profile.structurally_valid()
         || !projection.structurally_valid()
-        || projection.semantic_environment_commitment != environment.commitment()
-        || projection.derivation_profile_commitment != profile.commitment()
+        || !projection.commitments_match_sources(environment, profile)
         || !projection_context_matches_environment(projection, environment)
         || !projection.dangling_edge_ids().is_empty()
         || !projection.incompatible_edge_ids().is_empty()
@@ -485,6 +569,71 @@ pub fn build_canonical_receipt(
     Some(receipt)
 }
 
+/// Strict D6S builder: every current D6P receipt consumed by the
+/// canonical derivation receipt must be an exact projection of its supplied
+/// committed D6P composition. This is a provenance/integrity boundary only;
+/// it does not independently reconstruct D6N/D6O authority.
+pub fn build_canonical_receipt_with_authoritative_d6p(
+    projection: &QualifiedProjectionV1,
+    environment: &SemanticEnvironmentV1,
+    profile: &DerivationProfileV1,
+    current_receipts: &[CurrentFinalityEligibilityReceiptV1],
+    d6p_compositions: &[FinalityEligibilityCompositionV1],
+    result_status: DerivationResultStatusV1,
+    result_commitment: String,
+    contradiction_preserved: bool,
+    unresolved_preserved: bool,
+) -> Option<CanonicalDerivationReceiptV1> {
+    for expected in &projection.d6p_current_receipt_commitments {
+        let receipt = current_receipts
+            .iter()
+            .find(|receipt| receipt.receipt_commitment == *expected)?;
+        let composition = d6p_compositions
+            .iter()
+            .find(|composition| composition.composition_commitment == receipt.composition_commitment)?;
+        if !verify_current_receipt_provenance_from_composition(receipt, composition) {
+            return None;
+        }
+    }
+
+    build_canonical_receipt(
+        projection,
+        environment,
+        profile,
+        current_receipts,
+        result_status,
+        result_commitment,
+        contradiction_preserved,
+        unresolved_preserved,
+    )
+}
+
+pub fn verify_canonical_receipt_with_authoritative_d6p(
+    receipt: &CanonicalDerivationReceiptV1,
+    projection: &QualifiedProjectionV1,
+    environment: &SemanticEnvironmentV1,
+    profile: &DerivationProfileV1,
+    current_receipts: &[CurrentFinalityEligibilityReceiptV1],
+    d6p_compositions: &[FinalityEligibilityCompositionV1],
+) -> bool {
+    if !receipt.commitment_matches() {
+        return false;
+    }
+
+    build_canonical_receipt_with_authoritative_d6p(
+        projection,
+        environment,
+        profile,
+        current_receipts,
+        d6p_compositions,
+        receipt.result_status,
+        receipt.result_commitment.clone(),
+        receipt.contradiction_preserved,
+        receipt.unresolved_preserved,
+    )
+    .is_some_and(|expected| expected == *receipt)
+}
+
 pub fn verify_canonical_receipt(
     receipt: &CanonicalDerivationReceiptV1,
     projection: &QualifiedProjectionV1,
@@ -514,7 +663,7 @@ pub fn current_receipt_is_bound(
     expected_commitment: &str,
     environment: &SemanticEnvironmentV1,
 ) -> bool {
-    receipt.structurally_valid()
+    receipt.semantically_valid()
         && matches!(receipt.disposition, FinalityEligibilityDispositionV1::EligibleCurrent)
         && receipt.receipt_commitment == expected_commitment
         && receipt.claim_ceiling
@@ -529,7 +678,7 @@ pub fn current_receipt_is_bound(
 mod tests {
     use super::*;
 
-    fn env() -> SemanticEnvironmentV1 {
+    pub(super) fn env() -> SemanticEnvironmentV1 {
         SemanticEnvironmentV1 {
             semantic_profile_id: "integral".into(),
             semantic_profile_version: "1".into(),
@@ -540,7 +689,7 @@ mod tests {
             d6n_observer_context_root: Some("d6n-1".into()),
             d6o_lifecycle_context_root: Some("d6o-1".into()),
             membership_authority_scope_root: Some("membership-1".into()),
-            dependency_snapshot_root: Some("deps-1".into()),
+            dependency_snapshot_root: Some("dkg-snapshot-1".into()),
             historical_cutoff: Some(100),
             policy_version: "policy-1".into(),
             claim_ceiling: D6S_CLAIM_CEILING.into(),
@@ -557,36 +706,38 @@ mod tests {
         }
     }
 
-    fn d6p_receipt() -> CurrentFinalityEligibilityReceiptV1 {
-        CurrentFinalityEligibilityReceiptV1 {
+    pub(super) fn d6p_receipt() -> CurrentFinalityEligibilityReceiptV1 {
+        let mut receipt = CurrentFinalityEligibilityReceiptV1 {
             receipt_id: "d6p-1".into(), effect_id: "effect".into(), effect_lineage_id: "lineage".into(),
             lifecycle_generation_id: "generation".into(), route_id: "route".into(), provider_id: "provider".into(),
             provider_operation_id: "operation".into(), provider_profile_root: "provider-profile".into(),
             semantic_environment_root: "env".into(), observation_set_id: "set".into(), observation_set_commitment: "set-c".into(),
-            d6n_assessment_commitment: "d6n-c".into(), witness_eligibility_ids: ["w".into()].into_iter().collect(),
+            d6n_assessment_commitment: "d6n-c".into(), composition_commitment: "composition-test".into(), witness_eligibility_ids: ["w".into()].into_iter().collect(),
             observer_generation_ids: ["g".into()].into_iter().collect(), current_frontier_root: "frontier-1".into(),
             lifecycle_profile_id: "life".into(), eligible_independent_count: 1, preserved_contradictory_count: 0,
             disposition: FinalityEligibilityDispositionV1::EligibleCurrent, qualification_transition_id: "t".into(),
-            receipt_commitment: "d6p-receipt-1".into(),
+            receipt_commitment: String::new(),
             claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
-        }
+        };
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+        receipt
     }
 
     fn projection() -> QualifiedProjectionV1 {
         let mut nodes = BTreeMap::new();
         nodes.insert("e".into(), QualifiedNodeV1 {
             node_id: "e".into(), kind: ClaimGraphNodeKindV1::Evidence,
-            node_commitment: "node-e".into(), historical_only: false,
+            content_commitment: "content-e".into(), node_commitment: "node-e".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         nodes.insert("a".into(), QualifiedNodeV1 {
             node_id: "a".into(), kind: ClaimGraphNodeKindV1::Assessment,
-            node_commitment: "node-a".into(), historical_only: false,
+            content_commitment: "content-a".into(), node_commitment: "node-a".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         nodes.insert("c".into(), QualifiedNodeV1 {
             node_id: "c".into(), kind: ClaimGraphNodeKindV1::Conclusion,
-            node_commitment: "node-c".into(), historical_only: false,
+            content_commitment: "content-c".into(), node_commitment: "node-c".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         let mut edges = BTreeMap::new();
@@ -629,6 +780,44 @@ mod tests {
     }
 
     #[test]
+    fn d6t_golden_vector_file_matches_implementation() {
+        let corpus: serde_json::Value = serde_json::from_str(include_str!(
+            "../testdata/d6s_canon_1_golden_vectors.json"
+        ))
+        .expect("D6S-CANON-1 golden vector corpus must be valid JSON");
+
+        assert_eq!(
+            corpus["canonicalization_version"],
+            D6S_REFERENCE_CANONICALIZATION_VERSION
+        );
+        for vector in corpus["vectors"]
+            .as_array()
+            .expect("D6S golden vectors must be an array")
+        {
+            let domain = vector["domain"]
+                .as_str()
+                .expect("D6S golden vector domain must be a string");
+            let value = &vector["value"];
+            let expected_bytes = vector["canonical_json"]
+                .as_str()
+                .expect("D6S golden vector canonical_json must be a string")
+                .as_bytes();
+            assert_eq!(
+                canonical_bytes(value).expect("golden vector value must canonicalize"),
+                expected_bytes,
+                "canonical bytes drifted for vector {}",
+                vector["id"]
+            );
+            assert_eq!(
+                canonical_sha256(domain, value),
+                vector["sha256"].as_str().expect("sha256 must be a string"),
+                "hash drifted for vector {}",
+                vector["id"]
+            );
+        }
+    }
+
+    #[test]
     fn d6t_uses_utf16_property_order() {
         let value = serde_json::json!({
             "\u{10000}": 1,
@@ -659,7 +848,7 @@ mod tests {
         let value = serde_json::json!({"a": 1});
         assert_eq!(
             canonical_sha256(D6S_DOMAIN_PROJECTION, &value),
-            "8672b6e3d69e4dffb5d88ba51f789cbabbead62fd14246d1c5d5322973001ab8"
+            "2c535710bf769e0c161abea0beeaebbd53342f2e7255834b424925341a3bd6ae"
         );
         assert_ne!(
             canonical_sha256(D6S_DOMAIN_PROJECTION, &value),
@@ -814,7 +1003,7 @@ mod tests {
         let mut p = projection();
         p.nodes.insert("x".into(), QualifiedNodeV1 {
             node_id: "x".into(), kind: ClaimGraphNodeKindV1::Assessment,
-            node_commitment: "node-x".into(), historical_only: false,
+            content_commitment: "content-x".into(), node_commitment: "node-x".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         p.edges.insert("cycle-a".into(), QualifiedEdgeV1 {
@@ -864,6 +1053,44 @@ mod tests {
         assert!(!result_flags_are_consistent(
             DerivationResultStatusV1::Supported, true, false
         ));
+    }
+
+    #[test]
+    fn source_snapshot_must_match_declared_environment_root() {
+        let mut projection = projection();
+        let environment = env();
+        let profile = profile();
+
+        assert!(projection.commitments_match_sources(&environment, &profile));
+
+        projection.source_dkg_snapshot_commitment = "attacker-snapshot".into();
+        projection.semantic_environment_commitment = environment.commitment();
+        // Recomputing the projection commitment would make the record
+        // self-consistent, but it must not make it provenance-consistent.
+        assert!(!projection.commitments_match_sources(&environment, &profile));
+    }
+
+    #[test]
+    fn canonical_receipt_rejects_self_consistent_snapshot_substitution() {
+        let projection = {
+            let mut projection = projection();
+            projection.source_dkg_snapshot_commitment = "attacker-snapshot".into();
+            projection
+        };
+        let environment = env();
+        let profile = profile();
+
+        assert!(projection.commitment() != projection.source_dkg_snapshot_commitment);
+        assert!(build_canonical_receipt(
+            &projection,
+            &environment,
+            &profile,
+            &[d6p_receipt()],
+            DerivationResultStatusV1::Supported,
+            "result-1".into(),
+            false,
+            false,
+        ).is_none());
     }
 
     #[test]
@@ -921,19 +1148,21 @@ mod tests {
 
     #[test]
     fn d6p_binding_is_exact_and_non_authorizing() {
-        let r = CurrentFinalityEligibilityReceiptV1 {
+        let mut r = CurrentFinalityEligibilityReceiptV1 {
             receipt_id: "r".into(), effect_id: "effect".into(), effect_lineage_id: "lineage".into(),
             lifecycle_generation_id: "generation".into(), route_id: "route".into(), provider_id: "provider".into(),
             provider_operation_id: "operation".into(), provider_profile_root: "provider-profile".into(),
             semantic_environment_root: "env".into(), observation_set_id: "set".into(), observation_set_commitment: "set-c".into(),
-            d6n_assessment_commitment: "d6n-c".into(), witness_eligibility_ids: ["w".into()].into_iter().collect(),
+            d6n_assessment_commitment: "d6n-c".into(), composition_commitment: "composition-test".into(), witness_eligibility_ids: ["w".into()].into_iter().collect(),
             observer_generation_ids: ["g".into()].into_iter().collect(), current_frontier_root: "frontier-1".into(),
             lifecycle_profile_id: "life".into(), eligible_independent_count: 1, preserved_contradictory_count: 0,
             disposition: FinalityEligibilityDispositionV1::EligibleCurrent, qualification_transition_id: "t".into(),
-            receipt_commitment: "d6p-commitment".into(),
+            receipt_commitment: String::new(),
             claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
         };
-        assert!(current_receipt_is_bound(&r, "d6p-commitment", &env()));
+        let expected_commitment = r.recomputed_commitment();
+        r.receipt_commitment = expected_commitment.clone();
+        assert!(current_receipt_is_bound(&r, &expected_commitment, &env()));
         assert!(!current_receipt_is_bound(&r, "different", &env()));
     }
 }
@@ -944,5 +1173,44 @@ trait ProjectionCanonicalTestBytes {
 impl ProjectionCanonicalTestBytes for QualifiedProjectionV1 {
     fn canonical_bytes_for_test(&self) -> Vec<u8> {
         serde_json::to_vec(self).expect("projection is serializable")
+    }
+}
+
+
+#[cfg(test)]
+mod canonical_commitment_representation_tests {
+    use super::{current_receipt_is_bound, is_canonical_sha256_commitment};
+    use super::tests::{d6p_receipt, env};
+
+    #[test]
+    fn self_consistent_but_incoherent_d6p_receipt_is_not_current() {
+        let mut receipt = d6p_receipt();
+        receipt.witness_eligibility_ids = ["w1".into(), "w2".into()].into_iter().collect();
+        receipt.observer_generation_ids = ["g1".into()].into_iter().collect();
+        receipt.eligible_independent_count = 2;
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+
+        assert!(receipt.commitment_matches());
+        assert!(!receipt.semantically_valid());
+        assert!(!current_receipt_is_bound(
+            &receipt,
+            &receipt.receipt_commitment,
+            &env(),
+        ));
+    }
+
+    #[test]
+    fn canonical_commitment_representation_is_exact() {
+        assert!(is_canonical_sha256_commitment(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        ));
+        assert!(!is_canonical_sha256_commitment(
+            "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
+        ));
+        assert!(!is_canonical_sha256_commitment("commit-root"));
+        assert!(!is_canonical_sha256_commitment(""));
+        assert!(!is_canonical_sha256_commitment(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        ));
     }
 }

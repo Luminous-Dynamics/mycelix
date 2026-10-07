@@ -1,0 +1,224 @@
+{
+  "profile": "integral-interop-1",
+  "projection_version": "integral-interop-1-design-semantic-v1",
+  "classification": "cross-layer-propagation-v2",
+  "expected_delta_fields": [
+    "oad_semantic_commitment",
+    "d6x_identity",
+    "d6x_certificate",
+    "d6w_input",
+    "d6w_derivation",
+    "d6x_status"
+  ],
+  "vectors": [
+    {
+      "id": "certification-metadata",
+      "operation": "set",
+      "path": "certification.documentation_bundle_uri",
+      "value": "urn:integral:bundle:changed",
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": false,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "selected-production-step",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[1].estimated_hours",
+      "value": 3,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": true,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "irrelevant-candidate-noise",
+      "operation": "candidate-noise",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "invalid-fractional-bom",
+      "operation": "set",
+      "path": "design_version.parameters.bill_of_materials_kg.silicone",
+      "value": 0.25,
+      "expected": {
+        "valid": false,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "OADSemanticValidation"
+      }
+    },
+    {
+      "id": "required-receipt-missing",
+      "operation": "require-d6p-receipt",
+      "path": "$",
+      "value": false,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "BlockedMissingDependency",
+        "earliest_rejection_boundary": "D6WInputConsumption"
+      }
+    },
+    {
+      "id": "required-receipt-present",
+      "operation": "require-d6p-receipt",
+      "path": "$",
+      "value": true,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "runtime-resolution-evidence",
+      "operation": "runtime-evidence",
+      "path": "$",
+      "value": "runtime://resolver/42",
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "selected-node-commitment",
+      "operation": "graph-mutation",
+      "mutation": "selected-node-commitment",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "selected-edge-commitment",
+      "operation": "graph-mutation",
+      "mutation": "selected-edge-commitment",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "selected-edge-removal",
+      "operation": "graph-mutation",
+      "mutation": "selected-edge-removal",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "wrong-edge-kind",
+      "operation": "graph-mutation",
+      "mutation": "wrong-edge-kind",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "irrelevant-node-commitment",
+      "operation": "graph-mutation",
+      "mutation": "irrelevant-node-commitment",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    },
+    {
+      "id": "irrelevant-edge-commitment",
+      "operation": "graph-mutation",
+      "mutation": "irrelevant-edge-commitment",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
+      }
+    }
+  ]
+}
