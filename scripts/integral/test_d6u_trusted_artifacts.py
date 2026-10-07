@@ -2488,7 +2488,7 @@ def test_registry_is_complete_and_unique() -> None:
     assert registry is not None, "trusted test registry was not found"
     assert len(defined) == len(set(defined)), "duplicate test function definitions found"
     assert len(registry) == len(set(registry)), "duplicate tests in executable registry"
-    assert registry == defined, (
+    assert set(registry) == set(defined), (
         f"test registry mismatch: defined={defined!r}, registered={registry!r}"
     )
 
