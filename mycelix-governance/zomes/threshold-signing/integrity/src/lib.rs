@@ -364,7 +364,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::SigningCommittee(committee) => {
-                    validate_update_committee(action, committee)
+                    validate_update_committee(action, committee, original_action_hash)
                 }
                 EntryTypes::CommitteeMember(member) => {
                     validate_update_member(action, member, original_action_hash)
@@ -464,36 +464,83 @@ fn validate_create_committee(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Pure validation for committee update -- testable without HDI
-pub fn check_committee_update_validity(committee: &SigningCommittee) -> Result<(), String> {
-    if committee.phase == DkgPhase::Disbanded && committee.active {
-        return Err("Cannot reactivate disbanded committee".into());
+/// Pure validation for committee updates.
+///
+/// Cryptographic committee material, scope, threshold, and epoch define the
+/// authorization domain and therefore cannot be rewritten after creation. The
+/// only mutable fields are the lifecycle phase and active bit, and phase changes
+/// must move monotonically through the DKG state machine.
+pub fn check_committee_update_validity(
+    original: &SigningCommittee,
+    updated: &SigningCommittee,
+) -> Result<(), String> {
+    if updated.id != original.id
+        || updated.name != original.name
+        || updated.threshold != original.threshold
+        || updated.member_count != original.member_count
+        || updated.public_key != original.public_key
+        || updated.commitments != original.commitments
+        || updated.scope != original.scope
+        || updated.created_at != original.created_at
+        || updated.epoch != original.epoch
+        || updated.min_phi != original.min_phi
+        || updated.signature_algorithm != original.signature_algorithm
+        || updated.pq_required != original.pq_required
+    {
+        return Err(
+            "Committee authorization material is immutable; only lifecycle phase/active may change"
+                .into(),
+        );
     }
 
-    if committee.phase == DkgPhase::Complete {
-        let pk_bytes = match committee.public_key {
-            Some(ref bytes) => bytes,
-            None => {
-                return Err("Complete committee must have a public key".into());
-            }
-        };
+    fn phase_rank(phase: &DkgPhase) -> u8 {
+        match phase {
+            DkgPhase::Registration => 0,
+            DkgPhase::CommitmentCollection => 1,
+            DkgPhase::Dealing => 2,
+            DkgPhase::Verification => 3,
+            DkgPhase::Complete => 4,
+            DkgPhase::Disbanded => 5,
+        }
+    }
 
-        if feldman_dkg::Commitment::from_bytes(pk_bytes).is_err() {
+    if phase_rank(&updated.phase) < phase_rank(&original.phase) {
+        return Err(format!(
+            "Committee DKG phase cannot regress: {:?} -> {:?}",
+            original.phase, updated.phase
+        ));
+    }
+
+    if updated.phase == DkgPhase::Disbanded && updated.active {
+        return Err("Disbanded committee cannot remain active".into());
+    }
+
+    if updated.phase == DkgPhase::Complete {
+        let public_key = updated
+            .public_key
+            .as_ref()
+            .ok_or_else(|| "Complete committee must have a public key".to_string())?;
+
+        if feldman_dkg::Commitment::from_bytes(public_key).is_err() {
             return Err("Public key is not a valid secp256k1 point".into());
         }
 
-        if (committee.commitments.len() as u32) < committee.threshold {
+        if (updated.commitments.len() as u32) < updated.threshold {
             return Err(format!(
                 "Need at least {} commitment sets, got {}",
-                committee.threshold,
-                committee.commitments.len()
+                updated.threshold,
+                updated.commitments.len()
             ));
         }
 
-        for (i, cs_bytes) in committee.commitments.iter().enumerate() {
-            if feldman_dkg::CommitmentSet::from_bytes(cs_bytes).is_err() {
-                return Err(format!("Invalid commitment set at index {}", i));
+        for (index, commitment_bytes) in updated.commitments.iter().enumerate() {
+            if feldman_dkg::CommitmentSet::from_bytes(commitment_bytes).is_err() {
+                return Err(format!("Invalid commitment set at index {}", index));
             }
+        }
+
+        if !updated.active {
+            return Err("Complete committee must be active until explicitly disbanded".into());
         }
     }
 
@@ -502,10 +549,26 @@ pub fn check_committee_update_validity(committee: &SigningCommittee) -> Result<(
 
 /// Validate committee update
 fn validate_update_committee(
-    _action: Update,
+    action: Update,
     committee: SigningCommittee,
+    original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    if let Err(reason) = check_committee_update_validity(&committee) {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_committee: SigningCommittee = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original signing committee not found".into()
+        )))?;
+
+    if action.author() != original_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original committee author may update the committee".into(),
+        ));
+    }
+
+    if let Err(reason) = check_committee_update_validity(&original_committee, &committee) {
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -993,7 +1056,7 @@ mod tests {
         let pk = make_valid_public_key();
         let cs = make_valid_commitment_set_bytes(2);
         let committee = make_test_committee_complete(Some(pk), vec![cs.clone(), cs]);
-        assert!(check_committee_update_validity(&committee).is_ok());
+        assert!(check_committee_update_validity(&committee, &committee).is_ok());
     }
 
     #[test]
