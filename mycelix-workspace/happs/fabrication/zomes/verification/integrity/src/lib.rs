@@ -802,6 +802,35 @@ fn validate_fpm_source_attestation_anchor(
             "source attestation references the wrong verification entry type".into(),
         ));
     }
+    let verification_entry_hash = verification_action.entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "source attestation verification action has no entry hash".into()
+        ))
+    })?;
+    let verification_entry = must_get_entry(verification_entry_hash)?;
+    let verification_anchor: FpmEatCoseVerificationAnchor = verification_entry
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "could not decode FPM EAT/COSE verification anchor: {e}"
+        ))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "source attestation verification action is not app data".into()
+        )))?;
+    if verification_anchor.challenge_action != anchor.challenge_action
+        || verification_anchor.evidence_digest != anchor.claim.evidence_digest
+        || verification_anchor.subject_id != anchor.claim.subject_id
+        || verification_anchor.audience != anchor.claim.audience
+        || verification_anchor.key_id != anchor.claim.verification_key_id
+        || verification_anchor.verification_key_digest != anchor.claim.verification_key_digest
+        || verification_anchor.verifier_implementation_digest != anchor.claim.verifier_implementation_digest
+        || verification_anchor.verifier_build_provenance_digest != anchor.claim.verifier_build_provenance_digest
+        || verification_anchor.verifier_builder_id != anchor.claim.verifier_builder_id
+        || verification_anchor.verifier_profile_digest != anchor.claim.verifier_profile_digest
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "source attestation is not exactly bound to its EAT/COSE verification anchor".into(),
+        ));
+    }
     let qualification = qualify_source_attestation(&FpmAttestationQualificationInput {
         expected_subject_id: anchor.claim.subject_id.clone(),
         expected_audience: anchor.claim.audience.clone(),
@@ -810,6 +839,9 @@ fn validate_fpm_source_attestation_anchor(
         expected_acquisition_root_digest: anchor.claim.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: anchor.claim.challenge_nonce_digest.clone(),
         expected_attestation_format: anchor.claim.attestation_format.clone(),
+        expected_verifier_implementation_digest: anchor.claim.verifier_implementation_digest.clone(),
+        expected_verifier_build_provenance_digest: anchor.claim.verifier_build_provenance_digest.clone(),
+        expected_verifier_builder_id: anchor.claim.verifier_builder_id.clone(),
         expected_verifier_profile_digest: anchor.claim.verifier_profile_digest.clone(),
         expected_appraisal_policy_digest: anchor.claim.appraisal_policy_digest.clone(),
         expected_reference_values_digest: anchor.claim.reference_values_digest.clone(),
