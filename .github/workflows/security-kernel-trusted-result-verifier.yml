@@ -503,7 +503,9 @@ jobs:
               "candidate_tree","candidate_source_tree_entry_count","candidate_source_file_count",
               "candidate_source_total_path_bytes","candidate_source_total_bytes","candidate_source_max_blob_bytes",
               "candidate_source_digest","source_staging_digest","executed_source_digest","candidate_cargo_lock_format","candidate_cargo_lock_sha256",
+              "source_archive_max_bytes","dependency_manifest_max_bytes","dependency_lock_max_bytes",
               "source_resource_profile","source_max_bytes","source_max_inodes","source_tmpfs_size","source_tmpfs_nr_inodes",
+              "source_archive_max_bytes","dependency_manifest_max_bytes","dependency_lock_max_bytes",
               "source_volume_name","source_volume_spec","source_copy_bytes","source_copy_files","source_copy_inodes",
               "candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
               "vendor_resource_profile","vendor_max_bytes","vendor_max_files","vendor_max_inodes",
@@ -528,6 +530,9 @@ jobs:
               "candidate_sha": candidate_sha,
               "source_event": "pull_request_target",
               "source_resource_profile": "v1",
+              "source_archive_max_bytes": "1073741824",
+              "dependency_manifest_max_bytes": "2097152",
+              "dependency_lock_max_bytes": "33554432",
               "source_max_bytes": "1073741824",
               "source_max_inodes": "300000",
               "source_tmpfs_size": "1024m",
@@ -646,6 +651,9 @@ jobs:
           assert receipt["candidate_cargo_lock_format"] == "v4"
           assert receipt["source_resource_profile"] == "v1"
           assert receipt["source_max_bytes"] == "1073741824"
+          assert receipt["source_archive_max_bytes"] == "1073741824"
+          assert receipt["dependency_manifest_max_bytes"] == "2097152"
+          assert receipt["dependency_lock_max_bytes"] == "33554432"
           assert receipt["source_max_inodes"] == "300000"
           assert receipt["source_tmpfs_size"] == "1024m"
           assert receipt["source_tmpfs_nr_inodes"] == "300000"
