@@ -10,7 +10,9 @@ use execution_integrity::*;
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
-use constitutional_effect_ledger::{ActionKeyV1, AttemptIdentityV1};
+use constitutional_effect_ledger::{
+    execution_authorization_digest, material_action_digest, ActionKeyV1, AttemptIdentityV1,
+};
 use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 
 /// Exact proposal mirror used by the execution admission boundary.
@@ -441,18 +443,11 @@ const EXECUTION_RELYING_PARTY: &str = "did:mycelix:governance";
 const EXECUTION_EFFECTING_TARGET: &str = "mycelix-governance-execution";
 const EXECUTION_ATTEMPT_BOUNDARY: &str = "governance-execution";
 
-fn material_action_digest(actions_json: &str) -> String {
-    format!(
-        "constitutional-material-action-v1:{}",
-        blake3::hash(actions_json.as_bytes()).to_hex()
-    )
-}
-
 fn execution_action_key(actions_json: &str) -> Result<ActionKeyV1, String> {
     ActionKeyV1::new(
         EXECUTION_RELYING_PARTY,
         EXECUTION_EFFECTING_TARGET,
-        material_action_digest(actions_json),
+        material_action_digest(actions_json.as_bytes()),
     )
 }
 
@@ -510,22 +505,6 @@ fn ensure_execution_authorized(
         )));
     }
     Ok(())
-}
-
-fn execution_authorization_digest(
-    proposal_id: &str,
-    action_key_digest: &str,
-) -> [u8; 32] {
-    // Authorization is attached to the approved proposal material, not to a
-    // future timelock identifier. Timelocks are execution/replay metadata and
-    // are separately protected by ActionKey + AttemptIdentity.
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(b"MYCELIX-GOVERNANCE-EXECUTION-AUTHORIZATION\0V2\0");
-    for value in [proposal_id, action_key_digest] {
-        hasher.update(&(value.len() as u64).to_be_bytes());
-        hasher.update(value.as_bytes());
-    }
-    *hasher.finalize().as_bytes()
 }
 
 fn require_admissible_proposal(
