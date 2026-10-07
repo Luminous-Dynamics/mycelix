@@ -1,0 +1,102 @@
+{
+  "schema": "mycelix.sovereignty-concentration-formal-crosswalk.v1",
+  "status": "candidate-verification",
+  "authority": "non-authoritative",
+  "related_issue": 4530,
+  "formal_subject_head": "9d1f816335ca2cf54b82edbaf6072d249720b2aa",
+  "formal_subject_tree": "d14ab9cc8bafb0b30d93548da13486262a6e1e8f",
+  "mappings": [
+    {
+      "id": "scale-weight",
+      "boundary": "resource accumulation != political-weight multiplication",
+      "tla": [
+        "ScaleDoesNotIncreasePoliticalWeight"
+      ],
+      "alloy": [
+        "ScaleDoesNotIncreasePoliticalWeight"
+      ],
+      "reference": [
+        "accumulate -> ScaleDoesNotIncreasePoliticalWeight"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "jurisdiction-source",
+      "boundary": "resource/control form != jurisdiction",
+      "tla": [
+        "JurisdictionHasExplicitSource"
+      ],
+      "alloy": [
+        "JurisdictionHasExplicitSourceInvariant"
+      ],
+      "reference": [
+        "acquire/critical -> JurisdictionHasExplicitSource"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "gatekeep-authority",
+      "boundary": "gatekeeping != authority",
+      "tla": [
+        "AuthorityHasExplicitSource"
+      ],
+      "alloy": [
+        "GatekeepingDoesNotTransferAuthority"
+      ],
+      "reference": [
+        "gatekeep -> AuthorityHasExplicitSource"
+      ],
+      "coverage": "partial-causal-tla-structural-alloy"
+    },
+    {
+      "id": "acquisition-jurisdiction",
+      "boundary": "acquisition != jurisdiction",
+      "tla": [
+        "JurisdictionHasExplicitSource"
+      ],
+      "alloy": [
+        "AcquisitionDoesNotTransferAuthority"
+      ],
+      "reference": [
+        "acquire -> JurisdictionHasExplicitSource"
+      ],
+      "coverage": "partial-alloy-typed-transfer-field"
+    },
+    {
+      "id": "critical-control-jurisdiction",
+      "boundary": "critical infrastructure operation != jurisdiction",
+      "tla": [
+        "JurisdictionHasExplicitSource"
+      ],
+      "alloy": [
+        "CriticalOperatorWithoutJurisdiction"
+      ],
+      "reference": [
+        "critical -> JurisdictionHasExplicitSource"
+      ],
+      "coverage": "partial-alloy-witness"
+    },
+    {
+      "id": "switching-review",
+      "boundary": "high switching cost -> bounded review obligation, not authority",
+      "tla": [
+        "HighSwitchingCostTriggersReview"
+      ],
+      "alloy": [
+        "HighSwitchingCostIsReviewable"
+      ],
+      "reference": [
+        "gatekeep -> HighSwitchingCostTriggersReview"
+      ],
+      "coverage": "aligned"
+    }
+  ],
+  "deliberate_limits": [
+    "This model does not create a scalar power or sovereignty score.",
+    "It does not declare any market concentration unlawful.",
+    "It does not establish competition-law compliance.",
+    "It does not prove real-world exit availability from a finite model.",
+    "It does not prove production-runtime refinement.",
+    "It does not confer sovereignty, legal status, personhood, or external recognition."
+  ]
+}
