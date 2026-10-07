@@ -6094,6 +6094,25 @@ mod tests {
             .validate_integrity()
             .expect("request-context admission receipt must validate");
 
+        let mut tampered_admission = admission.clone();
+        tampered_admission.request_context_sha256 =
+            Some(state_machine_trace_external_verification_request_context_sha256(request_b));
+        assert_eq!(
+            tampered_admission.validate_integrity(),
+            Err(
+                FederationExternalVerificationPolicyAdmissionIntegrityViolation::AdmissionDigestMismatch
+            )
+        );
+
+        assert_eq!(
+            policy
+                .clone()
+                .try_new_bound_request_context_sha256("sha256:not-a-valid-digest"),
+            Err(
+                FederationExternalVerificationTrustPolicyViolation::InvalidRequiredRequestContextDigest
+            )
+        );
+
         let policy_b = policy
             .clone()
             .try_new_bound_request_context_sha256(
