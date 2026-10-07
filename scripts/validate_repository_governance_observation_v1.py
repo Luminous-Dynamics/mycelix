@@ -19,6 +19,9 @@ SCHEMA = "MYCELIX-REPOSITORY-GOVERNANCE-OBSERVATION-V1"
 POLICY_SCHEMA = "MYCELIX-REPOSITORY-GOVERNANCE-POLICY-V1"
 REPOSITORY = "Luminous-Dynamics/mycelix"
 REPOSITORY_ID = 1176351975
+REPOSITORY_NAME = "mycelix"
+ORGANIZATION_NAME = "Luminous-Dynamics"
+ORGANIZATION_ID = 216969177
 TARGET_REF = "refs/heads/main"
 
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -141,6 +144,11 @@ def validate_observation_shape(observation: Any) -> None:
     require(isinstance(repository_raw, dict), "repository raw payload must be an object")
     require(repository_raw.get("id") == REPOSITORY_ID, "repository raw id drift")
     require(repository_raw.get("full_name") == REPOSITORY, "repository raw full_name drift")
+    owner = repository_raw.get("owner")
+    require(isinstance(owner, dict), "repository raw owner missing")
+    require(owner.get("login") == ORGANIZATION_NAME, "repository raw owner drift")
+    require(owner.get("id") == ORGANIZATION_ID, "repository raw owner id drift")
+    require(owner.get("type") == "Organization", "repository raw owner type drift")
     require(isinstance(repository_raw.get("default_branch"), str), "repository raw default_branch missing")
     require(
         observation.get("default_branch") == repository_raw.get("default_branch"),
@@ -235,48 +243,104 @@ def _ref_pattern_matches_main(pattern: Any, default_branch: str) -> bool:
     )
 
 
+def _selector_state(
+    selector: Any,
+    *,
+    patterns: tuple[str, str],
+    value: str,
+    ids_key: str | None = None,
+    value_id: int | None = None,
+) -> str:
+    if not isinstance(selector, dict):
+        return "UNVERIFIED"
+    includes = selector.get(patterns[0])
+    excludes = selector.get(patterns[1])
+    if not isinstance(includes, list) or not isinstance(excludes, list):
+        return "UNVERIFIED"
+    if not all(isinstance(pattern, str) and pattern for pattern in includes + excludes):
+        return "UNVERIFIED"
+    if ids_key is not None:
+        ids = selector.get(ids_key)
+        if ids is None:
+            return (
+                "MATCH"
+                if any(fnmatch.fnmatchcase(value, pattern) for pattern in includes)
+                and not any(fnmatch.fnmatchcase(value, pattern) for pattern in excludes)
+                else "NOT_MATCH"
+            )
+        if not isinstance(ids, list):
+            return "UNVERIFIED"
+        if not all(isinstance(identifier, int) and not isinstance(identifier, bool) for identifier in ids):
+            return "UNVERIFIED"
+        return "MATCH" if value_id in ids else "NOT_MATCH"
+    return (
+        "MATCH"
+        if any(fnmatch.fnmatchcase(value, pattern) for pattern in includes)
+        and not any(fnmatch.fnmatchcase(value, pattern) for pattern in excludes)
+        else "NOT_MATCH"
+    )
+
+
 def _repository_condition_state(conditions: dict[str, Any]) -> str:
-    selectors = {
+    repository_selectors = {
         key: conditions.get(key)
         for key in ("repository_name", "repository_id", "repository_property")
         if key in conditions
     }
-    if not selectors:
-        return "MATCH"
-
-    if len(selectors) != 1:
+    if len(repository_selectors) > 1:
         return "UNVERIFIED"
 
-    key, selector = next(iter(selectors.items()))
-    if key == "repository_name":
-        if not isinstance(selector, dict):
-            return "UNVERIFIED"
-        includes = selector.get("include")
-        excludes = selector.get("exclude")
-        if not isinstance(includes, list) or not isinstance(excludes, list):
-            return "UNVERIFIED"
-        if not all(isinstance(pattern, str) and pattern for pattern in includes + excludes):
-            return "UNVERIFIED"
-        return (
-            "MATCH"
-            if any(fnmatch.fnmatchcase(REPOSITORY, pattern) for pattern in includes)
-            and not any(fnmatch.fnmatchcase(REPOSITORY, pattern) for pattern in excludes)
-            else "NOT_MATCH"
-        )
+    if repository_selectors:
+        key, selector = next(iter(repository_selectors.items()))
+        if key == "repository_name":
+            return _selector_state(
+                selector,
+                patterns=("include", "exclude"),
+                value=REPOSITORY_NAME,
+            )
+        if key == "repository_id":
+            if not isinstance(selector, dict):
+                return "UNVERIFIED"
+            ids = selector.get("repository_ids")
+            if not isinstance(ids, list):
+                return "UNVERIFIED"
+            if not all(isinstance(value, int) and not isinstance(value, bool) for value in ids):
+                return "UNVERIFIED"
+            return "MATCH" if REPOSITORY_ID in ids else "NOT_MATCH"
+        return "UNVERIFIED"
 
-    if key == "repository_id":
+    return "MATCH"
+
+
+def _organization_condition_state(conditions: dict[str, Any]) -> str:
+    organization_selectors = {
+        key: conditions.get(key)
+        for key in ("organization_name", "organization_id", "organization_property")
+        if key in conditions
+    }
+    if len(organization_selectors) > 1:
+        return "UNVERIFIED"
+
+    if not organization_selectors:
+        return "MATCH"
+
+    key, selector = next(iter(organization_selectors.items()))
+    if key == "organization_name":
+        return _selector_state(
+            selector,
+            patterns=("include", "exclude"),
+            value=ORGANIZATION_NAME,
+        )
+    if key == "organization_id":
         if not isinstance(selector, dict):
             return "UNVERIFIED"
-        ids = selector.get("repository_ids")
+        ids = selector.get("organization_ids")
         if not isinstance(ids, list):
             return "UNVERIFIED"
         if not all(isinstance(value, int) and not isinstance(value, bool) for value in ids):
             return "UNVERIFIED"
-        return "MATCH" if REPOSITORY_ID in ids else "NOT_MATCH"
-
-    # Custom repository properties are not currently retained in the observation.
+        return "MATCH" if ORGANIZATION_ID in ids else "NOT_MATCH"
     return "UNVERIFIED"
-
 
 def _ruleset_target_state(entry: Any, default_branch: str) -> str:
     if not isinstance(entry, dict):
@@ -291,6 +355,12 @@ def _ruleset_target_state(entry: Any, default_branch: str) -> str:
     if repo_state == "UNVERIFIED":
         return "UNVERIFIED"
     if repo_state == "NOT_MATCH":
+        return "NOT_APPLICABLE"
+
+    organization_state = _organization_condition_state(conditions)
+    if organization_state == "UNVERIFIED":
+        return "UNVERIFIED"
+    if organization_state == "NOT_MATCH":
         return "NOT_APPLICABLE"
 
     ref_name = conditions.get("ref_name")
@@ -865,6 +935,7 @@ def fixture_observation(
         {
             "id": REPOSITORY_ID,
             "full_name": REPOSITORY,
+            "owner": {"id": ORGANIZATION_ID, "login": ORGANIZATION_NAME, "type": "Organization"},
             "default_branch": "main",
         },
         separators=(",", ":"),
@@ -923,6 +994,7 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
         {
             "id": REPOSITORY_ID,
             "full_name": REPOSITORY,
+            "owner": {"id": ORGANIZATION_ID, "login": ORGANIZATION_NAME, "type": "Organization"},
             "default_branch": observation["default_branch"],
         },
         separators=(",", ":"),
@@ -1290,7 +1362,7 @@ def self_test(policy: dict[str, Any]) -> None:
 
     x = copy.deepcopy(fixture_observation(policy))
     x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
-        "include": ["Luminous-Dynamics/*"],
+        "include": ["mycelix"],
         "exclude": [],
     }
     _refresh_bound_fixture_payloads(x)
@@ -1299,7 +1371,7 @@ def self_test(policy: dict[str, Any]) -> None:
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=403, admin_status="unverified"))
     x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
-        "include": ["some-other-repository"],
+        "include": ["other-repository"],
         "exclude": [],
     }
     _refresh_bound_fixture_payloads(x)
