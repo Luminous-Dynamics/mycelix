@@ -16,47 +16,37 @@ The spine composes:
 - retention and invariant checks;
 - recurrence/re-adaptation tests;
 - causal/statistical integrity controls;
+- evaluator identity and state integrity;
+- action-dependent observation and distribution-shift controls;
 - independent qualification.
 
 ## Core laws
 
-```
-detected change
-!=
-beneficial update
+    detected change != beneficial update
 
-successful update
-!=
-useful adaptation
+    successful update != useful adaptation
 
-post-update improvement
-!=
-causal update effect
+    post-update improvement != causal update effect
 
-new-regime performance
-!=
-retained prior capability
+    new-regime performance != retained prior capability
 
-synthetic fork value
-!=
-physical-world causal effect
+    synthetic fork value != physical-world causal effect
 
-matched fork
-!=
-automatically causal identification
-```
+    matched fork != automatically causal identification
+
+    independent evaluator != correct evaluator
+
+    same initial state != same future observation process
 
 ## Evidence identity
 
 Keep these independent:
 
-```
-RevisionSubject
-EvaluationProtocol
-QualificationVerifier
-ExecutionEnvironment
-EvaluationReceipt
-```
+    RevisionSubject
+    EvaluationProtocol
+    QualificationVerifier
+    ExecutionEnvironment
+    EvaluationReceipt
 
 A revision cannot change the verifier or evaluation policy that qualifies that same revision.
 
@@ -68,21 +58,19 @@ Every material evaluation input receives an exact identity/commitment:
 - evaluation manifest;
 - seed/randomness profile;
 - simulator/world state where applicable;
-- evaluator implementation;
+- evaluator implementation and state;
 - toolchain/environment where reproducibility requires it.
 
 ## Revision lifecycle
 
 Use explicit states:
 
-```
-RevisionProposed
-RevisionSelected
-RevisionApplied
-RevisionRejected
-RevisionValueObserved
-RevisionSuperseded
-```
+    RevisionProposed
+    RevisionSelected
+    RevisionApplied
+    RevisionRejected
+    RevisionValueObserved
+    RevisionSuperseded
 
 A proposed revision cannot acquire observed-value evidence before application.
 
@@ -103,18 +91,16 @@ The final evaluation partition is frozen before revision selection.
 
 When the world is branchable:
 
-```
-                         common parent
-                              |
-                    +---------+---------+
-                    |                   |
-                 HOLD                UPDATE
-                    |                   |
-                    +---------+---------+
-                              |
-                         common eval
-                         identity
-```
+    common parent
+         |
+    +----+----+
+    |         |
+    HOLD    UPDATE
+    |         |
+    +----+----+
+         |
+     common eval
+     identity
 
 Bind:
 
@@ -165,19 +151,21 @@ The baseline campaign must address:
 - shared mutable memory;
 - shared resources;
 - shared evaluator/cache state;
-- mutable RNG/exogenous streams.
+- mutable RNG/exogenous streams;
+- action-dependent observation;
+- policy-induced distribution shift;
+- censoring/attrition changes;
+- irregular decision timing.
 
 ## Trigger controls
 
 Where meaningful, compare the production trigger with:
 
-```
-always update
-never update
-detector-triggered
-rate-matched random trigger
-irrelevant-signal trigger
-```
+    always update
+    never update
+    detector-triggered
+    rate-matched random trigger
+    irrelevant-signal trigger
 
 Report separately:
 
@@ -192,12 +180,10 @@ A trigger may not look superior merely because it spends more update opportuniti
 
 Record every eligible decision point:
 
-```
-NoChangeDetected
-ChangeDetected_NoUpdate
-ChangeDetected_UpdateRejected
-ChangeDetected_UpdateApplied
-```
+    NoChangeDetected
+    ChangeDetected_NoUpdate
+    ChangeDetected_UpdateRejected
+    ChangeDetected_UpdateApplied
 
 The denominator for trigger analysis is the complete frozen decision-point universe.
 
@@ -236,9 +222,7 @@ Protect at least:
 
 After a primary A -> B campaign, separately test:
 
-```
-A -> B -> A
-```
+    A -> B -> A
 
 Measure:
 
@@ -256,39 +240,250 @@ Do not make recurrence part of the first acceptance predicate until its estimato
 
 For every branchable evaluation domain classify relevant state as:
 
-```
-SharedImmutable
-SharedReadOnly
-ForkLocal
-ExternallyMutable
-Unknown
-```
+    SharedImmutable
+    SharedReadOnly
+    ForkLocal
+    ExternallyMutable
+    Unknown
 
 Unknown mutable state blocks a strong StateAnchoredValue claim.
 
 Distinguish:
 
-```
-common exogenous input
-!=
-shared mutable state
-```
+    common exogenous input
+    !=
+    shared mutable state
 
 Any post-fork contamination invalidates the matched-pair label unless the declared estimand explicitly models the interference.
+
+## Evaluator integrity
+
+Treat the evaluator as a first-class experimental subject rather than an invisible oracle.
+
+A confirmatory evaluation must bind, as applicable:
+
+- evaluator implementation/version;
+- executable/container/build identity;
+- metric definitions and orientation;
+- preprocessing/transforms;
+- aggregation rules;
+- missing-data/censoring rules;
+- outlier and failure handling;
+- reference/oracle dataset or generator identity;
+- hidden-test partition and access policy;
+- threshold/tolerance profile;
+- statistical method identity;
+- multiplicity/peeking policy;
+- evaluator configuration;
+- evaluator cache/memory/model state.
+
+Keep these roles separate:
+
+    TheoremSubject
+    QualificationVerifier
+    EvaluationEvaluator
+    EvaluationExecutionEnvironment
+    QualificationReceipt
+
+Where independence is required, the candidate must not modify evaluator code, evaluator thresholds, hidden references, evaluator memory/cache, failure classification, or final qualification decisions.
+
+Self-evaluation may remain exploratory, but it is not independent qualification evidence.
+
+### Evaluator mutation controls
+
+The adversarial corpus should include:
+
+1. threshold changes after observing a favorable Delta;
+2. adding a metric after observing failure;
+3. deleting an unfavorable metric;
+4. UPDATE-only preprocessing;
+5. candidate output warming evaluator cache/model state used for HOLD;
+6. shared mutable evaluator RNG;
+7. candidate output used to train a reference/evaluator;
+8. hidden-test routing changed after intermediate results;
+9. failure/divergence handling changed after inspection;
+10. prior campaign results silently fed into the current score.
+
+A confirmatory run must fail closed when evaluator identity/state continuity cannot be established.
+
+### Selection firewall
+
+Record:
+
+- candidate generation identity;
+- candidate universe/budget;
+- selection rule;
+- information available at selection time;
+- evaluator information available before selection;
+- whether any evaluator output crossed the selection boundary.
+
+If the same held-out outcomes informed candidate selection and final confirmation, classify the result as exploratory unless a separate validation corpus exists.
+
+### Hidden-reference rule
+
+A protected reference corpus remains outside the candidate's optimization channel.
+
+The receipt commits the reference identity, partition, access policy, sampling procedure, oracle version/digest, and write permissions.
 
 ## Divergence accounting
 
 Always expose:
 
-```
-attempted forks
-successful paired forks
-diverged UPDATE forks
-diverged HOLD forks
-unresolved forks
-```
+    attempted forks
+    successful paired forks
+    diverged UPDATE forks
+    diverged HOLD forks
+    unresolved forks
 
 Do not drop inconvenient branches from the denominator.
+
+## Action-dependent observation and distribution shift
+
+An UPDATE can change the process that generates later observations. Consequently, a HOLD/UPDATE comparison over a long adaptive trajectory may mix:
+
+- direct update effect;
+- process-state mediation;
+- observation-policy change;
+- action-dependent missingness/censoring;
+- changed future decision opportunities;
+- passive environmental drift.
+
+The evidence packet must keep these effects explicit.
+
+### Time-indexed causal ledger
+
+At each decision epoch, record where applicable:
+
+- pre-treatment state;
+- decision/trigger information;
+- candidate/update action;
+- post-action state;
+- observation policy;
+- observed data;
+- missingness/censoring state;
+- next decision eligibility;
+- outcome.
+
+Temporal order is part of the evidence identity.
+
+Post-update variables must not be silently treated as baseline covariates. Whether they are confounders, mediators, outcomes, or part of a closed-loop policy value depends on the declared estimand.
+
+### Observation-policy identity
+
+Bind:
+
+- sensor modalities;
+- sampling frequency/timing;
+- trigger-dependent sampling;
+- feature extraction;
+- filters/windowing;
+- dropout rules;
+- manual/operator observation rules where applicable;
+- logging/capture conditions;
+- data inclusion/exclusion;
+- whether UPDATE changes any of the above.
+
+A revision that changes what is observed changes the treatment environment as well as the process.
+
+### Distribution-shift taxonomy
+
+Report separately:
+
+    PassiveDrift
+    ActionInducedShift
+    ObservationPolicyShift
+    CensoringShift
+    SupportViolation
+    ShiftUnresolved
+
+Do not collapse all distribution movement into one generic drift scalar.
+
+### Support and positivity
+
+For regime comparisons that use weighting, modeling, or transport across histories, declare support/positivity assumptions before execution.
+
+Record diagnostics such as:
+
+- observed history support by decision point;
+- action frequency by stratum;
+- trigger-rate differences;
+- rare/unreachable histories;
+- censoring/attrition by regime;
+- extrapolation outside observed support.
+
+Post-hoc weighting must not be introduced merely to turn an unfavorable result favorable.
+
+A support failure narrows the estimand or blocks the affected inference rather than being normalized away.
+
+### Passive-drift controls
+
+Where the environment can drift without UPDATE, expose:
+
+- time/sequence effects;
+- batch/order effects;
+- exogenous environment changes;
+- maintenance/calibration changes;
+- resource depletion;
+- background process mutation.
+
+An improvement that exists only because it happened later in the sequence is not automatically revision value.
+
+### Action-dependent observation fixtures
+
+Include synthetic fixtures where UPDATE intentionally:
+
+1. changes the measurement distribution;
+2. changes sensor trigger frequency;
+3. changes missingness/censoring;
+4. changes which future states are sampled;
+5. changes event timing;
+6. changes the opportunity set for later updates;
+7. changes resource availability and observation cadence.
+
+Expected behavior is explicit shift classification, estimand narrowing, or fail-closed inference where the declared protocol cannot support the intended claim.
+
+### Timing and decision-point controls
+
+Bind:
+
+- decision timestamps/epochs;
+- waiting time since the prior update;
+- trigger-to-update latency;
+- observation-to-decision latency;
+- time under HOLD;
+- time under UPDATE;
+- whether timing is policy-controlled or outcome-responsive.
+
+Two episodes with the same number of updates are not necessarily the same treatment regime when timing differs materially.
+
+### Estimand families
+
+Make room for:
+
+- StateAnchoredValue;
+- ClosedLoopValue;
+- ObservationPolicyEffect;
+- PhysicalSequentialRegimeValue.
+
+For non-branchable physical systems, use a sequential experimental/observational design appropriate to the physical setting rather than relabeling it as a rewinded counterfactual.
+
+## Recurrence
+
+After a primary A -> B campaign, separately test:
+
+    A -> B -> A
+
+Measure:
+
+- recurrence recognition;
+- relearning cost;
+- retained A structure;
+- retained B structure;
+- update churn;
+- oscillation;
+- stability.
+
+Do not make recurrence part of the first acceptance predicate until its estimator is independently frozen.
 
 ## Resource normalization
 
@@ -306,42 +501,37 @@ Report or normalize:
 - peak memory;
 - observation interaction budget.
 
+If the evaluation mechanism itself is part of the proposed deployed architecture, account for its resource cost separately rather than hiding it in the baseline.
+
 ## Scientific-source boundary
 
 Prediction, simulation, replay, pseudo-labeling, and self-generated representations remain their original provenance class.
 
-```
-prediction agreement
-!= new observation
+    prediction agreement != new observation
 
-simulation reconstruction
-!= physical calibration evidence
+    simulation reconstruction != physical calibration evidence
 
-self-generated label
-!= independent validation
-```
+    self-generated label != independent validation
 
 This is particularly important for sensor adaptation and physical-system qualification.
 
 ## Qualification progression
 
-```
-frozen research specification
-        ↓
-dependency-light deterministic reference model
-        ↓
-independent verifier
-        ↓
-adversarial mutation corpus
-        ↓
-exact-head hosted execution
-        ↓
-repeated matched campaign
-        ↓
-recurrence / retention campaign
-        ↓
-separate physical validation
-```
+    frozen research specification
+            ↓
+    dependency-light deterministic reference model
+            ↓
+    independent verifier
+            ↓
+    adversarial mutation corpus
+            ↓
+    exact-head hosted execution
+            ↓
+    repeated matched campaign
+            ↓
+    recurrence / retention campaign
+            ↓
+    separate physical validation
 
 No later rung upgrades the earlier evidence beyond its declared claim ceiling.
 
@@ -353,7 +543,9 @@ Mycelix:
 - #4550 — trigger and regression confound controls;
 - #4551 — synthetic vs non-branchable physical counterfactuals;
 - #4565 — adaptive peeking and multiplicity;
-- #4566 — interference/carryover/shared-environment contamination.
+- #4566 — interference/carryover/shared-environment contamination;
+- #4569 — evaluator identity/state integrity and assessor-adaptation controls;
+- #4570 — action-dependent observation and policy-induced distribution shift.
 
 Symthaea:
 
@@ -362,17 +554,19 @@ Symthaea:
 - #3395 — uncertainty-guided metaplasticity;
 - #3446 — context remapping and representational reserve;
 - #5859 — sensor provenance-aware learning;
-- #7029 — unified continual-adaptation evaluation spine.
+- #7029 — unified continual-adaptation evaluation spine;
+- #7030 — adaptive cognition evaluation with evaluator-state and observation-shift integrity.
 
 ## Claim ceiling
 
-A qualified implementation of this spine establishes only that the declared synthetic evaluation protocol correctly enforces its identities, partitions, counterfactual structure, statistical controls, resource reporting, and protected outcomes.
+A qualified implementation of this spine establishes only that the declared synthetic evaluation protocol correctly enforces its identities, partitions, counterfactual structure, evaluator integrity, action-dependent observation controls, statistical controls, resource reporting, and protected outcomes.
 
 It does not establish:
 
 - real-world model truth;
 - physical causal efficacy;
 - generalization beyond the frozen evaluation distribution;
+- absence of unmeasured confounding;
 - biological equivalence;
 - safe autonomous self-modification;
 - consciousness;
