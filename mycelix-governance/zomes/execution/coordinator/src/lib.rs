@@ -756,7 +756,10 @@ pub fn invoke_execution(input: InvokeExecutionInput) -> ExternResult<Record> {
         status: if execution_result.success {
             ExecutionStatus::Success
         } else {
-            ExecutionStatus::Failed
+            // execute_actions may have entered an effecting boundary and returned
+            // an error, or may have partially applied a batch. Until authoritative
+            // reconciliation proves no effect, this is Indeterminate rather than Failed.
+            ExecutionStatus::Indeterminate
         },
         result: execution_result.result.clone(),
         error: execution_result.error.clone(),
