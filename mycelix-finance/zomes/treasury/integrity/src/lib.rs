@@ -660,7 +660,7 @@ fn validate_create_commons_pool(
 }
 
 fn validate_update_commons_pool(
-    _action: Update,
+    action: Update,
     pool: CommonsPool,
 ) -> ExternResult<ValidateCallbackResult> {
     if !pool.demurrage_exempt {
@@ -668,7 +668,28 @@ fn validate_update_commons_pool(
             "Commons pool must remain demurrage exempt (constitutional requirement)".into(),
         ));
     }
-    validate_commons_pool_reserve_ratio(&pool)
+    validate_commons_pool_reserve_ratio(&pool)?;
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<CommonsPool>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original CommonsPool predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original commons-pool update predecessor is not a CommonsPool entry".into(),
+        ))
+    })?;
+    if original.id != pool.id
+        || original.dao_did != pool.dao_did
+        || original.demurrage_exempt != pool.demurrage_exempt
+        || original.created_at != pool.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CommonsPool identity and constitutional configuration cannot change across updates"
+                .into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_compost_receival(
