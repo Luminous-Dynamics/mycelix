@@ -293,7 +293,7 @@ mod tests {
         let mut duplicate_json = serde_json::to_string(&identity).unwrap();
         duplicate_json.insert_str(
             duplicate_json.len() - 1,
-            &format!(",\"artifact_sha256\":\"{}\"}}", identity.artifact_sha256),
+            &format!(",\"artifact_sha256\":\"{}\"}}", "00".repeat(SHA256_HEX_LEN / 2)),
         );
         assert!(serde_json::from_str::<FpmWasmArtifactIdentity>(&duplicate_json).is_err());
     }
