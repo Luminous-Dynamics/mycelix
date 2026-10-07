@@ -11,40 +11,58 @@ sig Subject {
   externalReviewers: set Subject
 }
 
-fun criticalCount[s: Subject]: Int {
-  #(s.roles & (Operator + Verifier + EvidenceArchive + Adjudicator))
+fun roleCount[s: Subject]: Int {
+  #s.roles
 }
 
 pred independentReview[s: Subject] {
-  some r: s.externalReviewers | r != s
+  some r: s.externalReviewers |
+    r != s and
+    no r.roles
 }
 
 fact RoleConcentrationRequiresFinding {
   all s: Subject |
-    criticalCount[s] >= 2 implies s.conflictFinding = On
+    roleCount[s] >= 2 implies s.conflictFinding = On
 }
 
 fact FullControlRequiresIndependentReview {
   all s: Subject |
-    criticalCount[s] = 4 implies independentReview[s]
+    roleCount[s] = 4 implies independentReview[s]
 }
 
 pred ConcentratedRolesWithFinding {
   some s: Subject |
-    criticalCount[s] >= 2 and
+    roleCount[s] >= 2 and
     s.conflictFinding = On
 }
 
 pred FullControlWithIndependentReview {
   some s: Subject |
-    criticalCount[s] = 4 and
+    roleCount[s] = 4 and
     independentReview[s]
+}
+
+pred FullControlWithRoleDisjointReview {
+  some s: Subject, r: Subject |
+    roleCount[s] = 4 and
+    r in s.externalReviewers and
+    r != s and
+    no r.roles
 }
 
 pred SelfReviewOnlyFullControl {
   some s: Subject |
-    criticalCount[s] = 4 and
+    roleCount[s] = 4 and
     s.externalReviewers = {s}
+}
+
+pred SameRoleReviewerFullControl {
+  some disj s, r: Subject |
+    roleCount[s] = 4 and
+    r in s.externalReviewers and
+    r != s and
+    some r.roles
 }
 
 run ConcentratedRolesWithFinding
@@ -53,22 +71,28 @@ run ConcentratedRolesWithFinding
 run FullControlWithIndependentReview
   for 4 int, 4 Subject, 4 Role
 
+run FullControlWithRoleDisjointReview
+  for 4 int, 4 Subject, 4 Role
+
 run SelfReviewOnlyFullControl
+  for 4 int, 4 Subject, 4 Role
+
+run SameRoleReviewerFullControl
   for 4 int, 4 Subject, 4 Role
 
 assert RoleConcentrationRequiresFindingInvariant {
   all s: Subject |
-    criticalCount[s] >= 2 implies s.conflictFinding = On
+    roleCount[s] >= 2 implies s.conflictFinding = On
 }
 
 assert FullControlRequiresIndependentReviewInvariant {
   all s: Subject |
-    criticalCount[s] = 4 implies independentReview[s]
+    roleCount[s] = 4 implies independentReview[s]
 }
 
 assert SelfReviewAloneDoesNotCountAsIndependentReview {
   all s: Subject |
-    s.externalReviewers = s implies not independentReview[s]
+    s.externalReviewers = {s} implies not independentReview[s]
 }
 
 check RoleConcentrationRequiresFindingInvariant
