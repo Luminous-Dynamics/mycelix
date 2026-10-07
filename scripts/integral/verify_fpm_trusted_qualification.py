@@ -158,7 +158,7 @@ def verify_receipt(
     manifest: dict[str, Any],
     policy_file: dict[str, Any],
     verifier_control: dict[str, Any],
-) -> str:
+) -> tuple[str, str, str]:
     if set(receipt) != RECEIPT_KEYS:
         fail(
             "receipt closed-world mismatch: "
@@ -270,17 +270,6 @@ def verify_receipt(
     if manifest["sha"] != MANIFEST_BLOB_SHA:
         fail("manifest blob mismatch")
 
-    for key in (
-        "candidate_sha",
-        "candidate_tree",
-        "candidate_repository",
-        "candidate_repository_id",
-        "candidate_pr",
-        "trusted_policy_sha",
-        "trusted_policy_blob_sha",
-    ):
-        if key == "candidate_sha":
-            pass
 
     if receipt["manifest_blob_sha"] != MANIFEST_BLOB_SHA:
         fail("receipt manifest blob mismatch")
@@ -324,7 +313,7 @@ def verify_receipt(
     canonical = json.dumps(
         receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True
     ).encode("utf-8")
-    return hashlib.sha256(canonical).hexdigest()
+    return hashlib.sha256(canonical).hexdigest(), verifier_sha, verifier_blob_sha
 
 
 def verify_index(
@@ -438,7 +427,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
             fail(f"{label} artifact head repository mismatch")
         require_sha256_prefixed(item["digest"], f"{label} artifact digest")
 
-    receipt_digest = verify_receipt(
+    receipt_digest, verifier_sha, verifier_blob_sha = verify_receipt(
         receipt=receipt,
         expected_trusted_run_id=trusted_run["id"],
         expected_trusted_run_attempt=trusted_run["run_attempt"],
