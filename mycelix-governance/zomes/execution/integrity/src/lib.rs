@@ -382,8 +382,20 @@ pub fn check_create_timelock(timelock: &Timelock) -> Result<(), String> {
 /// Check that a timelock update is valid: immutable proposal_id, and only
 /// whitelisted status transitions are allowed.
 pub fn check_update_timelock(original: &Timelock, updated: &Timelock) -> Result<(), String> {
+    if updated.id != original.id {
+        return Err("Cannot change timelock ID".into());
+    }
     if updated.proposal_id != original.proposal_id {
         return Err("Cannot change timelock proposal ID".into());
+    }
+    if updated.actions != original.actions {
+        return Err("Cannot change timelock material actions after creation".into());
+    }
+    if updated.started != original.started {
+        return Err("Cannot change timelock start time after creation".into());
+    }
+    if updated.expires != original.expires {
+        return Err("Cannot change timelock expiry after creation".into());
     }
     match (&original.status, &updated.status) {
         (TimelockStatus::Pending, TimelockStatus::Ready)
@@ -927,6 +939,34 @@ fn validate_update_fund_allocation(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn timelock_material_action_is_immutable() {
+        let base = Timelock {
+            id: "timelock-1".into(),
+            proposal_id: "proposal-1".into(),
+            actions: "{\"type\":\"EmitEvent\",\"event\":\"x\"}".into(),
+            started: Timestamp::from_micros(1),
+            expires: Timestamp::from_micros(2),
+            status: TimelockStatus::Pending,
+            cancellation_reason: None,
+        };
+
+        let mut changed_actions = base.clone();
+        changed_actions.actions = "{\"type\":\"EmitEvent\",\"event\":\"y\"}".into();
+        changed_actions.status = TimelockStatus::Ready;
+        assert!(check_update_timelock(&base, &changed_actions).is_err());
+
+        let mut changed_id = base.clone();
+        changed_id.id = "timelock-2".into();
+        changed_id.status = TimelockStatus::Ready;
+        assert!(check_update_timelock(&base, &changed_id).is_err());
+
+        let mut changed_expiry = base.clone();
+        changed_expiry.expires = Timestamp::from_micros(3);
+        changed_expiry.status = TimelockStatus::Ready;
+        assert!(check_update_timelock(&base, &changed_expiry).is_err());
+    }
+
     #[test]
     fn execution_indeterminate_is_not_a_failed_outcome() {
         assert_ne!(
