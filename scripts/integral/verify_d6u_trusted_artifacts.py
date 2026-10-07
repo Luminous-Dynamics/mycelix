@@ -439,10 +439,48 @@ def verify_cases(log: str, policy: dict) -> None:
     assert len(app) == 1
 
 
+def verify_lock_graph_integrity(lock: dict, policy: dict) -> None:
+    packages = lock.get("package", [])
+    assert isinstance(packages, list) and packages
+    graph_policy = policy["lock_graph"]
+    local_packages = set(graph_policy["allowed_local_packages"])
+    assert local_packages
+    observed_local = []
+    seen = set()
+    for package in packages:
+        assert isinstance(package, dict)
+        name = package.get("name")
+        version = package.get("version")
+        assert isinstance(name, str) and name
+        assert isinstance(version, str) and version
+        identity = (name, version, package.get("source"))
+        assert identity not in seen, f"duplicate Cargo.lock package identity: {identity!r}"
+        seen.add(identity)
+        if name in local_packages:
+            assert package.get("source") is None
+            assert package.get("checksum") is None
+            observed_local.append(name)
+            continue
+        assert package.get("source") == graph_policy["required_registry_source"], (
+            f"Cargo.lock package {name!r} resolves from an untrusted source: "
+            f"{package.get('source')!r}"
+        )
+        checksum = package.get("checksum", "")
+        assert re.fullmatch(r"[0-9a-f]{64}", checksum), (
+            f"Cargo.lock registry package {name!r} must include a 64-hex checksum"
+        )
+
+    assert observed_local == sorted(local_packages), (
+        f"Cargo.lock local package set mismatch: expected={sorted(local_packages)!r}, "
+        f"observed={sorted(observed_local)!r}"
+    )
+
+
 def verify_lock(path: Path, policy: dict) -> None:
     import tomllib
 
     lock = tomllib.loads(path.read_text(encoding="utf-8"))
+    verify_lock_graph_integrity(lock, policy)
     packages = lock.get("package", [])
     for name, version in policy["lock_packages"].items():
         matches = [p for p in packages if p.get("name") == name]
