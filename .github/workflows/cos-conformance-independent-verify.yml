@@ -353,8 +353,39 @@ jobs:
 
           gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload-after.json
           gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload-after.json
-          GH_TOKEN="${ruleset_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100"             | jq 'add' > evidence/governance/rulesets-index-after-payload.json
-          GH_TOKEN="${effective_rules_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100"             | jq 'add' > evidence/governance/effective-rules-payload-after.json
+          GH_TOKEN="${ruleset_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" \
+            | jq 'add' > evidence/governance/rulesets-index-after-payload.json
+
+          mapfile -t ruleset_ids_after < <(jq -r '.[].id' evidence/governance/rulesets-index-after-payload.json)
+          rm -rf evidence/governance/rulesets-after
+          mkdir -p evidence/governance/rulesets-after
+          for ruleset_id in "${ruleset_ids_after[@]}"; do
+            GH_TOKEN="${ruleset_token}" gh api \
+              "repos/${GITHUB_REPOSITORY}/rulesets/${ruleset_id}?includes_parents=true" \
+              > "evidence/governance/rulesets-after/${ruleset_id}.json"
+          done
+
+          if ((${#ruleset_ids_after[@]} == 0)); then
+            printf '[]\n' > evidence/governance/rulesets-payload-after.json
+          else
+            jq -s '.' evidence/governance/rulesets-after/*.json > evidence/governance/rulesets-payload-after.json
+          fi
+
+          GH_TOKEN="${effective_rules_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" \
+            | jq 'add' > evidence/governance/effective-rules-payload-after.json
+
+          set +e
+          curl -sS \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            -H "Authorization: Bearer ${protection_token}" \
+            -o evidence/governance/branch-protection-payload-after.json \
+            -w "%{http_code}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/branches/main/protection" \
+            > evidence/governance/branch-protection-http-status-after.txt
+          curl_status_after=$?
+          set -e
+          test "${curl_status_after}" -eq 0
 
           python - <<'PY'
           import json
@@ -380,6 +411,9 @@ jobs:
                   (json.dumps(entry, sort_keys=True, separators=(",", ":")) for entry in payload)
               )
 
+          def json_signature(payload):
+              return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
           repository_before = load("evidence/governance/repository-payload.json")
           repository_after = load("evidence/governance/repository-payload-after.json")
           for key in ("id", "full_name", "default_branch"):
@@ -400,11 +434,29 @@ jobs:
               "ruleset index changed during governance observation"
           )
 
+          full_rulesets_before = load("evidence/governance/rulesets-payload.json")
+          full_rulesets_after = load("evidence/governance/rulesets-payload-after.json")
+          assert json_signature(full_rulesets_before) == json_signature(full_rulesets_after), (
+              "full ruleset objects changed during governance observation"
+          )
+
           effective_before = load("evidence/governance/effective-rules-payload.json")
           effective_after = load("evidence/governance/effective-rules-payload-after.json")
           assert effective_signature(effective_before) == effective_signature(effective_after), (
               "effective branch rules changed during governance observation"
           )
+
+          protection_status_before = Path("evidence/governance/branch-protection-http-status.txt").read_text().strip()
+          protection_status_after = Path("evidence/governance/branch-protection-http-status-after.txt").read_text().strip()
+          assert protection_status_before == protection_status_after, (
+              "classic branch protection HTTP status changed during governance observation"
+          )
+          if protection_status_before == "200":
+              protection_before = load("evidence/governance/branch-protection-payload.json")
+              protection_after = load("evidence/governance/branch-protection-payload-after.json")
+              assert json_signature(protection_before) == json_signature(protection_after), (
+                  "classic branch protection payload changed during governance observation"
+              )
           PY
 
           export ADMIN_SOURCE="${admin_source}"
