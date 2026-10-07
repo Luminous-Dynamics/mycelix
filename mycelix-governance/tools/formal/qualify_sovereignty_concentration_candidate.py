@@ -113,6 +113,8 @@ def main() -> int:
     args.evidence_dir.mkdir(parents=True, exist_ok=True)
     profile = json.loads(args.profile.read_text(encoding="utf-8"))
     pins = json.loads(args.pins.read_text(encoding="utf-8"))
+    if pins["nixpkgs_rev"] != "a50bf0c1b07873c1a53892292017041a8f0a1288":
+        fail("unexpected Nixpkgs pin")
     if pins["schema"] != "mycelix.sovereignty-concentration-formal-tool-pins.v1":
         fail("unexpected concentration tool pin schema")
     execution = profile["execution"]
@@ -140,6 +142,28 @@ def main() -> int:
         fail("profile TLA negative-control contract mismatch")
 
     model = profile["models"]
+    expected_paths = {
+        "tla": model["tla"]["path"],
+        "cfg": model["tla"]["config_path"],
+        "negative_tla": model["negative_tla"]["path"],
+        "alloy": model["alloy"]["path"],
+        "reference": model["reference"]["path"],
+    }
+    actual_paths = {
+        "tla": args.tla.as_posix(),
+        "cfg": args.cfg.as_posix(),
+        "negative_tla": args.negative_tla.as_posix(),
+        "alloy": args.alloy.as_posix(),
+        "reference": "mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py",
+    }
+    if actual_paths != expected_paths:
+        fail("candidate formal execution paths do not match frozen profile")
+    if model["negative_tla"]["controls"] != TLA_CONTROLS:
+        fail("profile TLA negative-control set mismatch")
+    if model["alloy"]["negative_controls"] != ALLOY_NEGATIVE_FACTS:
+        fail("profile Alloy negative-control set mismatch")
+    if model["reference"]["controls"] != REFERENCE_CONTROLS:
+        fail("profile reference negative-control set mismatch")
     for path, expected in [
         (args.tla, model["tla"]["git_blob_sha"]),
         (args.cfg, model["tla"]["config_git_blob_sha"]),
