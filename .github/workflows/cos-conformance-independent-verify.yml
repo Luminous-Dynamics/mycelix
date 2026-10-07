@@ -15,7 +15,7 @@ on:
         required: true
         type: string
 
-# The verifier is a trusted control plane. PR execution is isolated into its
+# This workflow is main-controlled. PR execution is isolated into its
 # own job; only immutable job outputs and artifact data cross into validation.
 permissions: {}
 
@@ -101,12 +101,12 @@ jobs:
           scanned_lines = scanned_text.splitlines()
 
           assert "permissions: {}" in scanned_text
-          assert scanned_text.count("\n    cache-mode: none\n") == 3
+          assert scanned_text.count("\n    cache-mode: none\n") == 4
           assert ("actions" + "/cache@") not in scanned_text
-          assert ("secrets" + ".") not in scanned_text
+          assert scanned_text.count("GOVERNANCE_ADMIN_TOKEN") == 1
           assert ("allow-unsafe-pr-checkout" + ": true") not in scanned_text
-          assert scanned_text.count("actions/checkout@") == 2
-          assert scanned_text.count("persist-credentials: false") == 2
+          assert scanned_text.count("actions/checkout@") == 3
+          assert scanned_text.count("persist-credentials: false") == 3
           assert scanned_text.count("digest-mismatch: error") == 1
           assert scanned_text.count("artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}") == 1
           assert "actions/artifacts/${EXPECTED_ARTIFACT_ID}" in scanned_text
@@ -228,6 +228,248 @@ jobs:
             printf 'trigger_event=%s\n' "${TRIGGER_EVENT}"
             printf 'trigger_conclusion=%s\n' "${TRIGGER_CONCLUSION}"
           } >> "${GITHUB_OUTPUT}"
+
+
+  governance:
+    name: Observe repository governance
+    needs: prepare
+    if: ${{ needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    cache-mode: none
+    env:
+      GOVERNANCE_ADMIN_TOKEN: ${{ secrets.GOVERNANCE_ADMIN_TOKEN }}
+    outputs:
+      governance_state: ${{ steps.governance.outputs.governance_state }}
+      governance_valid: ${{ steps.governance.outputs.governance_valid }}
+      grants_trusted_verifier_root: ${{ steps.governance.outputs.grants_trusted_verifier_root }}
+      authoritative_admin_observation: ${{ steps.governance.outputs.authoritative_admin_observation }}
+      observation_sha256: ${{ steps.governance.outputs.observation_sha256 }}
+      admin_observation_source: ${{ steps.governance.outputs.admin_observation_source }}
+      governance_artifact_id: ${{ steps.governance_artifact.outputs.artifact-id }}
+      governance_artifact_digest: ${{ steps.governance_artifact.outputs.artifact-digest }}
+    steps:
+      - name: Assert main-controlled verifier
+        env:
+          EXPECTED_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/cos-conformance-independent-verify.yml@refs/heads/main
+          ACTUAL_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          test "${ACTUAL_WORKFLOW_REF}" = "${EXPECTED_WORKFLOW_REF}" || {
+            echo "untrusted workflow ref: expected ${EXPECTED_WORKFLOW_REF}, got ${ACTUAL_WORKFLOW_REF}" >&2
+            exit 1
+          }
+
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.trusted_workflow_sha }}
+          clean: true
+          persist-credentials: false
+
+      - name: Capture live repository governance
+        id: governance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/governance
+
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload.json
+          policy_hash="$(python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          policy = json.loads(Path("docs/ci/repository_governance_policy_v1.json").read_text(encoding="utf-8"))
+          print(hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
+          PY
+          )"
+
+          gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" > evidence/governance/rulesets-payload.json
+
+          protection_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
+          admin_source="repository_administration_secret"
+          if [[ -z "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
+            admin_source="github_token"
+          fi
+
+          set +e
+          curl -sS \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            -H "Authorization: Bearer ${protection_token}" \
+            -o evidence/governance/branch-protection-payload.json \
+            -w "%{http_code}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/branches/main/protection" \
+            > evidence/governance/branch-protection-http-status.txt
+          curl_status=$?
+          set -e
+          test "${curl_status}" -eq 0
+
+          export ADMIN_SOURCE="${admin_source}"
+          export PROTECTION_STATUS="$(cat evidence/governance/branch-protection-http-status.txt)"
+          export POLICY_HASH="${policy_hash}"
+
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          repo_id = int(subprocess.check_output(
+              ["gh", "api", f"repos/{repo}", "--jq", ".id"], text=True
+          ).strip())
+
+          branch_raw = Path("evidence/governance/branch-payload.json").read_bytes()
+          rulesets_raw = Path("evidence/governance/rulesets-payload.json").read_bytes()
+          protection_raw = Path("evidence/governance/branch-protection-payload.json").read_bytes()
+          branch = json.loads(branch_raw)
+          rulesets = json.loads(rulesets_raw)
+          assert isinstance(rulesets, list)
+
+          protection_status = int(os.environ["PROTECTION_STATUS"])
+          admin_source = os.environ["ADMIN_SOURCE"]
+          admin_verified = (
+              admin_source == "repository_administration_secret"
+              and bool(os.environ.get("GOVERNANCE_ADMIN_TOKEN"))
+              and protection_status == 200
+          )
+
+          protection = None
+          if protection_status == 200:
+              source = json.loads(protection_raw)
+              review = source.get("required_pull_request_reviews")
+              enforce_admins = source.get("enforce_admins") or {}
+              allow_force_pushes = source.get("allow_force_pushes")
+              allow_deletions = source.get("allow_deletions")
+              bypass = []
+
+              if isinstance(review, dict):
+                  allowances = review.get("bypass_pull_request_allowances") or {}
+                  for actor in allowances.get("users") or []:
+                      bypass.append({"actor_type": "User", "actor_id": actor})
+                  for actor in allowances.get("teams") or []:
+                      bypass.append({"actor_type": "Team", "actor_id": actor})
+                  for actor in allowances.get("apps") or []:
+                      bypass.append({"actor_type": "Integration", "actor_id": actor})
+              if enforce_admins.get("enabled") is not True:
+                  bypass.append({"actor_type": "RepositoryAdministrator"})
+
+              protection = {
+                  "pull_request_required": isinstance(review, dict),
+                  "required_approving_review_count": (
+                      review.get("required_approving_review_count")
+                      if isinstance(review, dict)
+                      else 0
+                  ),
+                  "dismiss_stale_reviews_on_push": (
+                      review.get("dismiss_stale_reviews") is True
+                      if isinstance(review, dict)
+                      else False
+                  ),
+                  "require_last_push_approval": (
+                      review.get("require_last_push_approval") is True
+                      if isinstance(review, dict)
+                      else False
+                  ),
+                  "required_conversation_resolution": (
+                      source.get("required_conversation_resolution") is True
+                  ),
+                  "block_force_push": (
+                      isinstance(allow_force_pushes, dict)
+                      and allow_force_pushes.get("enabled") is False
+                  ),
+                  "block_deletion": (
+                      isinstance(allow_deletions, dict)
+                      and allow_deletions.get("enabled") is False
+                  ),
+                  "bypass_actors": bypass,
+                  "administrator_bypass_prevented": (
+                      enforce_admins.get("enabled") is True
+                  ),
+              }
+
+          observation = {
+              "schema": "MYCELIX-REPOSITORY-GOVERNANCE-OBSERVATION-V1",
+              "version": 1,
+              "repository": repo,
+              "repository_id": repo_id,
+              "target_ref": "refs/heads/main",
+              "observed_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+              "policy_sha256": os.environ["POLICY_HASH"],
+              "branch_payload_base64": base64.b64encode(branch_raw).decode(),
+              "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
+              "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
+              "rulesets_payload_sha256": hashlib.sha256(rulesets_raw).hexdigest(),
+              "branch": {
+                  "name": branch.get("name"),
+                  "target_ref": "refs/heads/main",
+                  "protected": branch.get("protected"),
+              },
+              "rulesets": {"entries": rulesets},
+              "branch_protection_api": {"http_status": protection_status},
+              "admin_observation": {
+                  "status": "verified" if admin_verified else "unverified",
+                  "source": admin_source,
+                  "protection": protection,
+              },
+          }
+
+          Path("evidence/governance/observation.json").write_text(
+              json.dumps(observation, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          set +e
+          python scripts/validate_repository_governance_observation_v1.py \
+            --observation evidence/governance/observation.json \
+            > evidence/governance/result.json
+          evaluator_status=$?
+          set -e
+          case "${evaluator_status}" in
+            0|2) ;;
+            *) echo "governance evaluator structural failure: ${evaluator_status}" >&2; exit "${evaluator_status}" ;;
+          esac
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path("evidence/governance/result.json").read_text())
+          assert result["governance_state"] in {"VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"}
+          assert isinstance(result["grants_trusted_verifier_root"], bool)
+          assert result["grants_trusted_verifier_root"] is (result["governance_state"] == "VERIFIED")
+          if result["governance_state"] == "NOT_RUN":
+              raise SystemExit("governance observation did not produce a usable predicate result")
+          with open("/tmp/governance.outputs", "w", encoding="utf-8") as out:
+              out.write(f"governance_state={result['governance_state']}\n")
+              out.write(f"governance_valid={'true' if result['valid'] else 'false'}\n")
+              out.write(f"grants_trusted_verifier_root={'true' if result['grants_trusted_verifier_root'] else 'false'}\n")
+              out.write(f"authoritative_admin_observation={'true' if result['authoritative_admin_observation'] else 'false'}\n")
+              out.write(f"admin_observation_source={json.loads(Path('evidence/governance/observation.json').read_text())['admin_observation']['source']}\n")
+          PY
+          observation_sha256="$(sha256sum evidence/governance/observation.json | awk '{print $1}')"
+          {
+            cat /tmp/governance.outputs
+            printf 'observation_sha256=%s\n' "${observation_sha256}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Preserve governance observation
+        if: always()
+        id: governance_artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-governance-observation-${GITHUB_RUN_ID}
+          path: evidence/governance/
+          if-no-files-found: error
+          retention-days: 30
 
   execute:
     name: Execute exact PR head
