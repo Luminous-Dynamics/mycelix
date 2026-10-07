@@ -76,8 +76,8 @@ jobs:
               CARGO_BUILD_RUSTC|CARGO_BUILD_RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTDOCFLAGS|\
               CARGO_ENCODED_RUSTDOCFLAGS|CARGO_BUILD_TARGET|CARGO_NET_OFFLINE|CARGO_NET_GIT_FETCH_WITH_CLI|\
               CARGO_TARGET_DIR|CARGO_TARGET_*_RUNNER|CARGO_TARGET_*_LINKER|CARGO_TARGET_*_RUSTFLAGS|\
-              CARGO_TARGET_*_RUSTDOCFLAGS|
-              CARGO_REGISTRY_TOKEN|CARGO_REGISTRIES_*_TOKEN|CARGO_REGISTRIES_*_INDEX|\
+              CARGO_TARGET_*_RUSTDOCFLAGS|CARGO_REGISTRY_TOKEN|CARGO_REGISTRIES_*_TOKEN|CARGO_REGISTRIES_*_INDEX|\
+              CARGO_REGISTRIES_*_CREDENTIAL_PROVIDER)
               CARGO_REGISTRIES_*_CREDENTIAL_PROVIDER)
                 echo "forbidden ambient Cargo/Rust environment: $name"
                 forbidden=1
@@ -128,7 +128,7 @@ jobs:
           CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
         run: |
           set -euo pipefail
-          lock_sha="$(sha256sum Cargo.lock | cut -d' ' -f1)"
+          lock_sha="$(sha256sum "${{ github.workspace }}/d6u-runtime-harness/Cargo.lock" | cut -d' ' -f1)"
           printf '%s\n' "$lock_sha" | grep -Eq '^[0-9a-f]{64}$'
           metadata_path="$(mktemp "$RUNNER_TEMP/d6u-cargo-metadata-generated.XXXXXX")"
           trap 'rm -f "$metadata_path"' EXIT
