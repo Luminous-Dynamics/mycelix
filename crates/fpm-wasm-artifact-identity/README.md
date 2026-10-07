@@ -69,4 +69,10 @@ The test-only `holochain_types 0.7.0` oracle is intentionally separate from the 
 
 ## Qualification-gate hardening
 
-The FPM job is downstream of the repository's `changes` gate. Both actions used by that gate are pinned to immutable commit SHAs, and the checkout disables persisted GitHub credentials. This prevents a mutable action tag or leftover checkout credential from becoming part of the FPM qualification path.
+FPM qualification is isolated in `.github/workflows/fpm-wasm-artifact-identity.yml` rather than inheriting the generic CI cancellation policy. It runs for every non-draft pull request, main-branch push, or manual dispatch, so a path-filter decision cannot silently suppress identity qualification.
+
+For pull requests, checkout is explicitly pinned to `github.event.pull_request.head.sha` and the workflow asserts that `git rev-parse HEAD` equals that exact candidate SHA. This prevents the default pull-request merge ref from being mistaken for exact-head evidence.
+
+The qualification workflow grants only `contents: read`, disables persisted checkout credentials, and pins both checkout and the Rust toolchain actions to immutable commit SHAs. It intentionally does not configure a cross-head concurrency group, so a newer candidate cannot cancel or replace the evidence for an older exact head through workflow concurrency.
+
+This is qualification evidence for the checked-out candidate, not proof of repository governance, protected-branch configuration, dependency reproducibility, build provenance, or live execution.
