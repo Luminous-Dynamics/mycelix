@@ -224,6 +224,7 @@ jobs:
 ' "$lock_sha" >> "$GITHUB_OUTPUT"
 
       - name: Create non-privileged candidate identity and freeze source
+        id: sandbox
         run: |
           set -euo pipefail
           if ! id fpm-untrusted >/dev/null 2>&1; then
@@ -236,6 +237,8 @@ jobs:
           candidate_uid="$(sudo -n -u fpm-untrusted id -u)"
           test "$candidate_uid" != "0"
           test "$candidate_uid" != "$(id -u)"
+          printf 'candidate_uid=%s\n' "$candidate_uid" >> "$GITHUB_OUTPUT"
+          printf 'candidate_execution_profile=%s\n' "fpm-untrusted.env-i.v2" >> "$GITHUB_OUTPUT"
           chmod -R a-w candidate
           test -r candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
 
@@ -359,6 +362,8 @@ jobs:
           RUSTC_VERSION: ${{ steps.toolchain.outputs.rustc_version || '' }}
           RUSTC_COMMIT: ${{ steps.toolchain.outputs.rustc_commit || '' }}
           CARGO_VERSION: ${{ steps.toolchain.outputs.cargo_version || '' }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid || '' }}
+          CANDIDATE_EXECUTION_PROFILE: ${{ steps.sandbox.outputs.candidate_execution_profile || '' }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -405,6 +410,8 @@ jobs:
               "rustc_version": os.environ["RUSTC_VERSION"],
               "rustc_commit": os.environ["RUSTC_COMMIT"],
               "cargo_version": os.environ["CARGO_VERSION"],
+              "candidate_uid": int(os.environ["CANDIDATE_UID"]),
+              "candidate_execution_profile": os.environ["CANDIDATE_EXECUTION_PROFILE"],
               "steps": outcomes,
               "execution_pass": execution_pass,
               "procedure_trust": "trusted_default_branch_snapshot",
