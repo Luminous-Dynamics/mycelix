@@ -364,6 +364,7 @@ jobs:
           repository_raw = Path("evidence/governance/repository-payload.json").read_bytes()
 
           branch_raw = Path("evidence/governance/branch-payload.json").read_bytes()
+          rulesets_index_raw = Path("evidence/governance/rulesets-index-payload.json").read_bytes()
           rulesets_raw = Path("evidence/governance/rulesets-payload.json").read_bytes()
           protection_raw = Path("evidence/governance/branch-protection-payload.json").read_bytes()
           branch = json.loads(branch_raw)
@@ -449,6 +450,8 @@ jobs:
               "default_branch": default_branch,
               "repository_payload_base64": base64.b64encode(repository_raw).decode(),
               "repository_payload_sha256": hashlib.sha256(repository_raw).hexdigest(),
+              "rulesets_index_payload_base64": base64.b64encode(rulesets_index_raw).decode(),
+              "rulesets_index_payload_sha256": hashlib.sha256(rulesets_index_raw).hexdigest(),
               "policy_sha256": os.environ["POLICY_HASH"],
               "branch_payload_base64": base64.b64encode(branch_raw).decode(),
               "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
