@@ -11,11 +11,10 @@ use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
 use constitutional_effect_ledger::{ActionKeyV1, AttemptIdentityV1};
+use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 
 /// Mirror type for ThresholdSignature from threshold-signing integrity zome.
 /// Avoids linking the integrity crate (which causes duplicate HDI symbols in WASM).
-///
-/// Uses `SerializedBytes` for Holochain entry deserialization via `to_app_option()`.
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 struct ThresholdSignature {
     pub id: String,
@@ -23,23 +22,87 @@ struct ThresholdSignature {
     pub signed_content_hash: Vec<u8>,
     pub signed_content_description: String,
     pub signature: Vec<u8>,
+    #[serde(default)]
+    pub pq_signature: Option<Vec<u8>>,
+    #[serde(default)]
+    pub signature_algorithm: ThresholdSignatureAlgorithmMirror,
     pub signer_count: u32,
     pub signers: Vec<u32>,
     pub verified: bool,
     pub signed_at: Timestamp,
 }
 
-/// Mirror type for SigningCommittee — extracts only the scope field.
-/// Avoids full dependency on threshold-signing integrity crate (which
-/// causes duplicate HDI symbols in WASM).
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
-struct CommitteeScopeMirror {
-    #[serde(default)]
-    pub scope: serde_json::Value,
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+enum ThresholdSignatureAlgorithmMirror {
+    Ecdsa,
+    MlDsa65,
+    HybridEcdsaMlDsa65,
 }
 
-/// Extract the scope variant name from a CommitteeScopeMirror.
-/// Handles both simple variants ("All") and tagged variants ({"Custom": [...]}).
+impl Default for ThresholdSignatureAlgorithmMirror {
+    fn default() -> Self {
+        Self::Ecdsa
+    }
+}
+
+/// Mirror type for the SigningCommittee fields needed for independent verification.
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+struct CommitteeVerificationMirror {
+    #[serde(default)]
+    pub scope: serde_json::Value,
+    #[serde(default)]
+    pub public_key: Option<Vec<u8>>,
+    #[serde(default)]
+    pub threshold: u32,
+    #[serde(default)]
+    pub member_count: u32,
+    #[serde(default)]
+    pub active: bool,
+    #[serde(default)]
+    pub signature_algorithm: ThresholdSignatureAlgorithmMirror,
+}
+
+fn verify_ecdsa_threshold_signature(
+    signature: &ThresholdSignature,
+    committee: &CommitteeVerificationMirror,
+) -> Result<(), String> {
+    if signature.signed_content_hash.len() != 32 {
+        return Err(format!(
+            "ECDSA authorization requires a 32-byte signed-content hash, got {}",
+            signature.signed_content_hash.len()
+        ));
+    }
+
+    let public_key = committee
+        .public_key
+        .as_deref()
+        .ok_or_else(|| "committee has no public key".to_owned())?;
+    if public_key.len() != 33 {
+        return Err(format!(
+            "committee secp256k1 public key must be 33-byte compressed SEC1, got {}",
+            public_key.len()
+        ));
+    }
+
+    let verifying_key = VerifyingKey::from_sec1_bytes(public_key)
+        .map_err(|e| format!("invalid committee secp256k1 public key: {e}"))?;
+
+    if signature.signature.len() != 64 {
+        return Err(format!(
+            "ECDSA authorization signature must be exactly 64 raw r||s bytes, got {}",
+            signature.signature.len()
+        ));
+    }
+
+    let signature_value = Signature::from_slice(&signature.signature)
+        .map_err(|e| format!("invalid ECDSA authorization signature encoding: {e}"))?;
+
+    verifying_key
+        .verify_prehash(&signature.signed_content_hash, &signature_value)
+        .map_err(|e| format!("ECDSA authorization verification failed: {e}"))
+}
+
+/// Extract the scope variant name from a committee scope value.
 fn extract_scope_name(scope: &serde_json::Value) -> &str {
     match scope {
         serde_json::Value::String(s) => s.as_str(),
@@ -47,7 +110,6 @@ fn extract_scope_name(scope: &serde_json::Value) -> &str {
         _ => "All",
     }
 }
-
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
@@ -363,7 +425,9 @@ fn ensure_execution_authorized(
     Ok(())
 }
 
-fn require_verified_threshold_signature(proposal_id: &str) -> ExternResult<ThresholdSignature> {
+fn require_verified_threshold_signature(
+    proposal_id: &str,
+) -> ExternResult<ThresholdSignature> {
     let response = call(
         CallTargetCell::Local,
         ZomeName::from("threshold_signing"),
@@ -374,72 +438,53 @@ fn require_verified_threshold_signature(proposal_id: &str) -> ExternResult<Thres
     )?;
 
     let extern_io = match response {
-        ZomeCallResponse::Ok(extern_io) => extern_io,
+        ZomeCallResponse::Ok(io) => io,
         ZomeCallResponse::NetworkError(e) => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Refusing execution: threshold-signing verifier returned a network error: {}",
-                e
+                "Refusing execution: threshold-signing verifier network error: {}", e
             ))));
         }
         other => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Refusing execution: threshold-signing verifier returned an unexpected response: {:?}",
-                other
+                "Refusing execution: threshold-signing verifier returned {:?}", other
             ))));
         }
     };
 
-    let maybe_record: Option<Record> = extern_io.decode().map_err(|e| {
+    let signature_record: Option<Record> = extern_io.decode().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "Refusing execution: could not decode threshold-signature verifier response: {}",
-            e
+            "Refusing execution: could not decode threshold signature response: {}", e
         )))
     })?;
-
-    let signature_record = maybe_record.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Refusing execution: no verified threshold signature is available for this proposal."
-            .into(),
+    let signature_record = signature_record.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Refusing execution: no threshold signature is available.".into()
     )))?;
 
     let signature: ThresholdSignature = signature_record
         .entry()
         .to_app_option()
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Refusing execution: threshold signature entry could not be decoded: {}",
-                e
-            )))
-        })?
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Refusing execution: threshold signature record contains no entry.".into(),
+            "Refusing execution: threshold signature record is empty.".into()
         )))?;
-
-    if !signature.verified {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Refusing execution: threshold signature '{}' is not verified.",
-            signature.id
-        ))));
-    }
 
     let (proposal_kind, signed_id) = signature
         .signed_content_description
         .split_once(':')
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Refusing execution: threshold signature content description is not structurally bound to a proposal."
-                .into(),
+            "Refusing execution: threshold signature is not structurally proposal-bound.".into()
         )))?;
 
     if signed_id != proposal_id {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Refusing execution: threshold signature '{}' is bound to '{}' rather than '{}'.",
+            "Refusing execution: threshold signature '{}' targets '{}' rather than '{}'.",
             signature.id, signed_id, proposal_id
         ))));
     }
 
     if !matches!(proposal_kind, "proposal" | "constitutional" | "treasury" | "protocol") {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Refusing execution: unsupported signed proposal kind '{}'.",
-            proposal_kind
+            "Refusing execution: unsupported signed proposal kind '{}'.", proposal_kind
         ))));
     }
 
@@ -456,58 +501,87 @@ fn require_verified_threshold_signature(proposal_id: &str) -> ExternResult<Thres
         ZomeCallResponse::Ok(io) => io,
         ZomeCallResponse::NetworkError(e) => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Refusing execution: committee verifier returned a network error: {}",
-                e
+                "Refusing execution: signing committee verifier network error: {}", e
             ))));
         }
         other => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Refusing execution: committee verifier returned an unexpected response: {:?}",
-                other
+                "Refusing execution: signing committee verifier returned {:?}", other
             ))));
         }
     };
 
     let committee_record: Option<Record> = committee_io.decode().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "Refusing execution: committee verifier response could not be decoded: {}",
-            e
+            "Refusing execution: could not decode signing committee response: {}", e
         )))
     })?;
-
     let committee_record = committee_record.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Refusing execution: signing committee record is unavailable.".into(),
+        "Refusing execution: signing committee is unavailable.".into()
     )))?;
 
-    let committee_mirror = committee_record
+    let committee = committee_record
         .entry()
-        .to_app_option::<CommitteeScopeMirror>()
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Refusing execution: signing committee scope could not be decoded: {}",
-                e
-            )))
-        })?
+        .to_app_option::<CommitteeVerificationMirror>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Refusing execution: signing committee scope is missing.".into(),
+            "Refusing execution: signing committee verification fields are unavailable.".into()
         )))?;
 
-    let scope_name = extract_scope_name(&committee_mirror.scope);
-    let scope_allows = match scope_name {
-        "All" => true,
-        "Constitutional" => proposal_kind == "constitutional",
-        "Treasury" => proposal_kind == "treasury",
-        "Protocol" => proposal_kind == "protocol",
-        _ => false,
-    };
+    if !committee.active {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: signing committee is inactive.".into()
+        )));
+    }
 
-    if !scope_allows {
+    if committee.signature_algorithm != signature.signature_algorithm {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: signature algorithm does not match committee.".into()
+        )));
+    }
+
+    if committee.threshold == 0 || committee.member_count == 0 || committee.threshold > committee.member_count {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: signing committee threshold/member configuration is invalid.".into()
+        )));
+    }
+
+    if signature.signer_count < committee.threshold {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Refusing execution: committee '{}' scope '{}' does not authorize signed proposal kind '{}'.",
-            signature.committee_id, scope_name, proposal_kind
+            "Refusing execution: {} signers do not satisfy threshold {}.",
+            signature.signer_count, committee.threshold
         ))));
     }
 
+    let mut unique_signers = std::collections::BTreeSet::new();
+    for signer in &signature.signers {
+        if *signer == 0 || *signer > committee.member_count {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: signer {} is outside committee range.", signer
+            ))));
+        }
+        if !unique_signers.insert(*signer) {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: duplicate signer {} in threshold signature.", signer
+            ))));
+        }
+    }
+
+    match signature.signature_algorithm {
+        ThresholdSignatureAlgorithmMirror::Ecdsa => {
+            verify_ecdsa_threshold_signature(&signature, &committee)
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Refusing execution: {e}"))))?;
+        }
+        ThresholdSignatureAlgorithmMirror::MlDsa65
+        | ThresholdSignatureAlgorithmMirror::HybridEcdsaMlDsa65 => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Refusing execution: PQ/hybrid threshold authorization verifier is not wired.".into()
+            )));
+        }
+    }
+
+    // The verified field is informational; trust is established by the committee
+    // configuration, exact proposal binding, and cryptographic verification above.
     Ok(signature)
 }
 
