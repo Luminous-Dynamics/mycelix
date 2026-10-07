@@ -591,8 +591,28 @@ def _validate_effective_rule_provenance(
             or not source
         ):
             return "UNVERIFIED", [f"effective_rule[{index}]_ruleset_provenance_missing"]
-        if (ruleset_id, source_type, source) not in by_identity:
+        identity = (ruleset_id, source_type, source)
+        ruleset = by_identity.get(identity)
+        if ruleset is None:
             failures.append(f"effective_rule[{index}]_ruleset_provenance_not_applicable")
+            continue
+        observed_rule_type = rule.get("type")
+        observed_parameters = rule.get("parameters")
+        matching_definition = False
+        for definition in ruleset.get("rules", []):
+            if not isinstance(definition, dict):
+                continue
+            if definition.get("type") != observed_rule_type:
+                continue
+            definition_parameters = definition.get("parameters")
+            if definition_parameters == observed_parameters:
+                matching_definition = True
+                break
+            if definition_parameters is None and "parameters" not in rule:
+                matching_definition = True
+                break
+        if not matching_definition:
+            failures.append(f"effective_rule[{index}]_definition_not_present_in_ruleset")
     return ("MISMATCH" if failures else "VERIFIED"), failures
 
 
@@ -1314,6 +1334,17 @@ def self_test(policy: dict[str, Any]) -> None:
         }},
         {"type": "non_fast_forward"},
     ]
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["effective_rules"]["entries"][0]["parameters"]["required_approving_review_count"] = 2
     effective_rules_raw = json.dumps(
         x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
     ).encode()
