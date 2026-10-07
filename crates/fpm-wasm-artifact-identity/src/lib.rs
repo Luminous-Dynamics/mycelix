@@ -12,7 +12,9 @@ pub const SCHEMA_VERSION: &str = "fpm.verifier-artifact-identity.v1";
 pub const HOLOCHAIN_PROFILE: &str = "holochain-0.7.0-wasmhash-v1";
 pub const SHA256_HEX_LEN: usize = 64;
 pub const HOLOHASH_RAW_39_LEN: usize = 39;
-/// HoloHash 0.7 synchronous hashing rejects larger content; keep this explicit so\n/// the verifier fails closed before calling the constructor.\npub const MAX_ARTIFACT_BYTES: usize = 16_000_000;
+/// HoloHash 0.7 synchronous hashing rejects larger content; keep this explicit so
+/// the verifier fails closed before calling the constructor.
+pub const MAX_ARTIFACT_BYTES: usize = 16_000_000;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FpmWasmArtifactIdentity {
@@ -31,10 +33,21 @@ pub struct MatchedFpmWasmArtifactIdentity {
 }
 
 impl MatchedFpmWasmArtifactIdentity {
-    pub fn schema_version(&self) -> &str { &self.schema_version }
-    pub fn holochain_profile(&self) -> &str { &self.holochain_profile }
-    pub fn artifact_sha256(&self) -> &str { &self.artifact_sha256 }
-    pub fn wasm_hash_raw_39(&self) -> &[u8] { &self.wasm_hash_raw_39 }
+    pub fn schema_version(&self) -> &str {
+        &self.schema_version
+    }
+
+    pub fn holochain_profile(&self) -> &str {
+        &self.holochain_profile
+    }
+
+    pub fn artifact_sha256(&self) -> &str {
+        &self.artifact_sha256
+    }
+
+    pub fn wasm_hash_raw_39(&self) -> &[u8] {
+        &self.wasm_hash_raw_39
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -45,6 +58,7 @@ pub enum FpmArtifactIdentityError {
     InvalidWasmHashLength,
     InvalidWasmHashType,
     Sha256Mismatch,
+    ApprovedWasmHashMismatch,
     WasmHashMismatch,
 }
 
@@ -111,13 +125,17 @@ pub fn verify_approved_artifact_against_observed_wasm_hash(
         return Err(FpmArtifactIdentityError::Sha256Mismatch);
     }
 
+    let derived = WasmHash::with_data_sync(artifact_code.to_vec());
+    if identity.wasm_hash_raw_39.as_slice() != derived.get_raw_39() {
+        return Err(FpmArtifactIdentityError::ApprovedWasmHashMismatch);
+    }
+
     if observed_wasm_hash_raw_39.len() != HOLOHASH_RAW_39_LEN {
         return Err(FpmArtifactIdentityError::InvalidWasmHashLength);
     }
 
     let observed = WasmHash::try_from_raw_39(observed_wasm_hash_raw_39.to_vec())
         .map_err(|_| FpmArtifactIdentityError::InvalidWasmHashType)?;
-    let derived = WasmHash::with_data_sync(artifact_code.to_vec());
 
     if observed.get_raw_39() != derived.get_raw_39() {
         return Err(FpmArtifactIdentityError::WasmHashMismatch);
@@ -192,6 +210,25 @@ mod tests {
         .unwrap();
         assert_eq!(matched.artifact_sha256(), identity.artifact_sha256);
         assert_eq!(matched.wasm_hash_raw_39(), identity.wasm_hash_raw_39);
+    }
+
+    #[test]
+    fn inconsistent_approved_pair_denies_even_with_correct_observation() {
+        let code = artifact();
+        let identity = derive_identity(&code).unwrap();
+        let other = derive_identity(b"(module (func (export \"other\")))").unwrap();
+        let mut inconsistent = identity.clone();
+        inconsistent.wasm_hash_raw_39 = other.wasm_hash_raw_39;
+
+        assert_eq!(
+            verify_approved_artifact_against_observed_wasm_hash(
+                &inconsistent,
+                &code,
+                &identity.wasm_hash_raw_39,
+            )
+            .unwrap_err(),
+            FpmArtifactIdentityError::ApprovedWasmHashMismatch
+        );
     }
 
     #[test]
