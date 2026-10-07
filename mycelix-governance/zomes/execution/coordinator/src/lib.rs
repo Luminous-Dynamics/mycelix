@@ -359,6 +359,154 @@ fn ensure_execution_authorized(
     Ok(())
 }
 
+fn require_verified_threshold_signature(proposal_id: &str) -> ExternResult<ThresholdSignature> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::from("threshold_signing"),
+        FunctionName::from("get_proposal_signature"),
+        None,
+        ExternIO::encode(proposal_id.to_owned())
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?,
+    )?;
+
+    let extern_io = match response {
+        ZomeCallResponse::Ok(extern_io) => extern_io,
+        ZomeCallResponse::NetworkError(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: threshold-signing verifier returned a network error: {}",
+                e
+            ))));
+        }
+        other => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: threshold-signing verifier returned an unexpected response: {:?}",
+                other
+            ))));
+        }
+    };
+
+    let maybe_record: Option<Record> = extern_io.decode().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: could not decode threshold-signature verifier response: {}",
+            e
+        )))
+    })?;
+
+    let signature_record = maybe_record.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Refusing execution: no verified threshold signature is available for this proposal."
+            .into(),
+    )))?;
+
+    let signature: ThresholdSignature = signature_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: threshold signature entry could not be decoded: {}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: threshold signature record contains no entry.".into(),
+        )))?;
+
+    if !signature.verified {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: threshold signature '{}' is not verified.",
+            signature.id
+        ))));
+    }
+
+    let (proposal_kind, signed_id) = signature
+        .signed_content_description
+        .split_once(':')
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: threshold signature content description is not structurally bound to a proposal."
+                .into(),
+        )))?;
+
+    if signed_id != proposal_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: threshold signature '{}' is bound to '{}' rather than '{}'.",
+            signature.id, signed_id, proposal_id
+        ))));
+    }
+
+    if !matches!(proposal_kind, "proposal" | "constitutional" | "treasury" | "protocol") {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: unsupported signed proposal kind '{}'.",
+            proposal_kind
+        ))));
+    }
+
+    let committee_response = call(
+        CallTargetCell::Local,
+        ZomeName::from("threshold_signing"),
+        FunctionName::from("get_committee"),
+        None,
+        ExternIO::encode(signature.committee_id.clone())
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?,
+    )?;
+
+    let committee_io = match committee_response {
+        ZomeCallResponse::Ok(io) => io,
+        ZomeCallResponse::NetworkError(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: committee verifier returned a network error: {}",
+                e
+            ))));
+        }
+        other => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: committee verifier returned an unexpected response: {:?}",
+                other
+            ))));
+        }
+    };
+
+    let committee_record: Option<Record> = committee_io.decode().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: committee verifier response could not be decoded: {}",
+            e
+        )))
+    })?;
+
+    let committee_record = committee_record.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Refusing execution: signing committee record is unavailable.".into(),
+    )))?;
+
+    let committee_mirror = committee_record
+        .entry()
+        .to_app_option::<CommitteeScopeMirror>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: signing committee scope could not be decoded: {}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: signing committee scope is missing.".into(),
+        )))?;
+
+    let scope_name = extract_scope_name(&committee_mirror.scope);
+    let scope_allows = match scope_name {
+        "All" => true,
+        "Constitutional" => proposal_kind == "constitutional",
+        "Treasury" => proposal_kind == "treasury",
+        "Protocol" => proposal_kind == "protocol",
+        _ => false,
+    };
+
+    if !scope_allows {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: committee '{}' scope '{}' does not authorize signed proposal kind '{}'.",
+            signature.committee_id, scope_name, proposal_kind
+        ))));
+    }
+
+    Ok(signature)
+}
+
 fn find_latest_execution_attempt(timelock_id: &str) -> ExternResult<Option<Record>> {
     let anchor = execution_attempt_anchor(timelock_id);
     let anchor_entry_hash = anchor_hash(&anchor)?;
@@ -414,6 +562,8 @@ pub fn prepare_timelock_execution(
             timelock.status
         ))));
     }
+
+    let _signature = require_verified_threshold_signature(&timelock.proposal_id)?;
 
     let action_key = execution_action_key(&timelock.actions)
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
@@ -1781,6 +1931,14 @@ pub fn get_pending_timelocks(_: ()) -> ExternResult<Vec<Record>> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn exact_threshold_signature_proposal_binding_rejects_decoy_suffixes() {
+        assert_ne!(
+            "constitutional:proposal-1:decoy".split_once(':').map(|(_, id)| id),
+            Some("proposal-1")
+        );
+    }
+
     #[test]
     fn execution_action_key_is_stable_for_exact_material_action() {
         let a = execution_action_key(r#"[{"type":"EmitEvent","event":"x"}]"#).unwrap();
