@@ -467,24 +467,6 @@ Make room for:
 
 For non-branchable physical systems, use a sequential experimental/observational design appropriate to the physical setting rather than relabeling it as a rewinded counterfactual.
 
-## Recurrence
-
-After a primary A -> B campaign, separately test:
-
-    A -> B -> A
-
-Measure:
-
-- recurrence recognition;
-- relearning cost;
-- retained A structure;
-- retained B structure;
-- update churn;
-- oscillation;
-- stability.
-
-Do not make recurrence part of the first acceptance predicate until its estimator is independently frozen.
-
 ## Resource normalization
 
 Adaptation mechanisms must not win only through unconstrained resources.
