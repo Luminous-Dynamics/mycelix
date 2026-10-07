@@ -97,7 +97,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 56
+    assert policy["policy_version"] == 57
     assert policy["repository_identity"] == {
         "full_name": "Luminous-Dynamics/mycelix",
         "repository_id": 1176351975,
@@ -984,6 +984,7 @@ def test_executor_workflow_identity_tampering_is_rejected() -> None:
 
 def test_executor_workflow_is_bound_to_run_head() -> None:
     policy = {
+        "repository_identity": {"repository_id": 9000},
         "executor_workflow": {
             "name": "D6U Exact-Head Runtime Executor",
             "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
@@ -991,8 +992,8 @@ def test_executor_workflow_is_bound_to_run_head() -> None:
         }
     }
     run = {
-        "repository": {"full_name": "Luminous-Dynamics/mycelix"},
-        "head_repository": {"full_name": "Luminous-Dynamics/mycelix"},
+        "repository": {"id": 9000, "full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"id": 9000, "full_name": "Luminous-Dynamics/mycelix"},
         "head_branch": "main",
         "head_sha": "b" * 40,
     }
@@ -1019,6 +1020,7 @@ def test_executor_workflow_is_bound_to_run_head() -> None:
 
 def test_executor_run_live_identity_is_rejected() -> None:
     policy = {
+        "repository_identity": {"repository_id": 9001},
         "executor_workflow": {
             "name": "D6U Exact-Head Runtime Executor",
             "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
@@ -1035,8 +1037,8 @@ def test_executor_run_live_identity_is_rejected() -> None:
         "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
         "event": "workflow_run",
         "conclusion": "success",
-        "repository": {"full_name": "Luminous-Dynamics/mycelix"},
-        "head_repository": {"full_name": "Luminous-Dynamics/mycelix"},
+        "repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
         "head_branch": "main",
     }
     verify_executor_run_record(valid, record, policy, "Luminous-Dynamics/mycelix")
@@ -1059,6 +1061,7 @@ def test_executor_run_live_identity_is_rejected() -> None:
 
 def test_trigger_run_identity_tampering_is_rejected() -> None:
     policy = {
+        "repository_identity": {"repository_id": 9002},
         "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
         "trigger_workflow": {
             "name": "D6S Canonical Qualification",
@@ -1078,12 +1081,12 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
         "source_commit": "d" * 40,
     }
     trigger = {
-        "repository": {"full_name": "Luminous-Dynamics/mycelix"},
+        "repository": {"id": 9002, "full_name": "Luminous-Dynamics/mycelix"},
         "name": "D6S Canonical Qualification",
         "path": ".github/workflows/d6s-canonical-qualification.yml",
         "event": "pull_request",
         "conclusion": "success",
-        "head_repository": {"full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"id": 9002, "full_name": "Luminous-Dynamics/mycelix"},
         "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
         "run_attempt": 2,
         "head_sha": "d" * 40,
