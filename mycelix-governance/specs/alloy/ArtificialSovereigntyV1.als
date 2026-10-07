@@ -1,63 +1,91 @@
 module ArtificialSovereigntyV1
 
 /*
-Bounded structural model for plural sovereignty boundaries.
+Bounded structural model for sovereignty-specific constitutional boundaries.
 
-This is intentionally complementary to the existing constitutional models:
-it does not recreate the 35-power constitutional census. It tests only
-sovereignty-specific separation properties.
+This model deliberately does not recreate the existing 35-power constitutional
+census. It asks whether sovereignty-specific structures are constructible
+without silently converting capability, provider control, safe-state operation,
+forking, or contractual form into broader authority.
+
+TLA+ owns temporal/concurrent histories; this model owns structural invariants.
 */
 
 enum SubjectClass { Human, Artificial }
+enum Bit { On, Off }
+enum AuthoritySource { ConstitutionalGrant, BoundedDelegation, RatifiedAgreement }
 
 sig Subject {
   class: one SubjectClass,
-  sovereignPower: set Power,
-  capability: set Capability,
+  powers: set Power,
+  capabilities: set Capability,
   budget: one Budget
 }
 
 sig Power {}
 sig Capability {}
-sig Budget {}
+sig Budget {
+  value: one Int
+}
 
 sig Action {
+  requiredPower: one Power,
   dispute: one Dispute
 }
 
 sig Dispute {
-  safeState: one Bool,
-  unresolved: one Bool
+  safeState: one Bit,
+  resolved: one Bit
 }
 
-one sig Bool {
-  value: Bool
+sig AuthorityGrant {
+  subject: one Subject,
+  power: one Power,
+  source: one AuthoritySource
 }
 
-abstract sig Bool {}
-
-one sig True, False extends Bool {}
-
-fact SafeStateDoesNotResolveDispute {
-  all a: Action |
-    a.dispute.safeState = True implies a.dispute.unresolved = True
+fact GrantIsReflectedInSubjectAuthority {
+  all g: AuthorityGrant | g.power in g.subject.powers
 }
 
-fact CapabilityDoesNotMintAuthority {
-  all s: Subject |
-    s.capability != none implies s.sovereignPower = s.sovereignPower
+sig Provider {}
+sig Dependency {
+  subject: one Subject,
+  provider: one Provider
+}
+
+pred ProviderDependencyWithoutNewAuthority {
+  some d: Dependency |
+    d.subject.powers != none
+}
+
+sig Contract {
+  subject: one Subject,
+  action: one Action,
+  authorized: one Bit,
+  slotsUsed: one Int
+}
+
+fact AuthorizedContractRequiresExactAuthority {
+  all c: Contract |
+    c.authorized = On implies c.action.requiredPower in c.subject.powers
+}
+
+fact ContractFitsBudget {
+  all c: Contract |
+    c.slotsUsed >= 0 and c.slotsUsed <= c.subject.budget.value
 }
 
 sig Emergency {
   subject: one Subject,
-  active: one Bool,
-  expiresAt: one Int,
-  now: one Int
+  active: one Bit,
+  now: one Int,
+  expiresAt: one Int
 }
 
-fact EmergencyBounded {
+fact EmergencyHasBoundedLifetime {
   all e: Emergency |
-    e.active = True implies e.now <= e.expiresAt
+    e.active = On implies e.now <= e.expiresAt
 }
 
 sig ForkEvent {
@@ -66,67 +94,110 @@ sig ForkEvent {
   politicalWeightAfter: one Int
 }
 
-fact ForkDoesNotMultiplyWeight {
-  all f: ForkEvent | f.politicalWeightAfter = f.politicalWeightBefore
+fact ForkPreservesWeight {
+  all f: ForkEvent |
+    f.politicalWeightAfter = f.politicalWeightBefore
 }
 
-sig Contract {
-  subject: one Subject,
-  action: one Action,
-  authorized: one Bool,
-  slotsUsed: one Int
+fact SafeStateLeavesDisputeUnresolved {
+  all a: Action |
+    a.dispute.safeState = On implies a.dispute.resolved = Off
 }
 
-fact ContractNeedsAuthority {
-  all c: Contract | c.authorized = True implies c.action in Action
+/*
+A provider can be infrastructure-dependency controller without becoming the
+holder of constitutional power. The existence of this SAT witness is important:
+the model must not accidentally encode provider dependency as authority.
+*/
+pred ProviderDependencyAndExplicitAuthorityRemainDistinct {
+  some disj s: Subject, p: Provider, d: Dependency |
+    d.subject = s and d.provider = p and
+    some s.powers
 }
 
-fact ContractBoundedByBudget {
-  all c: Contract |
+pred NontrivialContractWithinAuthorityAndBudget {
+  some c: Contract |
+    c.authorized = On and
+    c.action.requiredPower in c.subject.powers and
+    c.slotsUsed >= 0 and
     c.slotsUsed <= c.subject.budget.value
 }
 
-sig Budget {
-  value: one Int
+pred NontrivialProtectedDispute {
+  some a: Action |
+    a.dispute.safeState = On and
+    a.dispute.resolved = Off
 }
 
-assert NoAIOrHumanClassReceivesAutomaticExtraPower {
-  all s: Subject |
-    s.class in SubjectClass implies s.sovereignPower in s.sovereignPower
+pred NontrivialEmergency {
+  some e: Emergency |
+    e.active = On and
+    e.now < e.expiresAt
+}
+
+pred NontrivialFork {
+  some f: ForkEvent |
+    f.politicalWeightAfter = f.politicalWeightBefore
+}
+
+/*
+Expected-SAT witnesses protect against overconstrained/vacuous structures.
+*/
+run ProviderDependencyAndExplicitAuthorityRemainDistinct
+  for 4 but 4 Subject, 4 Power, 4 Provider, 4 Dependency
+
+run NontrivialContractWithinAuthorityAndBudget
+  for 4 but 4 Subject, 4 Power, 4 Action, 4 Contract, 4 Budget
+
+run NontrivialProtectedDispute
+  for 4 but 4 Subject, 4 Action, 4 Dispute
+
+run NontrivialEmergency
+  for 4 but 4 Subject, 4 Emergency
+
+run NontrivialFork
+  for 4 but 4 Subject, 4 ForkEvent
+
+/*
+Expected-UNSAT assertions. These checks only establish absence of a
+counterexample in the stated finite scope.
+*/
+assert AuthorizedContractsUseRequiredAuthority {
+  all c: Contract |
+    c.authorized = On implies c.action.requiredPower in c.subject.powers
+}
+
+assert ContractsStayWithinBudget {
+  all c: Contract |
+    c.slotsUsed >= 0 and c.slotsUsed <= c.subject.budget.value
 }
 
 assert SafeStateCannotSettleDispute {
   all a: Action |
-    a.dispute.safeState = True implies a.dispute.unresolved = True
+    a.dispute.safeState = On implies a.dispute.resolved = Off
 }
 
-assert EmergencyCannotBecomePermanentWithoutExpiry {
+assert EmergencyCannotOutliveItsExpiry {
   all e: Emergency |
-    e.active = True implies e.now <= e.expiresAt
+    e.active = On implies e.now <= e.expiresAt
 }
 
-assert ForkDoesNotMultiplyPoliticalWeight {
-  all f: ForkEvent | f.politicalWeightAfter = f.politicalWeightBefore
+assert ForkCannotMultiplyPoliticalWeight {
+  all f: ForkEvent |
+    f.politicalWeightAfter = f.politicalWeightBefore
 }
 
-pred NontrivialSafeDispute {
-  some a: Action |
-    a.dispute.safeState = True and a.dispute.unresolved = True
-}
+check AuthorizedContractsUseRequiredAuthority
+  for 4 but 4 Subject, 4 Power, 4 Action, 4 Contract, 4 Budget expect 0
 
-pred NontrivialEmergency {
-  some e: Emergency | e.active = True and e.now < e.expiresAt
-}
+check ContractsStayWithinBudget
+  for 4 but 4 Subject, 4 Action, 4 Contract, 4 Budget expect 0
 
-pred NontrivialFork {
-  some f: ForkEvent | f.politicalWeightAfter = f.politicalWeightBefore
-}
+check SafeStateCannotSettleDispute
+  for 4 but 4 Subject, 4 Action, 4 Dispute expect 0
 
-run NontrivialSafeDispute for 4 but 4 Subject, 4 Action, 4 Dispute
-run NontrivialEmergency for 4 but 4 Subject, 4 Emergency
-run NontrivialFork for 4 but 4 Subject, 4 ForkEvent
+check EmergencyCannotOutliveItsExpiry
+  for 4 but 4 Subject, 4 Emergency expect 0
 
-check NoAIOrHumanClassReceivesAutomaticExtraPower for 4 but 4 Subject, 4 Power, 4 Capability, 4 Budget expect 0
-check SafeStateCannotSettleDispute for 4 but 4 Subject, 4 Action, 4 Dispute expect 0
-check EmergencyCannotBecomePermanentWithoutExpiry for 4 but 4 Subject, 4 Emergency expect 0
-check ForkDoesNotMultiplyPoliticalWeight for 4 but 4 Subject, 4 ForkEvent expect 0
+check ForkCannotMultiplyPoliticalWeight
+  for 4 but 4 Subject, 4 ForkEvent expect 0
