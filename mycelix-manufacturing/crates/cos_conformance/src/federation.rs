@@ -258,6 +258,7 @@ impl FederationStateMachineTraceExternalEvidenceVerificationStatement {
 ///     verifier_identity_sha256: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".into(),
 ///     claim: FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
 ///     verifier_report_sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+///     request_context_sha256: None,
 ///     claimed_verified_at_unix_seconds: 1,
 ///     statement_sha256: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
 /// };
@@ -6122,6 +6123,7 @@ mod tests {
             claim: FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
             verifier_report_sha256:
                 "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".into(),
+            request_context_sha256: None,
             claimed_verified_at_unix_seconds: 1_791_010_000,
             statement_sha256:
                 "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".into(),
@@ -6380,6 +6382,7 @@ mod tests {
             verifier_identity_sha256: state_machine_trace_external_verifier_identity_sha256(b"identity"),
             claim: FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
             verifier_report_sha256: state_machine_trace_external_witness_artifact_sha256(b"report"),
+            request_context_sha256: None,
             claimed_verified_at_unix_seconds: 1_791_006_000,
             statement_sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
         };
