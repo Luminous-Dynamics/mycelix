@@ -658,6 +658,15 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         ),
         "S0",
     )
+    require_exact_root_mapping(
+        l,
+        "concurrency",
+        (
+            "group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}",
+            "cancel-in-progress: true",
+        ),
+        "S0",
+    )
     require_exact_job_mapping(
         l,
         "qualify",
@@ -731,6 +740,15 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             'VENDOR_MAX_INODES: "150000"',
             'VENDOR_TMPFS_SIZE: "1024m"',
             'VENDOR_TMPFS_NR_INODES: "150000"',
+        ),
+        "S1",
+    )
+    require_exact_root_mapping(
+        l,
+        "concurrency",
+        (
+            "group: security-kernel-independent-${{ inputs.candidate_repository }}-${{ inputs.candidate_pr }}-${{ inputs.candidate_sha }}",
+            "cancel-in-progress: true",
         ),
         "S1",
     )
@@ -1126,6 +1144,15 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         l,
         (("verify", ("name", "runs-on", "cache-mode", "timeout-minutes", "steps")),),
         S2,
+    )
+    require_exact_root_mapping(
+        l,
+        "concurrency",
+        (
+            "group: security-kernel-trusted-result-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}",
+            "cancel-in-progress: true",
+        ),
+        "S2",
     )
     if tuple(step_names(l)) != S2_STEPS:
         fail("S2 step topology mismatch")
@@ -1550,6 +1577,45 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 step-level workflow run-attempt drift",
+    )
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b"  group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}\n",
+                b"  group: security-kernel-trusted-dispatch-pr-mutated\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 root concurrency group drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"  cancel-in-progress: true\n",
+                b"  cancel-in-progress: false\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 root concurrency cancellation drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b"  group: security-kernel-trusted-result-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}\n",
+                b"  group: security-kernel-trusted-result-mutated\n",
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 root concurrency group drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
