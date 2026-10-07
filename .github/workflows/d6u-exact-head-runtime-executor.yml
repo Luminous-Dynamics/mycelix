@@ -322,6 +322,13 @@ PY
           EXPECTED_SOURCE_SHA: ${{ steps.runtime_source.outputs.source_sha }}
         run: |
           set -euo pipefail
+          probe="${{ runner.temp }}/d6u-cargo-cwd"
+          while [ "$probe" != "/" ]; do
+            test ! -e "$probe/.cargo/config"
+            test ! -e "$probe/.cargo/config.toml"
+            probe="$(dirname "$probe")"
+          done
+
           test "$(sha256sum Cargo.lock | cut -d' ' -f1)" = "$EXPECTED_LOCK_SHA"
           digest_input="$(mktemp "$RUNNER_TEMP/d6u-runtime-source-hashes-after-clippy.XXXXXX")"
           trap 'rm -f "$digest_input"' EXIT
