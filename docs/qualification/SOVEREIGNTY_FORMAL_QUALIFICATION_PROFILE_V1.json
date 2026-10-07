@@ -1,0 +1,71 @@
+{
+  "schema": "mycelix.sovereignty-formal-qualification-profile.v1",
+  "profile_id": "SOV-AI-FORMAL-QUAL-001-V1",
+  "status": "candidate-verification-profile",
+  "authority": "non-authoritative",
+  "semantic_subject": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "head_sha": "2f3ccf4044d07c49e6aa1e4df4802d5e61c6847b",
+    "corpus_path": "docs/governance/ARTIFICIAL_SOVEREIGNTY_QUALIFICATION_CORPUS_V1.json",
+    "corpus_git_blob_sha": "c04430e65a53974d00fe2d87af9888c6f2a6cd98"
+  },
+  "formal_subject": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "head_sha": "e9886d5216b28f00dacd8d3a9ee8c21c04cbbd01",
+    "models": [
+      {
+        "name": "TLA+ temporal sovereignty model",
+        "path": "mycelix-governance/specs/ArtificialSovereigntyV1.tla",
+        "git_blob_sha": "9e533b4cb564e75d914b87a438416210fc464e61",
+        "config_path": "mycelix-governance/specs/ArtificialSovereigntyV1.cfg",
+        "config_git_blob_sha": "852f53d9e3b8a7dafee20dbeb93c17b975a38609"
+      },
+      {
+        "name": "Alloy structural sovereignty model",
+        "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als",
+        "git_blob_sha": "5798edec899397149153e90eef4bd09c1c9bf073"
+      }
+    ]
+  },
+  "tools": {
+    "tla2tools": {
+      "version": "1.7.4",
+      "sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+      "solver_profile": "TLC bounded model checking"
+    },
+    "alloy": {
+      "version": "6.2.0",
+      "sha256": "6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d",
+      "solver": "sat4j"
+    }
+  },
+  "temporal_properties": [
+    "AuthorityHasExplicitSource",
+    "SafeStateLeavesProtectedDisputeUnresolved",
+    "EmergencyExpiryIsBounded",
+    "ForkWeightRemainsOne",
+    "ContractsRemainBounded",
+    "ProviderDependencyHasNoImplicitAuthority"
+  ],
+  "structural_properties": [
+    "AuthorizedContractsUseRequiredAuthority",
+    "ContractsStayWithinBudget",
+    "SafeStateCannotSettleDispute",
+    "EmergencyCannotOutliveItsExpiry",
+    "ForkCannotMultiplyPoliticalWeight"
+  ],
+  "expected_semantics": {
+    "canonical_formal_result": "exact pinned tool execution against exact model/config bytes",
+    "negative_controls_required": true,
+    "finite_scope_required": true,
+    "scope_is_part_of_claim": true,
+    "bounded_result_is_not_unbounded_proof": true
+  },
+  "nonclaims": [
+    "No current AI is recognized as sovereign.",
+    "No legal personhood, citizenship, or political standing is established.",
+    "No runtime authority or production safety is established.",
+    "A bounded TLA+ or Alloy result does not prove the production implementation.",
+    "Formal model consistency does not establish legal validity or moral status."
+  ]
+}
