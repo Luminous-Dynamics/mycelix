@@ -1060,21 +1060,14 @@ impl GovernanceAction {
     fn execute(&self) -> ExternResult<String> {
         match self {
             GovernanceAction::TransferCredits { from, to, amount } => {
-                // SECURITY: Fail-closed — credit transfers MUST execute or fail explicitly.
-                // Returning Ok without actual transfer creates phantom transactions.
-                let transfer_input = serde_json::json!({"from": from, "to": to, "amount": amount});
-                governance_utils::call_local(
-                    "governance_bridge",
-                    "transfer_credits",
-                    transfer_input,
-                ).map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-                    "TransferCredits failed: governance bridge unavailable — {} -> {} ({} credits): {:?}",
-                    from, to, amount, e
-                ))))?;
-                Ok(format!(
-                    "TransferCredits: {} -> {} ({} credits) [executed]",
+                // FAIL-CLOSED: the current governance_bridge transfer_credits endpoint
+                // records an event only; it is not the authoritative money-movement owner.
+                // Refuse provider entry rather than converting an acknowledgment into an
+                // EXECUTED financial effect.
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "TransferCredits refused: no authoritative fund-movement effect owner is wired for {} -> {} ({} credits).",
                     from, to, amount
-                ))
+                ))))
             }
             GovernanceAction::UpdateParameter { parameter, value } => {
                 // SECURITY: Fail-closed — parameter updates MUST persist or fail explicitly.
