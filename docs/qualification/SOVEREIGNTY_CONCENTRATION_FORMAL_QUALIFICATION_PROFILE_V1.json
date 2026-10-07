@@ -113,7 +113,7 @@
   "execution": {
     "classifier": {
       "path": "mycelix-governance/tools/formal/qualify_sovereignty_concentration_candidate.py",
-      "git_blob_sha": "79d79df1d77fdb1b690f7237f4911090177a5bae"
+      "git_blob_sha": "c0a58ee6113cbfb2d411b7a285549fe6bbec7ff0"
     },
     "alloy_runner": {
       "path": "mycelix-governance/tools/formal/SovereigntyConcentrationAlloyRunner.java",
