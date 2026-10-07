@@ -55,6 +55,8 @@ RECEIPT_KEYS = frozenset(
         "rustc_version",
         "rustc_commit",
         "cargo_version",
+        "candidate_uid",
+        "candidate_execution_profile",
         "steps",
         "execution_pass",
         "procedure_trust",
@@ -301,6 +303,10 @@ def verify_receipt(
         fail("rustc commit mismatch")
     if not isinstance(receipt["cargo_version"], str) or not receipt["cargo_version"].startswith("cargo 1.96.1"):
         fail("cargo version mismatch")
+    if receipt["candidate_execution_profile"] != "fpm-untrusted.env-i.v2":
+        fail("unexpected candidate execution profile")
+    if not isinstance(receipt["candidate_uid"], int) or receipt["candidate_uid"] <= 0:
+        fail("invalid candidate UID")
 
     steps = receipt["steps"]
     if not isinstance(steps, dict) or set(steps) != STEP_KEYS:
