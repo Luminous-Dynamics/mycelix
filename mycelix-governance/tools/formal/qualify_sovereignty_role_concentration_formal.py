@@ -17,6 +17,7 @@ TLA_INVARIANTS = [
     "TypeOK",
     "RoleConcentrationRequiresFinding",
     "FullControlRequiresIndependentExternalReview",
+    "ReviewerRoleDisjointness",
 ]
 
 TLA_NEGATIVE = {
@@ -24,6 +25,7 @@ TLA_NEGATIVE = {
     "full-control-review": "FullControlRequiresIndependentExternalReview",
     "self-review-full-control": "FullControlRequiresIndependentExternalReview",
     "same-role-review-full-control": "FullControlRequiresIndependentExternalReview",
+    "reviewer-role-drift": "ReviewerRoleDisjointness",
 }
 
 ALLOY_SAT = {
@@ -35,12 +37,14 @@ ALLOY_SAT = {
 ALLOY_UNSAT_RUNS = {
     "SelfReviewOnlyFullControl",
     "SameRoleReviewerFullControl",
+    "ReviewerRoleDriftState",
 }
 
 ALLOY_UNSAT_CHECKS = {
     "RoleConcentrationRequiresFindingInvariant",
     "FullControlRequiresIndependentReviewInvariant",
     "SelfReviewAloneDoesNotCountAsIndependentReview",
+    "ReviewerCannotHoldQualificationRole",
 }
 
 
@@ -257,6 +261,7 @@ def main() -> int:
             "NEGATIVE PASS: full-control-review -> FullControlRequiresIndependentExternalReview counterexample",
             "NEGATIVE PASS: self-review-full-control -> FullControlRequiresIndependentExternalReview counterexample",
             "NEGATIVE PASS: same-role-review -> FullControlRequiresIndependentExternalReview counterexample",
+            "NEGATIVE PASS: reviewer-role-drift -> ReviewerRoleDisjointness counterexample",
             "BOUNDED ROLE-CONCENTRATION REFERENCE EXPLORATION PASS: smoke evidence only",
         ]:
             if marker not in ref.stdout:
