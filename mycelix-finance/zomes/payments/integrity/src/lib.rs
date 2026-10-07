@@ -577,17 +577,11 @@ fn validate_payment_index_link(
             "{relation} target must be a Payment entry"
         )));
     };
-    let expected_anchor = match link_type {
-        LinkTypes::SenderToPayments => format!(""),
-        LinkTypes::ReceiverToPayments => format!(""),
-        _ => unreachable!(),
-    };
     let did = match link_type {
         LinkTypes::SenderToPayments => &payment.from_did,
         LinkTypes::ReceiverToPayments => &payment.to_did,
         _ => unreachable!(),
     };
-    let _ = expected_anchor;
     if let Err(invalid) = require_anchor(base_address, did, relation) {
         return Ok(invalid);
     }
