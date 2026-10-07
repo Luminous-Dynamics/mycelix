@@ -103,7 +103,7 @@ jobs:
           assert "permissions: {}" in scanned_text
           assert scanned_text.count("\n    cache-mode: none\n") == 4
           assert ("actions" + "/cache@") not in scanned_text
-          assert scanned_text.count("GOVERNANCE_ADMIN_TOKEN") == 1
+          assert scanned_text.count("secrets.GOVERNANCE_ADMIN_TOKEN") == 1
           assert ("allow-unsafe-pr-checkout" + ": true") not in scanned_text
           assert scanned_text.count("actions/checkout@") == 3
           assert scanned_text.count("persist-credentials: false") == 3
