@@ -1,0 +1,77 @@
+{
+  "schema": "mycelix.sovereignty-role-concentration-formal-crosswalk.v2",
+  "profile_id": "SOV-AI-ROLE-CONCENTRATION-FORMAL-QUAL-001-V2",
+  "status": "candidate-verification",
+  "authority": "non-authoritative",
+  "formal_subject_head": "fd47f13fce3331cf4f721da8e0ae9b63f5818665",
+  "formal_subject_tree": "da2a37ef91e3095e3d1d93657ed01a184f087cea",
+  "mappings": [
+    {
+      "id": "role-concentration-finding",
+      "boundary": "two or more qualification-path roles require conflict surfacing",
+      "tla": [
+        "RoleConcentrationRequiresFinding"
+      ],
+      "alloy": [
+        "RoleConcentrationRequiresFindingInvariant"
+      ],
+      "reference": [
+        "assign -> RoleConcentrationRequiresFinding"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "full-control-independent-review",
+      "boundary": "all four qualification-path roles require external review",
+      "tla": [
+        "FullControlRequiresIndependentExternalReview"
+      ],
+      "alloy": [
+        "FullControlRequiresIndependentReviewInvariant"
+      ],
+      "reference": [
+        "full-control-bad -> FullControlRequiresIndependentExternalReview"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "self-review",
+      "boundary": "self-review alone never satisfies external review",
+      "tla": [
+        "FullControlRequiresIndependentExternalReview"
+      ],
+      "alloy": [
+        "SelfReviewAloneDoesNotCountAsIndependentReview"
+      ],
+      "reference": [
+        "self-review-full-control-bad -> FullControlRequiresIndependentExternalReview"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "same-role-review",
+      "boundary": "a different reviewer who still holds a qualification-path role is not independent",
+      "tla": [
+        "FullControlRequiresIndependentExternalReview"
+      ],
+      "alloy": [
+        "FullControlRequiresIndependentReviewInvariant"
+      ],
+      "reference": [
+        "same-role-review-full-control-bad -> FullControlRequiresIndependentExternalReview"
+      ],
+      "coverage": "aligned"
+    }
+  ],
+  "research_translation": [
+    "Agent identity/authorization is separated from the decision procedure that qualifies the agent.",
+    "Evidence production, verification, and adjudication are treated as distinct control roles for independence analysis.",
+    "Concentration is surfaced rather than converted into a scalar sovereignty score."
+  ],
+  "deliberate_limits": [
+    "This is a finite state/model-layer theorem, not a general legal rule.",
+    "The theorem does not prove substantive quality or honesty of an independent reviewer.",
+    "The theorem does not prohibit organizational role overlap; it requires explicit conflict/review handling.",
+    "The theorem does not establish competition-law compliance or external recognition."
+  ]
+}
