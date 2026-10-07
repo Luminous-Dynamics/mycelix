@@ -28,6 +28,8 @@ pub enum EntryTypes {
     #[entry_type(visibility = "public")]
     FpmVerificationKeyTrustAnchor(FpmVerificationKeyTrustAnchor),
     #[entry_type(visibility = "public")]
+    FpmVerifierImplementationTrustAnchor(FpmVerifierImplementationTrustAnchor),
+    #[entry_type(visibility = "public")]
     FpmAttestationChallenge(FpmAttestationChallenge),
     #[entry_type(visibility = "public")]
     FpmSourceAttestationAnchor(FpmSourceAttestationAnchor),
@@ -138,13 +140,13 @@ pub struct FpmVerificationKeyTrustAnchor {
 }
 
 pub const FPM_ATTESTATION_CHALLENGE_SCHEMA_VERSION: &str =
-    "fpm.attestation.challenge.v1";
+    "fpm.attestation.challenge.v2";
 pub const FPM_SOURCE_ATTESTATION_ANCHOR_SCHEMA_VERSION: &str =
-    "fpm.attestation.result-anchor.v1";
+    "fpm.attestation.result-anchor.v2";
 pub const FPM_ATTESTATION_CHALLENGE_USE_SCHEMA_VERSION: &str =
     "fpm.attestation.challenge-use.v1";
 pub const FPM_EAT_COSE_VERIFICATION_ANCHOR_SCHEMA_VERSION: &str =
-    "fpm.attestation.eat-cose-verification.v1";
+    "fpm.attestation.eat-cose-verification.v2";
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -157,7 +159,11 @@ pub struct FpmAttestationChallenge {
     pub acquisition_root_action: ActionHash,
     pub acquisition_root_digest: String,
     pub verification_key_trust_anchor_action: ActionHash,
+    pub verifier_implementation_trust_anchor_action: ActionHash,
     pub verifier_agent: AgentPubKey,
+    pub verifier_implementation_digest: String,
+    pub verifier_build_provenance_digest: String,
+    pub verifier_builder_id: String,
     pub attestation_format: String,
     pub verifier_profile_digest: String,
     pub appraisal_policy_digest: String,
@@ -189,6 +195,10 @@ pub struct FpmEatCoseVerificationAnchor {
     pub eat_profile_uri: String,
     pub key_id: Vec<u8>,
     pub verification_key_digest: String,
+    pub verifier_implementation_digest: String,
+    pub verifier_build_provenance_digest: String,
+    pub verifier_builder_id: String,
+    pub verifier_profile_digest: String,
 }
 
 #[hdk_entry_helper]
@@ -219,6 +229,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             "FPM verifier-key trust anchors are immutable and cannot be updated".into(),
         )),
         FlatOp::StoreEntry(OpEntry::CreateEntry {
+            app_entry: EntryTypes::FpmVerifierImplementationTrustAnchor(anchor),
+            action,
+        }) => validate_fpm_verifier_implementation_trust_anchor(anchor, &action),
+        FlatOp::StoreEntry(OpEntry::UpdateEntry {
+            app_entry: EntryTypes::FpmVerifierImplementationTrustAnchor(_),
+            ..
+        }) => Ok(ValidateCallbackResult::Invalid(
+            "FPM verifier implementation trust anchors are immutable and cannot be updated".into(),
+        )),
+        FlatOp::StoreEntry(OpEntry::CreateEntry {
             app_entry: EntryTypes::FpmAttestationChallenge(challenge),
             action,
         }) => validate_fpm_attestation_challenge(challenge, &action),
@@ -238,7 +258,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::FpmRegistrationAnchor(a) => validate_fpm_registration_anchor(a),
             EntryTypes::FpmProvenanceAnchor(a) => validate_fpm_provenance_anchor(a),
             EntryTypes::FpmAcquisitionRootAnchor(a) => validate_fpm_acquisition_root_anchor(a),
-            EntryTypes::FpmVerificationKeyTrustAnchor(_) | EntryTypes::FpmAttestationChallenge(_) => {
+            EntryTypes::FpmVerificationKeyTrustAnchor(_)
+            | EntryTypes::FpmVerifierImplementationTrustAnchor(_)
+            | EntryTypes::FpmAttestationChallenge(_) => {
                 unreachable!("dedicated create/update validation arms must handle these entry types")
             }
             EntryTypes::FpmSourceAttestationAnchor(a) => validate_fpm_source_attestation_anchor(a),
@@ -501,6 +523,73 @@ fn validate_fpm_verification_key_trust_anchor(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_fpm_verifier_implementation_trust_anchor(
+    anchor: FpmVerifierImplementationTrustAnchor,
+    action: &hdi::prelude::Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let authority = FabricationDnaProperties::fpm_verifier_trust_authority()?;
+    if *action.author() != authority {
+        return Ok(ValidateCallbackResult::Invalid(
+            "only the DNA-configured FPM trust authority may provision verifier implementations".into(),
+        ));
+    }
+    if !validate_fpm_verifier_implementation_identity_fields(&anchor) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "malformed FPM verifier implementation trust anchor".into(),
+        ));
+    }
+
+    let key_action = must_get_action(anchor.verification_key_trust_anchor_action.clone())?;
+    if key_action.action_type() != ActionType::Create {
+        return Ok(ValidateCallbackResult::Invalid(
+            "verifier implementation trust anchor must reference a key trust-anchor Create action".into(),
+        ));
+    }
+    let expected_key_type = EntryType::App(
+        UnitEntryTypes::FpmVerificationKeyTrustAnchor
+            .try_into()
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "could not construct FPM verifier-key trust-anchor entry type".into()
+            )))?,
+    );
+    if key_action.entry_type() != Some(&expected_key_type) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "verifier implementation trust anchor references the wrong key trust-anchor entry type".into(),
+        ));
+    }
+    if *key_action.author() != authority {
+        return Ok(ValidateCallbackResult::Invalid(
+            "verifier implementation trust anchor key must be provisioned by the DNA-configured authority".into(),
+        ));
+    }
+    let key_entry_hash = key_action.entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "verifier implementation trust anchor key has no entry hash".into()
+        ))
+    })?;
+    let key_entry = must_get_entry(key_entry_hash)?;
+    let key_anchor: FpmVerificationKeyTrustAnchor = key_entry
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "could not decode FPM verifier-key trust anchor: {e}"
+        ))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "verifier implementation trust anchor key is not app data".into()
+        )))?;
+
+    if key_anchor.verifier_agent != anchor.verifier_agent
+        || key_anchor.verifier_profile_digest != anchor.verifier_profile_digest
+        || fpm_verification_key_digest(&key_anchor.public_key_sec1) != key_anchor.verification_key_digest
+        || !is_valid_fpm_p256_public_key(&key_anchor.public_key_sec1)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "verifier implementation trust anchor does not exactly inherit its key trust binding".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_fpm_attestation_challenge(
     challenge: FpmAttestationChallenge,
     action: &hdi::prelude::Create,
@@ -534,6 +623,15 @@ fn validate_fpm_attestation_challenge(
     if challenge.nonce.len() < 8 || challenge.nonce.len() > 64 {
         return Ok(ValidateCallbackResult::Invalid(
             "FPM attestation challenge nonce must contain 8..64 bytes".into(),
+        ));
+    }
+
+    if !is_canonical_fpm_verifier_digest(&challenge.verifier_implementation_digest)
+        || !is_canonical_fpm_verifier_digest(&challenge.verifier_build_provenance_digest)
+        || !is_valid_fpm_verifier_builder_id(&challenge.verifier_builder_id)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "malformed FPM verifier implementation identity".into(),
         ));
     }
 
@@ -581,6 +679,59 @@ fn validate_fpm_attestation_challenge(
         ));
     }
 
+    let implementation_action = must_get_action(
+        challenge.verifier_implementation_trust_anchor_action.clone(),
+    )?;
+    if implementation_action.action_type() != ActionType::Create {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM attestation challenge must reference a verifier implementation trust-anchor Create action".into(),
+        ));
+    }
+    let expected_implementation_type = EntryType::App(
+        UnitEntryTypes::FpmVerifierImplementationTrustAnchor
+            .try_into()
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "could not construct FPM verifier implementation trust-anchor entry type".into()
+            )))?,
+    );
+    if implementation_action.entry_type() != Some(&expected_implementation_type) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM attestation challenge references the wrong verifier implementation trust-anchor entry type".into(),
+        ));
+    }
+    if *implementation_action.author() != FabricationDnaProperties::fpm_verifier_trust_authority()? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM verifier implementation trust anchor was not provisioned by the DNA-configured authority".into(),
+        ));
+    }
+    let implementation_entry_hash = implementation_action.entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "FPM verifier implementation trust anchor has no entry hash".into()
+        ))
+    })?;
+    let implementation_entry = must_get_entry(implementation_entry_hash)?;
+    let implementation_anchor: FpmVerifierImplementationTrustAnchor = implementation_entry
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "could not decode FPM verifier implementation trust anchor: {e}"
+        ))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "FPM verifier implementation trust anchor entry is not app data".into()
+        )))?;
+    if !validate_fpm_verifier_implementation_identity_fields(&implementation_anchor)
+        || implementation_anchor.verifier_agent != challenge.verifier_agent
+        || implementation_anchor.verification_key_trust_anchor_action
+            != challenge.verification_key_trust_anchor_action
+        || implementation_anchor.implementation_digest != challenge.verifier_implementation_digest
+        || implementation_anchor.build_provenance_digest != challenge.verifier_build_provenance_digest
+        || implementation_anchor.builder_id != challenge.verifier_builder_id
+        || implementation_anchor.verifier_profile_digest != challenge.verifier_profile_digest
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FPM attestation challenge does not exactly inherit its verifier implementation trust binding".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -596,6 +747,10 @@ fn validate_fpm_eat_cose_verification_anchor(
         || !valid_attestation_identifier(&anchor.audience, 256)
         || !valid_attestation_identifier(&anchor.eat_profile_uri, 512)
         || anchor.eat_profile_uri != FPM_EAT_PROFILE_URI
+        || !is_canonical_fpm_verifier_digest(&anchor.verifier_implementation_digest)
+        || !is_canonical_fpm_verifier_digest(&anchor.verifier_build_provenance_digest)
+        || !is_valid_fpm_verifier_builder_id(&anchor.verifier_builder_id)
+        || !is_canonical_fpm_verifier_digest(&anchor.verifier_profile_digest)
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid or unsupported FPM EAT/COSE verification profile".into(),
@@ -647,6 +802,35 @@ fn validate_fpm_source_attestation_anchor(
             "source attestation references the wrong verification entry type".into(),
         ));
     }
+    let verification_entry_hash = verification_action.entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "source attestation verification action has no entry hash".into()
+        ))
+    })?;
+    let verification_entry = must_get_entry(verification_entry_hash)?;
+    let verification_anchor: FpmEatCoseVerificationAnchor = verification_entry
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "could not decode FPM EAT/COSE verification anchor: {e}"
+        ))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "source attestation verification action is not app data".into()
+        )))?;
+    if verification_anchor.challenge_action != anchor.challenge_action
+        || verification_anchor.evidence_digest != anchor.claim.evidence_digest
+        || verification_anchor.subject_id != anchor.claim.subject_id
+        || verification_anchor.audience != anchor.claim.audience
+        || verification_anchor.key_id != anchor.claim.verification_key_id
+        || verification_anchor.verification_key_digest != anchor.claim.verification_key_digest
+        || verification_anchor.verifier_implementation_digest != anchor.claim.verifier_implementation_digest
+        || verification_anchor.verifier_build_provenance_digest != anchor.claim.verifier_build_provenance_digest
+        || verification_anchor.verifier_builder_id != anchor.claim.verifier_builder_id
+        || verification_anchor.verifier_profile_digest != anchor.claim.verifier_profile_digest
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "source attestation is not exactly bound to its EAT/COSE verification anchor".into(),
+        ));
+    }
     let qualification = qualify_source_attestation(&FpmAttestationQualificationInput {
         expected_subject_id: anchor.claim.subject_id.clone(),
         expected_audience: anchor.claim.audience.clone(),
@@ -655,6 +839,9 @@ fn validate_fpm_source_attestation_anchor(
         expected_acquisition_root_digest: anchor.claim.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: anchor.claim.challenge_nonce_digest.clone(),
         expected_attestation_format: anchor.claim.attestation_format.clone(),
+        expected_verifier_implementation_digest: anchor.claim.verifier_implementation_digest.clone(),
+        expected_verifier_build_provenance_digest: anchor.claim.verifier_build_provenance_digest.clone(),
+        expected_verifier_builder_id: anchor.claim.verifier_builder_id.clone(),
         expected_verifier_profile_digest: anchor.claim.verifier_profile_digest.clone(),
         expected_appraisal_policy_digest: anchor.claim.appraisal_policy_digest.clone(),
         expected_reference_values_digest: anchor.claim.reference_values_digest.clone(),

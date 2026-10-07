@@ -211,6 +211,27 @@ The DNA property is intentionally unset (null) in the repository's generic manif
 
 This is a trust-root guarantee, not a hardware-attestation guarantee. It does not prove that the authority chose the correct verifier, that the key is hardware-backed, that a TPM/TEE created it, or that the verifier software is the declared implementation. Those remain separate qualification layers; SLSA likewise requires consumers to verify artifacts against a preconfigured root of trust and separately verify builder/provenance identity. (see SLSA v1.2)
 
+## Expected verifier implementation/build identity boundary
+
+The verifier key trust root now has a separate authority-approved implementation identity binding.
+
+FPM defines an immutable FpmVerifierImplementationTrustAnchor that is provisioned only by the DNA-configured verifier trust authority. It binds:
+
+- the exact verifier agent;
+- the exact verification-key trust-anchor ActionHash;
+- an exact SHA-256 commitment to the deployable verifier artifact expected by the trust root;
+- a SHA-256 commitment to the build-provenance statement associated with that artifact;
+- the asserted builder identity; and
+- the verifier-profile digest inherited from the key trust anchor.
+
+A challenge must reference one concrete implementation trust anchor, and challenge creation copies these implementation/build commitments from the authority-approved anchor. Challenge resolution re-resolves the anchor and requires exact equality, so a caller cannot replace the implementation digest, builder identity, provenance commitment, or key binding after challenge creation.
+
+The implementation digest is deliberately named **expected** identity: this boundary proves that the configured trust authority approved a particular verifier artifact identity for use with the trusted verification key. It does **not** prove that the conductor, host, container, or process actually executed those exact bytes. The build-provenance digest and builder ID are likewise commitments/expectations here; this layer does not parse or independently verify a SLSA provenance statement.
+
+The remaining runtime boundary is therefore explicit: an independent host/conductor/execution attestation must establish the identity of the artifact that actually executed before the system may claim authenticated verifier implementation execution. This preserves the separation between configured trust expectations and observed runtime identity.
+
+The stronger result profile carries the expected implementation digest, build-provenance digest, builder identity, and verifier-profile digest inside the persisted source-attestation claim and EAT/COSE verification anchor. Those fields participate in the claim/anchor security commitments, and the claim digest domain is versioned as v2. This prevents downstream qualification from retaining the result while dropping the verifier implementation context. The anchor records remain distinct from runtime execution proof.
+
 ## Challenge-bound source attestation
 
 FPM now models source-system attestation using a challenge-bound RATS-style flow.

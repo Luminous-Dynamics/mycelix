@@ -128,10 +128,41 @@ pub struct ResolvedFpmVerificationKeyTrustAnchor {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateFpmVerifierImplementationTrustAnchorInput {
+    pub verifier_agent: AgentPubKey,
+    pub verification_key_trust_anchor_action: ActionHash,
+    pub implementation_digest: String,
+    pub build_provenance_digest: String,
+    pub builder_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolveFpmVerifierImplementationTrustAnchorInput {
+    pub action_hash: ActionHash,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolvedFpmVerifierImplementationTrustAnchor {
+    pub action_hash: ActionHash,
+    pub entry_hash: EntryHash,
+    pub verifier_agent: AgentPubKey,
+    pub verification_key_trust_anchor_action: ActionHash,
+    pub implementation_digest: String,
+    pub build_provenance_digest: String,
+    pub builder_id: String,
+    pub verifier_profile_digest: String,
+    pub authority_agent: AgentPubKey,
+    pub timestamp: Timestamp,
+    pub action_seq: u32,
+    pub prev_action: Option<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateFpmAttestationChallengeInput {
     pub acquisition_root_action: ActionHash,
     pub audience: String,
     pub verification_key_trust_anchor_action: ActionHash,
+    pub verifier_implementation_trust_anchor_action: ActionHash,
     pub appraisal_policy_digest: String,
     pub reference_values_digest: String,
     pub endorsement_digest: String,
@@ -148,8 +179,12 @@ pub struct ResolvedFpmAttestationChallenge {
     pub subject_id: String,
     pub audience: String,
     pub verification_key_trust_anchor_action: ActionHash,
+    pub verifier_implementation_trust_anchor_action: ActionHash,
     pub verification_key_id: Vec<u8>,
     pub verification_key_digest: String,
+    pub verifier_implementation_digest: String,
+    pub verifier_build_provenance_digest: String,
+    pub verifier_builder_id: String,
     pub acquisition_root_action: ActionHash,
     pub acquisition_root_digest: String,
     pub verifier_agent: AgentPubKey,
@@ -188,6 +223,30 @@ pub struct FpmChallengeEatCoseVerification {
     pub challenge_action: ActionHash,
     pub acquisition_root_action: ActionHash,
     pub verification: FpmVerifiedEatCoseEvidence,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResolvedFpmEatCoseVerificationAnchor {
+    pub action_hash: ActionHash,
+    pub entry_hash: EntryHash,
+    pub challenge_action: ActionHash,
+    pub evidence_digest: String,
+    pub payload_digest: String,
+    pub subject_id: String,
+    pub audience: String,
+    pub nonce_digest: String,
+    pub eat_profile_uri: String,
+    pub key_id: Vec<u8>,
+    pub verification_key_digest: String,
+    pub verifier_implementation_digest: String,
+    pub verifier_build_provenance_digest: String,
+    pub verifier_builder_id: String,
+    pub verifier_profile_digest: String,
+    pub author: AgentPubKey,
+    pub signer: AgentPubKey,
+    pub timestamp: Timestamp,
+    pub action_seq: u32,
+    pub prev_action: Option<ActionHash>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -312,6 +371,11 @@ fn resolve_fpm_eat_cose_verification_anchor_impl(
         || verification.audience != anchor.claim.audience
         || verification.key_id != anchor.claim.verification_key_id
         || verification.verification_key_digest != anchor.claim.verification_key_digest
+        || verification.verifier_implementation_digest != anchor.claim.verifier_implementation_digest
+        || verification.verifier_build_provenance_digest
+            != anchor.claim.verifier_build_provenance_digest
+        || verification.verifier_builder_id != anchor.claim.verifier_builder_id
+        || verification.verifier_profile_digest != anchor.claim.verifier_profile_digest
         || verification.nonce_digest != anchor.claim.challenge_nonce_digest
     {
         return Err(fpm_attestation_error(
@@ -330,6 +394,10 @@ fn resolve_fpm_eat_cose_verification_anchor_impl(
         || challenge.audience != anchor.audience
         || challenge.verification_key_id != anchor.key_id
         || challenge.verification_key_digest != anchor.verification_key_digest
+        || challenge.verifier_implementation_digest != anchor.verifier_implementation_digest
+        || challenge.verifier_build_provenance_digest != anchor.verifier_build_provenance_digest
+        || challenge.verifier_builder_id != anchor.verifier_builder_id
+        || challenge.verifier_profile_digest != anchor.verifier_profile_digest
         || challenge.nonce_digest != anchor.nonce_digest
     {
         return Err(fpm_attestation_error(
@@ -357,6 +425,10 @@ fn resolve_fpm_eat_cose_verification_anchor_impl(
         eat_profile_uri: anchor.eat_profile_uri,
         key_id: anchor.key_id,
         verification_key_digest: anchor.verification_key_digest,
+        verifier_implementation_digest: anchor.verifier_implementation_digest,
+        verifier_build_provenance_digest: anchor.verifier_build_provenance_digest,
+        verifier_builder_id: anchor.verifier_builder_id,
+        verifier_profile_digest: anchor.verifier_profile_digest,
         author: *record.action().author(),
         signer: *record.action().signer(),
         timestamp: record.action().timestamp(),
@@ -476,6 +548,10 @@ fn create_fpm_eat_cose_verification_anchor_impl(
         eat_profile_uri,
         key_id,
         verification_key_digest: result.verification.verification_key_digest,
+        verifier_implementation_digest: challenge.verifier_implementation_digest,
+        verifier_build_provenance_digest: challenge.verifier_build_provenance_digest,
+        verifier_builder_id: challenge.verifier_builder_id,
+        verifier_profile_digest: challenge.verifier_profile_digest,
     };
 
     let action_hash = create_entry(EntryTypes::FpmEatCoseVerificationAnchor(anchor))?;
@@ -576,13 +652,35 @@ fn resolve_fpm_attestation_challenge_impl(
         ));
     }
 
+    let implementation = resolve_fpm_verifier_implementation_trust_anchor_impl(
+        ResolveFpmVerifierImplementationTrustAnchorInput {
+            action_hash: challenge.verifier_implementation_trust_anchor_action.clone(),
+        },
+    )?;
+    if implementation.verifier_agent != challenge.verifier_agent
+        || implementation.verification_key_trust_anchor_action
+            != challenge.verification_key_trust_anchor_action
+        || implementation.implementation_digest != challenge.verifier_implementation_digest
+        || implementation.build_provenance_digest != challenge.verifier_build_provenance_digest
+        || implementation.builder_id != challenge.verifier_builder_id
+        || implementation.verifier_profile_digest != challenge.verifier_profile_digest
+    {
+        return Err(fpm_attestation_error(
+            "attestation challenge does not inherit its exact trusted verifier implementation binding",
+        ));
+    }
+
     Ok(ResolvedFpmAttestationChallenge {
         action_hash: input.action_hash,
         subject_id: challenge.subject_id,
         audience: challenge.audience,
         verification_key_trust_anchor_action: challenge.verification_key_trust_anchor_action,
+        verifier_implementation_trust_anchor_action: challenge.verifier_implementation_trust_anchor_action,
         verification_key_id: challenge.verification_key_id,
         verification_key_digest: challenge.verification_key_digest,
+        verifier_implementation_digest: challenge.verifier_implementation_digest,
+        verifier_build_provenance_digest: challenge.verifier_build_provenance_digest,
+        verifier_builder_id: challenge.verifier_builder_id,
         acquisition_root_action: challenge.acquisition_root_action,
         acquisition_root_digest: challenge.acquisition_root_digest,
         verifier_agent: challenge.verifier_agent,
@@ -705,6 +803,9 @@ fn validate_attestation_claim_against_challenge(
         expected_acquisition_root_digest: challenge.acquisition_root_digest.clone(),
         expected_challenge_nonce_digest: challenge.nonce_digest.clone(),
         expected_attestation_format: challenge.attestation_format.clone(),
+        expected_verifier_implementation_digest: challenge.verifier_implementation_digest.clone(),
+        expected_verifier_build_provenance_digest: challenge.verifier_build_provenance_digest.clone(),
+        expected_verifier_builder_id: challenge.verifier_builder_id.clone(),
         expected_verifier_profile_digest: challenge.verifier_profile_digest.clone(),
         expected_appraisal_policy_digest: challenge.appraisal_policy_digest.clone(),
         expected_reference_values_digest: challenge.reference_values_digest.clone(),
@@ -966,6 +1067,143 @@ fn resolve_fpm_verification_key_trust_anchor_impl(
     })
 }
 
+fn create_fpm_verifier_implementation_trust_anchor_impl(
+    input: CreateFpmVerifierImplementationTrustAnchorInput,
+) -> ExternResult<Record> {
+    let authority = FabricationDnaProperties::fpm_verifier_trust_authority()?;
+    let current_agent = agent_info()?.agent_initial_pubkey;
+    if current_agent != authority {
+        return Err(fpm_attestation_error(
+            "only the DNA-configured FPM trust authority may provision verifier implementations",
+        ));
+    }
+
+    let key = resolve_fpm_verification_key_trust_anchor_impl(
+        ResolveFpmVerificationKeyTrustAnchorInput {
+            action_hash: input.verification_key_trust_anchor_action.clone(),
+        },
+    )?;
+    if key.verifier_agent != input.verifier_agent {
+        return Err(fpm_attestation_error(
+            "verifier implementation trust anchor must name the verifier bound to its key trust anchor",
+        ));
+    }
+    if !is_canonical_fpm_verifier_digest(&input.implementation_digest)
+        || !is_canonical_fpm_verifier_digest(&input.build_provenance_digest)
+        || !is_valid_fpm_verifier_builder_id(&input.builder_id)
+    {
+        return Err(fpm_attestation_error(
+            "verifier implementation trust anchor inputs are malformed",
+        ));
+    }
+
+    let anchor = FpmVerifierImplementationTrustAnchor {
+        schema_version: FPM_VERIFIER_IMPLEMENTATION_TRUST_ANCHOR_SCHEMA_VERSION.into(),
+        verifier_agent: input.verifier_agent,
+        verification_key_trust_anchor_action: key.action_hash,
+        implementation_digest: input.implementation_digest,
+        build_provenance_digest: input.build_provenance_digest,
+        builder_id: input.builder_id,
+        verifier_profile_digest: key.verifier_profile_digest,
+    };
+
+    let action_hash = create_entry(EntryTypes::FpmVerifierImplementationTrustAnchor(anchor))?;
+    get(action_hash.clone(), GetOptions::default())?.ok_or_else(|| {
+        FabricationError::not_found("FpmVerifierImplementationTrustAnchor", &action_hash)
+    })
+}
+
+fn resolve_fpm_verifier_implementation_trust_anchor_impl(
+    input: ResolveFpmVerifierImplementationTrustAnchorInput,
+) -> ExternResult<ResolvedFpmVerifierImplementationTrustAnchor> {
+    let details = get_details(input.action_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| FabricationError::not_found(
+            "FpmVerifierImplementationTrustAnchor",
+            &input.action_hash,
+        ))?;
+    let Details::Record(record_details) = details else {
+        return Err(fpm_attestation_error(
+            "verifier implementation trust-anchor ActionHash did not resolve to record details",
+        ));
+    };
+    if record_details.validation_status != ValidationStatus::Valid
+        || !record_details.updates.is_empty()
+        || !record_details.deletes.is_empty()
+    {
+        return Err(fpm_attestation_error(
+            "verifier implementation trust anchor is not currently valid and immutable",
+        ));
+    }
+
+    let record = record_details.record;
+    if record.action().action_type() != ActionType::Create {
+        return Err(fpm_attestation_error(
+            "verifier implementation trust anchor must resolve to its original Create action",
+        ));
+    }
+    let expected_entry_type = EntryType::App(
+        UnitEntryTypes::FpmVerifierImplementationTrustAnchor
+            .try_into()
+            .map_err(|_| fpm_attestation_error(
+                "could not construct FPM verifier implementation trust-anchor entry type",
+            ))?,
+    );
+    if record.action().entry_type() != Some(&expected_entry_type) {
+        return Err(fpm_attestation_error(
+            "ActionHash does not reference an FPM verifier implementation trust anchor",
+        ));
+    }
+    let authority = FabricationDnaProperties::fpm_verifier_trust_authority()?;
+    if *record.action().author() != authority {
+        return Err(fpm_attestation_error(
+            "verifier implementation trust anchor was not provisioned by the DNA-configured authority",
+        ));
+    }
+    let anchor: FpmVerifierImplementationTrustAnchor = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| fpm_attestation_error(format!(
+            "could not decode FPM verifier implementation trust anchor: {e}"
+        )))?
+        .ok_or_else(|| fpm_attestation_error(
+            "record is not an FPM verifier implementation trust anchor entry",
+        ))?;
+    if !validate_fpm_verifier_implementation_identity_fields(&anchor) {
+        return Err(fpm_attestation_error(
+            "verifier implementation trust anchor contains malformed identity fields",
+        ));
+    }
+    let key = resolve_fpm_verification_key_trust_anchor_impl(
+        ResolveFpmVerificationKeyTrustAnchorInput {
+            action_hash: anchor.verification_key_trust_anchor_action.clone(),
+        },
+    )?;
+    if key.verifier_agent != anchor.verifier_agent
+        || key.verifier_profile_digest != anchor.verifier_profile_digest
+    {
+        return Err(fpm_attestation_error(
+            "verifier implementation trust anchor does not exactly inherit its key trust binding",
+        ));
+    }
+    let entry_hash = record.action().entry_hash().ok_or_else(|| {
+        fpm_attestation_error("verifier implementation trust-anchor action has no entry hash")
+    })?.clone();
+    Ok(ResolvedFpmVerifierImplementationTrustAnchor {
+        action_hash: input.action_hash,
+        entry_hash,
+        verifier_agent: anchor.verifier_agent,
+        verification_key_trust_anchor_action: anchor.verification_key_trust_anchor_action,
+        implementation_digest: anchor.implementation_digest,
+        build_provenance_digest: anchor.build_provenance_digest,
+        builder_id: anchor.builder_id,
+        verifier_profile_digest: anchor.verifier_profile_digest,
+        authority_agent: authority,
+        timestamp: record.action().timestamp(),
+        action_seq: record.action().action_seq(),
+        prev_action: record.action().prev_action().cloned(),
+    })
+}
+
 fn create_fpm_attestation_challenge_impl(
     input: CreateFpmAttestationChallengeInput,
 ) -> ExternResult<Record> {
@@ -980,10 +1218,23 @@ fn create_fpm_attestation_challenge_impl(
             action_hash: input.verification_key_trust_anchor_action.clone(),
         },
     )?;
-    let verifier_agent = agent_info()?.agent_initial_pubkey;
-    if verifier_agent != trust.verifier_agent {
+    let implementation = resolve_fpm_verifier_implementation_trust_anchor_impl(
+        ResolveFpmVerifierImplementationTrustAnchorInput {
+            action_hash: input.verifier_implementation_trust_anchor_action.clone(),
+        },
+    )?;
+    if implementation.verification_key_trust_anchor_action != trust.action_hash
+        || implementation.verifier_agent != trust.verifier_agent
+        || implementation.verifier_profile_digest != trust.verifier_profile_digest
+    {
         return Err(fpm_attestation_error(
-            "only the verifier bound to the trusted key anchor may issue this challenge",
+            "verifier implementation trust anchor does not match the selected verification key trust anchor",
+        ));
+    }
+    let verifier_agent = agent_info()?.agent_initial_pubkey;
+    if verifier_agent != implementation.verifier_agent {
+        return Err(fpm_attestation_error(
+            "only the verifier bound to the trusted implementation may issue this challenge",
         ));
     }
 
@@ -1009,8 +1260,12 @@ fn create_fpm_attestation_challenge_impl(
         subject_id: root.source_system_id,
         audience: input.audience,
         verification_key_trust_anchor_action: trust.action_hash,
+        verifier_implementation_trust_anchor_action: implementation.action_hash,
         verification_key_id: trust.verification_key_id,
         verification_key_digest: trust.verification_key_digest,
+        verifier_implementation_digest: implementation.implementation_digest,
+        verifier_build_provenance_digest: implementation.build_provenance_digest,
+        verifier_builder_id: implementation.builder_id,
         acquisition_root_action: input.acquisition_root_action,
         acquisition_root_digest: root.root_digest,
         verifier_agent,
@@ -1089,6 +1344,9 @@ fn create_fpm_source_attestation_anchor_impl(
         attestation_format: challenge.attestation_format.clone(),
         verifier_id: input.verifier_id,
         verifier_version: input.verifier_version,
+        verifier_implementation_digest: challenge.verifier_implementation_digest.clone(),
+        verifier_build_provenance_digest: challenge.verifier_build_provenance_digest.clone(),
+        verifier_builder_id: challenge.verifier_builder_id.clone(),
         verifier_profile_digest: challenge.verifier_profile_digest.clone(),
         appraisal_policy_digest: challenge.appraisal_policy_digest.clone(),
         reference_values_digest: challenge.reference_values_digest.clone(),
@@ -1216,6 +1474,22 @@ pub fn create_fpm_verification_key_trust_anchor(
 ) -> ExternResult<Record> {
     rate_limit_caller()?;
     create_fpm_verification_key_trust_anchor_impl(input)
+}
+
+#[hdk_extern]
+pub fn create_fpm_verifier_implementation_trust_anchor(
+    input: CreateFpmVerifierImplementationTrustAnchorInput,
+) -> ExternResult<Record> {
+    rate_limit_caller()?;
+    create_fpm_verifier_implementation_trust_anchor_impl(input)
+}
+
+#[hdk_extern]
+pub fn resolve_fpm_verifier_implementation_trust_anchor(
+    input: ResolveFpmVerifierImplementationTrustAnchorInput,
+) -> ExternResult<ResolvedFpmVerifierImplementationTrustAnchor> {
+    rate_limit_caller()?;
+    resolve_fpm_verifier_implementation_trust_anchor_impl(input)
 }
 
 #[hdk_extern]

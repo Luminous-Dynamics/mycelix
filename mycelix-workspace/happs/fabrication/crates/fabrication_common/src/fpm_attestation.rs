@@ -12,10 +12,10 @@ const SHA256_HEX_LEN: usize = 64;
 const MAX_LABEL_BYTES: usize = 128;
 
 pub const FPM_ATTESTATION_SCHEMA_VERSION: &str =
-    "fpm.registration.source-attestation.v1";
+    "fpm.registration.source-attestation.v2";
 pub const FPM_ATTESTATION_PROFILE_ID: &str =
     "fpm.registration.source-attestation.challenge-bound";
-pub const FPM_ATTESTATION_PROFILE_VERSION: &str = "1";
+pub const FPM_ATTESTATION_PROFILE_VERSION: &str = "2";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FpmAttestationDisposition {
@@ -35,6 +35,9 @@ pub struct FpmSourceAttestationClaim {
     pub attestation_format: String,
     pub verifier_id: String,
     pub verifier_version: String,
+    pub verifier_implementation_digest: String,
+    pub verifier_build_provenance_digest: String,
+    pub verifier_builder_id: String,
     pub verifier_profile_digest: String,
     pub appraisal_policy_digest: String,
     pub reference_values_digest: String,
@@ -52,7 +55,7 @@ pub fn fpm_attestation_nonce_digest(nonce: &[u8]) -> String {
 impl FpmSourceAttestationClaim {
     pub fn digest(&self) -> String {
         let mut bytes = Vec::new();
-        append_field(&mut bytes, b"fpm.source-attestation-claim.v1");
+        append_field(&mut bytes, b"fpm.source-attestation-claim.v2");
         append_field(&mut bytes, self.subject_id.as_bytes());
         append_field(&mut bytes, self.audience.as_bytes());
         append_field(&mut bytes, &self.verification_key_id);
@@ -63,6 +66,9 @@ impl FpmSourceAttestationClaim {
         append_field(&mut bytes, self.attestation_format.as_bytes());
         append_field(&mut bytes, self.verifier_id.as_bytes());
         append_field(&mut bytes, self.verifier_version.as_bytes());
+        append_field(&mut bytes, self.verifier_implementation_digest.as_bytes());
+        append_field(&mut bytes, self.verifier_build_provenance_digest.as_bytes());
+        append_field(&mut bytes, self.verifier_builder_id.as_bytes());
         append_field(&mut bytes, self.verifier_profile_digest.as_bytes());
         append_field(&mut bytes, self.appraisal_policy_digest.as_bytes());
         append_field(&mut bytes, self.reference_values_digest.as_bytes());
@@ -87,6 +93,9 @@ pub struct FpmAttestationQualificationInput {
     pub expected_acquisition_root_digest: String,
     pub expected_challenge_nonce_digest: String,
     pub expected_attestation_format: String,
+    pub expected_verifier_implementation_digest: String,
+    pub expected_verifier_build_provenance_digest: String,
+    pub expected_verifier_builder_id: String,
     pub expected_verifier_profile_digest: String,
     pub expected_appraisal_policy_digest: String,
     pub expected_reference_values_digest: String,
@@ -114,6 +123,9 @@ pub enum FpmAttestationQualificationReason {
     ChallengeNonceMismatch,
     EvidenceDigestMismatch,
     VerifierProfileMismatch,
+    VerifierImplementationMismatch,
+    VerifierBuildProvenanceMismatch,
+    VerifierBuilderMismatch,
     AppraisalPolicyMismatch,
     ReferenceValuesMissing,
     ReferenceValuesMismatch,
@@ -123,6 +135,7 @@ pub enum FpmAttestationQualificationReason {
     AttestationFormatMismatch,
     EmptyVerifierIdentity,
     EmptyVerifierVersion,
+    InvalidVerifierBuilderId,
     NotAppraised,
 }
 
@@ -157,6 +170,8 @@ pub fn qualify_source_attestation(
         &input.expected_acquisition_root_digest,
         &input.expected_challenge_nonce_digest,
         &input.expected_verification_key_digest,
+        &input.expected_verifier_implementation_digest,
+        &input.expected_verifier_build_provenance_digest,
         &input.expected_verifier_profile_digest,
         &input.expected_appraisal_policy_digest,
         &input.expected_reference_values_digest,
@@ -165,6 +180,8 @@ pub fn qualify_source_attestation(
         &input.claim.verification_key_digest,
         &input.claim.challenge_nonce_digest,
         &input.claim.evidence_digest,
+        &input.claim.verifier_implementation_digest,
+        &input.claim.verifier_build_provenance_digest,
         &input.claim.verifier_profile_digest,
         &input.claim.appraisal_policy_digest,
         &input.claim.reference_values_digest,
@@ -196,6 +213,15 @@ pub fn qualify_source_attestation(
     if input.claim.attestation_format != input.expected_attestation_format {
         reasons.insert(FpmAttestationQualificationReason::AttestationFormatMismatch);
     }
+    if input.claim.verifier_implementation_digest != input.expected_verifier_implementation_digest {
+        reasons.insert(FpmAttestationQualificationReason::VerifierImplementationMismatch);
+    }
+    if input.claim.verifier_build_provenance_digest != input.expected_verifier_build_provenance_digest {
+        reasons.insert(FpmAttestationQualificationReason::VerifierBuildProvenanceMismatch);
+    }
+    if input.claim.verifier_builder_id != input.expected_verifier_builder_id {
+        reasons.insert(FpmAttestationQualificationReason::VerifierBuilderMismatch);
+    }
     if input.claim.verifier_profile_digest != input.expected_verifier_profile_digest {
         reasons.insert(FpmAttestationQualificationReason::VerifierProfileMismatch);
     }
@@ -217,6 +243,11 @@ pub fn qualify_source_attestation(
     if !valid_label(&input.claim.verifier_version) {
         reasons.insert(FpmAttestationQualificationReason::EmptyVerifierVersion);
     }
+    if !is_valid_fpm_verifier_builder_id(&input.expected_verifier_builder_id)
+        || !is_valid_fpm_verifier_builder_id(&input.claim.verifier_builder_id)
+    {
+        reasons.insert(FpmAttestationQualificationReason::InvalidVerifierBuilderId);
+    }
     if !is_canonical_digest(&input.claim.reference_values_digest) {
         reasons.insert(FpmAttestationQualificationReason::ReferenceValuesMissing);
     }
@@ -236,6 +267,9 @@ pub fn qualify_source_attestation(
         || reasons.contains(&FpmAttestationQualificationReason::AcquisitionRootMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::ChallengeNonceMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AttestationFormatMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::VerifierImplementationMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::VerifierBuildProvenanceMismatch)
+        || reasons.contains(&FpmAttestationQualificationReason::VerifierBuilderMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::VerifierProfileMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::AppraisalPolicyMismatch)
         || reasons.contains(&FpmAttestationQualificationReason::ReferenceValuesMismatch)
@@ -250,6 +284,7 @@ pub fn qualify_source_attestation(
                 | FpmAttestationQualificationReason::InvalidEvidenceFormat
                 | FpmAttestationQualificationReason::EmptyVerifierIdentity
                 | FpmAttestationQualificationReason::EmptyVerifierVersion
+                | FpmAttestationQualificationReason::InvalidVerifierBuilderId
         )
     }) {
         FpmAttestationQualificationStatus::InvalidEvidence
@@ -316,6 +351,9 @@ mod tests {
             attestation_format: "eat-cbor".into(),
             verifier_id: "verifier-1".into(),
             verifier_version: "1".into(),
+            verifier_implementation_digest: digest('1'),
+            verifier_build_provenance_digest: digest('2'),
+            verifier_builder_id: "builder-1".into(),
             verifier_profile_digest: digest('d'),
             appraisal_policy_digest: digest('e'),
             reference_values_digest: digest('f'),
@@ -334,6 +372,9 @@ mod tests {
             expected_acquisition_root_digest: claim.acquisition_root_digest.clone(),
             expected_challenge_nonce_digest: claim.challenge_nonce_digest.clone(),
             expected_attestation_format: claim.attestation_format.clone(),
+            expected_verifier_implementation_digest: claim.verifier_implementation_digest.clone(),
+            expected_verifier_build_provenance_digest: claim.verifier_build_provenance_digest.clone(),
+            expected_verifier_builder_id: claim.verifier_builder_id.clone(),
             expected_verifier_profile_digest: claim.verifier_profile_digest.clone(),
             expected_appraisal_policy_digest: claim.appraisal_policy_digest.clone(),
             expected_reference_values_digest: claim.reference_values_digest.clone(),
@@ -420,6 +461,73 @@ mod tests {
         assert!(result
             .reasons
             .contains(&FpmAttestationQualificationReason::VerifierProfileMismatch));
+    }
+
+    #[test]
+    fn claim_digest_commits_verifier_implementation_identity() {
+        let base = claim().digest();
+
+        let mut changed = claim();
+        changed.verifier_implementation_digest = digest('9');
+        assert_ne!(base, changed.digest());
+
+        let mut changed = claim();
+        changed.verifier_build_provenance_digest = digest('9');
+        assert_ne!(base, changed.digest());
+
+        let mut changed = claim();
+        changed.verifier_builder_id = "builder-2".into();
+        assert_ne!(base, changed.digest());
+    }
+
+    #[test]
+    fn malformed_builder_identity_is_invalid() {
+        let mut input = input();
+        input.claim.verifier_builder_id = "  builder ".into();
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::InvalidEvidence
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::InvalidVerifierBuilderId));
+    }
+
+    #[test]
+    fn verifier_implementation_substitution_conflicts() {
+        let mut input = input();
+        input.claim.verifier_implementation_digest = digest('9');
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::VerifierImplementationMismatch));
+
+        let mut input = input();
+        input.claim.verifier_build_provenance_digest = digest('9');
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::VerifierBuildProvenanceMismatch));
+
+        let mut input = input();
+        input.claim.verifier_builder_id = "builder-2".into();
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::VerifierBuilderMismatch));
     }
 
     #[test]
