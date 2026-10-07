@@ -380,3 +380,18 @@ The hosted exact-head qualifier is itself treated as part of the evidence bounda
 - `actions/upload-artifact` v7.0.1.
 
 The qualification workflow pins Rust 1.99.0 for the semantic run in addition to pinning the evaluator action implementations. The receipt records the workflow provenance, exact PR head, exact action commit references, compiler/tool versions, source and manifest digests, step conclusions, and the `ReferenceModelOnly` claim ceiling. These fields describe the evaluator execution and do not upgrade the semantic model into production, runtime, or external validation evidence.
+
+
+## Hosted qualification failure and repair — 2026-10-07
+
+The first hosted exact-head qualification that executed against this tranche was run #35 (`37659355184`) for PR head `93d130967d92ff49d4e2aa5b6484176e0a081cc6`. Checkout identity and live-PR-head reconciliation both passed. The run then failed at the formatter before test, Clippy, or semantic boundary qualification because `mycelix-manufacturing/crates/cos_conformance/src/federation.rs` contained a genuinely unterminated assertion in `state_machine_failure_sequence_shrinker_finds_minimal_reproduction`:
+
+`assert!(!fail    #[test]`
+
+The compiler therefore reported an unclosed delimiter. This was a real source defect, not a qualification-run race or a hosted-runner artifact. The failure receipt was emitted and uploaded even though the qualification job failed, preserving the negative evidence.
+
+The defect was repaired on the PR branch by commit `62f8c6227e8bf95497a02dc3510d470b1268c8fe`. The repair is deliberately minimal: it restores the `!fails(&reduced)` irreducibility assertion, records the removal index in the diagnostic, and closes the assertion, loop, and test delimiters.
+
+A fresh exact-head run #36 (`37669119343`) was then instantiated for `62f8c6227e8bf95497a02dc3510d470b1268c8fe`. No hosted PASS is inferred until that run executes successfully.
+
+The canonical target-branch qualifier was subsequently tightened so that format qualification is scoped to the `cos_conformance` package rather than unrelated manufacturing workspace members. The canonical workflow now also pins the runner label to `ubuntu-24.04`, records the observed runner image/version, and exposes the uploaded receipt artifact's SHA-256 digest. These changes tighten reproducibility and evidence provenance without changing the semantic claim ceiling.
