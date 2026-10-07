@@ -75,6 +75,8 @@ jobs:
               RUSTC|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|RUSTDOC|RUSTDOC_WRAPPER|RUSTFLAGS|RUSTDOCFLAGS|\
               CARGO_BUILD_RUSTC|CARGO_BUILD_RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTDOCFLAGS|\
               CARGO_ENCODED_RUSTDOCFLAGS|CARGO_BUILD_TARGET|CARGO_NET_OFFLINE|CARGO_NET_GIT_FETCH_WITH_CLI|\
+              CARGO_TARGET_DIR|CARGO_TARGET_*_RUNNER|CARGO_TARGET_*_LINKER|CARGO_TARGET_*_RUSTFLAGS|\
+              CARGO_TARGET_*_RUSTDOCFLAGS|
               CARGO_REGISTRY_TOKEN|CARGO_REGISTRIES_*_TOKEN|CARGO_REGISTRIES_*_INDEX|\
               CARGO_REGISTRIES_*_CREDENTIAL_PROVIDER)
                 echo "forbidden ambient Cargo/Rust environment: $name"
@@ -140,6 +142,12 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           test ! -s "$GITHUB_ENV"
           test ! -s "$GITHUB_PATH"
+      - name: Fetch locked dependency sources
+        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
+        env:
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+        run: cargo +1.96.1 fetch --locked --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml"
+
       - name: Verify resolved substrate lock
         working-directory: d6u-runtime-harness
         run: python3 ../scripts/integral/verify_d6u_runtime_lock.py Cargo.lock
@@ -262,7 +270,7 @@ PY
           path_file="$GITHUB_PATH"
           test ! -s "$env_file"
           test ! -s "$path_file"
-          cargo +1.96.1 clippy --locked --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- -D warnings
+          cargo +1.96.1 clippy --locked --offline --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- -D warnings
           test ! -s "$env_file"
           test ! -s "$path_file"
 
@@ -310,7 +318,7 @@ PY
           path_file="$GITHUB_PATH"
           test ! -s "$env_file"
           test ! -s "$path_file"
-          cargo +1.96.1 test --locked --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- --nocapture 2>&1 | tee "${{ github.workspace }}/d6u-runtime-harness/d6u-runtime-test.log"
+          cargo +1.96.1 test --locked --offline --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- --nocapture 2>&1 | tee "${{ github.workspace }}/d6u-runtime-harness/d6u-runtime-test.log"
           test ! -s "$env_file"
           test ! -s "$path_file"
       - name: Assert runtime inputs after runtime test
