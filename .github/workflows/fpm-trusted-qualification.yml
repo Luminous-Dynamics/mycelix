@@ -1,5 +1,7 @@
 name: FPM trusted qualification policy
 
+run-name: FPM trusted qualification / PR #${{ github.event.workflow_run.pull_requests[0].number || 'unresolved' }} / ${{ github.event.workflow_run.head_sha || 'no-head' }}
+
 on:
   workflow_run:
     workflows: ["FPM WASM artifact identity"]
@@ -13,6 +15,8 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  CARGO_HOME: ${{ runner.temp }}/fpm-cargo
 
 jobs:
   qualify:
@@ -23,6 +27,14 @@ jobs:
       run:
         working-directory: crates/fpm-wasm-artifact-identity
     steps:
+      - name: Record trusted policy revision
+        env:
+          EXPECTED_REF: refs/heads/main
+        run: |
+          set -eu
+          echo "TRUSTED_POLICY_SHA=$GITHUB_SHA"
+          test "$GITHUB_REF" = "$EXPECTED_REF"
+
       - name: Assert PR candidate metadata
         env:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -64,6 +76,16 @@ jobs:
           rustc +1.96.1 --version --verbose
           test "$(rustc +1.96.1 --version --verbose | sed -ne 's/^release: //p')" = "1.96.1"
           test "$(rustc +1.96.1 --version --verbose | sed -ne 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+
+      - name: Initialize isolated Cargo home
+        run: |
+          set -eu
+          test "$CARGO_HOME" = "$RUNNER_TEMP/fpm-cargo"
+          mkdir -p "$CARGO_HOME"
+          test ! -e "$CARGO_HOME/config"
+          test ! -e "$CARGO_HOME/config.toml"
+          test ! -e "$CARGO_HOME/credentials"
+          test ! -e "$CARGO_HOME/credentials.toml"
 
       - name: Verify dependency policy before Cargo execution
         env:
