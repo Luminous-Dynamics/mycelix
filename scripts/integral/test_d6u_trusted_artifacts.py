@@ -646,6 +646,9 @@ def test_policy_pins_current_trusted_fetcher() -> None:
         text=True,
     ).stdout.strip()
     assert policy["trusted_artifact_fetcher"]["blob_sha"] == observed
+    assert policy["trusted_artifact_fetcher"]["blob_sha"] == policy["trusted_programs"][
+        "scripts/integral/fetch_d6u_trusted_artifact.py"
+    ]["blob_sha"]
 
 
 def test_retention_workflow_bounds_inputs_before_verification() -> None:
