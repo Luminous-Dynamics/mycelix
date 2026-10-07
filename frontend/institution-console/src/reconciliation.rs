@@ -100,6 +100,8 @@ fn demo_cases() -> Vec<ReconciliationCase> {
 #[component]
 pub fn ReconciliationPage() -> impl IntoView {
     let cases = demo_cases();
+    let cases_for_list = cases.clone();
+    let cases_for_detail = cases.clone();
     let selected = RwSignal::new("REC-1001".to_string());
 
     view! {
@@ -130,7 +132,7 @@ pub fn ReconciliationPage() -> impl IntoView {
 
                     <div role="list">
                         <For
-                            each=move || cases.clone()
+                            each=move || cases_for_list.clone()
                             key=|case| case.case_id.clone()
                             children=move |case| {
                                 let case_id = case.case_id.clone();
@@ -162,7 +164,7 @@ pub fn ReconciliationPage() -> impl IntoView {
                 <section class="panel case-detail" aria-live="polite">
                     {
                         move || {
-                            cases.iter()
+                            cases_for_detail.iter()
                                 .find(|case| case.case_id == selected.get())
                                 .map(|case| view! {
                                     <CaseDetail case=case.clone()/>
