@@ -311,8 +311,8 @@ def _selector_state(
         return "MATCH" if value_id in ids else "NOT_MATCH"
     return (
         "MATCH"
-        if any(fnmatch.fnmatchcase(value, pattern) for pattern in includes)
-        and not any(fnmatch.fnmatchcase(value, pattern) for pattern in excludes)
+        if any(_scope_pattern_matches(value, pattern) for pattern in includes)
+        and not any(_scope_pattern_matches(value, pattern) for pattern in excludes)
         else "NOT_MATCH"
     )
 
