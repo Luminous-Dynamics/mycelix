@@ -55,6 +55,8 @@ impl MatchedFpmWasmArtifactIdentity {
 pub enum FpmArtifactIdentityError {
     EmptyArtifact,
     ArtifactTooLarge,
+    InvalidSchemaVersion,
+    InvalidHolochainProfile,
     InvalidSha256,
     InvalidWasmHashLength,
     InvalidWasmHashType,
@@ -76,10 +78,15 @@ pub fn sha256_hex(code: &[u8]) -> String {
 pub fn validate_identity_shape(
     identity: &FpmWasmArtifactIdentity,
 ) -> Result<(), FpmArtifactIdentityError> {
-    if identity.schema_version != SCHEMA_VERSION
-        || identity.holochain_profile != HOLOCHAIN_PROFILE
-        || !is_canonical_sha256(&identity.artifact_sha256)
-    {
+    if identity.schema_version != SCHEMA_VERSION {
+        return Err(FpmArtifactIdentityError::InvalidSchemaVersion);
+    }
+
+    if identity.holochain_profile != HOLOCHAIN_PROFILE {
+        return Err(FpmArtifactIdentityError::InvalidHolochainProfile);
+    }
+
+    if !is_canonical_sha256(&identity.artifact_sha256) {
         return Err(FpmArtifactIdentityError::InvalidSha256);
     }
 
@@ -334,6 +341,44 @@ mod tests {
         assert_eq!(
             derive_identity(&oversized).unwrap_err(),
             FpmArtifactIdentityError::ArtifactTooLarge
+        );
+    }
+
+    #[test]
+    fn wrong_wasm_hash_type_is_rejected() {
+        let code = artifact();
+        let identity = derive_identity(&code).unwrap();
+        let mut inline_raw_39 = identity.wasm_hash_raw_39.clone();
+        inline_raw_39[1] = 0x2b;
+
+        assert_eq!(
+            verify_approved_artifact_against_observed_wasm_hash(
+                &identity,
+                &code,
+                &inline_raw_39,
+            )
+            .unwrap_err(),
+            FpmArtifactIdentityError::InvalidWasmHashType
+        );
+    }
+
+    #[test]
+    fn wrong_schema_and_profile_are_rejected_separately() {
+        let code = artifact();
+        let valid = derive_identity(&code).unwrap();
+
+        let mut wrong_schema = valid.clone();
+        wrong_schema.schema_version = "fpm.verifier-artifact-identity.v2".into();
+        assert_eq!(
+            validate_identity_shape(&wrong_schema).unwrap_err(),
+            FpmArtifactIdentityError::InvalidSchemaVersion
+        );
+
+        let mut wrong_profile = valid;
+        wrong_profile.holochain_profile = "holochain-0.8.0-wasmhash-v1".into();
+        assert_eq!(
+            validate_identity_shape(&wrong_profile).unwrap_err(),
+            FpmArtifactIdentityError::InvalidHolochainProfile
         );
     }
 
