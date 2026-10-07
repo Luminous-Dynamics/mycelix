@@ -246,7 +246,7 @@ The commitment is deliberately not treated as proof of verifier correctness, key
 
 ### Versioned wire-shape closure
 
-The external verification statement's v2 serialization is now treated as a closed-world wire contract in the executable conformance suite. The regression enumerates the complete serialized field set and rejects any future addition or removal that is not accompanied by an explicit contract review and schema/profile change. `deny_unknown_fields` continues to protect the deserialization side, while the closed-world serialization assertion protects the opposite direction: a new Rust field cannot silently become part of the public wire representation merely because `Serialize` was derived. This is a wire-compatibility guard, not a cryptographic authenticity mechanism.
+The external verification statement's v3 serialization is now treated as a closed-world wire contract in the executable conformance suite. The regression enumerates the complete serialized field set and rejects any future addition or removal that is not accompanied by an explicit contract review and schema/profile change. `deny_unknown_fields` continues to protect the deserialization side, while the closed-world serialization assertion protects the opposite direction: a new Rust field cannot silently become part of the public wire representation merely because `Serialize` was derived. This is a wire-compatibility guard, not a cryptographic authenticity mechanism.
 
 ### Exact anchor-reference binding
 
