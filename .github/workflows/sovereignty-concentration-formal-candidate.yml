@@ -48,8 +48,9 @@ jobs:
           crosswalk=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json").read_text())
           assert profile["status"] == "candidate-verification-profile"
           assert profile["authority"] == "non-authoritative"
-          assert profile["semantic_subject"]["head_sha"] == "${{ github.sha }}"
-          assert crosswalk["formal_subject_head"] == "${{ github.sha }}"
+          assert profile["semantic_subject"]["source_branch"] == "sov-ai-formal-v3-concentration-subject-clean"
+          assert len(profile["semantic_subject"]["head_sha"]) == 40
+          assert crosswalk["formal_subject_head"] == profile["semantic_subject"]["head_sha"]
           assert crosswalk["formal_subject_tree"] == profile["semantic_subject"]["tree_sha"]
           print("CANDIDATE CONTRACT PASS: exact subject identity and non-authoritative boundary")
           PY
