@@ -1529,7 +1529,11 @@ fn verify_oracle_rate_against_consensus(
     }
     #[derive(Debug, Deserialize)]
     struct ConsensusResult {
+        item: String,
         median_price: f64,
+        reporter_count: u32,
+        fallback_used: bool,
+        window_start: Timestamp,
     }
 
     let item = format!("{}_SAP", collateral_type);
@@ -1548,6 +1552,36 @@ fn verify_oracle_rate_against_consensus(
                     e
                 )))
             })?;
+
+            let expected_item = format!("{}_SAP", collateral_type).to_lowercase();
+            if consensus.item.to_lowercase() != expected_item {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Price oracle consensus item mismatch: expected {}, got {}; refusing collateral issuance",
+                    expected_item, consensus.item
+                ))));
+            }
+
+            if consensus.reporter_count < 2 {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Price oracle consensus has insufficient fresh reporters; refusing collateral issuance"
+                        .into(),
+                )));
+            }
+
+            if consensus.fallback_used {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Price oracle consensus is degraded/fallback; refusing collateral issuance".into(),
+                )));
+            }
+
+            let now = sys_time()?;
+            if consensus.window_start.as_micros() > now.as_micros() {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Price oracle consensus window starts in the future; refusing collateral issuance"
+                        .into(),
+                )));
+            }
+
             validate_consensus_rate(claimed_rate, consensus.median_price)
         }
         Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
