@@ -210,7 +210,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "f8d61bc12fbd63c0d79b690920371abea1d6dafc"
+    "blob_sha": "864a7ac61c65daa42cc65c0cfcb85945dc4dba0f"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
