@@ -9,6 +9,9 @@ on:
       - 'mycelix-governance/specs/ArtificialSovereigntyConcentrationV1NegativeControls.tla'
       - 'mycelix-governance/specs/alloy/ArtificialSovereigntyConcentrationV1.als'
       - 'mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py'
+      - 'mycelix-governance/tools/formal/qualify_sovereignty_concentration_candidate.py'
+      - 'mycelix-governance/tools/formal/SovereigntyConcentrationAlloyRunner.java'
+      - 'mycelix-governance/tools/formal/sovereignty_concentration_pins.json'
       - 'docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json'
       - 'docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json'
       - '.github/workflows/sovereignty-concentration-formal-candidate.yml'
@@ -19,10 +22,17 @@ on:
 permissions:
   contents: read
 
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  TLA_URL: https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+  TLA_SHA256: 936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
+  ALLOY_URL: https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.2.0/org.alloytools.alloy.dist.jar
+  ALLOY_SHA256: 6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d
+
 jobs:
   candidate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout exact candidate head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -38,34 +48,58 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
-      - name: Validate candidate contracts
+      - name: Validate candidate syntax and contracts
         run: |
           set -euo pipefail
-          python3 -m py_compile mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py
-          python3 -m json.tool docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
-          python3 -m json.tool docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json >/dev/null
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
+          python3 -m py_compile             mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py             mycelix-governance/tools/formal/qualify_sovereignty_concentration_candidate.py
+          python3 -m json.tool             docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
+          python3 -m json.tool             docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json >/dev/null
+          python3 -m json.tool             mycelix-governance/tools/formal/sovereignty_concentration_pins.json >/dev/null
 
-          profile=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json").read_text())
-          crosswalk=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json").read_text())
-          assert profile["status"] == "candidate-verification-profile"
-          assert profile["authority"] == "non-authoritative"
-          assert profile["semantic_subject"]["source_branch"] == "sov-ai-formal-v3-concentration-subject-main"
-          assert len(profile["semantic_subject"]["head_sha"]) == 40
-          assert crosswalk["formal_subject_head"] == profile["semantic_subject"]["head_sha"]
-          assert crosswalk["formal_subject_tree"] == profile["semantic_subject"]["tree_sha"]
-          print("CANDIDATE CONTRACT PASS: concentration subject identity is frozen")
-          PY
+      - name: Install pinned Nix toolchain
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
 
-      - name: Run bounded reference oracle
+      - name: Download and hash pinned formal tools
         run: |
           set -euo pipefail
-          python3 mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py
+          mkdir -p "$RUNNER_TEMP/sov-concentration-tools"
+          nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#jdk17_headless"             "github:NixOS/nixpkgs/$NIXPKGS_REV#curl"             "github:NixOS/nixpkgs/$NIXPKGS_REV#coreutils"             --command bash -euo pipefail -c '
+              curl --fail --location --retry 3 --retry-all-errors                 --output "$RUNNER_TEMP/sov-concentration-tools/tla2tools.jar" "$TLA_URL"
+              curl --fail --location --retry 3 --retry-all-errors                 --output "$RUNNER_TEMP/sov-concentration-tools/alloy.jar" "$ALLOY_URL"
+              printf "%s  %s\n" "$TLA_SHA256" "$RUNNER_TEMP/sov-concentration-tools/tla2tools.jar" | sha256sum --check --strict
+              printf "%s  %s\n" "$ALLOY_SHA256" "$RUNNER_TEMP/sov-concentration-tools/alloy.jar" | sha256sum --check --strict
+            '
 
-      - name: Candidate nonclaim gate
+      - name: Compile machine-readable Alloy runner
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sov-concentration-java"
+          nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#jdk17_headless"             --command bash -euo pipefail -c '
+              javac -cp "$RUNNER_TEMP/sov-concentration-tools/alloy.jar"                 -d "$RUNNER_TEMP/sov-concentration-java"                 mycelix-governance/tools/formal/SovereigntyConcentrationAlloyRunner.java
+            '
+
+      - name: Execute candidate formal classifier
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sov-concentration-evidence"
+          nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#jdk17_headless"             "github:NixOS/nixpkgs/$NIXPKGS_REV#coreutils"             --command bash -euo pipefail -c '
+              python3 mycelix-governance/tools/formal/qualify_sovereignty_concentration_candidate.py                 --profile docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json                 --pins mycelix-governance/tools/formal/sovereignty_concentration_pins.json                 --tla mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.tla                 --cfg mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.cfg                 --negative-tla mycelix-governance/specs/ArtificialSovereigntyConcentrationV1NegativeControls.tla                 --alloy mycelix-governance/specs/alloy/ArtificialSovereigntyConcentrationV1.als                 --alloy-runner-class-dir "$RUNNER_TEMP/sov-concentration-java"                 --tla-jar "$RUNNER_TEMP/sov-concentration-tools/tla2tools.jar"                 --alloy-jar "$RUNNER_TEMP/sov-concentration-tools/alloy.jar"                 --evidence-dir "$RUNNER_TEMP/sov-concentration-evidence"
+            '
+
+      - name: Verify candidate repository postflight
+        if: always()
         run: |
           set -euo pipefail
           test "$(git status --porcelain)" = ""
-          echo "NON-AUTHORITATIVE: bounded concentration candidate evidence only"
+
+      - name: Upload candidate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sovereignty-concentration-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/sov-concentration-evidence
+          if-no-files-found: warn
+          retention-days: 30
