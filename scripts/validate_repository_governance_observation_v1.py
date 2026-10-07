@@ -164,6 +164,28 @@ def validate_observation_shape(observation: Any) -> None:
         all(isinstance(value, int) and not isinstance(value, bool) for value in full_ids),
         "full ruleset id missing",
     )
+
+    identity_keys = ("id", "name", "source_type", "source", "enforcement", "updated_at")
+    allowed_enforcement = {"active", "disabled", "evaluate"}
+    for label, entries in (("rulesets index", rulesets_index_raw), ("full rulesets", rulesets_raw)):
+        for index, entry in enumerate(entries):
+            require(isinstance(entry, dict), f"{label}[{index}] entry is not an object")
+            for key in identity_keys:
+                value = entry.get(key)
+                require(
+                    isinstance(value, str) and value.strip() if key != "id" else
+                    isinstance(value, int) and not isinstance(value, bool),
+                    f"{label}[{index}] {key} is missing or invalid",
+                )
+            require(
+                entry["enforcement"] in allowed_enforcement,
+                f"{label}[{index}] enforcement is invalid",
+            )
+    for index, entry in enumerate(rulesets_raw):
+        require(entry.get("target") == "branch", f"full ruleset[{index}] target is not branch")
+        require(isinstance(entry.get("conditions"), dict), f"full ruleset[{index}] conditions missing")
+        require(isinstance(entry.get("rules"), list), f"full ruleset[{index}] rules missing")
+        require(isinstance(entry.get("bypass_actors"), list), f"full ruleset[{index}] bypass_actors missing")
     require(len(index_ids) == len(set(index_ids)), "duplicate ruleset ids in index")
     require(len(full_ids) == len(set(full_ids)), "duplicate ruleset ids in full rulesets")
     require(set(index_ids) == set(full_ids), "ruleset index/full object id sets differ")
@@ -1187,6 +1209,26 @@ def self_test(policy: dict[str, Any]) -> None:
     x["admin_observation"]["source"] = "github_token"
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    del x["rulesets"]["entries"][0]["name"]
+    _refresh_bound_fixture_payloads(x)
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("missing ruleset identity must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["target"] = "tag"
+    _refresh_bound_fixture_payloads(x)
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("non-branch ruleset target must be rejected")
 
     x = copy.deepcopy(fixture_observation(policy))
     x["rulesets"]["entries"][0]["rules"] = [
