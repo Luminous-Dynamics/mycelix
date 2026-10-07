@@ -528,6 +528,13 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     ):
         if exact_count(l, f'  {key}: "{expected}"') != 1:
             fail(f"S1 vendor resource profile mismatch: {key}")
+    for key, expected in (
+        ("SOURCE_ARCHIVE_MAX_BYTES", "1073741824"),
+        ("DEPENDENCY_MANIFEST_MAX_BYTES", "2097152"),
+        ("DEPENDENCY_LOCK_MAX_BYTES", "33554432"),
+    ):
+        if exact_count(l, f'  {key}: "{expected}"') != 1:
+            fail(f"S1 host-staging resource profile mismatch: {key}")
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
     joined = "\n".join(l)
@@ -562,6 +569,15 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if 'rm -rf -- "$candidate_root"' not in joined or 'install -d -m 0700 -- "$candidate_root"' not in joined:
         fail("S1 candidate staging root lifecycle missing")
     if 'lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"' not in joined:
+    for required in (
+        'manifest_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml"',
+        "manifest_bytes=",
+        "lock_bytes=",
+        'test "$manifest_bytes" -le "$DEPENDENCY_MANIFEST_MAX_BYTES"',
+        'test "$lock_bytes" -le "$DEPENDENCY_LOCK_MAX_BYTES"',
+    ):
+        if required not in joined:
+            fail(f"S1 dependency host-staging preflight missing: {required!r}")
         fail("S1 locked dependency identity is not bound to the host staging root")
     if 'install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"' not in joined or 'install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"' not in joined:
         fail("S1 locked dependency subject must be copied from the trusted host staging root")
@@ -575,6 +591,13 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 post-execution source-volume identity verification missing")
     if 'python3 - "$CANDIDATE_ROOT" "$candidate_volume_mountpoint_snapshot" <<\'PY\' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"' not in joined:
         fail("S1 source snapshot must bind the trusted staging root and actual volume mountpoint")
+    for required in (
+        "source_archive_max_bytes=$SOURCE_ARCHIVE_MAX_BYTES",
+        "dependency_manifest_max_bytes=$DEPENDENCY_MANIFEST_MAX_BYTES",
+        "dependency_lock_max_bytes=$DEPENDENCY_LOCK_MAX_BYTES",
+    ):
+        if required not in joined:
+            fail(f"S1 host-staging receipt field missing: {required!r}")
     if "source_staging_digest" not in joined or "executed_source_digest" not in joined:
         fail("S1 exact source-equivalence digest fields missing")
     if 'test "$source_staging_digest" = "$executed_source_digest"' not in joined:
@@ -643,6 +666,16 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if 'test "$candidate_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"' not in joined:
         fail("S1 candidate source volume instantiated options mismatch")
     if 'set -o pipefail' not in joined or 'tar -C "$candidate_root" -xf - --no-same-owner' not in joined:
+    for required in (
+        "bounded_source_archive()",
+        "bounded_source_archive |",
+        'source_copy_pipeline_status=("${PIPESTATUS[@]}")',
+        'test "${source_copy_pipeline_status[0]}" -eq 0',
+        'test "${source_copy_pipeline_status[1]}" -eq 0',
+        'test "${source_copy_pipeline_status[2]}" -eq 0',
+    ):
+        if required not in joined:
+            fail(f"S1 bounded host source-copy control missing: {required!r}")
         fail("S1 bounded candidate-source staging pipeline must fail closed")
     for required in ("source_volume_name=", "source_volume_spec=", "source_copy_bytes=", "source_copy_files=", "source_copy_inodes="):
         if required not in joined:
@@ -1070,6 +1103,20 @@ def main() -> None:
     )
 
     expect_rejection(
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(b"            bounded_source_archive |\n", b"            # bounded source archive guard removed\n", 1),
+            s1_sha,
+        ),
+        "bounded source archive host sink guard removed",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(b'          test "$lock_bytes" -le "$DEPENDENCY_LOCK_MAX_BYTES"\n', b'          # dependency lock host sink ceiling removed\n', 1),
+            s1_sha,
+        ),
+        "dependency lockfile host staging ceiling removed",
+    )
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
         "negative-control transcript capture ceiling weakened",
     )
