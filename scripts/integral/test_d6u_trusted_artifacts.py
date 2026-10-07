@@ -637,6 +637,7 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "uses: actions/download-artifact@" not in signer
     assert "subject-checksums: ${{ steps.subject_manifest.outputs.manifest }}" in signer
     assert "predicate-path: ${{ steps.commitment_predicate.outputs.predicate }}" in signer
+    assert "push-to-registry: false" in signer
     assert "create-storage-record: false" in signer
     assert "${{ needs.verifier.outputs.canonical_predicate_sha256 }}" in signer
     assert "d6u-attestation-commitment.json" in signer
