@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 pub const ATTEMPT_RECORD_SCHEMA_VERSION: u16 = 1;
+pub const ACTION_FENCE_SCHEMA_VERSION: u16 = 1;
 pub const ATTEMPT_RECORD_PREFIX: &str = "constitutional-attempt-record-v1:";
 pub const ACTION_FENCE_RECORD_PREFIX: &str = "constitutional-action-fence-v1:";
 const MAX_ID_LEN: usize = 256;
@@ -66,6 +67,26 @@ fn push_str(hasher: &mut blake3::Hasher, value: &str) {
 
 fn tagged(prefix: &str, hash: blake3::Hash) -> String {
     format!("{prefix}{}", hash.to_hex())
+}
+
+fn attempt_state_tag(state: AttemptRecordState) -> u8 {
+    match state {
+        AttemptRecordState::Consumed => 1,
+        AttemptRecordState::Reserved => 2,
+        AttemptRecordState::DispatchPending => 3,
+        AttemptRecordState::Invoked => 4,
+        AttemptRecordState::Executed => 5,
+        AttemptRecordState::Failed => 6,
+        AttemptRecordState::Indeterminate => 7,
+        AttemptRecordState::NotEntered => 8,
+    }
+}
+
+fn fence_state_tag(state: ActionFenceState) -> u8 {
+    match state {
+        ActionFenceState::Occupied => 1,
+        ActionFenceState::Closed => 2,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -272,7 +293,7 @@ impl AttemptRecordV1 {
         );
         push_str(&mut hasher, &self.provider_environment);
         push_str(&mut hasher, &self.ownership_token_digest);
-        push_str(&mut hasher, &format!("{:?}", self.state));
+        hasher.update(&[attempt_state_tag(self.state)]);
         push_str(&mut hasher, self.not_entered_marker.as_deref().unwrap_or(""));
         tagged(ATTEMPT_RECORD_PREFIX, hasher.finalize())
     }
@@ -313,7 +334,7 @@ impl ActionFenceRecordV1 {
         let owner_token_digest = owner_token_digest.into();
         require_opaque("owner_token_digest", &owner_token_digest, MAX_REF_LEN)?;
         let out = Self {
-            schema_version: ATTEMPT_RECORD_SCHEMA_VERSION,
+            schema_version: ACTION_FENCE_SCHEMA_VERSION,
             action_key_digest: action_key.digest().to_owned(),
             owner_attempt_identity: owner_attempt_identity.digest().to_owned(),
             owner_token_digest,
@@ -324,7 +345,7 @@ impl ActionFenceRecordV1 {
     }
 
     fn validate(&self) -> Result<(), String> {
-        if self.schema_version != ATTEMPT_RECORD_SCHEMA_VERSION {
+        if self.schema_version != ACTION_FENCE_SCHEMA_VERSION {
             return Err("unsupported action fence schema version".into());
         }
         require_tagged_hash(
@@ -348,7 +369,7 @@ impl ActionFenceRecordV1 {
         push_str(&mut hasher, &self.action_key_digest);
         push_str(&mut hasher, &self.owner_attempt_identity);
         push_str(&mut hasher, &self.owner_token_digest);
-        push_str(&mut hasher, &format!("{:?}", self.state));
+        hasher.update(&[fence_state_tag(self.state)]);
         tagged(ACTION_FENCE_RECORD_PREFIX, hasher.finalize())
     }
 }
@@ -368,6 +389,45 @@ pub enum ActionFenceMutationError {
     OwnershipTokenMismatch,
     NotOccupied,
     AlreadyClosed,
+}
+
+/// Durable-store contract for the same-action fence.
+///
+/// An implementation of this trait is a deployment boundary, not a proof that
+/// merely holding a Rust value is durable. The backing store MUST make each
+/// method below a conflict-detecting atomic transition in the same durable,
+/// shared state domain used for native replay consumption/reservation.
+///
+/// In particular, atomically_admit MUST make the attempt record and same-action
+/// fence visible as one linearized admission decision to all boundary instances
+/// that can reach the effecting target.
+pub trait DurableActionFenceStore {
+    fn atomically_admit(
+        &mut self,
+        record: AttemptRecordV1,
+    ) -> Result<AtomicAdmissionDecision, String>;
+
+    fn atomically_release_after_failed(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError>;
+
+    fn atomically_close_executed(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError>;
+
+    fn atomically_release_not_entered(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        marker: String,
+    ) -> Result<(), ActionFenceMutationError>;
 }
 
 /// Reference model for the required atomic admission transition.
@@ -479,9 +539,7 @@ impl AtomicActionFenceModelV1 {
         }
         if !matches!(
             attempt.state,
-            AttemptRecordState::Consumed
-                | AttemptRecordState::Reserved
-                | AttemptRecordState::DispatchPending
+            AttemptRecordState::Consumed | AttemptRecordState::Reserved
         ) {
             return Err(ActionFenceMutationError::NotOccupied);
         }
@@ -686,6 +744,67 @@ mod tests {
     }
 
     #[test]
+    fn conflicting_admission_is_atomic_and_leaves_prior_state_unchanged() {
+        let mut model = AtomicActionFenceModelV1::new();
+        model
+            .admit(record(
+                "attempt-1",
+                "operation-1",
+                AttemptRecordState::Consumed,
+            ))
+            .unwrap();
+
+        let before_attempt = model
+            .attempt("constitutional-attempt-identity-v1:attempt-1")
+            .unwrap()
+            .record_digest();
+        let before_fence = model.fence(key().digest()).unwrap().record_digest();
+
+        assert_eq!(
+            model
+                .admit(record(
+                    "attempt-2",
+                    "operation-2",
+                    AttemptRecordState::Consumed,
+                ))
+                .unwrap(),
+            AtomicAdmissionDecision::ActionInFlight
+        );
+
+        assert_eq!(
+            model
+                .attempt("constitutional-attempt-identity-v1:attempt-1")
+                .unwrap()
+                .record_digest(),
+            before_attempt
+        );
+        assert_eq!(model.fence(key().digest()).unwrap().record_digest(), before_fence);
+        assert!(model.attempt("constitutional-attempt-identity-v1:attempt-2").is_none());
+    }
+
+    #[test]
+    fn different_action_keys_can_be_admitted_concurrently() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let first = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
+        let mut second = record("attempt-2", "operation-2", AttemptRecordState::Consumed);
+        second.action_key_digest =
+            ActionKeyV1::new("relying-party", "target-1", "action-2").unwrap().digest().into();
+        second.action_digest = "action-2".into();
+        second.effecting_target_identity = "target-1".into();
+        second.validate().unwrap();
+
+        assert_eq!(
+            model.admit(first).unwrap(),
+            AtomicAdmissionDecision::Admitted
+        );
+        assert_eq!(
+            model.admit(second).unwrap(),
+            AtomicAdmissionDecision::Admitted
+        );
+        assert!(model.validate_invariants().is_ok());
+    }
+
+    #[test]
     fn fresh_authority_and_new_operation_cannot_bypass_fence() {
         let mut model = AtomicActionFenceModelV1::new();
         let first = record("attempt-1", "operation-1", AttemptRecordState::Indeterminate);
@@ -751,7 +870,7 @@ mod tests {
         let mut model = AtomicActionFenceModelV1::new();
         let first_attempt = attempt("attempt-1");
         model
-            .admit(record("attempt-1", "operation-1", AttemptRecordState::DispatchPending))
+            .admit(record("attempt-1", "operation-1", AttemptRecordState::Reserved))
             .unwrap();
 
         model
@@ -771,6 +890,31 @@ mod tests {
         );
         assert!(model.fence(key().digest()).is_none());
         assert!(model.validate_invariants().is_ok());
+    }
+
+
+    #[test]
+    fn dispatch_pending_cannot_be_released_as_not_entered() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let first_attempt = attempt("attempt-1");
+        model
+            .admit(record(
+                "attempt-1",
+                "operation-1",
+                AttemptRecordState::DispatchPending,
+            ))
+            .unwrap();
+
+        assert_eq!(
+            model.release_not_entered(
+                &key(),
+                &first_attempt,
+                "owner-token-attempt-1",
+                "not-entered-proof-1",
+            ),
+            Err(ActionFenceMutationError::NotOccupied)
+        );
+        assert!(model.fence(key().digest()).is_some());
     }
 
     #[test]
