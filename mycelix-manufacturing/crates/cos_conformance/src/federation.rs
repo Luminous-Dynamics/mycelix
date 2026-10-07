@@ -1530,9 +1530,9 @@ pub fn validate_federation_external_verifier_identity_use_statement_chain(
     })
 }
 
-pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 4;
+pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 5;
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE: &str =
-    "integral-federation-external-verification-trust-policy-v4";
+    "integral-federation-external-verification-trust-policy-v5";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_DOMAIN: &str =
     "integral-federation-external-verification-trust-policy-sha256-v1";
 pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_HASH_ALGORITHM: &str = "sha-256";
@@ -1557,6 +1557,7 @@ pub enum FederationExternalVerificationPolicyDecision {
 pub enum FederationExternalVerificationPolicyAdmissionViolation {
     RejectedClaim,
     AnchorReferenceNotAdmitted,
+    VerifierProfileDigestNotAdmitted,
     VerifierSchemaTooOld,
     VerifierProfileNotAdmitted,
     WitnessKindNotAdmitted,
@@ -1589,6 +1590,7 @@ pub enum FederationExternalVerificationTrustPolicyViolation {
     EmptyVerifierIdentityProfile,
     InvalidVerifierIdentityDigest,
     InvalidRequiredAnchorReferenceDigest,
+    InvalidRequiredVerifierProfileDigest,
     VerifierIdentityBindingIncomplete,
     EmptyVerifierIdentityUseProfile,
     VerifierIdentityUseBindingIncomplete,
@@ -1608,6 +1610,7 @@ pub struct FederationExternalVerificationTrustPolicyV1 {
     accepted_verifier_profiles: Vec<String>,
     accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
     required_anchor_reference_sha256: Option<String>,
+    required_verifier_profile_sha256: Option<String>,
     required_witness_kind: Option<FederationStateMachineTraceExternalWitnessKind>,
     required_witness_profile: Option<String>,
     required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
@@ -1631,6 +1634,7 @@ struct FederationExternalVerificationPolicyAdmissionHashView {
     verifier_identity_profile: String,
     verifier_identity_sha256: String,
     verifier_profile: String,
+    verifier_profile_sha256: Option<String>,
     verifier_schema_version: u16,
     claim: FederationStateMachineTraceExternalVerificationClaim,
     statement_sha256: String,
@@ -1654,6 +1658,7 @@ struct FederationExternalVerificationTrustPolicyHashView {
     accepted_verifier_profiles: Vec<String>,
     accepted_claims: Vec<FederationStateMachineTraceExternalVerificationClaim>,
     required_anchor_reference_sha256: Option<String>,
+    required_verifier_profile_sha256: Option<String>,
     required_witness_kind: Option<FederationStateMachineTraceExternalWitnessKind>,
     required_witness_profile: Option<String>,
     required_verifier_identity_kind: Option<FederationExternalVerifierIdentityKind>,
@@ -1690,6 +1695,7 @@ pub struct FederationExternalVerificationPolicyAdmissionV1 {
     verifier_identity_profile: String,
     verifier_identity_sha256: String,
     verifier_profile: String,
+    verifier_profile_sha256: Option<String>,
     verifier_schema_version: u16,
     claim: FederationStateMachineTraceExternalVerificationClaim,
     statement_sha256: String,
