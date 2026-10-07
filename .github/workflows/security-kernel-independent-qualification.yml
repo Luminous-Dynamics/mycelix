@@ -569,11 +569,22 @@ jobs:
                   uses = [value for step in steps for value in step["uses"]]
                   assert uses, "candidate workflow must contain at least one direct step-level action"
                   assert all(re.search(r"@[0-9a-fA-F]{40}(?:\s+#.*)?$", value) for value in uses), "candidate workflow direct actions must be pinned to full SHAs"
-                  ref_values = [value for step in steps for key, value in step["with"] if key == "ref"]
-                  persist_values = [value for step in steps for key, value in step["with"] if key == "persist-credentials"]
                   expected_ref = "$" + "{{ github.event.pull_request.head.sha || github.sha }}"
-                  assert ref_values == [expected_ref], f"candidate workflow ref binding mismatch: {ref_values!r}"
-                  assert persist_values == ["false"], f"candidate workflow credential-persistence binding mismatch: {persist_values!r}"
+                  checkout_action = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+                  checkout_steps = [
+                      step for step in steps
+                      if any(value.split("#", 1)[0].rstrip() == checkout_action for value in step["uses"])
+                  ]
+                  assert len(checkout_steps) == 1, f"candidate workflow must contain exactly one trusted checkout action: {checkout_steps!r}"
+                  checkout_with = checkout_steps[0]["with"]
+                  checkout_ref_values = [value for key, value in checkout_with if key == "ref"]
+                  checkout_persist_values = [value for key, value in checkout_with if key == "persist-credentials"]
+                  assert checkout_ref_values == [expected_ref], f"candidate workflow checkout ref binding mismatch: {checkout_ref_values!r}"
+                  assert checkout_persist_values == ["false"], f"candidate workflow checkout credential-persistence binding mismatch: {checkout_persist_values!r}"
+                  for step in steps:
+                      if step is checkout_steps[0]:
+                          continue
+                      assert not any(key in {"ref", "persist-credentials"} for key, _ in step["with"]), "candidate workflow ref/credential keys must remain bound to checkout"
                   for structural_line in lines:
                       if len(structural_line) - len(structural_line.lstrip(" ")) > 8:
                           continue
@@ -605,6 +616,34 @@ jobs:
                   pass
               else:
                   raise AssertionError("candidate structural with-parser accepted mutated checkout ref")
+
+              mutated_split_checkout_binding = workflow.replace(
+                  "          ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}\n",
+                  "",
+                  1,
+              ).replace(
+                  "          persist-credentials: false\n",
+                  "",
+                  1,
+              )
+              split_step = (
+                  "      - name: Unrelated pinned action\n"
+                  "        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a\n"
+                  "        with:\n"
+                  "          ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}\n"
+                  "          persist-credentials: false\n"
+              )
+              mutated_split_checkout_binding = mutated_split_checkout_binding.replace(
+                  "      - name: ",
+                  split_step + "      - name: ",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_split_checkout_binding)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted ref/persist keys detached from checkout")
 
               for value in (
                   "runs-on: ubuntu-24.04",
