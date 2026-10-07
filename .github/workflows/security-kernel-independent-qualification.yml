@@ -403,7 +403,6 @@ jobs:
           test "${source_copy_pipeline_status[1]}" -eq 0
           test "${source_copy_pipeline_status[2]}" -eq 0
           if [ "$source_copy_status" -ne 0 ]; then
-          if [ "$source_copy_status" -ne 0 ]; then
             echo "security-kernel bounded candidate-source staging copy failed" >&2
             exit 1
           fi
