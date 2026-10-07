@@ -2023,8 +2023,8 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
             "name": "D6U Exact-Head Runtime Executor",
             "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
             "conclusion": "success",
-            "repository": {"full_name": "Luminous-Dynamics/mycelix"},
-            "head_repository": {"full_name": "Luminous-Dynamics/mycelix"},
+            "repository": {"id": 900, "full_name": "Luminous-Dynamics/mycelix"},
+            "head_repository": {"id": 900, "full_name": "Luminous-Dynamics/mycelix"},
             "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
             "head_sha": "a" * 40,
         },
@@ -2094,6 +2094,20 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
                 message,
             )
 
+    bad_event = json.loads(json.dumps(event))
+    bad_event["repository"]["id"] = 901
+    assert_rejected(
+        lambda: expected_artifact("Luminous-Dynamics/mycelix", bad_event, policy),
+        "trigger event with mismatched repository ID was accepted",
+    )
+
+    bad_event = json.loads(json.dumps(event))
+    bad_event["workflow_run"]["head_repository"]["id"] = 901
+    assert_rejected(
+        lambda: expected_artifact("Luminous-Dynamics/mycelix", bad_event, policy),
+        "trigger run with mismatched head repository ID was accepted",
+    )
+
     for field, bad_value, message in [
         ("head_branch", "main", "executor artifact with mismatched trigger branch was accepted"),
         ("head_sha", "c" * 40, "executor artifact with mismatched trigger SHA was accepted"),
@@ -2118,6 +2132,26 @@ def test_executor_artifact_binds_trigger_head_and_attempt() -> None:
                 lambda: expected_artifact("Luminous-Dynamics/mycelix", event, policy),
                 message,
             )
+
+    bad = json.loads(json.dumps(payload))
+    bad["artifacts"][0]["workflow_run"]["head_repository_id"] = 901
+    with patch.dict(
+        os.environ,
+        {
+            "GITHUB_TOKEN": "token",
+            "D6U_TRIGGER_HEAD_BRANCH": "myc-int-demo-d6u-holochain-07-runtime",
+            "D6U_TRIGGER_HEAD_SHA": "a" * 40,
+        },
+        clear=False,
+    ), patch.object(
+        fetcher,
+        "github_get",
+        side_effect=lambda _repo, api_path, _token: current_run if api_path == "/actions/runs/700" else bad,
+    ):
+        assert_rejected(
+            lambda: expected_artifact("Luminous-Dynamics/mycelix", event, policy),
+            "executor artifact with mismatched head repository ID was accepted",
+        )
 
 
 def test_current_run_handoff_artifact_accepts_exact_identity() -> None:
