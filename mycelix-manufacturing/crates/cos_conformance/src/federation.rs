@@ -220,15 +220,6 @@ impl FederationStateMachineTraceExternalEvidenceVerificationStatement {
     pub fn verifier_report_sha256(&self) -> &str { &self.verifier_report_sha256 }
     pub fn claimed_verified_at_unix_seconds(&self) -> u64 { self.claimed_verified_at_unix_seconds }
     pub fn statement_sha256(&self) -> &str { &self.statement_sha256 }
-    pub fn claimed_verified_at_unix_seconds(&self) -> u64 {
-        self.claimed_verified_at_unix_seconds
-    }
-    pub fn evaluated_at_unix_seconds(&self) -> u64 {
-        self.evaluated_at_unix_seconds
-    }
-    pub fn verification_age_seconds(&self) -> u64 {
-        self.verification_age_seconds
-    }
 }
 
 /// Typed read-only projection produced only after the external-evidence binding chain validates.
