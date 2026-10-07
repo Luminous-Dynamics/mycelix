@@ -181,13 +181,30 @@ def main() -> int:
     parser.add_argument("--alloy-jar", type=Path, required=True)
     parser.add_argument("--evidence-dir", type=Path, required=True)
     parser.add_argument("--workflow", type=Path, required=True)
+    parser.add_argument("--crosswalk", type=Path, required=True)
     parser.add_argument("--reference-explorer", type=Path, required=True)
     args = parser.parse_args()
 
     args.evidence_dir.mkdir(parents=True, exist_ok=True)
     profile, profile_bytes = read_json(args.profile)
     pins, pins_bytes = read_json(args.pins)
+    crosswalk, crosswalk_bytes = read_json(args.crosswalk)
     assert_profile(profile)
+    if crosswalk.get("schema") != "mycelix.sovereignty-formal-crosswalk.v1":
+        fail("unexpected formal crosswalk schema")
+    if crosswalk.get("authority") != "non-authoritative" or crosswalk.get("status") != "candidate-verification":
+        fail("formal crosswalk is not explicitly non-authoritative candidate-verification")
+    if crosswalk.get("formal_subject_head") != profile["formal_subject"]["head_sha"]:
+        fail("formal crosswalk subject head mismatch")
+    if crosswalk.get("formal_subject_tree") != profile["formal_subject"]["tree_sha"]:
+        fail("formal crosswalk subject tree mismatch")
+    expected_crosswalk_ids = {"capability-authority","safe-dispute","emergency-expiry","fork-weight","contract-budget","contract-authority","provider-authority"}
+    mappings = crosswalk.get("mappings", [])
+    if {m.get("id") for m in mappings} != expected_crosswalk_ids:
+        fail("formal crosswalk property set mismatch")
+    for mapping in mappings:
+        if mapping.get("coverage") not in {"aligned","partial-no-dedicated-reference-negative-control","partial-alloy-is-witness-not-assertion"}:
+            fail("formal crosswalk has unknown coverage classification")
     if pins.get("schema") != "mycelix.sovereignty-formal-tool-pins.v1":
         fail("unexpected formal tool pin schema")
     expected_tla_jar_sha = pins["tools"]["tla2tools"]["sha256"]
@@ -203,7 +220,7 @@ def main() -> int:
         str(p): sha256_file(p)
         for p in [
             args.profile, args.pins, args.tla, args.cfg, args.alloy,
-            args.negative_tla, args.alloy_runner_java, args.workflow, args.reference_explorer
+            args.negative_tla, args.alloy_runner_java, args.workflow, args.reference_explorer, args.crosswalk
         ]
     }
 
@@ -293,6 +310,7 @@ def main() -> int:
             "pins_sha256": sha256_bytes(pins_bytes),
             "runner_sha256": sha256_file(Path(__file__)),
             "alloy_runner_sha256": sha256_file(args.alloy_runner_java),
+            "crosswalk_sha256": sha256_bytes(crosswalk_bytes),
         },
         "tools": {
             "tla2tools": {
