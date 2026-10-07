@@ -1115,6 +1115,13 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         1,
         "S0 resolver output-channel census",
     )
+    require_exact_step_token_count(
+        l,
+        "Verify trusted dispatcher context and exact PR identity",
+        "output.write(",
+        4,
+        "S0 resolver output-write census",
+    )
     require_exact_run_fragment(
         l,
         "Verify trusted dispatcher context and exact PR identity",
@@ -2151,6 +2158,13 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         1,
         "S2 evidence-binding output-channel census",
     )
+    require_exact_step_token_count(
+        l,
+        "Verify trusted dispatcher, reusable S1, and qualification gates",
+        "output.write(",
+        22,
+        "S2 result-binding output-write census",
+    )
     require_exact_run_fragment(
         l,
         "Verify trusted dispatcher, reusable S1, and qualification gates",
@@ -2180,6 +2194,13 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         "    output.write(f\"execution_reference_binding_sha256={execution_reference_binding_sha256}\\n\")",
     ),
         "S2 result-binding output-producer binding",
+    )
+    require_exact_step_token_count(
+        l,
+        "Verify retained negative-control evidence binding",
+        "output.write(",
+        7,
+        "S2 evidence-binding output-write census",
     )
     require_exact_run_fragment(
         l,
@@ -2956,6 +2977,34 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 command inserted before verifier-boundary commands",
+    )
+
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'              output.write(f"candidate_repository_id={os.environ[\'HEAD_REPOSITORY_ID\']}\\n")\n',
+                b'              output.write(f"candidate_repository_id={os.environ[\'HEAD_REPOSITORY_ID\']}\\n")\n              output.write("mutated=1\\n")\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 extra same-handle output.write",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'               output.write(f"execution_reference_binding_sha256={execution_reference_binding_sha256}\\n")\n',
+                b'               output.write(f"execution_reference_binding_sha256={execution_reference_binding_sha256}\\n")\n               output.write("mutated=1\\n")\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 extra same-handle output.write",
     )
 
     expect_rejection(
