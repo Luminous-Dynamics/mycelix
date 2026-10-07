@@ -2801,4 +2801,39 @@ mod tests {
         assert!(validate_consensus_rate(f64::INFINITY, 100.0).is_err());
     }
 
+    #[test]
+    fn reserve_consensus_valid_metadata_passes() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "ETH_SAP", 2, false, 1_000, 2_000
+        ).is_ok());
+    }
+
+    #[test]
+    fn reserve_consensus_item_substitution_fails_closed() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "USDC_SAP", 2, false, 1_000, 2_000
+        ).is_err());
+    }
+
+    #[test]
+    fn reserve_consensus_insufficient_reporters_fails_closed() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "ETH_SAP", 1, false, 1_000, 2_000
+        ).is_err());
+    }
+
+    #[test]
+    fn reserve_consensus_fallback_fails_closed() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "ETH_SAP", 2, true, 1_000, 2_000
+        ).is_err());
+    }
+
+    #[test]
+    fn reserve_consensus_future_window_fails_closed() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "ETH_SAP", 2, false, 3_000, 2_000
+        ).is_err());
+    }
+
 }
