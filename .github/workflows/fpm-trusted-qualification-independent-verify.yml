@@ -227,6 +227,7 @@ jobs:
           CANDIDATE_RUN_ID="$(jq -r '.upstream_workflow_run_id' snapshot/qualification-receipt.json)"
           SUBJECT_SHA="$(jq -r '.subject_sha' snapshot/qualification-receipt.json)"
           POLICY_SHA="$(jq -r '.trusted_policy_sha' snapshot/qualification-receipt.json)"
+          LOCK_MODE="$(jq -r '.lock_mode' snapshot/qualification-receipt.json)"
 
           test "$PR_NUMBER" -ge 1
           printf '%s\n' "$CANDIDATE_RUN_ID" | grep -Eq '^[0-9]+$'
@@ -238,6 +239,11 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/commits/${SUBJECT_SHA}" > snapshot/subject-commit.json
           gh api "repos/${GITHUB_REPOSITORY}/contents/crates/fpm-wasm-artifact-identity/Cargo.toml?ref=${SUBJECT_SHA}" > snapshot/manifest.json
           gh api "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/fpm-trusted-qualification.yml?ref=${POLICY_SHA}" > snapshot/policy-file.json
+          if [ "$LOCK_MODE" = "tracked" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/Cargo.lock?ref=${SUBJECT_SHA}" > snapshot/candidate-lock.json
+          else
+            printf '%s\n' '{"mode":"generated_for_run"}' > snapshot/candidate-lock.json
+          fi
 
       - name: Run independent raw-object verifier
         id: reference
