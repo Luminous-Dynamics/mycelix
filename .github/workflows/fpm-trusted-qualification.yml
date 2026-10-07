@@ -419,13 +419,88 @@ jobs:
           os.chmod(out, 0o400)
           print(f"receipt_sha256={digest}")
           print(f"execution_pass={execution_pass}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"receipt_sha256={digest}\\n")
+              output.write(f"execution_pass={str(execution_pass).lower()}\\n")
           PY
 
       - name: Upload canonical qualification evidence
+        id: upload_evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: fpm-trusted-qualification-${{ steps.preflight.outputs.expected_head_sha || github.event.workflow_run.head_sha || github.run_id }}
-          path: ${{ env.FPM_EVIDENCE_DIR }}/
+          path: ${{ env.FPM_EVIDENCE_DIR }}/qualification-receipt.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
+
+      - name: Validate uploaded evidence identity
+        if: steps.upload_evidence.outcome == 'success'
+        env:
+          ARTIFACT_ID: ${{ steps.upload_evidence.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload_evidence.outputs.artifact-digest }}
+          RECEIPT_SHA256: ${{ steps.receipt.outputs.receipt_sha256 }}
+        run: |
+          set -euo pipefail
+          test "$ARTIFACT_ID" -ge 1
+          printf "%s" "$ARTIFACT_DIGEST" | grep -Eq "^[0-9a-f]{64}$"
+          printf "%s" "$RECEIPT_SHA256" | grep -Eq "^[0-9a-f]{64}$"
+          echo "QUALIFICATION_ARTIFACT_ID=$ARTIFACT_ID"
+          echo "QUALIFICATION_ARTIFACT_DIGEST=$ARTIFACT_DIGEST"
+          echo "QUALIFICATION_RECEIPT_SHA256=$RECEIPT_SHA256"
+
+      - name: Emit artifact binding index
+        if: steps.upload_evidence.outcome == 'success'
+        env:
+          ARTIFACT_ID: ${{ steps.upload_evidence.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload_evidence.outputs.artifact-digest }}
+          ARTIFACT_URL: ${{ steps.upload_evidence.outputs.artifact-url }}
+          RECEIPT_SHA256: ${{ steps.receipt.outputs.receipt_sha256 }}
+          SUBJECT_SHA: ${{ steps.source.outputs.candidate_head_sha || steps.preflight.outputs.expected_head_sha || "" }}
+          SUBJECT_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha || "" }}
+          TRUSTED_POLICY_SHA: ${{ steps.policy.outputs.trusted_policy_sha || "" }}
+          TRUSTED_POLICY_BLOB_SHA: ${{ steps.policy.outputs.trusted_policy_blob_sha || "" }}
+          TRUSTED_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+
+          index = {
+              "schema": "mycelix.fpm.trusted-qualification-artifact-index.v1",
+              "receipt_sha256": os.environ["RECEIPT_SHA256"],
+              "artifact": {
+                  "id": int(os.environ["ARTIFACT_ID"]),
+                  "sha256": os.environ["ARTIFACT_DIGEST"],
+                  "url": os.environ["ARTIFACT_URL"],
+                  "retention_days": 90,
+                  "immutable_after_upload": True,
+                  "deletion_by_repository_writer_possible": True,
+              },
+              "subject_sha": os.environ["SUBJECT_SHA"],
+              "subject_tree_sha": os.environ["SUBJECT_TREE_SHA"],
+              "trusted_policy_sha": os.environ["TRUSTED_POLICY_SHA"],
+              "trusted_policy_blob_sha": os.environ["TRUSTED_POLICY_BLOB_SHA"],
+              "trusted_workflow_run_id": int(os.environ["TRUSTED_RUN_ID"]),
+          }
+          canonical = json.dumps(index, sort_keys=True, separators=(",", ":")).encode()
+          digest = hashlib.sha256(canonical).hexdigest()
+          out = os.path.join(os.environ["FPM_EVIDENCE_DIR"], "artifact-binding-index.json")
+          with open(out, "wb") as f:
+              f.write(canonical)
+              f.write(b"\\n")
+          os.chmod(out, 0o400)
+          print(f"artifact_index_sha256={digest}")
+          PY
+
+      - name: Upload artifact binding index
+        if: steps.upload_evidence.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fpm-trusted-qualification-index-${{ steps.preflight.outputs.expected_head_sha || github.event.workflow_run.head_sha || github.run_id }}
+          path: ${{ env.FPM_EVIDENCE_DIR }}/artifact-binding-index.json
+          if-no-files-found: error
+          archive: false
+          retention-days: 90
