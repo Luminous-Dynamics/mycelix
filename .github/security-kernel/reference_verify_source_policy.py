@@ -457,6 +457,36 @@ def require_exact_step_mapping(
 
 
 
+
+def require_exact_run_sequence(
+    lines_: list[str],
+    step_name: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    start = matches[0]
+    run_indexes = []
+    for i in range(start + 1, len(lines_)):
+        if re.fullmatch(r"\s{8}run:\s*\|", lines_[i]):
+            run_indexes.append(i)
+        if re.fullmatch(r"\s{6}- name: .+", lines_[i]):
+            break
+    if len(run_indexes) != 1:
+        fail(f"{description}: expected exactly one run mapping under {step_name!r}")
+    actual = []
+    for line in lines_[run_indexes[0] + 1:]:
+        indent = len(line) - len(line.lstrip(" "))
+        if indent < 10:
+            break
+        if indent != 10:
+            fail(f"{description}: unexpected run indentation: {line!r}")
+        actual.append(line[10:])
+    window = len(expected)
+    if sum(1 for i in range(0, len(actual) - window + 1) if tuple(actual[i:i + window]) == expected) != 1:
+        fail(f"{description}: expected exact run sequence is missing or duplicated")
 def require_exact_run_prefix(
     lines_: list[str],
     step_name: str,
@@ -1400,6 +1430,16 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
     joined = "\n".join(l)
+    require_exact_run_sequence(
+        l,
+        "Vendor locked dependency closure in fetch sandbox",
+        (
+            "docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000 \"$vendor_volume_name\" >/dev/null",
+            "vendor_volume_spec=\"$(docker volume inspect --format '{{.Driver}}|{{index .Options \"type\"}}|{{index .Options \"device\"}}|{{index .Options \"o\"}}' \"$vendor_volume_name\")\"",
+            "test \"$vendor_volume_spec\" = \"local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000\"",
+        ),
+        "S1 vendor volume provisioning sequence",
+    )
     if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
         fail("S1 vendor resource volume create profile mismatch")
     if exact_count(l, VENDOR_VOLUME_RW) != 1:
@@ -1412,6 +1452,43 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor volume instantiated options mismatch")
     if '--volume "$vendor_root:/vendor:rw"' in joined or '--volume "$VENDOR_ROOT:/vendor:rw"' in joined:
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
+    require_exact_run_sequence(
+        l,
+        "Execute sandbox negative controls",
+        (
+            "timeout --signal=TERM --kill-after=20s 3m docker run --name \"$container_name\" --rm --platform=linux/amd64 --pull=never \\",
+            "  --network=none \\",
+            "  --read-only \\",
+            "  --cap-drop=ALL \\",
+            "  --security-opt=no-new-privileges:true \\",
+            "  --security-opt=seccomp=default \\",
+            "  --pids-limit=128 \\",
+            "  --memory=256m \\",
+            "  --memory-swap=256m \\",
+            "  --cpus=1 \\",
+            "  --ulimit=nofile=2048:2048 \\",
+            "  --ulimit=core=0:0 \\",
+            "  --user \"$runner_uid:$runner_gid\" \\",
+            "  --init \\",
+            "  --stop-timeout=5 \\",
+            "  --ipc=private \\",
+            "  --pid=private \\",
+            "  --cgroupns=private \\",
+            "  --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \\",
+            "  --volume \"$CANDIDATE_ROOT:/source:ro\" \\",
+            "  --volume \"$VENDOR_VOLUME_NAME:/vendor:ro\" \\",
+            "  --volume \"$VENDOR_CONFIG:/vendor-config/config.toml:ro\" \\",
+            "  --volume \"$sentinel:/trusted-sentinel:ro\" \\",
+            "  --env GITHUB_TOKEN= \\",
+            "  --env GH_TOKEN= \\",
+            "  --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \\",
+            "  --env ACTIONS_ID_TOKEN_REQUEST_URL= \\",
+            "  --env ACTIONS_RUNTIME_TOKEN= \\",
+            "  \"$SANDBOX_IMAGE\" /bin/bash -euc '",
+            "    set -euo pipefail",
+        ),
+        "S1 negative-control Docker isolation sequence",
+    )
     for required in ("vendor_volume_name=\"security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT\"", "vendor_observed_bytes=", "vendor_observed_files=", "vendor_observed_inodes=", "vendor_cleanup_on_failure", "docker volume rm \"$vendor_volume_name\"", "vendor volume remains after cleanup", "dependency_substrate=passed"):
         if required not in joined:
             fail(f"S1 vendor resource-bound control missing: {required!r}")
@@ -2311,6 +2388,29 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 inserted runtime command before network call",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                "            --pids-limit=128 \\\n".encode(),
+                "            --pids-limit=129 \\\n".encode(),
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 negative-control PID ceiling drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                "          docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000 \"$vendor_volume_name\" >/dev/null\n".encode(),
+                "          docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=149999 \"$vendor_volume_name\" >/dev/null\n".encode(),
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 vendor tmpfs inode sequence drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
