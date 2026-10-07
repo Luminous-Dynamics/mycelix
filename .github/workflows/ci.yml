@@ -39,8 +39,8 @@ jobs:
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
       fpm_wasm_artifact_identity: ${{ steps.filter.outputs.fpm_wasm_artifact_identity }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
         id: filter
         with:
           filters: |
