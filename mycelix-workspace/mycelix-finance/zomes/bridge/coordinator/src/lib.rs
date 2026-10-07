@@ -1515,6 +1515,46 @@ fn validate_consensus_rate(claimed_rate: f64, consensus_price: f64) -> ExternRes
     Ok(())
 }
 
+fn validate_reserve_consensus_metadata(
+    expected_item: &str,
+    consensus_item: &str,
+    reporter_count: u32,
+    fallback_used: bool,
+    window_start_micros: i64,
+    now_micros: i64,
+) -> ExternResult<()> {
+    const MIN_RESERVE_ORACLE_REPORTERS: u32 = 2;
+
+    if consensus_item.to_lowercase() != expected_item.to_lowercase() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Price oracle consensus item mismatch: expected {}, got {}; refusing collateral issuance",
+            expected_item, consensus_item
+        ))));
+    }
+
+    if reporter_count < MIN_RESERVE_ORACLE_REPORTERS {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Price oracle consensus has insufficient fresh reporters; refusing collateral issuance"
+                .into(),
+        )));
+    }
+
+    if fallback_used {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Price oracle consensus is degraded/fallback; refusing collateral issuance".into(),
+        )));
+    }
+
+    if window_start_micros > now_micros {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Price oracle consensus window starts in the future; refusing collateral issuance"
+                .into(),
+        )));
+    }
+
+    Ok(())
+}
+
 /// Verify that the claimed oracle rate is within tolerance of consensus.
 ///
 /// The price oracle is an authority-bearing dependency for collateral-backed
@@ -1553,35 +1593,16 @@ fn verify_oracle_rate_against_consensus(
                 )))
             })?;
 
-            let expected_item = format!("{}_SAP", collateral_type).to_lowercase();
-            if consensus.item.to_lowercase() != expected_item {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Price oracle consensus item mismatch: expected {}, got {}; refusing collateral issuance",
-                    expected_item, consensus.item
-                ))));
-            }
-
-            if consensus.reporter_count < 2 {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Price oracle consensus has insufficient fresh reporters; refusing collateral issuance"
-                        .into(),
-                )));
-            }
-
-            if consensus.fallback_used {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Price oracle consensus is degraded/fallback; refusing collateral issuance".into(),
-                )));
-            }
-
+            let expected_item = format!("{}_SAP", collateral_type);
             let now = sys_time()?;
-            if consensus.window_start.as_micros() > now.as_micros() {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Price oracle consensus window starts in the future; refusing collateral issuance"
-                        .into(),
-                )));
-            }
-
+            validate_reserve_consensus_metadata(
+                &expected_item,
+                &consensus.item,
+                consensus.reporter_count,
+                consensus.fallback_used,
+                consensus.window_start.as_micros(),
+                now.as_micros(),
+            )?;
             validate_consensus_rate(claimed_rate, consensus.median_price)
         }
         Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
