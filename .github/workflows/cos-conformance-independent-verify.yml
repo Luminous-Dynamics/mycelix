@@ -278,6 +278,7 @@ jobs:
           set -euo pipefail
           mkdir -p evidence/governance
 
+          gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload.json
           gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload.json
           policy_hash="$(python - <<'PY'
           import hashlib
@@ -355,14 +356,11 @@ jobs:
           import hashlib
           import json
           import os
-          import subprocess
           from datetime import datetime, timezone
           from pathlib import Path
 
           repo = os.environ["GITHUB_REPOSITORY"]
-          repo_id = int(subprocess.check_output(
-              ["gh", "api", f"repos/{repo}", "--jq", ".id"], text=True
-          ).strip())
+          repository_raw = Path("evidence/governance/repository-payload.json").read_bytes()
 
           branch_raw = Path("evidence/governance/branch-payload.json").read_bytes()
           rulesets_raw = Path("evidence/governance/rulesets-payload.json").read_bytes()
@@ -433,6 +431,13 @@ jobs:
                   ),
               }
 
+          repository = json.loads(repository_raw)
+          repo_id = repository.get("id")
+          default_branch = repository.get("default_branch")
+          assert repo_id == 1176351975
+          assert repository.get("full_name") == repo
+          assert isinstance(default_branch, str) and default_branch
+
           observation = {
               "schema": "MYCELIX-REPOSITORY-GOVERNANCE-OBSERVATION-V1",
               "version": 1,
@@ -440,6 +445,9 @@ jobs:
               "repository_id": repo_id,
               "target_ref": "refs/heads/main",
               "observed_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+              "default_branch": default_branch,
+              "repository_payload_base64": base64.b64encode(repository_raw).decode(),
+              "repository_payload_sha256": hashlib.sha256(repository_raw).hexdigest(),
               "policy_sha256": os.environ["POLICY_HASH"],
               "branch_payload_base64": base64.b64encode(branch_raw).decode(),
               "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
