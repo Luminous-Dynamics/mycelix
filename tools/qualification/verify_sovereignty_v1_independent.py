@@ -54,6 +54,8 @@ def main() -> int:
     target = profile["subject"]
     if args.subject_commit != target["head_sha"]:
         fail("subject commit does not match frozen profile")
+    if args.subject_tree != target.get("tree_sha"):
+        fail("subject tree does not match frozen profile")
     if profile["required_candidate_metadata"].get("qualified") is not False:
         fail("profile itself permits a qualified candidate state")
 
