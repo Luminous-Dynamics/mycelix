@@ -221,6 +221,31 @@ fn debit_treasury(treasury_id: &str, amount: u64) -> ExternResult<()> {
     unreachable!()
 }
 
+fn resolve_singleton_action_hash(
+    links: Vec<Link>,
+    relation: &str,
+) -> ExternResult<Option<ActionHash>> {
+    let mut unique_targets: Vec<ActionHash> = Vec::new();
+    for link in links {
+        let target = link.target.into_action_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "{relation} index contains a non-ActionHash target"
+            )))
+        })?;
+        if !unique_targets.contains(&target) {
+            unique_targets.push(target);
+        }
+    }
+
+    match unique_targets.len() {
+        0 => Ok(None),
+        1 => Ok(unique_targets.pop()),
+        count => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{relation} has {count} distinct root targets; refusing ambiguous selection"
+        )))),
+    }
+}
+
 /// Internal helper: fetch a treasury Record + deserialized entry by ID via link index.
 /// Follows the update chain to return the latest version.
 fn get_treasury_record(treasury_id: &str) -> ExternResult<(Record, Treasury)> {
@@ -228,11 +253,8 @@ fn get_treasury_record(treasury_id: &str) -> ExternResult<(Record, Treasury)> {
         LinkQuery::try_new(anchor_hash(treasury_id)?, LinkTypes::TreasuryIdToTreasury)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Treasury not found".into()
-    )))?;
-    let hash = ActionHash::try_from(link.target.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    let hash = resolve_singleton_action_hash(links, "TreasuryIdToTreasury")?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Treasury not found".into())))?;
     let record = follow_update_chain(hash)?;
     let treasury = record
         .entry()
@@ -346,11 +368,8 @@ fn get_allocation_record(allocation_id: &str) -> ExternResult<(Record, Allocatio
         )?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Allocation not found".into()
-    )))?;
-    let hash = ActionHash::try_from(link.target.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    let hash = resolve_singleton_action_hash(links, "AllocationIdToAllocation")?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Allocation not found".into())))?;
     let record = follow_update_chain(hash)?;
     let alloc = record
         .entry()
@@ -374,11 +393,8 @@ fn get_savings_pool_record(pool_id: &str) -> ExternResult<(Record, SavingsPool)>
         LinkQuery::try_new(anchor_hash(pool_id)?, LinkTypes::PoolIdToPool)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Savings pool not found".into()
-    )))?;
-    let hash = ActionHash::try_from(link.target.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    let hash = resolve_singleton_action_hash(links, "PoolIdToPool")?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Savings pool not found".into())))?;
     let record = follow_update_chain(hash)?;
     let pool = record
         .entry()
@@ -402,11 +418,8 @@ fn get_commons_pool_record(pool_id: &str) -> ExternResult<(Record, CommonsPool)>
         LinkQuery::try_new(anchor_hash(pool_id)?, LinkTypes::CommonsPoolIdToPool)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Commons pool not found".into()
-    )))?;
-    let hash = ActionHash::try_from(link.target.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    let hash = resolve_singleton_action_hash(links, "CommonsPoolIdToPool")?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Commons pool not found".into())))?;
     let record = follow_update_chain(hash)?;
     let pool = record
         .entry()
@@ -499,9 +512,7 @@ pub fn get_treasury(treasury_id: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&treasury_id)?, LinkTypes::TreasuryIdToTreasury)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    if let Some(hash) = resolve_singleton_action_hash(links, "TreasuryIdToTreasury")? {
         return Ok(Some(follow_update_chain(hash)?));
     }
     Ok(None)
@@ -832,9 +843,7 @@ pub fn get_savings_pool(pool_id: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&pool_id)?, LinkTypes::PoolIdToPool)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    if let Some(hash) = resolve_singleton_action_hash(links, "PoolIdToPool")? {
         return Ok(Some(follow_update_chain(hash)?));
     }
     Ok(None)
@@ -1337,9 +1346,7 @@ pub fn get_commons_pool(pool_id: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&pool_id)?, LinkTypes::CommonsPoolIdToPool)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    if let Some(hash) = resolve_singleton_action_hash(links, "CommonsPoolIdToPool")? {
         return Ok(Some(follow_update_chain(hash)?));
     }
     Ok(None)
