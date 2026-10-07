@@ -18,6 +18,78 @@ use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 use threshold_signing_integrity::*;
 
+
+/// Retrieve the latest committee record addressed by deterministic committee ID.
+///
+/// The returned record is read-only DHT data; no state is mutated.
+#[hdk_extern]
+pub fn get_committee(committee_id: String) -> ExternResult<Option<Record>> {
+    if committee_id.is_empty() || committee_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Committee ID must be 1-256 characters".into()
+        )));
+    }
+
+    // Anchor lookup is itself an entry hash, so the address can be reconstructed
+    // from public input. We search current DHT links from the deterministic anchor.
+    let anchor = format!("committee:{}", committee_id);
+    let anchor_entry_hash = hash_entry(Anchor(anchor.clone()))
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+
+    let links = get_links(
+        LinkQuery::try_new(anchor_entry_hash, LinkTypes::CommitteeById)?,
+        GetStrategy::default(),
+    )?;
+
+    let link = links.into_iter().max_by_key(|link| link.timestamp);
+    let Some(link) = link else {
+        return Ok(None);
+    };
+
+    let action_hash = ActionHash::try_from(link.target)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Invalid committee link target".into()
+        )))?;
+
+    get(action_hash, GetOptions::default())
+}
+
+/// Retrieve the latest threshold signature linked to a proposal.
+///
+/// This is intentionally read-only. Signature creation and cryptographic
+/// verification remain separate boundaries.
+#[hdk_extern]
+pub fn get_proposal_signature(proposal_id: String) -> ExternResult<Option<Record>> {
+    if proposal_id.is_empty() || proposal_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Proposal ID must be 1-256 characters".into()
+        )));
+    }
+
+    let proposal_anchor_hash = hash_entry(Anchor(format!(
+        "proposal-signature:{}",
+        proposal_id
+    )))
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+
+    let links = get_links(
+        LinkQuery::try_new(proposal_anchor_hash, LinkTypes::ProposalToSignature)?,
+        GetStrategy::default(),
+    )?;
+
+    let link = links.into_iter().max_by_key(|link| link.timestamp);
+    let Some(link) = link else {
+        return Ok(None);
+    };
+
+    let action_hash = ActionHash::try_from(link.target)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Invalid proposal signature link target".into()
+        )))?;
+
+    get(action_hash, GetOptions::default())
+}
+
 // ============================================================================
 // REAL-TIME SIGNALS
 // ============================================================================
@@ -39,6 +111,25 @@ pub enum ThresholdSignal {
     DecisionSigned {
         decision_hash: ActionHash,
     },
+}
+
+fn deterministic_anchor_hash(
+    anchor: &str,
+) -> ExternResult<EntryHash> {
+    let action_hash = create_entry(&EntryTypes::Anchor(Anchor(anchor.to_owned())))?;
+    let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Could not read deterministic anchor after creation".into())
+    ))?;
+    record
+        .entry()
+        .as_option()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Deterministic anchor record has no entry".into()
+        )))?
+        .as_entry_hash()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Deterministic anchor record is not an entry".into()
+        )))
 }
 
 // ── Committee Management ─────────────────────────────────────────────────────
@@ -75,7 +166,44 @@ pub fn create_committee(input: CreateCommitteeInput) -> ExternResult<Record> {
         pq_required: input.pq_required,
     };
 
-    let action_hash = create_entry(EntryTypes::SigningCommittee(committee))?;
+    let action_hash = create_entry(&EntryTypes::SigningCommittee(committee))?;
+
+    let anchor_action_hash = create_entry(&EntryTypes::Anchor(Anchor(
+        format!("committee:{}", input.committee_id)
+    )))?;
+    let anchor_record = get(anchor_action_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Committee anchor could not be read after creation".into()
+        )))?;
+    let committee_anchor = anchor_record
+        .entry()
+        .to_app_option::<Anchor>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Committee anchor entry could not be decoded".into()
+        )))?;
+    let _ = committee_anchor;
+
+    // Resolve the entry hash of the newly-created anchor record without relying
+    // on a caller-supplied lookup value.
+    let committee_anchor_hash = {
+        let mut found: Option<EntryHash> = None;
+        if let Some(record) = get(anchor_action_hash, GetOptions::default())? {
+            if let Some(entry) = record.entry().as_option() {
+                found = entry.as_entry_hash();
+            }
+        }
+        found.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Committee anchor is not an entry hash".into()
+        )))?
+    };
+
+    create_link(
+        committee_anchor_hash,
+        action_hash.clone(),
+        LinkTypes::CommitteeById,
+        (),
+    )?;
 
     let _ = emit_signal(ThresholdSignal::CommitteeCreated {
         committee_id: input.committee_id,
