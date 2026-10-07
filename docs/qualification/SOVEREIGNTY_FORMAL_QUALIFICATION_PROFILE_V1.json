@@ -13,8 +13,8 @@
   "formal_subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v2-subject",
-    "head_sha": "c49fcea68c0ad17372533fbb4637968f1601528d",
-    "tree_sha": "f091465ec47d7fb7fe5940415138b06d898ac648",
+    "head_sha": "058210b95bca7ce9b38de15047cfe6063d1e326e",
+    "tree_sha": "90fccc0d6520c92b1b6c1ec5c8af1dce44e698e7",
     "models": [
       {
         "name": "TLA+ temporal sovereignty model",
@@ -26,7 +26,7 @@
       {
         "name": "Alloy structural sovereignty model",
         "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als",
-        "git_blob_sha": "f2dae6f035f756e6eeec87ddf49ddee3f7ce2ff1"
+        "git_blob_sha": "65c8f3095bd71df8c9f397009dd28092ba6bd9c8"
       }
     ],
     "reference_explorer": {
@@ -70,6 +70,7 @@
       "ForkEvent": 4
     },
     "expected_sat": [
+      "NontrivialCapabilityWithoutAuthority",
       "ProviderDependencyAndExplicitAuthorityRemainDistinct",
       "NontrivialContractWithinAuthorityAndBudget",
       "NontrivialProtectedDispute",
@@ -149,7 +150,8 @@
       "detached fixture blobs equal frozen formal-subject blobs",
       "detached reference-explorer blob equals frozen formal-subject reference-explorer blob",
       "explicit Alloy integer bitwidth is recorded and checked",
-      "every reference negative control emits its profiled counterexample marker"
+      "every reference negative control emits its profiled counterexample marker",
+      "non-vacuous capability-without-authority Alloy witness is SAT"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
@@ -176,8 +178,8 @@
     },
     "alloy": {
       "path": "docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als",
-      "git_blob_sha": "f2dae6f035f756e6eeec87ddf49ddee3f7ce2ff1",
-      "source_git_blob_sha": "f2dae6f035f756e6eeec87ddf49ddee3f7ce2ff1"
+      "git_blob_sha": "65c8f3095bd71df8c9f397009dd28092ba6bd9c8",
+      "source_git_blob_sha": "65c8f3095bd71df8c9f397009dd28092ba6bd9c8"
     },
     "reference_explorer": {
       "path": "docs/qualification/fixtures/formal/sovereignty_reference_explorer.py",
