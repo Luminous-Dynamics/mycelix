@@ -464,6 +464,23 @@ mod tests {
     }
 
     #[test]
+    fn claim_digest_commits_verifier_implementation_identity() {
+        let base = claim().digest();
+
+        let mut changed = claim();
+        changed.verifier_implementation_digest = digest('9');
+        assert_ne!(base, changed.digest());
+
+        let mut changed = claim();
+        changed.verifier_build_provenance_digest = digest('9');
+        assert_ne!(base, changed.digest());
+
+        let mut changed = claim();
+        changed.verifier_builder_id = "builder-2".into();
+        assert_ne!(base, changed.digest());
+    }
+
+    #[test]
     fn malformed_builder_identity_is_invalid() {
         let mut input = input();
         input.claim.verifier_builder_id = "  builder ".into();
