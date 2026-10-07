@@ -135,6 +135,8 @@ pub struct AttemptRecordV1 {
     pub provider_reference_seed_digest: Option<String>,
     pub provider_reference_descriptor_digest: Option<String>,
     pub provider_environment: String,
+    pub provider_audience: String,
+    pub adapter_identity: String,
     pub ownership_token_digest: String,
     pub state: AttemptRecordState,
     pub not_entered_marker: Option<String>,
@@ -150,6 +152,8 @@ impl AttemptRecordV1 {
         provider_reference_seed_digest: Option<String>,
         provider_reference_descriptor_digest: Option<String>,
         provider_environment: impl Into<String>,
+        provider_audience: impl Into<String>,
+        adapter_identity: impl Into<String>,
         ownership_token_digest: impl Into<String>,
         state: AttemptRecordState,
     ) -> Result<Self, String> {
@@ -157,6 +161,8 @@ impl AttemptRecordV1 {
         let native_replay_identity = native_replay_identity.into();
         let action_digest = action_digest.into();
         let provider_environment = provider_environment.into();
+        let provider_audience = provider_audience.into();
+        let adapter_identity = adapter_identity.into();
         let ownership_token_digest = ownership_token_digest.into();
 
         require_tagged_hash("attempt_identity", attempt_identity.digest(), crate::ATTEMPT_IDENTITY_PREFIX)?;
@@ -174,6 +180,8 @@ impl AttemptRecordV1 {
             MAX_REF_LEN,
         )?;
         require_opaque("provider_environment", &provider_environment, MAX_REF_LEN)?;
+        require_opaque("provider_audience", &provider_audience, MAX_REF_LEN)?;
+        require_opaque("adapter_identity", &adapter_identity, MAX_REF_LEN)?;
         require_opaque("ownership_token_digest", &ownership_token_digest, MAX_REF_LEN)?;
 
         if action_digest != action_key.material_action_digest() {
@@ -202,6 +210,8 @@ impl AttemptRecordV1 {
             provider_reference_seed_digest,
             provider_reference_descriptor_digest,
             provider_environment,
+            provider_audience,
+            adapter_identity,
             ownership_token_digest,
             state,
             not_entered_marker: None,
@@ -241,6 +251,8 @@ impl AttemptRecordV1 {
             &self.provider_environment,
             MAX_REF_LEN,
         )?;
+        require_opaque("provider_audience", &self.provider_audience, MAX_REF_LEN)?;
+        require_opaque("adapter_identity", &self.adapter_identity, MAX_REF_LEN)?;
         require_opaque(
             "ownership_token_digest",
             &self.ownership_token_digest,
@@ -256,6 +268,22 @@ impl AttemptRecordV1 {
                 value,
                 MAX_REF_LEN,
             )?;
+        }
+
+        if matches!(
+            self.state,
+            AttemptRecordState::DispatchPending
+                | AttemptRecordState::Invoked
+                | AttemptRecordState::Executed
+                | AttemptRecordState::Failed
+                | AttemptRecordState::Indeterminate
+        ) && (self.provider_reference_seed_digest.is_none()
+            || self.provider_reference_descriptor_digest.is_none())
+        {
+            return Err(
+                "post-reservation attempt states require provider reference seed and descriptor digests"
+                    .into(),
+            );
         }
 
         if self.state == AttemptRecordState::NotEntered && self.not_entered_marker.is_none() {
@@ -292,6 +320,8 @@ impl AttemptRecordV1 {
                 .unwrap_or(""),
         );
         push_str(&mut hasher, &self.provider_environment);
+        push_str(&mut hasher, &self.provider_audience);
+        push_str(&mut hasher, &self.adapter_identity);
         push_str(&mut hasher, &self.ownership_token_digest);
         hasher.update(&[attempt_state_tag(self.state)]);
         push_str(&mut hasher, self.not_entered_marker.as_deref().unwrap_or(""));
@@ -703,6 +733,19 @@ impl AtomicActionFenceModelV1 {
             return Err(ActionFenceMutationError::InvalidTransition);
         }
 
+        if matches!(
+            next_state,
+            AttemptRecordState::DispatchPending
+                | AttemptRecordState::Invoked
+                | AttemptRecordState::Executed
+                | AttemptRecordState::Failed
+                | AttemptRecordState::Indeterminate
+        ) && (current.provider_reference_seed_digest.is_none()
+            || current.provider_reference_descriptor_digest.is_none())
+        {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+
         let fence = self
             .fences
             .get(action_key.digest())
@@ -875,10 +918,42 @@ mod tests {
             Some("provider-seed-1".into()),
             Some("provider-descriptor-1".into()),
             "stripe-live-account-1",
+            "payments-audience-1",
+            "payments-adapter-v1",
             format!("owner-token-{id}"),
             state,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn provider_context_is_historical_and_required_before_dispatch() {
+        let key = key();
+        let owner = attempt("attempt-1");
+        let record = AttemptRecordV1::new(
+            &owner,
+            "operation-1",
+            "native-replay-1",
+            key.material_action_digest(),
+            &key,
+            None,
+            None,
+            "stripe-live-account-1",
+            "payments-audience-1",
+            "payments-adapter-v1",
+            "owner-token-attempt-1",
+            AttemptRecordState::Consumed,
+        )
+        .unwrap();
+
+        let mut model = AtomicActionFenceModelV1::new();
+        model.admit(&key, &owner, record).unwrap();
+
+        assert_eq!(
+            model.mark_dispatch_pending(&key, &owner, "owner-token-attempt-1"),
+            Err(ActionFenceMutationError::InvalidTransition)
+        );
+        assert_eq!(model.fence(key.digest()).is_some(), true);
     }
 
     #[test]
