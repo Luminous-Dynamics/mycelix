@@ -244,12 +244,15 @@ def verify_executor_run_record(
     repo: str,
 ) -> None:
     cfg = policy["executor_workflow"]
+    expected_repository_id = int(policy["repository_identity"]["repository_id"])
     assert executor_run["name"] == cfg["name"]
     assert executor_run["path"] == cfg["path"]
     assert executor_run["event"] == "workflow_run"
     assert executor_run["conclusion"] == "success"
     assert executor_run["repository"]["full_name"] == repo
+    assert int(executor_run["repository"]["id"]) == expected_repository_id
     assert executor_run["head_repository"]["full_name"] == repo
+    assert int(executor_run["head_repository"]["id"]) == expected_repository_id
     assert executor_run["head_branch"] == "main"
     assert executor_run["id"] == int(record["executor_run_id"])
     assert executor_run["run_attempt"] == int(record["executor_run_attempt"])
@@ -261,8 +264,11 @@ def verify_executor_workflow_against_run_head(
     repo: str,
     token: str,
 ) -> None:
+    expected_repository_id = int(policy["repository_identity"]["repository_id"])
     assert executor_run["repository"]["full_name"] == repo
+    assert int(executor_run["repository"]["id"]) == expected_repository_id
     assert executor_run["head_repository"]["full_name"] == repo
+    assert int(executor_run["head_repository"]["id"]) == expected_repository_id
     assert executor_run["head_branch"] == "main"
     head_sha = executor_run["head_sha"]
     assert re.fullmatch(r"[0-9a-f]{40}", head_sha)
@@ -294,12 +300,15 @@ def verify_trigger_run_record(
     repo: str,
 ) -> None:
     cfg = policy["trigger_workflow"]
+    expected_repository_id = int(policy["repository_identity"]["repository_id"])
     assert trigger["name"] == cfg["name"]
     assert trigger["path"] == cfg["path"]
     assert trigger["event"] == "pull_request"
     assert trigger["conclusion"] == "success"
     assert trigger["head_repository"]["full_name"] == repo
+    assert int(trigger["head_repository"]["id"]) == expected_repository_id
     assert trigger["repository"]["full_name"] == repo
+    assert int(trigger["repository"]["id"]) == expected_repository_id
     assert trigger["head_branch"] == policy["source_branch"]
     assert trigger["run_attempt"] == int(record["trigger_workflow_run_attempt"])
     assert trigger["head_sha"] == record["source_commit"]
