@@ -230,6 +230,8 @@ The implementation digest is deliberately named **expected** identity: this boun
 
 The remaining runtime boundary is therefore explicit: an independent host/conductor/execution attestation must establish the identity of the artifact that actually executed before the system may claim authenticated verifier implementation execution. This preserves the separation between configured trust expectations and observed runtime identity.
 
+The stronger result profile carries the expected implementation digest, build-provenance digest, builder identity, and verifier-profile digest inside the persisted source-attestation claim and EAT/COSE verification anchor. Those fields participate in the claim/anchor security commitments, and the claim digest domain is versioned as v2. This prevents downstream qualification from retaining the result while dropping the verifier implementation context. The anchor records remain distinct from runtime execution proof.
+
 ## Challenge-bound source attestation
 
 FPM now models source-system attestation using a challenge-bound RATS-style flow.
