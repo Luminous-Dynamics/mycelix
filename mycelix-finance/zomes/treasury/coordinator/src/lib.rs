@@ -1360,9 +1360,7 @@ pub fn get_dao_commons_pool(dao_did: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&dao_did)?, LinkTypes::DaoToCommonsPool)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    if let Some(hash) = resolve_singleton_action_hash(links, "DaoToCommonsPool")? {
         return Ok(Some(follow_update_chain(hash)?));
     }
     Ok(None)
@@ -1510,3 +1508,71 @@ pub struct DkgAllocationInput {
     /// Threshold signature bytes from the DKG committee
     pub threshold_signature: Vec<u8>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn action_hash(byte: u8) -> ActionHash {
+        ActionHash::from_raw_36(vec![byte; 36])
+    }
+
+    #[test]
+    fn singleton_root_resolver_accepts_zero_roots_as_uninitialized() {
+        let result = resolve_singleton_action_hash(Vec::new(), "test").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn singleton_root_resolver_accepts_one_root() {
+        let hash = action_hash(1);
+        let result = resolve_singleton_action_hash(
+            vec![Link {
+                base: AnyLinkableHash::from(EntryHash::from_raw_32(vec![2; 32])),
+                target: AnyLinkableHash::from(hash.clone()),
+                tag: LinkTag::new(vec![]),
+                create_link_hash: action_hash(3),
+            }],
+            "test",
+        )
+        .unwrap();
+        assert_eq!(result, Some(hash));
+    }
+
+    #[test]
+    fn singleton_root_resolver_deduplicates_identical_targets() {
+        let hash = action_hash(1);
+        let make_link = || Link {
+            base: AnyLinkableHash::from(EntryHash::from_raw_32(vec![2; 32])),
+            target: AnyLinkableHash::from(hash.clone()),
+            tag: LinkTag::new(vec![]),
+            create_link_hash: action_hash(3),
+        };
+        let result =
+            resolve_singleton_action_hash(vec![make_link(), make_link()], "test").unwrap();
+        assert_eq!(result, Some(hash));
+    }
+
+    #[test]
+    fn singleton_root_resolver_rejects_multiple_distinct_roots() {
+        let result = resolve_singleton_action_hash(
+            vec![
+                Link {
+                    base: AnyLinkableHash::from(EntryHash::from_raw_32(vec![2; 32])),
+                    target: AnyLinkableHash::from(action_hash(1)),
+                    tag: LinkTag::new(vec![]),
+                    create_link_hash: action_hash(3),
+                },
+                Link {
+                    base: AnyLinkableHash::from(EntryHash::from_raw_32(vec![2; 32])),
+                    target: AnyLinkableHash::from(action_hash(4)),
+                    tag: LinkTag::new(vec![]),
+                    create_link_hash: action_hash(5),
+                },
+            ],
+            "test",
+        );
+        assert!(result.is_err());
+    }
+}
+
