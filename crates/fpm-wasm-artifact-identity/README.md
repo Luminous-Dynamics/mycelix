@@ -32,7 +32,7 @@ This makes the approved pair itself a bound object rather than trusting either d
 
 The returned `MatchedFpmWasmArtifactIdentity` is deliberately Serialize-only and has private fields. There is no deserialization path for manufacturing a matched result.
 
-The approval record itself uses `serde(deny_unknown_fields)`, so an unknown/future field cannot be silently ignored during deserialization. A schema extension must therefore be explicitly versioned rather than becoming an invisible policy change.
+The approval record rejects unknown fields and duplicate fields during deserialization, so an unknown/future field or ambiguous repeated security field cannot silently become policy input. A schema extension must therefore be explicitly versioned rather than becoming an invisible policy change.
 
 The native Holochain hash prefix is also part of the identity boundary. The verifier rejects a 39-byte value whose primitive prefix identifies another hash domain (for example, `InlineHash`) even when the length is otherwise valid. This prevents representation-domain confusion between executable WASM and non-WASM zome identities.
 
