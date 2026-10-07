@@ -342,6 +342,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             link_type,
             base_address,
             target_address,
+            action,
             ..
         } => match link_type {
             LinkTypes::SenderToPayments | LinkTypes::ReceiverToPayments => {
@@ -389,17 +390,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 validate_mint_cap_counter_link(&base_address, &target_address)
             }
             LinkTypes::RateLimitBucketToAgent => {
-                if base_address.clone().into_entry_hash().is_none() {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "RateLimitBucketToAgent base must be an entry hash".into(),
-                    ));
-                }
-                if target_address.clone().into_agent_pub_key().is_none() {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "RateLimitBucketToAgent target must be an AgentPubKey".into(),
-                    ));
-                }
-                Ok(ValidateCallbackResult::Valid)
+                validate_rate_limit_bucket_link(
+                    &action.author,
+                    &base_address,
+                    &target_address,
+                )
             }
         },
         FlatOp::RegisterDeleteLink { link_type, .. } => {
@@ -416,6 +411,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_rate_limit_bucket_link(
+    author: &AgentPubKey,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    if base_address.clone().into_entry_hash().is_none() {
+        return Ok(invalid_link(
+            "RateLimitBucketToAgent base must be an EntryHash",
+        ));
+    }
+    let Some(target_agent) = target_address.clone().into_agent_pub_key() else {
+        return Ok(invalid_link(
+            "RateLimitBucketToAgent target must be an AgentPubKey",
+        ));
+    };
+    if target_agent != *author {
+        return Ok(invalid_link(
+            "RateLimitBucketToAgent target must equal the CreateLink author",
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_payment(
@@ -1687,6 +1705,25 @@ mod tests {
             }
             other => panic!("forged member_did must be rejected, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn test_rate_limit_bucket_target_must_be_link_author() {
+        let author = AgentPubKey::from_raw_36(vec![1; 36]);
+        let target = AnyLinkableHash::from(author.clone());
+        let base = AnyLinkableHash::from(deterministic_anchor_hash(
+            "payment-rate-limit:author:bucket",
+        ));
+        assert!(matches!(
+            validate_rate_limit_bucket_link(&author, &base, &target).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        let forged_target = AnyLinkableHash::from(AgentPubKey::from_raw_36(vec![2; 36]));
+        assert!(matches!(
+            validate_rate_limit_bucket_link(&author, &base, &forged_target).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ---- 29. Authoritative payment-index anchor binding ----
