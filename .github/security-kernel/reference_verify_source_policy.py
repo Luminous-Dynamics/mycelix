@@ -1289,6 +1289,39 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "S1",
     )
 
+    require_exact_run_sequence(
+        l,
+        "Pull and preflight pinned sandbox image",
+        (
+            "docker run --rm --platform=linux/amd64 --pull=never \\",
+            "  --network=none \\",
+            "  --read-only \\",
+            "  --cap-drop=ALL \\",
+            "  --security-opt=no-new-privileges:true \\",
+            "  --security-opt=seccomp=default \\",
+            "  --pids-limit=512 \\",
+            "  --memory=256m \\",
+            "  --memory-swap=256m \\",
+            "  --cpus=1 \\",
+            "  --ulimit=nofile=4096:4096 \\",
+            "  --ulimit=core=0:0 \\",
+            "  --user \"$runner_uid:$runner_gid\" \\",
+            "  --init \\",
+            "  --stop-timeout=5 \\",
+            "  --ipc=private \\",
+            "  --pid=private \\",
+            "  --cgroupns=private \\",
+            "  --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \\",
+            "  --env HOME=/tmp \\",
+            "  --env GITHUB_TOKEN= \\",
+            "  --env GH_TOKEN= \\",
+            "  --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \\",
+            "  --env ACTIONS_ID_TOKEN_REQUEST_URL= \\",
+            "  --env ACTIONS_RUNTIME_TOKEN= \\",
+            "  \"$SANDBOX_IMAGE\" /bin/bash -euc '",
+        ),
+        "S1 sandbox preflight Docker isolation sequence",
+    )
     require_exact_step_mapping(
         l,
         "Prepare locked dependency subject",
@@ -2467,6 +2500,17 @@ def main() -> None:
             s1_sha,
         ),
         "S1 candidate-execution network-mode drift",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                "            --pids-limit=512 \\\n".encode(),
+                "            --pids-limit=511 \\\n".encode(),
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 sandbox preflight PID ceiling drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
