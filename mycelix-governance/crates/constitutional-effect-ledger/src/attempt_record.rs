@@ -769,11 +769,13 @@ impl AtomicActionFenceModelV1 {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
+        terminal_evidence: &TerminalEvidenceV1,
     ) -> Result<(), ActionFenceMutationError> {
-        self.transition_state(
+        self.transition_terminal(
             action_key,
             attempt_identity,
             owner_token_digest,
+            terminal_evidence,
             AttemptRecordState::Failed,
         )
     }
@@ -838,11 +840,13 @@ impl AtomicActionFenceModelV1 {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
+        terminal_evidence: &TerminalEvidenceV1,
     ) -> Result<(), ActionFenceMutationError> {
-        self.transition_state(
+        self.transition_terminal(
             action_key,
             attempt_identity,
             owner_token_digest,
+            terminal_evidence,
             AttemptRecordState::Executed,
         )
     }
@@ -1101,8 +1105,14 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
+        terminal_evidence: &TerminalEvidenceV1,
     ) -> Result<(), ActionFenceMutationError> {
-        self.release_after_failed(action_key, attempt_identity, owner_token_digest)
+        self.release_after_failed(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            terminal_evidence,
+        )
     }
 
     fn atomically_close_executed(
@@ -1110,8 +1120,14 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
+        terminal_evidence: &TerminalEvidenceV1,
     ) -> Result<(), ActionFenceMutationError> {
-        self.close_executed(action_key, attempt_identity, owner_token_digest)
+        self.close_executed(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            terminal_evidence,
+        )
     }
 
     fn atomically_release_not_entered(
