@@ -582,6 +582,45 @@ def require_exact_run_sequence(
     if sum(1 for i in range(0, len(actual) - window + 1) if tuple(actual[i:i + window]) == expected) != 1:
         fail(f"{description}: expected exact run sequence is missing or duplicated")
 
+def require_exact_run_body_sha256(
+    lines_: list[str],
+    step_name: str,
+    expected_sha256: str,
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    start = matches[0]
+    run_indexes = []
+    for i in range(start + 1, len(lines_)):
+        if lines_[i].strip() == "run: |" and len(lines_[i]) - len(lines_[i].lstrip(" ")) == 8:
+            run_indexes.append(i)
+        if re.fullmatch(r"\s{6}- name: .+", lines_[i]):
+            break
+    if len(run_indexes) != 1:
+        fail(f"{description}: expected exactly one run mapping under {step_name!r}")
+    actual = []
+    for line in lines_[run_indexes[0] + 1:]:
+        if re.fullmatch(r"\s{6}- name: .+", line):
+            break
+        indent = len(line) - len(line.lstrip(" "))
+        if indent < 10:
+            if line.strip():
+                fail(f"{description}: unexpected run-body indentation: {line!r}")
+            actual.append("")
+            continue
+        actual.append(line[10:])
+    while actual and actual[-1] == "":
+        actual.pop()
+    canonical = ("\n".join(actual) + "\n").encode("utf-8")
+    actual_sha256 = hashlib.sha256(canonical).hexdigest()
+    if actual_sha256 != expected_sha256:
+        fail(
+            f"{description}: run-body SHA-256 mismatch: "
+            f"expected {expected_sha256!r}, found {actual_sha256!r}"
+        )
+
 def require_exact_run_prefix_boundary(
     lines_: list[str],
     step_name: str,
@@ -1164,6 +1203,12 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         ("python3 - <<'PY'",),
         "S0 runtime guard prefix and first network-boundary command",
     )
+    require_exact_run_body_sha256(
+        l,
+        "Verify trusted dispatcher context and exact PR identity",
+        "625515de1c5e8229bd7150e9381a5dd03b70d4f65fbc5601b275d02a837f43ef",
+        "S0 resolver exact run-body digest",
+    )
     require_exact_root_scalar(l, "name", "Security Kernel Qualification — Trusted Dispatcher", S0)
     require_exact_root_scalar(
         l,
@@ -1269,6 +1314,90 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "S1 runtime guard prefix and first network-boundary command",
     )
     require_exact_root_scalar(l, "name", "Security Kernel Independent Qualification", S1)
+    require_exact_run_body_sha256(
+        l,
+        "Verify trusted pull-request-target invocation",
+        "da2582639a0edb454b4d5da1e2491b73fe6eca0d2be358d775fbca29c72024f3",
+        "S1 Verify trusted pull-request-target invocation exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Resolve exact candidate source",
+        "bb4fd1538b45ec6d5de820af73b66bcee3cefbe5a66e058dfdb63803839a2c8b",
+        "S1 Resolve exact candidate source exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Static trust-surface audit",
+        "d3d7b7b2f768c3dcf1caa003e01ba3352abee07967ac0105dd25e765ef416641",
+        "S1 Static trust-surface audit exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Snapshot exact candidate source identity",
+        "62c9057c98bf4d1f326a52553c32daf0c291271ddfa3010a19fad335011943a0",
+        "S1 Snapshot exact candidate source identity exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Snapshot locked dependency identity",
+        "972a23361ac9226b134bd52c0e5a3ccb80b9f8d16dd4dcda75a2287b0d8bd747",
+        "S1 Snapshot locked dependency identity exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Pull and preflight pinned sandbox image",
+        "6f812a9bb360c2d06b6d796f3a7de5318bf126a45696d0b3f81c17b78c749984",
+        "S1 Pull and preflight pinned sandbox image exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Prepare locked dependency subject",
+        "818db66e1b51939db21f5709fe8704ef7539f8f5a81ab9aa6a1c721a40b159f3",
+        "S1 Prepare locked dependency subject exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Vendor locked dependency closure in fetch sandbox",
+        "5a61b910d1f76bce143c5a4031860af97a6590a1a172e61b21813ce979e50a81",
+        "S1 Vendor locked dependency closure in fetch sandbox exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Execute sandbox negative controls",
+        "1ffc306d64321fce918d9f15c780c04729878ec17f818d2651a68c3e0adfcb17",
+        "S1 Execute sandbox negative controls exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Execute candidate qualification in disposable networkless sandbox",
+        "89d4613e7abbdc9338b643dc5f217f7c7f8babf09e151b83c37798d92328c0ee",
+        "S1 Execute candidate qualification in disposable networkless sandbox exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Verify candidate source immutability",
+        "08dce7eb68add8f0252f2640e40f9cffaafb1f5a73e3fbc41bb749c7a3529778",
+        "S1 Verify candidate source immutability exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Verify dependency substrate immutability",
+        "ce772b8b4ca7d6c3ee5005b87d3ec0a9d40e93467d3693f08db0c3f8dfcdd7dc",
+        "S1 Verify dependency substrate immutability exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Emit qualification receipt",
+        "8dabec1bce470d0f1199b18cd7fc6c1541964023d9cddc8ebefc63088ad381c4",
+        "S1 Emit qualification receipt exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Verify retained qualification receipt",
+        "56870527f56f99e29646873f40ad792e6fda6e65ba6530ce9e887e6db4fab04d",
+        "S1 Verify retained qualification receipt exact run-body digest",
+    )
     if exact_count(l, "name: Security Kernel Independent Qualification") != 1:
         fail("S1 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_call",):
@@ -2104,6 +2233,24 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         "S2 runtime guard prefix and first network-boundary commands",
     )
     require_exact_root_scalar(l, "name", "Security Kernel Qualification — Trusted Result Verifier", S2)
+    require_exact_run_body_sha256(
+        l,
+        "Verify trusted dispatcher, reusable S1, and qualification gates",
+        "7a810834ca059bee7748048a9a295b614c74bf5f3f5cc0a55d5bef91f097d11c",
+        "S2 Verify trusted dispatcher, reusable S1, and qualification gates exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Verify retained negative-control evidence binding",
+        "74f555f7aaeea0c9c067c13e8a4bc249a5e285786298e04795b69720cb9c2b2d",
+        "S2 Verify retained negative-control evidence binding exact run-body digest",
+    )
+    require_exact_run_body_sha256(
+        l,
+        "Verify official receipt transport and publish verified result",
+        "2e43a6d734c5d8682731cc7c5eb759ea8d5271a0cf6730870b925b33e61304cc",
+        "S2 Verify official receipt transport and publish verified result exact run-body digest",
+    )
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
         fail("S2 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_run",):
@@ -3060,6 +3207,45 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 relocated output producer",
+    )
+
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'          assert pr["state"] == "open"\n',
+                b'          assert pr["state"] == "closed"\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 nested API assertion mutation",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          assert pr["state"] == "open"\n',
+                b'          assert pr["state"] == "closed"\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 nested API assertion mutation",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'          assert run["conclusion"] == "success"\n',
+                b'          assert run["conclusion"] == "failure"\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 nested API assertion mutation",
     )
 
     expect_rejection(
