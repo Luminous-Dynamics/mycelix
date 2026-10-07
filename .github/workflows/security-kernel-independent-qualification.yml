@@ -322,7 +322,8 @@ jobs:
           root=Path(os.environ["CANDIDATE_VOLUME_MOUNTPOINT"])
           kernel=(root/"crates/mycelix-bridge-common/src/security_kernel.rs").read_text(encoding="utf-8")
           events=(root/"crates/mycelix-bridge-common/src/security_events.rs").read_text(encoding="utf-8")
-          workflow=(root/".github/workflows/security-kernel-qualification.yml").read_text(encoding="utf-8")
+          trusted_s1_workflow=Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-independent-qualification.yml"
+          workflow=trusted_s1_workflow.read_text(encoding="utf-8")
           manifest=root/"crates/mycelix-bridge-common/Cargo.toml"; lockfile=root/"crates/mycelix-bridge-common/Cargo.lock"
           assert manifest.is_file() and lockfile.is_file()
           assert manifest.stat().st_size <= 2*1024*1024 and lockfile.stat().st_size <= 32*1024*1024

@@ -669,6 +669,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 qualification receipt sink ceiling missing")
     if 'subprocess.run(["bash","-n"], input=script, text=True, capture_output=True)' not in joined:
         fail("S1 must syntax-check every run block with bash -n")
+    if 'trusted_s1_workflow=Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-independent-qualification.yml"' not in joined:
+        fail("S1 shell syntax audit must target the trusted S1 workflow bytes")
     if joined.count("printf 'executed_source_digest=%s\\n' \"$executed_source_digest\"") != 1:
         fail("S1 executed source digest output must have exactly one writer")
     if 'test "$receipt_bytes" -le "$QUALIFICATION_RECEIPT_MAX_BYTES"' not in joined:
@@ -1097,6 +1099,17 @@ def main() -> None:
         "duplicate executed source digest output",
     )
         expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'trusted_s1_workflow=Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-independent-qualification.yml"',
+                b'trusted_s1_workflow=Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-qualification.yml"',
+                1,
+            ),
+            s1_sha,
+        ),
+        "trusted S1 shell-audit target replaced with candidate workflow",
+    )
+    expect_rejection(
         lambda: verify_s1(
             raw["s1"].replace(
                 b'subprocess.run(["bash","-n"], input=script, text=True, capture_output=True)',
