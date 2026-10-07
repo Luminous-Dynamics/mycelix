@@ -511,6 +511,54 @@ jobs:
 
               assert "secrets." not in workflow
 
+              def candidate_no_duplicate_mapping_keys(text):
+                  lines = text.splitlines()
+                  root_keys = set()
+                  jobs_start = None
+                  jobs_keys = set()
+                  current_job = None
+                  job_keys = set()
+                  for index, line in enumerate(lines):
+                      if not line.strip() or line.lstrip().startswith("#"):
+                          continue
+                      indent = len(line) - len(line.lstrip(" "))
+                      root_match = re.fullmatch(r"([A-Za-z0-9_-]+)\s*:", line)
+                      if indent == 0 and root_match:
+                          key = root_match.group(1)
+                          assert key not in root_keys, f"candidate workflow duplicate root key: {key!r}"
+                          root_keys.add(key)
+                          if key == "jobs":
+                              jobs_start = index
+                          continue
+                      if jobs_start is None or index <= jobs_start:
+                          continue
+                      if indent == 0:
+                          jobs_start = None
+                          continue
+                      if indent == 2:
+                          match = re.fullmatch(r"\s{2}([A-Za-z0-9_-]+)\s*:", line)
+                          if match:
+                              job = match.group(1)
+                              assert job not in jobs_keys, f"candidate workflow duplicate job key: {job!r}"
+                              jobs_keys.add(job)
+                              current_job = job
+                              job_keys = set()
+                              continue
+                      if current_job is None:
+                          continue
+                      if indent <= 2:
+                          current_job = None
+                          job_keys = set()
+                          continue
+                      if indent == 4:
+                          match = re.fullmatch(r"\s{4}([A-Za-z0-9_-]+)\s*:", line)
+                          if match:
+                              key = match.group(1)
+                              assert key not in job_keys, (
+                                  f"candidate workflow duplicate job mapping key under {current_job!r}: {key!r}"
+                              )
+                              job_keys.add(key)
+
               def candidate_step_maps(text):
                   lines = text.splitlines()
                   steps = []
@@ -568,6 +616,7 @@ jobs:
                   return steps
 
               def candidate_structural_controls(text):
+                  candidate_no_duplicate_mapping_keys(text)
                   lines = text.splitlines()
                   root_permissions = [line for line in lines if line == "permissions:"]
                   assert len(root_permissions) == 1, f"candidate workflow must contain exactly one root permissions mapping: {root_permissions!r}"
@@ -658,6 +707,18 @@ jobs:
                   pass
               else:
                   raise AssertionError("candidate structural with-parser accepted mutated checkout ref")
+
+              mutated_duplicate_job_mapping = workflow + (
+                  "\n    steps:\n"
+                  "      - name: Parser duplicate-mapping regression\n"
+                  "        run: true\n"
+              )
+              try:
+                  candidate_structural_controls(mutated_duplicate_job_mapping)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted a duplicate job steps mapping")
 
               mutated_duplicate_step_key = workflow.replace(
                   "        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n",
