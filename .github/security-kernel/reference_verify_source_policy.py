@@ -41,6 +41,12 @@ SOURCE_VOLUME_CREATE = "docker volume create --driver local --opt type=tmpfs --o
 SOURCE_VOLUME_RW = '--volume "$candidate_volume_name:/output:rw"'
 SOURCE_VOLUME_RO = '--volume "$candidate_volume_name:/source:ro"'
 SOURCE_VOLUME_INSPECT = "candidate_volume_spec=\"$(docker volume inspect --format '{{.Driver}}|{{index .Options \"type\"}}|{{index .Options \"device\"}}|{{index .Options \"o\"}}' \"$candidate_volume_name\")\""
+FETCH_TMPFS_PROFILE = "--tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m,nr_inodes=600000"
+SMALL_TMPFS_128_PROFILE = "--tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m,nr_inodes=20000"
+SMALL_TMPFS_64_PROFILE = "--tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m,nr_inodes=8192"
+CARGO_HOME_TMPFS_PROFILE = "--tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m,nr_inodes=150000"
+CANDIDATE_TMPFS_PROFILE = "--tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m,nr_inodes=32768"
+TARGET_TMPFS_PROFILE = "--tmpfs /target:rw,nosuid,nodev,size=8g,nr_inodes=600000"
 
 S1_STEPS = (
     "Checkout trusted qualification root",
@@ -546,7 +552,23 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     for key, expected in (("SOURCE_RESOURCE_PROFILE", SOURCE_RESOURCE_PROFILE), ("SOURCE_MAX_BYTES", SOURCE_MAX_BYTES), ("SOURCE_MAX_INODES", SOURCE_MAX_INODES), ("SOURCE_TMPFS_SIZE", SOURCE_TMPFS_SIZE), ("SOURCE_TMPFS_NR_INODES", SOURCE_TMPFS_NR_INODES)):
         if exact_count(l, f'  {key}: "{expected}"') != 1:
             fail(f"S1 source resource profile mismatch: {key}")
-    if exact_count(l, SOURCE_VOLUME_CREATE) != 1:
+    tmpfs_lines = [line.strip() for line in l if "--tmpfs " in line]
+    if len(tmpfs_lines) != 10:
+        fail("S1 writable tmpfs mount census mismatch")
+    if any("nr_inodes=" not in line for line in tmpfs_lines):
+        fail("S1 every writable tmpfs mount must declare an inode ceiling")
+    for profile, expected_count in (
+        (FETCH_TMPFS_PROFILE, 1),
+        (SMALL_TMPFS_128_PROFILE, 2),
+        (SMALL_TMPFS_64_PROFILE, 3),
+        (CARGO_HOME_TMPFS_PROFILE, 2),
+        (CANDIDATE_TMPFS_PROFILE, 1),
+        (TARGET_TMPFS_PROFILE, 1),
+    ):
+        observed = sum(1 for line in tmpfs_lines if profile in line)
+        if observed != expected_count:
+            fail(f"S1 tmpfs resource profile mismatch: {profile} (expected {expected_count}, got {observed})")
+        if exact_count(l, SOURCE_VOLUME_CREATE) != 1:
         fail("S1 candidate source volume create profile mismatch")
     if exact_count(l, SOURCE_VOLUME_RW) != 1:
         fail("S1 candidate source acquisition must use one bounded Docker volume for writes")
@@ -898,6 +920,18 @@ def main() -> None:
             s1_sha,
         ),
         "unchecked sort pipeline inside conditional",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b",nr_inodes=600000",
+                b"",
+                1,
+            ),
+            s1_sha,
+        ),
+        "sandbox tmpfs inode ceiling removed",
     )
 
     expect_rejection(
