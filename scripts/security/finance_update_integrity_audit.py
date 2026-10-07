@@ -109,6 +109,8 @@ def functions(source: str):
         yield name, line, source[open_brace:end+1]
         pos = end + 1
 
+AUDIT_VERSION = "2"
+
 errors = []
 files = sorted(p for root in ROOTS if root.exists() for p in root.glob('*/integrity/src/lib.rs'))
 for path in files:
@@ -138,6 +140,7 @@ for path in files:
             if validator != 'validate_update_' and not validator.startswith('validate_update_'):
                 errors.append(f'{path}: {label}: UpdateEntry arm delegates to non-update validator {validator}')
 
+print(f'FINANCE_UPDATE_PREDECESSOR_AUDIT_VERSION={AUDIT_VERSION}')
 print(f'Audited {len(files)} Finance integrity zomes across {len(ROOTS)} trees.')
 if errors:
     print('FINANCE_UPDATE_PREDECESSOR_AUDIT=FAIL')
