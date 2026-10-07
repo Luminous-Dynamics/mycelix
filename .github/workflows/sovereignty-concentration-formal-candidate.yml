@@ -48,7 +48,7 @@ jobs:
           crosswalk=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json").read_text())
           assert profile["status"] == "candidate-verification-profile"
           assert profile["authority"] == "non-authoritative"
-          assert profile["semantic_subject"]["source_branch"] == "sov-ai-formal-v3-concentration-subject-clean"
+          assert profile["semantic_subject"]["source_branch"] == "sov-ai-formal-v3-concentration-subject"
           assert len(profile["semantic_subject"]["head_sha"]) == 40
           assert crosswalk["formal_subject_head"] == profile["semantic_subject"]["head_sha"]
           assert crosswalk["formal_subject_tree"] == profile["semantic_subject"]["tree_sha"]
