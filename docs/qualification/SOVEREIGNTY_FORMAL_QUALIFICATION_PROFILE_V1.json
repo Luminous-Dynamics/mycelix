@@ -7,7 +7,8 @@
     "repository": "Luminous-Dynamics/mycelix",
     "head_sha": "2f3ccf4044d07c49e6aa1e4df4802d5e61c6847b",
     "corpus_path": "docs/governance/ARTIFICIAL_SOVEREIGNTY_QUALIFICATION_CORPUS_V1.json",
-    "corpus_git_blob_sha": "c04430e65a53974d00fe2d87af9888c6f2a6cd98"
+    "corpus_git_blob_sha": "c04430e65a53974d00fe2d87af9888c6f2a6cd98",
+    "tree_sha": "3e734b9c3a553cc96fc29222af99c5d17b08b297"
   },
   "formal_subject": {
     "repository": "Luminous-Dynamics/mycelix",
@@ -25,7 +26,9 @@
         "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als",
         "git_blob_sha": "5798edec899397149153e90eef4bd09c1c9bf073"
       }
-    ]
+    ],
+    "tree_sha": "e9e603fdb3d929bdf2e80e4719228fb1d2baf0b5",
+    "verifier_branch": "qual-001-sov-ai-verifier-v1"
   },
   "tools": {
     "tla2tools": {
@@ -67,5 +70,17 @@
     "No runtime authority or production safety is established.",
     "A bounded TLA+ or Alloy result does not prove the production implementation.",
     "Formal model consistency does not establish legal validity or moral status."
+  ],
+  "exact_file_commitments": [
+    {
+      "path": "mycelix-governance/specs/ArtificialSovereigntyV1.tla",
+      "git_blob_sha": "9e533b4cb564e75d914b87a438416210fc464e61",
+      "config_git_blob_sha": "852f53d9e3b8a7dafee20dbeb93c17b975a38609"
+    },
+    {
+      "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als",
+      "git_blob_sha": "5798edec899397149153e90eef4bd09c1c9bf073",
+      "config_git_blob_sha": null
+    }
   ]
 }
