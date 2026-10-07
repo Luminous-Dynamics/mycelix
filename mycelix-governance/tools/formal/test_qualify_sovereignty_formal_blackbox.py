@@ -190,7 +190,7 @@ if "SovereigntyAlloyQualificationRunner" in args:
         actual = "SAT" if label in sat or label == target else "UNSAT"
         check = "false" if actual == "SAT" else "true"
         expects = 1 if actual == "SAT" else 0
-        command = f"Run {label} for 4 but 4 Subject, 4 Power, 4 Provider, 4 Dependency, 4 Action, 4 Contract, 4 Budget, 4 Dispute, 4 Emergency, 4 ForkEvent"
+        command = f"Run {label} for 4 but 4 int, 4 Subject, 4 Power, 4 Provider, 4 Dependency, 4 Action, 4 Contract, 4 Budget, 4 Dispute, 4 Emergency, 4 ForkEvent"
         print(json.dumps({
             "index": labels.index(label) + 1,
             "label": label,
