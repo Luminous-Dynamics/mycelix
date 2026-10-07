@@ -26,6 +26,7 @@ env:
   FPM_TARGET_DIR: ${{ runner.temp }}/fpm-target
   FPM_RESOLVER_CARGO_HOME: ${{ runner.temp }}/fpm-resolver-cargo
   FPM_TOOLCHAIN_ROOT: ${{ runner.temp }}/fpm-rust-toolchain
+  FPM_UNTRUSTED_TMP: ${{ runner.temp }}/fpm-untrusted-tmp
   FPM_EVIDENCE_DIR: ${{ runner.temp }}/fpm-trusted-evidence-${{ github.run_id }}
 
 jobs:
@@ -228,10 +229,10 @@ jobs:
           if ! id fpm-untrusted >/dev/null 2>&1; then
             sudo useradd --create-home --shell /bin/bash fpm-untrusted
           fi
-          rm -rf "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}"
-          mkdir -p "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}"
-          chown -R fpm-untrusted:fpm-untrusted "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}"
-          chmod 700 "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}"
+          rm -rf "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}" "${FPM_UNTRUSTED_TMP}"
+          mkdir -p "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}" "${FPM_UNTRUSTED_TMP}"
+          chown -R fpm-untrusted:fpm-untrusted "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}" "${FPM_UNTRUSTED_TMP}"
+          chmod 700 "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}" "${FPM_UNTRUSTED_TMP}"
           candidate_uid="$(sudo -n -u fpm-untrusted id -u)"
           test "$candidate_uid" != "0"
           test "$candidate_uid" != "$(id -u)"
@@ -262,7 +263,7 @@ jobs:
           GITHUB_STEP_SUMMARY: /dev/null
         run: |
           set -euo pipefail
-          sudo -n -u fpm-untrusted env             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:${PATH}"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTUP_TOOLCHAIN=             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'cd "$1" && cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
+          sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             TMPDIR="${FPM_UNTRUSTED_TMP}"             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'umask 077; cd "$1" && cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
 
       - name: Cargo test against immutable candidate source
         id: tests
@@ -273,7 +274,7 @@ jobs:
           GITHUB_STEP_SUMMARY: /dev/null
         run: |
           set -euo pipefail
-          sudo -n -u fpm-untrusted env             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:${PATH}"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTUP_TOOLCHAIN=             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'cd "$1" && cargo test --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
+          sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             TMPDIR="${FPM_UNTRUSTED_TMP}"             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'umask 077; cd "$1" && cargo test --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
 
       - name: Postflight source and live-PR reconciliation
         id: postflight
