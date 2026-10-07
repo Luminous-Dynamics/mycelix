@@ -109,12 +109,18 @@ def assert_profile(profile: dict) -> None:
         fail("formal profile is not explicitly non-authoritative")
     if profile.get("status") != "candidate-verification-profile":
         fail("formal profile status is not candidate-verification-profile")
+    if profile.get("profile_id") != "SOV-AI-FORMAL-QUAL-001-V2":
+        fail("unexpected formal profile id")
     formal = profile.get("formal_subject", {})
     for key in ("head_sha", "tree_sha", "models"):
         if key not in formal:
             fail(f"formal subject missing {key}")
     if len(formal["models"]) != 2:
         fail("formal subject model count is not exactly two")
+    if formal.get("source_branch") != "sov-ai-formal-v2-subject":
+        fail("unexpected formal subject source branch")
+    if formal.get("repository") != "Luminous-Dynamics/mycelix":
+        fail("unexpected formal subject repository")
     tla = profile["tla"]
     if tla.get("invariants") != INVARIANTS:
         fail("profile TLA invariant list does not match runner contract")
@@ -123,6 +129,10 @@ def assert_profile(profile: dict) -> None:
         fail("profile Alloy SAT command set mismatch")
     if set(alloy.get("expected_unsat", [])) != EXPECTED_ALLOY_UNSAT:
         fail("profile Alloy UNSAT command set mismatch")
+    if profile.get("negative_controls", {}).get("tla") != NEGATIVE_TLA:
+        fail("profile TLA negative-control contract mismatch")
+    if profile.get("negative_controls", {}).get("alloy") != ALLOY_NEGATIVE_FACTS:
+        fail("profile Alloy negative-control contract mismatch")
 
 
 def remove_named_fact(source: str, fact_name: str) -> str:
@@ -178,6 +188,16 @@ def main() -> int:
     profile, profile_bytes = read_json(args.profile)
     pins, pins_bytes = read_json(args.pins)
     assert_profile(profile)
+    if pins.get("schema") != "mycelix.sovereignty-formal-tool-pins.v1":
+        fail("unexpected formal tool pin schema")
+    expected_tla_jar_sha = pins["tools"]["tla2tools"]["sha256"]
+    expected_alloy_jar_sha = pins["tools"]["alloy"]["sha256"]
+    actual_tla_jar_sha = sha256_file(args.tla_jar)
+    actual_alloy_jar_sha = sha256_file(args.alloy_jar)
+    if actual_tla_jar_sha != expected_tla_jar_sha:
+        fail(f"TLA+ tool bytes do not match pinned SHA256: {actual_tla_jar_sha}")
+    if actual_alloy_jar_sha != expected_alloy_jar_sha:
+        fail(f"Alloy tool bytes do not match pinned SHA256: {actual_alloy_jar_sha}")
 
     baseline = {
         str(p): sha256_file(p)
