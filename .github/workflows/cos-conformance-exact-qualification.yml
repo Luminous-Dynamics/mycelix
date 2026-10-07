@@ -1,4 +1,5 @@
 name: COS Conformance Exact-Head Qualification
+# Canonical exact-head qualifier for the COS federation reference boundary.
 
 on:
   pull_request:
@@ -64,24 +65,72 @@ jobs:
 
           grep -Fq '//! Claim ceiling: ReferenceModelOnly.' "$source"
           grep -Fq 'pub enum FederationExternalVerifierIdentityKind' "$source"
+          grep -Fq 'pub enum FederationExternalVerifierIdentityUseMethod' "$source"
+          grep -Fq 'pub struct FederationExternalVerifierIdentityUseStatementV1' "$source"
+          grep -Fq 'pub struct FederationExternalVerifierIdentityUseVerificationResult' "$source"
           grep -Fq 'pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source"
-          grep -Fq 'pub struct FederationExternalVerificationPolicyAdmissionV1' "$source"
-          grep -Fq 'pub fn validate_state_machine_trace_external_evidence_anchor_reference' "$source"
-          grep -Fq 'pub fn validate_state_machine_trace_external_evidence_verification_statement_binding' "$source"
-          grep -Fq 'pub fn validate_state_machine_trace_external_evidence_verification_statement_chain' "$source"
-          grep -Fq 'pub fn state_machine_trace_external_verifier_identity_sha256' "$source"
-          grep -Fq 'pub fn try_new_bound_identity' "$source"
-          grep -Fq 'pub fn admit_under_policy_at' "$source"
-          if grep -Fq 'pub fn admit_under_policy(' "$source"; then
-            echo 'Non-timestamped external policy admission API must not exist.'
-            exit 1
-          fi
-          grep -Fq 'maximum_verification_age_seconds' "$source"
-          grep -Fq 'VerificationClaimTooOld' "$source"
-          grep -Fq 'VerificationClaimFromFuture' "$source"
+          grep -Fq 'pub fn validate_federation_external_verifier_identity_use_statement' "$source"
+          grep -Fq 'pub fn validate_federation_external_verifier_identity_use_statement_against_result' "$source"
+          grep -Fq 'pub fn validate_federation_external_verifier_identity_use_statement_chain' "$source"
+          grep -Fq 'pub fn validate_federation_external_verifier_identity_use_verification_result_against_result' "$source"
+          grep -Fq 'pub fn admit_under_policy_with_identity_use_result_at' "$source"
+          grep -Fq 'pub fn admit_under_policy_with_identity_use_at' "$source"
+          grep -Fq 'pub fn try_new_bound_identity_use' "$source"
+          grep -Fq 'required_verifier_identity_use_method' "$source"
+          grep -Fq 'required_verifier_identity_use_profile' "$source"
+          grep -Fq 'required_anchor_reference_sha256' "$source"
+          grep -Fq 'required_verifier_profile_sha256' "$source"
+          grep -Fq 'pub fn try_new_bound_anchor_reference' "$source"
+          grep -Fq 'pub fn try_new_bound_verifier_profile_sha256' "$source"
+          grep -Fq 'VerifierProfileDigestNotAdmitted' "$source"
+          grep -Fq 'InvalidRequiredVerifierProfileDigest' "$source"
+          grep -Fq 'pub fn state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence' "$source"
+          grep -Fq 'verifier_profile_sha256' "$source"
+          grep -Fq 'AnchorReferenceNotAdmitted' "$source"
+          grep -Fq 'InvalidRequiredAnchorReferenceDigest' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 5' "$source"
+          grep -Fq 'integral-federation-external-verification-trust-policy-v5' "$source"
+          grep -Fq 'FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 3' "$source"
+          grep -Fq 'integral-federation-trace-external-evidence-verification-statement-v3' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFIER_IDENTITY_USE_STATEMENT_SCHEMA_VERSION: u16 = 2' "$source"
+          grep -Fq 'verification_statement_sha256' "$source"
+          grep -Fq 'ResultVerificationStatementDigestMismatch' "$source"
+          grep -Fq 'external_verifier_identity_use_validation_mints_typed_capability_and_rebinds_it' "$source"
+          grep -Fq 'external_verification_policy_admission_typed_identity_use_matches_raw_compatibility_path' "$source"
+          grep -Fq 'external_verification_statement_wire_shape_is_closed_world_for_v3' "$source"
+          grep -Fq 'external policy admission hash view must be serializable' "$source"
+          grep -Fq 'pub fn admission_sha256(&self)' "$source"
+          grep -Fq 'pub fn validate_integrity' "$source"
+          grep -Fq 'FederationExternalVerificationPolicyAdmissionIntegrityViolation' "$source"
+          grep -Fq 'AdmissionDigestMismatch' "$source"
+          grep -Fq 'admission_sha256: String' "$source"
+          grep -Fq 'external_verification_policy_anchor_reference_binding_is_content_addressed_and_fail_closed' "$source"
+          grep -Fq 'external_verification_policy_verifier_profile_digest_binding_is_content_addressed_and_fail_closed' "$source"
+          grep -Fq 'FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE' "$source"
+          grep -Fq 'VerifierIdentityUsePolicyNotConfigured' "$source"
           grep -Fq 'required_identity_sha256 != self.verifier_identity_sha256()' "$source"
           grep -Fq 'WitnessBindingIncomplete' "$source"
           grep -Fq 'VerifierIdentityBindingIncomplete' "$source"
+
+          if grep -Eq 'self\.evaluated_at_unix_seconds|self\.verification_age_seconds' "$source"; then
+            echo 'External verification statement must not expose admission-only timestamp fields.'
+            exit 1
+          fi
+          if grep -Fq 'pub pub fn' "$source"; then
+            echo 'Duplicated visibility keyword detected.'
+            exit 1
+          fi
+          if grep -Eq '^#[[:space:]]*\\[test\\][[:space:]]*$' "$source"; then
+            :
+          fi
+          if grep -Fq $'#[test]\\n    #[test]' "$source"; then
+            echo 'Duplicate adjacent test attributes detected.'
+            exit 1
+          fi
+          if grep -Eq 'reqwest::|hyper::|tonic::|TcpStream|UdpSocket|AdminWebsocket' "$source"; then
+            echo 'COS reference verification boundary must remain transport-neutral.'
+            exit 1
+          fi
 
           result_context="$(grep -n -B12 -A2 -F 'pub struct FederationStateMachineTraceExternalEvidenceVerificationResult' "$source")"
           if printf '%s\n' "$result_context" | grep -q 'Deserialize'; then
@@ -89,13 +138,14 @@ jobs:
             exit 1
           fi
 
-          admission_context="$(grep -n -B12 -A2 -F 'pub struct FederationExternalVerificationPolicyAdmissionV1' "$source")"
-          if printf '%s\n' "$admission_context" | grep -q 'Deserialize'; then
-            echo 'Policy admission must remain non-deserializable.'
+          identity_use_context="$(grep -n -B12 -A2 -F 'pub struct FederationExternalVerifierIdentityUseVerificationResult' "$source")"
+          if printf '%s\n' "$identity_use_context" | grep -q 'Deserialize'; then
+            echo 'Typed identity-use capability must remain non-deserializable.'
             exit 1
           fi
 
-          if grep -Eq 'reqwest::|hyper::|tonic::|TcpStream|UdpSocket|AdminWebsocket' "$source"; then
-            echo 'COS reference verification boundary must remain transport-neutral.'
+          admission_context="$(grep -n -B12 -A2 -F 'pub struct FederationExternalVerificationPolicyAdmissionV1' "$source")"
+          if printf '%s\n' "$admission_context" | grep -q 'Deserialize'; then
+            echo 'Policy admission must remain non-deserializable.'
             exit 1
           fi
