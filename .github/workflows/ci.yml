@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+# Pull requests intentionally run regardless of target branch so stacked
+# security-hardening PRs receive hosted qualification evidence at their exact
+# reviewed head instead of silently remaining source-reviewed-only.
 
 env:
   CARGO_TERM_COLOR: always
