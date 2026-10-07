@@ -60,12 +60,25 @@ fact PoliticalWeightDomain {
   all s: Subject | s.politicalWeight >= 0
 }
 
+fact PoliticalWeightInvariant {
+  all s: Subject | s.politicalWeight = 1
+}
+
 fact SwitchingCostDomain {
   all s: Subject | s.switchingCost >= 0
 }
 
 fact GatekeepingCostDomain {
   all g: Gatekeeping | g.inducedCost >= 0
+}
+
+fact GatekeepingHasNoAuthorityTransfer {
+  all g: Gatekeeping | g.transfersAuthority = Off
+}
+
+fact ReviewRequiredAtThreshold {
+  all s: Subject |
+    s.switchingCost >= 2 implies s.reviewRequired = On
 }
 
 pred HighScaleWithoutWeightIncrease {
