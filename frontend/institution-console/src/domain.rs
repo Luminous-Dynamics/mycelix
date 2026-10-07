@@ -86,6 +86,20 @@ pub enum SecurityState {
 }
 
 impl SecurityState {
+    pub const ALL: [Self; 11] = [
+        Self::Observed,
+        Self::Verified,
+        Self::Qualified,
+        Self::Authorized,
+        Self::Pending,
+        Self::Included,
+        Self::Finalized,
+        Self::Reconciled,
+        Self::Disputed,
+        Self::Superseded,
+        Self::Indeterminate,
+    ];
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Observed => "Observed",
@@ -145,5 +159,75 @@ impl WorkspaceContext {
             && self.principal_id.is_some()
             && self.profile.is_some()
             && self.policy_version.is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_profiles_have_labels_modules_and_unique_keys() {
+        let mut keys = std::collections::BTreeSet::new();
+
+        for profile in InstitutionProfile::ALL {
+            assert!(!profile.label().is_empty());
+            assert!(!profile.modules().is_empty());
+            assert!(keys.insert(profile.css_key()));
+        }
+
+        assert_eq!(keys.len(), InstitutionProfile::ALL.len());
+    }
+
+    #[test]
+    fn all_security_states_have_nonempty_labels_and_keys() {
+        let mut keys = std::collections::BTreeSet::new();
+
+        for state in SecurityState::ALL {
+            assert!(!state.label().is_empty());
+            assert!(keys.insert(state.css_key()));
+        }
+
+        assert_eq!(keys.len(), SecurityState::ALL.len());
+    }
+
+    #[test]
+    fn demo_context_is_not_authority_bound() {
+        let context = WorkspaceContext::demo(InstitutionProfile::Bank);
+        assert!(!context.is_authority_bound());
+    }
+
+    #[test]
+    fn authority_binding_requires_every_required_dimension() {
+        let complete = WorkspaceContext {
+            tenant_id: Some("tenant".into()),
+            legal_entity_id: Some("entity".into()),
+            principal_id: Some("principal".into()),
+            profile: Some(InstitutionProfile::Bank),
+            policy_version: Some("policy-v1".into()),
+        };
+        assert!(complete.is_authority_bound());
+
+        let missing_policy = WorkspaceContext {
+            policy_version: None,
+            ..complete.clone()
+        };
+        assert!(!missing_policy.is_authority_bound());
+
+        let missing_tenant = WorkspaceContext {
+            tenant_id: None,
+            ..complete
+        };
+        assert!(!missing_tenant.is_authority_bound());
+    }
+
+    #[test]
+    fn profile_navigation_is_configuration_not_authority() {
+        let bank = InstitutionProfile::Bank;
+        let treasury = InstitutionProfile::CorporateTreasury;
+
+        assert_ne!(bank, treasury);
+        assert!(bank.modules().contains(&"Payments"));
+        assert!(treasury.modules().contains(&"Liquidity"));
     }
 }
