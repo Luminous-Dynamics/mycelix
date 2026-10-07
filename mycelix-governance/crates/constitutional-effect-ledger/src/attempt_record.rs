@@ -389,6 +389,7 @@ pub enum ActionFenceMutationError {
     OwnershipTokenMismatch,
     NotOccupied,
     AlreadyClosed,
+    InvalidTransition,
 }
 
 /// Durable-store contract for the same-action fence.
@@ -404,6 +405,8 @@ pub enum ActionFenceMutationError {
 pub trait DurableActionFenceStore {
     fn atomically_admit(
         &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
         record: AttemptRecordV1,
     ) -> Result<AtomicAdmissionDecision, String>;
 
@@ -449,18 +452,45 @@ impl AtomicActionFenceModelV1 {
 
     pub fn admit(
         &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
         record: AttemptRecordV1,
     ) -> Result<AtomicAdmissionDecision, String> {
         record.validate()?;
 
+        if record.action_key_digest != action_key.digest() {
+            return Err("attempt record action key does not match typed ActionKeyV1".into());
+        }
+        if record.attempt_identity != attempt_identity.digest() {
+            return Err("attempt record identity does not match typed AttemptIdentityV1".into());
+        }
+        if record.action_digest != action_key.material_action_digest() {
+            return Err("attempt record action digest does not match typed ActionKeyV1".into());
+        }
+        if record.effecting_target_identity != action_key.effecting_target_identity() {
+            return Err(
+                "attempt record effecting target does not match typed ActionKeyV1".into(),
+            );
+        }
+
         if let Some(existing) = self.attempts.get(&record.attempt_identity) {
             if existing.record_digest() == record.record_digest() {
+                if existing.state.occupies_action_fence() {
+                    match self.fences.get(&record.action_key_digest) {
+                        Some(fence)
+                            if fence.state == ActionFenceState::Occupied
+                                && fence.owner_attempt_identity == record.attempt_identity
+                                && fence.owner_token_digest
+                                    == record.ownership_token_digest => {}
+                        _ => return Ok(AtomicAdmissionDecision::AttemptOwnershipConflict),
+                    }
+                }
                 return Ok(AtomicAdmissionDecision::DuplicateAttempt);
             }
             return Ok(AtomicAdmissionDecision::AttemptOwnershipConflict);
         }
 
-        match self.fences.get(&record.action_key_digest) {
+        match self.fences.get(record.action_key_digest.as_str()) {
             None => {}
             Some(existing) if existing.state.is_closed() => {
                 return Ok(AtomicAdmissionDecision::ActionAlreadyExecuted);
@@ -477,14 +507,17 @@ impl AtomicActionFenceModelV1 {
             return Err("admitted attempt must occupy the action fence".into());
         }
 
-        let fence = ActionFenceRecordV1 {
-            schema_version: ATTEMPT_RECORD_SCHEMA_VERSION,
-            action_key_digest: record.action_key_digest.clone(),
-            owner_attempt_identity: record.attempt_identity.clone(),
-            owner_token_digest: record.ownership_token_digest.clone(),
-            state: ActionFenceState::Occupied,
-        };
-        fence.validate()?;
+        let fence = ActionFenceRecordV1::new(
+            action_key,
+            attempt_identity,
+            record.ownership_token_digest.clone(),
+            ActionFenceState::Occupied,
+        )?;
+        if fence.action_key_digest != record.action_key_digest
+            || fence.owner_attempt_identity != record.attempt_identity
+        {
+            return Err("constructed action fence does not match attempt record".into());
+        }
 
         self.attempts
             .insert(record.attempt_identity.clone(), record);
@@ -506,7 +539,7 @@ impl AtomicActionFenceModelV1 {
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError> {
-        self.finish_release(
+        self.transition_state(
             action_key,
             attempt_identity,
             owner_token_digest,
@@ -526,19 +559,19 @@ impl AtomicActionFenceModelV1 {
             return Err(ActionFenceMutationError::NotOccupied);
         }
 
-        let attempt = self
+        let current = self
             .attempts
-            .get_mut(attempt_identity.digest())
+            .get(attempt_identity.digest())
             .ok_or(ActionFenceMutationError::NotOwner)?;
 
-        if attempt.ownership_token_digest != owner_token_digest {
+        if current.ownership_token_digest != owner_token_digest {
             return Err(ActionFenceMutationError::OwnershipTokenMismatch);
         }
-        if attempt.action_key_digest != action_key.digest() {
+        if current.action_key_digest != action_key.digest() {
             return Err(ActionFenceMutationError::NotOwner);
         }
         if !matches!(
-            attempt.state,
+            current.state,
             AttemptRecordState::Consumed | AttemptRecordState::Reserved
         ) {
             return Err(ActionFenceMutationError::NotOccupied);
@@ -558,6 +591,10 @@ impl AtomicActionFenceModelV1 {
             return Err(ActionFenceMutationError::AlreadyClosed);
         }
 
+        let attempt = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
         attempt.state = AttemptRecordState::NotEntered;
         attempt.not_entered_marker = Some(marker);
 
@@ -571,60 +608,99 @@ impl AtomicActionFenceModelV1 {
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError> {
-        let attempt = self
-            .attempts
-            .get_mut(attempt_identity.digest())
-            .ok_or(ActionFenceMutationError::NotOwner)?;
-
-        if attempt.ownership_token_digest != owner_token_digest {
-            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
-        }
-        if attempt.action_key_digest != action_key.digest() {
-            return Err(ActionFenceMutationError::NotOwner);
-        }
-        if !attempt.state.occupies_action_fence() {
-            return Err(ActionFenceMutationError::NotOccupied);
-        }
-
-        let fence = self
-            .fences
-            .get_mut(action_key.digest())
-            .ok_or(ActionFenceMutationError::NotOccupied)?;
-        if fence.owner_attempt_identity != attempt_identity.digest() {
-            return Err(ActionFenceMutationError::NotOwner);
-        }
-        if fence.owner_token_digest != owner_token_digest {
-            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
-        }
-        if fence.state.is_closed() {
-            return Err(ActionFenceMutationError::AlreadyClosed);
-        }
-
-        attempt.state = AttemptRecordState::Executed;
-        fence.state = ActionFenceState::Closed;
-        Ok(())
+        self.transition_state(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            AttemptRecordState::Executed,
+        )
     }
 
-    fn finish_release(
+    pub fn mark_dispatch_pending(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
-        terminal_state: AttemptRecordState,
     ) -> Result<(), ActionFenceMutationError> {
-        let attempt = self
+        self.transition_state(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            AttemptRecordState::DispatchPending,
+        )
+    }
+
+    pub fn mark_invoked(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.transition_state(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            AttemptRecordState::Invoked,
+        )
+    }
+
+    pub fn mark_indeterminate(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.transition_state(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            AttemptRecordState::Indeterminate,
+        )
+    }
+
+    fn transition_state(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        next_state: AttemptRecordState,
+    ) -> Result<(), ActionFenceMutationError> {
+        let current = self
             .attempts
-            .get_mut(attempt_identity.digest())
+            .get(attempt_identity.digest())
             .ok_or(ActionFenceMutationError::NotOwner)?;
 
-        if attempt.ownership_token_digest != owner_token_digest {
+        if current.ownership_token_digest != owner_token_digest {
             return Err(ActionFenceMutationError::OwnershipTokenMismatch);
         }
-        if attempt.action_key_digest != action_key.digest() {
+        if current.action_key_digest != action_key.digest() {
             return Err(ActionFenceMutationError::NotOwner);
         }
-        if !attempt.state.occupies_action_fence() {
-            return Err(ActionFenceMutationError::NotOccupied);
+
+        let current_state = current.state;
+        if matches!(
+            current_state,
+            AttemptRecordState::Executed
+                | AttemptRecordState::Failed
+                | AttemptRecordState::NotEntered
+        ) {
+            return Err(ActionFenceMutationError::AlreadyClosed);
+        }
+
+        let allowed = matches!(
+            (current_state, next_state),
+            (AttemptRecordState::Consumed, AttemptRecordState::DispatchPending)
+                | (AttemptRecordState::Reserved, AttemptRecordState::DispatchPending)
+                | (AttemptRecordState::DispatchPending, AttemptRecordState::Invoked)
+                | (AttemptRecordState::DispatchPending, AttemptRecordState::Indeterminate)
+                | (AttemptRecordState::Invoked, AttemptRecordState::Executed)
+                | (AttemptRecordState::Invoked, AttemptRecordState::Failed)
+                | (AttemptRecordState::Invoked, AttemptRecordState::Indeterminate)
+                | (AttemptRecordState::Indeterminate, AttemptRecordState::Executed)
+                | (AttemptRecordState::Indeterminate, AttemptRecordState::Failed)
+        );
+        if !allowed {
+            return Err(ActionFenceMutationError::InvalidTransition);
         }
 
         let fence = self
@@ -641,8 +717,26 @@ impl AtomicActionFenceModelV1 {
             return Err(ActionFenceMutationError::AlreadyClosed);
         }
 
-        attempt.state = terminal_state;
-        self.fences.remove(action_key.digest());
+        let attempt = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+        attempt.state = next_state;
+
+        match next_state {
+            AttemptRecordState::Executed => {
+                let fence = self
+                    .fences
+                    .get_mut(action_key.digest())
+                    .ok_or(ActionFenceMutationError::NotOccupied)?;
+                fence.state = ActionFenceState::Closed;
+            }
+            AttemptRecordState::Failed => {
+                self.fences.remove(action_key.digest());
+            }
+            _ => {}
+        }
+
         Ok(())
     }
 
@@ -683,6 +777,46 @@ impl AtomicActionFenceModelV1 {
         }
 
         Ok(())
+    }
+}
+
+
+impl DurableActionFenceStore for AtomicActionFenceModelV1 {
+    fn atomically_admit(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        record: AttemptRecordV1,
+    ) -> Result<AtomicAdmissionDecision, String> {
+        self.admit(action_key, attempt_identity, record)
+    }
+
+    fn atomically_release_after_failed(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.release_after_failed(action_key, attempt_identity, owner_token_digest)
+    }
+
+    fn atomically_close_executed(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.close_executed(action_key, attempt_identity, owner_token_digest)
+    }
+
+    fn atomically_release_not_entered(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        marker: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.release_not_entered(action_key, attempt_identity, owner_token_digest, marker)
     }
 }
 
