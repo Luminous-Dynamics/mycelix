@@ -227,9 +227,7 @@ impl AttemptRecordState {
             (Self::Consumed, Self::DispatchPending)
                 | (Self::Reserved, Self::DispatchPending)
                 | (Self::DispatchPending, Self::Invoked)
-                | (Self::DispatchPending, Self::Indeterminate)
                 | (Self::Invoked, Self::InvocationClaimed)
-                | (Self::InvocationClaimed, Self::Indeterminate)
         )
     }
 
@@ -938,6 +936,26 @@ impl AtomicActionFenceModelV1 {
         )
     }
 
+    /// Claim the concrete effect-entry slot exactly once after INVOKED is durable.
+    ///
+    /// This transition is intentionally committed before the effecting call. Because
+    /// attempt state is source-chain state, concurrent claims on one authoring agent
+    /// serialize on the source-chain head; a second claim must observe a non-Invoked
+    /// state and fail rather than entering the provider twice.
+    pub fn mark_invocation_claimed(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.transition_state(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            AttemptRecordState::InvocationClaimed,
+        )
+    }
+
     pub fn mark_indeterminate(
         &mut self,
         action_key: &ActionKeyV1,
@@ -1041,9 +1059,7 @@ impl AtomicActionFenceModelV1 {
         }
         if !matches!(
             current.state,
-            AttemptRecordState::Invoked
-                | AttemptRecordState::InvocationClaimed
-                | AttemptRecordState::Indeterminate
+            AttemptRecordState::InvocationClaimed | AttemptRecordState::Indeterminate
         ) {
             return Err(if current.state.is_terminal() {
                 ActionFenceMutationError::AlreadyClosed
@@ -1316,7 +1332,6 @@ mod tests {
                         | (AttemptRecordState::DispatchPending, AttemptRecordState::Invoked)
                         | (AttemptRecordState::DispatchPending, AttemptRecordState::Indeterminate)
                         | (AttemptRecordState::Invoked, AttemptRecordState::InvocationClaimed)
-                        | (AttemptRecordState::InvocationClaimed, AttemptRecordState::Indeterminate)
                 );
                 assert_eq!(
                     current.allows_transition_to(next),
@@ -1484,6 +1499,62 @@ mod tests {
             AtomicAdmissionDecision::ActionInFlight
         );
         assert!(model.validate_invariants().is_ok());
+    }
+
+    #[test]
+    fn terminal_effect_state_requires_invocation_claim() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let owner = attempt("attempt-terminal");
+        model
+            .admit(
+                &key(),
+                &owner,
+                record(
+                    "attempt-terminal",
+                    "operation-terminal",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        model
+            .mark_dispatch_pending(&key(), &owner, "owner-token-attempt-terminal")
+            .unwrap();
+        model
+            .mark_invoked(&key(), &owner, "owner-token-attempt-terminal")
+            .unwrap();
+
+        let proof = terminal_evidence(TerminalOutcomeV1::Executed, "attempt-terminal");
+        assert_eq!(
+            model.close_executed(
+                &key(),
+                &owner,
+                "owner-token-attempt-terminal",
+                &proof,
+            ),
+            Err(ActionFenceMutationError::InvalidTransition)
+        );
+
+        model
+            .mark_invocation_claimed(
+                &key(),
+                &owner,
+                "owner-token-attempt-terminal",
+            )
+            .unwrap();
+
+        model
+            .close_executed(
+                &key(),
+                &owner,
+                "owner-token-attempt-terminal",
+                &proof,
+            )
+            .unwrap();
+
+        assert_eq!(
+            model.attempt(owner.digest()).unwrap().state,
+            AttemptRecordState::Executed
+        );
     }
 
     #[test]
