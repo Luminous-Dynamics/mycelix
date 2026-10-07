@@ -667,6 +667,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
     if "QUALIFICATION_RECEIPT_MAX_BYTES" not in joined:
         fail("S1 qualification receipt sink ceiling missing")
+    if joined.count("printf 'executed_source_digest=%s\\n' \"$executed_source_digest\"") != 1:
+        fail("S1 executed source digest output must have exactly one writer")
     if 'test "$receipt_bytes" -le "$QUALIFICATION_RECEIPT_MAX_BYTES"' not in joined:
         fail("S1 qualification receipt byte ceiling enforcement missing")
     if 'test "$receipt_lines" -le 128' not in joined:
@@ -1076,6 +1078,17 @@ def main() -> None:
             s1_sha,
         ),
         "qualification receipt byte ceiling removed",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          printf \'executed_source_digest=%s\\n\' "$executed_source_digest"\n',
+                b'          printf \'executed_source_digest=%s\\n\' "$executed_source_digest"\n          printf \'executed_source_digest=%s\\n\' "$executed_source_digest"\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "duplicate executed source digest output",
     )
         expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
