@@ -33,6 +33,7 @@ from verify_d6u_trusted_artifacts import (
     verify_executor_workflow_record,
     verify_executor_workflow_against_run_head,
     verify_lock,
+    verify_lock_graph_against_manifest,
     verify_required_tracked_blobs,
     verify_record_metadata,
     verify_trigger_run_record,
@@ -97,7 +98,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 58
+    assert policy["policy_version"] == 59
     assert policy["repository_identity"] == {
         "full_name": "Luminous-Dynamics/mycelix",
         "repository_id": 1176351975,
@@ -149,6 +150,11 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["lock_graph"] == {
         "required_registry_source": "registry+https://github.com/rust-lang/crates.io-index",
         "allowed_local_packages": ["d6u-runtime-harness"],
+        "lockfile_format_version": 4,
+        "manifest_path": "d6u-runtime-harness/Cargo.toml",
+        "require_manifest_root_binding": True,
+        "require_dependency_edge_closure": True,
+        "require_all_packages_reachable": True,
     }
     assert policy["artifact_max_entries"] == 32
     assert policy["trusted_artifact_fetcher"]["path"] == (
@@ -1112,6 +1118,204 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
         lambda: verify_trigger_run_record(bad_blob, trigger, policy, "Luminous-Dynamics/mycelix"),
         "tampered trigger workflow blob was accepted",
     )
+
+
+def _graph_policy() -> dict:
+    return {
+        "lock_packages": {},
+        "lock_source": "registry+https://github.com/rust-lang/crates.io-index",
+        "lock_graph": {
+            "required_registry_source": "registry+https://github.com/rust-lang/crates.io-index",
+            "allowed_local_packages": ["d6u-runtime-harness"],
+            "lockfile_format_version": 4,
+            "manifest_path": "d6u-runtime-harness/Cargo.toml",
+            "require_manifest_root_binding": True,
+            "require_dependency_edge_closure": True,
+            "require_all_packages_reachable": True,
+        },
+    }
+
+
+def test_lock_graph_binds_root_to_trusted_manifest() -> None:
+    policy = _graph_policy()
+    registry = policy["lock_graph"]["required_registry_source"]
+    lock = {
+        "version": 4,
+        "package": [
+            {
+                "name": "d6u-runtime-harness",
+                "version": "0.1.0",
+                "dependencies": ["serde 1.0.0"],
+            },
+            {
+                "name": "serde",
+                "version": "1.0.0",
+                "source": registry,
+                "checksum": "a" * 64,
+                "dependencies": [],
+            },
+        ],
+    }
+    manifest = {
+        "package": {"name": "d6u-runtime-harness", "version": "0.1.0"},
+        "dependencies": {"serde": "1"},
+    }
+    verify_lock_graph_against_manifest(lock, manifest, policy)
+
+
+def test_lock_graph_rejects_root_manifest_dependency_mismatch() -> None:
+    policy = _graph_policy()
+    registry = policy["lock_graph"]["required_registry_source"]
+    lock = {
+        "version": 4,
+        "package": [
+            {
+                "name": "d6u-runtime-harness",
+                "version": "0.1.0",
+                "dependencies": ["serde 1.0.0"],
+            },
+            {
+                "name": "serde",
+                "version": "1.0.0",
+                "source": registry,
+                "checksum": "a" * 64,
+                "dependencies": [],
+            },
+        ],
+    }
+    manifest = {
+        "package": {"name": "d6u-runtime-harness", "version": "0.1.0"},
+        "dependencies": {"serde": "1", "sha2": "0.10"},
+    }
+    assert_rejected(
+        lambda: verify_lock_graph_against_manifest(lock, manifest, policy),
+        "Cargo.lock root dependency set diverged from trusted Cargo.toml",
+    )
+
+
+def test_lock_graph_rejects_dangling_or_ambiguous_dependency_reference() -> None:
+    policy = _graph_policy()
+    registry = policy["lock_graph"]["required_registry_source"]
+    lock = {
+        "version": 4,
+        "package": [
+            {
+                "name": "d6u-runtime-harness",
+                "version": "0.1.0",
+                "dependencies": ["serde 9.9.9"],
+            },
+            {
+                "name": "serde",
+                "version": "1.0.0",
+                "source": registry,
+                "checksum": "a" * 64,
+                "dependencies": [],
+            },
+        ],
+    }
+    manifest = {
+        "package": {"name": "d6u-runtime-harness", "version": "0.1.0"},
+        "dependencies": {"serde": "1"},
+    }
+    assert_rejected(
+        lambda: verify_lock_graph_against_manifest(lock, manifest, policy),
+        "dangling Cargo.lock dependency reference was accepted",
+    )
+
+    lock["package"].insert(
+        2,
+        {
+            "name": "serde",
+            "version": "1.1.0",
+            "source": registry,
+            "checksum": "b" * 64,
+            "dependencies": [],
+        },
+    )
+    lock["package"][0]["dependencies"] = ["serde"]
+    assert_rejected(
+        lambda: verify_lock_graph_against_manifest(lock, manifest, policy),
+        "ambiguous bare Cargo.lock dependency reference was accepted",
+    )
+
+
+def test_lock_graph_rejects_unreachable_package_node() -> None:
+    policy = _graph_policy()
+    registry = policy["lock_graph"]["required_registry_source"]
+    lock = {
+        "version": 4,
+        "package": [
+            {
+                "name": "d6u-runtime-harness",
+                "version": "0.1.0",
+                "dependencies": ["serde 1.0.0"],
+            },
+            {
+                "name": "serde",
+                "version": "1.0.0",
+                "source": registry,
+                "checksum": "a" * 64,
+                "dependencies": [],
+            },
+            {
+                "name": "orphan",
+                "version": "1.0.0",
+                "source": registry,
+                "checksum": "b" * 64,
+                "dependencies": [],
+            },
+        ],
+    }
+    manifest = {
+        "package": {"name": "d6u-runtime-harness", "version": "0.1.0"},
+        "dependencies": {"serde": "1"},
+    }
+    assert_rejected(
+        lambda: verify_lock_graph_against_manifest(lock, manifest, policy),
+        "unreachable Cargo.lock package node was accepted",
+    )
+
+
+def test_lock_graph_rejects_multiple_local_roots() -> None:
+    policy = _graph_policy()
+    registry = policy["lock_graph"]["required_registry_source"]
+    lock = {
+        "version": 4,
+        "package": [
+            {
+                "name": "d6u-runtime-harness",
+                "version": "0.1.0",
+                "dependencies": [],
+            },
+            {
+                "name": "second-local",
+                "version": "0.1.0",
+                "dependencies": [],
+            },
+        ],
+    }
+    manifest = {
+        "package": {"name": "d6u-runtime-harness", "version": "0.1.0"},
+        "dependencies": {},
+    }
+    assert_rejected(
+        lambda: verify_lock_graph_against_manifest(lock, manifest, policy),
+        "multiple local Cargo.lock roots were accepted",
+    )
+
+
+def test_lockfile_format_version_is_pinned() -> None:
+    policy = _graph_policy()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "Cargo.lock"
+        path.write_text(
+            'version = 3\\n\n[[package]]\\nname = "d6u-runtime-harness"\\nversion = "0.1.0"\\n',
+            encoding="utf-8",
+        )
+        assert_rejected(
+            lambda: verify_lock(path, policy),
+            "Cargo.lock version 3 was accepted under a version-4 policy",
+        )
 
 
 def test_lock_provenance_is_rejected_when_tampered() -> None:
@@ -2594,6 +2798,7 @@ def test_bounded_artifact_download_rejects_stream_overflow() -> None:
 
 def test_github_api_reader_uses_non_forwarding_redirect_handler() -> None:
     import fetch_d6u_trusted_artifact as fetcher
+    import verify_d6u_trusted_artifacts as verifier
 
     class EmptyResponse:
         def __enter__(self):
@@ -2612,21 +2817,22 @@ def test_github_api_reader_uses_non_forwarding_redirect_handler() -> None:
             assert timeout == 30
             return EmptyResponse()
 
-    with patch.object(
-        fetcher.urllib.request,
-        "build_opener",
-        return_value=FakeOpener(),
-    ) as build_opener:
-        assert fetcher.github_get(
-            "Luminous-Dynamics/mycelix",
-            "/actions/runs/1",
-            "token",
-        ) == {}
-    assert len(build_opener.call_args.args) == 1
-    assert isinstance(
-        build_opener.call_args.args[0],
-        fetcher.NoAuthorizationRedirectHandler,
-    )
+    for module in (fetcher, verifier):
+        with patch.object(
+            module.urllib.request,
+            "build_opener",
+            return_value=FakeOpener(),
+        ) as build_opener:
+            assert module.github_get(
+                "Luminous-Dynamics/mycelix",
+                "/actions/runs/1",
+                "token",
+            ) == {}
+        assert len(build_opener.call_args.args) == 1
+        assert isinstance(
+            build_opener.call_args.args[0],
+            module.NoAuthorizationRedirectHandler,
+        )
 
 
 def test_artifact_redirect_strips_authorization_header() -> None:
@@ -2809,6 +3015,13 @@ if __name__ == "__main__":
         test_executor_workflow_identity_tampering_is_rejected,
         test_executor_workflow_is_bound_to_run_head,
         test_executor_run_live_identity_is_rejected,
+        test_github_api_reader_uses_non_forwarding_redirect_handler,
+        test_lock_graph_binds_root_to_trusted_manifest,
+        test_lock_graph_rejects_root_manifest_dependency_mismatch,
+        test_lock_graph_rejects_dangling_or_ambiguous_dependency_reference,
+        test_lock_graph_rejects_unreachable_package_node,
+        test_lock_graph_rejects_multiple_local_roots,
+        test_lockfile_format_version_is_pinned,
         test_lock_provenance_is_rejected_when_tampered,
         test_duplicate_record_key_is_rejected,
         test_trigger_run_identity_tampering_is_rejected,
