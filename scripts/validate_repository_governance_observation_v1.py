@@ -539,6 +539,51 @@ def _evaluate_rulesets(
     return ("MISMATCH" if failures else "VERIFIED"), failures
 
 
+def _validate_effective_rule_provenance(
+    effective_rules: list[Any],
+    applicable_rulesets: list[Any],
+) -> tuple[str, list[str]]:
+    by_identity: dict[tuple[int, str, str], dict[str, Any]] = {}
+    for index, ruleset in enumerate(applicable_rulesets):
+        if not isinstance(ruleset, dict):
+            return "UNVERIFIED", [f"ruleset[{index}]_not_enumerated"]
+        identity = (
+            ruleset.get("id"),
+            ruleset.get("source_type"),
+            ruleset.get("source"),
+        )
+        if (
+            not isinstance(identity[0], int)
+            or isinstance(identity[0], bool)
+            or not isinstance(identity[1], str)
+            or not identity[1]
+            or not isinstance(identity[2], str)
+            or not identity[2]
+        ):
+            return "UNVERIFIED", [f"ruleset[{index}]_provenance_identity_invalid"]
+        by_identity[identity] = ruleset
+
+    failures: list[str] = []
+    for index, rule in enumerate(effective_rules):
+        if not isinstance(rule, dict):
+            return "UNVERIFIED", [f"effective_rule[{index}]_not_enumerated"]
+        ruleset_id = rule.get("ruleset_id")
+        source_type = rule.get("ruleset_source_type")
+        source = rule.get("ruleset_source")
+        if (
+            not isinstance(ruleset_id, int)
+            or isinstance(ruleset_id, bool)
+            or not isinstance(source_type, str)
+            or not source_type
+            or not isinstance(source, str)
+            or not source
+        ):
+            return "UNVERIFIED", [f"effective_rule[{index}]_ruleset_provenance_missing"]
+        if (ruleset_id, source_type, source) not in by_identity:
+            failures.append(f"effective_rule[{index}]_ruleset_provenance_not_applicable")
+    return ("MISMATCH" if failures else "VERIFIED"), failures
+
+
 def _evaluate_effective_rules(
     effective_rules: list[Any],
 ) -> tuple[str, list[str]]:
@@ -714,6 +759,19 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
     )
     effective_rules = observation.get("effective_rules", {}).get("entries")
     require(isinstance(effective_rules, list), "effective rules observation missing")
+    applicable_rulesets = [
+        entry for entry in ruleset_entries
+        if _ruleset_target_state(entry, default_branch) == "MATCH"
+    ]
+    effective_provenance_state, effective_provenance_mismatches = _validate_effective_rule_provenance(
+        effective_rules, applicable_rulesets
+    )
+    if effective_provenance_state == "UNVERIFIED":
+        ruleset_mismatches.extend(effective_provenance_mismatches)
+        ruleset_state = "UNVERIFIED"
+    elif effective_provenance_state == "MISMATCH":
+        ruleset_mismatches.extend(effective_provenance_mismatches)
+        ruleset_state = "MISMATCH" if ruleset_state != "UNVERIFIED" else ruleset_state
     effective_state, effective_mismatches = _evaluate_effective_rules(effective_rules)
     if ruleset_state == "VERIFIED" and branch_protected is not True:
         ruleset_mismatches.append("branch_protected_false_despite_verified_ruleset")
@@ -923,6 +981,9 @@ def fixture_observation(
     effective_rules_payload = [
         {
             "type": rule["type"],
+            "ruleset_id": ruleset_entry["id"],
+            "ruleset_source_type": ruleset_entry["source_type"],
+            "ruleset_source": ruleset_entry["source"],
             **({"parameters": rule["parameters"]} if "parameters" in rule else {}),
         }
         for rule in ruleset_entry["rules"]
@@ -1045,6 +1106,9 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
             effective_rules_payload.append(
                 {
                     "type": rule.get("type"),
+                    "ruleset_id": ruleset.get("id"),
+                    "ruleset_source_type": ruleset.get("source_type"),
+                    "ruleset_source": ruleset.get("source"),
                     **({"parameters": rule["parameters"]} if "parameters" in rule else {}),
                 }
             )
@@ -1236,6 +1300,28 @@ def self_test(policy: dict[str, Any]) -> None:
         }},
         {"type": "non_fast_forward"},
     ]
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["effective_rules"]["entries"][0]["ruleset_id"] = 999
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["effective_rules"]["entries"][0]["ruleset_source"] = "other/repository"
     effective_rules_raw = json.dumps(
         x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
     ).encode()
