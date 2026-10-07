@@ -121,6 +121,11 @@ fact SafeStateLeavesDisputeUnresolved {
     a.dispute.safeState = On implies a.dispute.resolved = Off
 }
 
+pred NontrivialCapabilityWithoutAuthority {
+  some s: Subject |
+    some s.capabilities and no s.powers
+}
+
 pred ProviderDependencyAndExplicitAuthorityRemainDistinct {
   some disj s: Subject, p: Provider, d: Dependency |
     d.subject = s and d.provider = p and
@@ -159,6 +164,9 @@ pred NontrivialFork {
 /*
 Expected-SAT witnesses protect against overconstrained/vacuous structures.
 */
+run NontrivialCapabilityWithoutAuthority
+  for 4 but 4 Subject, 4 Power, 4 Capability, 4 Budget
+
 run ProviderDependencyAndExplicitAuthorityRemainDistinct
   for 4 but 4 Int, 4 Subject, 4 Power, 4 Provider, 4 Dependency
 
