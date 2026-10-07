@@ -413,6 +413,39 @@ def require_exact_step_mapping(
         fail(f"{description}: {mapping_name} mismatch: expected {expected!r}, found {tuple(actual)!r}")
 
 
+
+def require_exact_step_ids(
+    lines_: list[str],
+    expected: tuple[tuple[str, str | None], ...],
+    description: str,
+) -> None:
+    actual = []
+    current_name = None
+    current_ids = []
+
+    def flush() -> None:
+        if current_name is None:
+            return
+        if len(current_ids) > 1:
+            fail(f"{description}: step {current_name!r} contains duplicate id mappings")
+        actual.append((current_name, current_ids[0] if current_ids else None))
+
+    for line in lines_:
+        name_match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if name_match:
+            flush()
+            current_name = name_match.group(1)
+            current_ids = []
+            continue
+        if current_name is None:
+            continue
+        id_match = re.fullmatch(r"\s{8}id:\s+(.+)", line)
+        if id_match:
+            current_ids.append(id_match.group(1).strip())
+
+    flush()
+    if tuple(actual) != expected:
+        fail(f"{description}: step id census mismatch: expected {expected!r}, found {tuple(actual)!r}")
 def require_exact_step_keys(
     lines_: list[str],
     expected: tuple[tuple[str, tuple[str, ...]], ...],
@@ -823,6 +856,18 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         ),
         "S2 verify",
     )
+    require_exact_job_mapping(
+        l,
+        "resolve",
+        "outputs",
+        (
+            "candidate_pr: ${{ steps.resolve.outputs.candidate_pr }}",
+            "candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}",
+            "candidate_repository: ${{ steps.resolve.outputs.candidate_repository }}",
+            "candidate_repository_id: ${{ steps.resolve.outputs.candidate_repository_id }}",
+        ),
+        "S0 resolve outputs",
+    )
     require_exact_root_mapping(
         l,
         "env",
@@ -878,6 +923,11 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_exact_step_keys(
         l,
         (("Verify trusted dispatcher context and exact PR identity", ("name", "id", "env", "shell", "run")),),
+        S0,
+    )
+    require_exact_step_ids(
+        l,
+        (("Verify trusted dispatcher context and exact PR identity", "resolve"),),
         S0,
     )
     require_exact_step_conditionals(l, (("Verify trusted dispatcher context and exact PR identity", None),), S0)
@@ -1265,6 +1315,29 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         ),
         S1,
     )
+    require_exact_step_ids(
+        l,
+        (
+            ("Checkout trusted qualification root", None),
+            ("Verify trusted pull-request-target invocation", None),
+            ("Resolve exact candidate source", "resolve_source"),
+            ("Static trust-surface audit", None),
+            ("Snapshot exact candidate source identity", "snapshot_source"),
+            ("Snapshot locked dependency identity", "locked_dependency_identity"),
+            ("Pull and preflight pinned sandbox image", "sandbox_preflight"),
+            ("Prepare locked dependency subject", "dependency_subject"),
+            ("Vendor locked dependency closure in fetch sandbox", "vendor_dependencies"),
+            ("Execute sandbox negative controls", "sandbox_negative_controls"),
+            ("Upload sandbox negative-control transcript", "negative_controls_log_upload"),
+            ("Execute candidate qualification in disposable networkless sandbox", None),
+            ("Verify candidate source immutability", None),
+            ("Verify dependency substrate immutability", "dependency_postflight"),
+            ("Emit qualification receipt", None),
+            ("Upload qualification receipt", "receipt_upload"),
+            ("Verify retained qualification receipt", None),
+        ),
+        S1,
+    )
     require_exact_step_conditionals(
         l,
         (
@@ -1522,6 +1595,18 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
             ("Download retained qualification receipt through official artifact client", ("name", "if", "uses", "with")),
             ("Download retained sandbox negative-control transcript through official artifact client", ("name", "if", "uses", "with")),
             ("Verify official receipt transport and publish verified result", ("name", "if", "env", "shell", "run")),
+        ),
+        S2,
+    )
+    require_exact_step_ids(
+        l,
+        (
+            ("Checkout exact verifier workflow commit", None),
+            ("Verify trusted dispatcher, reusable S1, and qualification gates", "verify_result"),
+            ("Verify retained negative-control evidence binding", "verify_negative_controls_log"),
+            ("Download retained qualification receipt through official artifact client", None),
+            ("Download retained sandbox negative-control transcript through official artifact client", None),
+            ("Verify official receipt transport and publish verified result", None),
         ),
         S2,
     )
@@ -1888,6 +1973,45 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 workflow_run nested branches filter drift",
+    )
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b"      candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}\n",
+                b"      candidate_sha: ${{ steps.resolve.outputs.candidate_pr }}\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 output binding drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"        id: receipt_upload\n",
+                b"        id: receipt_upload_mutated\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 receipt-upload step-id drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b"        id: verify_result\n",
+                b"        id: verify_result_mutated\n",
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 verifier step-id drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
