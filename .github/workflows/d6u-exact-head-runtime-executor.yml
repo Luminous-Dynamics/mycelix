@@ -37,6 +37,40 @@ jobs:
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
 
+      - name: Require preinstalled rustup
+        run: |
+          set -euo pipefail
+          rustup_path="$(command -v rustup)"
+          test -n "$rustup_path"
+          test -x "$rustup_path"
+          case "$rustup_path" in
+            "$GITHUB_WORKSPACE"/*)
+              echo "rustup path unexpectedly resides in the PR workspace" >&2
+              exit 1
+              ;;
+          esac
+          rustup --version
+
+      - name: Reject ambient Cargo and Rust overrides
+        run: |
+          set -euo pipefail
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              RUSTC|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|RUSTDOC|RUSTDOC_WRAPPER|RUSTFLAGS|RUSTDOCFLAGS|\
+              CARGO_BUILD_RUSTC|CARGO_BUILD_RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTDOCFLAGS|\
+              CARGO_ENCODED_RUSTDOCFLAGS|CARGO_BUILD_TARGET|CARGO_NET_OFFLINE|CARGO_NET_GIT_FETCH_WITH_CLI|\
+              CARGO_TARGET_DIR|CARGO_TARGET_*_RUNNER|CARGO_TARGET_*_LINKER|CARGO_TARGET_*_RUSTFLAGS|\
+              CARGO_TARGET_*_RUSTDOCFLAGS|CARGO_REGISTRY_TOKEN|CARGO_REGISTRIES_*_TOKEN|CARGO_REGISTRIES_*_INDEX|\
+              RUSTUP_HOME|RUSTUP_TOOLCHAIN|RUSTUP_DIST_SERVER|RUSTUP_UPDATE_ROOT|
+              CARGO_REGISTRIES_*_CREDENTIAL_PROVIDER)
+                echo "forbidden ambient Cargo/Rust environment: $name"
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
@@ -66,26 +100,6 @@ jobs:
           cargo_home="$RUNNER_TEMP/d6u-cargo-home"
           test ! -e "$cargo_home"
           mkdir -m 700 "$cargo_home"
-      - name: Reject ambient Cargo and Rust overrides
-        run: |
-          set -euo pipefail
-          forbidden=0
-          while IFS='=' read -r name _; do
-            case "$name" in
-              RUSTC|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|RUSTDOC|RUSTDOC_WRAPPER|RUSTFLAGS|RUSTDOCFLAGS|\
-              CARGO_BUILD_RUSTC|CARGO_BUILD_RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTDOCFLAGS|\
-              CARGO_ENCODED_RUSTDOCFLAGS|CARGO_BUILD_TARGET|CARGO_NET_OFFLINE|CARGO_NET_GIT_FETCH_WITH_CLI|\
-              CARGO_TARGET_DIR|CARGO_TARGET_*_RUNNER|CARGO_TARGET_*_LINKER|CARGO_TARGET_*_RUSTFLAGS|\
-              CARGO_TARGET_*_RUSTDOCFLAGS|CARGO_REGISTRY_TOKEN|CARGO_REGISTRIES_*_TOKEN|CARGO_REGISTRIES_*_INDEX|\
-              CARGO_REGISTRIES_*_CREDENTIAL_PROVIDER)
-              CARGO_REGISTRIES_*_CREDENTIAL_PROVIDER)
-                echo "forbidden ambient Cargo/Rust environment: $name"
-                forbidden=1
-                ;;
-            esac
-          done < <(env)
-          test "$forbidden" -eq 0
-
       - name: Isolate Cargo working directory
         run: |
           set -euo pipefail
