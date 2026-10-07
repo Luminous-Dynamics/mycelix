@@ -1,0 +1,69 @@
+name: Finance Exact-Head Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'mycelix-finance/**'
+      - 'mycelix-workspace/mycelix-finance/**'
+      - 'crates/mycelix-bridge-*/**'
+      - 'scripts/security/finance_update_integrity_audit.py'
+  workflow_dispatch:
+
+# This workflow intentionally has no concurrency group. A qualification run is
+# evidence for one immutable subject and must not be cancelled by a later push.
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Finance Exact-Head Qualification
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false && github.event.pull_request.head_repository.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Assert repository identity
+        run: |
+          set -euo pipefail
+          test '${{ github.repository }}' = 'Luminous-Dynamics/mycelix'
+          test '$(git config --get remote.origin.url)' != ''
+      - name: Assert exact qualification subject
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # pinned action
+        with:
+          toolchain: 1.96.1
+          components: rustfmt
+      - name: Assert Rust identity
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.96.1 --version | awk '{print $2}')" = '1.96.1'
+          test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = '31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-finance
+      - name: Check Finance formatting
+        run: cd mycelix-finance && cargo fmt --all -- --check
+      - name: Test Finance workspace at exact head
+        run: cargo test --workspace --manifest-path mycelix-finance/Cargo.toml
+      - name: Run Finance update predecessor audit
+        run: python3 scripts/security/finance_update_integrity_audit.py
+      - name: Emit immutable qualification evidence
+        run: |
+          set -euo pipefail
+          echo 'FINANCE_EXACT_HEAD_QUALIFICATION'
+          echo 'status=execution-complete'
+          echo "repository=Luminous-Dynamics/mycelix"
+          echo "repository_id=${{ github.repository_id }}"
+          echo "subject=$(git rev-parse HEAD)"
+          echo "workflow_run_id=${{ github.run_id }}"
+          echo "workflow_run_attempt=${{ github.run_attempt }}"
+          echo "workflow_ref=${{ github.workflow_ref }}"
+          echo "event=${{ github.event_name }}"
