@@ -130,7 +130,7 @@ def _ref_pattern_matches_main(pattern: Any) -> bool:
     if pattern == "~ALL":
         return True
     if pattern == "~DEFAULT_BRANCH":
-        return False
+        raise EvidenceError("~DEFAULT_BRANCH target cannot be established from this observation")
     return (
         fnmatch.fnmatchcase(TARGET_REF, pattern)
         or fnmatch.fnmatchcase("main", pattern)
@@ -174,6 +174,8 @@ def _evaluate_rulesets(ruleset_entries: list[Any]) -> tuple[str, list[str]]:
         excludes = ref_name.get("exclude")
         if not isinstance(includes, list) or not isinstance(excludes, list):
             return "UNVERIFIED", [f"ruleset[{index}]_target_patterns_not_enumerated"]
+        if "~DEFAULT_BRANCH" in includes or "~DEFAULT_BRANCH" in excludes:
+            return "UNVERIFIED", [f"ruleset[{index}]_default_branch_target_unbound"]
 
     targeted: list[dict[str, Any]] = []
     for entry in ruleset_entries:
@@ -731,6 +733,14 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
+
+    for key in ("include", "exclude"):
+        x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+        x["rulesets"]["entries"][0]["conditions"]["ref_name"][key] = ["~DEFAULT_BRANCH"]
+        _refresh_bound_fixture_payloads(x)
+        result = evaluate(policy, x)
+        assert result["governance_state"] == "UNVERIFIED"
+        assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404))
     x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/heads/*"]
