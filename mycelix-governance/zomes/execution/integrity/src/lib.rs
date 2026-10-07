@@ -516,13 +516,6 @@ pub fn check_update_execution_attempt(
                 return Err("Indeterminate claim cannot carry terminal evidence".into());
             }
         }
-        (ExecutionAttemptStatus::Invoked, ExecutionAttemptStatus::Indeterminate) => {
-            if updated.outcome_evidence_commitment.is_some()
-                || updated.not_entered_marker.is_some()
-            {
-                return Err("Indeterminate attempt cannot claim terminal evidence".into());
-            }
-        }
         (ExecutionAttemptStatus::Indeterminate, ExecutionAttemptStatus::NotEntered) => {
             return Err("Indeterminate attempt cannot be downgraded to NotEntered".into());
         }
@@ -973,6 +966,39 @@ mod tests {
             ExecutionStatus::Indeterminate,
             ExecutionStatus::Failed
         );
+    }
+
+    #[test]
+    fn invoked_cannot_bypass_single_use_claim() {
+        let now = Timestamp::from_micros(1);
+        let base = ExecutionAttempt {
+            id: "execution-attempt-bypass-1".into(),
+            timelock_id: "timelock-bypass-1".into(),
+            proposal_id: "proposal-bypass-1".into(),
+            action_digest: "constitutional-material-action-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            action_key_digest: "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            attempt_identity: "constitutional-attempt-identity-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            native_replay_identity: "native-replay-bypass-1".into(),
+            executor: "did:mycelix:executor".into(),
+            status: ExecutionAttemptStatus::Invoked,
+            prepared_at: now,
+            updated_at: now,
+            outcome_evidence_commitment: None,
+            not_entered_marker: None,
+        };
+
+        let mut indeterminate = base.clone();
+        indeterminate.status = ExecutionAttemptStatus::Indeterminate;
+        assert!(check_update_execution_attempt(&base, &indeterminate).is_err());
+
+        let mut claimed = base.clone();
+        claimed.status = ExecutionAttemptStatus::InvocationClaimed;
+        assert!(check_update_execution_attempt(&base, &claimed).is_ok());
+
+        let mut succeeded = claimed.clone();
+        succeeded.status = ExecutionAttemptStatus::Succeeded;
+        succeeded.outcome_evidence_commitment = Some("provider-proof".into());
+        assert!(check_update_execution_attempt(&claimed, &succeeded).is_ok());
     }
 
     #[test]
