@@ -52,6 +52,8 @@ jobs:
       trigger_workflow_id: ${{ steps.target_binding.outputs.trigger_workflow_id }}
       trigger_workflow_path: ${{ steps.target_binding.outputs.trigger_workflow_path }}
       trigger_repository: ${{ steps.target_binding.outputs.trigger_repository }}
+      trigger_repository_id: ${{ steps.target_binding.outputs.trigger_repository_id }}
+      trigger_head_repository_id: ${{ steps.target_binding.outputs.trigger_head_repository_id }}
       trigger_event: ${{ steps.target_binding.outputs.trigger_event }}
       trigger_conclusion: ${{ steps.target_binding.outputs.trigger_conclusion }}
       trusted_workflow_sha: ${{ steps.trusted_identity.outputs.trusted_workflow_sha }}
@@ -269,6 +271,13 @@ jobs:
             printf 'trigger_workflow_id=%s\n' "${TRIGGER_WORKFLOW_ID}"
             printf 'trigger_workflow_path=%s\n' "${TRIGGER_WORKFLOW_PATH}"
             printf 'trigger_repository=%s\n' "${TRIGGER_REPOSITORY}"
+            if [[ "${TRIGGER_EVENT}" == "pull_request" ]]; then
+              printf 'trigger_repository_id=%s\n' "${trigger_repository_id_live}"
+              printf 'trigger_head_repository_id=%s\n' "${trigger_head_repository_id_live}"
+            else
+              printf 'trigger_repository_id=0\n'
+              printf 'trigger_head_repository_id=0\n'
+            fi
             printf 'trigger_event=%s\n' "${TRIGGER_EVENT}"
             printf 'trigger_conclusion=%s\n' "${TRIGGER_CONCLUSION}"
           } >> "${GITHUB_OUTPUT}"
@@ -1012,6 +1021,8 @@ jobs:
             "trigger_workflow_id": ${{ needs.prepare.outputs.trigger_workflow_id }},
             "trigger_workflow_path": "${{ needs.prepare.outputs.trigger_workflow_path }}",
             "trigger_repository": "${{ needs.prepare.outputs.trigger_repository }}",
+            "trigger_repository_id": "${{ needs.prepare.outputs.trigger_repository_id }}",
+            "trigger_head_repository_id": "${{ needs.prepare.outputs.trigger_head_repository_id }}",
             "trigger_event": "${{ needs.prepare.outputs.trigger_event }}",
             "trigger_conclusion": "${{ needs.prepare.outputs.trigger_conclusion }}",
             "governance_job_result": "${{ needs.governance.result }}",
@@ -1076,6 +1087,8 @@ jobs:
           assert isinstance(envelope["trigger_workflow_id"], int) and envelope["trigger_workflow_id"] >= 0
           assert envelope["trigger_workflow_path"]
           assert envelope["trigger_repository"] == envelope["repository"]
+          assert str(envelope["trigger_repository_id"]) == ("1176351975" if envelope["trigger_event"] == "pull_request" else "0")
+          assert str(envelope["trigger_head_repository_id"]) == ("1176351975" if envelope["trigger_event"] == "pull_request" else "0")
           if envelope["trigger_event"] == "pull_request":
               assert envelope["trigger_workflow_id"] == 374065836
               assert envelope["trigger_workflow_path"] == ".github/workflows/cos-conformance-evidence.yml"
