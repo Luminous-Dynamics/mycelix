@@ -27,7 +27,7 @@
         "git_blob_sha": "5798edec899397149153e90eef4bd09c1c9bf073"
       }
     ],
-    "tree_sha": "e9e603fdb3d929bdf2e80e4719228fb1d2baf0b5",
+    "tree_sha": "6339fff3e176b5a3386d71aafcb66e4bdc294770",
     "verifier_branch": "qual-001-sov-ai-verifier-v1"
   },
   "tools": {
