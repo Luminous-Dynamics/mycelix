@@ -257,6 +257,7 @@ EOF
           predicate-path: ${{ steps.commitment_predicate.outputs.predicate }}
           push-to-registry: false
           create-storage-record: false
+          show-summary: false
   auditor:
 
     name: D6U unprivileged attestation auditor
