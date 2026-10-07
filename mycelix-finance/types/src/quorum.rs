@@ -15,12 +15,10 @@ impl WeightedQuorumPolicy {
         if self.total_weight == 0 {
             return Err(QuorumArithmeticError::ZeroTotalWeight);
         }
-        if self.max_byzantine_weight * 3 >= self.total_weight * 3 {
-            return Err(QuorumArithmeticError::InvalidFaultBound);
-        }
-        if self.max_byzantine_weight >= self.total_weight / 3
-            && self.total_weight % 3 == 0
-        {
+        // Strictly less than one third, expressed without multiplication so
+        // u64 overflow cannot turn an invalid policy into a valid one.
+        let max_safe_fault_weight = self.total_weight.saturating_sub(1) / 3;
+        if self.max_byzantine_weight > max_safe_fault_weight {
             return Err(QuorumArithmeticError::InvalidFaultBound);
         }
         Ok(())
@@ -36,9 +34,10 @@ impl WeightedQuorumPolicy {
         certified_weight >= self.supermajority_threshold()
     }
 
-    /// Whether a certificate exceeds the declared exposure-independent fault
-    /// boundary. This is arithmetic only and does not prove witness honesty.
-    pub fn has_declared_honest_intersection(&self, certified_weight: u64) -> bool {
+    /// Whether the certificate satisfies the configured >2/3 quorum and is no
+    /// larger than the declared total weight. This is arithmetic only and does
+    /// not authenticate or prove witness honesty.
+    pub fn has_bft_safe_quorum(&self, certified_weight: u64) -> bool {
         self.validate().is_ok()
             && self.has_supermajority(certified_weight)
             && certified_weight <= self.total_weight
@@ -90,7 +89,7 @@ mod tests {
             total_weight: 10,
             max_byzantine_weight: 3,
         };
-        assert!(!p.has_declared_honest_intersection(11));
+        assert!(!p.has_bft_safe_quorum(11));
     }
 
     #[test]
@@ -126,7 +125,16 @@ mod tests {
             total_weight: 10,
             max_byzantine_weight: 3,
         };
-        assert!(p.has_supermajority(7));
+        assert!(p.has_bft_safe_quorum(7));
         // The caller must still authenticate every witness separately.
+    }
+
+    #[test]
+    fn large_weights_do_not_overflow_policy_validation() {
+        let p = WeightedQuorumPolicy {
+            total_weight: u64::MAX,
+            max_byzantine_weight: (u64::MAX - 1) / 3,
+        };
+        assert!(p.validate().is_ok());
     }
 }
