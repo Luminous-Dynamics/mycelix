@@ -456,6 +456,37 @@ def require_exact_step_mapping(
 
 
 
+
+def require_exact_run_prefix(
+    lines_: list[str],
+    step_name: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    start = matches[0]
+    run_indexes = []
+    for i in range(start + 1, len(lines_)):
+        if lines_[i].strip() == "run: |" and len(lines_[i]) - len(lines_[i].lstrip(" ")) == 8:
+            run_indexes.append(i)
+        if re.fullmatch(r"\s{6}- name: .+", lines_[i]):
+            break
+    if len(run_indexes) != 1:
+        fail(f"{description}: expected exactly one run mapping under {step_name!r}")
+    actual = []
+    for line in lines_[run_indexes[0] + 1:]:
+        if not line.strip():
+            break
+        indent = len(line) - len(line.lstrip(" "))
+        if indent < 10:
+            break
+        if indent != 10:
+            fail(f"{description}: unexpected run-prefix indentation: {line!r}")
+        actual.append(line[10:])
+    if tuple(actual[:len(expected)]) != expected or len(actual) < len(expected):
+        fail(f"{description}: run prefix mismatch: expected {expected!r}, found {tuple(actual[:len(expected)])!r}")
 def require_exact_step_ids(
     lines_: list[str],
     expected: tuple[tuple[str, str | None], ...],
@@ -923,6 +954,29 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         ),
         "S0",
     )
+    require_exact_run_prefix(
+        l,
+        "Verify trusted dispatcher context and exact PR identity",
+        (
+            "set -euo pipefail",
+            "test \"$GITHUB_WORKFLOW_REF\" = \"Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main\"",
+            "test \"$GITHUB_REF\" = \"refs/heads/main\"",
+            "test \"$GITHUB_REPOSITORY\" = \"$BASE_REPOSITORY\"",
+            "test \"$GITHUB_REPOSITORY_ID\" = \"$BASE_REPOSITORY_ID\"",
+            "test \"$GITHUB_REF_PROTECTED\" = \"true\"",
+            "test \"${ACTIONS_CACHE_MODE:-}\" = \"none\"",
+            "test \"$GITHUB_EVENT_NAME\" = \"pull_request_target\"",
+            "printf '%s' \"$PR_NUMBER\" | grep -Eq '^[0-9]+$'",
+            "printf '%s' \"$HEAD_SHA\" | grep -Eq '^[0-9a-f]{40}$'",
+            "printf '%s' \"$HEAD_REPOSITORY_ID\" | grep -Eq '^[0-9]+$'",
+            "printf '%s' \"$BASE_REPOSITORY_ID_EVENT\" | grep -Eq '^[0-9]+$'",
+            "test \"$BASE_REPOSITORY_EVENT\" = \"$BASE_REPOSITORY\"",
+            "test \"$BASE_REPOSITORY_ID_EVENT\" = \"$BASE_REPOSITORY_ID\"",
+            "test \"$BASE_BRANCH_EVENT\" = \"$BASE_BRANCH\"",
+            "test -n \"$HEAD_REPOSITORY\"",
+        ),
+        "S0 runtime guard prefix",
+    )
     require_exact_root_scalar(l, "name", "Security Kernel Qualification — Trusted Dispatcher", S0)
     require_exact_root_scalar(
         l,
@@ -993,6 +1047,39 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
 def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     l = lines(raw)
     require_exact_top_level_keys(l, ("name", "on", "permissions", "cache-mode", "concurrency", "env", "jobs"), S1)
+    require_exact_run_prefix(
+        l,
+        "Verify trusted pull-request-target invocation",
+        (
+            "set -euo pipefail",
+            "test \"$GITHUB_WORKFLOW_REF\" = \"Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main\"",
+            "test \"$GITHUB_REF\" = \"refs/heads/main\"",
+            "test \"$GITHUB_REPOSITORY\" = \"$BASE_REPOSITORY\"",
+            "test \"$GITHUB_REPOSITORY_ID\" = \"$BASE_REPOSITORY_ID\"",
+            "test \"$GITHUB_REF_PROTECTED\" = \"true\"",
+            "test \"${ACTIONS_CACHE_MODE:-}\" = \"none\"",
+            "test \"$GITHUB_EVENT_NAME\" = \"pull_request_target\"",
+            "test \"$CALLED_WORKFLOW_REF\" = \"Luminous-Dynamics/mycelix/.github/workflows/security-kernel-independent-qualification.yml@refs/heads/main\"",
+            "test \"$CALLED_WORKFLOW_REPOSITORY\" = \"$BASE_REPOSITORY\"",
+            "test \"$CALLED_WORKFLOW_FILE_PATH\" = \".github/workflows/security-kernel-independent-qualification.yml\"",
+            "printf '%s' \"$CALLED_WORKFLOW_SHA\" | grep -Eq '^[0-9a-f]{40}$'",
+            "printf '%s' \"$TRUSTED_WORKFLOW_BLOB_SHA\" | grep -Eq '^[0-9a-f]{40}$'",
+            "printf '%s' \"$PR_NUMBER\" | grep -Eq '^[0-9]+$'",
+            "printf '%s' \"$CANDIDATE_PR\" | grep -Eq '^[0-9]+$'",
+            "printf '%s' \"$CANDIDATE_SHA\" | grep -Eq '^[0-9a-f]{40}$'",
+            "printf '%s' \"$CANDIDATE_REPOSITORY\" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'",
+            "printf '%s' \"$CANDIDATE_REPOSITORY_ID\" | grep -Eq '^[0-9]+$'",
+            "printf '%s' \"$HEAD_REPOSITORY_ID\" | grep -Eq '^[0-9]+$'",
+            "test \"$BASE_REPOSITORY_EVENT\" = \"$BASE_REPOSITORY\"",
+            "test \"$BASE_BRANCH_EVENT\" = \"main\"",
+            "test \"$PR_NUMBER\" = \"$CANDIDATE_PR\"",
+            "test \"$HEAD_SHA\" = \"$CANDIDATE_SHA\"",
+            "test \"$HEAD_REPOSITORY\" = \"$CANDIDATE_REPOSITORY\"",
+            "test \"$HEAD_REPOSITORY_ID\" = \"$CANDIDATE_REPOSITORY_ID\"",
+            "test \"$CALLED_WORKFLOW_SHA\" = \"$WORKFLOW_SHA\"",
+        ),
+        "S1 runtime guard prefix",
+    )
     require_exact_root_scalar(l, "name", "Security Kernel Independent Qualification", S1)
     if exact_count(l, "name: Security Kernel Independent Qualification") != 1:
         fail("S1 name mismatch")
@@ -1432,6 +1519,37 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
 def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_execution_sha: str, expected_policy_sha: str) -> None:
     l = lines(raw)
     require_exact_top_level_keys(l, ("name", "on", "permissions", "concurrency", "env", "jobs"), S2)
+    require_exact_run_prefix(
+        l,
+        "Verify trusted dispatcher, reusable S1, and qualification gates",
+        (
+            "set -euo pipefail",
+            "test \"$GITHUB_WORKFLOW_REF\" = \"Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-result-verifier.yml@refs/heads/main\"",
+            "test \"$GITHUB_REF\" = \"refs/heads/main\"",
+            "test \"$GITHUB_REPOSITORY\" = \"$BASE_REPOSITORY\"",
+            "test \"$GITHUB_REPOSITORY_ID\" = \"$BASE_REPOSITORY_ID\"",
+            "test \"$GITHUB_REF_PROTECTED\" = \"true\"",
+            "test \"${ACTIONS_CACHE_MODE:-}\" = \"none\"",
+            "workflow_blob_sha=\"$(git ls-tree \"$GITHUB_WORKFLOW_SHA\" -- \".github/workflows/security-kernel-trusted-result-verifier.yml\" | awk '{print $3}')\"",
+            "printf \"%s\" \"$workflow_blob_sha\" | grep -Eq \"^[0-9a-f]{40}$\"",
+            "retention_reference_verifier_blob_sha=\"$(git ls-tree \"$GITHUB_WORKFLOW_SHA\" -- \"$RETENTION_REFERENCE_VERIFIER_PATH\" | awk '{print $3}')\"",
+            "printf \"%s\" \"$retention_reference_verifier_blob_sha\" | grep -Eq \"^[0-9a-f]{40}$\"",
+            "test \"$retention_reference_verifier_blob_sha\" = \"$RETENTION_REFERENCE_VERIFIER_BLOB_SHA\"",
+            "execution_reference_verifier_blob_sha=\"$(git ls-tree \"$GITHUB_WORKFLOW_SHA\" -- \"$EXECUTION_REFERENCE_VERIFIER_PATH\" | awk '{print $3}')\"",
+            "printf \"%s\" \"$execution_reference_verifier_blob_sha\" | grep -Eq \"^[0-9a-f]{40}$\"",
+            "test \"$execution_reference_verifier_blob_sha\" = \"$EXECUTION_REFERENCE_VERIFIER_BLOB_SHA\"",
+            "test -f \"$EXECUTION_REFERENCE_VERIFIER_PATH\"",
+            "source_policy_verifier_blob_sha=\"$(git ls-tree \"$GITHUB_WORKFLOW_SHA\" -- \"$SOURCE_POLICY_VERIFIER_PATH\" | awk '{print $3}')\"",
+            "printf \"%s\" \"$source_policy_verifier_blob_sha\" | grep -Eq \"^[0-9a-f]{40}$\"",
+            "test \"$source_policy_verifier_blob_sha\" = \"$SOURCE_POLICY_VERIFIER_BLOB_SHA\"",
+            "test -f \"$SOURCE_POLICY_VERIFIER_PATH\"",
+            "export SOURCE_POLICY_VERIFIER_BLOB_SHA=\"$source_policy_verifier_blob_sha\"",
+            "test -f \"$RETENTION_REFERENCE_VERIFIER_PATH\"",
+            "git fetch --no-tags origin \"refs/heads/main:refs/remotes/origin/main\"",
+            "git merge-base --is-ancestor \"$GITHUB_WORKFLOW_SHA\" \"refs/remotes/origin/main\"",
+        ),
+        "S2 runtime guard prefix",
+    )
     require_exact_root_scalar(l, "name", "Security Kernel Qualification — Trusted Result Verifier", S2)
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
         fail("S2 name mismatch")
@@ -2115,6 +2233,45 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 workflow_run workflow-name drift",
+    )
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                "          test \"$GITHUB_REF_PROTECTED\" = \"true\"\n".encode(),
+                "          test \"$GITHUB_REF_PROTECTED\" = \"false\"\\n".encode(),
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 protected-ref guard drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                "          test \"$CALLED_WORKFLOW_SHA\" = \"$WORKFLOW_SHA\"\n".encode(),
+                "          test \"$CALLED_WORKFLOW_SHA\" = \"$TRUSTED_WORKFLOW_BLOB_SHA\"\\n".encode(),
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 called-workflow SHA guard drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                "          git merge-base --is-ancestor \"$GITHUB_WORKFLOW_SHA\" \"refs/remotes/origin/main\"\n".encode(),
+                "          git merge-base --is-ancestor refs/remotes/origin/main \"$GITHUB_WORKFLOW_SHA\"\\n".encode(),
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 trusted-workflow ancestry guard drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
