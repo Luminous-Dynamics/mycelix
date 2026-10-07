@@ -349,7 +349,7 @@ mod tests {
         let code = artifact();
         let identity = derive_identity(&code).unwrap();
         let mut inline_raw_39 = identity.wasm_hash_raw_39.clone();
-        inline_raw_39[1] = 0x2b;
+        inline_raw_39[..3].copy_from_slice(&[0x84, 0x2b, 0x24]);
 
         assert_eq!(
             verify_approved_artifact_against_observed_wasm_hash(
@@ -358,6 +358,13 @@ mod tests {
                 &inline_raw_39,
             )
             .unwrap_err(),
+            FpmArtifactIdentityError::InvalidWasmHashType
+        );
+
+        let mut inline_approval = identity;
+        inline_approval.wasm_hash_raw_39 = inline_raw_39;
+        assert_eq!(
+            validate_identity_shape(&inline_approval).unwrap_err(),
             FpmArtifactIdentityError::InvalidWasmHashType
         );
     }
