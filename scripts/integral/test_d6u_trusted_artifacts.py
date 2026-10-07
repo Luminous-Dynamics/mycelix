@@ -2440,6 +2440,18 @@ def test_trusted_zip_rejects_non_zlib_compression() -> None:
 
 
 
+def test_trusted_builder_documentation_is_current() -> None:
+    root = Path(__file__).parents[2]
+    documentation = (root / "docs/integral/d6u-trusted-builder.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Current trusted policy revision: v48." in documentation
+    assert "sixty-three deterministic checks" in documentation
+    assert "`push-to-registry: false`" in documentation
+    assert "`create-storage-record: false`" in documentation
+    assert "The redirect boundary remains HTTPS-only" in documentation
+
+
 def test_registry_is_complete_and_unique() -> None:
     import ast
 
@@ -2495,6 +2507,7 @@ def test_registry_is_complete_and_unique() -> None:
 
 if __name__ == "__main__":
     tests = [
+        test_trusted_builder_documentation_is_current,
         test_registry_is_complete_and_unique,
         test_policy_pins_d6s_prerequisite_boundary,
         test_record_metadata_is_canonicalized,
