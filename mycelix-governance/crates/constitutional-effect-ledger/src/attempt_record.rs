@@ -212,6 +212,21 @@ impl AttemptRecordState {
     pub fn is_terminal(self) -> bool {
         matches!(self, Self::Executed | Self::Failed | Self::NotEntered)
     }
+
+    pub fn allows_transition_to(self, next: Self) -> bool {
+        matches!(
+            (self, next),
+            (Self::Consumed, Self::DispatchPending)
+                | (Self::Reserved, Self::DispatchPending)
+                | (Self::DispatchPending, Self::Invoked)
+                | (Self::DispatchPending, Self::Indeterminate)
+                | (Self::Invoked, Self::Indeterminate)
+        )
+    }
+
+    pub fn allows_not_entered_release(self) -> bool {
+        matches!(self, Self::Consumed | Self::Reserved)
+    }
 }
 
 /// Durable attempt record projection.
@@ -806,10 +821,7 @@ impl AtomicActionFenceModelV1 {
         if current.action_key_digest != action_key.digest() {
             return Err(ActionFenceMutationError::NotOwner);
         }
-        if !matches!(
-            current.state,
-            AttemptRecordState::Consumed | AttemptRecordState::Reserved
-        ) {
+        if !current.state.allows_not_entered_release() {
             return Err(ActionFenceMutationError::NotOccupied);
         }
 
@@ -925,15 +937,7 @@ impl AtomicActionFenceModelV1 {
             return Err(ActionFenceMutationError::AlreadyClosed);
         }
 
-        let allowed = matches!(
-            (current_state, next_state),
-            (AttemptRecordState::Consumed, AttemptRecordState::DispatchPending)
-                | (AttemptRecordState::Reserved, AttemptRecordState::DispatchPending)
-                | (AttemptRecordState::DispatchPending, AttemptRecordState::Invoked)
-                | (AttemptRecordState::DispatchPending, AttemptRecordState::Indeterminate)
-                | (AttemptRecordState::Invoked, AttemptRecordState::Indeterminate)
-        );
-        if !allowed {
+        if !current_state.allows_transition_to(next_state) {
             return Err(ActionFenceMutationError::InvalidTransition);
         }
 
@@ -1240,6 +1244,50 @@ mod tests {
             state,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn state_transition_contract_is_exhaustive_and_fail_closed() {
+        let states = [
+            AttemptRecordState::Consumed,
+            AttemptRecordState::Reserved,
+            AttemptRecordState::DispatchPending,
+            AttemptRecordState::Invoked,
+            AttemptRecordState::Executed,
+            AttemptRecordState::Failed,
+            AttemptRecordState::Indeterminate,
+            AttemptRecordState::NotEntered,
+        ];
+
+        for current in states {
+            for next in states {
+                let expected = matches!(
+                    (current, next),
+                    (AttemptRecordState::Consumed, AttemptRecordState::DispatchPending)
+                        | (AttemptRecordState::Reserved, AttemptRecordState::DispatchPending)
+                        | (AttemptRecordState::DispatchPending, AttemptRecordState::Invoked)
+                        | (AttemptRecordState::DispatchPending, AttemptRecordState::Indeterminate)
+                        | (AttemptRecordState::Invoked, AttemptRecordState::Indeterminate)
+                );
+                assert_eq!(
+                    current.allows_transition_to(next),
+                    expected,
+                    "unexpected transition contract: {:?} -> {:?}",
+                    current,
+                    next
+                );
+            }
+        }
+
+        for state in states {
+            assert_eq!(
+                state.allows_not_entered_release(),
+                matches!(
+                    state,
+                    AttemptRecordState::Consumed | AttemptRecordState::Reserved
+                )
+            );
+        }
     }
 
     #[test]
