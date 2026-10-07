@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: ["FPM WASM artifact identity"]
     types: [completed]
-    branches: [main]
 
 # This workflow is intentionally defined on main. A pull request cannot
 # replace this policy before it is merged. It executes the candidate head only
