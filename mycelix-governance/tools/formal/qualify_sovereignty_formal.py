@@ -6,10 +6,8 @@ import argparse
 import hashlib
 import json
 import re
-import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 FAIL_PREFIX = "FORMAL_QUALIFICATION_FAIL: "
@@ -168,6 +166,7 @@ def main() -> int:
     parser.add_argument("--alloy", type=Path, required=True)
     parser.add_argument("--negative-tla", type=Path, required=True)
     parser.add_argument("--alloy-runner-java", type=Path, required=True)
+    parser.add_argument("--alloy-runner-class-dir", type=Path, required=True)
     parser.add_argument("--tla-jar", type=Path, required=True)
     parser.add_argument("--alloy-jar", type=Path, required=True)
     parser.add_argument("--evidence-dir", type=Path, required=True)
@@ -224,7 +223,6 @@ def main() -> int:
         if tool["url"] not in workflow or tool["sha256"] not in workflow:
             fail(f"workflow tool pin mismatch for {tool_name}")
 
-    subprocess_env = None
     evidence = args.evidence_dir.resolve()
     evidence.mkdir(parents=True, exist_ok=True)
     receipt = {
@@ -319,10 +317,8 @@ def main() -> int:
             if result.returncode == 0 or f"Error: Invariant {target} is violated." not in result.stdout:
                 fail(f"TLA+ negative control {control} did not produce expected {target} counterexample")
 
-        alloy_cmd = ["java", "-cp", str(args.alloy_jar) + os_pathsep() + str(args.evidence_dir),
-                     "SovereigntyAlloyQualificationRunner", str(args.alloy)]
-        # The command is actually supplied using the workflow's javac-produced classpath.
-        alloy_cmd = ["java", "-cp", f"{args.evidence_dir}:{args.alloy_jar}:",
+        alloy_cp = f"{args.alloy_runner_class_dir}:{args.alloy_jar}"
+        alloy_cmd = ["java", "-cp", alloy_cp,
                      "SovereigntyAlloyQualificationRunner", str(args.alloy)]
         alloy = run(alloy_cmd)
         receipt["canonical"]["alloy"] = record_command(evidence, "alloy-canonical", alloy_cmd, alloy)
@@ -351,7 +347,7 @@ def main() -> int:
             work.mkdir()
             mutated_file = work / args.alloy.name
             mutated_file.write_text(mutated, encoding="utf-8")
-            cmd = ["java", "-cp", f"{args.evidence_dir}:{args.alloy_jar}:",
+            cmd = ["java", "-cp", alloy_cp,
                    "SovereigntyAlloyQualificationRunner", str(mutated_file)]
             result = run(cmd)
             rows = alloy_outcomes(result.stdout)
@@ -394,10 +390,6 @@ def main() -> int:
     receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(receipt, sort_keys=True))
     return 0
-
-
-def os_pathsep() -> str:
-    return __import__("os").pathsep
 
 
 if __name__ == "__main__":
