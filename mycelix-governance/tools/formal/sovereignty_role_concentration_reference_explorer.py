@@ -97,7 +97,7 @@ def weaken(kind):
     if kind == "assign":
         return [("assign-bad", *tr[1:]) if tr[0] == "assign" else tr for tr in NORMAL]
     if kind == "assign-full-control":
-        return [("assign-full-control-bad", *tr[1:]) if tr[0] == "assign" else tr for tr in NORMAL]
+        return NORMAL + [("assign-full-control-bad", s, r) for s in SUBJECTS for r in CRITICAL]
     raise ValueError(kind)
 
 def main():
