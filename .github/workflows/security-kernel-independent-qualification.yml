@@ -751,7 +751,6 @@ jobs:
           runner_gid="$(id -g)"
           vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           vendor_config_volume_name="security-kernel-vendor-config-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          vendor_config_volume_name="security-kernel-vendor-config-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           vendor_metrics="$RUNNER_TEMP/security-kernel-vendor-metrics.txt"
           if ! existing_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
             echo "security-kernel vendor volume inventory query failed" >&2
@@ -1258,20 +1257,19 @@ jobs:
           vendor_cleanup_on_failure() {
             local status=$?
             if [ "$status" -ne 0 ]; then
+              if ! docker volume rm "$VENDOR_CONFIG_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
               if ! docker volume rm "$VENDOR_VOLUME_NAME" >/dev/null 2>&1; then status=1; fi
               if ! remaining_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
                 status=1
-              elif printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then
-                status=1
+              else
+                if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then status=1; fi
+                if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_CONFIG_VOLUME_NAME"; then status=1; fi
               fi
             fi
-          if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_CONFIG_VOLUME_NAME"; then
-            echo "security-kernel vendor-config volume remains after cleanup" >&2
-            exit 1
-          fi
             trap - EXIT
             exit "$status"
           }
+          trap vendor_cleanup_on_failure EXIT
           trap vendor_cleanup_on_failure EXIT
           docker run --rm --platform=linux/amd64 --pull=never \
             --network=none --read-only --cap-drop=ALL \
@@ -1520,6 +1518,7 @@ jobs:
           set -euo pipefail
           candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          vendor_config_volume_name="security-kernel-vendor-config-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           for volume_name in "$candidate_volume_name" "$vendor_volume_name" "$vendor_config_volume_name"; do
             if ! existing_volumes="$(docker volume ls --format '{{.Name}}')"; then
               echo "security-kernel final teardown volume inventory query failed" >&2
