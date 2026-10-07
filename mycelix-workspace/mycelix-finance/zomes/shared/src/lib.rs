@@ -580,42 +580,20 @@ pub mod governance {
     /// agent registry within the DNA.
     pub const GOVERNANCE_AGENTS_ANCHOR: &str = "governance_agents";
 
-    /// Check if the calling agent is in the provided governance agent links.
+    /// Reject the legacy local governance roster as an authorization source.
     ///
-    /// **Bootstrap rule**: if the links list is empty (no governance agents
-    /// registered yet), any agent is allowed. This enables initial setup.
+    /// GovernanceAgents is an author-controlled link collection and therefore
+    /// cannot prove governance authority. An empty mutable collection is not a
+    /// bootstrap proof, and a matching AgentPubKey target is not a membership
+    /// witness. Until AC-124/AC-125 supplies the canonical cross-hApp authority
+    /// proof, every privileged Finance operation must fail closed instead of
+    /// deriving authorization from these links.
     ///
-    /// # Usage
-    /// ```rust,ignore
-    /// use mycelix_finance_shared::governance::*;
-    ///
-    /// fn verify_governance_or_bootstrap() -> ExternResult<()> {
-    ///     let gov_links = get_links(
-    ///         LinkQuery::try_new(
-    ///             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-    ///             LinkTypes::GovernanceAgents,
-    ///         )?,
-    ///         GetStrategy::default(),
-    ///     )?;
-    ///     verify_governance_or_bootstrap_from_links(gov_links)
-    /// }
-    /// ```
-    pub fn verify_governance_or_bootstrap_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
-        if gov_links.is_empty() {
-            return Ok(());
-        }
-
-        let caller = agent_info()?.agent_initial_pubkey;
-        for link in gov_links {
-            if let Ok(agent) = AgentPubKey::try_from(link.target) {
-                if agent == caller {
-                    return Ok(());
-                }
-            }
-        }
-
+    /// The parameter is retained so existing coordinator call sites remain
+    /// source-compatible while the authority transport is migrated.
+    pub fn verify_governance_or_bootstrap_from_links(_gov_links: Vec<Link>) -> ExternResult<()> {
         Err(wasm_error!(WasmErrorInner::Guest(
-            "Caller is not an authorized governance agent".into()
+            "Canonical governance authority proof is unavailable; local GovernanceAgents roster is non-authoritative".into()
         )))
     }
 }
