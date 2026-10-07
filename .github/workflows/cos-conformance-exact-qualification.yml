@@ -1,4 +1,5 @@
 name: COS Conformance Exact-Head Qualification
+# Bootstrapped from the default-branch qualifier; see COS-FED-REF-REQUEST-CONTEXT #4495.
 
 on:
   pull_request:
