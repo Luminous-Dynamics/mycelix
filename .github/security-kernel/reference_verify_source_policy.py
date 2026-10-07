@@ -210,9 +210,16 @@ def require_no_escalation(lines_: list[str], description: str) -> None:
 
 def require_no_fail_open_controls(lines_: list[str], description: str) -> None:
     joined = "\n".join(lines_)
-    for fragment in ("continue-on-error:", "if: always()", "if: failure()", "if: cancelled()"):
-        if fragment in joined:
-            fail(f"{description}: forbidden fail-open control {fragment!r}")
+    if "continue-on-error:" in joined:
+        fail(f"{description}: forbidden fail-open control continue-on-error")
+    for line in lines_:
+        if not re.match(r"^\s{6,8}if:\s*", line):
+            continue
+        if re.search(r"\balways\(\)|\bfailure\(\)", line):
+            fail(f"{description}: forbidden fail-open status check: {line!r}")
+        normalized = line.replace(" ", "")
+        if "cancelled()" in normalized and "!cancelled()" not in normalized:
+            fail(f"{description}: positive cancelled() status check is forbidden: {line!r}")
 
 
 def require_no_fail_open_probe_conditions(lines_: list[str], description: str) -> None:
@@ -811,6 +818,40 @@ def main() -> None:
         ),
         "negative-control container cleanup trap removed",
     )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"        if: success()\n",
+                b"        if: ${{ always() }}\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "expression-wrapped always() status check",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"        if: success()\n",
+                b"        if: ${{ failure() }}\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "expression-wrapped failure() status check",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"        if: ${{ !cancelled() }}\n",
+                b"        if: ${{ cancelled() }}\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "positive cancelled() cleanup condition",
+    )
+
 
     expect_rejection(
         lambda: verify_s1(
