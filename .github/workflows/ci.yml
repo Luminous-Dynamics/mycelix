@@ -138,7 +138,7 @@ jobs:
         run: cargo test
       - name: Pin substrate versions
         run: |
-          grep -Fx 'holo_hash = { version = "=0.7.0", features = ["hashing"] }' Cargo.toml
+          grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' Cargo.toml
   test-cos-conformance:
     needs: changes
     if: needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push'
