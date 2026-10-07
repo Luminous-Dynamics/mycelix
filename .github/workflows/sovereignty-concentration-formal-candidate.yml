@@ -22,43 +22,82 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout exact candidate subject
+      - name: Checkout exact verifier/package head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Verify exact checkout
+      - name: Verify exact package checkout
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${{ github.sha }}"
 
-      - name: Validate candidate contracts
+      - name: Resolve frozen semantic subject
+        id: subject
         run: |
           set -euo pipefail
-          python3 -m py_compile mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py
-          python3 -m json.tool docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
-          python3 -m json.tool docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json >/dev/null
-          python3 - <<'PY'
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           from pathlib import Path
-
-          profile=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json").read_text())
-          crosswalk=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json").read_text())
-          assert profile["status"] == "candidate-verification-profile"
-          assert profile["authority"] == "non-authoritative"
-          assert profile["semantic_subject"]["source_branch"] == "sov-ai-formal-v3-concentration-subject"
-          assert len(profile["semantic_subject"]["head_sha"]) == 40
-          assert crosswalk["formal_subject_head"] == profile["semantic_subject"]["head_sha"]
-          assert crosswalk["formal_subject_tree"] == profile["semantic_subject"]["tree_sha"]
-          print("CANDIDATE CONTRACT PASS: exact subject identity and non-authoritative boundary")
+          p=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json").read_text())
+          s=p["semantic_subject"]
+          print("subject_sha="+s["head_sha"])
+          print("subject_tree="+s["tree_sha"])
+          print("source_branch="+s["source_branch"])
+          for key in ("tla","negative_tla","alloy","reference"):
+              if key not in p["models"]:
+                  raise SystemExit("missing frozen model commitment: "+key)
           PY
 
-      - name: Run bounded reference oracle
+      - name: Fetch and verify frozen semantic subject
+        env:
+          SUBJECT_SHA: ${{ steps.subject.outputs.subject_sha }}
+          SUBJECT_TREE: ${{ steps.subject.outputs.subject_tree }}
         run: |
           set -euo pipefail
-          python3 mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py
+          git fetch --no-tags --depth=1 origin "$SUBJECT_SHA"
+          test "$(git rev-parse "$SUBJECT_SHA^{commit}")" = "$SUBJECT_SHA"
+          test "$(git rev-parse "$SUBJECT_SHA^{tree}")" = "$SUBJECT_TREE"
+
+          python3 - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          p=json.loads(Path("docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json").read_text())
+          sha=p["semantic_subject"]["head_sha"]
+          for key in ("tla","negative_tla","alloy","reference"):
+              entry=p["models"][key]
+              actual=subprocess.check_output(
+                  ["git","rev-parse",f"{sha}:{entry['path']}"], text=True
+              ).strip()
+              assert actual == entry["git_blob_sha"], f"{key} blob mismatch: {actual} != {entry['git_blob_sha']}"
+          cfg=p["models"]["tla"]
+          actual=subprocess.check_output(["git","rev-parse",f"{sha}:{cfg['config_path']}"],text=True).strip()
+          assert actual == cfg["config_git_blob_sha"], "TLA config blob mismatch"
+          print("FROZEN SUBJECT PASS: exact SHA/tree/model/config/reference commitments match")
+          PY
+
+      - name: Materialize frozen subject capsule
+        env:
+          SUBJECT_SHA: ${{ steps.subject.outputs.subject_sha }}
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/sov-concentration"
+          mkdir -p "$RUNNER_TEMP/sov-concentration"
+          git show "$SUBJECT_SHA:mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.tla" > "$RUNNER_TEMP/sov-concentration/model.tla"
+          git show "$SUBJECT_SHA:mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.cfg" > "$RUNNER_TEMP/sov-concentration/model.cfg"
+          git show "$SUBJECT_SHA:mycelix-governance/specs/ArtificialSovereigntyConcentrationV1NegativeControls.tla" > "$RUNNER_TEMP/sov-concentration/negative.tla"
+          git show "$SUBJECT_SHA:mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py" > "$RUNNER_TEMP/sov-concentration/reference.py"
+          sha256sum "$RUNNER_TEMP/sov-concentration/"* > "$RUNNER_TEMP/sov-concentration/sha256sums.txt"
+
+      - name: Validate frozen reference oracle
+        run: |
+          set -euo pipefail
+          python3 -m py_compile "$RUNNER_TEMP/sov-concentration/reference.py"
+          python3 "$RUNNER_TEMP/sov-concentration/reference.py"
 
       - name: Candidate nonclaim gate
         run: |
