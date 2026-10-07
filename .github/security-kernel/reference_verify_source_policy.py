@@ -2865,7 +2865,7 @@ def main() -> None:
         lambda: verify_s0(
             inject_extra_output_write(
                 raw["s0"],
-                b"  qualify:\n",
+                b"      - name: Verify trusted dispatcher context and exact PR identity\n        shell: bash\n        run: |\n",
             ),
             s1_sha,
         ),
@@ -2875,7 +2875,7 @@ def main() -> None:
         lambda: verify_s1(
             inject_extra_output_write(
                 raw["s1"],
-                b"      - name: Verify retained qualification receipt\n",
+                b"      - name: Verify retained qualification receipt\n        if: success()\n        env:\n          TOKEN: ${{ github.token }}\n        shell: bash\n        run: |\n",
             ),
             s1_sha,
         ),
