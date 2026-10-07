@@ -954,6 +954,21 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["grants_trusted_verifier_root"] is True
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["effective_rules"]["entries"] = [
+        {"type": "pull_request", "parameters": {
+            "dismiss_stale_reviews_on_push": True,
+            "require_last_push_approval": True,
+            "required_approving_review_count": 1,
+            "required_review_thread_resolution": True,
+        }},
+        {"type": "non_fast_forward"},
+    ]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
     x["default_branch"] = "develop"
     repository_raw = json.loads(
         base64.b64decode(x["repository_payload_base64"]).decode("utf-8")
