@@ -1,0 +1,130 @@
+{
+  "schema": "mycelix.sovereignty-formal-crosswalk.v1",
+  "status": "candidate-verification",
+  "authority": "non-authoritative",
+  "formal_subject_head": "fdffab27308e8eb148efd4b9f577b5a32129b962",
+  "formal_subject_tree": "48b1959a41647fde7aac2c81d71585327ef00eab",
+  "relationship": "semantic-alignment map only; not a formal refinement proof",
+  "layers": [
+    {
+      "name": "TLA+",
+      "role": "bounded temporal transition/state invariants"
+    },
+    {
+      "name": "Alloy",
+      "role": "bounded structural constructibility/assertion checks"
+    },
+    {
+      "name": "Python reference",
+      "role": "bounded executable smoke semantics and negative counterexamples"
+    }
+  ],
+  "mappings": [
+    {
+      "id": "capability-authority",
+      "boundary": "capability != explicit authority grant",
+      "tla": [
+        "AuthorityHasExplicitSource"
+      ],
+      "alloy": [],
+      "reference": [
+        "develop -> AuthorityHasExplicitSource"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "safe-dispute",
+      "boundary": "safe-state continuity != dispute resolution",
+      "tla": [
+        "SafeStateLeavesProtectedDisputeUnresolved"
+      ],
+      "alloy": [
+        "SafeStateCannotSettleDispute"
+      ],
+      "reference": [
+        "safe-continue -> SafeStateLeavesProtectedDisputeUnresolved"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "emergency-expiry",
+      "boundary": "emergency expiry is bounded by start timestamp",
+      "tla": [
+        "EmergencyExpiryIsBounded"
+      ],
+      "alloy": [
+        "EmergencyLifetimeIsBounded"
+      ],
+      "reference": [
+        "contain -> EmergencyExpiryIsBounded"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "fork-weight",
+      "boundary": "fork != political-weight multiplication",
+      "tla": [
+        "ForkWeightRemainsOne"
+      ],
+      "alloy": [
+        "ForkCannotMultiplyPoliticalWeight"
+      ],
+      "reference": [
+        "fork -> ForkWeightRemainsOne"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "contract-budget",
+      "boundary": "contract usage <= current budget",
+      "tla": [
+        "ContractsRemainBounded"
+      ],
+      "alloy": [
+        "ContractsStayWithinBudget"
+      ],
+      "reference": [
+        "contract -> ContractsRemainBounded"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "contract-authority",
+      "boundary": "contract requires exact authority for action",
+      "tla": [],
+      "alloy": [
+        "AuthorizedContractsUseRequiredAuthority"
+      ],
+      "reference": [
+        "Contract admission requires RequiredPower in authority"
+      ],
+      "coverage": "partial-no-dedicated-reference-negative-control"
+    },
+    {
+      "id": "provider-authority",
+      "boundary": "provider dependency != authority",
+      "tla": [
+        "ProviderDependencyHasNoImplicitAuthority"
+      ],
+      "alloy": [
+        "ProviderDependencyAndExplicitAuthorityRemainDistinct"
+      ],
+      "reference": [
+        "provider -> ProviderDependencyHasNoImplicitAuthority"
+      ],
+      "coverage": "partial-alloy-is-witness-not-assertion"
+    }
+  ],
+  "non_refinement_claims": [
+    "The bounded reference explorer is not a refinement proof of the TLA+ or Alloy models.",
+    "The formal models are not complete production-runtime semantics.",
+    "Formal execution does not establish legal recognition, personhood, moral status, or current external authority."
+  ],
+  "deliberate_exclusions": [
+    "legal/juridical recognition",
+    "external jurisdiction",
+    "production implementation equivalence",
+    "moral-status determination",
+    "real-world institutional adoption"
+  ]
+}
