@@ -89,7 +89,8 @@
       "bounded reference oracle canonical and negative outputs",
       "independent reviewer is role-disjoint from the concentrated subject",
       "exact qualifier/pins/runner/crosswalk/workflow blobs are bound",
-      "reviewer-role drift remains forbidden after review assignment"
+      "reviewer-role drift remains forbidden after review assignment",
+      "reviewer-role drift negative control is executed and preserved"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
@@ -111,13 +112,13 @@
   ],
   "verifier": {
     "qualifier_path": "mycelix-governance/tools/formal/qualify_sovereignty_role_concentration_formal.py",
-    "qualifier_blob_sha": "3abd3a5b6de0e946af94d66477b889d1c4dc160e",
+    "qualifier_blob_sha": "c4d209322a1460e6061743ef5f3425e24eaea702",
     "pins_path": "mycelix-governance/tools/formal/role_concentration_pins.json",
     "pins_blob_sha": "f744bacb0934ce064323378dcc7376bd7c1603d1",
     "alloy_runner_path": "mycelix-governance/tools/formal/SovereigntyRoleConcentrationAlloyQualificationRunner.java",
     "alloy_runner_blob_sha": "c6dd1d3f1804233ad6c50cb762fdbf01a82ed08d",
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_CROSSWALK_V2.json",
-    "crosswalk_blob_sha": "f04126cf7389fd82872c6df4198dae2ce96a01af",
+    "crosswalk_blob_sha": "ed03122f18d64beee81ecfcfb908933b0f6e52aa",
     "workflow_path": ".github/workflows/sovereignty-role-concentration-formal-candidate.yml",
     "workflow_git_blob_sha": "c8bf53ac83b90f966ed942543b11b1e2cb488e2a"
   }
