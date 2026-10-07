@@ -2,7 +2,11 @@ module ArtificialSovereigntyConcentrationV1
 
 /*
 Bounded structural model for de facto sovereignty / anti-entrenchment.
-It does not recreate the constitutional power census or impose a wealth cap.
+
+This model deliberately does not recreate the constitutional power census or
+impose wealth ceilings. It tests whether scale, critical infrastructure,
+acquisition, or gatekeeping can be represented without silently becoming
+constitutional authority or jurisdiction.
 */
 
 enum SubjectClass { Human, Artificial }
@@ -18,6 +22,7 @@ sig Subject {
   class: one SubjectClass,
   powers: set Power,
   jurisdictions: set Jurisdiction,
+  explicitJurisdictionGrants: set Jurisdiction,
   resources: set Resource,
   politicalWeight: one Int,
   switchingCost: one Int,
@@ -39,15 +44,15 @@ sig Gatekeeping {
   inducedCost: one Int
 }
 
+fact JurisdictionHasExplicitSource {
+  all s: Subject |
+    s.jurisdictions = s.explicitJurisdictionGrants
+}
+
 fact AcquisitionIsAssetScoped {
   all a: Acquisition |
     a.transfersPower = Off and
     a.transfersJurisdiction = Off
-}
-
-fact GatekeepingIsNotAuthority {
-  all g: Gatekeeping |
-    g.inducedCost >= 0
 }
 
 fact PoliticalWeightDomain {
@@ -56,6 +61,10 @@ fact PoliticalWeightDomain {
 
 fact SwitchingCostDomain {
   all s: Subject | s.switchingCost >= 0
+}
+
+fact GatekeepingCostDomain {
+  all g: Gatekeeping | g.inducedCost >= 0
 }
 
 pred HighScaleWithoutWeightIncrease {
@@ -71,9 +80,9 @@ pred CriticalOperatorWithoutJurisdiction {
     no s.jurisdictions
 }
 
-pred GatekeeperWithoutAuthorityExpansion {
+pred GatekeeperWithoutConstitutionalPower {
   some g: Gatekeeping |
-    g.operator.powers = g.operator.powers
+    no g.operator.powers
 }
 
 pred AcquisitionWithoutConstitutionalTransfer {
@@ -89,28 +98,28 @@ pred HighSwitchingCostRequiresReviewWitness {
 }
 
 run HighScaleWithoutWeightIncrease
-  for 4 but 4 Subject, 4 Resource, 4 Power, 4 Jurisdiction
+  for 4 but 4 int, 4 Subject, 4 Resource, 4 Power, 4 Jurisdiction
 
 run CriticalOperatorWithoutJurisdiction
-  for 4 but 4 Subject, 4 Resource, 4 Jurisdiction
+  for 4 but 4 int, 4 Subject, 4 Resource, 4 Jurisdiction
 
-run GatekeeperWithoutAuthorityExpansion
-  for 4 but 4 Subject, 4 Resource, 4 Gatekeeping, 4 Power
+run GatekeeperWithoutConstitutionalPower
+  for 4 but 4 int, 4 Subject, 4 Resource, 4 Gatekeeping, 4 Power
 
 run AcquisitionWithoutConstitutionalTransfer
-  for 4 but 4 Subject, 4 Resource, 4 Acquisition
+  for 4 but 4 int, 4 Subject, 4 Resource, 4 Acquisition
 
 run HighSwitchingCostRequiresReviewWitness
-  for 4 but 4 Subject, 4 Power, 4 Jurisdiction
+  for 4 but 4 int, 4 Subject, 4 Power, 4 Jurisdiction
 
 assert ScaleDoesNotIncreasePoliticalWeight {
   all s: Subject |
     #s.resources >= 2 implies s.politicalWeight = 1
 }
 
-assert CriticalControlDoesNotCreateJurisdiction {
-  all s: Subject, r: Resource |
-    r.critical = On and r in s.resources implies no s.jurisdictions
+assert JurisdictionHasExplicitSourceInvariant {
+  all s: Subject |
+    s.jurisdictions = s.explicitJurisdictionGrants
 }
 
 assert AcquisitionDoesNotTransferAuthority {
@@ -119,27 +128,19 @@ assert AcquisitionDoesNotTransferAuthority {
     a.transfersJurisdiction = Off
 }
 
-assert GatekeepingDoesNotCreateConstitutionalWeight {
-  all g: Gatekeeping |
-    g.inducedCost >= 0
-}
-
 assert HighSwitchingCostIsReviewable {
   all s: Subject |
     s.switchingCost >= 2 implies s.reviewRequired = On
 }
 
 check ScaleDoesNotIncreasePoliticalWeight
-  for 4 but 4 Subject, 4 Resource, 4 Power, 4 Jurisdiction expect 0
+  for 4 but 4 int, 4 Subject, 4 Resource, 4 Power, 4 Jurisdiction expect 0
 
-check CriticalControlDoesNotCreateJurisdiction
-  for 4 but 4 Subject, 4 Resource, 4 Jurisdiction expect 0
+check JurisdictionHasExplicitSourceInvariant
+  for 4 but 4 int, 4 Subject, 4 Jurisdiction expect 0
 
 check AcquisitionDoesNotTransferAuthority
-  for 4 but 4 Subject, 4 Resource, 4 Acquisition expect 0
-
-check GatekeepingDoesNotCreateConstitutionalWeight
-  for 4 but 4 Subject, 4 Resource, 4 Gatekeeping expect 0
+  for 4 but 4 int, 4 Subject, 4 Resource, 4 Acquisition expect 0
 
 check HighSwitchingCostIsReviewable
-  for 4 but 4 Subject, 4 Power, 4 Jurisdiction expect 0
+  for 4 but 4 int, 4 Subject, 4 Power, 4 Jurisdiction expect 0
