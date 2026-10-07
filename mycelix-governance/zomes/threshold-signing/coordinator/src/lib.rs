@@ -17,6 +17,7 @@
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 use threshold_signing_integrity::*;
+use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 
 /// Deterministic hash for a threshold-signing integrity anchor.
 fn anchor_hash(anchor: &str) -> ExternResult<EntryHash> {
@@ -99,6 +100,223 @@ pub fn get_proposal_signature(proposal_id: String) -> ExternResult<Option<Record
         )))?;
 
     get(action_hash, GetOptions::default())
+}
+
+fn authorization_digest(proposal_id: &str, action_key_digest: &str) -> [u8; 32] {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"MYCELIX-GOVERNANCE-EXECUTION-AUTHORIZATION\0V2\0");
+    for value in [proposal_id, action_key_digest] {
+        hasher.update(&(value.len() as u64).to_be_bytes());
+        hasher.update(value.as_bytes());
+    }
+    *hasher.finalize().as_bytes()
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VerifyProposalSignatureInput {
+    pub proposal_id: String,
+    pub action_key_digest: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ProposalSignatureVerification {
+    pub proposal_id: String,
+    pub action_key_digest: String,
+    pub signature_id: String,
+    pub committee_id: String,
+    pub signer_count: u32,
+    pub threshold: u32,
+    pub algorithm: ThresholdSignatureAlgorithm,
+    pub verified: bool,
+}
+
+/// Cryptographically verify the threshold authorization for one exact proposal material action.
+///
+/// This function is read-only. It never mutates committee/signature state and never trusts
+/// the ThresholdSignature.verified bit. The returned receipt means the checked signature,
+/// committee configuration, signer metadata, and exact authorization digest all passed.
+#[hdk_extern]
+pub fn verify_proposal_signature(
+    input: VerifyProposalSignatureInput,
+) -> ExternResult<ProposalSignatureVerification> {
+    if input.proposal_id.is_empty() || input.proposal_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Proposal ID must be 1-256 characters".into()
+        )));
+    }
+    if input.action_key_digest.trim().is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Action key digest is required".into()
+        )));
+    }
+
+    let signature_record = get_proposal_signature(input.proposal_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No threshold signature is indexed for this proposal".into()
+        )))?;
+
+    let signature: ThresholdSignature = signature_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Indexed threshold signature has no entry".into()
+        )))?;
+
+    let (kind, signed_id) = signature
+        .signed_content_description
+        .split_once(':')
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Threshold signature content description is not structurally proposal-bound".into()
+        )))?;
+
+    if signed_id != input.proposal_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Threshold signature targets a different proposal ID".into()
+        )));
+    }
+    if !matches!(kind, "proposal" | "constitutional" | "treasury" | "protocol") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Threshold signature has an unsupported proposal kind".into()
+        )));
+    }
+
+    let expected_hash = authorization_digest(
+        &input.proposal_id,
+        &input.action_key_digest,
+    );
+    if signature.signed_content_hash.as_slice() != expected_hash {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Threshold signature is not bound to the exact approved proposal action".into()
+        )));
+    }
+
+    let committee_record = get_committee(signature.committee_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Threshold signature references an unavailable committee".into()
+        )))?;
+
+    let committee: SigningCommittee = committee_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Committee record has no SigningCommittee entry".into()
+        )))?;
+
+    if !committee.active || committee.phase != DkgPhase::Complete {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Signing committee is not active and complete".into()
+        )));
+    }
+
+    if committee.threshold == 0
+        || committee.member_count == 0
+        || committee.threshold > committee.member_count
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Signing committee threshold/member configuration is invalid".into()
+        )));
+    }
+
+    if committee.signature_algorithm != signature.signature_algorithm {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Threshold signature algorithm does not match committee configuration".into()
+        )));
+    }
+
+    if committee.pq_required
+        && !matches!(
+            signature.signature_algorithm,
+            ThresholdSignatureAlgorithm::MlDsa65
+                | ThresholdSignatureAlgorithm::HybridEcdsaMlDsa65
+        )
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Committee requires post-quantum authorization but signature is not PQ/hybrid".into()
+        )));
+    }
+
+    if signature.signer_count < committee.threshold
+        || signature.signer_count as usize != signature.signers.len()
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Threshold signature signer metadata does not satisfy committee threshold".into()
+        )));
+    }
+
+    let mut unique_signers = std::collections::BTreeSet::new();
+    for signer in &signature.signers {
+        if *signer == 0 || *signer > committee.member_count {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Signer {} is outside committee membership range",
+                signer
+            ))));
+        }
+        if !unique_signers.insert(*signer) {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Duplicate signer {} in threshold signature",
+                signer
+            ))));
+        }
+    }
+
+    match signature.signature_algorithm {
+        ThresholdSignatureAlgorithm::Ecdsa => {
+            let public_key = committee.public_key.as_deref().ok_or(wasm_error!(
+                WasmErrorInner::Guest(
+                    "ECDSA verification requires committee public key".into()
+                )
+            ))?;
+
+            if public_key.len() != 33 {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Committee ECDSA public key must be 33-byte compressed SEC1, got {}",
+                    public_key.len()
+                ))));
+            }
+
+            let verifying_key = VerifyingKey::from_sec1_bytes(public_key)
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid committee ECDSA public key: {e}"
+                ))))?;
+
+            if signature.signature.len() != 64 {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "ECDSA signature must be exactly 64 raw r||s bytes, got {}",
+                    signature.signature.len()
+                ))));
+            }
+
+            let sig = Signature::from_slice(&signature.signature)
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid ECDSA signature encoding: {e}"
+                ))))?;
+
+            verifying_key
+                .verify_prehash(&signature.signed_content_hash, &sig)
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                    "ECDSA threshold authorization verification failed: {e}"
+                ))))?;
+        }
+        ThresholdSignatureAlgorithm::MlDsa65
+        | ThresholdSignatureAlgorithm::HybridEcdsaMlDsa65 => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "PQ/hybrid threshold authorization verifier is not wired".into()
+            )));
+        }
+    }
+
+    Ok(ProposalSignatureVerification {
+        proposal_id: input.proposal_id,
+        action_key_digest: input.action_key_digest,
+        signature_id: signature.id,
+        committee_id: signature.committee_id,
+        signer_count: signature.signer_count,
+        threshold: committee.threshold,
+        algorithm: signature.signature_algorithm,
+        verified: true,
+    })
 }
 
 // ============================================================================
