@@ -13,6 +13,7 @@ use axum::http::header::HeaderValue;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use prism_common::ssrf::validate_proxy_url;
+use prism_net::SafeFetchClient;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -35,10 +36,10 @@ const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
 // HTTP CLIENT
 // ═══════════════════════════════════════════════════════════════
 
-fn build_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
+fn build_provider_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent(user_agent)
-        .redirect(reqwest::redirect::Policy::limited(5))
+        .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(timeout_secs))
         .build()
         .expect("HTTP client TLS init failed")
@@ -108,7 +109,7 @@ async fn ddg_handler(Query(params): Query<DdgParams>) -> impl IntoResponse {
         "https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=1",
         params.q.replace(' ', "+")
     );
-    let client = build_client("Prism/0.3 (ddg-proxy)", 10);
+    let client = build_provider_client("Prism/0.3 (ddg-proxy)", 10);
     match client.get(&url).send().await {
         Ok(resp) => {
             let body = resp.bytes().await.unwrap_or_default();
@@ -143,7 +144,7 @@ async fn brave_handler(
         "https://api.search.brave.com/res/v1/web/search?q={}",
         params.q.replace(' ', "+")
     );
-    let client = build_client("Prism/0.3 (brave-proxy)", 15);
+    let client = build_provider_client("Prism/0.3 (brave-proxy)", 15);
     match client
         .get(&url)
         .header("X-Subscription-Token", api_key)
@@ -180,7 +181,7 @@ async fn perplexity_handler(
     if api_key.is_empty() {
         return (StatusCode::UNAUTHORIZED, "Missing X-Perplexity-Key header").into_response();
     }
-    let client = build_client("Prism/0.3 (perplexity-proxy)", 30);
+    let client = build_provider_client("Prism/0.3 (perplexity-proxy)", 30);
     match client
         .post("https://api.perplexity.ai/chat/completions")
         .header("Authorization", format!("Bearer {}", api_key))
