@@ -55,7 +55,7 @@ pub fn fpm_attestation_nonce_digest(nonce: &[u8]) -> String {
 impl FpmSourceAttestationClaim {
     pub fn digest(&self) -> String {
         let mut bytes = Vec::new();
-        append_field(&mut bytes, b"fpm.source-attestation-claim.v1");
+        append_field(&mut bytes, b"fpm.source-attestation-claim.v2");
         append_field(&mut bytes, self.subject_id.as_bytes());
         append_field(&mut bytes, self.audience.as_bytes());
         append_field(&mut bytes, &self.verification_key_id);
