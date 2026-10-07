@@ -121,6 +121,53 @@ pub fn adaptive_override_threshold(failed_attempts: u32) -> f64 {
     (VETO_OVERRIDE_THRESHOLD - decay).max(OVERRIDE_THRESHOLD_FLOOR)
 }
 
+/// Durable execution attempt state.
+///
+/// This record is committed before the protected action is invoked. The state
+/// machine deliberately separates durable admission from provider entry so a
+/// restart can distinguish a committed pre-dispatch reservation from an
+/// invocation whose outcome must be reconciled.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ExecutionAttemptStatus {
+    DispatchPending,
+    Invoked,
+    Succeeded,
+    Failed,
+    Indeterminate,
+    NotEntered,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ExecutionAttempt {
+    /// Stable attempt identifier.
+    pub id: String,
+    /// Timelock that authorized the exact material action.
+    pub timelock_id: String,
+    /// Proposal for contextual provenance.
+    pub proposal_id: String,
+    /// Exact raw material action digest committed before invocation.
+    pub action_digest: String,
+    /// Same-action fence digest. This is the shared collision namespace.
+    pub action_key_digest: String,
+    /// Boundary-scoped attempt identity.
+    pub attempt_identity: String,
+    /// Native replay identity for the one-time authorization lineage.
+    pub native_replay_identity: String,
+    /// Execution authority DID.
+    pub executor: String,
+    /// Current durable lifecycle state.
+    pub status: ExecutionAttemptStatus,
+    /// Source-chain timestamp for reservation.
+    pub prepared_at: Timestamp,
+    /// Source-chain timestamp for the latest state transition.
+    pub updated_at: Timestamp,
+    /// Explicit evidence commitment for a terminal provider outcome.
+    pub outcome_evidence_commitment: Option<String>,
+    /// Explicit proof that the attempt never entered the provider.
+    pub not_entered_marker: Option<String>,
+}
+
 /// Execution record for a proposal
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -280,6 +327,7 @@ pub enum EntryTypes {
     Anchor(Anchor),
     Timelock(Timelock),
     Execution(Execution),
+    ExecutionAttempt(ExecutionAttempt),
     GuardianVeto(GuardianVeto),
     FundAllocation(FundAllocation),
     VetoOverrideVote(VetoOverrideVote),
@@ -290,8 +338,10 @@ pub enum EntryTypes {
 pub enum LinkTypes {
     /// Proposal to timelock
     ProposalToTimelock,
-    /// Timelock to execution
+    /// Timelock to immutable execution outcome
     TimelockToExecution,
+    /// Timelock to its durable execution-attempt record
+    TimelockToExecutionAttempt,
     /// Pending timelocks
     PendingTimelocks,
     /// Guardian to vetoes
@@ -345,6 +395,114 @@ pub fn check_update_timelock(original: &Timelock, updated: &Timelock) -> Result<
         => Ok(()),
         _ => Err("Invalid timelock status transition".into()),
     }
+}
+
+/// Validate creation of a durable pre-dispatch execution attempt.
+pub fn check_create_execution_attempt(attempt: &ExecutionAttempt) -> Result<(), String> {
+    if attempt.id.trim().is_empty() {
+        return Err("Execution attempt ID is required".into());
+    }
+    if attempt.timelock_id.trim().is_empty() {
+        return Err("Execution attempt timelock_id is required".into());
+    }
+    if attempt.proposal_id.trim().is_empty() {
+        return Err("Execution attempt proposal_id is required".into());
+    }
+    if attempt.action_digest.trim().is_empty() {
+        return Err("Execution attempt action_digest is required".into());
+    }
+    if !attempt.action_key_digest.starts_with("constitutional-action-key-v1:") {
+        return Err("Execution attempt action_key_digest must use the canonical ActionKey namespace".into());
+    }
+    if !attempt.attempt_identity.starts_with("constitutional-attempt-identity-v1:") {
+        return Err("Execution attempt attempt_identity must use the canonical AttemptIdentity namespace".into());
+    }
+    if attempt.native_replay_identity.trim().is_empty() {
+        return Err("Execution attempt native_replay_identity is required".into());
+    }
+    if !attempt.executor.starts_with("did:") {
+        return Err("Execution attempt executor must be a valid DID".into());
+    }
+    if attempt.status != ExecutionAttemptStatus::DispatchPending {
+        return Err("Execution attempt must be created in DispatchPending state".into());
+    }
+    if attempt.outcome_evidence_commitment.is_some() || attempt.not_entered_marker.is_some() {
+        return Err("Initial ExecutionAttempt cannot contain terminal evidence or a not-entered marker".into());
+    }
+    Ok(())
+}
+
+pub fn check_update_execution_attempt(
+    original: &ExecutionAttempt,
+    updated: &ExecutionAttempt,
+) -> Result<(), String> {
+    if updated.id != original.id
+        || updated.timelock_id != original.timelock_id
+        || updated.proposal_id != original.proposal_id
+        || updated.action_digest != original.action_digest
+        || updated.action_key_digest != original.action_key_digest
+        || updated.attempt_identity != original.attempt_identity
+        || updated.native_replay_identity != original.native_replay_identity
+        || updated.executor != original.executor
+        || updated.prepared_at != original.prepared_at
+    {
+        return Err("ExecutionAttempt identity/material fields are immutable".into());
+    }
+    if updated.updated_at < original.updated_at {
+        return Err("ExecutionAttempt updated_at cannot move backwards".into());
+    }
+
+    match (&original.status, &updated.status) {
+        (ExecutionAttemptStatus::DispatchPending, ExecutionAttemptStatus::Invoked) => {
+            if updated.outcome_evidence_commitment.is_some()
+                || updated.not_entered_marker.is_some()
+            {
+                return Err("Invoked execution attempt cannot carry terminal evidence".into());
+            }
+        }
+        (ExecutionAttemptStatus::DispatchPending, ExecutionAttemptStatus::NotEntered) => {
+            if updated.not_entered_marker.as_deref().map(str::trim).unwrap_or("").is_empty()
+            {
+                return Err("NotEntered requires an explicit marker".into());
+            }
+            if updated.outcome_evidence_commitment.is_some() {
+                return Err("NotEntered cannot carry provider outcome evidence".into());
+            }
+        }
+        (ExecutionAttemptStatus::Invoked, ExecutionAttemptStatus::Succeeded)
+        | (ExecutionAttemptStatus::Indeterminate, ExecutionAttemptStatus::Succeeded)
+        | (ExecutionAttemptStatus::Invoked, ExecutionAttemptStatus::Failed)
+        | (ExecutionAttemptStatus::Indeterminate, ExecutionAttemptStatus::Failed) => {
+            if updated
+                .outcome_evidence_commitment
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or("")
+                .is_empty()
+            {
+                return Err("terminal execution outcome requires evidence commitment".into());
+            }
+            if updated.not_entered_marker.is_some() {
+                return Err("terminal provider outcome cannot carry a not-entered marker".into());
+            }
+        }
+        (ExecutionAttemptStatus::Invoked, ExecutionAttemptStatus::Indeterminate) => {
+            if updated.outcome_evidence_commitment.is_some()
+                || updated.not_entered_marker.is_some()
+            {
+                return Err("Indeterminate attempt cannot claim terminal evidence".into());
+            }
+        }
+        (ExecutionAttemptStatus::Indeterminate, ExecutionAttemptStatus::NotEntered) => {
+            return Err("Indeterminate attempt cannot be downgraded to NotEntered".into());
+        }
+        _ if original.status == updated.status => {
+            return Err("ExecutionAttempt state must advance through an explicit transition".into());
+        }
+        _ => return Err("Invalid ExecutionAttempt status transition".into()),
+    }
+
+    Ok(())
 }
 
 /// Check that a new execution record is valid: executor starts with "did:",
@@ -469,6 +627,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Timelock(timelock) => validate_create_timelock(action, timelock),
                 EntryTypes::Execution(execution) => validate_create_execution(action, execution),
+                EntryTypes::ExecutionAttempt(attempt) => {
+                    validate_create_execution_attempt(action, attempt)
+                },
                 EntryTypes::GuardianVeto(veto) => validate_create_veto(action, veto),
                 EntryTypes::FundAllocation(alloc) => validate_create_fund_allocation(action, alloc),
                 EntryTypes::VetoOverrideVote(vote) => validate_create_override_vote(action, vote),
@@ -491,6 +652,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     Ok(ValidateCallbackResult::Invalid(
                         "Execution records cannot be modified".into(),
                     ))
+                }
+                EntryTypes::ExecutionAttempt(attempt) => {
+                    validate_update_execution_attempt(action, attempt, original_action_hash)
                 }
                 EntryTypes::GuardianVeto(_) => {
                     // Vetoes cannot be updated
@@ -579,6 +743,49 @@ fn validate_update_timelock(
 }
 
 /// Validate execution creation
+fn validate_create_execution_attempt(
+    action: Create,
+    attempt: ExecutionAttempt,
+) -> ExternResult<ValidateCallbackResult> {
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("ExecutionAttempt", "executor", &attempt.executor, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
+    match check_create_execution_attempt(&attempt) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    }
+}
+
+fn validate_update_execution_attempt(
+    action: Update,
+    attempt: ExecutionAttempt,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_attempt: ExecutionAttempt = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original ExecutionAttempt not found".into()
+        )))?;
+
+    if action.author() != original_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original ExecutionAttempt author may update the attempt".into(),
+        ));
+    }
+
+    match check_update_execution_attempt(&original_attempt, &attempt) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    }
+}
+
 fn validate_create_execution(
     action: Create,
     execution: Execution,
@@ -690,6 +897,53 @@ fn validate_update_fund_allocation(
     match check_update_fund_allocation(&original, &alloc) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn execution_attempt_starts_only_at_dispatch_pending() {
+        let now = Timestamp::from_micros(1);
+        let attempt = ExecutionAttempt {
+            id: "execution-attempt-1".into(),
+            timelock_id: "timelock-1".into(),
+            proposal_id: "proposal-1".into(),
+            action_digest: "constitutional-material-action-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            action_key_digest: "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            attempt_identity: "constitutional-attempt-identity-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            native_replay_identity: "native-replay-1".into(),
+            executor: "did:mycelix:executor".into(),
+            status: ExecutionAttemptStatus::Invoked,
+            prepared_at: now,
+            updated_at: now,
+            outcome_evidence_commitment: None,
+            not_entered_marker: None,
+        };
+        assert!(check_create_execution_attempt(&attempt).is_err());
+    }
+
+    #[test]
+    fn execution_attempt_rejects_terminal_state_without_evidence() {
+        let now = Timestamp::from_micros(1);
+        let base = ExecutionAttempt {
+            id: "execution-attempt-1".into(),
+            timelock_id: "timelock-1".into(),
+            proposal_id: "proposal-1".into(),
+            action_digest: "constitutional-material-action-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            action_key_digest: "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            attempt_identity: "constitutional-attempt-identity-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            native_replay_identity: "native-replay-1".into(),
+            executor: "did:mycelix:executor".into(),
+            status: ExecutionAttemptStatus::DispatchPending,
+            prepared_at: now,
+            updated_at: now,
+            outcome_evidence_commitment: None,
+            not_entered_marker: None,
+        };
+        let mut succeeded = base.clone();
+        succeeded.status = ExecutionAttemptStatus::Succeeded;
+        assert!(check_update_execution_attempt(&base, &succeeded).is_err());
     }
 }
 
