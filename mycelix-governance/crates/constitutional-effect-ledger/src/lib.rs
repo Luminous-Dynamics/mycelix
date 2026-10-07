@@ -1,3 +1,9 @@
+pub mod action_key;
+pub use action_key::{
+    ActionKeyV1, AttemptIdentityV1, ACTION_KEY_PREFIX, ACTION_KEY_SCHEMA_VERSION,
+    ATTEMPT_IDENTITY_PREFIX, ATTEMPT_IDENTITY_SCHEMA_VERSION,
+};
+
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;

@@ -6,5 +6,6 @@ license.workspace = true
 description = "Inert append-only constitutional effect evidence contract"
 
 [dependencies]
+blake3 = "=1.8.5"
 serde = { workspace = true }
 thiserror = { workspace = true }
