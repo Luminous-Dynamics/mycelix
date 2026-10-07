@@ -54,7 +54,6 @@ env:
   SOURCE_MAX_INODES: "300000"
   SOURCE_TMPFS_SIZE: "1024m"
   SOURCE_TMPFS_NR_INODES: "300000"
-  SOURCE_ARCHIVE_MAX_BYTES: "1073741824"
   DEPENDENCY_MANIFEST_MAX_BYTES: "2097152"
   DEPENDENCY_LOCK_MAX_BYTES: "33554432"
   SOURCE_AUDIT_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
@@ -190,6 +189,9 @@ jobs:
           docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000 "$candidate_volume_name" >/dev/null
           candidate_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$candidate_volume_name")"
           test "$candidate_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
+          candidate_volume_mountpoint="$(docker volume inspect --format '{{.Mountpoint}}' "$candidate_volume_name")"
+          test -d "$candidate_volume_mountpoint"
+          test "$(stat -f -c '%T' "$candidate_volume_mountpoint")" = "tmpfs"
           source_volume_cleanup_on_failure() {
             local status=$?
             if [ "$status" -ne 0 ]; then
@@ -201,490 +203,224 @@ jobs:
             exit "$status"
           }
           trap source_volume_cleanup_on_failure EXIT
-
           python3 - "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$CANDIDATE_SHA" <<'PY' > "$RUNNER_TEMP/security-kernel-candidate-tree.env"
           import json, os, sys, urllib.parse, urllib.request
           repository, repository_id, commit_sha = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-          repo_req = urllib.request.Request(
-              "https://api.github.com/repos/" + urllib.parse.quote(repository, safe="/"),
-              headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version":"2022-11-28",
-              })
-          with urllib.request.urlopen(repo_req, timeout=20) as response:
-              repository_obj=json.load(response)
-          assert repository_obj.get("full_name") == repository, "GitHub repository identity changed during candidate resolution"
-          assert repository_obj.get("id") == repository_id, "GitHub candidate repository ID changed during candidate resolution"
-          assert repository_obj.get("disabled") is not True, "candidate repository is disabled"
-          req = urllib.request.Request(
-              "https://api.github.com/repos/"
-              + urllib.parse.quote(repository, safe="/")
-              + "/commits/" + commit_sha,
-              headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-          )
-          with urllib.request.urlopen(req, timeout=30) as response:
-              commit = json.load(response)
-          assert commit.get("sha") == commit_sha, "GitHub commit API returned the wrong candidate commit"
-          tree_sha = ((commit.get("commit") or {}).get("tree") or {}).get("sha")
-          assert isinstance(tree_sha, str) and len(tree_sha) == 40
-          post_repo_req = urllib.request.Request(
-              "https://api.github.com/repos/" + urllib.parse.quote(repository, safe="/"),
-              headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version":"2022-11-28",
-              })
-          with urllib.request.urlopen(post_repo_req, timeout=20) as response:
-              post_repository_obj=json.load(response)
-          assert post_repository_obj.get("full_name") == repository, "GitHub repository identity changed after candidate commit resolution"
-          assert post_repository_obj.get("id") == repository_id, "GitHub candidate repository ID changed after candidate commit resolution"
-          assert post_repository_obj.get("disabled") is not True, "candidate repository became disabled after candidate commit resolution"
+          repo_req = urllib.request.Request("https://api.github.com/repos/" + urllib.parse.quote(repository, safe="/"), headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
+          with urllib.request.urlopen(repo_req, timeout=20) as response: repository_obj=json.load(response)
+          assert repository_obj.get("full_name") == repository
+          assert repository_obj.get("id") == repository_id
+          assert repository_obj.get("disabled") is not True
+          req = urllib.request.Request("https://api.github.com/repos/" + urllib.parse.quote(repository, safe="/") + "/commits/" + commit_sha, headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
+          with urllib.request.urlopen(req, timeout=30) as response: commit=json.load(response)
+          assert commit.get("sha") == commit_sha
+          tree_sha=((commit.get("commit") or {}).get("tree") or {}).get("sha")
+          assert isinstance(tree_sha,str) and len(tree_sha)==40
+          post_repo_req=urllib.request.Request("https://api.github.com/repos/" + urllib.parse.quote(repository, safe="/"), headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
+          with urllib.request.urlopen(post_repo_req, timeout=20) as response: post_repository_obj=json.load(response)
+          assert post_repository_obj.get("full_name") == repository
+          assert post_repository_obj.get("id") == repository_id
+          assert post_repository_obj.get("disabled") is not True
           print(tree_sha)
           PY
           candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
-          printf '%s' "$candidate_tree" | grep -Eq '^[0-9a-f]{40}$'
-
+          printf "%s" "$candidate_tree" | grep -Eq '^[0-9a-f]{40}$'
           python3 - "$CANDIDATE_REPOSITORY" "$candidate_tree" <<'PY'
           import json, os, sys, urllib.parse, urllib.request
-          repository, tree_sha = sys.argv[1], sys.argv[2]
-          max_entries = 300_000
-          max_files = 200_000
-          max_path_bytes = 4096
-          max_total_path_bytes = 64 * 1024 * 1024
-          max_file_bytes = 64 * 1024 * 1024
-          max_total_bytes = 768 * 1024 * 1024
-
-          url = (
-              "https://api.github.com/repos/"
-              + urllib.parse.quote(repository, safe="/")
-              + "/git/trees/"
-              + tree_sha
-              + "?recursive=1"
-          )
-          req = urllib.request.Request(
-              url,
-              headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-          )
-          with urllib.request.urlopen(req, timeout=30) as response:
-              tree = json.load(response)
-
-          assert tree.get("sha") == tree_sha, "GitHub tree response did not preserve exact candidate tree identity"
-          assert not tree.get("truncated"), "candidate tree listing is truncated; resource bound cannot be established"
-          entries = tree.get("tree", [])
-          assert len(entries) <= max_entries, f"candidate tree exceeds {max_entries} total tree entries"
-          total = 0
-          count = 0
-          total_path_bytes = 0
-          max_blob = 0
+          repository, tree_sha=sys.argv[1],sys.argv[2]
+          max_entries=300_000; max_files=200_000; max_path_bytes=4096; max_total_path_bytes=64*1024*1024; max_file_bytes=64*1024*1024; max_total_bytes=768*1024*1024
+          url="https://api.github.com/repos/"+urllib.parse.quote(repository,safe="/")+"/git/trees/"+tree_sha+"?recursive=1"
+          req=urllib.request.Request(url,headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
+          with urllib.request.urlopen(req,timeout=30) as response: tree=json.load(response)
+          assert tree.get("sha")==tree_sha
+          assert not tree.get("truncated")
+          entries=tree.get("tree",[]); total=0; count=0; total_path_bytes=0; max_blob=0
           for entry in entries:
-              entry_type = entry.get("type")
-              mode = entry.get("mode")
-              path = entry.get("path")
+              entry_type=entry.get("type"); mode=entry.get("mode"); path=entry.get("path")
               if entry_type != "blob":
-                  if entry_type == "commit":
-                      raise SystemExit(f"candidate source contains a gitlink/submodule: {path!r}")
+                  if entry_type=="commit": raise SystemExit(f"candidate source contains a gitlink/submodule: {path!r}")
                   continue
-              assert mode in {"100644", "100755"}, f"candidate tree contains forbidden Git mode {mode}: {path!r}"
-              oid = entry.get("sha", "")
-              assert len(oid) == 40, f"unexpected blob id for {path!r}"
-              path_bytes = len(path.encode("utf-8"))
-              total_path_bytes += path_bytes
-              assert path_bytes <= max_path_bytes, f"candidate path exceeds {max_path_bytes} bytes: {path!r}"
-              assert total_path_bytes <= max_total_path_bytes, f"candidate paths exceed {max_total_path_bytes} bytes"
-              size = entry.get("size")
-              assert isinstance(size, int) and size >= 0, f"missing or invalid blob size for {path!r}"
-              count += 1
-              total += size
-              max_blob = max(max_blob, size)
-              assert count <= max_files, f"candidate tree exceeds {max_files} regular files"
-              assert size <= max_file_bytes, f"candidate file exceeds {max_file_bytes} bytes: {path!r}"
-              assert total <= max_total_bytes, f"candidate tree exceeds {max_total_bytes} total bytes"
-
-          with open(os.environ["RUNNER_TEMP"] + "/security-kernel-source-tree-stats.txt", "w", encoding="utf-8") as output:
-              output.write(f"source_tree_entry_count={len(entries)}\n")
-              output.write(f"source_file_count={count}\n")
-              output.write(f"source_total_path_bytes={total_path_bytes}\n")
-              output.write(f"source_total_bytes={total}\n")
-              output.write(f"source_max_blob_bytes={max_blob}\n")
+              assert mode in {"100644","100755"}
+              assert len(entry.get("sha", ""))==40
+              path_bytes=len(path.encode()); total_path_bytes+=path_bytes
+              assert path_bytes<=max_path_bytes and total_path_bytes<=max_total_path_bytes
+              size=entry.get("size"); assert isinstance(size,int) and size>=0
+              count+=1; total+=size; max_blob=max(max_blob,size)
+              assert count<=max_files and size<=max_file_bytes and total<=max_total_bytes
+          assert len(entries)<=max_entries
+          with open(os.environ["RUNNER_TEMP"]+"/security-kernel-source-tree-stats.txt","w",encoding="utf-8") as output:
+              output.write(f"source_tree_entry_count={len(entries)}\nsource_file_count={count}\nsource_total_path_bytes={total_path_bytes}\nsource_total_bytes={total}\nsource_max_blob_bytes={max_blob}\n")
           PY
-
           docker pull --quiet "$FETCH_IMAGE"
-          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$FETCH_IMAGE" |
-            grep -Fx "$FETCH_IMAGE"
-
-          runner_uid="$(id -u)"
-          runner_gid="$(id -g)"
-          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m,nr_inodes=600000             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --env CANDIDATE_TREE="$candidate_tree"             --volume "$candidate_volume_name:/output:rw"             "$FETCH_IMAGE" /bin/bash -euo pipefail -c '
+          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$FETCH_IMAGE" | grep -Fx "$FETCH_IMAGE"
+          runner_uid="$(id -u)"; runner_gid="$(id -g)"
+          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never \
+            --network=bridge --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --security-opt=seccomp=default \
+            --pids-limit=512 --memory=2g --memory-swap=2g --cpus=2 --ulimit=nofile=4096:4096 --ulimit=core=0:0 \
+            --user "$runner_uid:$runner_gid" --init --stop-timeout=5 --ipc=private --pid=private --cgroupns=private \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m,nr_inodes=600000 \
+            --env HOME=/tmp --env GIT_CONFIG_NOSYSTEM=1 --env GIT_TERMINAL_PROMPT=0 --env GIT_CONFIG_GLOBAL=/tmp/gitconfig \
+            --env CANDIDATE_SHA="$CANDIDATE_SHA" --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY" --env CANDIDATE_TREE="$candidate_tree" \
+            --volume "$candidate_volume_name:/output:rw" "$FETCH_IMAGE" /bin/bash -euo pipefail -c '
               set -euo pipefail
-              export XDG_CONFIG_HOME=/tmp/config
-              mkdir -p /tmp/config /tmp/repository
-              git config --global core.hooksPath /dev/null
-              git config --global protocol.file.allow never
-              git config --global protocol.ext.allow never
-              git -C /tmp/repository init -q
-              git -C /tmp/repository remote add origin "https://github.com/$CANDIDATE_REPOSITORY.git"
+              export XDG_CONFIG_HOME=/tmp/config; mkdir -p /tmp/config /tmp/repository /output
+              git config --global core.hooksPath /dev/null; git config --global protocol.file.allow never; git config --global protocol.ext.allow never
+              git -C /tmp/repository init -q; git -C /tmp/repository remote add origin "https://github.com/$CANDIDATE_REPOSITORY.git"
               git -C /tmp/repository -c fetch.fsckObjects=true -c protocol.version=2 fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
-              resolved="$(git -C /tmp/repository rev-parse FETCH_HEAD)"
-              test "$resolved" = "$CANDIDATE_SHA"
-              resolved_tree="$(git -C /tmp/repository rev-parse "$resolved^{tree}")"
-              test "$resolved_tree" = "$CANDIDATE_TREE"
+              resolved="$(git -C /tmp/repository rev-parse FETCH_HEAD)"; test "$resolved" = "$CANDIDATE_SHA"
+              resolved_tree="$(git -C /tmp/repository rev-parse "$resolved^{tree}")"; test "$resolved_tree" = "$CANDIDATE_TREE"
               timeout --signal=TERM --kill-after=10s 3m git -C /tmp/repository fsck --full --strict "$resolved"
               tree_entries="$(git -C /tmp/repository ls-tree -r "$resolved")"
-              if printf "%s\n" "$tree_entries" | grep -q "^160000 "; then
-                echo "candidate source contains a gitlink/submodule; qualification requires a self-contained source tree" >&2
-                exit 1
-              fi
-              git -C /tmp/repository archive --format=tar "$resolved" |
-                tar -xf - -C /output --no-same-owner
-
-              symlink_entry="$(find /output -type l -print -quit)"
-              if [ -n "$symlink_entry" ]; then
-                echo "candidate source contains forbidden symlink" >&2
-                exit 1
-              fi
-              non_regular_entry="$(find /output ! -type f ! -type d -print -quit)"
-              if [ -n "$non_regular_entry" ]; then
-                echo "candidate source contains forbidden non-regular file" >&2
-                exit 1
-              fi
-              echo "PASS: hostile Git transport, object validation, archive parsing, and source extraction executed in isolated fetch sandbox"
+              if printf "%s\n" "$tree_entries" | grep -q "^160000 "; then echo "candidate source contains a gitlink/submodule" >&2; exit 1; fi
+              git -C /tmp/repository archive --format=tar "$resolved" | tar -xf - -C /output --no-same-owner
+              symlink_entry="$(find /output -type l -print -quit)"; if [ -n "$symlink_entry" ]; then echo "candidate source contains forbidden symlink" >&2; exit 1; fi
+              non_regular_entry="$(find /output ! -type f ! -type d -print -quit)"; if [ -n "$non_regular_entry" ]; then echo "candidate source contains forbidden non-regular file" >&2; exit 1; fi
+              echo "PASS: hostile Git transport and source extraction executed entirely into the bounded Docker tmpfs candidate substrate"
             '
-
-          candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
-          test "${#candidate_tree}" -eq 40
-          candidate_root="$RUNNER_TEMP/security-kernel-candidate-root"
-          test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"
-          rm -rf -- "$candidate_root"
-          install -d -m 0700 -- "$candidate_root"
-          set -o pipefail
-          bounded_source_archive() {
-            python3 - "$SOURCE_ARCHIVE_MAX_BYTES" <<'PY'
-          import sys
-          limit=int(sys.argv[1])
-          total=0
-          while True:
-              chunk=sys.stdin.buffer.read(1024 * 1024)
-              if not chunk:
-                  break
-              next_total=total + len(chunk)
-              if next_total > limit:
-                  print(f"security-kernel bounded source archive stream exceeded {limit} bytes", file=sys.stderr)
-                  raise SystemExit(1)
-              sys.stdout.buffer.write(chunk)
-              total=next_total
-          sys.stdout.buffer.flush()
-          PY
-          }
-          set +e
-          timeout --signal=TERM --kill-after=20s 5m docker run --rm --platform=linux/amd64 --pull=never \
-            --network=none --read-only --cap-drop=ALL \
-            --security-opt=no-new-privileges:true --security-opt=seccomp=default \
-            --pids-limit=256 --memory=1g --memory-swap=1g --cpus=2 \
-            --ulimit=nofile=4096:4096 --ulimit=core=0:0 --ipc=private --pid=private --cgroupns=private \
-            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m,nr_inodes=20000 \
-            --volume "$candidate_volume_name:/source:ro" \
-            "$FETCH_IMAGE" tar -C /source -cf - . |
-            bounded_source_archive |
-            tar -C "$candidate_root" -xf - --no-same-owner
-          source_copy_pipeline_status=("${PIPESTATUS[@]}")
-          set -e
-          test "${#source_copy_pipeline_status[@]}" -eq 3
-          test "${source_copy_pipeline_status[0]}" -eq 0
-          test "${source_copy_pipeline_status[1]}" -eq 0
-          test "${source_copy_pipeline_status[2]}" -eq 0
-          source_copy_bytes="$(du -sb "$candidate_root" | awk '{print $1}')"
-          source_copy_files="$(find "$candidate_root" -type f -print | wc -l)"
-          source_copy_inodes="$(find "$candidate_root" -mindepth 1 -print | wc -l)"
-          for value in "$source_copy_bytes" "$source_copy_files" "$source_copy_inodes"; do
-            printf "%s" "$value" | grep -Eq "^[0-9]+$"
-          done
-          test "$source_copy_bytes" -le "$SOURCE_MAX_BYTES"
-          test "$source_copy_files" -le 200000
-          test "$source_copy_inodes" -le "$SOURCE_MAX_INODES"
-          printf 'source_volume_name=%s\nsource_volume_spec=%s\nsource_copy_bytes=%s\nsource_copy_files=%s\nsource_copy_inodes=%s\n' "$candidate_volume_name" "$candidate_volume_spec" "$source_copy_bytes" "$source_copy_files" "$source_copy_inodes" >> "$GITHUB_OUTPUT"
-          stats_file="$RUNNER_TEMP/security-kernel-source-tree-stats.txt"
-          test -s "$stats_file"
-          source_tree_entry_count="$(sed -n "s/^source_tree_entry_count=//p" "$stats_file")"
-          source_file_count="$(sed -n "s/^source_file_count=//p" "$stats_file")"
-          source_total_path_bytes="$(sed -n "s/^source_total_path_bytes=//p" "$stats_file")"
-          source_total_bytes="$(sed -n "s/^source_total_bytes=//p" "$stats_file")"
-          source_max_blob_bytes="$(sed -n "s/^source_max_blob_bytes=//p" "$stats_file")"
-          for value in "$source_tree_entry_count" "$source_file_count" "$source_total_path_bytes" "$source_total_bytes" "$source_max_blob_bytes"; do
-            printf "%s" "$value" | grep -Eq "^[0-9]+$"
-          done
-          test "$source_tree_entry_count" -le 300000
-          test "$source_file_count" -le 200000
-          test "$source_total_path_bytes" -le $((64 * 1024 * 1024))
-          test "$source_total_bytes" -le $((768 * 1024 * 1024))
-          test "$source_max_blob_bytes" -le $((64 * 1024 * 1024))
-          printf 'candidate_tree=%s\nsource_tree_entry_count=%s\nsource_file_count=%s\nsource_total_path_bytes=%s\nsource_total_bytes=%s\nsource_max_blob_bytes=%s\nfetch_image=%s\n' \
-            "$candidate_tree" "$source_tree_entry_count" "$source_file_count" "$source_total_path_bytes" "$source_total_bytes" "$source_max_blob_bytes" "$FETCH_IMAGE" >> "$GITHUB_OUTPUT"
-
-          python3 - "$CANDIDATE_ROOT" <<'PY'
+          python3 - "$candidate_volume_mountpoint" <<'PY' > "$source_resource_metrics"
           import hashlib, pathlib, stat, sys
-          root=pathlib.Path(sys.argv[1])
-          digest=hashlib.sha256()
+          root=pathlib.Path(sys.argv[1]); digest=hashlib.sha256(); total=0; files=0; inodes=0
           for path in sorted(root.rglob("*")):
-              rel=path.relative_to(root)
-              mode=path.lstat().st_mode
-              if stat.S_ISLNK(mode):
-                  raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
-              if path.is_dir():
-                  continue
-              if not stat.S_ISREG(mode):
-                  raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
-              relative = rel.as_posix().encode()
-              content = path.read_bytes()
-              mode_bits = stat.S_IMODE(mode)
-              digest.update(mode_bits.to_bytes(4, "big"))
-              digest.update(len(relative).to_bytes(8, "big"))
-              digest.update(relative)
-              digest.update(len(content).to_bytes(8, "big"))
-              digest.update(content)
-          print(f"candidate_source_digest={digest.hexdigest()}")
-          print("PASS: exact candidate commit materialized with regular-file-only source tree")
+              rel=path.relative_to(root); mode=path.lstat().st_mode; inodes+=1
+              if stat.S_ISLNK(mode): raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
+              if path.is_dir(): continue
+              if not stat.S_ISREG(mode): raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
+              content=path.read_bytes(); files+=1; total+=len(content); relative=rel.as_posix().encode(); mode_bits=stat.S_IMODE(mode)
+              digest.update(mode_bits.to_bytes(4,"big")); digest.update(len(relative).to_bytes(8,"big")); digest.update(relative); digest.update(len(content).to_bytes(8,"big")); digest.update(content)
+          print(f"source_copy_bytes={total}"); print(f"source_copy_files={files}"); print(f"source_copy_inodes={inodes}"); print(f"source_volume_digest={digest.hexdigest()}")
           PY
-
+          source_copy_bytes="$(sed -n 's/^source_copy_bytes=//p' "$source_resource_metrics")"
+          source_copy_files="$(sed -n 's/^source_copy_files=//p' "$source_resource_metrics")"
+          source_copy_inodes="$(sed -n 's/^source_copy_inodes=//p' "$source_resource_metrics")"
+          source_volume_digest="$(sed -n 's/^source_volume_digest=//p' "$source_resource_metrics")"
+          for value in "$source_copy_bytes" "$source_copy_files" "$source_copy_inodes"; do printf "%s" "$value" | grep -Eq '^[0-9]+$'; done
+          printf "%s" "$source_volume_digest" | grep -Eq '^[0-9a-f]{64}$'
+          test "$source_copy_bytes" -le "$SOURCE_MAX_BYTES"; test "$source_copy_files" -le 200000; test "$source_copy_inodes" -le "$SOURCE_MAX_INODES"
+          stats_file="$RUNNER_TEMP/security-kernel-source-tree-stats.txt"; test -s "$stats_file"
+          source_tree_entry_count="$(sed -n 's/^source_tree_entry_count=//p' "$stats_file")"; source_file_count="$(sed -n 's/^source_file_count=//p' "$stats_file")"; source_total_path_bytes="$(sed -n 's/^source_total_path_bytes=//p' "$stats_file")"; source_total_bytes="$(sed -n 's/^source_total_bytes=//p' "$stats_file")"; source_max_blob_bytes="$(sed -n 's/^source_max_blob_bytes=//p' "$stats_file")"
+          for value in "$source_tree_entry_count" "$source_file_count" "$source_total_path_bytes" "$source_total_bytes" "$source_max_blob_bytes"; do printf "%s" "$value" | grep -Eq '^[0-9]+$'; done
+          test "$source_tree_entry_count" -le 300000; test "$source_file_count" -le 200000; test "$source_total_path_bytes" -le $((64*1024*1024)); test "$source_total_bytes" -le $((768*1024*1024)); test "$source_max_blob_bytes" -le $((64*1024*1024))
+          printf 'source_volume_name=%s\nsource_volume_spec=%s\nsource_copy_bytes=%s\nsource_copy_files=%s\nsource_copy_inodes=%s\n' "$candidate_volume_name" "$candidate_volume_spec" "$source_copy_bytes" "$source_copy_files" "$source_copy_inodes" >> "$GITHUB_OUTPUT"
+          printf 'candidate_tree=%s\nsource_tree_entry_count=%s\nsource_file_count=%s\nsource_total_path_bytes=%s\nsource_total_bytes=%s\nsource_max_blob_bytes=%s\nfetch_image=%s\n' "$candidate_tree" "$source_tree_entry_count" "$source_file_count" "$source_total_path_bytes" "$source_total_bytes" "$source_max_blob_bytes" "$FETCH_IMAGE" >> "$GITHUB_OUTPUT"
+          printf 'source_staging_digest=%s\nexecuted_source_digest=%s\nsource_digest=%s\n' "$source_volume_digest" "$source_volume_digest" "$source_volume_digest" >> "$GITHUB_OUTPUT"
+          trap - EXIT
       - name: Static trust-surface audit
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
+          candidate_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$CANDIDATE_VOLUME_NAME")"
+          test "$candidate_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
+          candidate_volume_mountpoint="$(docker volume inspect --format '{{.Mountpoint}}' "$CANDIDATE_VOLUME_NAME")"
+          test "$(stat -f -c '%T' "$candidate_volume_mountpoint")" = "tmpfs"
+          export CANDIDATE_VOLUME_MOUNTPOINT="$candidate_volume_mountpoint"
           python3 - <<'PY'
           from pathlib import Path
-          import os, re
-          root=Path(os.environ["CANDIDATE_ROOT"])
+          import os, re, tomllib
+          root=Path(os.environ["CANDIDATE_VOLUME_MOUNTPOINT"])
           kernel=(root/"crates/mycelix-bridge-common/src/security_kernel.rs").read_text(encoding="utf-8")
           events=(root/"crates/mycelix-bridge-common/src/security_events.rs").read_text(encoding="utf-8")
           workflow=(root/".github/workflows/security-kernel-qualification.yml").read_text(encoding="utf-8")
-          manifest=root/"crates/mycelix-bridge-common/Cargo.toml"
-          lockfile=root/"crates/mycelix-bridge-common/Cargo.lock"
-          assert manifest.is_file(), manifest
-          assert lockfile.is_file(), "Security Kernel qualification requires a committed Cargo.lock"
-          assert manifest.stat().st_size <= 2 * 1024 * 1024, "Cargo.toml exceeds qualification size bound"
-          assert lockfile.stat().st_size <= 32 * 1024 * 1024, "Cargo.lock exceeds qualification size bound"
-          import tomllib
-          manifest_text=manifest.read_text(encoding="utf-8")
-          manifest_data=tomllib.loads(manifest_text)
-          package=manifest_data.get("package")
-          assert isinstance(package, dict), "manifest must contain a package table"
-          assert package.get("name") == "mycelix-bridge-common", "qualified package name is not exact"
-          assert package.get("edition") == "2024", "qualified package edition is not exact"
-
-          dependency_table_names={"dependencies", "dev-dependencies", "build-dependencies"}
-          forbidden_dependency_keys={"git", "path", "registry", "workspace"}
-          violations=[]
-
-          def inspect_dependency_table(table, table_path):
-              for name, spec in table.items():
-                  if isinstance(spec, dict):
-                      for key in forbidden_dependency_keys & set(spec):
-                          violations.append((".".join(table_path), name, key))
-                  elif not isinstance(spec, str):
-                      violations.append((".".join(table_path), name, "non-string/non-table-spec"))
-
-          def walk_tables(value, path=()):
-              if not isinstance(value, dict):
-                  return
-              if path and path[-1] in dependency_table_names:
-                  inspect_dependency_table(value, path)
-              for key, child in value.items():
-                  if isinstance(child, dict):
-                      walk_tables(child, path + (str(key),))
-
-          walk_tables(manifest_data)
-          assert not violations, f"manifest dependency source/inheritance override is forbidden: {violations}"
-          assert "patch" not in manifest_data and "replace" not in manifest_data, "manifest patch/replace tables are forbidden"
-
-          lock=tomllib.loads(lockfile.read_text(encoding="utf-8"))
-          assert lock.get("version") == 4, f"unsupported Cargo.lock format: {lock.get('version')!r}"
-          packages=lock.get("package", [])
-          assert packages, "Cargo.lock contains no package records"
-          max_lock_packages=4096
-          max_lock_dependency_edges=32768
-          assert len(packages) <= max_lock_packages, f"Cargo.lock exceeds {max_lock_packages} package records"
-          lock_dependency_edges=sum(len(p.get("dependencies", [])) for p in packages)
-          assert lock_dependency_edges <= max_lock_dependency_edges, f"Cargo.lock exceeds {max_lock_dependency_edges} dependency edges"
-          roots=[p for p in packages if p.get("name") == "mycelix-bridge-common" and p.get("version") == package.get("version")]
-          assert len(roots) == 1, "Cargo.lock must contain exactly one exact root package record"
-          forbidden_sources=[]
-          allowed_registry="registry+https://github.com/rust-lang/crates.io-index"
-          checksum_pattern=re.compile(r"^[0-9a-f]{64}$")
+          manifest=root/"crates/mycelix-bridge-common/Cargo.toml"; lockfile=root/"crates/mycelix-bridge-common/Cargo.lock"
+          assert manifest.is_file() and lockfile.is_file()
+          assert manifest.stat().st_size <= 2*1024*1024 and lockfile.stat().st_size <= 32*1024*1024
+          manifest_data=tomllib.loads(manifest.read_text(encoding="utf-8")); package=manifest_data.get("package")
+          assert isinstance(package,dict) and package.get("name")=="mycelix-bridge-common" and package.get("edition")=="2024"
+          dependency_table_names={"dependencies","dev-dependencies","build-dependencies"}; forbidden_dependency_keys={"git","path","registry","workspace"}; violations=[]
+          def inspect_dependency_table(table,table_path):
+              for name,spec in table.items():
+                  if isinstance(spec,dict):
+                      for key in forbidden_dependency_keys & set(spec): violations.append((".".join(table_path),name,key))
+                  elif not isinstance(spec,str): violations.append((".".join(table_path),name,"non-string/non-table-spec"))
+          def walk_tables(value,path=()):
+              if not isinstance(value,dict): return
+              if path and path[-1] in dependency_table_names: inspect_dependency_table(value,path)
+              for key,child in value.items():
+                  if isinstance(child,dict): walk_tables(child,path+(str(key),))
+          walk_tables(manifest_data); assert not violations; assert "patch" not in manifest_data and "replace" not in manifest_data
+          lock=tomllib.loads(lockfile.read_text(encoding="utf-8")); assert lock.get("version")==4; packages=lock.get("package",[]); assert packages
+          assert len(packages)<=4096; assert sum(len(p.get("dependencies",[])) for p in packages)<=32768
+          roots=[p for p in packages if p.get("name")=="mycelix-bridge-common" and p.get("version")==package.get("version")]; assert len(roots)==1
+          allowed_registry="registry+https://github.com/rust-lang/crates.io-index"; checksum_pattern=re.compile(r"^[0-9a-f]{64}$"); forbidden_sources=[]
           for package in packages:
               source=package.get("source")
-              if source is None:
-                  assert (
-                      package.get("name") == "mycelix-bridge-common"
-                      and package.get("version") == manifest_data["package"].get("version")
-                  ), f"source-less non-root package is forbidden: {package.get('name')}"
-                  continue
-              if source != allowed_registry:
-                  forbidden_sources.append((package.get("name"), source))
-                  continue
-              checksum=package.get("checksum")
-              assert isinstance(checksum, str) and checksum_pattern.fullmatch(checksum), (
-                  f"crates.io package is missing a canonical SHA-256 checksum: {package.get('name')}"
-              )
-          assert not forbidden_sources, f"non-crates.io dependency sources are forbidden: {forbidden_sources}"
-          forbidden_configs=(
-              root/".cargo/config.toml",
-              root/".cargo/config",
-              root/"crates/.cargo/config.toml",
-              root/"crates/.cargo/config",
-              root/"crates/mycelix-bridge-common/.cargo/config.toml",
-              root/"crates/mycelix-bridge-common/.cargo/config",
-          )
-          present=[str(path.relative_to(root)) for path in forbidden_configs if path.exists()]
-          assert not present, f"candidate-controlled Cargo configuration is forbidden: {present}"
-          if workflow:
-              assert workflow.startswith("name: Security Kernel Qualification")
-              assert "pull_request_target:" not in workflow, "candidate workflow must not elevate to pull_request_target"
-              assert workflow.count("permissions:") == 1, "candidate workflow must have exactly one permissions block"
-              permission_lines = []
-              workflow_lines = workflow.splitlines()
-              for index, line in enumerate(workflow_lines):
-                  if line.strip() == "permissions:":
-                      for candidate in workflow_lines[index + 1:]:
-                          if candidate and not candidate.startswith(" "):
-                              break
-                          if candidate.strip():
-                              permission_lines.append(candidate.strip())
-                      break
-              assert permission_lines == ["contents: read"], permission_lines
-              assert "secrets." not in workflow
-              uses=re.findall(r"(?m)^\s*-\s*uses:\s*([^\n]+)$",workflow)
-              assert uses and all(re.search(r"@[0-9a-fA-F]{40}(?:\s+#.*)?$",line.strip()) for line in uses)
-              for value in (
-                  "runs-on: ubuntu-24.04",
-                  "ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}",
-                  "persist-credentials: false",
-                  "contents: read",
-              ):
-                  assert value in workflow, value
-          for value in (
-              '#[must_use = "verified capabilities must be passed to authorize_permit"]',
-              '#[must_use = "signature verification results must be checked before accepting a capability"]',
-              '#[must_use = "issuer-bound signature verification results must be checked before accepting a capability"]',
-          ):
-              assert value in kernel, value
-          for pattern in (
-              r"pub\s+(?:\([^)]*\)\s+)?(SignatureVerification|RevocationStatus|AuthorityResolution)",
-              r"pub\s+(?:\([^)]*\)\s+)?fn\s+(authority_binding_from_freshness_digest|revalidate_permit)",
-              r"pub\s+(?:\([^)]*\)\s+)?(decision|capability_binding|authority_binding|event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation)\s*:",
-          ):
-              assert re.search(pattern,kernel) is None, pattern
-          for field in ("capability", "issuer_public_key", "signature"):
-              assert re.search(rf"pub struct SignedCapability\s*\{{.*?\n\s+{field}\s*:", kernel, re.S), field
-              assert re.search(rf"pub struct SignedCapability\s*\{{.*?\n\s+pub\s+{field}\s*:", kernel, re.S) is None, field
-          for accessor in ("pub fn capability", "pub fn issuer_public_key", "pub fn signature"):
-              assert accessor in kernel, accessor
-          for value in (
-              "MAX_SECURITY_WIRE_BYTES",
-              "deserialize_bounded_security_json_reader",
-              "deserialize_capability_actions",
-              "serde(try_from = " + chr(34) + "CapabilityWire" + chr(34) + ")",
-              "serde(try_from = " + chr(34) + "AuthorizationRequestWire" + chr(34) + ")",
-          ):
-              assert value in kernel, value
+              if source is None: assert package.get("name")=="mycelix-bridge-common" and package.get("version")==manifest_data["package"].get("version"); continue
+              if source!=allowed_registry: forbidden_sources.append((package.get("name"),source)); continue
+              assert isinstance(package.get("checksum"),str) and checksum_pattern.fullmatch(package.get("checksum"))
+          assert not forbidden_sources
+          forbidden_configs=(root/".cargo/config.toml",root/".cargo/config",root/"crates/.cargo/config.toml",root/"crates/.cargo/config",root/"crates/mycelix-bridge-common/.cargo/config.toml",root/"crates/mycelix-bridge-common/.cargo/config")
+          assert not [str(path.relative_to(root)) for path in forbidden_configs if path.exists()]
+          assert workflow.startswith("name: Security Kernel Qualification") and "pull_request_target:" not in workflow and workflow.count("permissions:")==1
+          permission_lines=[]; workflow_lines=workflow.splitlines()
+          for index,line in enumerate(workflow_lines):
+              if line.strip()=="permissions:":
+                  for candidate in workflow_lines[index+1:]:
+                      if candidate and not candidate.startswith(" "): break
+                      if candidate.strip(): permission_lines.append(candidate.strip())
+                  break
+          assert permission_lines==["contents: read"] and "secrets." not in workflow
+          uses=re.findall(r"(?m)^\s*-\s*uses:\s*([^\n]+)$",workflow); assert uses and all(re.search(r"@[0-9a-fA-F]{40}(?:\s+#.*)?$",line.strip()) for line in uses)
+          for value in ("runs-on: ubuntu-24.04","ref: ${{ github.event.pull_request.head.sha || github.sha }}","persist-credentials: false","contents: read"): assert value in workflow
+          for value in ('#[must_use = "verified capabilities must be passed to authorize_permit"]','#[must_use = "signature verification results must be checked before accepting a capability"]','#[must_use = "issuer-bound signature verification results must be checked before accepting a capability"]'): assert value in kernel
+          for pattern in (r"pub\s+(?:\([^)]*\)\s+)?(SignatureVerification|RevocationStatus|AuthorityResolution)",r"pub\s+(?:\([^)]*\)\s+)?fn\s+(authority_binding_from_freshness_digest|revalidate_permit)",r"pub\s+(?:\([^)]*\)\s+)?(decision|capability_binding|authority_binding|event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation)\s*:"): assert re.search(pattern,kernel) is None
+          for field in ("capability","issuer_public_key","signature"): assert re.search(rf"pub struct SignedCapability\s*\{{.*?\n\s+{field}\s*:",kernel,re.S) and not re.search(rf"pub struct SignedCapability\s*\{{.*?\n\s+pub\s+{field}\s*:",kernel,re.S)
+          for accessor in ("pub fn capability","pub fn issuer_public_key","pub fn signature"): assert accessor in kernel
+          for value in ("MAX_SECURITY_WIRE_BYTES","deserialize_bounded_security_json_reader","deserialize_capability_actions","serde(try_from = \"CapabilityWire\")","serde(try_from = \"AuthorizationRequestWire\")"): assert value in kernel
           assert "deny_unknown_fields" in kernel and "deny_unknown_fields" in events
-          print("PASS: independent static trust-surface profile")
+          print("PASS: independent static trust-surface profile against the bounded Docker tmpfs candidate substrate")
           PY
-
       - name: Snapshot exact candidate source identity
         id: snapshot_source
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root
-          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
           candidate_volume_spec_snapshot="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$CANDIDATE_VOLUME_NAME")"
           test "$candidate_volume_spec_snapshot" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
           candidate_volume_mountpoint_snapshot="$(docker volume inspect --format '{{.Mountpoint}}' "$CANDIDATE_VOLUME_NAME")"
-          test -d "$candidate_volume_mountpoint_snapshot"
-          python3 - "$CANDIDATE_ROOT" "$candidate_volume_mountpoint_snapshot" <<'PY' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"
+          test "$(stat -f -c '%T' "$candidate_volume_mountpoint_snapshot")" = "tmpfs"
+          python3 - "$candidate_volume_mountpoint_snapshot" <<'PY' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"
           import hashlib, pathlib, stat, sys
-
-          def digest_root(root: pathlib.Path) -> str:
-              digest=hashlib.sha256()
-              for path in sorted(root.rglob("*")):
-                  rel=path.relative_to(root)
-                  mode=path.lstat().st_mode
-                  if stat.S_ISLNK(mode):
-                      raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
-                  if path.is_dir():
-                      continue
-                  if not stat.S_ISREG(mode):
-                      raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
-                  relative=rel.as_posix().encode()
-                  content=path.read_bytes()
-                  mode_bits=stat.S_IMODE(mode)
-                  digest.update(mode_bits.to_bytes(4,"big"))
-                  digest.update(len(relative).to_bytes(8,"big"))
-                  digest.update(relative)
-                  digest.update(len(content).to_bytes(8,"big"))
-                  digest.update(content)
-              return digest.hexdigest()
-
-          staging=digest_root(pathlib.Path(sys.argv[1]))
-          executed=digest_root(pathlib.Path(sys.argv[2]))
-          if staging != executed:
-              raise SystemExit(f"staged candidate source differs from executed source volume: {staging} != {executed}")
-          print(f"source_staging_digest={staging}")
-          print(f"executed_source_digest={executed}")
-          print(f"source_digest={staging}")
+          root=pathlib.Path(sys.argv[1]); digest=hashlib.sha256()
+          for path in sorted(root.rglob("*")):
+              rel=path.relative_to(root); mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode): raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
+              if path.is_dir(): continue
+              if not stat.S_ISREG(mode): raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
+              content=path.read_bytes(); relative=rel.as_posix().encode(); mode_bits=stat.S_IMODE(mode)
+              digest.update(mode_bits.to_bytes(4,"big")); digest.update(len(relative).to_bytes(8,"big")); digest.update(relative); digest.update(len(content).to_bytes(8,"big")); digest.update(content)
+          value=digest.hexdigest(); print(f"source_staging_digest={value}"); print(f"source_digest={value}")
           PY
           source_staging_digest="$(sed -n 's/^source_staging_digest=//p' "$RUNNER_TEMP/security-kernel-source-snapshot.txt")"
-          executed_source_digest="$(sed -n 's/^executed_source_digest=//p' "$RUNNER_TEMP/security-kernel-source-snapshot.txt")"
           source_digest="$(sed -n 's/^source_digest=//p' "$RUNNER_TEMP/security-kernel-source-snapshot.txt")"
-          for value in "$source_staging_digest" "$executed_source_digest" "$source_digest"; do
-            printf "%s" "$value" | grep -Eq '^[0-9a-f]{64}$'
-          done
-          test "$source_staging_digest" = "$executed_source_digest"
-          test "$source_digest" = "$executed_source_digest"
-          printf 'source_digest=%s\nsource_staging_digest=%s\nexecuted_source_digest=%s\n' "$source_digest" "$source_staging_digest" "$executed_source_digest" >> "$GITHUB_OUTPUT"
-          echo "PASS: static-audit staging source and executed bounded source volume have identical cryptographic identity"
+          printf "%s\n" "$source_staging_digest" | grep -Eq '^[0-9a-f]{64}$'; printf "%s\n" "$source_digest" | grep -Eq '^[0-9a-f]{64}$'
+          test "$source_staging_digest" = "$source_digest"
+          printf 'source_digest=%s\nsource_staging_digest=%s\n' "$source_digest" "$source_staging_digest" >> "$GITHUB_OUTPUT"
+          echo "PASS: candidate source identity captured directly from the bounded Docker tmpfs substrate"
       - name: Snapshot locked dependency identity
         id: locked_dependency_identity
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
-          manifest_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml"
-          lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"
-          test -f "$manifest_path"
-          test -f "$lock_path"
-          test ! -L "$manifest_path"
-          test ! -L "$lock_path"
-          manifest_bytes="$(stat -c '%s' "$manifest_path")"
-          lock_bytes="$(stat -c '%s' "$lock_path")"
-          printf "%s" "$manifest_bytes" | grep -Eq "^[0-9]+$"
-          printf "%s" "$lock_bytes" | grep -Eq "^[0-9]+$"
-          test "$manifest_bytes" -le "$DEPENDENCY_MANIFEST_MAX_BYTES"
-          test "$lock_bytes" -le "$DEPENDENCY_LOCK_MAX_BYTES"
-          lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"
-          lock_digest="$(sha256sum "$lock_path" | awk '{print $1}')"
-          test "${#lock_digest}" -eq 64
+          candidate_volume_mountpoint="$(docker volume inspect --format '{{.Mountpoint}}' "$CANDIDATE_VOLUME_NAME")"
+          test "$(stat -f -c '%T' "$candidate_volume_mountpoint")" = "tmpfs"
+          manifest_path="$candidate_volume_mountpoint/crates/mycelix-bridge-common/Cargo.toml"
+          lock_path="$candidate_volume_mountpoint/crates/mycelix-bridge-common/Cargo.lock"
+          test -f "$manifest_path"; test -f "$lock_path"; test ! -L "$manifest_path"; test ! -L "$lock_path"
+          manifest_bytes="$(stat -c '%s' "$manifest_path")"; lock_bytes="$(stat -c '%s' "$lock_path")"
+          printf "%s" "$manifest_bytes" | grep -Eq '^[0-9]+$'; printf "%s" "$lock_bytes" | grep -Eq '^[0-9]+$'
+          test "$manifest_bytes" -le "$DEPENDENCY_MANIFEST_MAX_BYTES"; test "$lock_bytes" -le "$DEPENDENCY_LOCK_MAX_BYTES"
+          lock_digest="$(sha256sum "$lock_path" | awk '{print $1}')"; test "${#lock_digest}" -eq 64
           lock_package_count="$(grep -c '^\[\[package\]\]$' "$lock_path")"
-          lock_dependency_edges="$(python3 -c 'import sys,tomllib; d=tomllib.load(open(sys.argv[1],"rb")); print(sum(len(p.get("dependencies", [])) for p in d.get("package", [])))' "$lock_path")"
-          printf "%s" "$lock_package_count" | grep -Eq "^[0-9]+$"
-          printf "%s" "$lock_dependency_edges" | grep -Eq "^[0-9]+$"
-          test "$lock_package_count" -le 4096
-          test "$lock_dependency_edges" -le 32768
+          lock_dependency_edges="$(python3 -c 'import sys,tomllib; d=tomllib.load(open(sys.argv[1],"rb")); print(sum(len(p.get("dependencies",[])) for p in d.get("package",[])))' "$lock_path")"
+          printf "%s" "$lock_package_count" | grep -Eq '^[0-9]+$'; printf "%s" "$lock_dependency_edges" | grep -Eq '^[0-9]+$'
+          test "$lock_package_count" -le 4096; test "$lock_dependency_edges" -le 32768
           printf 'lock_digest=%s\nlock_package_count=%s\nlock_dependency_edges=%s\n' "$lock_digest" "$lock_package_count" "$lock_dependency_edges" >> "$GITHUB_OUTPUT"
-          echo "PASS: committed Cargo.lock identity captured before candidate execution"
-
+          echo "PASS: committed Cargo.lock identity captured from the bounded Docker tmpfs candidate substrate"
       - name: Pull and preflight pinned sandbox image
         id: sandbox_preflight
         env:
@@ -761,22 +497,19 @@ jobs:
       - name: Prepare locked dependency subject
         id: dependency_subject
         env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
-          dependency_root="$RUNNER_TEMP/security-kernel-dependency-subject"
-          rm -rf "$dependency_root"
-          mkdir -p "$dependency_root"
-          install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"
-          install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"
-          printf 'dependency_root=%s\n' "$dependency_root" >> "$GITHUB_OUTPUT"
-          echo "PASS: only the committed Cargo manifest and lockfile enter dependency acquisition"
-
+          candidate_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$CANDIDATE_VOLUME_NAME")"
+          test "$candidate_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
+          printf 'dependency_source_mode=bounded-candidate-volume\n' >> "$GITHUB_OUTPUT"
+          echo "PASS: dependency subject remains inside the bounded candidate volume; no host-backed copy is created"
       - name: Vendor locked dependency closure in fetch sandbox
         id: vendor_dependencies
         env:
-          DEPENDENCY_ROOT: ${{ steps.dependency_subject.outputs.dependency_root }}
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
+
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         shell: bash
         run: |
@@ -840,7 +573,7 @@ jobs:
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m,nr_inodes=20000 \
             --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m,nr_inodes=150000 \
             --volume "$vendor_volume_name:/vendor:rw" \
-            --volume "$DEPENDENCY_ROOT:/subject:ro" \
+            --volume "$CANDIDATE_VOLUME_NAME:/source:ro" \
             --volume "$vendor_config_volume_name:/vendor-config:rw" \
             --volume "$vendor_metrics:/vendor-metrics:rw" \
             --env HOME=/cargo-home --env CARGO_HOME=/cargo-home \
@@ -849,7 +582,7 @@ jobs:
             --env GITHUB_TOKEN= --env GH_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_URL= --env ACTIONS_RUNTIME_TOKEN= \
             "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               set -euo pipefail
-              /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config/config.toml
+              /usr/local/cargo/bin/cargo vendor --locked --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml /vendor > /vendor-config/config.toml
               python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" "$VENDOR_CONFIG_MAX_BYTES" "$VENDOR_CONFIG_MAX_INODES" /vendor /vendor-config /vendor-metrics <<'PY'
               import hashlib, pathlib, stat, sys
               max_bytes=int(sys.argv[1]); max_files=int(sys.argv[2]); max_inodes=int(sys.argv[3])
@@ -1237,43 +970,44 @@ jobs:
           echo "PASS: all candidate compilation/test/lint gates executed in fresh disposable networkless sandboxes"
 
       - name: Verify candidate source immutability
+        id: verify_candidate_source
         env:
-          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
-          EXPECTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.executed_source_digest }}
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
+          EXPECTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_staging_digest }}
         shell: bash
         run: |
           set -euo pipefail
           candidate_volume_spec_after="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$CANDIDATE_VOLUME_NAME")"
           test "$candidate_volume_spec_after" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
           candidate_volume_mountpoint="$(docker volume inspect --format '{{.Mountpoint}}' "$CANDIDATE_VOLUME_NAME")"
-          test -d "$candidate_volume_mountpoint"
+          test "$(stat -f -c '%T' "$candidate_volume_mountpoint")" = "tmpfs"
           python3 - "$candidate_volume_mountpoint" "$EXPECTED_SOURCE_DIGEST" <<'PY'
           import hashlib, pathlib, stat, sys
-          root=pathlib.Path(sys.argv[1])
-          expected=sys.argv[2].strip()
-          digest=hashlib.sha256()
+          root=pathlib.Path(sys.argv[1]); expected=sys.argv[2].strip(); digest=hashlib.sha256()
           for path in sorted(root.rglob("*")):
-              rel=path.relative_to(root)
-              mode=path.lstat().st_mode
-              if stat.S_ISLNK(mode):
-                  raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
-              if path.is_dir():
-                  continue
-              if not stat.S_ISREG(mode):
-                  raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
-              relative = rel.as_posix().encode()
-              content = path.read_bytes()
-              mode_bits = stat.S_IMODE(mode)
-              digest.update(mode_bits.to_bytes(4, "big"))
-              digest.update(len(relative).to_bytes(8, "big"))
-              digest.update(relative)
-              digest.update(len(content).to_bytes(8, "big"))
-              digest.update(content)
-          after=digest.hexdigest()
-          assert expected == after, f"candidate source mutated during qualification: {expected} != {after}"
-          print("PASS: actual bounded candidate source volume remained immutable and regular-file-only")
+              rel=path.relative_to(root); mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode): raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
+              if path.is_dir(): continue
+              if not stat.S_ISREG(mode): raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
+              content=path.read_bytes(); relative=rel.as_posix().encode(); mode_bits=stat.S_IMODE(mode)
+              digest.update(mode_bits.to_bytes(4,"big")); digest.update(len(relative).to_bytes(8,"big")); digest.update(relative); digest.update(len(content).to_bytes(8,"big")); digest.update(content)
+          after=digest.hexdigest(); assert expected==after, f"candidate source mutated during qualification: {expected} != {after}"
+          print(f"executed_source_digest={after}")
           PY
-
+          executed_source_digest="$(python3 - "$candidate_volume_mountpoint" "$EXPECTED_SOURCE_DIGEST" <<'PY'
+          import hashlib, pathlib, stat, sys
+          root=pathlib.Path(sys.argv[1]); digest=hashlib.sha256()
+          for path in sorted(root.rglob("*")):
+              rel=path.relative_to(root); mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode) or (path.is_file() and not stat.S_ISREG(mode)): raise SystemExit(1)
+              if path.is_dir(): continue
+              content=path.read_bytes(); relative=rel.as_posix().encode(); digest.update(stat.S_IMODE(mode).to_bytes(4,"big")); digest.update(len(relative).to_bytes(8,"big")); digest.update(relative); digest.update(len(content).to_bytes(8,"big")); digest.update(content)
+          print(digest.hexdigest())
+          PY
+          )"
+          printf "%s" "$executed_source_digest" | grep -Eq '^[0-9a-f]{64}$'
+          printf 'executed_source_digest=%s\n' "$executed_source_digest" >> "$GITHUB_OUTPUT"
+          echo "PASS: bounded Docker tmpfs candidate source remained immutable through qualification"
       - name: Cleanup candidate source substrate
         if: ${{ !cancelled() && steps.resolve_source.outcome == 'success' }}
         env:
@@ -1281,36 +1015,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CANDIDATE_ROOT="$RUNNER_TEMP/security-kernel-candidate-root"
-          test "$CANDIDATE_ROOT" = "$RUNNER_TEMP/security-kernel-candidate-root"
-          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then
-            echo "security-kernel candidate source volume inventory query failed before cleanup" >&2
-            exit 1
-          fi
-          if ! printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$CANDIDATE_VOLUME_NAME"; then
-            echo "security-kernel candidate source volume unexpectedly missing before cleanup" >&2
-            exit 1
-          fi
-          if ! docker volume rm "$CANDIDATE_VOLUME_NAME" >/dev/null 2>&1; then
-            echo "security-kernel candidate source volume cleanup failed" >&2
-            exit 1
-          fi
-          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then
-            echo "security-kernel candidate source volume inventory query failed after cleanup" >&2
-            exit 1
-          fi
-          if printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$CANDIDATE_VOLUME_NAME"; then
-            echo "security-kernel candidate source volume remains after cleanup" >&2
-            exit 1
-          fi
-          if [ -e "$CANDIDATE_ROOT" ] || [ -L "$CANDIDATE_ROOT" ]; then
-            rm -rf -- "$CANDIDATE_ROOT"
-          fi
-          if [ -e "$CANDIDATE_ROOT" ] || [ -L "$CANDIDATE_ROOT" ]; then
-            echo "security-kernel candidate host staging root remains after cleanup" >&2
-            exit 1
-          fi
-          echo "PASS: candidate source volume and trusted host staging root were removed fail-closed"
+          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then echo "security-kernel candidate source volume inventory query failed before cleanup" >&2; exit 1; fi
+          if ! printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$CANDIDATE_VOLUME_NAME"; then echo "security-kernel candidate source volume unexpectedly missing before cleanup" >&2; exit 1; fi
+          if ! docker volume rm "$CANDIDATE_VOLUME_NAME" >/dev/null 2>&1; then echo "security-kernel candidate source volume cleanup failed" >&2; exit 1; fi
+          if ! remaining_source_volumes="$(docker volume ls --format '{{.Name}}')"; then echo "security-kernel candidate source volume inventory query failed after cleanup" >&2; exit 1; fi
+          if printf "%s\n" "$remaining_source_volumes" | grep -Fxq "$CANDIDATE_VOLUME_NAME"; then echo "security-kernel candidate source volume remains after cleanup" >&2; exit 1; fi
+          echo "PASS: bounded Docker tmpfs candidate source volume was removed fail-closed; no host staging root existed"
       - name: Verify dependency substrate immutability
         id: dependency_postflight
         env:
@@ -1423,7 +1133,7 @@ jobs:
           SOURCE_COPY_INODES: ${{ steps.resolve_source.outputs.source_copy_inodes }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
           SOURCE_STAGING_DIGEST: ${{ steps.snapshot_source.outputs.source_staging_digest }}
-          EXECUTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.executed_source_digest }}
+          EXECUTED_SOURCE_DIGEST: ${{ steps.verify_candidate_source.outputs.executed_source_digest }}
           LOCK_PACKAGE_COUNT: ${{ steps.locked_dependency_identity.outputs.lock_package_count }}
           LOCK_DEPENDENCY_EDGES: ${{ steps.locked_dependency_identity.outputs.lock_dependency_edges }}
           VENDOR_RESOURCE_PROFILE: ${{ env.VENDOR_RESOURCE_PROFILE }}
@@ -1477,7 +1187,6 @@ jobs:
             echo "source_max_inodes=$SOURCE_MAX_INODES"
             echo "source_tmpfs_size=$SOURCE_TMPFS_SIZE"
             echo "source_tmpfs_nr_inodes=$SOURCE_TMPFS_NR_INODES"
-             echo "source_archive_max_bytes=$SOURCE_ARCHIVE_MAX_BYTES"
              echo "dependency_manifest_max_bytes=$DEPENDENCY_MANIFEST_MAX_BYTES"
              echo "dependency_lock_max_bytes=$DEPENDENCY_LOCK_MAX_BYTES"
             echo "source_volume_name=$SOURCE_VOLUME_NAME"
@@ -1620,12 +1329,7 @@ jobs:
               fi
             fi
           done
-          candidate_root="$RUNNER_TEMP/security-kernel-candidate-root"
-          test "$candidate_root" = "${RUNNER_TEMP}/security-kernel-candidate-root"
-          if [ -e "$candidate_root" ] || [ -L "$candidate_root" ]; then
-            rm -rf -- "$candidate_root"
           fi
-          if [ -e "$candidate_root" ] || [ -L "$candidate_root" ]; then
             echo "security-kernel final teardown host staging root remains" >&2
             exit 1
           fi
