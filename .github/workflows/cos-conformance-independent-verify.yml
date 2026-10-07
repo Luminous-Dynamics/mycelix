@@ -351,6 +351,62 @@ jobs:
           set -e
           test "${curl_status}" -eq 0
 
+          gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload-after.json
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload-after.json
+          GH_TOKEN="${ruleset_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100"             | jq 'add' > evidence/governance/rulesets-index-after-payload.json
+          GH_TOKEN="${effective_rules_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100"             | jq 'add' > evidence/governance/effective-rules-payload-after.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def load(path):
+              return json.loads(Path(path).read_text(encoding="utf-8"))
+
+          def index_signature(payload):
+              assert isinstance(payload, list)
+              required = ("id", "name", "source_type", "source", "enforcement", "updated_at")
+              entries = []
+              for entry in payload:
+                  assert isinstance(entry, dict)
+                  assert all(key in entry for key in required)
+                  entries.append({key: entry[key] for key in required})
+              return sorted(entries, key=lambda entry: entry["id"])
+
+          def effective_signature(payload):
+              assert isinstance(payload, list)
+              assert all(isinstance(entry, dict) for entry in payload)
+              return sorted(
+                  (json.dumps(entry, sort_keys=True, separators=(",", ":")) for entry in payload)
+              )
+
+          repository_before = load("evidence/governance/repository-payload.json")
+          repository_after = load("evidence/governance/repository-payload-after.json")
+          for key in ("id", "full_name", "default_branch"):
+              assert repository_before.get(key) == repository_after.get(key), (
+                  f"repository governance drift during observation: {key}"
+              )
+
+          branch_before = load("evidence/governance/branch-payload.json")
+          branch_after = load("evidence/governance/branch-payload-after.json")
+          for key in ("name", "protected"):
+              assert branch_before.get(key) == branch_after.get(key), (
+                  f"branch governance drift during observation: {key}"
+              )
+
+          rulesets_before = load("evidence/governance/rulesets-index-payload.json")
+          rulesets_after = load("evidence/governance/rulesets-index-after-payload.json")
+          assert index_signature(rulesets_before) == index_signature(rulesets_after), (
+              "ruleset index changed during governance observation"
+          )
+
+          effective_before = load("evidence/governance/effective-rules-payload.json")
+          effective_after = load("evidence/governance/effective-rules-payload-after.json")
+          assert effective_signature(effective_before) == effective_signature(effective_after), (
+              "effective branch rules changed during governance observation"
+          )
+          PY
+
           export ADMIN_SOURCE="${admin_source}"
           export PROTECTION_STATUS="$(cat evidence/governance/branch-protection-http-status.txt)"
           export POLICY_HASH="${policy_hash}"
