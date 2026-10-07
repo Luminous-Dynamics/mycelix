@@ -748,16 +748,38 @@ impl AtomicActionFenceModelV1 {
                 return Err("attempt map key mismatch".into());
             }
 
-            if record.state.occupies_action_fence() {
-                let fence = self
-                    .fences
-                    .get(&record.action_key_digest)
-                    .ok_or_else(|| "occupied attempt is missing its action fence".to_string())?;
-                if fence.owner_attempt_identity != record.attempt_identity {
-                    return Err("action fence owner mismatch".into());
+            match record.state {
+                state if state.occupies_action_fence() => {
+                    let fence = self
+                        .fences
+                        .get(&record.action_key_digest)
+                        .ok_or_else(|| "occupied attempt is missing its action fence".to_string())?;
+                    if fence.owner_attempt_identity != record.attempt_identity {
+                        return Err("action fence owner mismatch".into());
+                    }
+                    if fence.owner_token_digest != record.ownership_token_digest {
+                        return Err("action fence ownership token mismatch".into());
+                    }
+                    if fence.state != ActionFenceState::Occupied {
+                        return Err("non-terminal attempt must have an occupied action fence".into());
+                    }
                 }
-                if fence.owner_token_digest != record.ownership_token_digest {
-                    return Err("action fence ownership token mismatch".into());
+                AttemptRecordState::Executed => {
+                    let fence = self
+                        .fences
+                        .get(&record.action_key_digest)
+                        .ok_or_else(|| "executed attempt is missing its closed action fence".to_string())?;
+                    if fence.owner_attempt_identity != record.attempt_identity
+                        || fence.owner_token_digest != record.ownership_token_digest
+                        || fence.state != ActionFenceState::Closed
+                    {
+                        return Err("executed attempt must own its closed action fence".into());
+                    }
+                }
+                AttemptRecordState::Failed | AttemptRecordState::NotEntered => {
+                    if self.fences.contains_key(&record.action_key_digest) {
+                        return Err("released terminal attempt still has an action fence".into());
+                    }
                 }
             }
         }
@@ -773,6 +795,16 @@ impl AtomicActionFenceModelV1 {
                 .ok_or_else(|| "fence references unknown attempt".to_string())?;
             if attempt.action_key_digest != *action_key {
                 return Err("fence action key does not match attempt record".into());
+            }
+            if fence.state == ActionFenceState::Occupied
+                && !attempt.state.occupies_action_fence()
+            {
+                return Err("occupied fence references a non-occupying attempt".into());
+            }
+            if fence.state == ActionFenceState::Closed
+                && attempt.state != AttemptRecordState::Executed
+            {
+                return Err("closed fence must reference an Executed attempt".into());
             }
         }
 
@@ -881,6 +913,20 @@ mod tests {
             AtomicAdmissionDecision::ActionInFlight
         );
         assert!(model.validate_invariants().is_ok());
+    }
+
+    #[test]
+    fn typed_roots_must_match_persisted_record() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let key_a = key();
+        let key_b = ActionKeyV1::new("relying-party", "target-1", "action-2").unwrap();
+        let owner = attempt("attempt-1");
+        let record = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
+
+        assert!(model.admit(&key_b, &owner, record.clone()).is_err());
+        assert!(model.admit(&key_a, &attempt("attempt-2"), record).is_err());
+        assert!(model.fence(key_a.digest()).is_none());
+        assert!(model.attempt(owner.digest()).is_none());
     }
 
     #[test]
@@ -1050,7 +1096,11 @@ mod tests {
         let mut model = AtomicActionFenceModelV1::new();
         let first_attempt = attempt("attempt-1");
         model
-            .admit(record("attempt-1", "operation-1", AttemptRecordState::Reserved))
+            .admit(
+                &key(),
+                &first_attempt,
+                record("attempt-1", "operation-1", AttemptRecordState::Reserved),
+            )
             .unwrap();
 
         model
@@ -1078,11 +1128,15 @@ mod tests {
         let mut model = AtomicActionFenceModelV1::new();
         let first_attempt = attempt("attempt-1");
         model
-            .admit(record(
-                "attempt-1",
-                "operation-1",
-                AttemptRecordState::DispatchPending,
-            ))
+            .admit(
+                &key(),
+                &first_attempt,
+                record(
+                    "attempt-1",
+                    "operation-1",
+                    AttemptRecordState::DispatchPending,
+                ),
+            )
             .unwrap();
 
         assert_eq!(
