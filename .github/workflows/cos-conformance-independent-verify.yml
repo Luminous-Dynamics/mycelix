@@ -43,6 +43,7 @@ jobs:
       pr_number: ${{ steps.target_binding.outputs.pr_number }}
       expected_head_sha: ${{ steps.target_binding.outputs.expected_head_sha }}
       base_sha: ${{ steps.target_binding.outputs.base_sha }}
+      base_ref: ${{ steps.target_binding.outputs.base_ref }}
       base_repository: ${{ steps.target_binding.outputs.base_repository }}
       head_repository: ${{ steps.target_binding.outputs.head_repository }}
       trigger_run_id: ${{ steps.target_binding.outputs.trigger_run_id }}
@@ -205,6 +206,7 @@ jobs:
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
           base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
+          base_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.ref')"
           base_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.full_name')"
           pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
 
@@ -214,11 +216,15 @@ jobs:
           }
           test "${head_repository}" = "${GITHUB_REPOSITORY}" || {
             echo "independent verifier accepts same-repository PR heads only: ${head_repository}" >&2
-          printf '%s\n' "${base_sha}" | grep -Eq '^[0-9a-f]{40}$'
-          test "${base_repository}" = "${GITHUB_REPOSITORY}" || {
-            echo "independent verifier requires the PR base to be this repository: ${base_repository}" >&2
             exit 1
           }
+          printf '%s\n' "${base_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${base_ref}" = "main" || {
+            echo "independent verifier requires the PR base ref to be main: ${base_ref}" >&2
+            exit 1
+          }
+          test "${base_repository}" = "${GITHUB_REPOSITORY}" || {
+            echo "independent verifier requires the PR base to be this repository: ${base_repository}" >&2
             exit 1
           }
           test "${pull_request_state}" = "open" || {
@@ -230,6 +236,7 @@ jobs:
             printf 'pr_number=%s\n' "${PR_NUMBER}"
             printf 'expected_head_sha=%s\n' "${EXPECTED_HEAD_SHA}"
             printf 'base_sha=%s\n' "${base_sha}"
+            printf 'base_ref=%s\n' "${base_ref}"
             printf 'base_repository=%s\n' "${base_repository}"
             printf 'head_repository=%s\n' "${head_repository}"
             printf 'trigger_run_id=%s\n' "${TRIGGER_RUN_ID}"
@@ -825,10 +832,19 @@ jobs:
 
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          actual_base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
+          actual_base_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.ref')"
+          actual_base_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.full_name')"
           pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
           test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}"
           test "${head_repository}" = "${EXPECTED_HEAD_REPOSITORY}"
           test "${head_repository}" = "${GITHUB_REPOSITORY}"
+          printf '%s\n' "${actual_base_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${actual_base_sha}" = "${{ needs.prepare.outputs.base_sha }}"
+          test "${actual_base_ref}" = "${{ needs.prepare.outputs.base_ref }}"
+          test "${actual_base_ref}" = "main"
+          test "${actual_base_repository}" = "${{ needs.prepare.outputs.base_repository }}"
+          test "${actual_base_repository}" = "${GITHUB_REPOSITORY}"
           test "${pull_request_state}" = "open"
 
           test "${{ needs.execute.result }}" = "success"
@@ -955,6 +971,7 @@ jobs:
             "pr_number": "${{ needs.prepare.outputs.pr_number }}",
             "expected_head_sha": "${{ needs.prepare.outputs.expected_head_sha }}",
             "base_sha": "${{ needs.prepare.outputs.base_sha }}",
+            "base_ref": "${{ needs.prepare.outputs.base_ref }}",
             "base_repository": "${{ needs.prepare.outputs.base_repository }}",
             "tested_commit_sha": "${tested_commit_sha}",
             "head_repository": "${{ needs.prepare.outputs.head_repository }}",
@@ -1013,6 +1030,7 @@ jobs:
           assert envelope["claim_ceiling"] == "ReferenceModelOnly"
           assert sha40.fullmatch(envelope["expected_head_sha"])
            assert sha40.fullmatch(envelope["base_sha"])
+          assert envelope["base_ref"] == "main"
           assert sha40.fullmatch(envelope["tested_commit_sha"])
           assert envelope["expected_head_sha"] == envelope["tested_commit_sha"]
           assert sha40.fullmatch(envelope["trusted_workflow_sha"])
