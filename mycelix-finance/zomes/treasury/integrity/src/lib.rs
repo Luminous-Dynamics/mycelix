@@ -228,12 +228,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     Ok(ValidateCallbackResult::Valid)
                 }
                 LinkTypes::DaoToCommonsPool => {
-                    if !base_valid || !target_valid {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "DaoToCommonsPool link must connect valid hashes".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+                    validate_dao_commons_pool_link(&base_address, &target_address)
                 }
                 LinkTypes::CommonsPoolToCompost => {
                     if !base_valid || !target_valid {
@@ -434,6 +429,32 @@ fn validate_commons_pool_id_index_link(
     if let Err(invalid) =
         require_index_anchor(base_address, &pool.id, "CommonsPoolIdToPool")
     {
+        return Ok(invalid);
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_dao_commons_pool_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_index_action_target(target_address, "DaoToCommonsPool") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(pool) = record
+        .entry()
+        .to_app_option::<CommonsPool>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "DaoToCommonsPool target decode failed: {e:?}"
+        )))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DaoToCommonsPool target must resolve to CommonsPool".into(),
+        ));
+    };
+    if let Err(invalid) = require_index_anchor(base_address, &pool.dao_did, "DaoToCommonsPool") {
         return Ok(invalid);
     }
     Ok(ValidateCallbackResult::Valid)
