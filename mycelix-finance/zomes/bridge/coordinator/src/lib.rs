@@ -2703,4 +2703,46 @@ mod tests {
             AssetType::Other("bamboo".into())
         );
     }
+    #[test]
+    fn consensus_rate_exact_match_passes() {
+        assert!(validate_consensus_rate(100.0, 100.0).is_ok());
+    }
+
+    #[test]
+    fn consensus_rate_within_tolerance_passes() {
+        assert!(validate_consensus_rate(
+            100.0 * (1.0 + mycelix_finance_types::ORACLE_RATE_TOLERANCE),
+            100.0
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn consensus_rate_above_tolerance_fails_closed() {
+        assert!(validate_consensus_rate(
+            100.0 * (1.0 + mycelix_finance_types::ORACLE_RATE_TOLERANCE + 0.0001),
+            100.0
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn non_finite_consensus_fails_closed() {
+        assert!(validate_consensus_rate(100.0, f64::NAN).is_err());
+        assert!(validate_consensus_rate(100.0, f64::INFINITY).is_err());
+        assert!(validate_consensus_rate(100.0, f64::NEG_INFINITY).is_err());
+    }
+
+    #[test]
+    fn non_positive_consensus_fails_closed() {
+        assert!(validate_consensus_rate(100.0, 0.0).is_err());
+        assert!(validate_consensus_rate(100.0, -1.0).is_err());
+    }
+
+    #[test]
+    fn non_finite_claimed_rate_fails_closed() {
+        assert!(validate_consensus_rate(f64::NAN, 100.0).is_err());
+        assert!(validate_consensus_rate(f64::INFINITY, 100.0).is_err());
+    }
+
 }
