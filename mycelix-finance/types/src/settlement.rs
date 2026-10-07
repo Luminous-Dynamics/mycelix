@@ -15,6 +15,10 @@
 //! ```
 
 use serde::{Deserialize, Serialize};
+
+#[path = "settlement_receipt.rs"]
+pub mod receipt;
+pub use receipt::*;
 use core::fmt;
 
 /// Broad execution model of a settlement rail.
