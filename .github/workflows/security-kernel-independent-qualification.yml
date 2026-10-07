@@ -528,7 +528,7 @@ jobs:
                       step_match = re.fullmatch(r"\s{6}- name: (.+)", line)
                       if step_match:
                           flush()
-                          current = {"name": step_match.group(1), "uses": [], "with": []}
+                          current = {"name": step_match.group(1), "uses": [], "with": [], "keys": {"name"}}
                           in_run_block = False
                           in_with = False
                           continue
@@ -548,6 +548,12 @@ jobs:
                               assert match, f"candidate workflow with-entry malformed: {line!r}"
                               current["with"].append((match.group(1), match.group(2)))
                               continue
+                      if indent == 8:
+                          key_match = re.fullmatch(r"\s{8}([A-Za-z0-9_-]+)\s*:", line)
+                          if key_match:
+                              key = key_match.group(1)
+                              assert key not in current["keys"], f"candidate workflow duplicate step key: {key!r}"
+                              current["keys"].add(key)
                       if re.fullmatch(r"\s{8}run:\s*\|?\s*", line):
                           in_run_block = True
                           continue
@@ -652,6 +658,18 @@ jobs:
                   pass
               else:
                   raise AssertionError("candidate structural with-parser accepted mutated checkout ref")
+
+              mutated_duplicate_step_key = workflow.replace(
+                  "        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n",
+                  "        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n        uses: attacker/example@0123456789012345678901234567890123456789\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_duplicate_step_key)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted duplicate step uses key with conflicting semantics")
 
               mutated_structural_key_spacing = workflow.replace(
                   "\npermissions:",
