@@ -12610,7 +12610,13 @@ mod tests {
             let mut reduced = shrunk.clone();
             reduced.remove(index);
             assert!(
-                !fail    #[test]
+                !fails(&reduced),
+                "shrunk sequence must be irreducible at removal index {index}"
+            );
+        }
+    }
+
+    #[test]
     fn state_machine_trace_capsule_round_trips_and_replays_exactly() {
         let capsule_text = state_machine_trace_capsule(17, 32);
         let capsule =
