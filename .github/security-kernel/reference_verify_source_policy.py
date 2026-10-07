@@ -831,6 +831,52 @@ def main() -> None:
 
     expect_rejection(
         lambda: verify_s2(
+            raw["s2"].replace(
+                f'TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "{s0_sha}"'.encode(),
+                b'TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "' + b"0" * 40 + b'"',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 stale S0 dispatcher trust pin",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                f'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "{s1_sha}"'.encode(),
+                b'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "' + b"0" * 40 + b'"',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 stale S1 qualification trust pin",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                f'SOURCE_POLICY_VERIFIER_BLOB_SHA: "{files["policy"]["sha"]}"'.encode(),
+                b'SOURCE_POLICY_VERIFIER_BLOB_SHA: "' + b"0" * 40 + b'"',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 stale source-policy oracle trust pin",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
             inject_extra_permission_with_blank(raw["s2"]),
             s0_sha,
             s1_sha,
