@@ -1827,7 +1827,12 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
 
     let now = sys_time()?;
 
-    // Step 1: Dissolve MYCEL via recognition zome
+    // Step 1: Dissolve MYCEL via the authoritative recognition zome.
+    //
+    // Only a typed successful unit acknowledgement proves that the MYCEL
+    // dissolution effect executed. A returned zome error must not be
+    // reinterpreted as success, and a missing acknowledgement must abort the
+    // exit before any SAP/TEND side effects occur.
     let mycel_dissolved = match call(
         CallTargetCell::Local,
         ZomeName::from("recognition"),
@@ -1835,13 +1840,26 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
         None,
         input.member_did.clone(),
     ) {
-        Ok(_) => true,
+        Ok(ZomeCallResponse::Ok(extern_io)) => {
+            extern_io.decode::<()>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "MYCEL dissolution acknowledgement was malformed for {}: {:?}",
+                    input.member_did, e
+                )))
+            })?;
+            true
+        }
+        Ok(other) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "MYCEL dissolution authority returned unexpected response for {}: {:?}",
+                input.member_did, other
+            ))));
+        }
         Err(e) => {
-            debug!(
-                "Warning: MYCEL dissolution failed for {}: {:?}",
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "MYCEL dissolution authority unavailable for {}: {:?}",
                 input.member_did, e
-            );
-            false
+            ))));
         }
     };
 
