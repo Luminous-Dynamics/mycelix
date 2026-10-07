@@ -657,7 +657,8 @@ def test_privilege_split_handoff_topology_is_fail_closed() -> None:
     assert "d6u-trusted-input" not in signer
     assert "d6u-trusted-input" not in auditor
     assert "d6u-trusted-auditor-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}" in verifier
-    assert "d6u-trusted-auditor-handoff-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}" in auditor
+    assert 'python3 scripts/integral/fetch_d6u_trusted_artifact.py \\' in auditor
+    assert "--current-run-handoff" in auditor
     assert workflow.count("id-token: write") == 1
     assert workflow.count("attestations: write") == 1
     assert workflow.count("uses: actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2") == 1
