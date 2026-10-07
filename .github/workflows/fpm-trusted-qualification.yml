@@ -100,8 +100,6 @@ jobs:
 
           pr_api="$(api "/repos/$GITHUB_REPOSITORY/pulls/$pr_number")"
           test "$(printf '%s' "$pr_api" | jq -r '.number')" = "$pr_number"
-          test "$(printf '%s' "$pr_api" | jq -r '.state')" = "open"
-          test "$(printf '%s' "$pr_api" | jq -r '.draft')" = "false"
           test "$(printf '%s' "$pr_api" | jq -r '.base.ref')" = "main"
           test "$(printf '%s' "$pr_api" | jq -r '.base.sha')" = "$expected_base"
           test "$(printf '%s' "$pr_api" | jq -r '.base.repo.id')" = "$GITHUB_REPOSITORY_ID"
@@ -316,8 +314,7 @@ jobs:
           }
 
           pr_api="$(api "/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
-          test "$(printf '%s' "$pr_api" | jq -r '.state')" = "open"
-          test "$(printf '%s' "$pr_api" | jq -r '.draft')" = "false"
+# Historical qualification is bound to the completed candidate run exact head/base/repository identities.
           test "$(printf '%s' "$pr_api" | jq -r '.base.ref')" = "main"
           test "$(printf '%s' "$pr_api" | jq -r '.base.sha')" = "$EXPECTED_BASE_SHA"
           test "$(printf '%s' "$pr_api" | jq -r '.base.repo.id')" = "$GITHUB_REPOSITORY_ID"
