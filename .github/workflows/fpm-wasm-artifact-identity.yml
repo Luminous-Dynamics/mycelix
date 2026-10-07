@@ -52,6 +52,8 @@ jobs:
           set -eu
           test ! -e .cargo/config.toml
           test ! -e .cargo/config
+          test ! -e crates/fpm-wasm-artifact-identity/.cargo/config.toml
+          test ! -e crates/fpm-wasm-artifact-identity/.cargo/config
           actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
           test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
           grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
