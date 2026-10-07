@@ -241,6 +241,15 @@ def main() -> None:
         subprocess.run(["git", "checkout", "--", "."], cwd=tmp, check=True)
 
         replace_file(
+            tmp / "docs/qualification/fixtures/formal/sovereignty_reference_explorer.py",
+            lambda value: value + "\n# hostile mutation\n",
+        )
+        assert_reject(tmp, "mutated detached reference oracle", lambda out: "reference oracle fixture blob mismatch" in out)
+
+        shutil.rmtree(evidence_dir, ignore_errors=True)
+        subprocess.run(["git", "checkout", "--", "."], cwd=tmp, check=True)
+
+        replace_file(
             tmp / ".github/workflows/sovereignty-formal-qualification.yml",
             lambda value: value.replace("actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
                                          "actions/checkout@0000000000000000000000000000000000000000"),
