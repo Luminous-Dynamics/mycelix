@@ -39,7 +39,7 @@ jobs:
         run: cargo fmt --check
 
       - name: Cargo test
-        run: cargo test --locked
+        run: cargo test
 
       - name: Pin substrate versions
         run: |
