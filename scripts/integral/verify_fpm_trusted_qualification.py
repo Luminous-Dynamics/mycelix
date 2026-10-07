@@ -82,7 +82,7 @@ INDEX_KEYS = frozenset(
 INDEX_ARTIFACT_KEYS = frozenset(
     {
         "id",
-        "sha256",
+        "sha256_hex",
         "url",
         "retention_days",
         "immutable_after_upload",
@@ -359,8 +359,8 @@ def verify_index(
         fail("invalid index artifact ID")
     if artifact_id != primary_artifact["id"]:
         fail("index artifact ID mismatch")
-    artifact_digest = require_sha256_prefixed(artifact["sha256"], "index artifact sha256")
-    if artifact_digest != primary_artifact["digest"]:
+    artifact_digest = require_sha256(artifact["sha256_hex"], "index artifact sha256_hex")
+    if f"sha256:{artifact_digest}" != primary_artifact["digest"]:
         fail("index artifact digest mismatch")
     if not isinstance(artifact["url"], str) or not artifact["url"].startswith(
         f"https://github.com/{BASE_REPOSITORY}/actions/runs/{trusted_run_id}/artifacts/"
