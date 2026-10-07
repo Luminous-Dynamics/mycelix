@@ -553,36 +553,56 @@ jobs:
         id: snapshot_source
         env:
           CANDIDATE_ROOT: ${{ env.CANDIDATE_ROOT }}
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$CANDIDATE_ROOT" <<'PY' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"
+          candidate_volume_spec_snapshot="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$CANDIDATE_VOLUME_NAME")"
+          test "$candidate_volume_spec_snapshot" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
+          candidate_volume_mountpoint_snapshot="$(docker volume inspect --format '{{.Mountpoint}}' "$CANDIDATE_VOLUME_NAME")"
+          test -d "$candidate_volume_mountpoint_snapshot"
+          python3 - "$CANDIDATE_ROOT" "$candidate_volume_mountpoint_snapshot" <<'PY' > "$RUNNER_TEMP/security-kernel-source-snapshot.txt"
           import hashlib, pathlib, stat, sys
-          root=pathlib.Path(sys.argv[1])
-          digest=hashlib.sha256()
-          for path in sorted(root.rglob("*")):
-              rel=path.relative_to(root)
-              mode=path.lstat().st_mode
-              if stat.S_ISLNK(mode):
-                  raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
-              if path.is_dir():
-                  continue
-              if not stat.S_ISREG(mode):
-                  raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
-              relative = rel.as_posix().encode()
-              content = path.read_bytes()
-              mode_bits = stat.S_IMODE(mode)
-              digest.update(mode_bits.to_bytes(4, "big"))
-              digest.update(len(relative).to_bytes(8, "big"))
-              digest.update(relative)
-              digest.update(len(content).to_bytes(8, "big"))
-              digest.update(content)
-          print(digest.hexdigest())
+
+          def digest_root(root: pathlib.Path) -> str:
+              digest=hashlib.sha256()
+              for path in sorted(root.rglob("*")):
+                  rel=path.relative_to(root)
+                  mode=path.lstat().st_mode
+                  if stat.S_ISLNK(mode):
+                      raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
+                  if path.is_dir():
+                      continue
+                  if not stat.S_ISREG(mode):
+                      raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
+                  relative=rel.as_posix().encode()
+                  content=path.read_bytes()
+                  mode_bits=stat.S_IMODE(mode)
+                  digest.update(mode_bits.to_bytes(4,"big"))
+                  digest.update(len(relative).to_bytes(8,"big"))
+                  digest.update(relative)
+                  digest.update(len(content).to_bytes(8,"big"))
+                  digest.update(content)
+              return digest.hexdigest()
+
+          staging=digest_root(pathlib.Path(sys.argv[1]))
+          executed=digest_root(pathlib.Path(sys.argv[2]))
+          if staging != executed:
+              raise SystemExit(f"staged candidate source differs from executed source volume: {staging} != {executed}")
+          print(f"source_staging_digest={staging}")
+          print(f"executed_source_digest={executed}")
+          print(f"source_digest={staging}")
           PY
-          source_digest="$(cat "$RUNNER_TEMP/security-kernel-source-snapshot.txt")"
-          test "${#source_digest}" -eq 64
-          printf 'source_digest=%s\n' "$source_digest" >> "$GITHUB_OUTPUT"
-          echo "PASS: exact candidate source digest captured before dependency acquisition and candidate execution"
+          source_staging_digest="$(sed -n 's/^source_staging_digest=//p' "$RUNNER_TEMP/security-kernel-source-snapshot.txt")"
+          executed_source_digest="$(sed -n 's/^executed_source_digest=//p' "$RUNNER_TEMP/security-kernel-source-snapshot.txt")"
+          source_digest="$(sed -n 's/^source_digest=//p' "$RUNNER_TEMP/security-kernel-source-snapshot.txt")"
+          for value in "$source_staging_digest" "$executed_source_digest" "$source_digest"; do
+            printf "%s" "$value" | grep -Eq '^[0-9a-f]{64}$'
+          done
+          test "$source_staging_digest" = "$executed_source_digest"
+          test "$source_digest" = "$executed_source_digest"
+          printf 'source_digest=%s\nsource_staging_digest=%s\nexecuted_source_digest=%s\n' "$source_digest" "$source_staging_digest" "$executed_source_digest" >> "$GITHUB_OUTPUT"
+          echo "PASS: static-audit staging source and executed bounded source volume have identical cryptographic identity"
       - name: Snapshot locked dependency identity
         id: locked_dependency_identity
         env:
@@ -1075,7 +1095,7 @@ jobs:
       - name: Verify candidate source immutability
         env:
           CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
-          EXPECTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
+          EXPECTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.executed_source_digest }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1235,6 +1255,8 @@ jobs:
           SOURCE_COPY_FILES: ${{ steps.resolve_source.outputs.source_copy_files }}
           SOURCE_COPY_INODES: ${{ steps.resolve_source.outputs.source_copy_inodes }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
+          SOURCE_STAGING_DIGEST: ${{ steps.snapshot_source.outputs.source_staging_digest }}
+          EXECUTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.executed_source_digest }}
           LOCK_PACKAGE_COUNT: ${{ steps.locked_dependency_identity.outputs.lock_package_count }}
           LOCK_DEPENDENCY_EDGES: ${{ steps.locked_dependency_identity.outputs.lock_dependency_edges }}
           VENDOR_RESOURCE_PROFILE: ${{ env.VENDOR_RESOURCE_PROFILE }}
@@ -1271,6 +1293,8 @@ jobs:
             echo "candidate_source_total_bytes=$SOURCE_TOTAL_BYTES"
             echo "candidate_source_max_blob_bytes=$SOURCE_MAX_BLOB_BYTES"
             echo "candidate_source_digest=$SOURCE_DIGEST"
+            echo "source_staging_digest=$SOURCE_STAGING_DIGEST"
+            echo "executed_source_digest=$EXECUTED_SOURCE_DIGEST"
             echo "source_resource_profile=$SOURCE_RESOURCE_PROFILE"
             echo "source_max_bytes=$SOURCE_MAX_BYTES"
             echo "source_max_inodes=$SOURCE_MAX_INODES"
