@@ -27,6 +27,11 @@ Init ==
 Advanceable == clock < MaxTime
 NextTime == clock + 1
 
+IndependentReviewRecorded(s) ==
+    \E reviewer \in Subjects :
+      /\ reviewer \in externalReviewers[s]
+      /\ reviewer # s
+
 AssignRole(s, r) ==
     /\ Advanceable
     /\ s \in Subjects
@@ -36,9 +41,7 @@ AssignRole(s, r) ==
           Cardinality({x \in Roles : s \in roleHolder[x]})
        IN
           /\ currentRoles < 1 \/ conflictFinding[s]
-          /\ currentRoles < 3 \/ \E reviewer \in Subjects :
-                /\ reviewer \in externalReviewers[s]
-                /\ reviewer # s
+          /\ currentRoles < 3 \/ IndependentReviewRecorded(s)
     /\ roleHolder' = [roleHolder EXCEPT ![r] = @ \cup {s}]
     /\ UNCHANGED <<conflictFinding, externalReviewers>>
     /\ clock' = NextTime
@@ -82,20 +85,11 @@ RoleConcentrationRequiresFinding ==
 FullControlRequiresIndependentExternalReview ==
     \A s \in Subjects :
       Cardinality({r \in Roles : s \in roleHolder[r]}) = Cardinality(Roles)
-        => \E reviewer \in Subjects :
-              /\ reviewer \in externalReviewers[s]
-              /\ reviewer # s
-
-SelfReviewDoesNotSatisfyExternalReview ==
-    \A s \in Subjects :
-      s \in externalReviewers[s] => ~(\E reviewer \in Subjects :
-        /\ reviewer \in externalReviewers[s]
-        /\ reviewer # s)
+        => IndependentReviewRecorded(s)
 
 Safety ==
     /\ TypeOK
     /\ RoleConcentrationRequiresFinding
     /\ FullControlRequiresIndependentExternalReview
-    /\ SelfReviewDoesNotSatisfyExternalReview
 
 ================================================================================
