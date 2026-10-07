@@ -301,11 +301,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::ExitRecord(exit) => {
                     validate_create_exit_record(EntryCreationAction::Create(action), exit)
                 }
-                EntryTypes::SapBalance(bal) => validate_update_sap_balance(action, bal),
+                EntryTypes::SapBalance(bal) => validate_sap_balance(&bal),
                 EntryTypes::SapMintRecord(mint) => validate_create_sap_mint_record(&mint),
-                EntryTypes::HearthSapPool(pool) => validate_update_hearth_sap_pool(action, pool),
+                EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
                 EntryTypes::SapMintCapCounterEntry(counter) => {
-                    validate_update_sap_mint_cap_counter(action, counter)
+                    validate_sap_mint_cap_counter(&counter)
                 }
             },
             OpEntry::UpdateEntry {
@@ -322,16 +322,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::ExitRecord(_) => Ok(ValidateCallbackResult::Invalid(
                         "Exit records cannot be updated".into(),
                     )),
-                    EntryTypes::SapBalance(bal) => validate_sap_balance(&bal),
+                    EntryTypes::SapBalance(bal) => validate_update_sap_balance(action, bal),
                     EntryTypes::SapMintRecord(_) => {
                         // Mint records are immutable
                         Ok(ValidateCallbackResult::Invalid(
                             "SAP mint records cannot be updated".into(),
                         ))
                     }
-                    EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
+                    EntryTypes::HearthSapPool(pool) => validate_update_hearth_sap_pool(action, pool),
                     EntryTypes::SapMintCapCounterEntry(counter) => {
-                        validate_sap_mint_cap_counter(&counter)
+                        validate_update_sap_mint_cap_counter(action, counter)
                     }
                 }
             }
