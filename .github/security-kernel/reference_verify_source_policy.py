@@ -667,6 +667,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
     if "QUALIFICATION_RECEIPT_MAX_BYTES" not in joined:
         fail("S1 qualification receipt sink ceiling missing")
+    if 'subprocess.run(["bash","-n"], input=script, text=True, capture_output=True)' not in joined:
+        fail("S1 must syntax-check every run block with bash -n")
     if joined.count("printf 'executed_source_digest=%s\\n' \"$executed_source_digest\"") != 1:
         fail("S1 executed source digest output must have exactly one writer")
     if 'test "$receipt_bytes" -le "$QUALIFICATION_RECEIPT_MAX_BYTES"' not in joined:
@@ -780,6 +782,10 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         'assert parsed_download_url.port in (None, 443)',
         'unexpected second HTTP redirect/status',
         'infos = archive.infolist()',
+        'assert 0 < artifact_size <= 16 * 1024, "qualification receipt artifact advertised size exceeds the 16 KiB verifier bound"',
+        "artifact_bytes = response.read(16 * 1024 + 1)",
+        "file_size <= 16 * 1024",
+        "compress_size <= 16 * 1024",
         'artifact_size <= 65536',
         'downloaded = response.read(65536 + 1)',
         'file_size <= 1024 * 1024',
@@ -1091,6 +1097,17 @@ def main() -> None:
         "duplicate executed source digest output",
     )
         expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'subprocess.run(["bash","-n"], input=script, text=True, capture_output=True)',
+                b'subprocess.run(["true"], input=script, text=True, capture_output=True)',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 bash syntax audit removed",
+    )
+    expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
         "negative-control transcript capture ceiling weakened",
     )
