@@ -134,6 +134,10 @@ def validate_policy(policy: Any) -> None:
         observation_contract.get("effective_rule_provenance_must_be_bound") is True,
         "effective rule provenance contract drift",
     )
+    require(
+        observation_contract.get("effective_rule_definition_must_match_observed_ruleset") is True,
+        "effective rule definition contract drift",
+    )
 
     fail_closed = policy.get("fail_closed")
     require(isinstance(fail_closed, dict), "fail_closed missing")
@@ -963,6 +967,7 @@ def fixture_policy() -> dict[str, Any]:
             "repository_subject_identity_must_be_bound": True,
             "ruleset_source_scope_must_be_validated": True,
             "effective_rule_provenance_must_be_bound": True,
+            "effective_rule_definition_must_match_observed_ruleset": True,
         },
         "fail_closed": {
             "contradiction_dominates_secondary_observation_unavailability": True,
