@@ -61,6 +61,9 @@ jobs:
               "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
           }
           assert "permissions: {}" in text
+          assert "concurrency:" in text
+          assert "cancel-in-progress: true" in text
+          assert "repository-governance-predicate-${{ github.event.pull_request.number || github.ref }}" in text
           assert "persist-credentials: false" in text
           PY
 
