@@ -420,7 +420,8 @@ jobs:
           assert artifact.get("workflow_run", {}).get("id") == int(run_id), (
               "qualification receipt artifact is not bound to the exact trusted dispatcher run"
           )
-          assert int(artifact.get("size_in_bytes", 0)) > 0, "qualification receipt artifact is empty"
+          artifact_size = int(artifact.get("size_in_bytes", 0))
+          assert 0 < artifact_size <= 16 * 1024, "qualification receipt artifact advertised size exceeds the 16 KiB verifier bound"
           artifact_digest = artifact.get("digest")
           assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest or ""), (
               f"unexpected qualification receipt artifact digest: {artifact_digest!r}"
