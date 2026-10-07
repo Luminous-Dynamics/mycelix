@@ -21,7 +21,7 @@ env:
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
   TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "4fd4570f9fbfe7da92a07642a42250d8718fad53"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "799a7149fad582be151a27f0d0980770bc93d4bd"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "66b8ae69d4ebf3dbe4ffc5dbe432a5278cb64722"
   RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
   RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"
   EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
@@ -507,6 +507,9 @@ jobs:
               "source_volume_name","source_volume_spec","source_copy_bytes","source_copy_files","source_copy_inodes",
               "candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
               "vendor_resource_profile","vendor_max_bytes","vendor_max_files","vendor_max_inodes",
+              "vendor_tmpfs_size","vendor_tmpfs_nr_inodes","vendor_config_resource_profile","vendor_config_max_bytes","vendor_config_max_inodes",
+              "vendor_config_tmpfs_size","vendor_config_tmpfs_nr_inodes","vendor_config_volume_name","vendor_config_volume_spec",
+              "vendor_config_observed_bytes","vendor_config_observed_inodes","vendor_config_digest",
               "vendor_tmpfs_size","vendor_tmpfs_nr_inodes","vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","vendor_resource_measurement","vendor_digest",
               "sandbox_negative_controls","sandbox_negative_controls_log_sha256","dependency_substrate_postflight",
               "git_fetch_image","sandbox_image","sandbox_network","sandbox_rootfs","sandbox_user",
@@ -549,6 +552,11 @@ jobs:
               "vendor_max_inodes": "150000",
               "vendor_tmpfs_size": "1024m",
               "vendor_tmpfs_nr_inodes": "150000",
+              "vendor_config_resource_profile": "v1",
+              "vendor_config_max_bytes": "16777216",
+              "vendor_config_max_inodes": "64",
+              "vendor_config_tmpfs_size": "16m",
+              "vendor_config_tmpfs_nr_inodes": "64",
               "vendor_resource_measurement": "bounded-pass",
               "sandbox_negative_controls": "passed",
               "dependency_substrate_postflight": "passed",
@@ -617,7 +625,7 @@ jobs:
               )
           print(f"PASS: final retained-evidence binding SHA-256={evidence_binding_digest}")
 
-          for key in ("candidate_cargo_lock_sha256", "candidate_source_digest", "source_staging_digest", "executed_source_digest", "vendor_digest", "sandbox_negative_controls_log_sha256"):
+          for key in ("candidate_cargo_lock_sha256", "candidate_source_digest", "source_staging_digest", "executed_source_digest", "vendor_digest", "vendor_config_digest", "sandbox_negative_controls_log_sha256"):
               assert re.fullmatch(r"[0-9a-f]{64}", receipt.get(key, "")), (
                   f"qualification receipt field {key!r} is not a SHA-256 digest"
               )
@@ -629,7 +637,7 @@ jobs:
               "candidate_source_tree_entry_count","candidate_source_file_count","candidate_source_total_path_bytes",
               "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
               "source_max_bytes","source_max_inodes","source_copy_bytes","source_copy_files","source_copy_inodes",
-              "vendor_max_bytes","vendor_max_files","vendor_max_inodes","vendor_tmpfs_nr_inodes",
+              "vendor_max_bytes","vendor_max_files","vendor_max_inodes","vendor_tmpfs_nr_inodes","vendor_config_max_bytes","vendor_config_max_inodes","vendor_config_tmpfs_nr_inodes","vendor_config_observed_bytes","vendor_config_observed_inodes",
               "vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","s1_run_id","s1_run_attempt",
           ):
               assert re.fullmatch(r"[0-9]+", receipt.get(key, "")), (
@@ -646,6 +654,16 @@ jobs:
           assert 0 < int(receipt["source_copy_files"]) <= 200000
           assert 0 < int(receipt["source_copy_inodes"]) <= int(receipt["source_max_inodes"])
           assert receipt["vendor_resource_profile"] == "v2"
+          assert receipt["vendor_config_resource_profile"] == "v1"
+          assert receipt["vendor_config_max_bytes"] == "16777216"
+          assert receipt["vendor_config_max_inodes"] == "64"
+          assert receipt["vendor_config_tmpfs_size"] == "16m"
+          assert receipt["vendor_config_tmpfs_nr_inodes"] == "64"
+          expected_vendor_config_volume_name = f"security-kernel-vendor-config-{run_id}-{run_attempt}"
+          assert receipt["vendor_config_volume_name"] == expected_vendor_config_volume_name, "vendor-config volume name is not bound to exact S1 run identity"
+          assert receipt["vendor_config_volume_spec"] == "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=16m,nr_inodes=64"
+          assert 0 < int(receipt["vendor_config_observed_bytes"]) <= int(receipt["vendor_config_max_bytes"])
+          assert 0 < int(receipt["vendor_config_observed_inodes"]) <= int(receipt["vendor_config_max_inodes"])
           assert receipt["vendor_max_bytes"] == "1073741824"
           assert receipt["vendor_max_files"] == "100000"
           assert receipt["vendor_max_inodes"] == "150000"
@@ -655,6 +673,7 @@ jobs:
           assert 0 < int(receipt["vendor_observed_bytes"]) <= int(receipt["vendor_max_bytes"])
           assert 0 < int(receipt["vendor_observed_files"]) <= int(receipt["vendor_max_files"])
           assert 0 < int(receipt["vendor_observed_inodes"]) <= int(receipt["vendor_max_inodes"])
+          assert re.fullmatch(r"[0-9a-f]{64}", receipt["vendor_config_digest"])
 
           assert receipt["source_event"] == "pull_request_target"
           assert receipt["trusted_dispatcher_workflow"] == run["workflow_ref"]
