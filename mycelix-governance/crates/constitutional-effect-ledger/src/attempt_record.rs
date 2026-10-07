@@ -546,6 +546,7 @@ pub enum ActionFenceMutationError {
     NotOccupied,
     AlreadyClosed,
     InvalidTransition,
+    TerminalEvidenceMismatch,
 }
 
 /// Durable-store contract for the same-action fence.
@@ -1010,7 +1011,7 @@ impl AtomicActionFenceModelV1 {
             || terminal_evidence.action_key_digest() != action_key.digest()
             || terminal_evidence.attempt_identity() != attempt_identity.digest()
         {
-            return Err(ActionFenceMutationError::NotOwner);
+            return Err(ActionFenceMutationError::TerminalEvidenceMismatch);
         }
 
         let fence = self
@@ -1227,7 +1228,7 @@ mod tests {
         AttemptRecordV1::new(
             &attempt(id),
             operation,
-            "native-replay-1",
+            format!("native-replay-{operation}"),
             key.material_action_digest(),
             &key,
             Some("provider-seed-1".into()),
@@ -1248,7 +1249,7 @@ mod tests {
         let record = AttemptRecordV1::new(
             &owner,
             "operation-1",
-            "native-replay-1",
+            "native-replay-constructor-test",
             key.material_action_digest(),
             &key,
             None,
@@ -1295,6 +1296,7 @@ mod tests {
             .unwrap();
 
         let mut second = record("attempt-2", "operation-2", AttemptRecordState::Consumed);
+        second.native_replay_identity = "native-replay-operation-1".into();
         second.action_key_digest = key.digest().into();
         assert!(matches!(
             model.admit(&key, &attempt("attempt-2"), second).unwrap(),
@@ -1633,7 +1635,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            model.close_executed(&key(), &second_attempt, "owner-token-attempt-2"),
+            model.close_executed(
+                &key(),
+                &second_attempt,
+                "owner-token-attempt-2",
+                &terminal_evidence(TerminalOutcomeV1::Executed, "attempt-2"),
+            ),
             Err(ActionFenceMutationError::NotOwner)
         );
         assert_eq!(
@@ -1811,7 +1818,7 @@ mod tests {
                 "owner-token-attempt-1",
                 &failed_proof,
             ),
-            Err(ActionFenceMutationError::NotOwner)
+            Err(ActionFenceMutationError::TerminalEvidenceMismatch)
         );
         assert!(model.fence(key().digest()).is_some());
     }
