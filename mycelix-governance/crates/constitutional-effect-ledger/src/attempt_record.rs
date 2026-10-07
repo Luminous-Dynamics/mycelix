@@ -180,6 +180,8 @@ impl TerminalEvidenceV1 {
         &self.verifier_identity
     }
 
+    /// The verifier identity participates in this digest as provenance. Its
+    /// authenticity/authorization is a deployment concern outside this pure type.
     pub fn digest(&self) -> &str {
         &self.digest
     }
@@ -432,6 +434,8 @@ impl AttemptRecordV1 {
         Ok(())
     }
 
+    /// Digest of the complete durable projection. This is record integrity, not
+    /// semantic action identity: `operation_id` is intentionally included here.
     pub fn record_digest(&self) -> String {
         let mut hasher = blake3::Hasher::new();
         hasher.update(ATTEMPT_RECORD_DOMAIN);
@@ -607,14 +611,6 @@ pub trait DurableActionFenceStore {
     ) -> Result<(), ActionFenceMutationError>;
 }
 
-/// Reference model for the required atomic admission transition.
-///
-/// The method admit is deliberately one mutation over the combined durable
-/// state model: either the attempt record and action fence are both installed,
-/// or neither changes. This demonstrates the conflict theorem without claiming
-/// that the in-memory map itself provides crash durability.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-
 /// Durable binding for one native replay identity.
 ///
 /// The binding is intentionally separate from ActionKeyV1 and AttemptIdentityV1.
@@ -663,6 +659,12 @@ impl NativeReplayBindingV1 {
     }
 }
 
+/// Reference model for the required atomic admission transition.
+///
+/// The method `admit` is deliberately one mutation over the combined durable
+/// state model: either the replay binding, attempt record, and action fence are
+/// all installed, or neither changes. This demonstrates the conflict theorem
+/// without claiming that the in-memory map itself provides crash durability.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AtomicActionFenceModelV1 {
     attempts: BTreeMap<String, AttemptRecordV1>,
@@ -681,6 +683,7 @@ impl AtomicActionFenceModelV1 {
         attempt_identity: &AttemptIdentityV1,
         record: AttemptRecordV1,
     ) -> Result<AtomicAdmissionDecision, String> {
+        self.validate_invariants()?;
         record.validate()?;
 
         if record.action_key_digest != action_key.digest() {
@@ -780,6 +783,10 @@ impl AtomicActionFenceModelV1 {
 
     pub fn attempt(&self, attempt_identity: &str) -> Option<&AttemptRecordV1> {
         self.attempts.get(attempt_identity)
+    }
+
+    pub fn replay_binding(&self, native_replay_identity: &str) -> Option<&NativeReplayBindingV1> {
+        self.replay_bindings.get(native_replay_identity)
     }
 
     pub fn release_after_failed(
