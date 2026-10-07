@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+import tomllib
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -20,6 +21,26 @@ ROOT = Path(__file__).parents[2]
 POLICY = ROOT / "docs/integral/d6u-trusted-builder-policy.json"
 
 MAX_GITHUB_JSON_BYTES = 8 * 1024 * 1024
+LOCK_PACKAGE_VERSION_PATTERN = re.compile(
+    r"^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+)
+
+
+class NoAuthorizationRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Never forward the GitHub Actions bearer token across a redirect."""
+
+    def redirect_request(self, req, fp, code, msg, hdrs, newurl):
+        redirected = super().redirect_request(req, fp, code, msg, hdrs, newurl)
+        if redirected is not None:
+            parsed = urllib.parse.urlsplit(newurl)
+            assert parsed.scheme == "https", (
+                "trusted GitHub API redirect must remain on HTTPS"
+            )
+            assert parsed.username is None and parsed.password is None, (
+                "trusted GitHub API redirect must not introduce URL credentials"
+            )
+            redirected.remove_header("Authorization")
+        return redirected
 
 
 def github_get(repo: str, api_path: str, token: str) -> dict:
@@ -33,7 +54,8 @@ def github_get(repo: str, api_path: str, token: str) -> dict:
             "User-Agent": "mycelix-d6u-trusted-builder",
         },
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    opener = urllib.request.build_opener(NoAuthorizationRedirectHandler())
+    with opener.open(request, timeout=30) as response:
         payload = response.read(MAX_GITHUB_JSON_BYTES + 1)
         if len(payload) > MAX_GITHUB_JSON_BYTES:
             raise RuntimeError(
@@ -448,6 +470,172 @@ def verify_cases(log: str, policy: dict) -> None:
     assert len(app) == 1
 
 
+def _git_blob_sha1(content: bytes) -> str:
+    header = f"blob {len(content)}\\0".encode("utf-8")
+    return hashlib.sha1(header + content).hexdigest()
+
+
+def _manifest_dependency_names(manifest: dict) -> set[str]:
+    names: set[str] = set()
+
+    def consume(table: object) -> None:
+        assert isinstance(table, dict)
+        for alias, specification in table.items():
+            assert isinstance(alias, str) and alias
+            if isinstance(specification, dict):
+                package_name = specification.get("package", alias)
+                assert isinstance(package_name, str) and package_name
+            else:
+                package_name = alias
+            names.add(package_name)
+
+    for section in ("dependencies", "dev-dependencies", "build-dependencies"):
+        if section in manifest:
+            consume(manifest[section])
+
+    targets = manifest.get("target", {})
+    if targets:
+        assert isinstance(targets, dict)
+        for target in targets.values():
+            assert isinstance(target, dict)
+            for section in ("dependencies", "dev-dependencies", "build-dependencies"):
+                if section in target:
+                    consume(target[section])
+
+    return names
+
+
+def _parse_lock_dependency(reference: str) -> tuple[str, str | None, str | None]:
+    assert isinstance(reference, str) and reference
+    value = reference.strip()
+    source: str | None = None
+    if value.endswith(")") and " (" in value:
+        value, source_with_paren = value.rsplit(" (", 1)
+        source = source_with_paren[:-1]
+        assert source
+    parts = value.rsplit(" ", 1)
+    if len(parts) == 2 and LOCK_PACKAGE_VERSION_PATTERN.fullmatch(parts[1]):
+        return parts[0], parts[1], source
+    assert " " not in value, f"malformed Cargo.lock dependency reference: {reference!r}"
+    return value, None, source
+
+
+def _resolve_lock_dependency(
+    reference: str,
+    packages_by_name: dict[str, list[tuple[str, str, str | None]]],
+) -> tuple[str, str, str | None]:
+    name, version, source = _parse_lock_dependency(reference)
+    candidates = packages_by_name.get(name, [])
+    if version is not None:
+        candidates = [candidate for candidate in candidates if candidate[1] == version]
+    if source is not None:
+        candidates = [candidate for candidate in candidates if candidate[2] == source]
+    assert len(candidates) == 1, (
+        f"Cargo.lock dependency reference is missing or ambiguous: "
+        f"reference={reference!r}, candidates={candidates!r}"
+    )
+    return candidates[0]
+
+
+def verify_lock_graph_against_manifest(
+    lock: dict,
+    manifest: dict,
+    policy: dict,
+) -> None:
+    graph_policy = policy["lock_graph"]
+    packages = lock["package"]
+    local_packages = set(graph_policy["allowed_local_packages"])
+    local_nodes = [
+        package
+        for package in packages
+        if package.get("source") is None
+    ]
+    assert local_nodes == [
+        package
+        for package in packages
+        if package.get("name") in local_packages
+    ], "Cargo.lock local-package surface does not match policy"
+    assert len(local_nodes) == 1, (
+        f"Cargo.lock must contain exactly one local root package, observed {len(local_nodes)}"
+    )
+
+    manifest_package = manifest.get("package")
+    assert isinstance(manifest_package, dict), "trusted Cargo.toml must define [package]"
+    root = local_nodes[0]
+    assert root.get("name") == manifest_package.get("name"), (
+        "Cargo.lock root package name does not match the trusted Cargo.toml package name"
+    )
+    assert root.get("version") == manifest_package.get("version"), (
+        "Cargo.lock root package version does not match the trusted Cargo.toml package version"
+    )
+
+    expected_direct = _manifest_dependency_names(manifest)
+    root_dependencies = root.get("dependencies", [])
+    assert isinstance(root_dependencies, list)
+    observed_direct: set[str] = set()
+    seen_direct: set[str] = set()
+    packages_by_name: dict[str, list[tuple[str, str, str | None]]] = {}
+    identity_set: set[tuple[str, str, str | None]] = set()
+
+    for package in packages:
+        identity = (
+            package["name"],
+            package["version"],
+            package.get("source"),
+        )
+        assert identity not in identity_set, f"duplicate Cargo.lock package identity: {identity!r}"
+        identity_set.add(identity)
+        packages_by_name.setdefault(identity[0], []).append(identity)
+
+    for reference in root_dependencies:
+        name, _, _ = _parse_lock_dependency(reference)
+        assert name not in seen_direct, (
+            f"duplicate direct dependency reference in Cargo.lock root: {reference!r}"
+        )
+        seen_direct.add(name)
+        observed_direct.add(name)
+        _resolve_lock_dependency(reference, packages_by_name)
+
+    assert observed_direct == expected_direct, (
+        f"Cargo.lock root dependencies do not match trusted Cargo.toml: "
+        f"expected={sorted(expected_direct)!r}, observed={sorted(observed_direct)!r}"
+    )
+
+    adjacency: dict[tuple[str, str, str | None], set[tuple[str, str, str | None]]] = {}
+    for package in packages:
+        identity = (package["name"], package["version"], package.get("source"))
+        references = package.get("dependencies", [])
+        assert isinstance(references, list)
+        edges: set[tuple[str, str, str | None]] = set()
+        for reference in references:
+            resolved = _resolve_lock_dependency(reference, packages_by_name)
+            assert resolved not in edges, (
+                f"duplicate Cargo.lock dependency edge: "
+                f"package={identity!r}, reference={reference!r}"
+            )
+            edges.add(resolved)
+        adjacency[identity] = edges
+
+    root_identity = (
+        root["name"],
+        root["version"],
+        root.get("source"),
+    )
+    reachable: set[tuple[str, str, str | None]] = set()
+    pending = [root_identity]
+    while pending:
+        current = pending.pop()
+        if current in reachable:
+            continue
+        reachable.add(current)
+        pending.extend(sorted(adjacency[current] - reachable))
+
+    assert reachable == identity_set, (
+        f"Cargo.lock contains unreachable package nodes: "
+        f"{sorted(identity_set - reachable)!r}"
+    )
+
+
 def verify_lock_graph_integrity(lock: dict, policy: dict) -> None:
     packages = lock.get("package", [])
     assert isinstance(packages, list) and packages
@@ -485,11 +673,20 @@ def verify_lock_graph_integrity(lock: dict, policy: dict) -> None:
     )
 
 
-def verify_lock(path: Path, policy: dict) -> None:
-    import tomllib
-
+def verify_lock(
+    path: Path,
+    policy: dict,
+    trusted_manifest: dict | None = None,
+) -> None:
     lock = tomllib.loads(path.read_text(encoding="utf-8"))
+    expected_format_version = int(policy["lock_graph"]["lockfile_format_version"])
+    assert lock.get("version") == expected_format_version, (
+        f"Cargo.lock format version mismatch: "
+        f"expected={expected_format_version}, observed={lock.get('version')!r}"
+    )
     verify_lock_graph_integrity(lock, policy)
+    if trusted_manifest is not None:
+        verify_lock_graph_against_manifest(lock, trusted_manifest, policy)
     packages = lock.get("package", [])
     for name, version in policy["lock_packages"].items():
         matches = [p for p in packages if p.get("name") == name]
@@ -572,7 +769,20 @@ def main() -> None:
     assert record["cargo_lock_sha256"] == sha256(lockfile)
 
     verify_cases(test_log.read_text(encoding="utf-8"), policy)
-    verify_lock(lockfile, policy)
+    trusted_manifest_bytes = contents_bytes_from_api(
+        repo,
+        policy["lock_graph"]["manifest_path"],
+        record["source_commit"],
+        token,
+    )
+    expected_manifest_blob = policy["required_source_blobs"][
+        policy["lock_graph"]["manifest_path"]
+    ]
+    assert _git_blob_sha1(trusted_manifest_bytes) == expected_manifest_blob, (
+        "trusted Cargo.toml bytes do not match the policy-pinned Git blob"
+    )
+    trusted_manifest = tomllib.loads(trusted_manifest_bytes.decode("utf-8"))
+    verify_lock(lockfile, policy, trusted_manifest)
 
     d6s1 = contents_bytes_from_api(
         repo,
