@@ -117,6 +117,7 @@ jobs:
           set -euo pipefail
           probe='mycelix-manufacturing/crates/cos_conformance/tests/__cos_exact_external_probe.rs'
           rm -f "$probe"
+          trap 'rm -f "$probe"' EXIT
           cat > "$probe" <<'EOF'
           use cos_conformance::federation::{
               state_machine_trace_external_evidence_anchor_reference,
@@ -225,8 +226,9 @@ jobs:
               assert!(decoded.is_err(), "wire boundary must reject malformed or unknown statement fields");
           }
           EOF
+          probe_sha256="$(sha256sum "$probe" | cut -d' ' -f1)"
+          echo "PROBE_SHA256=$probe_sha256" >> "$GITHUB_ENV"
           cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance --test __cos_exact_external_probe
-          rm -f "$probe"
 
       - name: Enforce exact external-verification boundary
         id: boundary
@@ -389,6 +391,7 @@ jobs:
             "test_conclusion": "${{ steps.test.conclusion }}",
             "clippy_conclusion": "${{ steps.clippy.conclusion }}",
             "independent_probe_conclusion": "${{ steps.probe.conclusion }}",
+            "independent_probe_sha256": "${PROBE_SHA256:-}",
             "boundary_conclusion": "${{ steps.boundary.conclusion }}",
             "base_guard_conclusion": "${{ steps.base.conclusion }}",
             "final_identity_guard_conclusion": "${{ steps.final_identity.conclusion }}",
