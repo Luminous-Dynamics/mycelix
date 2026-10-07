@@ -232,7 +232,9 @@ jobs:
           mkdir -p "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}"
           chown -R fpm-untrusted:fpm-untrusted "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}"
           chmod 700 "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}"
-          test -z "$(sudo -n -u fpm-untrusted sudo -n -l 2>/dev/null | head -1 || true)"
+          candidate_uid="$(sudo -n -u fpm-untrusted id -u)"
+          test "$candidate_uid" != "0"
+          test "$candidate_uid" != "$(id -u)"
           chmod -R a-w candidate
           test -r candidate/Cargo.toml
 
@@ -295,7 +297,322 @@ jobs:
             test -f candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
             lock_sha="$(sha256sum candidate/crates/fpm-wasm-artifact-identity/Cargo.lock | awk '{print $1}')"
             test "$lock_sha" = "${{ steps.lock.outputs.lock_sha256 }}"
-            printf '%s\n' "$status" | grep -v '^?? crates/fpm-wasm-artifact-identity/Cargo.lock          else
+            unexpected="$(printf '%s\n' "$status" | grep -v '^?? crates/fpm-wasm-artifact-identity/Cargo.lock          fi
+          test -z "$(git -C candidate diff --name-only)"
+          test -z "$(git -C candidate diff --cached --name-only)"
+
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          def api(path):
+              out = subprocess.check_output(
+                  [
+                      "curl", "-fsS",
+                      "-H", "Accept: application/vnd.github+json",
+                      "-H", f"Authorization: Bearer {os.environ['GH_TOKEN']}",
+                      "-H", "X-GitHub-Api-Version: 2022-11-28",
+                      f"{os.environ['GITHUB_API_URL']}{path}",
+                  ],
+                  text=True,
+              )
+              return json.loads(out)
+
+          pr = api(f"/repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{os.environ['PR_NUMBER']}")
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["base"]["ref"] == "main"
+          assert pr["base"]["sha"] == os.environ["EXPECTED_BASE_SHA"]
+          assert pr["base"]["repo"]["id"] == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert pr["head"]["repo"]["id"] == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert pr["head"]["repo"]["full_name"] == os.environ["GITHUB_REPOSITORY"]
+          assert pr["head"]["sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          print("POSTFLIGHT_PR_HEAD_MATCH=PASS")
+          PY
+
+          printf 'postflight_head=%s\n' "$actual_head" >> "$GITHUB_OUTPUT"
+          printf 'postflight_tree=%s\n' "$actual_tree" >> "$GITHUB_OUTPUT"
+
+      - name: Emit canonical qualification receipt
+        id: receipt
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+
+          def outcome(step):
+              return os.environ.get(step, "")
+
+          fmt = outcome("FMT_OUTCOME")
+          tests = outcome("TESTS_OUTCOME")
+          postflight = outcome("POSTFLIGHT_OUTCOME")
+          preflight = outcome("PREFLIGHT_OUTCOME")
+          checkout = outcome("CHECKOUT_OUTCOME")
+          source = outcome("SOURCE_OUTCOME")
+          lock = outcome("LOCK_OUTCOME")
+          toolchain = outcome("TOOLCHAIN_OUTCOME")
+
+          execution_pass = all(
+              value == "success"
+              for value in [preflight, checkout, source, toolchain, lock, fmt, tests, postflight]
+          )
+
+          receipt = {
+              "schema": "mycelix.fpm.trusted-qualification-receipt.v1",
+              "qualification": "FPM-WASM-ARTIFACT-IDENTITY-V1",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "repository_id": int(os.environ["GITHUB_REPOSITORY_ID"]),
+              "pr_number": os.environ.get("PR_NUMBER", ""),
+              "subject_sha": os.environ.get("SUBJECT_SHA", ""),
+              "subject_tree_sha": os.environ.get("SUBJECT_TREE_SHA", ""),
+              "observed_postflight_head_sha": os.environ.get("POSTFLIGHT_HEAD", ""),
+              "observed_postflight_tree_sha": os.environ.get("POSTFLIGHT_TREE", ""),
+              "base_sha": os.environ.get("BASE_SHA", ""),
+              "trusted_policy_sha": os.environ.get("TRUSTED_POLICY_SHA", ""),
+              "trusted_policy_blob_sha": os.environ.get("TRUSTED_POLICY_BLOB_SHA", ""),
+              "trusted_policy_ref": os.environ.get("TRUSTED_POLICY_REF", ""),
+              "trusted_workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "trusted_workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "upstream_workflow_run_id": os.environ.get("UPSTREAM_RUN_ID", ""),
+              "upstream_workflow_run_attempt": os.environ.get("UPSTREAM_RUN_ATTEMPT", ""),
+              "upstream_workflow_id": int(os.environ["UPSTREAM_WORKFLOW_ID"]),
+              "upstream_workflow_path": os.environ["UPSTREAM_WORKFLOW_PATH"],
+              "upstream_workflow_conclusion": os.environ.get("UPSTREAM_CONCLUSION", ""),
+              "manifest_blob_sha": os.environ.get("MANIFEST_BLOB_SHA", ""),
+              "lock_mode": os.environ.get("LOCK_MODE", ""),
+              "lock_sha256": os.environ.get("LOCK_SHA256", ""),
+              "rustc_version": os.environ.get("RUSTC_VERSION", ""),
+              "rustc_commit": os.environ.get("RUSTC_COMMIT", ""),
+              "cargo_version": os.environ.get("CARGO_VERSION", ""),
+              "steps": {
+                  "preflight": preflight,
+                  "checkout": checkout,
+                  "source": source,
+                  "toolchain": toolchain,
+                  "lock": lock,
+                  "fmt": fmt,
+                  "tests": tests,
+                  "postflight": postflight,
+              },
+              "execution_pass": execution_pass,
+              "procedure_trust": "trusted_default_branch_snapshot",
+              "promotion_authority": "pending_repository_governance_evidence",
+          }
+
+          canonical = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
+          digest = hashlib.sha256(canonical).hexdigest()
+          out = os.path.join(os.environ["FPM_EVIDENCE_DIR"], "qualification-receipt.json")
+          with open(out, "wb") as f:
+              f.write(canonical)
+              f.write(b"\n")
+          os.chmod(out, 0o400)
+          print(f"receipt_sha256={digest}")
+          print(f"execution_pass={execution_pass}")
+          PY
+        env:
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          SOURCE_OUTCOME: ${{ steps.source.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          LOCK_OUTCOME: ${{ steps.lock.outcome }}
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          POSTFLIGHT_OUTCOME: ${{ steps.postflight.outcome }}
+          PR_NUMBER: ${{ steps.preflight.outputs.pr_number || '' }}
+          SUBJECT_SHA: ${{ steps.source.outputs.candidate_head_sha || steps.preflight.outputs.expected_head_sha || '' }}
+          SUBJECT_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha || '' }}
+          POSTFLIGHT_HEAD: ${{ steps.postflight.outputs.postflight_head || '' }}
+          POSTFLIGHT_TREE: ${{ steps.postflight.outputs.postflight_tree || '' }}
+          BASE_SHA: ${{ steps.preflight.outputs.expected_base_sha || '' }}
+          TRUSTED_POLICY_SHA: ${{ steps.policy.outputs.trusted_policy_sha || '' }}
+          TRUSTED_POLICY_BLOB_SHA: ${{ steps.policy.outputs.trusted_policy_blob_sha || '' }}
+          TRUSTED_POLICY_REF: ${{ steps.policy.outputs.trusted_policy_ref || '' }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ steps.preflight.outputs.upstream_run_attempt || '' }}
+          UPSTREAM_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          UPSTREAM_WORKFLOW_PATH: ".github/workflows/fpm-wasm-artifact-identity.yml"
+          UPSTREAM_CONCLUSION: ${{ steps.preflight.outputs.upstream_run_conclusion || '' }}
+          MANIFEST_BLOB_SHA: ${{ steps.source.outputs.candidate_manifest_blob_sha || '' }}
+          LOCK_MODE: ${{ steps.lock.outputs.lock_mode || '' }}
+          LOCK_SHA256: ${{ steps.lock.outputs.lock_sha256 || '' }}
+          RUSTC_VERSION: ${{ steps.toolchain.outputs.rustc_version || '' }}
+          RUSTC_COMMIT: ${{ steps.toolchain.outputs.rustc_commit || '' }}
+          CARGO_VERSION: ${{ steps.toolchain.outputs.cargo_version || '' }}
+
+      - name: Upload canonical qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fpm-trusted-qualification-${{ steps.preflight.outputs.expected_head_sha || github.event.workflow_run.head_sha || github.run_id }}
+          path: ${{ env.FPM_EVIDENCE_DIR }}/
+          if-no-files-found: error
+          retention-days: 30
+ > "${FPM_EVIDENCE_DIR}/unexpected-status" || true
+            test ! -s "${FPM_EVIDENCE_DIR}/unexpected-status"
+            rm -f candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
+          else
+            test -z "$status"
+          fi
+          test -z "$(git -C candidate diff --name-only)"
+          test -z "$(git -C candidate diff --cached --name-only)"
+
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          def api(path):
+              out = subprocess.check_output(
+                  [
+                      "curl", "-fsS",
+                      "-H", "Accept: application/vnd.github+json",
+                      "-H", f"Authorization: Bearer {os.environ['GH_TOKEN']}",
+                      "-H", "X-GitHub-Api-Version: 2022-11-28",
+                      f"{os.environ['GITHUB_API_URL']}{path}",
+                  ],
+                  text=True,
+              )
+              return json.loads(out)
+
+          pr = api(f"/repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{os.environ['PR_NUMBER']}")
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["base"]["ref"] == "main"
+          assert pr["base"]["sha"] == os.environ["EXPECTED_BASE_SHA"]
+          assert pr["base"]["repo"]["id"] == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert pr["head"]["repo"]["id"] == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert pr["head"]["repo"]["full_name"] == os.environ["GITHUB_REPOSITORY"]
+          assert pr["head"]["sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          print("POSTFLIGHT_PR_HEAD_MATCH=PASS")
+          PY
+
+          printf 'postflight_head=%s\n' "$actual_head" >> "$GITHUB_OUTPUT"
+          printf 'postflight_tree=%s\n' "$actual_tree" >> "$GITHUB_OUTPUT"
+
+      - name: Emit canonical qualification receipt
+        id: receipt
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+
+          def outcome(step):
+              return os.environ.get(step, "")
+
+          fmt = outcome("FMT_OUTCOME")
+          tests = outcome("TESTS_OUTCOME")
+          postflight = outcome("POSTFLIGHT_OUTCOME")
+          preflight = outcome("PREFLIGHT_OUTCOME")
+          checkout = outcome("CHECKOUT_OUTCOME")
+          source = outcome("SOURCE_OUTCOME")
+          lock = outcome("LOCK_OUTCOME")
+          toolchain = outcome("TOOLCHAIN_OUTCOME")
+
+          execution_pass = all(
+              value == "success"
+              for value in [preflight, checkout, source, toolchain, lock, fmt, tests, postflight]
+          )
+
+          receipt = {
+              "schema": "mycelix.fpm.trusted-qualification-receipt.v1",
+              "qualification": "FPM-WASM-ARTIFACT-IDENTITY-V1",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "repository_id": int(os.environ["GITHUB_REPOSITORY_ID"]),
+              "pr_number": os.environ.get("PR_NUMBER", ""),
+              "subject_sha": os.environ.get("SUBJECT_SHA", ""),
+              "subject_tree_sha": os.environ.get("SUBJECT_TREE_SHA", ""),
+              "observed_postflight_head_sha": os.environ.get("POSTFLIGHT_HEAD", ""),
+              "observed_postflight_tree_sha": os.environ.get("POSTFLIGHT_TREE", ""),
+              "base_sha": os.environ.get("BASE_SHA", ""),
+              "trusted_policy_sha": os.environ.get("TRUSTED_POLICY_SHA", ""),
+              "trusted_policy_blob_sha": os.environ.get("TRUSTED_POLICY_BLOB_SHA", ""),
+              "trusted_policy_ref": os.environ.get("TRUSTED_POLICY_REF", ""),
+              "trusted_workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "trusted_workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "upstream_workflow_run_id": os.environ.get("UPSTREAM_RUN_ID", ""),
+              "upstream_workflow_run_attempt": os.environ.get("UPSTREAM_RUN_ATTEMPT", ""),
+              "upstream_workflow_id": int(os.environ["UPSTREAM_WORKFLOW_ID"]),
+              "upstream_workflow_path": os.environ["UPSTREAM_WORKFLOW_PATH"],
+              "upstream_workflow_conclusion": os.environ.get("UPSTREAM_CONCLUSION", ""),
+              "manifest_blob_sha": os.environ.get("MANIFEST_BLOB_SHA", ""),
+              "lock_mode": os.environ.get("LOCK_MODE", ""),
+              "lock_sha256": os.environ.get("LOCK_SHA256", ""),
+              "rustc_version": os.environ.get("RUSTC_VERSION", ""),
+              "rustc_commit": os.environ.get("RUSTC_COMMIT", ""),
+              "cargo_version": os.environ.get("CARGO_VERSION", ""),
+              "steps": {
+                  "preflight": preflight,
+                  "checkout": checkout,
+                  "source": source,
+                  "toolchain": toolchain,
+                  "lock": lock,
+                  "fmt": fmt,
+                  "tests": tests,
+                  "postflight": postflight,
+              },
+              "execution_pass": execution_pass,
+              "procedure_trust": "trusted_default_branch_snapshot",
+              "promotion_authority": "pending_repository_governance_evidence",
+          }
+
+          canonical = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
+          digest = hashlib.sha256(canonical).hexdigest()
+          out = os.path.join(os.environ["FPM_EVIDENCE_DIR"], "qualification-receipt.json")
+          with open(out, "wb") as f:
+              f.write(canonical)
+              f.write(b"\n")
+          os.chmod(out, 0o400)
+          print(f"receipt_sha256={digest}")
+          print(f"execution_pass={execution_pass}")
+          PY
+        env:
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          CHECKOUT_OUTCOME: ${{ steps.preflight.outcome == 'success' && steps.source.outcome || 'skipped' }}
+          SOURCE_OUTCOME: ${{ steps.source.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          LOCK_OUTCOME: ${{ steps.lock.outcome }}
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          POSTFLIGHT_OUTCOME: ${{ steps.postflight.outcome }}
+          PR_NUMBER: ${{ steps.preflight.outputs.pr_number || '' }}
+          SUBJECT_SHA: ${{ steps.source.outputs.candidate_head_sha || steps.preflight.outputs.expected_head_sha || '' }}
+          SUBJECT_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha || '' }}
+          POSTFLIGHT_HEAD: ${{ steps.postflight.outputs.postflight_head || '' }}
+          POSTFLIGHT_TREE: ${{ steps.postflight.outputs.postflight_tree || '' }}
+          BASE_SHA: ${{ steps.preflight.outputs.expected_base_sha || '' }}
+          TRUSTED_POLICY_SHA: ${{ steps.policy.outputs.trusted_policy_sha || '' }}
+          TRUSTED_POLICY_BLOB_SHA: ${{ steps.policy.outputs.trusted_policy_blob_sha || '' }}
+          TRUSTED_POLICY_REF: ${{ steps.policy.outputs.trusted_policy_ref || '' }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ steps.preflight.outputs.upstream_run_attempt || '' }}
+          UPSTREAM_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          UPSTREAM_WORKFLOW_PATH: ".github/workflows/fpm-wasm-artifact-identity.yml"
+          UPSTREAM_CONCLUSION: ${{ steps.preflight.outputs.upstream_run_conclusion || '' }}
+          MANIFEST_BLOB_SHA: ${{ steps.source.outputs.candidate_manifest_blob_sha || '' }}
+          LOCK_MODE: ${{ steps.lock.outputs.lock_mode || '' }}
+          LOCK_SHA256: ${{ steps.lock.outputs.lock_sha256 || '' }}
+          RUSTC_VERSION: ${{ steps.toolchain.outputs.rustc_version || '' }}
+          RUSTC_COMMIT: ${{ steps.toolchain.outputs.rustc_commit || '' }}
+          CARGO_VERSION: ${{ steps.toolchain.outputs.cargo_version || '' }}
+
+      - name: Upload canonical qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fpm-trusted-qualification-${{ steps.preflight.outputs.expected_head_sha || github.event.workflow_run.head_sha || github.run_id }}
+          path: ${{ env.FPM_EVIDENCE_DIR }}/
+          if-no-files-found: error
+          retention-days: 30
+ || true)"
+            test -z "$unexpected"
+          else
             test -z "$status"
           fi
           test -z "$(git -C candidate diff --name-only)"
