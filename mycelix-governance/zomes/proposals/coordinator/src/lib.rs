@@ -196,8 +196,9 @@ pub fn get_proposal(proposal_id: String) -> ExternResult<Option<Record>> {
 
     let records = query(filter)?;
 
-    // Take the LAST match — update_entry appends newer versions later in the chain
-    let mut found: Option<Record> = None;
+    // The fallback scan is only safe when the proposal ID is unique. Do not
+    // silently resolve competing records by timestamp.
+    let mut matches = Vec::new();
     for record in records {
         if let Some(proposal) = record
             .entry()
@@ -205,12 +206,20 @@ pub fn get_proposal(proposal_id: String) -> ExternResult<Option<Record>> {
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         {
             if proposal.id == proposal_id {
-                found = Some(record);
+                matches.push(record);
             }
         }
     }
 
-    Ok(found)
+    if matches.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Ambiguous proposal ID '{}': fallback source-chain scan found {} proposal records.",
+            proposal_id,
+            matches.len()
+        ))));
+    }
+
+    Ok(matches.into_iter().next())
 }
 
 /// Get active proposals
