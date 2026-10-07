@@ -1,0 +1,97 @@
+name: Fabrication substrate truth audit
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/happs/fabrication/**"
+      - ".github/workflows/fabrication-substrate-truth.yml"
+  push:
+    branches:
+      - main
+      - hardening/**
+      - research/**
+    paths:
+      - "mycelix-workspace/happs/fabrication/**"
+      - ".github/workflows/fabrication-substrate-truth.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fabrication-substrate-truth-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Inventory substrate truth (not compatibility qualification)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Verify frozen substrate matrix
+        env:
+          MATRIX: mycelix-workspace/happs/fabrication/docs/qualification/substrate-matrix.toml
+          WORKSPACE: mycelix-workspace/happs/fabrication/Cargo.toml
+          SWEETTEST: mycelix-workspace/happs/fabrication/tests/sweettest/Cargo.toml
+          README: mycelix-workspace/happs/fabrication/README.md
+          DNA: mycelix-workspace/happs/fabrication/dna/dna.yaml
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          import tomllib
+          from pathlib import Path
+
+          matrix = tomllib.loads(Path(__import__("os").environ["MATRIX"]).read_text())
+          workspace = tomllib.loads(Path(__import__("os").environ["WORKSPACE"]).read_text())
+          sweettest = tomllib.loads(Path(__import__("os").environ["SWEETTEST"]).read_text())
+          readme = Path(__import__("os").environ["README"]).read_text()
+          dna = Path(__import__("os").environ["DNA"]).read_text()
+
+          assert matrix["schema"] == "MYCELIX-FABRICATION-SUBSTRATE-MATRIX-V1"
+          assert matrix["matrix_version"] == 1
+          assert matrix["status"] == "known-mismatch"
+          assert matrix["intended_holochain_family"] == "0.7"
+          assert matrix["implemented_holochain_family"] == "0.6"
+          assert matrix["qualification"]["holochain_07_claim_requires_reconciled_substrate"] is True
+          assert matrix["claim_ceiling"]["known_mismatch_is_pass"] is False
+          assert matrix["claim_ceiling"]["holochain_07_qualification"] is False
+
+          deps = workspace["workspace"]["dependencies"]
+          for name, expected in matrix["cargo"].items():
+              observed = deps[name]
+              observed_version = observed if isinstance(observed, str) else observed["version"]
+              assert observed_version == expected, f"{name}: expected {expected}, got {observed_version}"
+
+          test_deps = sweettest["dependencies"]
+          for name, expected in matrix["sweettest"].items():
+              observed = test_deps[name]
+              observed_version = observed if isinstance(observed, str) else observed["version"]
+              assert observed_version == expected, f"sweettest {name}: expected {expected}, got {observed_version}"
+
+          assert 'hdk = "=0.7.0"' not in Path(__import__("os").environ["WORKSPACE"]).read_text()
+          assert 'hdi = "=0.8.0"' not in Path(__import__("os").environ["WORKSPACE"]).read_text()
+
+          assert matrix["documentation"]["advertised_holochain_family"] == "0.6"
+          assert "**Holochain 0.6**" in readme
+
+          integrity_zomes = re.findall(r'^    - name: .*_integrity$', dna, re.MULTILINE)
+          coordinator_zomes = re.findall(r'^    - name: .*_coordinator$', dna, re.MULTILINE)
+          assert len(integrity_zomes) == 7, len(integrity_zomes)
+          assert len(coordinator_zomes) == 7, len(coordinator_zomes)
+          assert len(integrity_zomes) + len(coordinator_zomes) == matrix["documentation"]["wasm_zome_count"]
+
+          assert matrix["qualification"]["migration_issue"] == 4246
+          assert matrix["qualification"]["runtime_integration_issue"] == 4248
+          assert matrix["qualification"]["action_model_port_issue"] == 4371
+
+          print("SUBSTRATE_TRUTH=KNOWN_MISMATCH")
+          print("INTENDED_HOLOCHAIN=0.7")
+          print("IMPLEMENTED_HOLOCHAIN=0.6")
+          print("HOLOCHAIN_07_QUALIFICATION=NOT_ESTABLISHED")
+          print("RUNTIME_QUALIFICATION=NOT_ESTABLISHED")
+          print("Deployment/currentness claims remain out of scope.")
+          PY
