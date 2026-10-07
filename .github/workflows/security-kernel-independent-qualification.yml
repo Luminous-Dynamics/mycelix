@@ -471,6 +471,10 @@ jobs:
                       r'(?:^|[{,]\s*)(?:"[^"\n]*"|\'[^\'\n]*\')\s*:',
                       structural_line,
                   ), f"candidate workflow contains quoted structural YAML key: {structural_line!r}"
+                  assert not re.search(
+                      r"^\s{0,8}[A-Za-z0-9_-]+\s+:",
+                      structural_line,
+                  ), f"candidate workflow contains ambiguous structural key spacing: {structural_line!r}"
 
               mutated_permissions = workflow.replace(
                   "  contents: read\n",
@@ -616,6 +620,22 @@ jobs:
                   pass
               else:
                   raise AssertionError("candidate structural with-parser accepted mutated checkout ref")
+
+              mutated_structural_key_spacing = workflow.replace(
+                  "\npermissions:",
+                  "\non :\n  pull_request_target :\npermissions:",
+                  1,
+              ).replace(
+                  "jobs:\n",
+                  "jobs:\n  parser-key-spacing-bypass:\n    runs-on : self-hosted\n    steps:\n      - name: Harmless parser regression\n        run: true\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_structural_key_spacing)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural parser accepted YAML-valid ambiguous key spacing for forbidden trigger and unsafe runner")
 
               mutated_split_checkout_binding = workflow.replace(
                   "          ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}\n",
