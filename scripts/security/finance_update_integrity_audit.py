@@ -68,7 +68,13 @@ def update_arms(source: str):
     start = masked.find("OpEntry::UpdateEntry")
     if start < 0:
         return
-    block = braced_block(source, start)
+    arrow = masked.find("=>", start)
+    if arrow < 0:
+        raise ValueError("UpdateEntry arm has no match arrow")
+    body_start = masked.find("{", arrow)
+    if body_start < 0:
+        raise ValueError("UpdateEntry arm has no body")
+    block = braced_block(source, body_start)
     masked_block = mask_rust(block)
     matches = list(re.finditer(
         r"EntryTypes::[A-Za-z0-9_]+(?:\([^)]*\))?\s*=>",
