@@ -6,6 +6,7 @@ on:
       - "docs/ci/repository_governance_policy_v1.json"
       - "scripts/validate_repository_governance_observation_v1.py"
       - ".github/workflows/ci-repository-governance-predicate.yml"
+      - ".github/workflows/cos-conformance-independent-verify.yml"
   pull_request:
     branches: [main]
     paths:
@@ -61,6 +62,53 @@ jobs:
 
       - name: Validate independent verifier YAML
         run: ruby -e 'require "yaml"; YAML.load_file(".github/workflows/cos-conformance-independent-verify.yml")'
+
+      - name: Audit independent verifier control plane
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path(".github/workflows/cos-conformance-independent-verify.yml").read_text()
+          pattern = re.compile(
+              r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
+          )
+          refs = {}
+          scanned = []
+          audit_block = False
+          for line in text.splitlines():
+              if line.startswith("      - name: Validate immutable action pins"):
+                  audit_block = True
+              if audit_block:
+                  if line == "          PY":
+                      audit_block = False
+                  continue
+              stripped = line.lstrip()
+              if stripped.startswith("- uses:") or stripped.startswith("uses:"):
+                  match = pattern.fullmatch(line)
+                  assert match, f"independent verifier action is not pinned: {line!r}"
+                  action, ref = match.groups()
+                  if action in refs:
+                      assert refs[action] == ref
+                  refs[action] = ref
+              scanned.append(line)
+
+          assert refs == {
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+              "dtolnay/rust-toolchain": "7e38f4b43b4db5c8dd498af069a4f6196df1d067",
+              "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+          }
+          scanned_text = "\n".join(scanned)
+          assert "permissions: {}" in scanned_text
+          assert "allow-unsafe-pr-checkout: true" not in scanned_text
+          assert "actions/cache@" not in scanned_text
+          assert "secrets." in scanned_text
+          assert scanned_text.count("secrets.GOVERNANCE_ADMIN_TOKEN") == 1
+          assert scanned_text.count("actions/checkout@") == 3
+          assert scanned_text.count("actions/download-artifact@") == 2
+          assert scanned_text.count("actions/upload-artifact@") == 3
+          PY
 
       - name: Run fail-closed evaluator self-tests
         run: python scripts/validate_repository_governance_observation_v1.py --self-test
