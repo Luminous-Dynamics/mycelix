@@ -97,7 +97,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 55
+    assert policy["policy_version"] == 56
     assert policy["repository_identity"] == {
         "full_name": "Luminous-Dynamics/mycelix",
         "repository_id": 1176351975,
@@ -145,6 +145,10 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "require_signed_predicate_subject_binding": True,
         "require_verified_timestamp": True,
         "require_verified_tlog": True,
+    }
+    assert policy["lock_graph"] == {
+        "required_registry_source": "registry+https://github.com/rust-lang/crates.io-index",
+        "allowed_local_packages": ["d6u-runtime-harness"],
     }
     assert policy["artifact_max_entries"] == 32
     assert policy["trusted_artifact_fetcher"]["path"] == (
@@ -1115,28 +1119,55 @@ def test_lock_provenance_is_rejected_when_tampered() -> None:
     policy = {
         "lock_packages": {"holochain": "0.7.0"},
         "lock_source": "registry+https://github.com/rust-lang/crates.io-index",
+        "lock_graph": {
+            "required_registry_source": "registry+https://github.com/rust-lang/crates.io-index",
+            "allowed_local_packages": ["d6u-runtime-harness"],
+        },
     }
 
     with tempfile.TemporaryDirectory() as tmp:
         lock = Path(tmp) / "Cargo.lock"
-        lock.write_text(
-            'version = 3\n\n[[package]]\n'
+        lock_text = (
+            'version = 3\n\n'
+            '[[package]]\n'
+            'name = "d6u-runtime-harness"\n'
+            'version = "0.1.0"\n\n'
+            '[[package]]\n'
             + "\n".join(f'{key} = "{value}"' for key, value in package.items())
-            + "\n",
-            encoding="utf-8",
+            + "\n"
         )
+        lock.write_text(lock_text, encoding="utf-8")
         verify_lock(lock, policy)
 
-        lock.write_text(
-            lock.read_text(encoding="utf-8").replace(
-                'checksum = "' + ("a" * 64) + '"',
-                "",
-            ),
-            encoding="utf-8",
+        tampered = lock_text.replace(
+            'source = "registry+https://github.com/rust-lang/crates.io-index"',
+            'source = "git+https://example.invalid/hostile.git"',
         )
+        lock.write_text(tampered, encoding="utf-8")
+        assert_rejected(
+            lambda: verify_lock(lock, policy),
+            "untrusted lock registry source was accepted",
+        )
+
+        tampered = lock_text.replace(
+            'checksum = "' + ("a" * 64) + '"',
+            "",
+        )
+        lock.write_text(tampered, encoding="utf-8")
         assert_rejected(
             lambda: verify_lock(lock, policy),
             "malformed lock checksum was accepted",
+        )
+
+        tampered = lock_text + (
+            '[[package]]\n'
+            'name = "unauthorized-local"\n'
+            'version = "1.0.0"\n'
+        )
+        lock.write_text(tampered, encoding="utf-8")
+        assert_rejected(
+            lambda: verify_lock(lock, policy),
+            "unauthorized local Cargo.lock package was accepted",
         )
 
 
@@ -2690,7 +2721,7 @@ def test_trusted_builder_documentation_is_current() -> None:
     documentation = (root / "docs/integral/d6u-trusted-builder.md").read_text(
         encoding="utf-8"
     )
-    assert "Current trusted policy revision: v55." in documentation
+    assert "Current trusted policy revision: v56." in documentation
     assert "sixty-five deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
