@@ -110,6 +110,124 @@ jobs:
         id: clippy
         run: cargo clippy --manifest-path "$MANIFEST" -p cos_conformance --all-targets -- -D warnings
 
+      - name: Run independent external boundary probe
+        id: probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe='mycelix-manufacturing/crates/cos_conformance/tests/__cos_exact_external_probe.rs'
+          rm -f "$probe"
+          cat > "$probe" <<'EOF'
+          use cos_conformance::federation::{
+              state_machine_trace_external_evidence_anchor_reference,
+              state_machine_trace_external_evidence_verification_statement_with_request_context,
+              state_machine_trace_external_verification_request_context_sha256,
+              validate_state_machine_trace_external_evidence_verification_statement_chain_with_request_context,
+              FederationExternalVerificationPolicyAdmissionViolation,
+              FederationExternalVerificationTrustPolicyV1,
+              FederationExternalVerifierIdentityKind,
+              FederationStateMachineTraceExternalEvidenceVerificationStatementViolation,
+              FederationStateMachineTraceExternalVerificationClaim,
+              FederationStateMachineTraceExternalWitnessKind,
+          };
+          use serde_json::json;
+
+          #[test]
+          fn workflow_authored_probe_closes_request_identity_boundary() {
+              let subject_sha = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+              let witness = b"workflow-authored-witness";
+              let report = b"workflow-authored-report";
+              let request_a = b"rp=integral-demo;nonce=probe-A;action=water-maintenance";
+              let request_b = b"rp=integral-demo;nonce=probe-B;action=water-maintenance";
+              let anchor = state_machine_trace_external_evidence_anchor_reference(
+                  1,
+                  "integral-federation-publication-collection-reconciliation-v1",
+                  subject_sha,
+                  FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+                  1,
+                  "tsa-token-v1",
+                  witness,
+                  1_791_030_000,
+              ).expect("anchor must build");
+
+              let statement = state_machine_trace_external_evidence_verification_statement_with_request_context(
+                  &anchor.anchor_reference_sha256,
+                  2,
+                  "rfc3161-verifier-v1",
+                  FederationExternalVerifierIdentityKind::PublicKey,
+                  "rfc3161-key-v1",
+                  b"workflow-authored-identity",
+                  FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified,
+                  report,
+                  request_a,
+                  1_791_030_001,
+              ).expect("statement must build");
+
+              let result = validate_state_machine_trace_external_evidence_verification_statement_chain_with_request_context(
+                  1,
+                  "integral-federation-publication-collection-reconciliation-v1",
+                  subject_sha,
+                  witness,
+                  &anchor,
+                  report,
+                  request_a,
+                  &statement,
+              ).expect("exact request context must validate");
+
+              assert_eq!(
+                  result.request_context_sha256(),
+                  statement.request_context_sha256(),
+              );
+              assert_eq!(
+                  validate_state_machine_trace_external_evidence_verification_statement_chain_with_request_context(
+                      1,
+                      "integral-federation-publication-collection-reconciliation-v1",
+                      subject_sha,
+                      witness,
+                      &anchor,
+                      report,
+                      request_b,
+                      &statement,
+                  ),
+                  Err(FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::RequestContextDigestMismatch),
+              );
+
+              let request_a_sha = state_machine_trace_external_verification_request_context_sha256(request_a);
+              let request_b_sha = state_machine_trace_external_verification_request_context_sha256(request_b);
+              assert_ne!(request_a_sha, request_b_sha);
+              let policy_a = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+                  FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+                  "tsa-token-v1",
+                  2,
+                  ["rfc3161-verifier-v1"],
+                  [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
+              ).expect("policy must build")
+              .try_new_bound_request_context_sha256(request_a_sha)
+              .expect("bound request policy must build")
+              .with_maximum_verification_age_seconds(60)
+              .expect("freshness policy must build");
+              let admission = result.admit_under_policy_at(&policy_a, 1_791_030_002)
+                  .expect("matching request policy must admit");
+              admission.validate_integrity().expect("admission receipt must validate");
+
+              let policy_b = policy_a.clone()
+                  .try_new_bound_request_context_sha256(request_b_sha)
+                  .expect("alternate request policy must build");
+              assert_eq!(
+                  result.admit_under_policy_at(&policy_b, 1_791_030_002),
+                  Err(FederationExternalVerificationPolicyAdmissionViolation::RequestContextNotAdmitted),
+              );
+
+              let mut wire: serde_json::Value = serde_json::to_value(&statement).expect("statement must serialize");
+              wire["request_context_sha256"] = serde_json::Value::Null;
+              wire["unexpected_probe_field"] = json!(true);
+              let decoded = serde_json::from_value::<cos_conformance::federation::FederationStateMachineTraceExternalEvidenceVerificationStatement>(wire);
+              assert!(decoded.is_err(), "wire boundary must reject malformed or unknown statement fields");
+          }
+          EOF
+          cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance --test __cos_exact_external_probe
+          rm -f "$probe"
+
       - name: Enforce exact external-verification boundary
         id: boundary
         shell: bash
@@ -270,6 +388,7 @@ jobs:
             "fmt_conclusion": "${{ steps.fmt.conclusion }}",
             "test_conclusion": "${{ steps.test.conclusion }}",
             "clippy_conclusion": "${{ steps.clippy.conclusion }}",
+            "independent_probe_conclusion": "${{ steps.probe.conclusion }}",
             "boundary_conclusion": "${{ steps.boundary.conclusion }}",
             "base_guard_conclusion": "${{ steps.base.conclusion }}",
             "final_identity_guard_conclusion": "${{ steps.final_identity.conclusion }}",
@@ -277,7 +396,7 @@ jobs:
             "cargo_manifest_sha256": "$(sha256sum "$MANIFEST" | cut -d' ' -f1)",
             "claim_ceiling": "ReferenceModelOnly",
             "format_scope": "cos_conformance package only",
-            "qualification_scope": "Exact PR-head cos_conformance semantic conformance only"
+            "qualification_scope": "Exact PR-head cos_conformance semantic conformance plus workflow-authored external boundary probe"
           }
           EOF
           jq -cS '.' qualification-receipt/receipt-payload.json > qualification-receipt/receipt-payload-canonical.json
