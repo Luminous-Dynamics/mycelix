@@ -243,8 +243,9 @@ jobs:
         id: reference
         run: |
           set -euo pipefail
-          python3 scripts/integral/verify_fpm_trusted_qualification.py snapshot \
-            | tee snapshot/reference-verification.json
+          result="$(python3 scripts/integral/verify_fpm_trusted_qualification.py snapshot)"
+          printf '%s\n' "$result" | tee snapshot/reference-verification.json
+          printf 'candidate_sha=%s\n' "$(printf '%s' "$result" | jq -r '.candidate_sha')" >> "$GITHUB_OUTPUT"
 
       - name: Upload independent verification result
         if: success()
