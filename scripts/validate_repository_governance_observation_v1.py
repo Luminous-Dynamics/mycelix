@@ -261,6 +261,10 @@ def _ref_pattern_matches_main(pattern: Any, default_branch: str) -> bool:
     )
 
 
+def _scope_pattern_matches(value: str, pattern: str) -> bool:
+    return pattern == "~ALL" or fnmatch.fnmatchcase(value, pattern)
+
+
 def _selector_state(
     selector: Any,
     *,
@@ -282,8 +286,8 @@ def _selector_state(
         if ids is None:
             return (
                 "MATCH"
-                if any(fnmatch.fnmatchcase(value, pattern) for pattern in includes)
-                and not any(fnmatch.fnmatchcase(value, pattern) for pattern in excludes)
+                if any(_scope_pattern_matches(value, pattern) for pattern in includes)
+                and not any(_scope_pattern_matches(value, pattern) for pattern in excludes)
                 else "NOT_MATCH"
             )
         if not isinstance(ids, list):
@@ -1495,6 +1499,15 @@ def self_test(policy: dict[str, Any]) -> None:
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "UNVERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["~ALL"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["source_type"] = "Enterprise"
