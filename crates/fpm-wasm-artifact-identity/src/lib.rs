@@ -17,6 +17,7 @@ pub const HOLOHASH_RAW_39_LEN: usize = 39;
 pub const MAX_ARTIFACT_BYTES: usize = 16_000_000;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FpmWasmArtifactIdentity {
     pub schema_version: String,
     pub holochain_profile: String,
