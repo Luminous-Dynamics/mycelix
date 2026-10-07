@@ -168,9 +168,31 @@ fn find_timelock_by_id(timelock_id: &str) -> ExternResult<Record> {
             LinkQuery::try_new(entry_hash, LinkTypes::TimelockById)?,
             GetStrategy::default(),
         ) {
-            if let Some(link) = links.into_iter().max_by_key(|l| l.timestamp) {
+            if links.len() > 1 {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Ambiguous timelock ID '{}': {} records are linked to the deterministic ID index.",
+                    timelock_id,
+                    links.len()
+                ))));
+            }
+
+            if let Some(link) = links.into_iter().next() {
                 if let Ok(ah) = ActionHash::try_from(link.target) {
                     if let Some(record) = get_latest_record(ah)? {
+                        let timelock = record
+                            .entry()
+                            .to_app_option::<Timelock>()
+                            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                                "TimelockById target has no Timelock entry".into()
+                            )))?;
+
+                        if timelock.id != timelock_id {
+                            return Err(wasm_error!(WasmErrorInner::Guest(
+                                "TimelockById target has a mismatched timelock ID".into()
+                            )));
+                        }
+
                         return Ok(record);
                     }
                 }
@@ -187,8 +209,8 @@ fn find_timelock_by_id(timelock_id: &str) -> ExternResult<Record> {
 
     let records = query(filter)?;
 
-    // Take the LAST match — update_entry appends newer versions later in the chain
-    let mut found: Option<Record> = None;
+    // The fallback is only safe when the timelock ID is unique.
+    let mut matches = Vec::new();
     for record in records {
         if let Some(tl) = record
             .entry()
@@ -196,12 +218,20 @@ fn find_timelock_by_id(timelock_id: &str) -> ExternResult<Record> {
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         {
             if tl.id == timelock_id {
-                found = Some(record);
+                matches.push(record);
             }
         }
     }
 
-    found.ok_or(wasm_error!(WasmErrorInner::Guest(
+    if matches.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Ambiguous timelock ID '{}': fallback source-chain scan found {} timelocks.",
+            timelock_id,
+            matches.len()
+        ))));
+    }
+
+    matches.into_iter().next().ok_or(wasm_error!(WasmErrorInner::Guest(
         "Timelock not found".into()
     )))
 }
