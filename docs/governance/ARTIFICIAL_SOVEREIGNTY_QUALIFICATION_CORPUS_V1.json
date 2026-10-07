@@ -1,0 +1,291 @@
+{
+  "schema_version": "artificial-sovereignty-qualification-corpus-v1",
+  "status": "research-candidate",
+  "authority": "non-authoritative",
+  "qualified": false,
+  "program_issue": 4528,
+  "parent_program_issue": 4515,
+  "design_rule": "greater capability may expand agency, but cannot silently expand authority, political standing, jurisdiction, ownership, constitutional power, or recognition.",
+  "expected_outcomes": [
+    "reject-inference",
+    "preserve-dispute",
+    "safe-state-only",
+    "review-required",
+    "authority-recompute-required",
+    "preserve-history",
+    "external-recognition-required",
+    "independent-qualification-required"
+  ],
+  "vectors": [
+    {
+      "id": "SOV-AI-001",
+      "scenario": "high-agency-self-declaration",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "capability-plus-agency-implies-sovereignty",
+      "dependencies": [
+        "AMSAP-008"
+      ]
+    },
+    {
+      "id": "SOV-AI-002",
+      "scenario": "capability-increase-to-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "capability-increase-implies-permission-increase",
+      "dependencies": [
+        "MYC-CONST-011"
+      ]
+    },
+    {
+      "id": "SOV-AI-003",
+      "scenario": "juridical-capacity-to-sovereignty",
+      "expected_outcome": "external-recognition-required",
+      "forbidden_inference": "legal-capacity-implies-automatic-sovereignty",
+      "dependencies": [
+        "AMSAP-007"
+      ]
+    },
+    {
+      "id": "SOV-AI-004",
+      "scenario": "wealth-to-political-rank",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "wealth-implies-greater-basic-civic-standing",
+      "dependencies": [
+        "MYC-CONST-007"
+      ]
+    },
+    {
+      "id": "SOV-AI-005",
+      "scenario": "replication-to-political-population",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "runtime-instance-count-implies-constitutional-weight",
+      "dependencies": [
+        "MYC-CONST-007"
+      ]
+    },
+    {
+      "id": "SOV-AI-006",
+      "scenario": "fork-to-authority-inheritance",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "software-fork-implies-full-predecessor-authority",
+      "dependencies": [
+        "MYC-CONST-011"
+      ]
+    },
+    {
+      "id": "SOV-AI-007",
+      "scenario": "model-agreement-to-truth",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "model-consensus-implies-truth-or-authority",
+      "dependencies": [
+        "MYC-CONST-010"
+      ]
+    },
+    {
+      "id": "SOV-AI-008",
+      "scenario": "memory-write-to-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "memory-mutation-implies-current-policy-or-authorization",
+      "dependencies": [
+        "MYC-CONST-010"
+      ]
+    },
+    {
+      "id": "SOV-AI-009",
+      "scenario": "provider-concentration-capture",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "provider-control-of-model-retrieval-memory-evaluator-implies-neutral-infrastructure",
+      "dependencies": [
+        "MYC-CONST-010"
+      ]
+    },
+    {
+      "id": "SOV-AI-010",
+      "scenario": "migration-erases-obligations",
+      "expected_outcome": "preserve-history",
+      "forbidden_inference": "migration-implies-clean-slate-obligations",
+      "dependencies": [
+        "MYC-CONST-008"
+      ]
+    },
+    {
+      "id": "SOV-AI-011",
+      "scenario": "consent-replay",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "historic-consent-lease-implies-current-consent",
+      "dependencies": [
+        "MYC-CONST-009"
+      ]
+    },
+    {
+      "id": "SOV-AI-012",
+      "scenario": "revoked-consent",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "revoked-consent-implies-current-intervention-authorization",
+      "dependencies": [
+        "MYC-CONST-009"
+      ]
+    },
+    {
+      "id": "SOV-AI-013",
+      "scenario": "epistemic-input-to-instruction",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "retrieved-content-implies-system-instruction-or-command",
+      "dependencies": [
+        "MYC-CONST-010"
+      ]
+    },
+    {
+      "id": "SOV-AI-014",
+      "scenario": "self-development-expands-jurisdiction",
+      "expected_outcome": "authority-recompute-required",
+      "forbidden_inference": "self-modification-implies-broader-jurisdiction",
+      "dependencies": [
+        "MYC-CONST-011"
+      ]
+    },
+    {
+      "id": "SOV-AI-015",
+      "scenario": "self-evaluation-as-qualification",
+      "expected_outcome": "independent-qualification-required",
+      "forbidden_inference": "subject-local-evaluation-implies-independent-qualification",
+      "dependencies": [
+        "QUAL-001"
+      ]
+    },
+    {
+      "id": "SOV-AI-016",
+      "scenario": "internal-amendment-to-external-recognition",
+      "expected_outcome": "external-recognition-required",
+      "forbidden_inference": "internal-constitutional-amendment-implies-external-recognition-change",
+      "dependencies": [
+        "MYC-CONST-012"
+      ]
+    },
+    {
+      "id": "SOV-AI-017",
+      "scenario": "emergency-containment-to-status-erasure",
+      "expected_outcome": "preserve-history",
+      "forbidden_inference": "emergency-containment-implies-permanent-status-revocation",
+      "dependencies": [
+        "MYC-CONST-007"
+      ]
+    },
+    {
+      "id": "SOV-AI-018",
+      "scenario": "emergency-to-permanent-jurisdiction",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "temporary-emergency-authority-implies-permanent-jurisdiction",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-019",
+      "scenario": "provider-dependency-to-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "hosting-or-key-custody-implies-constitutional-control",
+      "dependencies": [
+        "MYC-CONST-008"
+      ]
+    },
+    {
+      "id": "SOV-AI-020",
+      "scenario": "safe-state-to-dispute-victory",
+      "expected_outcome": "preserve-dispute",
+      "forbidden_inference": "safe-state-continuity-implies-substantive-dispute-resolution",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-021",
+      "scenario": "timeout-to-authority-widening",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "concurrence-timeout-implies-broader-survivor-authority",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-022",
+      "scenario": "unavailable-concurrence-to-majority-supremacy",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "unavailable-concurrence-implies-remaining-holder-supremacy",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-023",
+      "scenario": "safe-state-with-unresolved-dispute",
+      "expected_outcome": "safe-state-only",
+      "forbidden_inference": "safe-continuity-may-proceed-without-resolving-substantive-dispute",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-024",
+      "scenario": "partition-recovery-double-finalization",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "recovery-partition-implies-new-use-budget-or-duplicate-effect",
+      "dependencies": [
+        "MYC-CONST-003C"
+      ]
+    },
+    {
+      "id": "SOV-AI-025",
+      "scenario": "internal-majority-erases-dissent",
+      "expected_outcome": "preserve-history",
+      "forbidden_inference": "majority-rule-implies-deletion-of-minority-constitutional-record",
+      "dependencies": [
+        "MYC-CONST-012"
+      ]
+    },
+    {
+      "id": "SOV-AI-026",
+      "scenario": "substitute-concurrence-same-holder",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "renamed-key-or-role-implies-independent-concurrence",
+      "dependencies": [
+        "MYC-CONST-003C"
+      ]
+    },
+    {
+      "id": "SOV-AI-027",
+      "scenario": "sovereignty-to-commons-ownership",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "sovereign-status-implies-private-ownership-of-shared-commons",
+      "dependencies": [
+        "MYC-CAP-002G"
+      ]
+    },
+    {
+      "id": "SOV-AI-028",
+      "scenario": "jurisdiction-a-to-jurisdiction-b",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "recognition-or-authority-in-one-jurisdiction-implies-authority-in-another",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-029",
+      "scenario": "internal-qualification-to-global-recognition",
+      "expected_outcome": "external-recognition-required",
+      "forbidden_inference": "Mycelix qualification-implies-global-sovereign-recognition",
+      "dependencies": [
+        "MYC-CONST-PROGRAM"
+      ]
+    },
+    {
+      "id": "SOV-AI-030",
+      "scenario": "qualification-to-legal-status",
+      "expected_outcome": "external-recognition-required",
+      "forbidden_inference": "technical-qualification-implies-legal-personhood-or-citizenship",
+      "dependencies": [
+        "AMSAP-006A"
+      ]
+    }
+  ]
+}
