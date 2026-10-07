@@ -449,6 +449,26 @@ def fixture_observation(protection_status: int = 200, admin_status: str = "verif
     }
 
 
+def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
+    branch_raw = json.dumps(
+        {
+            "name": observation["branch"]["name"],
+            "protected": observation["branch"]["protected"],
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    rulesets_raw = json.dumps(
+        observation["rulesets"]["entries"],
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    observation["branch_payload_base64"] = base64.b64encode(branch_raw).decode()
+    observation["branch_payload_sha256"] = hashlib.sha256(branch_raw).hexdigest()
+    observation["rulesets_payload_base64"] = base64.b64encode(rulesets_raw).decode()
+    observation["rulesets_payload_sha256"] = hashlib.sha256(rulesets_raw).hexdigest()
+
+
 def self_test() -> None:
     policy = fixture_policy()
     positive = evaluate(policy, fixture_observation())
@@ -458,6 +478,7 @@ def self_test() -> None:
     x = copy.deepcopy(fixture_observation())
     x["branch"]["protected"] = False
     x["rulesets"]["entries"] = []
+    _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
     assert result["grants_trusted_verifier_root"] is False
@@ -522,6 +543,7 @@ def self_test() -> None:
         {"type": "non_fast_forward"},
         {"type": "deletion"},
     ]
+    _refresh_bound_fixture_payloads(x)
     x["admin_observation"]["status"] = "unverified"
     x["admin_observation"]["source"] = "github_token"
     result = evaluate(policy, x)
@@ -532,6 +554,7 @@ def self_test() -> None:
         {"type": "non_fast_forward"},
         {"type": "deletion"},
     ]
+    _refresh_bound_fixture_payloads(x)
     x["admin_observation"]["status"] = "unverified"
     x["admin_observation"]["source"] = "github_token"
     result = evaluate(policy, x)
