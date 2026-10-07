@@ -683,6 +683,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         } => match link_type {
             LinkTypes::ProposalToTimelock => Ok(ValidateCallbackResult::Valid),
             LinkTypes::TimelockToExecution => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::TimelockToExecutionAttempt => Ok(ValidateCallbackResult::Valid),
             LinkTypes::PendingTimelocks => Ok(ValidateCallbackResult::Valid),
             LinkTypes::GuardianToVeto => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ProposalToFundAllocation => Ok(ValidateCallbackResult::Valid),
@@ -722,7 +723,7 @@ fn validate_create_timelock(
 
 /// Validate timelock update
 fn validate_update_timelock(
-    _action: Update,
+    action: Update,
     timelock: Timelock,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -735,6 +736,12 @@ fn validate_update_timelock(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original timelock not found".into()
         )))?;
+
+    if action.author() != original_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original timelock author may update the timelock".into(),
+        ));
+    }
 
     match check_update_timelock(&original_timelock, &timelock) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
