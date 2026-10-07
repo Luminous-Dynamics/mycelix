@@ -275,6 +275,9 @@ pub enum LinkTypes {
     ChannelIdToChannel,
     PendingCompostQueue,
     MintCapCounterAnchor,
+    /// Time-bucket bookkeeping for the per-agent payment rate limiter.
+    /// Separate from SenderToPayments, whose target is a Payment ActionHash.
+    RateLimitBucketToAgent,
 }
 
 /// Genesis self-check
