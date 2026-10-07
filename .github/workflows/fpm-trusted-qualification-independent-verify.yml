@@ -1,0 +1,252 @@
+name: FPM trusted qualification independent verifier
+
+run-name: FPM reference verification / upstream run \${{ github.event.workflow_run.id || 'unresolved' }}
+
+on:
+  workflow_run:
+    workflows: ["FPM trusted qualification policy"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  verify:
+    if: >-
+      github.event.workflow_run.name == 'FPM trusted qualification policy' &&
+      github.event.workflow_run.path == '.github/workflows/fpm-trusted-qualification.yml' &&
+      github.event.workflow_run.event == 'workflow_run'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: \${{ github.workflow_sha }}
+          fetch-depth: 1
+          clean: true
+          persist-credentials: false
+
+      - name: Assert independent verifier control plane
+        env:
+          EXPECTED_WORKFLOW_REF: \${{ github.repository }}/.github/workflows/fpm-trusted-qualification-independent-verify.yml@refs/heads/main
+        run: |
+          set -euo pipefail
+          test "\$GITHUB_REF" = "refs/heads/main"
+          test "\$GITHUB_WORKFLOW_REF" = "\$EXPECTED_WORKFLOW_REF"
+          actual="\$(git rev-parse HEAD)"
+          test "\$actual" = "\$GITHUB_WORKFLOW_SHA"
+          blob="\$(git rev-parse HEAD:.github/workflows/fpm-trusted-qualification-independent-verify.yml)"
+          printf '%s\n' "\$blob" | grep -Eq '^[0-9a-f]{40}$'
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          record = {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "repository_id": int(os.environ["GITHUB_REPOSITORY_ID"]),
+              "path": ".github/workflows/fpm-trusted-qualification-independent-verify.yml",
+              "ref": "refs/heads/main",
+              "workflow_ref": os.environ["GITHUB_WORKFLOW_REF"],
+              "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+              "workflow_blob_sha": subprocess_sha := __import__("subprocess").check_output(
+                  ["git", "rev-parse", "HEAD:.github/workflows/fpm-trusted-qualification-independent-verify.yml"],
+                  text=True,
+              ).strip(),
+          }
+          Path("verifier-control.json").write_text(
+              json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Validate immutable verifier action pins
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path(".github/workflows/fpm-trusted-qualification-independent-verify.yml")
+          text = path.read_text(encoding="utf-8")
+
+          assert "permissions: {}" in text
+          assert "actions/cache@" not in text
+          assert "secrets." not in text
+          assert text.count("actions/checkout@") == 1
+          assert text.count("actions/download-artifact@") == 2
+          assert text.count("actions/upload-artifact@") == 1
+          assert text.count("persist-credentials: false") == 1
+
+          expected = {
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+              "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+          }
+
+          refs = {}
+          pattern = re.compile(
+              r"^\s*-?\s*uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
+          )
+          for line in text.splitlines():
+              stripped = line.lstrip()
+              if not stripped.startswith("uses:") and not stripped.startswith("- uses:"):
+                  continue
+              match = pattern.fullmatch(line)
+              assert match, f"un-pinned action reference: {line!r}"
+              action, ref = match.groups()
+              if action in refs:
+                  assert refs[action] == ref
+              else:
+                  refs[action] = ref
+
+          assert refs == expected, f"unexpected verifier action set: {refs!r}"
+          PY
+
+      - name: Capture upstream trusted run and artifacts
+        id: upstream
+        env:
+          GH_TOKEN: \${{ github.token }}
+          RUN_ID: \${{ github.event.workflow_run.id }}
+          EXPECTED_NAME: FPM trusted qualification policy
+          EXPECTED_PATH: .github/workflows/fpm-trusted-qualification.yml
+        run: |
+          set -euo pipefail
+          mkdir -p snapshot/download/receipt snapshot/download/index
+          gh api "repos/\${GITHUB_REPOSITORY}/actions/runs/\${RUN_ID}" > snapshot/trusted-run.json
+          gh api "repos/\${GITHUB_REPOSITORY}/actions/runs/\${RUN_ID}/artifacts?per_page=100" > snapshot/artifacts.json
+
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          run = json.loads(Path("snapshot/trusted-run.json").read_text())
+          artifacts = json.loads(Path("snapshot/artifacts.json").read_text())
+
+          assert run["id"] == int(__import__("os").environ["RUN_ID"])
+          assert run["name"] == __import__("os").environ["EXPECTED_NAME"]
+          assert run["path"] == __import__("os").environ["EXPECTED_PATH"]
+          assert run["event"] == "workflow_run"
+          assert run["status"] == "completed"
+          assert run["conclusion"] == "success"
+          assert run["repository"]["full_name"] == __import__("os").environ["GITHUB_REPOSITORY"]
+          assert run["run_attempt"] >= 1
+
+          items = artifacts.get("artifacts")
+          assert isinstance(items, list)
+
+          receipts = [
+              x for x in items
+              if re.fullmatch(r"fpm-trusted-qualification-[0-9a-f]{40}", x.get("name", ""))
+          ]
+          indexes = [
+              x for x in items
+              if re.fullmatch(r"fpm-trusted-qualification-index-[0-9a-f]{40}", x.get("name", ""))
+          ]
+          assert len(receipts) == 1, f"expected one receipt artifact, found {len(receipts)}"
+          assert len(indexes) == 1, f"expected one index artifact, found {len(indexes)}"
+
+          receipt = receipts[0]
+          index = indexes[0]
+
+          for artifact in (receipt, index):
+              assert artifact["expired"] is False
+              assert artifact["size_in_bytes"] > 0
+              assert artifact["workflow_run"]["id"] == run["id"]
+              assert artifact["workflow_run"]["repository_id"] == run["repository"]["id"]
+              assert artifact["digest"].startswith("sha256:")
+              assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact["digest"])
+
+          subject = receipt["name"].removeprefix("fpm-trusted-qualification-")
+          assert index["name"] == f"fpm-trusted-qualification-index-{subject}"
+
+          Path("upstream-artifact-selection.json").write_text(
+              json.dumps(
+                  {
+                      "candidate_sha_from_artifact_name": subject,
+                      "receipt_artifact_id": receipt["id"],
+                      "receipt_artifact_digest": receipt["digest"],
+                      "receipt_artifact_name": receipt["name"],
+                      "index_artifact_id": index["id"],
+                      "index_artifact_digest": index["digest"],
+                      "index_artifact_name": index["name"],
+                  },
+                  sort_keys=True,
+                  separators=(",", ":"),
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Download exact upstream receipt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: \${{ github.token }}
+          repository: \${{ github.repository }}
+          run-id: \${{ github.event.workflow_run.id }}
+          artifact-ids: \${{ fromJSON(steps.upstream.outputs.receipt_artifact_id || '0') }}
+          path: snapshot/download/receipt
+          digest-mismatch: error
+
+      - name: Download exact upstream binding index
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: \${{ github.token }}
+          repository: \${{ github.repository }}
+          run-id: \${{ github.event.workflow_run.id }}
+          artifact-ids: \${{ fromJSON(steps.upstream.outputs.index_artifact_id || '0') }}
+          path: snapshot/download/index
+          digest-mismatch: error
+
+      - name: Normalize downloaded evidence
+        run: |
+          set -euo pipefail
+          receipt_file="\$(find snapshot/download/receipt -type f -name 'qualification-receipt.json' -print -quit)"
+          index_file="\$(find snapshot/download/index -type f -name 'artifact-binding-index.json' -print -quit)"
+          test -n "\$receipt_file"
+          test -n "\$index_file"
+          cp "\$receipt_file" snapshot/qualification-receipt.json
+          cp "\$index_file" snapshot/artifact-binding-index.json
+
+      - name: Resolve evidence-linked GitHub objects
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER="\$(jq -r '.pr_number' snapshot/qualification-receipt.json)"
+          CANDIDATE_RUN_ID="\$(jq -r '.upstream_workflow_run_id' snapshot/qualification-receipt.json)"
+          SUBJECT_SHA="\$(jq -r '.subject_sha' snapshot/qualification-receipt.json)"
+          POLICY_SHA="\$(jq -r '.trusted_policy_sha' snapshot/qualification-receipt.json)"
+
+          test "\$PR_NUMBER" -ge 1
+          printf '%s\n' "\$CANDIDATE_RUN_ID" | grep -Eq '^[0-9]+$'
+          printf '%s\n' "\$SUBJECT_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "\$POLICY_SHA" | grep -Eq '^[0-9a-f]{40}$'
+
+          gh api "repos/\${GITHUB_REPOSITORY}/actions/runs/\${CANDIDATE_RUN_ID}" > snapshot/candidate-run.json
+          gh api "repos/\${GITHUB_REPOSITORY}/pulls/\${PR_NUMBER}" > snapshot/pull-request.json
+          gh api "repos/\${GITHUB_REPOSITORY}/commits/\${SUBJECT_SHA}" > snapshot/subject-commit.json
+          gh api "repos/\${GITHUB_REPOSITORY}/contents/crates/fpm-wasm-artifact-identity/Cargo.toml?ref=\${SUBJECT_SHA}" > snapshot/manifest.json
+          gh api "repos/\${GITHUB_REPOSITORY}/contents/.github/workflows/fpm-trusted-qualification.yml?ref=\${POLICY_SHA}" > snapshot/policy-file.json
+
+      - name: Run independent raw-object verifier
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/verify_fpm_trusted_qualification.py snapshot \
+            | tee snapshot/reference-verification.json
+
+      - name: Upload independent verification result
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fpm-trusted-qualification-reference-verification-\${{ jq -r '.candidate_sha' snapshot/reference-verification.json }}
+          path: snapshot/reference-verification.json
+          if-no-files-found: error
+          retention-days: 90
