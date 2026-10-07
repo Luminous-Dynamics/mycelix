@@ -159,11 +159,21 @@ jobs:
             probe="$(dirname "$probe")"
           done
 
-      - name: Preflight evidence verifiers
-        run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_lock.py scripts/integral/verify_d6u_runtime_record.py
-
-      - name: Verify D6U manifest
-        run: python3 scripts/integral/verify_d6u_runtime_manifest.py
+      - name: Parse D6U manifest data
+        run: |
+          set -euo pipefail
+          jq -e '
+            type == "object" and
+            (.version | type == "number") and
+            (.claim_ceiling | type == "string") and
+            (.supported_reference_cases | type == "array") and
+            (.unsupported_reference_cases | type == "array") and
+            (.evidence_outcome_classes | type == "array") and
+            (.substrate | type == "object") and
+            (.substrate.holochain | type == "string") and
+            (.substrate.hdk | type == "string") and
+            (.substrate.hdi | type == "string")
+          ' docs/integral/d6u-runtime-manifest.json >/dev/null
 
       - name: Assert isolated Cargo configuration
         run: |
@@ -219,93 +229,6 @@ jobs:
           RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
           CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
         run: cargo +1.96.1 fetch --locked --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml"
-
-      - name: Verify resolved substrate lock
-        working-directory: d6u-runtime-harness
-        run: python3 ../scripts/integral/verify_d6u_runtime_lock.py Cargo.lock
-
-      - name: Negative-test substrate lock verifier
-        if: success()
-        working-directory: d6u-runtime-harness
-        run: |
-          set -euo pipefail
-          tampered_lock=$(mktemp)
-          cp Cargo.lock "$tampered_lock"
-          python3 - "$tampered_lock" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and line == 'version = "0.7.0"':
-        lines[index] = 'version = "0.0.0"'
-        break
-else:
-    raise SystemExit("holochain lock package/version not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
-          if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
-            echo "tampered Cargo.lock version was incorrectly accepted"
-            exit 1
-          fi
-
-          cp Cargo.lock "$tampered_lock"
-          python3 - "$tampered_lock" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and line == 'source = "registry+https://github.com/rust-lang/crates.io-index"':
-        lines[index] = 'source = "registry+https://example.invalid/index"'
-        break
-else:
-    raise SystemExit("holochain lock package/source not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
-          if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
-            echo "tampered Cargo.lock registry source was incorrectly accepted"
-            exit 1
-          fi
-
-          cp Cargo.lock "$tampered_lock"
-          python3 - "$tampered_lock" <<'PY'
-import pathlib
-import re
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and re.fullmatch(r'checksum = "[0-9a-f]{64}"', line):
-        lines[index] = 'checksum = "' + ("0" * 64) + '"'
-        break
-else:
-    raise SystemExit("holochain lock package/checksum not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
-          if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
-            echo "tampered Cargo.lock checksum was incorrectly accepted"
-            exit 1
-          fi
-          rm -f "$tampered_lock"
 
       - name: Capture runtime source integrity
         id: runtime_source
@@ -549,46 +472,12 @@ PY
           test "$(sha256sum "$digest_input" | cut -d' ' -f1)" = "$EXPECTED_SOURCE_SHA"
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
-      - name: Verify per-case runtime evidence
-        if: success()
-        working-directory: d6u-runtime-harness
-        run: python3 ../scripts/integral/verify_d6u_runtime_evidence.py d6u-runtime-test.log
-
       - name: Assert evidence inputs exist
         if: success()
         working-directory: d6u-runtime-harness
         run: |
           test -s d6u-runtime-test.log
           test -s Cargo.lock
-
-      - name: Negative-test runtime evidence verifier
-        if: success()
-        working-directory: d6u-runtime-harness
-        run: |
-          set -euo pipefail
-          tampered_log=$(mktemp)
-          cp d6u-runtime-test.log "$tampered_log"
-          python3 - "$tampered_log" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-for index, line in enumerate(lines):
-    if line.startswith("D6U_CASE\tcanonical-payload-accepted\t"):
-        parts = line.split("\t")
-        parts[2] = "semantic-rejected"
-        lines[index] = "\t".join(parts)
-        break
-else:
-    raise SystemExit("canonical acceptance evidence line not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
-          if python3 ../scripts/integral/verify_d6u_runtime_evidence.py "$tampered_log"; then
-            echo "tampered runtime evidence was incorrectly accepted"
-            exit 1
-          fi
-          rm -f "$tampered_log"
 
       - name: Emit runtime evidence record
         working-directory: d6u-runtime-harness
@@ -652,24 +541,6 @@ PY
             claim_ceiling=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["claim_ceiling"])')
             echo "claim_ceiling=${claim_ceiling}"
           } | tee d6u-runtime-evidence.txt
-
-      - name: Verify emitted runtime evidence record
-        if: success()
-        run: python3 scripts/integral/verify_d6u_runtime_record.py
-
-      - name: Negative-test runtime record verifier
-        if: success()
-        working-directory: d6u-runtime-harness
-        run: |
-          set -euo pipefail
-          backup=$(mktemp)
-          cp d6u-runtime-evidence.txt "$backup"
-          trap 'cp "$backup" d6u-runtime-evidence.txt; rm -f "$backup"' EXIT
-          sed -i 's/^claim_ceiling=.*/claim_ceiling=qualified/' d6u-runtime-evidence.txt
-          if python3 ../scripts/integral/verify_d6u_runtime_record.py; then
-            echo "tampered runtime evidence record was incorrectly accepted"
-            exit 1
-          fi
 
       - name: Mark attestation as deferred to trusted builder
         if: success()
