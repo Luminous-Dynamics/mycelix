@@ -81,8 +81,14 @@ jobs:
           parent = manifest["parent_subject"]
           assert sha40.fullmatch(target)
           assert sha40.fullmatch(parent)
-          assert run["id"] == int(sys.argv[0]) if False else run["id"] == int(run["id"])
+          assert run["id"] > 0
           assert run["head_sha"] == target
+          assert any(
+              item.get("number") == manifest["pr_number"]
+              and item.get("head", {}).get("sha") == target
+              and item.get("base", {}).get("sha") == parent
+              for item in run.get("pull_requests", [])
+          )
           assert run["workflow_id"] == admission["workflow_id"]
           assert run["path"] == admission["path"]
           assert run["event"] == "pull_request"
