@@ -243,17 +243,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                     Ok(ValidateCallbackResult::Valid)
                 }
-                LinkTypes::TreasuryIdToTreasury
-                | LinkTypes::AllocationIdToAllocation
-                | LinkTypes::PoolIdToPool
-                | LinkTypes::CommonsPoolIdToPool => {
-                    // Anchor-to-entry links for ID-based lookups
-                    if !base_valid || !target_valid {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "ID index link must connect valid hashes".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+                LinkTypes::TreasuryIdToTreasury => {
+                    validate_treasury_id_index_link(&base_address, &target_address)
+                }
+                LinkTypes::AllocationIdToAllocation => {
+                    validate_allocation_id_index_link(&base_address, &target_address)
+                }
+                LinkTypes::PoolIdToPool => {
+                    validate_pool_id_index_link(&base_address, &target_address)
+                }
+                LinkTypes::CommonsPoolIdToPool => {
+                    validate_commons_pool_id_index_link(&base_address, &target_address)
                 }
                 // Anchor → governance-agent pubkey registration (authorizes commons
                 // allocations). Enforcement of who may register lives in the coordinator.
@@ -286,6 +286,157 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn deterministic_anchor_hash(value: &str) -> EntryHash {
+    EntryHash::from_raw_32(holo_hash::blake2b_256(value.as_bytes()).to_vec())
+}
+
+fn require_index_action_target(
+    target_address: &AnyLinkableHash,
+    relation: &str,
+) -> Result<ActionHash, ValidateCallbackResult> {
+    target_address
+        .clone()
+        .into_action_hash()
+        .ok_or_else(|| {
+            ValidateCallbackResult::Invalid(format!(
+                "{relation} target must be an ActionHash"
+            ))
+        })
+}
+
+fn require_index_anchor(
+    base_address: &AnyLinkableHash,
+    expected_anchor: &str,
+    relation: &str,
+) -> Result<(), ValidateCallbackResult> {
+    let actual = base_address
+        .clone()
+        .into_entry_hash()
+        .ok_or_else(|| {
+            ValidateCallbackResult::Invalid(format!(
+                "{relation} base must be an EntryHash"
+            ))
+        })?;
+    let expected = deterministic_anchor_hash(expected_anchor);
+    if actual != expected {
+        return Err(ValidateCallbackResult::Invalid(format!(
+            "{relation} base does not match the deterministic anchor"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_treasury_id_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_index_action_target(target_address, "TreasuryIdToTreasury") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(treasury) = record
+        .entry()
+        .to_app_option::<Treasury>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "TreasuryIdToTreasury target decode failed: {e:?}"
+        )))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "TreasuryIdToTreasury target must resolve to Treasury".into(),
+        ));
+    };
+    if let Err(invalid) =
+        require_index_anchor(base_address, &treasury.id, "TreasuryIdToTreasury")
+    {
+        return Ok(invalid);
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_allocation_id_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash =
+        match require_index_action_target(target_address, "AllocationIdToAllocation") {
+            Ok(hash) => hash,
+            Err(invalid) => return Ok(invalid),
+        };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(allocation) = record
+        .entry()
+        .to_app_option::<Allocation>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "AllocationIdToAllocation target decode failed: {e:?}"
+        )))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AllocationIdToAllocation target must resolve to Allocation".into(),
+        ));
+    };
+    if let Err(invalid) =
+        require_index_anchor(base_address, &allocation.id, "AllocationIdToAllocation")
+    {
+        return Ok(invalid);
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_pool_id_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_index_action_target(target_address, "PoolIdToPool") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(pool) = record
+        .entry()
+        .to_app_option::<SavingsPool>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "PoolIdToPool target decode failed: {e:?}"
+        )))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PoolIdToPool target must resolve to SavingsPool".into(),
+        ));
+    };
+    if let Err(invalid) = require_index_anchor(base_address, &pool.id, "PoolIdToPool") {
+        return Ok(invalid);
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_commons_pool_id_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_index_action_target(target_address, "CommonsPoolIdToPool") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(pool) = record
+        .entry()
+        .to_app_option::<CommonsPool>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "CommonsPoolIdToPool target decode failed: {e:?}"
+        )))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CommonsPoolIdToPool target must resolve to CommonsPool".into(),
+        ));
+    };
+    if let Err(invalid) =
+        require_index_anchor(base_address, &pool.id, "CommonsPoolIdToPool")
+    {
+        return Ok(invalid);
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_treasury(
