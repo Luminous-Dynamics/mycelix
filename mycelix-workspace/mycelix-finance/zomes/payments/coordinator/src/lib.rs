@@ -428,8 +428,10 @@ const MAX_SAP_RETRIES: usize = 3;
 /// risks double-application against a stale balance. Skip if < 60s elapsed.
 const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 
-/// Credit SAP to a member's balance (used by bridge deposits and community issuance).
-/// Auto-initializes the SapBalance entry if the member has none yet.
+/// Internal SAP credit primitive.
+///
+/// This helper is deliberately private: externally reachable value-moving
+/// operations must establish their own authorization/provenance before calling it.
 ///
 /// Uses optimistic locking with retry: after updating, re-reads via
 /// `follow_update_chain` to verify our update won. If a concurrent update
@@ -443,8 +445,7 @@ const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 /// into one conservation-preserving `transfer_sap`, make raw credit non-public, and
 /// route all issuance through authorized mints (`mint_sap_from_governance` already
 /// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
-#[hdk_extern]
-pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
+fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
     // Opportunistically drain any pending compost deliveries
     if let Err(e) = drain_pending_compost_inner() {
         debug!(
