@@ -457,13 +457,13 @@ jobs:
           try:
               with urllib.request.build_opener(NoRedirect).open(download_url, timeout=30) as response:
                   assert response.status == 200, f"qualification receipt redirect target returned HTTP {response.status}"
-                  artifact_bytes = response.read(1024 * 1024 + 1)
+                  artifact_bytes = response.read(16 * 1024 + 1)
           except urllib.error.HTTPError as error:
               raise AssertionError(
                   f"qualification receipt redirect target performed an unexpected second HTTP redirect/status: {error.code}"
               ) from error
           assert artifact_bytes, "qualification receipt artifact download is empty"
-          assert len(artifact_bytes) <= 1024 * 1024, "qualification receipt artifact exceeds 1 MiB verifier bound"
+          assert len(artifact_bytes) <= 16 * 1024, "qualification receipt artifact exceeds the 16 KiB verifier bound"
           assert "sha256:" + hashlib.sha256(artifact_bytes).hexdigest() == artifact_digest, (
               "downloaded qualification receipt bytes do not match GitHub's recorded artifact digest"
           )
@@ -475,10 +475,10 @@ jobs:
                   assert len(infos) <= 16, f"qualification receipt archive contains {len(infos)} entries, exceeding verifier bound"
                   files = [info for info in infos if not info.is_dir()]
                   assert len(files) == 1, f"qualification receipt archive contains {len(files)} files, expected exactly one"
-                  assert 0 < files[0].file_size <= 1024 * 1024, (
+                  assert 0 < files[0].file_size <= 16 * 1024, (
                       f"qualification receipt member expands to {files[0].file_size} bytes, outside verifier bound"
                   )
-                  assert 0 < files[0].compress_size <= 1024 * 1024, (
+                  assert 0 < files[0].compress_size <= 16 * 1024, (
                       f"qualification receipt member compressed size {files[0].compress_size} is outside verifier bound"
                   )
                   receipt_member = files[0].filename
