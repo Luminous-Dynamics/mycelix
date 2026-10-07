@@ -53,7 +53,7 @@ jobs:
       - name: Compile and validate qualification inputs
         run: |
           set -euo pipefail
-          python3 -m py_compile             mycelix-governance/tools/formal/qualify_sovereignty_formal.py             mycelix-governance/tools/formal/sovereignty_reference_explorer.py
+          python3 -m py_compile             mycelix-governance/tools/formal/qualify_sovereignty_formal.py             docs/qualification/fixtures/formal/sovereignty_reference_explorer.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
           python3 -m json.tool mycelix-governance/tools/formal/pins.json >/dev/null
 
