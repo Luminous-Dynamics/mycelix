@@ -58,6 +58,17 @@ BadSameRoleReviewFullControl(s, reviewer) ==
     /\ externalReviewers' = [externalReviewers EXCEPT ![s] = {reviewer}]
     /\ clock' = NextTime
 
+BadAssignRoleToActiveReviewer(subject, reviewer, role) ==
+    /\ Advanceable
+    /\ subject \in Subjects
+    /\ reviewer \in Subjects
+    /\ reviewer # subject
+    /\ reviewer \in externalReviewers[subject]
+    /\ \A r \in Roles : reviewer \notin roleHolder[r]
+    /\ roleHolder' = [roleHolder EXCEPT ![role] = @ \cup {reviewer}]
+    /\ UNCHANGED <<conflictFinding, externalReviewers>>
+    /\ clock' = NextTime
+
 NegativeNext ==
       Next
   \/ IF Control = "role-conflict" THEN
@@ -73,6 +84,10 @@ NegativeNext ==
   \/ IF Control = "same-role-review-full-control" THEN
         \E s \in Subjects, reviewer \in Subjects :
           BadSameRoleReviewFullControl(s, reviewer)
+     ELSE FALSE
+  \/ IF Control = "reviewer-role-drift" THEN
+        \E subject \in Subjects, reviewer \in Subjects, role \in Roles :
+          BadAssignRoleToActiveReviewer(subject, reviewer, role)
      ELSE FALSE
 
 NegativeSpec == Init /\ [][NegativeNext]_vars
