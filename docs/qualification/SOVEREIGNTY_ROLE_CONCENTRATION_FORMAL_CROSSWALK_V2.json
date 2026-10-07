@@ -3,8 +3,8 @@
   "profile_id": "SOV-AI-ROLE-CONCENTRATION-FORMAL-QUAL-001-V2",
   "status": "candidate-verification",
   "authority": "non-authoritative",
-  "formal_subject_head": "fd47f13fce3331cf4f721da8e0ae9b63f5818665",
-  "formal_subject_tree": "da2a37ef91e3095e3d1d93657ed01a184f087cea",
+  "formal_subject_head": "ae6bc2a600381901cd74162c27b0be00c90090ff",
+  "formal_subject_tree": "0d574bc40fdbfcfcd9f301cf7d1a51c46c63d112",
   "mappings": [
     {
       "id": "role-concentration-finding",
@@ -61,6 +61,20 @@
         "same-role-review-full-control-bad -> FullControlRequiresIndependentExternalReview"
       ],
       "coverage": "aligned"
+    },
+    {
+      "id": "reviewer-role-drift",
+      "boundary": "a reviewer cannot become a qualification-path role-holder while their review is relied upon",
+      "tla": [
+        "ReviewerRoleDisjointness"
+      ],
+      "alloy": [
+        "ReviewerCannotHoldQualificationRole"
+      ],
+      "reference": [
+        "reviewer-role-drift -> ReviewerRoleDisjointness"
+      ],
+      "coverage": "aligned"
     }
   ],
   "research_translation": [
@@ -72,6 +86,7 @@
     "This is a finite state/model-layer theorem, not a general legal rule.",
     "The theorem does not prove substantive quality or honesty of an independent reviewer.",
     "The theorem does not prohibit organizational role overlap; it requires explicit conflict/review handling.",
-    "The theorem does not establish competition-law compliance or external recognition."
+    "The theorem does not establish competition-law compliance or external recognition.",
+    "Reviewer role-disjointness is modeled as a qualification-process lock; it is not a universal organizational separation-of-duties rule."
   ]
 }
