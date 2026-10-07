@@ -440,9 +440,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterCreateLink {
             link_type,
             base_address: _,
-            target_address: _,
+            target_address,
             tag: _,
-            action: _,
+            action,
         } => match link_type {
             LinkTypes::AuthorToProposal => Ok(ValidateCallbackResult::Valid),
             LinkTypes::TypeToProposal => Ok(ValidateCallbackResult::Valid),
@@ -453,7 +453,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::ContributorToContribution => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ContributionToReply => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ProposalToDiscussionReflection => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ProposalById => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::ProposalById => {
+                validate_proposal_index_target(action, target_address)
+            },
         },
         FlatOp::RegisterDeleteLink {
             link_type,
@@ -477,6 +479,38 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_proposal_index_target(
+    action: CreateLink,
+    target_address: AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_action_hash = target_address.into_action_hash().ok_or(wasm_error!(
+        WasmErrorInner::Guest("ProposalById target must be an action hash".into())
+    ))?;
+
+    let target_record = must_get_valid_record(target_action_hash)?;
+    if action.author() != target_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ProposalById target must be authored by the link author".into(),
+        ));
+    }
+
+    let proposal = target_record
+        .entry()
+        .to_app_option::<Proposal>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "ProposalById target has no Proposal entry".into()
+        )))?;
+
+    if proposal.id.trim().is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ProposalById target has an empty proposal ID".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate proposal creation
