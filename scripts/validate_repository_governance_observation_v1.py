@@ -136,7 +136,7 @@ def _evaluate_rulesets(ruleset_entries: list[Any]) -> tuple[str, list[str]]:
             targeted.append(entry)
 
     if not targeted:
-        return "MISMATCH", ["no_active_main_targeting_ruleset"]
+        return "ABSENT", []
 
     failures: list[str] = []
     for index, entry in enumerate(targeted):
@@ -234,26 +234,38 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
     if protection_status in {401, 403}:
         admin_visibility = "unverified"
 
+    ruleset_state, ruleset_mismatches = _evaluate_rulesets(ruleset_entries)
+
     if admin_visibility != "verified":
-        state = "MISMATCH" if branch_protected is False and len(ruleset_entries) == 0 else "UNVERIFIED"
-        reason = (
-            "github_branch_protection_admin_observation_unavailable"
-            if state == "UNVERIFIED"
-            else "target_branch_is_unprotected_and_no_ruleset_is_observed"
-        )
+        if branch_protected is False and ruleset_state in {"ABSENT", "MISMATCH"}:
+            reason = (
+                "target_branch_is_unprotected_and_no_rule_set_is_observed"
+                if ruleset_state == "ABSENT"
+                else "publicly_observed_ruleset_controls_mismatch"
+            )
+            return {
+                "evaluator_id": EVALUATOR_ID,
+                "valid": False,
+                "governance_state": "MISMATCH",
+                "reason": reason,
+                "mismatches": ruleset_mismatches,
+                "claim_ceiling": "RepositoryGovernanceObservationOnly",
+                "authoritative_admin_observation": False,
+                "grants_trusted_verifier_root": False,
+            }
+
         return {
             "evaluator_id": EVALUATOR_ID,
-            "valid": state != "MISMATCH",
-            "governance_state": state,
-            "reason": reason,
+            "valid": False,
+            "governance_state": "UNVERIFIED",
+            "reason": "github_branch_protection_admin_observation_unavailable",
+            "mismatches": ruleset_mismatches,
             "claim_ceiling": "RepositoryGovernanceObservationOnly",
             "authoritative_admin_observation": False,
             "grants_trusted_verifier_root": False,
         }
 
-    ruleset_state, ruleset_mismatches = _evaluate_rulesets(ruleset_entries)
-
-    branch_state = "UNAVAILABLE"
+    branch_state = "ABSENT"
     branch_mismatches: list[str] = []
     if protection_status == 200:
         protection = admin.get("protection")
@@ -288,7 +300,7 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             if branch_state != "UNVERIFIED":
                 branch_state = "MISMATCH" if branch_mismatches else "VERIFIED"
     elif protection_status == 404:
-        branch_state = "UNAVAILABLE"
+        branch_state = "ABSENT"
     else:
         return {
             "evaluator_id": EVALUATOR_ID,
@@ -319,6 +331,21 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             "valid": False,
             "governance_state": "UNVERIFIED",
             "reason": "acceptable_control_plane_observation_incomplete",
+            "mismatches": mismatches,
+            "claim_ceiling": "RepositoryGovernanceObservationOnly",
+            "authoritative_admin_observation": True,
+            "grants_trusted_verifier_root": False,
+        }
+
+    if branch_state in {"ABSENT", "MISMATCH"} and ruleset_state in {"ABSENT", "MISMATCH"}:
+        mismatches = branch_mismatches + ruleset_mismatches
+        if branch_state == "ABSENT" and ruleset_state == "ABSENT":
+            mismatches = ["no_acceptable_control_plane_observed"]
+        return {
+            "evaluator_id": EVALUATOR_ID,
+            "valid": False,
+            "governance_state": "MISMATCH",
+            "reason": "all_observable_acceptable_control_planes_mismatch",
             "mismatches": mismatches,
             "claim_ceiling": "RepositoryGovernanceObservationOnly",
             "authoritative_admin_observation": True,
@@ -488,6 +515,27 @@ def self_test() -> None:
         pass
     else:
         raise AssertionError("a non-administration observation source must not qualify for VERIFIED")
+
+    x = copy.deepcopy(fixture_observation())
+    x["branch"]["protected"] = False
+    x["rulesets"]["entries"][0]["rules"] = [
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    x["admin_observation"]["status"] = "unverified"
+    x["admin_observation"]["source"] = "github_token"
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+
+    x = copy.deepcopy(fixture_observation())
+    x["rulesets"]["entries"][0]["rules"] = [
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    x["admin_observation"]["status"] = "unverified"
+    x["admin_observation"]["source"] = "github_token"
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
 
     x = copy.deepcopy(fixture_observation())
     x["admin_observation"]["protection"]["block_force_push"] = False
