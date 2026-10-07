@@ -58,7 +58,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "55"
+          TRUSTED_POLICY_VERSION: "56"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -139,7 +139,7 @@ jobs:
           printf 'canonical_predicate_sha256=%s\n' "$canonical_predicate_sha256" >> "$GITHUB_OUTPUT"
       - name: Prepare exact auditor handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "55"
+          D6U_TRUSTED_POLICY_VERSION: "56"
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
@@ -324,7 +324,7 @@ EOF
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "55"
+          TRUSTED_POLICY_VERSION: "56"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -372,7 +372,7 @@ EOF
 
       - name: Assert exact auditor handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "55"
+          D6U_TRUSTED_POLICY_VERSION: "56"
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
@@ -463,7 +463,7 @@ EOF
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-auditor-handoff" \
-            D6U_TRUSTED_POLICY_VERSION="55" \
+            D6U_TRUSTED_POLICY_VERSION="56" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
@@ -471,7 +471,7 @@ EOF
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "55"
+          D6U_TRUSTED_POLICY_VERSION: "56"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"
