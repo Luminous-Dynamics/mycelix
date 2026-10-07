@@ -204,7 +204,7 @@ jobs:
           set -euo pipefail
           mkdir -p qualification-receipt
           source='mycelix-manufacturing/crates/cos_conformance/src/federation.rs'
-          cat > qualification-receipt/cos-exact-qualification-receipt.json <<EOF
+          cat > qualification-receipt/receipt-payload.json <<EOF
           {
             "schema": "cos-exact-qualification-receipt-v1",
             "repository": "${GITHUB_REPOSITORY}",
@@ -234,14 +234,19 @@ jobs:
             "boundary_conclusion": "${{ steps.boundary.conclusion }}",
             "federation_source_sha256": "$(sha256sum "$source" | cut -d' ' -f1)",
             "cargo_manifest_sha256": "$(sha256sum "$MANIFEST" | cut -d' ' -f1)",
-            "receipt_file_sha256": "$(sha256sum qualification-receipt/cos-exact-qualification-receipt.json | cut -d' ' -f1)",
             "claim_ceiling": "ReferenceModelOnly",
             "format_scope": "cos_conformance package only",
             "qualification_scope": "Exact PR-head cos_conformance semantic conformance only"
           }
           EOF
-          jq -e '.schema == "cos-exact-qualification-receipt-v1" and .event_head_sha == .checked_out_head_sha and .claim_ceiling == "ReferenceModelOnly"' qualification-receipt/cos-exact-qualification-receipt.json
-
+          jq -cS '.' qualification-receipt/receipt-payload.json > qualification-receipt/receipt-payload-canonical.json
+          payload_sha256="$(sha256sum qualification-receipt/receipt-payload-canonical.json | cut -d' ' -f1)"
+          jq -cS --arg digest "$payload_sha256" '. + {receipt_payload_sha256: $digest}' qualification-receipt/receipt-payload.json > qualification-receipt/cos-exact-qualification-receipt.json
+          jq -e '.schema == "cos-exact-qualification-receipt-v1" and .event_head_sha == .checked_out_head_sha and .claim_ceiling == "ReferenceModelOnly" and (.receipt_payload_sha256 | test("^[0-9a-f]{64}$"))' qualification-receipt/cos-exact-qualification-receipt.json
+          actual_payload_sha256="$(jq -cS 'del(.receipt_payload_sha256)' qualification-receipt/cos-exact-qualification-receipt.json | sha256sum | cut -d' ' -f1)"
+          recorded_payload_sha256="$(jq -r '.receipt_payload_sha256' qualification-receipt/cos-exact-qualification-receipt.json)"
+          test "$actual_payload_sha256" = "$recorded_payload_sha256"
+          rm -f qualification-receipt/receipt-payload.json qualification-receipt/receipt-payload-canonical.json
       - name: Upload exact qualification receipt
         id: upload_receipt
         if: ${{ always() }}
