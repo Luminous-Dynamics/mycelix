@@ -909,7 +909,7 @@ def self_test(policy: dict[str, Any]) -> None:
     ]
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
-    assert result["governance_state"] == "UNVERIFIED"
+    assert result["governance_state"] == "MISMATCH"
     assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404))
@@ -963,7 +963,11 @@ def self_test(policy: dict[str, Any]) -> None:
         }},
         {"type": "non_fast_forward"},
     ]
-    _refresh_bound_fixture_payloads(x)
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
     assert result["grants_trusted_verifier_root"] is False
