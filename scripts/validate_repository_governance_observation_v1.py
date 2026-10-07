@@ -88,6 +88,40 @@ def validate_policy(policy: Any) -> None:
     require(required.get("required_approving_review_count") == 1,
             "required review count drift")
 
+    observation_contract = policy.get("observation_contract")
+    require(isinstance(observation_contract, dict), "observation_contract missing")
+    require(
+        observation_contract.get("live_control_plane_required") is True,
+        "live control-plane requirement drift",
+    )
+    require(
+        observation_contract.get("raw_payloads_required") is True,
+        "raw payload requirement drift",
+    )
+    require(
+        observation_contract.get("raw_payload_sha256_required") is True,
+        "raw payload hash requirement drift",
+    )
+    require(
+        observation_contract.get("admin_observation_required_for_verified") is True,
+        "admin observation requirement drift",
+    )
+    require(
+        observation_contract.get("secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists") is True,
+        "secondary observation precedence drift",
+    )
+    require(
+        observation_contract.get("applicable_rulesets_must_be_aggregated") is True,
+        "ruleset aggregation contract drift",
+    )
+
+    fail_closed = policy.get("fail_closed")
+    require(isinstance(fail_closed, dict), "fail_closed missing")
+    require(
+        fail_closed.get("contradiction_dominates_secondary_observation_unavailability") is True,
+        "contradiction precedence drift",
+    )
+
 
 def validate_observation_shape(observation: Any) -> None:
     require(isinstance(observation, dict), "observation must be an object")
@@ -648,6 +682,17 @@ def fixture_policy() -> dict[str, Any]:
         "repository": REPOSITORY,
         "repository_id": REPOSITORY_ID,
         "target_ref": TARGET_REF,
+        "observation_contract": {
+            "live_control_plane_required": True,
+            "raw_payloads_required": True,
+            "raw_payload_sha256_required": True,
+            "admin_observation_required_for_verified": True,
+            "secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists": True,
+            "applicable_rulesets_must_be_aggregated": True,
+        },
+        "fail_closed": {
+            "contradiction_dominates_secondary_observation_unavailability": True,
+        },
         "required_controls": {
             "pull_request_required": True,
             "required_approving_review_count": 1,
