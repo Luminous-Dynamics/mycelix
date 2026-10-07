@@ -47,6 +47,38 @@ def mask_rust(source: str) -> str:
             else: i += 1
     return ''.join(out)
 
+def braced_block(source: str, start: int) -> str:
+    masked = mask_rust(source)
+    brace = masked.find("{", start)
+    if brace < 0:
+        raise ValueError(f"missing opening brace at byte {start}")
+    depth = 0
+    for i in range(brace, len(masked)):
+        if masked[i] == "{":
+            depth += 1
+        elif masked[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[brace:i + 1]
+    raise ValueError(f"unterminated block at byte {start}")
+
+
+def update_arms(source: str):
+    masked = mask_rust(source)
+    start = masked.find("OpEntry::UpdateEntry")
+    if start < 0:
+        return
+    block = braced_block(source, start)
+    masked_block = mask_rust(block)
+    matches = list(re.finditer(
+        r"EntryTypes::[A-Za-z0-9_]+(?:\([^)]*\))?\s*=>",
+        masked_block,
+    ))
+    for idx, match in enumerate(matches):
+        arm = block[match.start():matches[idx + 1].start() if idx + 1 < len(matches) else len(block)]
+        yield arm
+
+
 def functions(source: str):
     masked = mask_rust(source)
     needle = 'fn validate_update_'
@@ -86,6 +118,19 @@ for path in files:
             errors.append(f'{path}:{line}: {name}: missing must_get_valid_record predecessor binding')
         elif re.search(r'if\s+let\s+Ok\s*\([^)]*\)\s*=\s*must_get_valid_record', body):
             errors.append(f'{path}:{line}: {name}: swallowed must_get_valid_record predecessor dependency')
+    try:
+        arms = list(update_arms(source))
+    except ValueError as exc:
+        errors.append(f'{path}: UpdateEntry parser error: {exc}')
+        arms = []
+    for arm in arms:
+        label = arm.split('=>', 1)[0].strip()
+        if re.search(r'Ok\(\s*ValidateCallbackResult::Valid', arm):
+            errors.append(f'{path}: {label}: direct Valid in UpdateEntry arm')
+        validators = re.findall(r'\b(validate_[A-Za-z0-9_]+)\s*\(', arm)
+        for validator in validators:
+            if validator != 'validate_update_' and not validator.startswith('validate_update_'):
+                errors.append(f'{path}: {label}: UpdateEntry arm delegates to non-update validator {validator}')
 
 print(f'Audited {len(files)} Finance integrity zomes across {len(ROOTS)} trees.')
 if errors:
