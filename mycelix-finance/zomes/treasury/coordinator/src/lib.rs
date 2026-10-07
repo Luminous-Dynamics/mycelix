@@ -6,38 +6,62 @@
 use hdk::prelude::*;
 use mycelix_finance_shared::{
     GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, links_to_records, validate_id,
-    verify_caller_is_did, verify_citizen_tier, verify_governance_or_bootstrap_from_links,
+    verify_caller_is_did, verify_citizen_tier, verify_governance_from_links,
+    find_governance_predecessor_from_links,
+    verify_governance_registration_from_links,
 };
 use treasury_integrity::*;
 
 use mycelix_zome_helpers as _;
 const DEFAULT_LIST_LIMIT: usize = 100;
 
-/// Verify the caller is a registered governance agent, or allow any agent during
-/// bootstrap (before the first governance agent is registered) — the same pattern
-/// used by recognition/staking/tend. Gates commons-pool allocations.
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
+/// Verify the caller is a registered governance agent. An empty registry is a
+/// denial state; the first registration is authorized only through the
+/// deployment-scoped DNA bootstrap authority. Gates commons-pool allocations.
+fn verify_governance() -> ExternResult<()> {
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-            LinkTypes::GovernanceAgents,
+            LinkTypes::GovernanceWitnesses,
         )?,
         GetStrategy::default(),
     )?;
-    verify_governance_or_bootstrap_from_links(gov_links)
+    verify_governance_from_links(gov_links)
 }
 
-/// Register a governance agent authorized for commons-pool allocations. Only an
-/// existing governance agent may register new ones (any agent during bootstrap).
+fn governance_links() -> ExternResult<Vec<Link>> {
+    Ok(get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::GovernanceWitnesses,
+        )?,
+        GetStrategy::default(),
+    )?)
+}
+
+fn verify_governance_registration_authority() -> ExternResult<Option<ActionHash>> {
+    let gov_links = governance_links()?;
+    verify_governance_registration_from_links(gov_links.clone())?;
+    find_governance_predecessor_from_links(gov_links)
+}
+
+/// Register a governance agent by first creating an immutable registration
+/// witness, then indexing that witness in the append-only GovernanceWitnesses registry.
 #[hdk_extern]
 pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
-    verify_governance_or_bootstrap()?;
+    let predecessor = verify_governance_registration_authority()?;
+    let witness = GovernanceAgentRegistration {
+        registered_agent: agent.get_raw_36().to_vec(),
+        predecessor_registration: predecessor.map(|hash| hash.get_raw_36().to_vec()),
+    };
+    let witness_hash = create_entry(&EntryTypes::GovernanceAgentRegistration(witness))?;
     create_link(
         anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-        agent,
-        LinkTypes::GovernanceAgents,
+        witness_hash.clone(),
+        LinkTypes::GovernanceWitnesses,
         (),
-    )
+    )?;
+    Ok(witness_hash)
 }
 
 /// Maximum retries for optimistic-locking read-modify-write loops (RC-6 through RC-8).
@@ -1264,7 +1288,7 @@ pub fn request_allocation(input: RequestCommonsAllocationInput) -> ExternResult<
     // the 25% reserve floor with no recipient (pure griefing/drain). Bind the requester
     // to the caller and require a governance agent (bootstrap-open until one is set up).
     verify_caller_is_did(&input.requester_did)?;
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
 
     for attempt in 0..=MAX_RETRIES {
         let (record, pool) = get_commons_pool_record(&input.commons_pool_id)?;
