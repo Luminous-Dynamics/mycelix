@@ -45,13 +45,20 @@ jobs:
           toolchain: 1.96.1
           components: rustfmt
 
+      - name: Verify dependency policy before Cargo execution
+        env:
+          EXPECTED_MANIFEST_BLOB_SHA: c94b53f61ed8a9bfb6249b1b339550dddd074d6c
+        run: |
+          set -eu
+          test ! -e .cargo/config.toml
+          test ! -e .cargo/config
+          actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
+          test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
+          grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
+          grep -Fx 'holochain_types = "=0.7.0"' crates/fpm-wasm-artifact-identity/Cargo.toml
+
       - name: Cargo fmt
         run: cargo fmt --check
 
       - name: Cargo test
         run: cargo test
-
-      - name: Pin substrate versions
-        run: |
-          grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' Cargo.toml
-          grep -Fx 'holochain_types = "=0.7.0"' Cargo.toml
