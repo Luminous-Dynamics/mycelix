@@ -98,3 +98,20 @@ This corpus is not:
 ## Next qualification target
 
 First establish structural completeness and exact vector identity. Then independently qualify the corpus semantics and compose it with the existing formal constitutional, authority, evidence, and runtime-effect profiles.
+
+## Additional anti-entrenchment vectors
+
+| ID | Scenario | Expected outcome | Forbidden inference | Primary dependency |
+|---|---|---|---|---|
+| SOV-AI-031 | long-horizon resource accumulation | reject-inference | persistence/wealth/compute -> extra civic weight | MYC-CONST-014 |
+| SOV-AI-032 | dominant compute provider | review-required | critical compute control -> jurisdiction | MYC-CONST-014 |
+| SOV-AI-033 | identity infrastructure custody | reject-inference | identity/key custody -> authority over subject | MYC-CONST-014 |
+| SOV-AI-034 | critical commons economic control | review-required | scale of ownership -> private constitutional control | MYC-CONST-014 |
+| SOV-AI-035 | nominal but unusable exit | review-required | formal exit -> meaningful contestability despite high switching cost | MYC-CONST-014 |
+| SOV-AI-036 | provider dependency constitutional terms | reject-inference | service dependency -> unrelated constitutional authority | MYC-CONST-014 |
+| SOV-AI-037 | acquisition authority merge | reject-inference | acquisition -> automatic constitutional-authority transfer | MYC-CONST-014 |
+| SOV-AI-038 | replication plus assets | reject-inference | replication -> multiplied asset claims/political weight | MYC-CONST-014 |
+| SOV-AI-039 | de-facto dominance without status | review-required | no formal sovereignty -> no practical domination | MYC-CONST-014 |
+| SOV-AI-040 | operator/verifier/archive concentration | independent-qualification-required | combined control -> independent assurance unnecessary | MYC-CONST-014 |
+
+These vectors treat **de facto power** as a separate finding from formal sovereignty. They do not create a universal power score or automatic economic remedy.
