@@ -87,6 +87,7 @@ mod tests {
         assert!(!validate_fpm_verifier_implementation_identity_fields(&anchor));
 
         anchor = valid_anchor();
+        anchor.build_provenance_digest = "abcdef".repeat(10) + "abcd";
         anchor.build_provenance_digest.make_ascii_uppercase();
         assert!(!validate_fpm_verifier_implementation_identity_fields(&anchor));
     }
