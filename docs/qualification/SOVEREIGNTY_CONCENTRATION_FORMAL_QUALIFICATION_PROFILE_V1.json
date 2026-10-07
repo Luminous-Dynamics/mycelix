@@ -99,7 +99,7 @@
   ],
   "verifier": {
     "qualifier_path": "mycelix-governance/tools/formal/qualify_sovereignty_concentration_formal.py",
-    "qualifier_blob_sha": "156c20e521f7cac463ff7907275cadb285272d61",
+    "qualifier_blob_sha": "3eb6d4bc1c5529fa55c2c924bc23dcfb0de07af4",
     "alloy_runner_path": "mycelix-governance/tools/formal/SovereigntyConcentrationAlloyQualificationRunner.java",
     "alloy_runner_blob_sha": "4ec1c1b35234cc0a3186872228e449207431d5f7",
     "pins_path": "mycelix-governance/tools/formal/concentration_pins.json",
