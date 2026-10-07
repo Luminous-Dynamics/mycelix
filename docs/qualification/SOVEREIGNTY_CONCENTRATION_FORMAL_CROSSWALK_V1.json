@@ -3,8 +3,8 @@
   "status": "candidate-verification",
   "authority": "non-authoritative",
   "related_issue": 4530,
-  "formal_subject_head": "2c447b2160c6a4991b5230806490bb6677e4aca3",
-  "formal_subject_tree": "0b808ff5c2cd99447cdd2eb8c95788b6b036fcdd",
+  "formal_subject_head": "885f770318801e1b6a24ae5694db6a0b80f87b7f",
+  "formal_subject_tree": "a5adce02796ae70724596850aec521146738882f",
   "mappings": [
     {
       "id": "scale-weight",
@@ -98,5 +98,6 @@
     "It does not prove real-world exit availability from a finite model.",
     "It does not prove production-runtime refinement.",
     "It does not confer sovereignty, legal status, personhood, or external recognition."
-  ]
+  ],
+  "reference_oracle_blob": "2b0b3fee81faa46eeaeafdbf640bc6f8603ff87f"
 }
