@@ -1,0 +1,106 @@
+{
+  "schema": "mycelix.sovereignty-role-concentration-formal-qualification-profile.v2",
+  "profile_id": "SOV-AI-ROLE-CONCENTRATION-FORMAL-QUAL-001-V2",
+  "status": "candidate-verification-profile",
+  "authority": "non-authoritative",
+  "related_issue": 4530,
+  "semantic_subject": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "source_branch": "sov-ai-formal-v4-role-concentration-subject-clean",
+    "head_sha": "fd47f13fce3331cf4f721da8e0ae9b63f5818665",
+    "tree_sha": "da2a37ef91e3095e3d1d93657ed01a184f087cea"
+  },
+  "models": {
+    "tla": {
+      "path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.tla",
+      "git_blob_sha": "cf55d7662ee452a5ecefcaeb714ed7ca99cb33b5",
+      "config_path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.cfg",
+      "config_git_blob_sha": "6f91aade6162dc6b245feef743df116998429ca9",
+      "invariants": [
+        "TypeOK",
+        "RoleConcentrationRequiresFinding",
+        "FullControlRequiresIndependentExternalReview"
+      ]
+    },
+    "negative_tla": {
+      "path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1NegativeControls.tla",
+      "git_blob_sha": "a801b3f92adbc6bf8c7e11721c0862e6ff908745",
+      "controls": {
+        "role-conflict": "RoleConcentrationRequiresFinding",
+        "full-control-review": "FullControlRequiresIndependentExternalReview",
+        "self-review-full-control": "FullControlRequiresIndependentExternalReview",
+        "same-role-review-full-control": "FullControlRequiresIndependentExternalReview"
+      }
+    },
+    "alloy": {
+      "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyRoleConcentrationV1.als",
+      "git_blob_sha": "8fb88f37fa90e51bd6f6e3e8a116c008076fb971",
+      "solver": "SAT4J",
+      "bitwidth": 4,
+      "expected_sat": [
+        "ConcentratedRolesWithFinding",
+        "FullControlWithIndependentReview",
+        "FullControlWithRoleDisjointReview"
+      ],
+      "expected_unsat_runs": [
+        "SelfReviewOnlyFullControl",
+        "SameRoleReviewerFullControl"
+      ],
+      "expected_unsat_checks": [
+        "RoleConcentrationRequiresFindingInvariant",
+        "FullControlRequiresIndependentReviewInvariant",
+        "SelfReviewAloneDoesNotCountAsIndependentReview"
+      ],
+      "scope": {
+        "overall": 4,
+        "Subject": 4,
+        "Role": 4,
+        "int": 4
+      }
+    },
+    "reference": {
+      "path": "mycelix-governance/tools/formal/sovereignty_role_concentration_reference_explorer.py",
+      "git_blob_sha": "239fcee238c0bc33d924dcd880138f004da1b6f5"
+    }
+  },
+  "theorem": {
+    "statement": "A subject may hold multiple qualification-path roles, but holding two or more requires an explicit conflict finding; holding all four requires a reviewer who is distinct and holds none of the qualification-path roles.",
+    "roles": [
+      "Operator",
+      "Verifier",
+      "EvidenceArchive",
+      "Adjudicator"
+    ],
+    "independence_predicate": "reviewer != subject AND reviewer holds none of the four qualification-path roles"
+  },
+  "claim_contract": {
+    "candidate_only": true,
+    "requires": [
+      "exact subject SHA/tree and model/config/reference blobs",
+      "bounded TLA+ canonical result with all invariants",
+      "all profiled TLA+ negative controls",
+      "all profiled Alloy SAT witnesses",
+      "all profiled Alloy UNSAT runs and checks",
+      "explicit Alloy integer bitwidth",
+      "bounded reference oracle canonical and negative outputs",
+      "independent reviewer is role-disjoint from the concentrated subject"
+    ],
+    "bounded_result_is_not_unbounded_proof": true,
+    "formal_result_is_not_runtime_qualification": true,
+    "qualification_is_not_external_recognition": true
+  },
+  "research_basis": [
+    "NIST 2026 Accelerating the Adoption of Software and AI Agent Identity and Authorization",
+    "OECD 2026 Artificial Intelligence markets",
+    "OECD 2025 Competition in AI infrastructure / switching barriers"
+  ],
+  "nonclaims": [
+    "No current AI is recognized as sovereign.",
+    "No legal personhood, citizenship, or political standing is established.",
+    "No runtime authority is granted.",
+    "No multi-role institution is prohibited.",
+    "No universal separation-of-duties law is established.",
+    "No unbounded theorem is established by the finite model.",
+    "No production implementation equivalence is established."
+  ]
+}
