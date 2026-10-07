@@ -1688,4 +1688,57 @@ mod tests {
             other => panic!("forged member_did must be rejected, got {other:?}"),
         }
     }
+
+    // ---- 29. Authoritative payment-index anchor binding ----
+
+    #[test]
+    fn test_payment_index_anchor_is_exact_not_length_only() {
+        let did = "did:mycelix:uhCAkalice";
+        let expected = deterministic_anchor_hash(did);
+        let valid_base = AnyLinkableHash::from(expected);
+
+        assert!(require_anchor(&valid_base, did, "SenderToPayments").is_ok());
+
+        let forged_base = AnyLinkableHash::from(deterministic_anchor_hash(
+            "did:mycelix:uhCAkmallory",
+        ));
+        assert!(
+            require_anchor(&forged_base, did, "SenderToPayments").is_err(),
+            "same-length forged anchor must be rejected"
+        );
+    }
+
+    // ---- 30. Index bases/targets are type-safe, not just 39-byte values ----
+
+    #[test]
+    fn test_action_hash_is_not_accepted_as_entry_hash_index_base() {
+        let action = ActionHash::from_raw_36(vec![0; 36]);
+        let linkable = AnyLinkableHash::from(action);
+        assert!(
+            require_entry_base(&linkable, "DidToSapBalance").is_err(),
+            "an ActionHash must not satisfy an EntryHash-only base"
+        );
+    }
+
+    #[test]
+    fn test_authoritative_anchor_accepts_real_entry_hash() {
+        let anchor = deterministic_anchor_hash("sap:did:mycelix:uhCAkalice");
+        let linkable = AnyLinkableHash::from(anchor);
+        assert!(require_anchor(
+            &linkable,
+            "sap:did:mycelix:uhCAkalice",
+            "DidToSapBalance"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_rate_limit_target_requires_agent_pubkey() {
+        let action = AnyLinkableHash::from(ActionHash::from_raw_36(vec![7; 36]));
+        assert!(
+            action.into_agent_pub_key().is_none(),
+            "a payment ActionHash must never satisfy the rate-limit AgentPubKey target"
+        );
+    }
+
 }
