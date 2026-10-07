@@ -33,7 +33,7 @@ def step(st, kind, *args):
     R = dict(st.review)
     n = st.clock + 1
     s = args[0]
-    if kind in ("assign", "assign-bad"):
+    if kind in ("assign", "assign-bad", "assign-full-control-bad"):
         role = args[1]
         if s not in SUBJECTS or role not in ROLES or s in H[role]:
             return None
@@ -42,6 +42,9 @@ def step(st, kind, *args):
             if current_critical >= 1 and not F[s]:
                 return None
             if current_critical >= 2 and not R[s]:
+                return None
+        if kind == "assign-full-control-bad":
+            if role not in CRITICAL or current_critical != 2 or not F[s] or R[s]:
                 return None
         H[role].add(s)
     elif kind == "finding":
@@ -91,7 +94,11 @@ def explore(transitions):
     return None, []
 
 def weaken(kind):
-    return [(kind + "-bad", *tr[1:]) if tr[0] == kind else tr for tr in NORMAL]
+    if kind == "assign":
+        return [("assign-bad", *tr[1:]) if tr[0] == "assign" else tr for tr in NORMAL]
+    if kind == "assign-full-control":
+        return [("assign-full-control-bad", *tr[1:]) if tr[0] == "assign" else tr for tr in NORMAL]
+    raise ValueError(kind)
 
 def main():
     path, bad = explore(NORMAL)
