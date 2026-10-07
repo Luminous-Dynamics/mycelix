@@ -1066,7 +1066,7 @@ mod tests {
             Some(vec![0xFF; 33]),
             vec![make_valid_commitment_set_bytes(2)],
         );
-        let result = check_committee_update_validity(&committee);
+        let result = check_committee_update_validity(&committee, &committee);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not a valid secp256k1 point"));
     }
@@ -1445,7 +1445,7 @@ mod tests {
             pq_required: false,
         };
         assert!(
-            check_committee_update_validity(&committee).is_ok(),
+            check_committee_update_validity(&committee, &committee).is_ok(),
             "Completed committee with real DKG data should pass validation"
         );
 
@@ -1466,7 +1466,7 @@ mod tests {
             ..committee.clone()
         };
         assert!(
-            check_committee_update_validity(&bad_committee).is_err(),
+            check_committee_update_validity(&committee, &bad_committee).is_err(),
             "Committee with threshold > commitments should fail"
         );
 
@@ -1476,7 +1476,7 @@ mod tests {
             ..committee.clone()
         };
         assert!(
-            check_committee_update_validity(&bad_pk_committee).is_err(),
+            check_committee_update_validity(&committee, &bad_pk_committee).is_err(),
             "Committee with corrupt public key should fail"
         );
 
@@ -1488,7 +1488,7 @@ mod tests {
             ..committee
         };
         assert!(
-            check_committee_update_validity(&bad_cs_committee).is_err(),
+            check_committee_update_validity(&committee, &bad_cs_committee).is_err(),
             "Committee with corrupt commitment set should fail"
         );
     }
@@ -1515,14 +1515,14 @@ mod tests {
             signature_algorithm: ThresholdSignatureAlgorithm::default(),
             pq_required: false,
         };
-        assert!(check_committee_update_validity(&committee).is_ok());
+        assert!(check_committee_update_validity(&committee, &committee).is_ok());
 
         // None min_phi is valid (no consciousness gate)
         let no_phi = SigningCommittee {
             min_phi: None,
             ..committee.clone()
         };
-        assert!(check_committee_update_validity(&no_phi).is_ok());
+        assert!(check_committee_update_validity(&committee, &no_phi).is_err());
     }
 
     #[test]
