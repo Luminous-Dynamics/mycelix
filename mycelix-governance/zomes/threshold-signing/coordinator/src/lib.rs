@@ -81,8 +81,15 @@ pub fn get_proposal_signature(proposal_id: String) -> ExternResult<Option<Record
         GetStrategy::default(),
     )?;
 
-    let link = links.into_iter().max_by_key(|link| link.timestamp);
-    let Some(link) = link else {
+    if links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Ambiguous proposal signature '{}': {} signature records are linked to the deterministic proposal anchor.",
+            proposal_id,
+            links.len()
+        ))));
+    }
+
+    let Some(link) = links.into_iter().next() else {
         return Ok(None);
     };
 
