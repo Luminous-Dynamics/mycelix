@@ -8,6 +8,13 @@ body {
 button, select { font: inherit; }
 button { cursor: pointer; }
 
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #2457ff;
+  outline-offset: 2px;
+}
+
 .console { min-height: 100vh; display: grid; grid-template-columns: 270px 1fr; }
 .sidebar { display: flex; flex-direction: column; padding: 24px 18px; background: #0f1722; color: #f7f9fc; }
 .brand { display: flex; gap: 12px; align-items: center; padding: 8px 8px 28px; }
@@ -15,8 +22,10 @@ button { cursor: pointer; }
 .brand strong, .brand span { display: block; }
 .brand span { color: #b7c0ce; font-size: 12px; margin-top: 3px; }
 
+.demo-label { color: #f6c177; font-size: 9px; font-weight: 850; letter-spacing: .11em; padding: 0 8px 10px; }
 .field-label { color: #aab5c4; font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; padding: 0 8px 8px; }
-.profile-select { margin: 0 4px 18px; width: calc(100% - 8px); background: #182332; color: #fff; border: 1px solid #314055; border-radius: 8px; padding: 10px 11px; }
+.profile-select { margin: 0 4px 10px; width: calc(100% - 8px); background: #182332; color: #fff; border: 1px solid #314055; border-radius: 8px; padding: 10px 11px; }
+.side-note { margin: 0 8px 16px; color: #8f9bad; font-size: 11px; line-height: 1.5; }
 .nav-heading { color: #8390a3; text-transform: uppercase; font-size: 10px; letter-spacing: .1em; padding: 8px; }
 .nav-item { width: 100%; text-align: left; color: #d5dbe4; background: transparent; border: 0; border-radius: 8px; padding: 9px 10px; margin: 1px 0; }
 .nav-item:hover, .nav-item:focus-visible { background: #1b293a; color: #fff; }
@@ -29,6 +38,20 @@ button { cursor: pointer; }
 .eyebrow { display: inline-block; color: #667085; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
 .identity { text-align: right; display: grid; gap: 2px; }
 .identity-label, .identity-meta { color: #667085; font-size: 12px; }
+
+.authority-notice {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 12px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 1px solid #e7eaf0;
+  background: #fff;
+}
+.authority-notice strong { font-size: 13px; }
+.authority-notice span { color: #667085; font-size: 12px; line-height: 1.45; }
+.authority-notice.demo { border-color: #f1cc9d; background: #fffaf2; }
+.authority-notice.bound { border-color: #b7decf; background: #f4fbf7; }
 
 .security-banner { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; padding: 14px 16px; border: 1px solid #e7eaf0; border-radius: 12px; background: #fff; }
 .security-banner strong, .security-banner span { display: block; }
@@ -44,6 +67,22 @@ button { cursor: pointer; }
 .badge.finalized, .badge.reconciled { background: #e7f7f0; color: #157f5b; }
 .badge.disputed, .badge.indeterminate { background: #fff0f0; color: #b42318; }
 .badge.superseded { background: #f2f4f7; color: #667085; }
+
+.security-legend {
+  margin-top: 16px;
+  border: 1px solid #e7eaf0;
+  border-radius: 12px;
+  background: #fff;
+}
+.security-legend summary { cursor: pointer; padding: 14px 16px; font-size: 13px; font-weight: 700; }
+.legend-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 9px 12px;
+  padding: 0 16px 16px;
+  align-items: center;
+}
+.legend-grid > span { color: #667085; font-size: 12px; line-height: 1.4; }
 
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .metric-card, .panel { border: 1px solid #e7eaf0; background: #fff; border-radius: 14px; box-shadow: 0 1px 2px rgba(16, 24, 40, .03); }
@@ -75,6 +114,14 @@ button { cursor: pointer; }
 .muted { color: #667085; line-height: 1.6; }
 .empty-state { padding: 80px; text-align: center; }
 
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
 @media (max-width: 1100px) {
   .console { grid-template-columns: 220px 1fr; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -85,4 +132,5 @@ button { cursor: pointer; }
   .topbar { align-items: flex-start; flex-direction: column; }
   .identity { text-align: left; }
   .grid { grid-template-columns: 1fr; }
+  .legend-grid { grid-template-columns: 1fr; }
 }
