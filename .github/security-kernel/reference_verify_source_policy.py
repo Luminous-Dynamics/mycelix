@@ -615,7 +615,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         observed = sum(1 for line in tmpfs_lines if profile in line)
         if observed != expected_count:
             fail(f"S1 tmpfs resource profile mismatch: {profile} (expected {expected_count}, got {observed})")
-        if exact_count(l, SOURCE_VOLUME_CREATE) != 1:
+    if exact_count(l, SOURCE_VOLUME_CREATE) != 1:
         fail("S1 candidate source volume create profile mismatch")
     if exact_count(l, SOURCE_VOLUME_RW) != 1:
         fail("S1 candidate source acquisition must use one bounded Docker volume for writes")
