@@ -344,6 +344,9 @@ mod tests {
             attestation_format: "eat-cbor".into(),
             verifier_id: "verifier-1".into(),
             verifier_version: "1".into(),
+            verifier_implementation_digest: digest('1'),
+            verifier_build_provenance_digest: digest('2'),
+            verifier_builder_id: "builder-1".into(),
             verifier_profile_digest: digest('d'),
             appraisal_policy_digest: digest('e'),
             reference_values_digest: digest('f'),
@@ -362,6 +365,9 @@ mod tests {
             expected_acquisition_root_digest: claim.acquisition_root_digest.clone(),
             expected_challenge_nonce_digest: claim.challenge_nonce_digest.clone(),
             expected_attestation_format: claim.attestation_format.clone(),
+            expected_verifier_implementation_digest: claim.verifier_implementation_digest.clone(),
+            expected_verifier_build_provenance_digest: claim.verifier_build_provenance_digest.clone(),
+            expected_verifier_builder_id: claim.verifier_builder_id.clone(),
             expected_verifier_profile_digest: claim.verifier_profile_digest.clone(),
             expected_appraisal_policy_digest: claim.appraisal_policy_digest.clone(),
             expected_reference_values_digest: claim.reference_values_digest.clone(),
@@ -448,6 +454,42 @@ mod tests {
         assert!(result
             .reasons
             .contains(&FpmAttestationQualificationReason::VerifierProfileMismatch));
+    }
+
+    #[test]
+    fn verifier_implementation_substitution_conflicts() {
+        let mut input = input();
+        input.claim.verifier_implementation_digest = digest('9');
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::VerifierImplementationMismatch));
+
+        let mut input = input();
+        input.claim.verifier_build_provenance_digest = digest('9');
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::VerifierBuildProvenanceMismatch));
+
+        let mut input = input();
+        input.claim.verifier_builder_id = "builder-2".into();
+        let result = qualify_source_attestation(&input);
+        assert_eq!(
+            result.status,
+            FpmAttestationQualificationStatus::ConflictingAttestation
+        );
+        assert!(result
+            .reasons
+            .contains(&FpmAttestationQualificationReason::VerifierBuilderMismatch));
     }
 
     #[test]
