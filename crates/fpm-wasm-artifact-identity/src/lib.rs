@@ -191,6 +191,15 @@ mod tests {
     }
 
     #[test]
+    fn unknown_identity_fields_are_rejected() {
+        let identity = derive_identity(&artifact()).unwrap();
+        let mut json = serde_json::to_string(&identity).unwrap();
+        json.insert_str(json.len() - 1, ",\"future_field\":true");
+
+        assert!(serde_json::from_str::<FpmWasmArtifactIdentity>(&json).is_err());
+    }
+
+    #[test]
     fn exact_identity_is_derived_from_exact_bytes() {
         let code = artifact();
         let identity = derive_identity(&code).unwrap();
