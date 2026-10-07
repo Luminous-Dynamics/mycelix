@@ -211,6 +211,48 @@ def require_exact_job_values(
     if found != expected:
         fail(f"{description}: job scalar value mismatch: expected {expected!r}, found {found!r}")
 
+
+def require_exact_root_scalar(
+    lines_: list[str],
+    key: str,
+    expected: str,
+    description: str,
+) -> None:
+    matches = [line for line in lines_ if re.fullmatch(rf"{re.escape(key)}:\s+.*", line)]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one root scalar {key!r}")
+    if matches[0] != f"{key}: {expected}":
+        fail(f"{description}: {key} mismatch: expected {expected!r}, found {matches[0]!r}")
+
+def require_exact_child_mapping_values(
+    lines_: list[str],
+    parent_indent: int,
+    parent_key: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    heading = f"{parent_key}:"
+    starts = [
+        i for i, line in enumerate(lines_)
+        if line.strip() == heading and len(line) - len(line.lstrip(" ")) == parent_indent
+    ]
+    if len(starts) != 1:
+        fail(f"{description}: expected exactly one {parent_key!r} mapping at indent {parent_indent}")
+    actual = []
+    for line in lines_[starts[0] + 1:]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= parent_indent:
+            break
+        if indent != parent_indent + 2:
+            fail(f"{description}: unexpected child indentation: {line!r}")
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):\s+(.+)", line.strip())
+        if not match:
+            fail(f"{description}: malformed child value: {line!r}")
+        actual.append(f"{match.group(1)}: {match.group(2)}")
+    if tuple(actual) != expected:
+        fail(f"{description}: child value mismatch: expected {expected!r}, found {tuple(actual)!r}")
 def require_exact_child_mapping(
     lines_: list[str],
     parent_indent: int,
@@ -881,6 +923,18 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         ),
         "S0",
     )
+    require_exact_root_scalar(l, "name", "Security Kernel Qualification — Trusted Dispatcher", S0)
+    require_exact_root_scalar(
+        l,
+        "run-name",
+        "SEC-KERNEL-DISPATCH repo_id=${{ github.event.pull_request.head.repo.id }} pr=${{ github.event.pull_request.number }} candidate=${{ github.event.pull_request.head.sha }}",
+        S0,
+    )
+    require_exact_child_mapping_values(
+        l, 2, "pull_request_target",
+        ("types: [opened, synchronize, reopened, ready_for_review]",),
+        S0,
+    )
     require_exact_child_mapping(l, 2, "pull_request_target", ("types",), "S0 trigger")
     require_exact_root_mapping(
         l,
@@ -939,6 +993,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
 def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     l = lines(raw)
     require_exact_top_level_keys(l, ("name", "on", "permissions", "cache-mode", "concurrency", "env", "jobs"), S1)
+    require_exact_root_scalar(l, "name", "Security Kernel Independent Qualification", S1)
     if exact_count(l, "name: Security Kernel Independent Qualification") != 1:
         fail("S1 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_call",):
@@ -1377,6 +1432,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
 def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_retention_sha: str, expected_execution_sha: str, expected_policy_sha: str) -> None:
     l = lines(raw)
     require_exact_top_level_keys(l, ("name", "on", "permissions", "concurrency", "env", "jobs"), S2)
+    require_exact_root_scalar(l, "name", "Security Kernel Qualification — Trusted Result Verifier", S2)
     if exact_count(l, "name: Security Kernel Qualification — Trusted Result Verifier") != 1:
         fail("S2 name mismatch")
     if top_level_keys_after(l, "on:") != ("workflow_run",):
@@ -1397,6 +1453,14 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_exact_job_keys(
         l,
         (("verify", ("name", "runs-on", "cache-mode", "timeout-minutes", "steps")),),
+        S2,
+    )
+    require_exact_child_mapping_values(
+        l, 2, "workflow_run",
+        (
+            "workflows: [\"Security Kernel Qualification — Trusted Dispatcher\"]",
+            "types: [completed]",
+        ),
         S2,
     )
     require_exact_child_mapping(l, 2, "workflow_run", ("workflows", "types"), "S2 trigger")
@@ -2012,6 +2076,45 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 verifier step-id drift",
+    )
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                "name: Security Kernel Qualification — Trusted Dispatcher\n".encode(),
+                "name: Security Kernel Qualification — Trusted Dispatcher Mutated\n".encode(),
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 root workflow-name drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                "    types: [opened, synchronize, reopened, ready_for_review]\n".encode(),
+                "    types: [opened, synchronize]\n".encode(),
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 trigger types drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                "    workflows: [\"Security Kernel Qualification — Trusted Dispatcher\"]\n".encode(),
+                "    workflows: [\"Other Workflow\"]\n".encode(),
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 workflow_run workflow-name drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
