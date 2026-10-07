@@ -970,8 +970,8 @@ def main() -> None:
     expect_rejection(
         lambda: verify_s2(
             raw["s2"].replace(
-                b'subprocess.run(["bash","-n"], input=script, text=True, capture_output=True)',
-                b'subprocess.run(["true"], input=script, text=True, capture_output=True)',
+                b'subprocess.run(["bash", "-n"],',
+                b'subprocess.run(["true"],',
                 1,
             ),
             s0_sha,
