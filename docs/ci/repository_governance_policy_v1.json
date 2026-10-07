@@ -42,7 +42,8 @@
     "applicable_rulesets_must_be_aggregated": true,
     "ruleset_repository_targeting_must_be_evaluated": true,
     "repository_subject_identity_must_be_bound": true,
-    "ruleset_source_scope_must_be_validated": true
+    "ruleset_source_scope_must_be_validated": true,
+    "effective_rule_provenance_must_be_bound": true
   },
   "result_states": [
     "VERIFIED",
