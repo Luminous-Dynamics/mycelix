@@ -415,7 +415,7 @@ def _evaluate_rulesets(
             if not isinstance(parameters, dict):
                 return "UNVERIFIED", [f"{prefix}_pull_request_parameters_not_enumerated"]
             count = parameters.get("required_approving_review_count")
-            if isinstance(count, int):
+            if isinstance(count, int) and not isinstance(count, bool):
                 approval_counts.append(count)
             for key in (
                 "dismiss_stale_reviews_on_push",
@@ -474,7 +474,7 @@ def _evaluate_effective_rules(
         if not isinstance(parameters, dict):
             return "UNVERIFIED", [f"effective_rule[{index}]_pull_request_parameters_not_enumerated"]
         count = parameters.get("required_approving_review_count")
-        if isinstance(count, int):
+        if isinstance(count, int) and not isinstance(count, bool):
             approval_counts.append(count)
         for key in (
             "dismiss_stale_reviews_on_push",
@@ -671,7 +671,12 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             expected = policy["required_controls"]
             if protection.get("pull_request_required") is not True:
                 branch_mismatches.append("pull_request_required")
-            if protection.get("required_approving_review_count") != expected["required_approving_review_count"]:
+            observed_review_count = protection.get("required_approving_review_count")
+            if (
+                not isinstance(observed_review_count, int)
+                or isinstance(observed_review_count, bool)
+                or observed_review_count != expected["required_approving_review_count"]
+            ):
                 branch_mismatches.append("required_approving_review_count")
             for key in (
                 "dismiss_stale_reviews_on_push",
@@ -1211,6 +1216,21 @@ def self_test(policy: dict[str, Any]) -> None:
         pass
     else:
         raise AssertionError("missing bypass enumeration must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["rules"][0]["parameters"]["required_approving_review_count"] = True
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    protection = x["admin_observation"]["protection"]
+    protection["required_approving_review_count"] = True
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy))
     x["policy_sha256"] = "f" * 64
