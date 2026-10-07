@@ -1,0 +1,843 @@
+#![deny(unsafe_code)]
+
+//! Typed durable-attempt and same-action fence contracts.
+//!
+//! This module deliberately separates:
+//!   * attempt ownership,
+//!   * operation metadata,
+//!   * native replay identity,
+//!   * material action identity,
+//!   * same-action collision identity,
+//!   * provider-reference carriage identity, and
+//!   * provider execution environment.
+//!
+//! The storage model below is a deterministic reference model for the required
+//! atomic state transition. A production adapter must provide the same semantics
+//! from a durable, shared, conflict-detecting store; this crate does not claim
+//! that an in-memory map is durable.
+
+use crate::{ActionKeyV1, AttemptIdentityV1};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+pub const ATTEMPT_RECORD_SCHEMA_VERSION: u16 = 1;
+pub const ATTEMPT_RECORD_PREFIX: &str = "constitutional-attempt-record-v1:";
+pub const ACTION_FENCE_RECORD_PREFIX: &str = "constitutional-action-fence-v1:";
+const MAX_ID_LEN: usize = 256;
+const MAX_REF_LEN: usize = 512;
+const ATTEMPT_RECORD_DOMAIN: &[u8] =
+    b"MYCELIX-CONSTITUTIONAL-ATTEMPT-RECORD\0V1\0";
+const ACTION_FENCE_RECORD_DOMAIN: &[u8] =
+    b"MYCELIX-CONSTITUTIONAL-ACTION-FENCE-RECORD\0V1\0";
+
+fn valid_opaque(value: &str, max_len: usize) -> bool {
+    !value.trim().is_empty() && value.len() <= max_len
+}
+
+fn require_opaque(label: &str, value: &str, max_len: usize) -> Result<(), String> {
+    if valid_opaque(value, max_len) {
+        Ok(())
+    } else {
+        Err(format!("{label} must be non-empty and <= {max_len} bytes"))
+    }
+}
+
+fn require_tagged_hash(label: &str, value: &str, prefix: &str) -> Result<(), String> {
+    let digest = value
+        .strip_prefix(prefix)
+        .ok_or_else(|| format!("{label} must use {prefix}<hex>"))?;
+    if digest.len() != 64
+        || !digest
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(format!(
+            "{label} must contain exactly 64 lowercase hexadecimal digits"
+        ));
+    }
+    Ok(())
+}
+
+fn push_str(hasher: &mut blake3::Hasher, value: &str) {
+    let bytes = value.as_bytes();
+    hasher.update(&(bytes.len() as u64).to_be_bytes());
+    hasher.update(bytes);
+}
+
+fn tagged(prefix: &str, hash: blake3::Hash) -> String {
+    format!("{prefix}{}", hash.to_hex())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AttemptRecordState {
+    Consumed,
+    Reserved,
+    DispatchPending,
+    Invoked,
+    Executed,
+    Failed,
+    Indeterminate,
+    NotEntered,
+}
+
+impl AttemptRecordState {
+    pub fn occupies_action_fence(self) -> bool {
+        matches!(
+            self,
+            Self::Consumed
+                | Self::Reserved
+                | Self::DispatchPending
+                | Self::Invoked
+                | Self::Indeterminate
+        )
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Executed | Self::Failed | Self::NotEntered)
+    }
+}
+
+/// Durable attempt record projection.
+///
+/// Identity-bearing roots are stored as their explicit digests/identifiers rather
+/// than as serialized ActionKeyV1 / AttemptIdentityV1 values. The identity types
+/// themselves remain non-serializable and private-fielded.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AttemptRecordV1 {
+    pub schema_version: u16,
+    pub attempt_identity: String,
+    pub operation_id: String,
+    pub native_replay_identity: String,
+    pub action_digest: String,
+    pub action_key_digest: String,
+    pub effecting_target_identity: String,
+    pub provider_reference_seed_digest: Option<String>,
+    pub provider_reference_descriptor_digest: Option<String>,
+    pub provider_environment: String,
+    pub ownership_token_digest: String,
+    pub state: AttemptRecordState,
+    pub not_entered_marker: Option<String>,
+}
+
+impl AttemptRecordV1 {
+    pub fn new(
+        attempt_identity: &AttemptIdentityV1,
+        operation_id: impl Into<String>,
+        native_replay_identity: impl Into<String>,
+        action_digest: impl Into<String>,
+        action_key: &ActionKeyV1,
+        provider_reference_seed_digest: Option<String>,
+        provider_reference_descriptor_digest: Option<String>,
+        provider_environment: impl Into<String>,
+        ownership_token_digest: impl Into<String>,
+        state: AttemptRecordState,
+    ) -> Result<Self, String> {
+        let operation_id = operation_id.into();
+        let native_replay_identity = native_replay_identity.into();
+        let action_digest = action_digest.into();
+        let provider_environment = provider_environment.into();
+        let ownership_token_digest = ownership_token_digest.into();
+
+        require_tagged_hash("attempt_identity", attempt_identity.digest(), crate::ATTEMPT_IDENTITY_PREFIX)?;
+        require_tagged_hash("action_key_digest", action_key.digest(), crate::ACTION_KEY_PREFIX)?;
+        require_opaque("operation_id", &operation_id, MAX_ID_LEN)?;
+        require_opaque(
+            "native_replay_identity",
+            &native_replay_identity,
+            MAX_REF_LEN,
+        )?;
+        require_opaque("action_digest", &action_digest, MAX_REF_LEN)?;
+        require_opaque(
+            "effecting_target_identity",
+            action_key.effecting_target_identity(),
+            MAX_REF_LEN,
+        )?;
+        require_opaque("provider_environment", &provider_environment, MAX_REF_LEN)?;
+        require_opaque("ownership_token_digest", &ownership_token_digest, MAX_REF_LEN)?;
+
+        if action_digest != action_key.material_action_digest() {
+            return Err("action_digest does not match ActionKeyV1 material action digest".into());
+        }
+
+        if let Some(value) = &provider_reference_seed_digest {
+            require_opaque("provider_reference_seed_digest", value, MAX_REF_LEN)?;
+        }
+        if let Some(value) = &provider_reference_descriptor_digest {
+            require_opaque(
+                "provider_reference_descriptor_digest",
+                value,
+                MAX_REF_LEN,
+            )?;
+        }
+
+        let out = Self {
+            schema_version: ATTEMPT_RECORD_SCHEMA_VERSION,
+            attempt_identity: attempt_identity.digest().to_owned(),
+            operation_id,
+            native_replay_identity,
+            action_digest,
+            action_key_digest: action_key.digest().to_owned(),
+            effecting_target_identity: action_key.effecting_target_identity().to_owned(),
+            provider_reference_seed_digest,
+            provider_reference_descriptor_digest,
+            provider_environment,
+            ownership_token_digest,
+            state,
+            not_entered_marker: None,
+        };
+        out.validate()?;
+        Ok(out)
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.schema_version != ATTEMPT_RECORD_SCHEMA_VERSION {
+            return Err("unsupported attempt record schema version".into());
+        }
+        require_tagged_hash(
+            "attempt_identity",
+            &self.attempt_identity,
+            crate::ATTEMPT_IDENTITY_PREFIX,
+        )?;
+        require_tagged_hash(
+            "action_key_digest",
+            &self.action_key_digest,
+            crate::ACTION_KEY_PREFIX,
+        )?;
+        require_opaque("operation_id", &self.operation_id, MAX_ID_LEN)?;
+        require_opaque(
+            "native_replay_identity",
+            &self.native_replay_identity,
+            MAX_REF_LEN,
+        )?;
+        require_opaque("action_digest", &self.action_digest, MAX_REF_LEN)?;
+        require_opaque(
+            "effecting_target_identity",
+            &self.effecting_target_identity,
+            MAX_REF_LEN,
+        )?;
+        require_opaque(
+            "provider_environment",
+            &self.provider_environment,
+            MAX_REF_LEN,
+        )?;
+        require_opaque(
+            "ownership_token_digest",
+            &self.ownership_token_digest,
+            MAX_REF_LEN,
+        )?;
+
+        if let Some(value) = &self.provider_reference_seed_digest {
+            require_opaque("provider_reference_seed_digest", value, MAX_REF_LEN)?;
+        }
+        if let Some(value) = &self.provider_reference_descriptor_digest {
+            require_opaque(
+                "provider_reference_descriptor_digest",
+                value,
+                MAX_REF_LEN,
+            )?;
+        }
+
+        if self.state == AttemptRecordState::NotEntered && self.not_entered_marker.is_none() {
+            return Err("NotEntered requires an explicit not_entered_marker".into());
+        }
+        if self.state != AttemptRecordState::NotEntered && self.not_entered_marker.is_some() {
+            return Err("not_entered_marker is only valid for NotEntered".into());
+        }
+        if let Some(marker) = &self.not_entered_marker {
+            require_opaque("not_entered_marker", marker, MAX_REF_LEN)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn record_digest(&self) -> String {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(ATTEMPT_RECORD_DOMAIN);
+        hasher.update(&self.schema_version.to_be_bytes());
+        push_str(&mut hasher, &self.attempt_identity);
+        push_str(&mut hasher, &self.operation_id);
+        push_str(&mut hasher, &self.native_replay_identity);
+        push_str(&mut hasher, &self.action_digest);
+        push_str(&mut hasher, &self.action_key_digest);
+        push_str(&mut hasher, &self.effecting_target_identity);
+        push_str(
+            &mut hasher,
+            self.provider_reference_seed_digest.as_deref().unwrap_or(""),
+        );
+        push_str(
+            &mut hasher,
+            self.provider_reference_descriptor_digest
+                .as_deref()
+                .unwrap_or(""),
+        );
+        push_str(&mut hasher, &self.provider_environment);
+        push_str(&mut hasher, &self.ownership_token_digest);
+        push_str(&mut hasher, &format!("{:?}", self.state));
+        push_str(&mut hasher, self.not_entered_marker.as_deref().unwrap_or(""));
+        tagged(ATTEMPT_RECORD_PREFIX, hasher.finalize())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ActionFenceState {
+    Occupied,
+    Closed,
+}
+
+impl ActionFenceState {
+    pub fn is_closed(self) -> bool {
+        matches!(self, Self::Closed)
+    }
+}
+
+/// Durable same-action fence row, keyed only by ActionKeyV1's digest.
+///
+/// Operation identifiers, native replay identities, and attempt identifiers are
+/// owner metadata, never the collision namespace.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ActionFenceRecordV1 {
+    pub schema_version: u16,
+    pub action_key_digest: String,
+    pub owner_attempt_identity: String,
+    pub owner_token_digest: String,
+    pub state: ActionFenceState,
+}
+
+impl ActionFenceRecordV1 {
+    fn new(
+        action_key: &ActionKeyV1,
+        owner_attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: impl Into<String>,
+        state: ActionFenceState,
+    ) -> Result<Self, String> {
+        let owner_token_digest = owner_token_digest.into();
+        require_opaque("owner_token_digest", &owner_token_digest, MAX_REF_LEN)?;
+        let out = Self {
+            schema_version: ATTEMPT_RECORD_SCHEMA_VERSION,
+            action_key_digest: action_key.digest().to_owned(),
+            owner_attempt_identity: owner_attempt_identity.digest().to_owned(),
+            owner_token_digest,
+            state,
+        };
+        out.validate()?;
+        Ok(out)
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        if self.schema_version != ATTEMPT_RECORD_SCHEMA_VERSION {
+            return Err("unsupported action fence schema version".into());
+        }
+        require_tagged_hash(
+            "action_key_digest",
+            &self.action_key_digest,
+            crate::ACTION_KEY_PREFIX,
+        )?;
+        require_tagged_hash(
+            "owner_attempt_identity",
+            &self.owner_attempt_identity,
+            crate::ATTEMPT_IDENTITY_PREFIX,
+        )?;
+        require_opaque("owner_token_digest", &self.owner_token_digest, MAX_REF_LEN)?;
+        Ok(())
+    }
+
+    pub fn record_digest(&self) -> String {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(ACTION_FENCE_RECORD_DOMAIN);
+        hasher.update(&self.schema_version.to_be_bytes());
+        push_str(&mut hasher, &self.action_key_digest);
+        push_str(&mut hasher, &self.owner_attempt_identity);
+        push_str(&mut hasher, &self.owner_token_digest);
+        push_str(&mut hasher, &format!("{:?}", self.state));
+        tagged(ACTION_FENCE_RECORD_PREFIX, hasher.finalize())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AtomicAdmissionDecision {
+    Admitted,
+    DuplicateAttempt,
+    ActionInFlight,
+    ActionAlreadyExecuted,
+    AttemptOwnershipConflict,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ActionFenceMutationError {
+    NotOwner,
+    OwnershipTokenMismatch,
+    NotOccupied,
+    AlreadyClosed,
+}
+
+/// Reference model for the required atomic admission transition.
+///
+/// The method admit is deliberately one mutation over the combined durable
+/// state model: either the attempt record and action fence are both installed,
+/// or neither changes. This demonstrates the conflict theorem without claiming
+/// that the in-memory map itself provides crash durability.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AtomicActionFenceModelV1 {
+    attempts: BTreeMap<String, AttemptRecordV1>,
+    fences: BTreeMap<String, ActionFenceRecordV1>,
+}
+
+impl AtomicActionFenceModelV1 {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn admit(
+        &mut self,
+        record: AttemptRecordV1,
+    ) -> Result<AtomicAdmissionDecision, String> {
+        record.validate()?;
+
+        if let Some(existing) = self.attempts.get(&record.attempt_identity) {
+            if existing.record_digest() == record.record_digest() {
+                return Ok(AtomicAdmissionDecision::DuplicateAttempt);
+            }
+            return Ok(AtomicAdmissionDecision::AttemptOwnershipConflict);
+        }
+
+        match self.fences.get(&record.action_key_digest) {
+            None => {}
+            Some(existing) if existing.state.is_closed() => {
+                return Ok(AtomicAdmissionDecision::ActionAlreadyExecuted);
+            }
+            Some(existing) if existing.owner_attempt_identity != record.attempt_identity => {
+                return Ok(AtomicAdmissionDecision::ActionInFlight);
+            }
+            Some(_) => {
+                return Ok(AtomicAdmissionDecision::AttemptOwnershipConflict);
+            }
+        }
+
+        if !record.state.occupies_action_fence() {
+            return Err("admitted attempt must occupy the action fence".into());
+        }
+
+        let fence = ActionFenceRecordV1 {
+            schema_version: ATTEMPT_RECORD_SCHEMA_VERSION,
+            action_key_digest: record.action_key_digest.clone(),
+            owner_attempt_identity: record.attempt_identity.clone(),
+            owner_token_digest: record.ownership_token_digest.clone(),
+            state: ActionFenceState::Occupied,
+        };
+        fence.validate()?;
+
+        self.attempts
+            .insert(record.attempt_identity.clone(), record);
+        self.fences.insert(fence.action_key_digest.clone(), fence);
+        Ok(AtomicAdmissionDecision::Admitted)
+    }
+
+    pub fn fence(&self, action_key_digest: &str) -> Option<&ActionFenceRecordV1> {
+        self.fences.get(action_key_digest)
+    }
+
+    pub fn attempt(&self, attempt_identity: &str) -> Option<&AttemptRecordV1> {
+        self.attempts.get(attempt_identity)
+    }
+
+    pub fn release_after_failed(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.finish_release(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            AttemptRecordState::Failed,
+        )
+    }
+
+    pub fn release_not_entered(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        marker: impl Into<String>,
+    ) -> Result<(), ActionFenceMutationError> {
+        let marker = marker.into();
+        if !valid_opaque(&marker, MAX_REF_LEN) {
+            return Err(ActionFenceMutationError::NotOccupied);
+        }
+
+        let attempt = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+
+        if attempt.ownership_token_digest != owner_token_digest {
+            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+        }
+        if attempt.action_key_digest != action_key.digest() {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+        if !matches!(
+            attempt.state,
+            AttemptRecordState::Consumed
+                | AttemptRecordState::Reserved
+                | AttemptRecordState::DispatchPending
+        ) {
+            return Err(ActionFenceMutationError::NotOccupied);
+        }
+
+        let fence = self
+            .fences
+            .get(action_key.digest())
+            .ok_or(ActionFenceMutationError::NotOccupied)?;
+        if fence.owner_attempt_identity != attempt_identity.digest() {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+        if fence.owner_token_digest != owner_token_digest {
+            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+        }
+        if fence.state.is_closed() {
+            return Err(ActionFenceMutationError::AlreadyClosed);
+        }
+
+        attempt.state = AttemptRecordState::NotEntered;
+        attempt.not_entered_marker = Some(marker);
+
+        self.fences.remove(action_key.digest());
+        Ok(())
+    }
+
+    pub fn close_executed(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        let attempt = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+
+        if attempt.ownership_token_digest != owner_token_digest {
+            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+        }
+        if attempt.action_key_digest != action_key.digest() {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+        if !attempt.state.occupies_action_fence() {
+            return Err(ActionFenceMutationError::NotOccupied);
+        }
+
+        let fence = self
+            .fences
+            .get_mut(action_key.digest())
+            .ok_or(ActionFenceMutationError::NotOccupied)?;
+        if fence.owner_attempt_identity != attempt_identity.digest() {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+        if fence.owner_token_digest != owner_token_digest {
+            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+        }
+        if fence.state.is_closed() {
+            return Err(ActionFenceMutationError::AlreadyClosed);
+        }
+
+        attempt.state = AttemptRecordState::Executed;
+        fence.state = ActionFenceState::Closed;
+        Ok(())
+    }
+
+    fn finish_release(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        terminal_state: AttemptRecordState,
+    ) -> Result<(), ActionFenceMutationError> {
+        let attempt = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+
+        if attempt.ownership_token_digest != owner_token_digest {
+            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+        }
+        if attempt.action_key_digest != action_key.digest() {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+        if !attempt.state.occupies_action_fence() {
+            return Err(ActionFenceMutationError::NotOccupied);
+        }
+
+        let fence = self
+            .fences
+            .get(action_key.digest())
+            .ok_or(ActionFenceMutationError::NotOccupied)?;
+        if fence.owner_attempt_identity != attempt_identity.digest() {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+        if fence.owner_token_digest != owner_token_digest {
+            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+        }
+        if fence.state.is_closed() {
+            return Err(ActionFenceMutationError::AlreadyClosed);
+        }
+
+        attempt.state = terminal_state;
+        self.fences.remove(action_key.digest());
+        Ok(())
+    }
+
+    /// Sanity-check all cross-record bindings maintained by the model.
+    pub fn validate_invariants(&self) -> Result<(), String> {
+        for (attempt_id, record) in &self.attempts {
+            record.validate()?;
+            if attempt_id != &record.attempt_identity {
+                return Err("attempt map key mismatch".into());
+            }
+
+            if record.state.occupies_action_fence() {
+                let fence = self
+                    .fences
+                    .get(&record.action_key_digest)
+                    .ok_or_else(|| "occupied attempt is missing its action fence".to_string())?;
+                if fence.owner_attempt_identity != record.attempt_identity {
+                    return Err("action fence owner mismatch".into());
+                }
+                if fence.owner_token_digest != record.ownership_token_digest {
+                    return Err("action fence ownership token mismatch".into());
+                }
+            }
+        }
+
+        for (action_key, fence) in &self.fences {
+            fence.validate()?;
+            if action_key != &fence.action_key_digest {
+                return Err("fence map key mismatch".into());
+            }
+            let attempt = self
+                .attempts
+                .get(&fence.owner_attempt_identity)
+                .ok_or_else(|| "fence references unknown attempt".to_string())?;
+            if attempt.action_key_digest != *action_key {
+                return Err("fence action key does not match attempt record".into());
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key() -> ActionKeyV1 {
+        ActionKeyV1::new("relying-party", "target-1", "action-1").unwrap()
+    }
+
+    fn attempt(id: &str) -> AttemptIdentityV1 {
+        AttemptIdentityV1::new("payments", "boundary-1", id).unwrap()
+    }
+
+    fn record(id: &str, operation: &str, state: AttemptRecordState) -> AttemptRecordV1 {
+        let key = key();
+        AttemptRecordV1::new(
+            &attempt(id),
+            operation,
+            "native-replay-1",
+            key.material_action_digest(),
+            &key,
+            Some("provider-seed-1".into()),
+            Some("provider-descriptor-1".into()),
+            "stripe-live-account-1",
+            format!("owner-token-{id}"),
+            state,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn record_has_distinct_typed_slots() {
+        let a = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
+        assert_ne!(a.operation_id, a.attempt_identity);
+        assert_ne!(a.native_replay_identity, a.action_key_digest);
+        assert_ne!(a.action_digest, a.effecting_target_identity);
+        assert!(a.provider_reference_seed_digest.is_some());
+        assert!(a.provider_reference_descriptor_digest.is_some());
+    }
+
+    #[test]
+    fn admission_is_same_action_not_operation_id() {
+        let mut model = AtomicActionFenceModelV1::new();
+        assert_eq!(
+            model
+                .admit(record("attempt-1", "operation-1", AttemptRecordState::Consumed))
+                .unwrap(),
+            AtomicAdmissionDecision::Admitted
+        );
+
+        let second = record("attempt-2", "operation-2", AttemptRecordState::Consumed);
+        assert_eq!(
+            model.admit(second).unwrap(),
+            AtomicAdmissionDecision::ActionInFlight
+        );
+        assert!(model.validate_invariants().is_ok());
+    }
+
+    #[test]
+    fn fresh_authority_and_new_operation_cannot_bypass_fence() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let first = record("attempt-1", "operation-1", AttemptRecordState::Indeterminate);
+        model.admit(first).unwrap();
+
+        let mut second = record("attempt-2", "operation-2", AttemptRecordState::Consumed);
+        second.native_replay_identity = "native-replay-2".into();
+
+        assert_eq!(
+            model.admit(second).unwrap(),
+            AtomicAdmissionDecision::ActionInFlight
+        );
+    }
+
+    #[test]
+    fn executed_closes_action_for_new_attempts() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let first_attempt = attempt("attempt-1");
+        let first = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
+        model.admit(first).unwrap();
+
+        model
+            .close_executed(&key(), &first_attempt, "owner-token-attempt-1")
+            .unwrap();
+
+        assert_eq!(
+            model
+                .admit(record("attempt-2", "operation-2", AttemptRecordState::Consumed))
+                .unwrap(),
+            AtomicAdmissionDecision::ActionAlreadyExecuted
+        );
+    }
+
+    #[test]
+    fn failed_releases_only_after_owner_proof() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let first_attempt = attempt("attempt-1");
+        model
+            .admit(record("attempt-1", "operation-1", AttemptRecordState::Consumed))
+            .unwrap();
+
+        assert_eq!(
+            model.release_after_failed(&key(), &first_attempt, "wrong-owner"),
+            Err(ActionFenceMutationError::OwnershipTokenMismatch)
+        );
+        assert!(model.fence(key().digest()).is_some());
+
+        model
+            .release_after_failed(&key(), &first_attempt, "owner-token-attempt-1")
+            .unwrap();
+
+        assert!(model.fence(key().digest()).is_none());
+        assert_eq!(
+            model
+                .admit(record("attempt-2", "operation-2", AttemptRecordState::Consumed))
+                .unwrap(),
+            AtomicAdmissionDecision::Admitted
+        );
+    }
+
+    #[test]
+    fn not_entered_requires_explicit_marker_and_releases_fence() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let first_attempt = attempt("attempt-1");
+        model
+            .admit(record("attempt-1", "operation-1", AttemptRecordState::DispatchPending))
+            .unwrap();
+
+        model
+            .release_not_entered(
+                &key(),
+                &first_attempt,
+                "owner-token-attempt-1",
+                "not-entered-proof-1",
+            )
+            .unwrap();
+
+        let attempt = model.attempt(first_attempt.digest()).unwrap();
+        assert_eq!(attempt.state, AttemptRecordState::NotEntered);
+        assert_eq!(
+            attempt.not_entered_marker.as_deref(),
+            Some("not-entered-proof-1")
+        );
+        assert!(model.fence(key().digest()).is_none());
+        assert!(model.validate_invariants().is_ok());
+    }
+
+    #[test]
+    fn wrong_attempt_cannot_close_or_release_same_action() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let first_attempt = attempt("attempt-1");
+        let second_attempt = attempt("attempt-2");
+        model
+            .admit(record("attempt-1", "operation-1", AttemptRecordState::Consumed))
+            .unwrap();
+
+        assert_eq!(
+            model.close_executed(&key(), &second_attempt, "owner-token-attempt-2"),
+            Err(ActionFenceMutationError::NotOwner)
+        );
+        assert_eq!(
+            model.release_after_failed(&key(), &second_attempt, "owner-token-attempt-2"),
+            Err(ActionFenceMutationError::NotOwner)
+        );
+        assert!(model.fence(key().digest()).is_some());
+    }
+
+    #[test]
+    fn duplicate_same_attempt_is_not_a_new_fence_owner() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let first = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
+        assert_eq!(
+            model.admit(first.clone()).unwrap(),
+            AtomicAdmissionDecision::Admitted
+        );
+        assert_eq!(
+            model.admit(first).unwrap(),
+            AtomicAdmissionDecision::DuplicateAttempt
+        );
+        assert!(model.validate_invariants().is_ok());
+    }
+
+    #[test]
+    fn terminal_attempts_cannot_be_admitted_as_occupiers() {
+        let mut model = AtomicActionFenceModelV1::new();
+        assert!(model
+            .admit(record(
+                "attempt-1",
+                "operation-1",
+                AttemptRecordState::Executed
+            ))
+            .is_err());
+        assert!(model
+            .admit(record(
+                "attempt-2",
+                "operation-2",
+                AttemptRecordState::Failed
+            ))
+            .is_err());
+        assert!(model
+            .admit(record(
+                "attempt-3",
+                "operation-3",
+                AttemptRecordState::NotEntered
+            ))
+            .is_err());
+    }
+
+    #[test]
+    fn attempt_record_digest_is_deterministic() {
+        let a = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
+        let b = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
+        assert_eq!(a.record_digest(), b.record_digest());
+    }
+}
