@@ -80,7 +80,8 @@
       "expected Alloy UNSAT checks",
       "exact Alloy integer bitwidth",
       "bounded reference exploration",
-      "exact frozen subject SHA/tree are resolved before tool execution"
+      "exact frozen subject SHA/tree are resolved before tool execution",
+      "exact verifier/profile/crosswalk blobs are bound in the candidate receipt"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
@@ -93,5 +94,15 @@
     "No market structure is declared illegal.",
     "No scalar power or sovereignty score is created.",
     "This candidate does not prove production equivalence or external recognition."
-  ]
+  ],
+  "verifier": {
+    "qualifier_path": "mycelix-governance/tools/formal/qualify_sovereignty_concentration_formal.py",
+    "qualifier_blob_sha": "2b31ac404166cc3f98b23bb2666c8ef90732c573",
+    "alloy_runner_path": "mycelix-governance/tools/formal/SovereigntyConcentrationAlloyQualificationRunner.java",
+    "alloy_runner_blob_sha": "82ea95bf7d12a60070c80c201c7ebb45644af754",
+    "pins_path": "mycelix-governance/tools/formal/concentration_pins.json",
+    "pins_blob_sha": "e9a7978e5d192441a62d00d94e32bc6e92adc0a6",
+    "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json",
+    "crosswalk_blob_sha": "6dee55073426b3733ab44b746bd70425989632ad"
+  }
 }
