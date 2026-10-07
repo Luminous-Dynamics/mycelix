@@ -373,10 +373,14 @@ jobs:
 
           protection_status = int(os.environ["PROTECTION_STATUS"])
           admin_source = os.environ["ADMIN_SOURCE"]
+          full_ruleset_admin_visibility = (
+              bool(rulesets)
+              and all(isinstance(entry.get("bypass_actors"), list) for entry in rulesets)
+          )
           admin_verified = (
               admin_source == "repository_administration_secret"
               and bool(os.environ.get("GOVERNANCE_ADMIN_TOKEN"))
-              and protection_status == 200
+              and (protection_status == 200 or full_ruleset_admin_visibility)
           )
 
           protection = None
