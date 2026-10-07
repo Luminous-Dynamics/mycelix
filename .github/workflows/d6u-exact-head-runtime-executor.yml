@@ -66,6 +66,24 @@ jobs:
           cargo_home="$RUNNER_TEMP/d6u-cargo-home"
           test ! -e "$cargo_home"
           mkdir -m 700 "$cargo_home"
+      - name: Reject ambient Cargo and Rust overrides
+        run: |
+          set -euo pipefail
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              RUSTC|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|RUSTDOC|RUSTDOC_WRAPPER|RUSTFLAGS|RUSTDOCFLAGS|\
+              CARGO_BUILD_RUSTC|CARGO_BUILD_RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTDOCFLAGS|\
+              CARGO_ENCODED_RUSTDOCFLAGS|CARGO_BUILD_TARGET|CARGO_NET_OFFLINE|CARGO_NET_GIT_FETCH_WITH_CLI|\
+              CARGO_REGISTRY_TOKEN|CARGO_REGISTRIES_*_TOKEN|CARGO_REGISTRIES_*_INDEX|\
+              CARGO_REGISTRIES_*_CREDENTIAL_PROVIDER)
+                echo "forbidden ambient Cargo/Rust environment: $name"
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+
       - name: Preflight evidence verifiers
         run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_lock.py scripts/integral/verify_d6u_runtime_record.py
 
