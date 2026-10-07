@@ -758,7 +758,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::ExchangeToDispute => Ok(ValidateCallbackResult::Valid),
             LinkTypes::DaoToBilateralBalance => Ok(ValidateCallbackResult::Valid),
             LinkTypes::SettlementRegistry => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Invalid(
+                "GovernanceAgents links are non-authoritative and cannot register Finance governance membership".into(),
+            )),
             LinkTypes::HearthToBalances => Ok(ValidateCallbackResult::Valid),
             LinkTypes::MemberToHearthBalance => Ok(ValidateCallbackResult::Valid),
             LinkTypes::DaoToAlias => Ok(ValidateCallbackResult::Valid),
