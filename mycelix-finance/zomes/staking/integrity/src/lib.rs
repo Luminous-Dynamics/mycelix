@@ -455,8 +455,8 @@ fn validate_create_governance_registration(
                 ));
             }
         }
-        Some(predecessor_raw) => {
-            let predecessor = ActionHash::from_raw_36(predecessor_raw);
+        Some(ref predecessor_raw) => {
+            let predecessor = ActionHash::from_raw_36(predecessor_raw.clone());
             let predecessor_record = must_get_valid_record(predecessor.clone())?;
             let expected_entry_type =
                 EntryType::App(UnitEntryTypes::GovernanceAgentRegistration.try_into()?);
@@ -569,7 +569,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, base_address, target_address, action } => match link_type {
+        FlatOp::RegisterCreateLink { link_type, base_address, target_address, action, .. } => match link_type {
             LinkTypes::StakerToStake => Ok(ValidateCallbackResult::Valid),
             LinkTypes::StakeToSlashing => Ok(ValidateCallbackResult::Valid),
             LinkTypes::DepositorToEscrow => Ok(ValidateCallbackResult::Valid),
