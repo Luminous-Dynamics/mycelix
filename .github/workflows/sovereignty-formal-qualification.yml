@@ -10,6 +10,7 @@ on:
       - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla'
       - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.cfg'
       - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als'
+      - 'docs/qualification/fixtures/formal/sovereignty_reference_explorer.py'
       - 'mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als'
       - 'mycelix-governance/tools/formal/sovereignty_reference_explorer.py'
       - 'mycelix-governance/tools/formal/qualify_sovereignty_formal.py'
@@ -99,7 +100,7 @@ jobs:
               --alloy-jar "$RUNNER_TEMP/sov-formal-tools/alloy.jar" \
               --evidence-dir "$RUNNER_TEMP/sov-formal-evidence" \
               --workflow .github/workflows/sovereignty-formal-qualification.yml \
-              --reference-explorer mycelix-governance/tools/formal/sovereignty_reference_explorer.py
+              --reference-explorer docs/qualification/fixtures/formal/sovereignty_reference_explorer.py
           '
 
       - name: Verify repository postflight is clean
