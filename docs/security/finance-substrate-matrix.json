@@ -34,5 +34,14 @@
     "rust_client": "not present in public Finance tree"
   },
   "qualification_rule": "Target qualification is prohibited until declared and measured substrate identities match the target matrix.",
-  "current_status": "BLOCKED_SUBSTRATE_MISMATCH"
+  "current_status": "BLOCKED_SUBSTRATE_MISMATCH",
+  "runtime_measurement": {
+    "required_for_qualification": true,
+    "command_source": "mycelix-finance/flake.nix#ci",
+    "binaries": [
+      "holochain",
+      "hc"
+    ],
+    "rule": "measured runtime versions must match target.holochain"
+  }
 }
