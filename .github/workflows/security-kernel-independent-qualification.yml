@@ -1403,6 +1403,3 @@ jobs:
           print("PASS: retained qualification receipt artifact is bound to this exact workflow run and upload digest")
           PY
 
-
-          printf 'negative_controls=passed\nsentinel_digest=%s\nnegative_controls_log_digest=%s\n' "$sentinel_digest" "$negative_controls_log_digest" >> "$GITHUB_OUTPUT"
-          echo "PASS: trusted sandbox negative-control matrix passed"
