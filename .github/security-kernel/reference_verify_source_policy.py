@@ -309,6 +309,44 @@ def require_step_execution_modes(lines_: list[str], description: str) -> None:
             current["shell"].append(re.fullmatch(r"\s{8}shell:\s+(.+)\s*", line).group(1))
 
 
+def require_no_duplicate_github_output_keys(lines_: list[str], description: str) -> None:
+    """Reject duplicate literal output keys within a single step's GITHUB_OUTPUT sink."""
+    current_name = None
+    counts = {}
+
+    def flush() -> None:
+        if current_name is None:
+            return
+        duplicates = sorted(key for key, count in counts.items() if count > 1)
+        if duplicates:
+            fail(f"{description}: duplicate GITHUB_OUTPUT keys under {current_name!r}: {duplicates!r}")
+
+    def record_literals(line: str) -> None:
+        literals = re.findall(r'"(.*?)"', line) + re.findall(r"'(.*?)'", line)
+        for literal in literals:
+            for key in re.findall(r'(?:^|\\n)([A-Za-z0-9_-]+)=', literal):
+                counts[key] = counts.get(key, 0) + 1
+
+    for line in lines_:
+        step_match = re.match(r"^\s{6}- name: (.+)$", line)
+        if step_match:
+            flush()
+            current_name = step_match.group(1)
+            counts = {}
+            continue
+        if re.match(r"^\s{6}- ", line):
+            flush()
+            current_name = None
+            counts = {}
+            continue
+        if current_name is None:
+            continue
+        if "GITHUB_OUTPUT" in line and "printf " in line:
+            record_literals(line)
+        elif "output.write(" in line:
+            record_literals(line)
+
+    flush()
 def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
     current_name = None
     counts = {}
@@ -487,6 +525,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_no_yaml_reuse_syntax(l, S0)
     require_explicit_bash_for_run_steps(l, S0)
     require_no_duplicate_step_keys(l, S0)
+    require_no_duplicate_github_output_keys(l, S0)
     require_step_execution_modes(l, S0)
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
@@ -726,6 +765,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_yaml_reuse_syntax(l, S1)
     require_explicit_bash_for_run_steps(l, S1)
     require_no_duplicate_step_keys(l, S1)
+    require_no_duplicate_github_output_keys(l, S1)
     require_step_execution_modes(l, S1)
     for required in (
         "--network=bridge",
@@ -816,6 +856,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_no_yaml_reuse_syntax(l, S2)
     require_explicit_bash_for_run_steps(l, S2)
     require_no_duplicate_step_keys(l, S2)
+    require_no_duplicate_github_output_keys(l, S2)
     require_step_execution_modes(l, S2)
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
@@ -1207,6 +1248,18 @@ def main() -> None:
         ),
         "S2 retained negative-control artifact ceiling weakened",
     )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"source_staging_digest=%s\\nexecuted_source_digest=%s\\nsource_digest=%s\\n",
+                b"source_staging_digest=%s\\nexecuted_source_digest=%s\\nsource_digest=%s\\nsource_digest=%s\\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "duplicate GITHUB_OUTPUT key introduced within one S1 step",
+    )
+
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b'pipeline_status=("${PIPESTATUS[@]}")\n', b"# negative-control pipeline status capture removed\n", 1), s1_sha),
         "negative-control pipeline status capture removed",
