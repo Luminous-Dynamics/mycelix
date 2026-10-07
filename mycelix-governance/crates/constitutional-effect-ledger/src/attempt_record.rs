@@ -1212,6 +1212,16 @@ mod tests {
         AttemptIdentityV1::new("payments", "boundary-1", id).unwrap()
     }
 
+    fn terminal_evidence(outcome: TerminalOutcomeV1, attempt_id: &str) -> TerminalEvidenceV1 {
+        TerminalEvidenceV1::new(
+            &key(),
+            &attempt(attempt_id),
+            outcome,
+            format!("provider-evidence-{attempt_id}"),
+            "qualified-verifier-v1",
+        )
+        .unwrap()
+    }
     fn record(id: &str, operation: &str, state: AttemptRecordState) -> AttemptRecordV1 {
         let key = key();
         AttemptRecordV1::new(
@@ -1473,7 +1483,12 @@ mod tests {
             .mark_invoked(&key(), &first_attempt, "owner-token-attempt-1")
             .unwrap();
         model
-            .close_executed(&key(), &first_attempt, "owner-token-attempt-1")
+            .close_executed(
+                &key(),
+                &first_attempt,
+                "owner-token-attempt-1",
+                &terminal_evidence(TerminalOutcomeV1::Executed, "attempt-1"),
+            )
             .unwrap();
 
         assert_eq!(
@@ -1688,7 +1703,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            model.close_executed(&key(), &owner, "owner-token-attempt-1"),
+            model.close_executed(
+            &key(),
+            &owner,
+            "owner-token-attempt-1",
+            &terminal_evidence(TerminalOutcomeV1::Executed, "attempt-1"),
+        ),
             Err(ActionFenceMutationError::InvalidTransition)
         );
         assert_eq!(
