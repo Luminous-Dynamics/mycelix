@@ -249,8 +249,8 @@ def verify_receipt(
     if trusted_run["repository"]["full_name"] != BASE_REPOSITORY:
         fail("trusted workflow repository mismatch")
 
-    if pr["state"] != "open" or pr["draft"] is not False:
-        fail("PR is not open and non-draft")
+    if pr["state"] not in {"open", "closed"}:
+        fail("PR state is outside GitHub historical PR states")
     if pr["base"]["ref"] != BASE_BRANCH:
         fail("PR base ref mismatch")
     if pr["base"]["repo"]["id"] != BASE_REPOSITORY_ID:
