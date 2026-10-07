@@ -1037,12 +1037,11 @@ fn fetch_oracle_vitality() -> u32 {
 
 /// Get the number of members in a community/DAO.
 ///
-/// Used by the currency-mint governance gate to determine whether a community
-/// needs a governance proposal to create a currency (>10 members).
-/// Queries the identity/governance cluster via cross-role call.
+/// This count feeds a governance-authorization decision. A missing, malformed,
+/// or unexpected Governance response is therefore unavailable evidence, not
+/// zero membership.
 #[hdk_extern]
 pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
-    // Try cross-cluster call to governance for membership roster
     match call(
         CallTargetCell::OtherRole("governance".into()),
         ZomeName::from("governance_bridge"),
@@ -1050,44 +1049,20 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
         None,
         dao_did.clone(),
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => Ok(result.decode::<u32>().unwrap_or(0)),
-        Ok(other) => {
-            // SECURITY NOTE: Returning 0 members is PERMISSIVE — it means the governance
-            // proposal requirement (>10 members) will be skipped. This is deliberate:
-            // when the governance cluster is unreachable (bootstrap, standalone, or network
-            // partition), we allow small-community operations to proceed rather than blocking
-            // all currency creation/amendment. The integrity zome still enforces zero-sum
-            // and constitutional limits regardless of governance gate.
-            //
-            // When STRICT_GOVERNANCE_MODE is true, this returns an error instead,
-            // blocking the operation until governance is reachable.
-            if STRICT_GOVERNANCE_MODE {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Circuit breaker: governance cluster unavailable for {}, operation suspended: {:?}",
-                    dao_did, other
-                ))));
-            }
-            debug!(
-                "get_community_member_count: governance returned {:?} for {}, defaulting to 0 (permissive)",
-                other, dao_did
-            );
-            Ok(0)
-        }
-        Err(e) => {
-            // SECURITY NOTE: Same permissive default as above — see comment.
-            // When STRICT_GOVERNANCE_MODE is true, fail-closed instead.
-            if STRICT_GOVERNANCE_MODE {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Circuit breaker: governance cluster unreachable for {}, operation suspended: {:?}",
-                    dao_did, e
-                ))));
-            }
-            debug!(
-                "get_community_member_count: governance unreachable for {}: {:?}, defaulting to 0 (permissive)",
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<u32>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Governance member-count response was malformed for {}: {:?}",
                 dao_did, e
-            );
-            Ok(0)
-        }
+            )))
+        }),
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance member-count authority returned unexpected response for {}: {:?}",
+            dao_did, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance member-count authority unavailable for {}: {:?}",
+            dao_did, e
+        )))),
     }
 }
 
