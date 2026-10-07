@@ -270,7 +270,7 @@ PY
           path_file="$GITHUB_PATH"
           test ! -s "$env_file"
           test ! -s "$path_file"
-          cargo +1.96.1 clippy --locked --offline --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- -D warnings
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN cargo +1.96.1 clippy --locked --offline --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- -D warnings
           test ! -s "$env_file"
           test ! -s "$path_file"
 
@@ -318,7 +318,7 @@ PY
           path_file="$GITHUB_PATH"
           test ! -s "$env_file"
           test ! -s "$path_file"
-          cargo +1.96.1 test --locked --offline --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- --nocapture 2>&1 | tee "${{ github.workspace }}/d6u-runtime-harness/d6u-runtime-test.log"
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN cargo +1.96.1 test --locked --offline --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- --nocapture 2>&1 | tee "${{ github.workspace }}/d6u-runtime-harness/d6u-runtime-test.log"
           test ! -s "$env_file"
           test ! -s "$path_file"
       - name: Assert runtime inputs after runtime test
