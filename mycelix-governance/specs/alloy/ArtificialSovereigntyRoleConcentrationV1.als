@@ -44,7 +44,7 @@ pred FullControlWithIndependentReview {
 pred SelfReviewOnlyFullControl {
   some s: Subject |
     criticalCount[s] = 4 and
-    s.externalReviewers = s
+    s.externalReviewers = {s}
 }
 
 run ConcentratedRolesWithFinding
