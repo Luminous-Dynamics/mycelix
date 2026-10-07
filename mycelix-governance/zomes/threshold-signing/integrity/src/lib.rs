@@ -618,6 +618,17 @@ fn validate_update_member(
 
 /// Pure validation for threshold signature -- testable without HDI
 pub fn check_signature_validity(sig: &ThresholdSignature) -> Result<(), String> {
+    // The verified field is verifier-produced evidence, not caller-supplied authority.
+    // There is currently no coordinator path on this branch that can mint a
+    // cryptographically verified signature artifact, so accepting verified=true
+    // at creation time would make the flag a self-attestation bypass.
+    if sig.verified {
+        return Err(
+            "verified=true cannot be asserted on ThresholdSignature creation; cryptographic verifier evidence is required"
+                .into(),
+        );
+    }
+
     if sig.signer_count == 0 {
         return Err("Signature must have at least one signer".into());
     }
@@ -936,6 +947,15 @@ mod tests {
     }
 
     // --- VSS Commitment Tests ---
+
+    #[test]
+    fn test_verified_flag_cannot_be_self_attested() {
+        let mut sig = make_test_signature(ThresholdSignatureAlgorithm::Ecdsa);
+        sig.verified = true;
+        let error = check_signature_validity(&sig).unwrap_err();
+        assert!(error.contains("cannot be asserted"));
+        assert!(error.contains("cryptographic verifier"));
+    }
 
     #[test]
     fn test_valid_vss_commitment_accepted() {
