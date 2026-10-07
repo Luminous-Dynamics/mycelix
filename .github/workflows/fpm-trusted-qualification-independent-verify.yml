@@ -224,6 +224,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import json
+          import os
           import re
           from pathlib import Path
 
