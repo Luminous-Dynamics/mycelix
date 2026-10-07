@@ -27,7 +27,7 @@ env:
   EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "18dca202667b1dc26f57c588efcab42087c8a49e"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "4877888bfb90de2efb0a474311cdaa0f774344bc"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "7551ac36cef72fdb3760083107e1ac5eb2b042ce"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -572,36 +572,36 @@ jobs:
           evidence_binding_digest = hashlib.sha256(
               json.dumps(evidence_binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
           ).hexdigest()
-           execution_reference_input = dict(evidence_binding)
-           with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
-               json.dump(execution_reference_input, handle, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-               execution_reference_path = handle.name
-           try:
-               execution_reference_output = subprocess.check_output(
-                   [
-                       "python3",
-                       os.path.join(os.environ["GITHUB_WORKSPACE"], os.environ["EXECUTION_REFERENCE_VERIFIER_PATH"]),
-                       execution_reference_path,
-                   ],
-                   text=True,
-                   stderr=subprocess.STDOUT,
-                   timeout=20,
-               )
-           except subprocess.CalledProcessError as exc:
-               raise AssertionError(f"independent execution reference verifier rejected binding: {exc.output!r}") from exc
-           finally:
-               os.unlink(execution_reference_path)
-           execution_reference_fields = {}
-           for line in execution_reference_output.splitlines():
-               assert "=" in line
-               key, value = line.split("=", 1)
-               assert key not in execution_reference_fields
-               execution_reference_fields[key] = value
-           assert set(execution_reference_fields) == {"schema", "reference_digest", "mutations_verified"}
-           assert execution_reference_fields["schema"] == "security-kernel-execution-binding-v3"
-           assert re.fullmatch(r"[0-9a-f]{64}", execution_reference_fields["reference_digest"])
-           assert execution_reference_fields["mutations_verified"] == str(len(evidence_binding) - 1)
-           execution_reference_binding_sha256 = execution_reference_fields["reference_digest"]
+          execution_reference_input = dict(evidence_binding)
+          with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+              json.dump(execution_reference_input, handle, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+              execution_reference_path = handle.name
+          try:
+              execution_reference_output = subprocess.check_output(
+                  [
+                      "python3",
+                      os.path.join(os.environ["GITHUB_WORKSPACE"], os.environ["EXECUTION_REFERENCE_VERIFIER_PATH"]),
+                      execution_reference_path,
+                  ],
+                  text=True,
+                  stderr=subprocess.STDOUT,
+                  timeout=20,
+              )
+          except subprocess.CalledProcessError as exc:
+              raise AssertionError(f"independent execution reference verifier rejected binding: {exc.output!r}") from exc
+          finally:
+              os.unlink(execution_reference_path)
+          execution_reference_fields = {}
+          for line in execution_reference_output.splitlines():
+              assert "=" in line
+              key, value = line.split("=", 1)
+              assert key not in execution_reference_fields
+              execution_reference_fields[key] = value
+          assert set(execution_reference_fields) == {"schema", "reference_digest", "mutations_verified"}
+          assert execution_reference_fields["schema"] == "security-kernel-execution-binding-v3"
+          assert re.fullmatch(r"[0-9a-f]{64}", execution_reference_fields["reference_digest"])
+          assert execution_reference_fields["mutations_verified"] == str(len(evidence_binding) - 1)
+          execution_reference_binding_sha256 = execution_reference_fields["reference_digest"]
           for field, replacement in (
               ("artifact_name", expected_artifact_name + "-mutated"),
               ("artifact_id", evidence_binding["artifact_id"] + 1),
@@ -645,16 +645,16 @@ jobs:
           assert 0 < int(receipt["source_copy_bytes"]) <= int(receipt["source_max_bytes"])
           assert 0 < int(receipt["source_copy_files"]) <= 200000
           assert 0 < int(receipt["source_copy_inodes"]) <= int(receipt["source_max_inodes"])
-           assert receipt["vendor_resource_profile"] == "v2"
-           assert receipt["vendor_max_bytes"] == "1073741824"
-           assert receipt["vendor_max_files"] == "100000"
-           assert receipt["vendor_max_inodes"] == "150000"
-           assert receipt["vendor_tmpfs_size"] == "1024m"
-           assert receipt["vendor_tmpfs_nr_inodes"] == "150000"
-           assert receipt["vendor_resource_measurement"] == "bounded-pass"
-           assert 0 < int(receipt["vendor_observed_bytes"]) <= int(receipt["vendor_max_bytes"])
-           assert 0 < int(receipt["vendor_observed_files"]) <= int(receipt["vendor_max_files"])
-           assert 0 < int(receipt["vendor_observed_inodes"]) <= int(receipt["vendor_max_inodes"])
+          assert receipt["vendor_resource_profile"] == "v2"
+          assert receipt["vendor_max_bytes"] == "1073741824"
+          assert receipt["vendor_max_files"] == "100000"
+          assert receipt["vendor_max_inodes"] == "150000"
+          assert receipt["vendor_tmpfs_size"] == "1024m"
+          assert receipt["vendor_tmpfs_nr_inodes"] == "150000"
+          assert receipt["vendor_resource_measurement"] == "bounded-pass"
+          assert 0 < int(receipt["vendor_observed_bytes"]) <= int(receipt["vendor_max_bytes"])
+          assert 0 < int(receipt["vendor_observed_files"]) <= int(receipt["vendor_max_files"])
+          assert 0 < int(receipt["vendor_observed_inodes"]) <= int(receipt["vendor_max_inodes"])
 
           assert receipt["source_event"] == "pull_request_target"
           assert receipt["trusted_dispatcher_workflow"] == run["workflow_ref"]
