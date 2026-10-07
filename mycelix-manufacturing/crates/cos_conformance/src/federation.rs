@@ -5558,7 +5558,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn external_verification_statement_wire_shape_is_closed_world_for_v3() {
         let anchor = state_machine_trace_external_evidence_anchor_reference(
             1,
