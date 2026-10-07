@@ -6,8 +6,9 @@ pub use action_key::{
 pub mod attempt_record;
 pub use attempt_record::{
     ActionFenceMutationError, ActionFenceRecordV1, ActionFenceState, AtomicActionFenceModelV1,
-    AtomicAdmissionDecision, AttemptRecordState, AttemptRecordV1,
-    ACTION_FENCE_RECORD_PREFIX, ATTEMPT_RECORD_PREFIX, ATTEMPT_RECORD_SCHEMA_VERSION,
+    AtomicAdmissionDecision, AttemptRecordState, AttemptRecordV1, DurableActionFenceStore,
+    ACTION_FENCE_RECORD_PREFIX, ACTION_FENCE_SCHEMA_VERSION, ATTEMPT_RECORD_PREFIX,
+    ATTEMPT_RECORD_SCHEMA_VERSION,
 };
 
 use serde::{Deserialize, Serialize};
@@ -189,7 +190,7 @@ pub struct ActionIntent {
     pub ordinal: u32,
     pub action_commitment: String,
     pub capability: CapabilitySnapshot,
-    pub native_replay_identity: Option<String>,
+    pub native_replay_identity: String,
     pub action_key_digest: String,
 }
 
@@ -204,9 +205,11 @@ impl ActionIntent {
         )?;
         self.capability.validate()?;
 
-        if let Some(identity) = &self.native_replay_identity {
-            require_opaque("native_replay_identity", identity, MAX_COMMITMENT_LEN)?;
-        }
+        require_opaque(
+            "native_replay_identity",
+            &self.native_replay_identity,
+            MAX_COMMITMENT_LEN,
+        )?;
         require_opaque("action_key_digest", &self.action_key_digest, MAX_COMMITMENT_LEN)?;
 
         Ok(())
@@ -284,13 +287,8 @@ impl ActionAttempt {
         if self.event_seq == 0 {
             return Err(violation("attempt event_seq must be >= 1"));
         }
-        if self.native_replay_identity.is_empty() {
-            return Err(violation("native_replay_identity must be present for every attempt"));
-        }
-        if let Some(intent_replay_identity) = &intent.native_replay_identity {
-            if &self.native_replay_identity != intent_replay_identity {
-                return Err(violation("attempt changed the native replay identity"));
-            }
+        if self.native_replay_identity != intent.native_replay_identity {
+            return Err(violation("attempt changed the native replay identity"));
         }
         if self.action_key_digest != intent.action_key_digest {
             return Err(violation("attempt changed the same-action key digest"));
@@ -572,6 +570,7 @@ pub fn validate_bundle(bundle: &EvidenceBundle) -> LedgerResult<DerivedOperation
 
     let mut intents_by_ordinal = BTreeMap::<u32, &ActionIntent>::new();
     let mut intents_by_id = BTreeMap::<&str, &ActionIntent>::new();
+    let mut action_keys_seen = BTreeMap::<&str, u32>::new();
 
     for intent in &bundle.intents {
         intent.validate_against_operation(&bundle.operation)?;
@@ -583,6 +582,14 @@ pub fn validate_bundle(bundle: &EvidenceBundle) -> LedgerResult<DerivedOperation
             .is_some()
         {
             return Err(violation("duplicate action_id"));
+        }
+        if action_keys_seen
+            .insert(intent.action_key_digest.as_str(), intent.ordinal)
+            .is_some()
+        {
+            return Err(violation(
+                "duplicate action_key_digest requires an explicit repeated-action instance",
+            ));
         }
     }
 
@@ -596,6 +603,7 @@ pub fn validate_bundle(bundle: &EvidenceBundle) -> LedgerResult<DerivedOperation
 
     let mut used_event_seq = BTreeSet::new();
     let mut attempts_by_id = BTreeMap::<&str, &ActionAttempt>::new();
+    let mut attempts_by_identity = BTreeMap::<&str, &ActionAttempt>::new();
     let mut attempts_by_action = BTreeMap::<&str, Vec<&ActionAttempt>>::new();
 
     for attempt in &bundle.attempts {
@@ -609,6 +617,12 @@ pub fn validate_bundle(bundle: &EvidenceBundle) -> LedgerResult<DerivedOperation
             .is_some()
         {
             return Err(violation("duplicate attempt_id"));
+        }
+        if attempts_by_identity
+            .insert(attempt.attempt_identity.as_str(), attempt)
+            .is_some()
+        {
+            return Err(violation("duplicate attempt_identity"));
         }
         if !used_event_seq.insert(attempt.event_seq) {
             return Err(violation("duplicate event_seq"));
@@ -1017,8 +1031,8 @@ mod tests {
             ordinal,
             action_commitment: format!("commitment-{ordinal}"),
             capability: capability(replay_safe),
-            native_replay_identity: Some(format!("native-replay-{ordinal}")),
-            action_key_digest: "constitutional-action-key-v1:test".into(),
+            native_replay_identity: format!("native-replay-{ordinal}"),
+            action_key_digest: format!("constitutional-action-key-v1:test-{ordinal}"),
         }
     }
 
@@ -1032,7 +1046,7 @@ mod tests {
             event_seq: seq,
             started_at_unix_ms: seq,
             native_replay_identity: format!("native-replay-{ordinal}"),
-            action_key_digest: "constitutional-action-key-v1:test".into(),
+            action_key_digest: format!("constitutional-action-key-v1:test-{ordinal}"),
             retry_authorization: RetryAuthorization::Initial,
         }
     }
@@ -1142,7 +1156,7 @@ mod tests {
             event_seq: 4,
             started_at_unix_ms: 4,
             native_replay_identity: "native-replay-0".into(),
-            action_key_digest: "constitutional-action-key-v1:test".into(),
+            action_key_digest: "constitutional-action-key-v1:test-0".into(),
             retry_authorization: RetryAuthorization::ReplaySafe,
         };
 
