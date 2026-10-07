@@ -5415,7 +5415,9 @@ mod tests {
 
     #[test]
     fn external_verification_policy_anchor_reference_binding_is_content_addressed_and_fail_closed() {
-        let base = FederationExternalVerificationTrustPolicyV1::try_new(
+        let base = FederationExternalVerificationTrustPolicyV1::try_new_bound(
+            FederationStateMachineTraceExternalWitnessKind::TimestampToken,
+            "tsa-token-v1",
             2,
             ["rfc3161-verifier-v1"],
             [FederationStateMachineTraceExternalVerificationClaim::TimestampTokenVerified],
