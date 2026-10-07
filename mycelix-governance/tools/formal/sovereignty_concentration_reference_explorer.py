@@ -40,15 +40,17 @@ def initial():
 
 def freeze(d): return tuple(sorted((k, frozenset(v)) for k, v in d.items()))
 def pairs(d): return tuple(sorted(d.items()))
+def thaw(d): return {k: set(v) for k, v in d.items()}
 
 def step(st, kind, *args):
     if st.clock >= MAX_DEPTH:
         return None
-    R,A,E,J,EJ,W,S,RR,AC,G,CO = map(dict, (
-        st.resources, st.authority, st.explicit, st.jurisdiction,
-        st.explicit_jurisdiction, st.weight, st.switching, st.review,
-        st.acquired, st.gatekeeping, st.critical_operator
-    ))
+    R,A,E,J,EJ,W,S,RR,AC,G,CO = (
+        thaw(st.resources), thaw(st.authority), thaw(st.explicit),
+        thaw(st.jurisdiction), thaw(st.explicit_jurisdiction),
+        dict(st.weight), dict(st.switching), dict(st.review),
+        thaw(st.acquired), thaw(st.gatekeeping), thaw(st.critical_operator)
+    )
     n = st.clock + 1
     s = args[0] if args else None
 
