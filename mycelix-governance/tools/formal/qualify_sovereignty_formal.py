@@ -211,9 +211,21 @@ def main() -> int:
     model_by_name = {m["name"]: m for m in formal["models"]}
     tla_meta = model_by_name["TLA+ temporal sovereignty model"]
     alloy_meta = model_by_name["Alloy structural sovereignty model"]
-    assert_git_blob(args.tla, tla_meta["git_blob_sha"], "TLA")
-    assert_git_blob(args.cfg, tla_meta["config_git_blob_sha"], "TLA config")
-    assert_git_blob(args.alloy, alloy_meta["git_blob_sha"], "Alloy")
+    fixture = profile["detached_fixture"]
+    if args.tla.as_posix() != fixture["tla"]["path"] or args.cfg.as_posix() != fixture["cfg"]["path"] or args.alloy.as_posix() != fixture["alloy"]["path"]:
+        fail("formal execution must use the verifier-owned detached fixture paths")
+    for label, path, meta in [
+        ("TLA fixture", args.tla, fixture["tla"]),
+        ("TLA config fixture", args.cfg, fixture["cfg"]),
+        ("Alloy fixture", args.alloy, fixture["alloy"]),
+    ]:
+        assert_git_blob(path, meta["git_blob_sha"], label)
+        if meta["git_blob_sha"] != meta["source_git_blob_sha"]:
+            fail(f"{label} fixture/source commitment mismatch")
+    if fixture["tla"]["git_blob_sha"] != tla_meta["git_blob_sha"] or fixture["cfg"]["git_blob_sha"] != tla_meta["config_git_blob_sha"]:
+        fail("detached TLA fixture does not equal formal-subject commitments")
+    if fixture["alloy"]["git_blob_sha"] != alloy_meta["git_blob_sha"]:
+        fail("detached Alloy fixture does not equal formal-subject commitment")
 
     cfg = args.cfg.read_text(encoding="utf-8")
     if "INIT Init" not in cfg or "NEXT Next" not in cfg or "CHECK_DEADLOCK FALSE" not in cfg:
