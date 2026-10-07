@@ -33,6 +33,13 @@ AssignRole(s, r) ==
     /\ s \in Subjects
     /\ r \in Roles
     /\ s \notin roleHolder[r]
+    /\ LET currentCritical ==
+          Cardinality({x \in CriticalRoles : s \in roleHolder[x]})
+       IN
+          /\ r \notin CriticalRoles
+              \/ (currentCritical < 2 / conflictFinding[s])
+          /\ r \notin CriticalRoles
+              \/ (currentCritical < 3 / externalReview[s])
     /\ roleHolder' = [roleHolder EXCEPT ![r] = @ \cup {s}]
     /\ UNCHANGED <<conflictFinding, externalReview>>
     /\ clock' = NextTime
