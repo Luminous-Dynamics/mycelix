@@ -110,8 +110,16 @@ impl FinancialEvent {
             }
             let entry = totals.entry(posting.currency.clone()).or_default();
             match posting.side {
-                PostingSide::Debit => entry.0 = entry.0.saturating_add(posting.amount_minor_units),
-                PostingSide::Credit => entry.1 = entry.1.saturating_add(posting.amount_minor_units),
+                PostingSide::Debit => {
+                    entry.0 = entry.0.checked_add(posting.amount_minor_units).ok_or(
+                        ProfessionalFinanceError::NumericOverflow,
+                    )?;
+                }
+                PostingSide::Credit => {
+                    entry.1 = entry.1.checked_add(posting.amount_minor_units).ok_or(
+                        ProfessionalFinanceError::NumericOverflow,
+                    )?;
+                }
             }
         }
 
@@ -142,7 +150,7 @@ pub enum RiskMetricKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RiskMetric {
     pub metric_kind: RiskMetricKind,
-    pub amount_minor_units: u128,
+    pub signed_value_minor_units: i128,
     pub unit: String,
     pub basis: String,
     pub source_event_ids: Vec<String>,
@@ -386,6 +394,7 @@ pub enum ProfessionalFinanceError {
     MissingEvidence,
     MissingConditions,
     MissingResolution,
+    NumericOverflow,
 }
 
 impl fmt::Display for ProfessionalFinanceError {
@@ -399,6 +408,7 @@ impl fmt::Display for ProfessionalFinanceError {
             Self::MissingEvidence => write!(f, "evidence is required"),
             Self::MissingConditions => write!(f, "conditional approval requires conditions"),
             Self::MissingResolution => write!(f, "resolved reconciliation case requires resolution reference"),
+            Self::NumericOverflow => write!(f, "financial posting total overflowed numeric bounds"),
         }
     }
 }
@@ -470,7 +480,7 @@ mod tests {
     fn risk_metric_requires_lineage() {
         let metric = RiskMetric {
             metric_kind: RiskMetricKind::Exposure,
-            amount_minor_units: 10,
+            signed_value_minor_units: -10,
             unit: "USD".into(),
             basis: "mark-to-market".into(),
             source_event_ids: Vec::new(),
