@@ -250,6 +250,7 @@ impl FederationStateMachineTraceExternalEvidenceVerificationStatement {
 ///     witness_profile: "tsa-token-v1".into(),
 ///     verifier_schema_version: 1,
 ///     verifier_profile: "verifier-v1".into(),
+///     verifier_profile_sha256: None,
 ///     verifier_identity_kind: FederationExternalVerifierIdentityKind::Opaque,
 ///     verifier_identity_profile: "verifier-identity-v1".into(),
 ///     verifier_identity_sha256: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".into(),
@@ -900,6 +901,7 @@ pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementBuildVi
     InvalidVerifierReportSchemaVersion,
     InvalidVerificationTimestamp,
     EmptyVerifierProfile,
+    EmptyVerifierProfileEvidence,
     EmptyVerifierIdentityProfile,
     EmptyVerifierIdentityMaterial,
     EmptyVerifierReport,
@@ -996,6 +998,48 @@ pub fn state_machine_trace_external_evidence_verification_statement(
     Ok(statement)
 }
 
+/// Builds an external verification statement with an explicit content-addressed
+/// verifier-profile descriptor supplied by the adapter.
+pub fn state_machine_trace_external_evidence_verification_statement_with_verifier_profile_evidence(
+    anchor_reference_sha256: &str,
+    verifier_schema_version: u16,
+    verifier_profile: &str,
+    verifier_profile_evidence: &[u8],
+    verifier_identity_kind: FederationExternalVerifierIdentityKind,
+    verifier_identity_profile: &str,
+    verifier_identity_material: &[u8],
+    verification_claim: FederationStateMachineTraceExternalVerificationClaim,
+    verifier_report: &[u8],
+    claimed_verified_at_unix_seconds: u64,
+) -> Result<
+    FederationStateMachineTraceExternalEvidenceVerificationStatement,
+    FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation,
+> {
+    if verifier_profile_evidence.is_empty() {
+        return Err(
+            FederationStateMachineTraceExternalEvidenceVerificationStatementBuildViolation::EmptyVerifierProfileEvidence
+        );
+    }
+
+    let mut statement = state_machine_trace_external_evidence_verification_statement(
+        anchor_reference_sha256,
+        verifier_schema_version,
+        verifier_profile,
+        verifier_identity_kind,
+        verifier_identity_profile,
+        verifier_identity_material,
+        verification_claim,
+        verifier_report,
+        claimed_verified_at_unix_seconds,
+    )?;
+
+    statement.verifier_profile_sha256 =
+        Some(state_machine_trace_external_verifier_profile_sha256(verifier_profile_evidence));
+    statement.statement_sha256 =
+        state_machine_trace_external_evidence_verification_statement_sha256(&statement);
+    Ok(statement)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementViolation {
     UnsupportedSchemaVersion,
@@ -1010,6 +1054,7 @@ pub enum FederationStateMachineTraceExternalEvidenceVerificationStatementViolati
     InvalidVerifierReportSchemaVersion,
     InvalidVerificationTimestamp,
     EmptyVerifierProfile,
+    InvalidVerifierProfileDigest,
     EmptyVerifierIdentityProfile,
     EmptyVerifierIdentityDigest,
     InvalidVerifierIdentityDigest,
@@ -1099,6 +1144,13 @@ pub fn validate_state_machine_trace_external_evidence_verification_statement_bin
         return Err(
             FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::EmptyVerifierProfile
         );
+    }
+    if let Some(verifier_profile_sha256) = statement.verifier_profile_sha256.as_deref() {
+        if !state_machine_trace_is_sha256_digest(verifier_profile_sha256) {
+            return Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::InvalidVerifierProfileDigest
+            );
+        }
     }
     if statement.verifier_identity_profile.is_empty() {
         return Err(
@@ -5593,6 +5645,7 @@ mod tests {
             witness_profile: "tsa-token-v1".into(),
             verifier_schema_version: 2,
             verifier_profile: "rfc3161-verifier-v1".into(),
+            verifier_profile_sha256: None,
             verifier_identity_kind: FederationExternalVerifierIdentityKind::PublicKey,
             verifier_identity_profile: "rfc3161-key-v1".into(),
             verifier_identity_sha256:
@@ -5693,6 +5746,7 @@ mod tests {
             witness_profile: "tsa-token-v1".into(),
             verifier_schema_version: 2,
             verifier_profile: "rfc3161-verifier-v1".into(),
+            verifier_profile_sha256: None,
             verifier_identity_kind: FederationExternalVerifierIdentityKind::Opaque,
             verifier_identity_profile: "opaque-v1".into(),
             verifier_identity_sha256: state_machine_trace_external_verifier_identity_sha256(b"identity"),
