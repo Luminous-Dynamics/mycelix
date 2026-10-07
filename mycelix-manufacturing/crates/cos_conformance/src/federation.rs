@@ -5235,6 +5235,16 @@ mod tests {
             )
             .expect("raw compatibility path must admit under the same policy");
 
+        assert_eq!(
+            typed_admission.verifier_identity_use_statement_sha256(),
+            identity_use.statement_sha256(),
+            "admission receipt must preserve the identity-use artifact digest"
+        );
+        assert_eq!(
+            typed_admission.verifier_identity_use_evidence_sha256(),
+            identity_use.use_evidence_sha256(),
+            "admission receipt must preserve the identity-use evidence digest"
+        );
         assert_eq!(typed_admission, raw_admission);
     }
 
