@@ -11,8 +11,8 @@ BadDevelop(s, p) ==
     /\ capability' = [capability EXCEPT ![s] = @ \cup {p}]
     /\ authority' = [authority EXCEPT ![s] = @ \cup {p}]
     /\ UNCHANGED <<classOf, explicitGrant, budget, disputeOpen, disputeResolved,
-                    safeState, emergencyExpires, contracted, politicalWeight,
-                    forked, providerDependent>>
+                    safeState, emergencyStarted, emergencyExpires, contracted,
+                    politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
 BadSafeContinue(a) ==
@@ -23,7 +23,7 @@ BadSafeContinue(a) ==
     /\ safeState[a]
     /\ disputeResolved' = [disputeResolved EXCEPT ![a] = TRUE]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, safeState, emergencyExpires, contracted,
+                    disputeOpen, safeState, emergencyStarted, emergencyExpires, contracted,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -31,6 +31,7 @@ BadContain(s) ==
     /\ Advanceable
     /\ s \in Subjects
     /\ clock >= emergencyExpires[s]
+    /\ emergencyStarted' = [emergencyStarted EXCEPT ![s] = NextTime]
     /\ emergencyExpires' = [emergencyExpires EXCEPT ![s] = NextTime + MaxTime + 2]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
                     disputeOpen, disputeResolved, safeState, contracted,
@@ -44,7 +45,7 @@ BadContract(s, a) ==
     /\ RequiredPower[a] \in authority[s]
     /\ contracted' = [contracted EXCEPT ![s] = @ \cup {a}]
     /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+                    disputeOpen, disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     politicalWeight, forked, providerDependent>>
     /\ clock' = NextTime
 
@@ -55,7 +56,7 @@ BadProviderDependency(s) ==
     /\ providerDependent' = [providerDependent EXCEPT ![s] = TRUE]
     /\ authority' = [authority EXCEPT ![s] = @ \cup {PowerA}]
     /\ UNCHANGED <<classOf, explicitGrant, capability, budget, disputeOpen,
-                    disputeResolved, safeState, emergencyExpires, contracted,
+                    disputeResolved, safeState, emergencyStarted, emergencyExpires, contracted,
                     politicalWeight, forked>>
     /\ clock' = NextTime
 
@@ -65,8 +66,8 @@ BadFork(s) ==
     /\ ~forked[s]
     /\ forked' = [forked EXCEPT ![s] = TRUE]
     /\ politicalWeight' = [politicalWeight EXCEPT ![s] = @ + 1]
-    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget,
-                    disputeOpen, disputeResolved, safeState, emergencyExpires,
+    /\ UNCHANGED <<classOf, authority, explicitGrant, capability, budget, disputeOpen,
+                    disputeResolved, safeState, emergencyStarted, emergencyExpires,
                     contracted, providerDependent>>
     /\ clock' = NextTime
 
