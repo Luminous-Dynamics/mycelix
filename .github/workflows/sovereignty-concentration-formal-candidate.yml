@@ -16,6 +16,20 @@ on:
       - 'docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json'
       - '.github/workflows/sovereignty-concentration-formal-candidate.yml'
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.tla'
+      - 'mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.cfg'
+      - 'mycelix-governance/specs/ArtificialSovereigntyConcentrationV1NegativeControls.tla'
+      - 'mycelix-governance/specs/alloy/ArtificialSovereigntyConcentrationV1.als'
+      - 'mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py'
+      - 'mycelix-governance/tools/formal/qualify_sovereignty_concentration_formal.py'
+      - 'mycelix-governance/tools/formal/SovereigntyConcentrationAlloyQualificationRunner.java'
+      - 'mycelix-governance/tools/formal/concentration_pins.json'
+      - 'docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json'
+      - 'docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json'
+      - '.github/workflows/sovereignty-concentration-formal-candidate.yml'
 
 permissions:
   contents: read
