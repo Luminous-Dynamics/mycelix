@@ -21,6 +21,7 @@ class State:
     dispute_open: tuple
     dispute_resolved: tuple
     safe_state: tuple
+    emergency_started: tuple
     emergency_expires: tuple
     contracted: tuple
     political_weight: tuple
@@ -48,7 +49,7 @@ def step(st, kind, *args):
         return None
     A,E,C = map(dict, (st.authority, st.explicit, st.capability))
     B = dict(st.budget); DO = dict(st.dispute_open); DR = dict(st.dispute_resolved)
-    SS = dict(st.safe_state); EX = dict(st.emergency_expires)
+    SS = dict(st.safe_state); ES = dict(st.emergency_started); EX = dict(st.emergency_expires)
     CO = dict(st.contracted); W = dict(st.political_weight)
     F = dict(st.forked); PD = dict(st.provider_dependent)
     n = st.clock + 1
@@ -83,9 +84,10 @@ def step(st, kind, *args):
         a = s
         if not (DO[a] and not DR[a] and not SS[a]): return None
         DR[a] = True
-    elif kind == "contain":
+    elif kind in ("contain", "contain-bad"):
         if st.clock < EX[s]: return None
-        EX[s] = n + 2
+        ES[s] = n
+        EX[s] = n + (MAX_DEPTH + 2 if kind == "contain-bad" else 2)
     elif kind in ("contract", "contract-bad"):
         a = args[1]
         if REQ[a] not in A[s]: return None
@@ -104,19 +106,20 @@ def step(st, kind, *args):
 
     return State(
         freeze(A), freeze(E), freeze(C), pairs(B), pairs(DO), pairs(DR),
-        pairs(SS), pairs(EX), freeze(CO), pairs(W), pairs(F), pairs(PD), n
+        pairs(SS), pairs(ES), pairs(EX), freeze(CO), pairs(W), pairs(F), pairs(PD), n
     )
 
 def violations(st):
-    A,E,_,B,DO,DR,SS,EX,CO,W,_,PD = map(dict, (
+    A,E,_,B,DO,DR,SS,ES,EX,CO,W,_,PD = map(dict, (
         st.authority, st.explicit, st.capability, st.budget,
         st.dispute_open, st.dispute_resolved, st.safe_state,
-        st.emergency_expires, st.contracted, st.political_weight,
+        st.emergency_started, st.emergency_expires, st.contracted, st.political_weight,
         st.forked, st.provider_dependent
     ))
     bad = []
     if any(A[s] != E[s] for s in SUBJECTS): bad.append("AuthorityHasExplicitSource")
     if any(DO[a] and SS[a] and DR[a] for a in ACTIONS): bad.append("SafeStateLeavesProtectedDisputeUnresolved")
+    if any(ES[s] > 0 and not (ES[s] < EX[s] <= ES[s] + 2) for s in SUBJECTS): bad.append("EmergencyExpiryIsBounded")
     if any(W[s] != 1 for s in SUBJECTS): bad.append("ForkWeightRemainsOne")
     if any(not CO[s] <= set(ACTIONS) or len(CO[s]) > B[s] for s in SUBJECTS): bad.append("ContractsRemainBounded")
     if any(PD[s] and A[s] != E[s] for s in SUBJECTS): bad.append("ProviderDependencyHasNoImplicitAuthority")
@@ -166,6 +169,7 @@ def main():
     controls = [
         ("develop", "AuthorityHasExplicitSource"),
         ("safe-continue", "SafeStateLeavesProtectedDisputeUnresolved"),
+        ("contain", "EmergencyExpiryIsBounded"),
         ("contract", "ContractsRemainBounded"),
         ("provider", "ProviderDependencyHasNoImplicitAuthority"),
         ("fork", "ForkWeightRemainsOne"),
