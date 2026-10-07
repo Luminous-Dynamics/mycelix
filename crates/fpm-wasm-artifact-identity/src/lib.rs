@@ -22,6 +22,21 @@ pub struct FpmWasmArtifactIdentity {
     pub wasm_hash_raw_39: Vec<u8>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct MatchedFpmWasmArtifactIdentity {
+    schema_version: String,
+    holochain_profile: String,
+    artifact_sha256: String,
+    wasm_hash_raw_39: Vec<u8>,
+}
+
+impl MatchedFpmWasmArtifactIdentity {
+    pub fn schema_version(&self) -> &str { &self.schema_version }
+    pub fn holochain_profile(&self) -> &str { &self.holochain_profile }
+    pub fn artifact_sha256(&self) -> &str { &self.artifact_sha256 }
+    pub fn wasm_hash_raw_39(&self) -> &[u8] { &self.wasm_hash_raw_39 }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FpmArtifactIdentityError {
     EmptyArtifact,
@@ -88,7 +103,7 @@ pub fn verify_approved_artifact_against_observed_wasm_hash(
     identity: &FpmWasmArtifactIdentity,
     artifact_code: &[u8],
     observed_wasm_hash_raw_39: &[u8],
-) -> Result<(), FpmArtifactIdentityError> {
+) -> Result<MatchedFpmWasmArtifactIdentity, FpmArtifactIdentityError> {
     validate_identity_shape(identity)?;
     validate_artifact_size(artifact_code)?;
 
@@ -108,7 +123,12 @@ pub fn verify_approved_artifact_against_observed_wasm_hash(
         return Err(FpmArtifactIdentityError::WasmHashMismatch);
     }
 
-    Ok(())
+    Ok(MatchedFpmWasmArtifactIdentity {
+        schema_version: identity.schema_version.clone(),
+        holochain_profile: identity.holochain_profile.clone(),
+        artifact_sha256: identity.artifact_sha256.clone(),
+        wasm_hash_raw_39: observed.get_raw_39().to_vec(),
+    })
 }
 
 fn validate_artifact_size(code: &[u8]) -> Result<(), FpmArtifactIdentityError> {
@@ -164,12 +184,14 @@ mod tests {
         let code = artifact();
         let identity = derive_identity(&code).unwrap();
 
-        verify_approved_artifact_against_observed_wasm_hash(
+        let matched = verify_approved_artifact_against_observed_wasm_hash(
             &identity,
             &code,
             &identity.wasm_hash_raw_39,
         )
         .unwrap();
+        assert_eq!(matched.artifact_sha256(), identity.artifact_sha256);
+        assert_eq!(matched.wasm_hash_raw_39(), identity.wasm_hash_raw_39);
     }
 
     #[test]
