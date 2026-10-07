@@ -16,6 +16,13 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
+
+# Only the newest synchronization for a PR may qualify. A superseded queued
+# run must not be allowed to certify an older head after the branch advances.
+concurrency:
+  group: cos-conformance-exact-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -41,7 +48,21 @@ jobs:
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$HEAD_SHA"
-          echo "Exact head: $actual"
+          echo "Exact event head: $actual"
+
+      - name: Reject superseded PR-head runs
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.pull_request.number }}" --jq '.head.sha')"
+          test "$current" = "$HEAD_SHA" || {
+            echo "Superseded qualification run: event head=$HEAD_SHA current PR head=$current"
+            exit 1
+          }
+          echo "Current PR head: $current"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
