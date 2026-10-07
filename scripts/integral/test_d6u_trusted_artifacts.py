@@ -9,6 +9,7 @@ import subprocess
 import stat
 import struct
 import tempfile
+import sys
 from zipfile import ZipFile, ZipInfo
 from unittest.mock import patch
 from pathlib import Path
