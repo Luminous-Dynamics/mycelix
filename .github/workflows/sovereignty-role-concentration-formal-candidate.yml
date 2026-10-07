@@ -1,0 +1,125 @@
+name: Sovereignty role-concentration formal candidate
+
+on:
+  push:
+    branches: [sov-ai-formal-v4-role-concentration-subject-clean]
+    paths:
+      - 'mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.tla'
+      - 'mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.cfg'
+      - 'mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1NegativeControls.tla'
+      - 'mycelix-governance/specs/alloy/ArtificialSovereigntyRoleConcentrationV1.als'
+      - 'mycelix-governance/tools/formal/sovereignty_role_concentration_reference_explorer.py'
+      - 'mycelix-governance/tools/formal/qualify_sovereignty_role_concentration_formal.py'
+      - 'mycelix-governance/tools/formal/SovereigntyRoleConcentrationAlloyQualificationRunner.java'
+      - 'mycelix-governance/tools/formal/role_concentration_pins.json'
+      - 'docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V2.json'
+      - 'docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_CROSSWALK_V2.json'
+      - '.github/workflows/sovereignty-role-concentration-formal-candidate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.tla'
+      - 'mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.cfg'
+      - 'mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1NegativeControls.tla'
+      - 'mycelix-governance/specs/alloy/ArtificialSovereigntyRoleConcentrationV1.als'
+      - 'mycelix-governance/tools/formal/sovereignty_role_concentration_reference_explorer.py'
+      - 'mycelix-governance/tools/formal/qualify_sovereignty_role_concentration_formal.py'
+      - 'mycelix-governance/tools/formal/SovereigntyRoleConcentrationAlloyQualificationRunner.java'
+      - 'mycelix-governance/tools/formal/role_concentration_pins.json'
+      - 'docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V2.json'
+      - 'docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_CROSSWALK_V2.json'
+      - '.github/workflows/sovereignty-role-concentration-formal-candidate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact candidate control plane
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: \${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify candidate checkout
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "\${{ github.sha }}"
+
+      - name: Validate candidate verifier syntax and contracts
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            mycelix-governance/tools/formal/qualify_sovereignty_role_concentration_formal.py \
+            mycelix-governance/tools/formal/sovereignty_role_concentration_reference_explorer.py
+          python3 -m json.tool \
+            docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V2.json >/dev/null
+          python3 -m json.tool \
+            docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_CROSSWALK_V2.json >/dev/null
+          python3 -m json.tool \
+            mycelix-governance/tools/formal/role_concentration_pins.json >/dev/null
+
+      - name: Install pinned Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Download and hash pinned formal tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sov-role-tools"
+          nix shell "github:NixOS/nixpkgs/a50bf0c1b07873c1a53892292017041a8f0a1288#curl" "github:NixOS/nixpkgs/a50bf0c1b07873c1a53892292017041a8f0a1288#coreutils" --command bash -euo pipefail -c '
+            curl --fail --location --retry 3 --retry-all-errors \
+              --output "$RUNNER_TEMP/sov-role-tools/tla2tools.jar" \
+              "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar"
+            curl --fail --location --retry 3 --retry-all-errors \
+              --output "$RUNNER_TEMP/sov-role-tools/alloy.jar" \
+              "https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.2.0/org.alloytools.alloy.dist.jar"
+            printf "%s  %s\n" "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88" "$RUNNER_TEMP/sov-role-tools/tla2tools.jar" | sha256sum --check --strict
+            printf "%s  %s\n" "6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d" "$RUNNER_TEMP/sov-role-tools/alloy.jar" | sha256sum --check --strict
+          '
+
+      - name: Compile machine-readable Alloy runner
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sov-role-java"
+          nix shell "github:NixOS/nixpkgs/a50bf0c1b07873c1a53892292017041a8f0a1288#jdk17_headless" --command \
+            javac -cp "$RUNNER_TEMP/sov-role-tools/alloy.jar" \
+              -d "$RUNNER_TEMP/sov-role-java" \
+              mycelix-governance/tools/formal/SovereigntyRoleConcentrationAlloyQualificationRunner.java
+
+      - name: Execute exact-head role concentration candidate qualifier
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sov-role-evidence"
+          nix shell "github:NixOS/nixpkgs/a50bf0c1b07873c1a53892292017041a8f0a1288#jdk17_headless" --command \
+            python3 mycelix-governance/tools/formal/qualify_sovereignty_role_concentration_formal.py \
+              --profile docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V2.json \
+              --pins mycelix-governance/tools/formal/role_concentration_pins.json \
+              --crosswalk docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_CROSSWALK_V2.json \
+              --alloy-runner mycelix-governance/tools/formal/SovereigntyRoleConcentrationAlloyQualificationRunner.java \
+              --alloy-class-dir "$RUNNER_TEMP/sov-role-java" \
+              --tla-jar "$RUNNER_TEMP/sov-role-tools/tla2tools.jar" \
+              --alloy-jar "$RUNNER_TEMP/sov-role-tools/alloy.jar" \
+              --evidence-dir "$RUNNER_TEMP/sov-role-evidence"
+
+      - name: Verify repository postflight is clean
+        if: always()
+        run: |
+          set -euo pipefail
+          test "$(git status --porcelain)" = ""
+
+      - name: Upload bounded candidate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sovereignty-role-concentration-candidate-\${{ github.sha }}
+          path: \${{ runner.temp }}/sov-role-evidence
+          if-no-files-found: warn
+          retention-days: 30
