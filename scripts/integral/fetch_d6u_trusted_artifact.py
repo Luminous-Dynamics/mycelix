@@ -62,9 +62,14 @@ def github_get(repo: str, api_path: str, token: str) -> dict:
 
 
 def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
+    trusted_repository = policy["repository_identity"]
+    expected_repository_id = int(os.environ["D6U_TRUSTED_REPOSITORY_ID"])
+    assert repo == trusted_repository["full_name"]
+    assert expected_repository_id == int(trusted_repository["repository_id"])
     workflow_run = event["workflow_run"]
     event_repo = event["repository"]
     assert event_repo["full_name"] == repo
+    assert int(event_repo["id"]) == expected_repository_id
     assert workflow_run["repository"]["full_name"] == repo
     assert workflow_run["head_repository"]["full_name"] == repo
     assert event_repo["id"] == workflow_run["repository"]["id"] == workflow_run["head_repository"]["id"]
@@ -109,8 +114,8 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     assert artifact["expired"] is False
     workflow_artifact_run = artifact["workflow_run"]
     assert workflow_artifact_run["id"] == run_id
-    assert workflow_artifact_run["repository_id"] == event["repository"]["id"]
-    assert workflow_artifact_run["head_repository_id"] == event["repository"]["id"]
+    assert int(workflow_artifact_run["repository_id"]) == expected_repository_id
+    assert int(workflow_artifact_run["head_repository_id"]) == expected_repository_id
     assert workflow_artifact_run["repository_id"] == workflow_artifact_run["head_repository_id"]
     assert workflow_artifact_run["head_branch"] == workflow_run["head_branch"]
     assert workflow_artifact_run["head_sha"] == workflow_run["head_sha"]
@@ -128,6 +133,10 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
 
 
 def expected_current_run_artifact(repo: str, policy: dict) -> dict:
+    trusted_repository = policy["repository_identity"]
+    expected_repository_id = int(os.environ["D6U_TRUSTED_REPOSITORY_ID"])
+    assert repo == trusted_repository["full_name"]
+    assert expected_repository_id == int(trusted_repository["repository_id"])
     run_id = int(os.environ["GITHUB_RUN_ID"])
     run_attempt = int(os.environ["GITHUB_RUN_ATTEMPT"])
     token = os.environ["GITHUB_TOKEN"]
@@ -145,7 +154,8 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     assert current_run["run_attempt"] == run_attempt
     assert current_run["repository"]["full_name"] == repo
     assert current_run["head_repository"]["full_name"] == repo
-    assert current_run["repository"]["id"] == current_run["head_repository"]["id"]
+    assert int(current_run["repository"]["id"]) == expected_repository_id
+    assert int(current_run["head_repository"]["id"]) == expected_repository_id
     expected_ref = f"refs/heads/{current_run['head_branch']}"
     assert os.environ["GITHUB_REF"] == expected_ref
     assert current_run["head_sha"] == os.environ["GITHUB_SHA"]
@@ -435,6 +445,9 @@ def main() -> None:
 
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     repo = os.environ["GITHUB_REPOSITORY"]
+    trusted_repository = policy["repository_identity"]
+    assert repo == trusted_repository["full_name"]
+    assert int(os.environ["D6U_TRUSTED_REPOSITORY_ID"]) == int(trusted_repository["repository_id"])
 
     if current_run_handoff:
         expected_workflow_ref = (
