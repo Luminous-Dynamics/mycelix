@@ -1294,7 +1294,7 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
 
-    x = copy.deepcopy(fixture_observation(policy))
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403, admin_status="unverified"))
     x["rulesets"]["entries"][0]["conditions"]["repository_property"] = {
         "include": [{"name": "governance", "value": "enabled"}],
         "exclude": [],
