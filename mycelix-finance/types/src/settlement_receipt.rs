@@ -109,7 +109,7 @@ impl SettlementReceipt {
             || self.adapter_version != claim.adapter_version
             || self.configuration_digest != claim.configuration_digest
         {
-            return Err(SettlementValidationError::ClaimReceiptMismatch);
+            return Err(SettlementValidationError::InvalidField { field: "claim_receipt_binding", reason: "claim and receipt identities or settlement terms differ", });
         }
 
         if self.finality.assurance_rank() < claim.finality.assurance_rank() {
