@@ -102,6 +102,7 @@ def validate_observation_shape(observation: Any) -> None:
     branch_raw = validate_bound_raw_payload(observation, "branch")
     rulesets_index_raw = validate_bound_raw_payload(observation, "rulesets_index")
     rulesets_raw = validate_bound_raw_payload(observation, "rulesets")
+    effective_rules_raw = validate_bound_raw_payload(observation, "effective_rules")
     protection_raw = validate_bound_raw_payload(observation, "branch_protection")
     require(isinstance(repository_raw, dict), "repository raw payload must be an object")
     require(repository_raw.get("id") == REPOSITORY_ID, "repository raw id drift")
@@ -114,6 +115,7 @@ def validate_observation_shape(observation: Any) -> None:
     require(isinstance(branch_raw, dict), "branch raw payload must be an object")
     require(isinstance(rulesets_index_raw, list), "rulesets index raw payload must be a list")
     require(isinstance(rulesets_raw, list), "rulesets raw payload must be a list")
+    require(isinstance(effective_rules_raw, list), "effective rules raw payload must be a list")
     index_ids = [entry.get("id") for entry in rulesets_index_raw if isinstance(entry, dict)]
     full_ids = [entry.get("id") for entry in rulesets_raw if isinstance(entry, dict)]
     require(len(index_ids) == len(rulesets_index_raw), "rulesets index entry is not an object")
@@ -139,6 +141,10 @@ def validate_observation_shape(observation: Any) -> None:
     require(
         observation.get("rulesets", {}).get("entries") == rulesets_raw,
         "normalized ruleset observation does not match raw rulesets payload",
+    )
+    require(
+        observation.get("effective_rules", {}).get("entries") == effective_rules_raw,
+        "normalized effective rules observation does not match raw effective rules payload",
     )
     protection_api = observation.get("branch_protection_api")
     require(isinstance(protection_api, dict), "branch protection API observation missing")
@@ -312,6 +318,57 @@ def _evaluate_rulesets(
     return ("MISMATCH" if failures else "VERIFIED"), failures
 
 
+def _evaluate_effective_rules(
+    effective_rules: list[Any],
+) -> tuple[str, list[str]]:
+    required_types = {
+        "pull_request",
+        "non_fast_forward",
+        "deletion",
+    }
+    failures: list[str] = []
+    observed_types: set[Any] = set()
+    approval_counts: list[int] = []
+    merged_parameters: dict[str, bool] = {}
+
+    for index, rule in enumerate(effective_rules):
+        if not isinstance(rule, dict):
+            return "UNVERIFIED", [f"effective_rule[{index}]_not_enumerated"]
+        rule_type = rule.get("type")
+        observed_types.add(rule_type)
+        if rule_type != "pull_request":
+            continue
+        parameters = rule.get("parameters")
+        if not isinstance(parameters, dict):
+            return "UNVERIFIED", [f"effective_rule[{index}]_pull_request_parameters_not_enumerated"]
+        count = parameters.get("required_approving_review_count")
+        if isinstance(count, int):
+            approval_counts.append(count)
+        for key in (
+            "dismiss_stale_reviews_on_push",
+            "require_last_push_approval",
+            "required_review_thread_resolution",
+        ):
+            if parameters.get(key) is True:
+                merged_parameters[key] = True
+
+    missing_types = sorted(required_types - observed_types)
+    failures.extend(f"effective_rule_missing:{rule_type}" for rule_type in missing_types)
+    if not approval_counts:
+        failures.append("effective_rule_required_approving_review_count_not_observed")
+    elif max(approval_counts) != 1:
+        failures.append("effective_rule_required_approving_review_count")
+    for key in (
+        "dismiss_stale_reviews_on_push",
+        "require_last_push_approval",
+        "required_review_thread_resolution",
+    ):
+        if merged_parameters.get(key) is not True:
+            failures.append(f"effective_rule_missing:{key}")
+
+    return ("MISMATCH" if failures else "VERIFIED"), failures
+
+
 def _normalize_branch_protection(source: Any) -> dict[str, Any]:
     require(isinstance(source, dict), "branch protection raw payload must be an object")
     review = source.get("required_pull_request_reviews")
@@ -432,6 +489,15 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
     ruleset_state, ruleset_mismatches = _evaluate_rulesets(
         ruleset_entries, default_branch
     )
+    effective_rules = observation.get("effective_rules", {}).get("entries")
+    require(isinstance(effective_rules, list), "effective rules observation missing")
+    effective_state, effective_mismatches = _evaluate_effective_rules(effective_rules)
+    if ruleset_state == "VERIFIED" and effective_state == "UNVERIFIED":
+        ruleset_mismatches.extend(effective_mismatches)
+        ruleset_state = "UNVERIFIED"
+    elif ruleset_state == "VERIFIED" and effective_state == "MISMATCH":
+        ruleset_mismatches.extend(effective_mismatches)
+        ruleset_state = "MISMATCH"
 
     if admin_visibility != "verified":
         if branch_protected is False and ruleset_state in {"ABSENT", "MISMATCH"}:
@@ -607,6 +673,17 @@ def fixture_observation(
     }
     branch_payload = {"name": "main", "protected": True}
     rulesets_payload = [ruleset_entry]
+    effective_rules_payload = [
+        {
+            "type": rule["type"],
+            **({"parameters": rule["parameters"]} if "parameters" in rule else {}),
+        }
+        for rule in ruleset_entry["rules"]
+    ]
+    effective_rules_raw = json.dumps(
+        effective_rules_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
+
     rulesets_index_payload = [
         {
             key: ruleset_entry[key]
@@ -627,6 +704,9 @@ def fixture_observation(
     }
     branch_raw = json.dumps(branch_payload, separators=(",", ":"), sort_keys=True).encode()
     rulesets_raw = json.dumps(rulesets_payload, separators=(",", ":"), sort_keys=True).encode()
+    effective_rules_raw = json.dumps(
+        effective_rules_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
     rulesets_index_raw = json.dumps(
         rulesets_index_payload, separators=(",", ":"), sort_keys=True
     ).encode()
@@ -657,6 +737,8 @@ def fixture_observation(
         "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
         "rulesets_index_payload_base64": base64.b64encode(rulesets_index_raw).decode(),
         "rulesets_index_payload_sha256": hashlib.sha256(rulesets_index_raw).hexdigest(),
+        "effective_rules_payload_base64": base64.b64encode(effective_rules_raw).decode(),
+        "effective_rules_payload_sha256": hashlib.sha256(effective_rules_raw).hexdigest(),
         "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
         "rulesets_payload_sha256": hashlib.sha256(rulesets_raw).hexdigest(),
         "branch_protection_payload_base64": base64.b64encode(protection_raw).decode(),
@@ -707,6 +789,15 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
         sort_keys=True,
     ).encode()
     rulesets_payload = observation["rulesets"]["entries"]
+    effective_rules_payload = []
+    for ruleset in rulesets_payload:
+        for rule in ruleset.get("rules", []):
+            effective_rules_payload.append(
+                {
+                    "type": rule.get("type"),
+                    **({"parameters": rule["parameters"]} if "parameters" in rule else {}),
+                }
+            )
     rulesets_raw = json.dumps(
         rulesets_payload,
         separators=(",", ":"),
@@ -726,6 +817,8 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
     observation["branch_payload_sha256"] = hashlib.sha256(branch_raw).hexdigest()
     observation["rulesets_index_payload_base64"] = base64.b64encode(rulesets_index_raw).decode()
     observation["rulesets_index_payload_sha256"] = hashlib.sha256(rulesets_index_raw).hexdigest()
+    observation["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    observation["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
     observation["rulesets_payload_base64"] = base64.b64encode(rulesets_raw).decode()
     observation["rulesets_payload_sha256"] = hashlib.sha256(rulesets_raw).hexdigest()
 
