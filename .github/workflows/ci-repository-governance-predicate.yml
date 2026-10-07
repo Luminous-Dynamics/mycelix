@@ -113,6 +113,9 @@ jobs:
           assert "gh api --paginate --slurp" in scanned_text
           assert "repository-payload.json" in scanned_text
           assert "default_branch" in scanned_text
+          assert "effective-rules-payload.json" in scanned_text
+          assert "rules/branches/main?per_page=100" in scanned_text
+          assert "effective_rules_payload_base64" in scanned_text
           assert "rulesets-index-payload.json" in scanned_text
           assert "rulesets/${ruleset_id}.json" in scanned_text
           assert "set(index_ids) == set(full_ids)" in scanned_text
