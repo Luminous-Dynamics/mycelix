@@ -51,6 +51,14 @@ jobs:
           test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
           rustfmt +1.96.1 --version
 
+      - name: Isolate Cargo configuration
+        run: |
+          set -euo pipefail
+          cargo_home="$RUNNER_TEMP/d6u-cargo-home"
+          test ! -e "$cargo_home"
+          mkdir -m 700 "$cargo_home"
+          echo "CARGO_HOME=$cargo_home" >> "$GITHUB_ENV"
+
       - name: Preflight evidence verifiers
         run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_lock.py scripts/integral/verify_d6u_runtime_record.py
 
