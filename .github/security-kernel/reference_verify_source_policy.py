@@ -538,6 +538,12 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate resolution must revalidate repository ID identity")
     if 'assert repository_obj.get("disabled") is not True' not in joined:
         fail("S1 candidate resolution must reject a disabled repository")
+    if 'assert post_repository_obj.get("full_name") == repository' not in joined:
+        fail("S1 candidate resolution must revalidate repository identity after commit resolution")
+    if 'assert post_repository_obj.get("id") == repository_id' not in joined:
+        fail("S1 candidate resolution must revalidate repository ID after commit resolution")
+    if 'assert post_repository_obj.get("disabled") is not True' not in joined:
+        fail("S1 candidate resolution must reject a repository disabled after commit resolution")
     if 'candidate_root="$CANDIDATE_ROOT"' not in joined:
         fail("S1 candidate staging root binding missing")
     if 'test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"' not in joined:
@@ -919,6 +925,19 @@ def main() -> None:
         ),
         "candidate repository ID revalidation removed",
     )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'assert post_repository_obj.get("id") == repository_id, "GitHub candidate repository ID changed after candidate commit resolution"\n',
+                b'# post-resolution repository ID temporal check removed\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "candidate repository ID post-resolution revalidation removed",
+    )
+
 
     expect_rejection(
         lambda: verify_s1(
