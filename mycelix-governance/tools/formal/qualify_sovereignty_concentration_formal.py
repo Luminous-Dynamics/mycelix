@@ -132,9 +132,9 @@ def main() -> int:
         fail("invalid frozen subject SHA")
     if not re.fullmatch(r"[0-9a-f]{40}", subject_tree):
         fail("invalid frozen subject tree SHA")
-    if subprocess.check_output(["git", "rev-parse", f"{subject_sha}^{{commit}"]], text=True).strip() != subject_sha:
+    if subprocess.check_output(["git", "rev-parse", f"{subject_sha}^{{commit}}"]], text=True).strip() != subject_sha:
         fail("frozen subject commit is not present locally")
-    if subprocess.check_output(["git", "rev-parse", f"{subject_sha}^{{tree}"]], text=True).strip() != subject_tree:
+    if subprocess.check_output(["git", "rev-parse", f"{subject_sha}^{{tree}}"]], text=True).strip() != subject_tree:
         fail("frozen subject tree mismatch")
 
     model_root = evidence / "subject"
