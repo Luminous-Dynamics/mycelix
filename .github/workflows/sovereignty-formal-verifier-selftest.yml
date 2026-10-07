@@ -8,6 +8,7 @@ on:
       - 'mycelix-governance/tools/formal/test_qualify_sovereignty_formal_blackbox.py'
       - 'mycelix-governance/tools/formal/pins.json'
       - 'docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json'
+      - 'docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json'
       - '.github/workflows/sovereignty-formal-qualification.yml'
       - '.github/workflows/sovereignty-formal-verifier-selftest.yml'
       - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla'
@@ -47,6 +48,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile             mycelix-governance/tools/formal/qualify_sovereignty_formal.py             mycelix-governance/tools/formal/test_qualify_sovereignty_formal_blackbox.py             docs/qualification/fixtures/formal/sovereignty_reference_explorer.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json >/dev/null
           python3 -m json.tool mycelix-governance/tools/formal/pins.json >/dev/null
 
       - name: Run black-box verifier corpus
