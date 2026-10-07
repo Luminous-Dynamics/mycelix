@@ -36,8 +36,10 @@
       "administrator_bypass_prevention",
       "complete_branch_protection_configuration"
     ],
-    "admin_api_403_state": "UNVERIFIED",
-    "unknown_or_unobservable_state": "UNVERIFIED"
+    "admin_api_403_state": "secondary_observation_unavailable",
+    "unknown_or_unobservable_state": "UNVERIFIED",
+    "secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists": true,
+    "applicable_rulesets_must_be_aggregated": true
   },
   "result_states": [
     "VERIFIED",
@@ -49,7 +51,8 @@
     "verified_requires_all_required_controls": true,
     "verified_requires_authoritative_admin_observation": true,
     "mismatch_must_not_be_upgraded_by_missing_fields": true,
-    "unverified_must_not_be_treated_as_verified": true
+    "unverified_must_not_be_treated_as_verified": true,
+    "contradiction_dominates_secondary_observation_unavailability": true
   },
   "nonclaims": [
     "The policy file is an expectation, not proof that GitHub currently enforces it.",
