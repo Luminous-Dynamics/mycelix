@@ -1658,6 +1658,52 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         ),
         S1,
     )
+
+    require_exact_run_sequence(
+        l,
+        "Execute candidate qualification in disposable networkless sandbox",
+        (
+            "  timeout --signal=TERM --kill-after=30s \"$wall\" docker run --name \"$name\" --rm --platform=linux/amd64 --pull=never \\",
+            "    --network=none \\",
+            "    --read-only \\",
+            "    --cap-drop=ALL \\",
+            "    --security-opt=no-new-privileges:true \\",
+            "    --security-opt=seccomp=default \\",
+            "    --pids-limit=512 \\",
+            "    --memory=12g \\",
+            "    --memory-swap=12g \\",
+            "    --cpus=3 \\",
+            "    --ulimit=nofile=4096:4096 \\",
+            "    --ulimit=core=0:0 \\",
+            "    --user \"$runner_uid:$runner_gid\" \\",
+            "    --init \\",
+            "    --stop-timeout=5 \\",
+            "    --ipc=private \\",
+            "    --pid=private \\",
+            "    --cgroupns=private \\",
+            "    --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m \\",
+            "    --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m \\",
+            "    --tmpfs /target:rw,nosuid,nodev,size=8g \\",
+            "    --volume \"$CANDIDATE_ROOT:/source:ro\" \\",
+            "    --volume \"$VENDOR_VOLUME_NAME:/vendor:ro\" \\",
+            "    --workdir /source/crates/mycelix-bridge-common \\",
+            "    --volume \"$VENDOR_CONFIG:/vendor-config/config.toml:ro\" \\",
+            "    --env HOME=/cargo-home \\",
+            "    --env CARGO_HOME=/cargo-home \\",
+            "    --env RUSTUP_HOME=/dev/null \\",
+            "    --env PATH=/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin \\",
+            "    --env CARGO_NET_OFFLINE=true \\",
+            "    --env CARGO_TARGET_DIR=/target \\",
+            "    --env CARGO_TERM_COLOR=never \\",
+            "    --env GITHUB_TOKEN= \\",
+            "    --env GH_TOKEN= \\",
+            "    --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \\",
+            "    --env ACTIONS_ID_TOKEN_REQUEST_URL= \\",
+            "    --env ACTIONS_RUNTIME_TOKEN= \\",
+            "    \"$SANDBOX_IMAGE\" /bin/bash -euc \"",
+        ),
+        "S1 candidate qualification Docker isolation invocation",
+    )
     for required in (
         "--network=bridge",
         "--network=none",
@@ -2511,6 +2557,17 @@ def main() -> None:
             s1_sha,
         ),
         "S1 sandbox preflight PID ceiling drift",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"    --network=none \\\n",
+                b"    --network=bridge \\\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 candidate Docker network isolation drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
