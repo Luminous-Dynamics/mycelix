@@ -802,6 +802,8 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         'assert parsed_download_url.port in (None, 443)',
         'unexpected second HTTP redirect/status',
         'infos = archive.infolist()',
+        'artifact_size <= 65536',
+        'downloaded = response.read(65536 + 1)',
         'file_size <= 1024 * 1024',
         'compress_size <= 1024 * 1024',
     ):
@@ -1070,6 +1072,17 @@ def main() -> None:
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
         "negative-control transcript capture ceiling weakened",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(b"artifact_size <= 65536", b"artifact_size <= 1048576", 1),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 retained negative-control artifact ceiling weakened",
     )
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b'pipeline_status=("${PIPESTATUS[@]}")\n', b"# negative-control pipeline status capture removed\n", 1), s1_sha),
