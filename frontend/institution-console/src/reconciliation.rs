@@ -1,9 +1,15 @@
-use crate::domain::SecurityState;
-use crate::ui::SecurityBadge;
-use mycelix_leptos_core::{FreshnessBadge, FreshnessLevel};
 use leptos::prelude::*;
+
+#[cfg(feature = "demo")]
+use crate::domain::SecurityState;
+#[cfg(feature = "demo")]
+use crate::ui::SecurityBadge;
+#[cfg(feature = "demo")]
+use mycelix_leptos_core::{FreshnessBadge, FreshnessLevel};
+#[cfg(feature = "demo")]
 use mycelix_finance_types::{ReconciliationCase, ReconciliationCaseStatus};
 
+#[cfg(feature = "demo")]
 fn status_label(status: ReconciliationCaseStatus) -> &'static str {
     match status {
         ReconciliationCaseStatus::Open => "Open",
@@ -15,6 +21,7 @@ fn status_label(status: ReconciliationCaseStatus) -> &'static str {
     }
 }
 
+#[cfg(feature = "demo")]
 fn security_state(status: ReconciliationCaseStatus) -> SecurityState {
     match status {
         ReconciliationCaseStatus::Open => SecurityState::Observed,
@@ -26,6 +33,7 @@ fn security_state(status: ReconciliationCaseStatus) -> SecurityState {
     }
 }
 
+#[cfg(feature = "demo")]
 fn demo_cases() -> Vec<ReconciliationCase> {
     vec![
         ReconciliationCase {
@@ -187,6 +195,7 @@ pub fn ReconciliationPage() -> impl IntoView {
 }
 
 #[component]
+#[cfg(feature = "demo")]
 fn CaseDetail(case: ReconciliationCase) -> impl IntoView {
     let resolved = matches!(case.status, ReconciliationCaseStatus::Resolved);
     let difference = case.difference_amount_minor_units;
@@ -255,6 +264,7 @@ fn CaseDetail(case: ReconciliationCase) -> impl IntoView {
 }
 
 #[component]
+#[cfg(feature = "demo")]
 fn Detail(label: &'static str, value: String) -> impl IntoView {
     view! {
         <div class="detail-cell">
