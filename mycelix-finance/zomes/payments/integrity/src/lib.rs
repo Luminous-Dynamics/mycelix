@@ -345,19 +345,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         } => {
             match link_type {
                 LinkTypes::SenderToPayments | LinkTypes::ReceiverToPayments => {
-                    // Base should be an agent pubkey (DID anchor)
-                    // Target should be an entry hash (payment)
-                    if base_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link base must be a valid agent pubkey".into(),
-                        ));
-                    }
-                    if target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link target must be a valid entry hash".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+                    let relation = if matches!(link_type, LinkTypes::SenderToPayments) {
+                        "SenderToPayments"
+                    } else {
+                        "ReceiverToPayments"
+                    };
+                    let payment = match decode_payment_index_target(target_address, relation)? {
+                        Ok(payment) => payment,
+                        Err(invalid) => return Ok(invalid),
+                    };
+                    let expected_did = if matches!(link_type, LinkTypes::SenderToPayments) {
+                        &payment.from_did
+                    } else {
+                        &payment.to_did
+                    };
+                    require_index_anchor(base_address, expected_did, relation)
+                        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
                 }
                 LinkTypes::PaymentToReceipt => {
                     // Both should be entry hashes
@@ -378,41 +381,94 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     Ok(ValidateCallbackResult::Valid)
                 }
                 LinkTypes::DidToSapBalance => {
-                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "DidToSapBalance link must connect valid hashes".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+                    let balance = match decode_sap_balance_index_target(target_address)? {
+                        Ok(balance) => balance,
+                        Err(invalid) => return Ok(invalid),
+                    };
+                    require_index_anchor(
+                        base_address,
+                        &format!("sap:{}", balance.member_did),
+                        "DidToSapBalance",
+                    )
+                    .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
                 }
                 LinkTypes::MemberToExitRecord => {
+                    let exit = match decode_exit_index_target(target_address)? {
+                        Ok(exit) => exit,
+                        Err(invalid) => return Ok(invalid),
+                    };
+                    require_index_anchor(base_address, &exit.member_did, "MemberToExitRecord")
+                        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+                }
+                LinkTypes::PaymentIdToPayment => {
+                    let payment = match decode_payment_index_target(target_address, "PaymentIdToPayment")? {
+                        Ok(payment) => payment,
+                        Err(invalid) => return Ok(invalid),
+                    };
+                    require_index_anchor(base_address, &payment.id, "PaymentIdToPayment")
+                        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+                }
+                LinkTypes::MintIdToMintRecord => {
+                    let mint = match decode_mint_index_target(target_address, "MintIdToMintRecord")? {
+                        Ok(mint) => mint,
+                        Err(invalid) => return Ok(invalid),
+                    };
+                    require_index_anchor(base_address, &mint.id, "MintIdToMintRecord")
+                        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+                }
+                LinkTypes::DidToMintRecords => {
+                    let mint = match decode_mint_index_target(target_address, "DidToMintRecords")? {
+                        Ok(mint) => mint,
+                        Err(invalid) => return Ok(invalid),
+                    };
+                    require_index_anchor(
+                        base_address,
+                        &format!("mints:{}", mint.recipient_did),
+                        "DidToMintRecords",
+                    )
+                    .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+                }
+                LinkTypes::HearthDidToSapPool => {
+                    // Kept as a structural check for now; the existing key is a
+                    // hearth-scoped derived anchor rather than the raw DID.
                     if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
                         return Ok(ValidateCallbackResult::Invalid(
-                            "MemberToExitRecord link must connect valid hashes".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::PaymentIdToPayment | LinkTypes::MintIdToMintRecord => {
-                    if target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link target must be a valid action hash".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::DidToMintRecords | LinkTypes::HearthDidToSapPool => {
-                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link must connect valid hashes".into(),
+                            "HearthDidToSapPool link must connect valid hashes".into(),
                         ));
                     }
                     Ok(ValidateCallbackResult::Valid)
                 }
                 LinkTypes::ChannelIdToChannel => {
-                    if target_address.as_ref().len() != 39 {
+                    let action_hash = match link_target_action_hash(target_address, "ChannelIdToChannel") {
+                        Ok(hash) => hash,
+                        Err(invalid) => return Ok(invalid),
+                    };
+                    let record = must_get_valid_record(action_hash)?;
+                    let channel = record
+                        .entry()
+                        .to_app_option::<PaymentChannel>()
+                        .map_err(|e| {
+                            wasm_error!(WasmErrorInner::Guest(format!(
+                                "ChannelIdToChannel target deserialization failed: {e:?}"
+                            )))
+                        })?;
+                    let Some(channel) = channel else {
                         return Ok(ValidateCallbackResult::Invalid(
-                            "Link target must be a valid action hash".into(),
+                            "ChannelIdToChannel link target is not a PaymentChannel entry".into(),
+                        ));
+                    };
+                    require_index_anchor(base_address, &channel.id, "ChannelIdToChannel")
+                        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+                }
+                LinkTypes::RateLimitBucketToAgent => {
+                    if EntryHash::try_from(base_address.clone()).is_err() {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "RateLimitBucketToAgent base must be an EntryHash anchor".into(),
+                        ));
+                    }
+                    if AgentPubKey::try_from(target_address.clone()).is_err() {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "RateLimitBucketToAgent target must be an AgentPubKey".into(),
                         ));
                     }
                     Ok(ValidateCallbackResult::Valid)
@@ -838,6 +894,126 @@ fn validate_hearth_sap_pool(pool: &HearthSapPool) -> ExternResult<ValidateCallba
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn finance_anchor_hash(anchor: &str) -> EntryHash {
+    EntryHash::from_raw_32(holo_hash::blake2b_256(anchor.as_bytes()).to_vec())
+}
+
+fn link_target_action_hash(target: &AnyLinkableHash, relation: &str) -> Result<ActionHash, ValidateCallbackResult> {
+    ActionHash::try_from(target.clone()).map_err(|_| {
+        ValidateCallbackResult::Invalid(format!(
+            "{relation} link target must be an ActionHash"
+        ))
+    })
+}
+
+fn require_index_anchor(
+    base: &AnyLinkableHash,
+    expected_anchor: &str,
+    relation: &str,
+) -> Result<(), ValidateCallbackResult> {
+    let expected = AnyLinkableHash::from(finance_anchor_hash(expected_anchor));
+    if base != &expected {
+        return Err(ValidateCallbackResult::Invalid(format!(
+            "{relation} link base is not the deterministic anchor for the indexed identity"
+        )));
+    }
+    Ok(())
+}
+
+fn decode_payment_index_target(
+    target: &AnyLinkableHash,
+    relation: &str,
+) -> ExternResult<Result<Payment, ValidateCallbackResult>> {
+    let action_hash = match link_target_action_hash(target, relation) {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(Err(invalid)),
+    };
+    let record = must_get_valid_record(action_hash)?;
+    let payment = record
+        .entry()
+        .to_app_option::<Payment>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "{relation} target Payment deserialization failed: {e:?}"
+            )))
+        })?;
+    Ok(payment.ok_or_else(|| {
+        ValidateCallbackResult::Invalid(format!(
+            "{relation} link target is not a Payment entry"
+        ))
+    }))
+}
+
+fn decode_sap_balance_index_target(
+    target: &AnyLinkableHash,
+) -> ExternResult<Result<SapBalance, ValidateCallbackResult>> {
+    let action_hash = match link_target_action_hash(target, "DidToSapBalance") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(Err(invalid)),
+    };
+    let record = must_get_valid_record(action_hash)?;
+    let balance = record
+        .entry()
+        .to_app_option::<SapBalance>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "DidToSapBalance target deserialization failed: {e:?}"
+            )))
+        })?;
+    Ok(balance.ok_or_else(|| {
+        ValidateCallbackResult::Invalid(
+            "DidToSapBalance link target is not a SapBalance entry".into(),
+        )
+    }))
+}
+
+fn decode_exit_index_target(
+    target: &AnyLinkableHash,
+) -> ExternResult<Result<ExitRecord, ValidateCallbackResult>> {
+    let action_hash = match link_target_action_hash(target, "MemberToExitRecord") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(Err(invalid)),
+    };
+    let record = must_get_valid_record(action_hash)?;
+    let exit = record
+        .entry()
+        .to_app_option::<ExitRecord>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "MemberToExitRecord target deserialization failed: {e:?}"
+            )))
+        })?;
+    Ok(exit.ok_or_else(|| {
+        ValidateCallbackResult::Invalid(
+            "MemberToExitRecord link target is not an ExitRecord entry".into(),
+        )
+    }))
+}
+
+fn decode_mint_index_target(
+    target: &AnyLinkableHash,
+    relation: &str,
+) -> ExternResult<Result<SapMintRecord, ValidateCallbackResult>> {
+    let action_hash = match link_target_action_hash(target, relation) {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(Err(invalid)),
+    };
+    let record = must_get_valid_record(action_hash)?;
+    let mint = record
+        .entry()
+        .to_app_option::<SapMintRecord>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "{relation} target SapMintRecord deserialization failed: {e:?}"
+            )))
+        })?;
+    Ok(mint.ok_or_else(|| {
+        ValidateCallbackResult::Invalid(format!(
+            "{relation} link target is not a SapMintRecord entry"
+        ))
+    }))
 }
 
 // =============================================================================
