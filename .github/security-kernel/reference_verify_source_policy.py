@@ -456,6 +456,14 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     joined = "\n".join(l)
     if "CANDIDATE_ROOT: " not in joined:
         fail("S1 candidate host staging root binding missing")
+    if exact_count(l, "CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-root") != 4:
+        fail("S1 candidate staging root must be bound at each required step via the runner context")
+    if exact_count(l, 'CANDIDATE_ROOT: "${{ runner.temp }}/security-kernel-candidate-root"') != 0:
+        fail("S1 runner.temp must not be referenced from workflow-level env")
+    if 'candidate_root="$RUNNER_TEMP/security-kernel-candidate-root"' not in joined:
+        fail("S1 source acquisition must construct candidate staging root from the runner environment")
+    if 'candidate_root="$CANDIDATE_ROOT"' in joined:
+        fail("S1 source acquisition must not depend on a workflow-level runner context binding")
     if 'candidate_root="$CANDIDATE_ROOT"' not in joined:
         fail("S1 candidate staging root binding missing")
     if 'test "$candidate_root" = "$RUNNER_TEMP/security-kernel-candidate-root"' not in joined:
