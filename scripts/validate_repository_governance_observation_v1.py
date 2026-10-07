@@ -260,6 +260,31 @@ def validate_observation_shape(observation: Any) -> None:
         )
 
 
+def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
+    """Match GitHub ruleset ref patterns with pathname-aware fnmatch semantics."""
+    if not isinstance(value, str) or not isinstance(pattern, str) or not pattern:
+        return False
+    value_parts = value.split("/")
+    pattern_parts = pattern.split("/")
+
+    def segment_matches(segment: str, candidate: str) -> bool:
+        return fnmatch.fnmatchcase(candidate, segment)
+
+    def match(parts: list[str], candidates: list[str]) -> bool:
+        if not parts:
+            return not candidates
+        head, *tail = parts
+        if head == "**":
+            return match(tail, candidates) or (
+                bool(candidates) and match(parts, candidates[1:])
+            )
+        return bool(candidates) and segment_matches(head, candidates[0]) and match(
+            tail, candidates[1:]
+        )
+
+    return match(pattern_parts, value_parts)
+
+
 def _ref_pattern_matches_main(pattern: Any, default_branch: str) -> bool:
     if not isinstance(pattern, str) or pattern == "":
         return False
@@ -268,8 +293,8 @@ def _ref_pattern_matches_main(pattern: Any, default_branch: str) -> bool:
     if pattern == "~DEFAULT_BRANCH":
         return default_branch == "main"
     return (
-        fnmatch.fnmatchcase(TARGET_REF, pattern)
-        or fnmatch.fnmatchcase("main", pattern)
+        _github_ref_pattern_matches(TARGET_REF, pattern)
+        or _github_ref_pattern_matches("main", pattern)
     )
 
 
@@ -1365,6 +1390,20 @@ def self_test(policy: dict[str, Any]) -> None:
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404))
     x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/heads/*"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs*main"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/**/main"]
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
