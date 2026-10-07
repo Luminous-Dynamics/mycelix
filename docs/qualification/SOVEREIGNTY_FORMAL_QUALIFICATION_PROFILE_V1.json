@@ -17,7 +17,7 @@
     "tree_sha": "d0f30f2a6099f80b510bffb2a9da8d143befcd60",
     "models": [
       {"name":"TLA+ temporal sovereignty model","path":"mycelix-governance/specs/ArtificialSovereigntyV1.tla","git_blob_sha":"17d980fff2bdc9c4ce6303ddcfa7048e0b0dd002","config_path":"mycelix-governance/specs/ArtificialSovereigntyV1.cfg","config_git_blob_sha":"1e79a909596bec5a52d4d36033053bf85b03bca4"},
-      {"name":"Alloy structural sovereignty model","path":"mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als","git_blob_sha":"aa9a76eb48600afd10c4ba0e7d05c7522b30c6f5"}
+      {"name":"Alloy structural sovereignty model","path":"mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als","git_blob_sha":"80b0d216c927031cd512365882e011e35c66502d"}
     ]
   },
   "tla": {
