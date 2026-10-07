@@ -120,7 +120,7 @@
     "receipt_schema": "sovereignty-formal-qualification-receipt-v2",
     "fixture_rule": "formal checker executes only verifier-owned detached fixture bytes; fixture bytes must equal the frozen formal-subject model commitments",
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json",
-    "crosswalk_git_blob_sha": "5add59c78a64dc495a3129c2f041e33be7bad333"
+    "crosswalk_git_blob_sha": "17b303dae163a6171e014892001a04b986a1607b"
   },
   "tools": {
     "nixpkgs_rev": "a50bf0c1b07873c1a53892292017041a8f0a1288",
