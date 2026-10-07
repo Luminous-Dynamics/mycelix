@@ -322,8 +322,14 @@ pub fn mark_timelock_ready(input: MarkTimelockReadyInput) -> ExternResult<Record
     }
 
     // READY is an authorization-admission state, not a cosmetic label. Require
-    // the threshold-signing verifier to succeed before the status is committed.
-    let _signature = require_verified_threshold_signature(&current_timelock.proposal_id)?;
+    // threshold evidence over the exact material action that this timelock contains.
+    let ready_action_key = execution_action_key(&current_timelock.actions)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+    let _signature = require_verified_threshold_signature(
+        &current_timelock.proposal_id,
+        &current_timelock.id,
+        ready_action_key.digest(),
+    )?;
 
     let ready_timelock = Timelock {
         status: TimelockStatus::Ready,
@@ -425,8 +431,24 @@ fn ensure_execution_authorized(
     Ok(())
 }
 
+fn execution_authorization_digest(
+    proposal_id: &str,
+    timelock_id: &str,
+    action_key_digest: &str,
+) -> [u8; 32] {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"MYCELIX-GOVERNANCE-EXECUTION-AUTHORIZATION\0V1\0");
+    for value in [proposal_id, timelock_id, action_key_digest] {
+        hasher.update(&(value.len() as u64).to_be_bytes());
+        hasher.update(value.as_bytes());
+    }
+    *hasher.finalize().as_bytes()
+}
+
 fn require_verified_threshold_signature(
     proposal_id: &str,
+    timelock_id: &str,
+    action_key_digest: &str,
 ) -> ExternResult<ThresholdSignature> {
     let response = call(
         CallTargetCell::Local,
@@ -485,6 +507,16 @@ fn require_verified_threshold_signature(
     if !matches!(proposal_kind, "proposal" | "constitutional" | "treasury" | "protocol") {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Refusing execution: unsupported signed proposal kind '{}'.", proposal_kind
+        ))));
+    }
+
+    let expected_authorization_digest =
+        execution_authorization_digest(proposal_id, timelock_id, action_key_digest);
+
+    if signature.signed_content_hash.as_slice() != expected_authorization_digest {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: threshold signature '{}' is not bound to the exact proposal/timelock/action authorization tuple.",
+            signature.id
         ))));
     }
 
@@ -641,10 +673,14 @@ pub fn prepare_timelock_execution(
         ))));
     }
 
-    let _signature = require_verified_threshold_signature(&timelock.proposal_id)?;
-
     let action_key = execution_action_key(&timelock.actions)
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+
+    let _signature = require_verified_threshold_signature(
+        &timelock.proposal_id,
+        &timelock.id,
+        action_key.digest(),
+    )?;
     let attempt_identity = execution_attempt_identity(&caller, &input.timelock_id)
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
 
@@ -2185,6 +2221,17 @@ mod tests {
             "constitutional:proposal-1:decoy".split_once(':').map(|(_, id)| id),
             Some("proposal-1")
         );
+    }
+
+    #[test]
+    fn execution_authorization_digest_binds_exact_tuple() {
+        let action = "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let a = execution_authorization_digest("proposal-1", "timelock-1", action);
+        let b = execution_authorization_digest("proposal-1", "timelock-2", action);
+        let c = execution_authorization_digest("proposal-1", "timelock-1",
+            "constitutional-action-key-v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        assert_ne!(a, b);
+        assert_ne!(a, c);
     }
 
     #[test]
