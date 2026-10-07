@@ -126,6 +126,14 @@ def validate_policy(policy: Any) -> None:
         observation_contract.get("repository_subject_identity_must_be_bound") is True,
         "repository subject identity contract drift",
     )
+    require(
+        observation_contract.get("ruleset_source_scope_must_be_validated") is True,
+        "ruleset source scope contract drift",
+    )
+    require(
+        observation_contract.get("effective_rule_provenance_must_be_bound") is True,
+        "effective rule provenance contract drift",
+    )
 
     fail_closed = policy.get("fail_closed")
     require(isinstance(fail_closed, dict), "fail_closed missing")
@@ -929,6 +937,8 @@ def fixture_policy() -> dict[str, Any]:
             "applicable_rulesets_must_be_aggregated": True,
             "ruleset_repository_targeting_must_be_evaluated": True,
             "repository_subject_identity_must_be_bound": True,
+            "ruleset_source_scope_must_be_validated": True,
+            "effective_rule_provenance_must_be_bound": True,
         },
         "fail_closed": {
             "contradiction_dominates_secondary_observation_unavailability": True,
