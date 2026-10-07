@@ -6050,6 +6050,26 @@ mod tests {
             )
         );
 
+        let mut missing_context = statement_a.clone();
+        missing_context.request_context_sha256 = None;
+        missing_context.statement_sha256 =
+            state_machine_trace_external_evidence_verification_statement_sha256(&missing_context);
+        assert_eq!(
+            validate_state_machine_trace_external_evidence_verification_statement_chain_with_request_context(
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_SCHEMA_VERSION,
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_COLLECTION_RECONCILIATION_PROFILE,
+                subject_sha256,
+                witness_artifact,
+                &anchor_reference,
+                report,
+                request_a,
+                &missing_context,
+            ),
+            Err(
+                FederationStateMachineTraceExternalEvidenceVerificationStatementViolation::RequestContextDigestMismatch
+            )
+        );
+
         assert_eq!(
             state_machine_trace_external_evidence_verification_statement_with_request_context(
                 &anchor_reference.anchor_reference_sha256,
