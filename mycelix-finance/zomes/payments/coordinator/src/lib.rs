@@ -1498,8 +1498,12 @@ pub fn channel_transfer(input: ChannelTransferInput) -> ExternResult<Record> {
     }
 
     let now = sys_time()?;
-    let (new_a, new_b) =
-        checked_channel_transfer_balances(channel.balance_a, channel.balance_b, input.amount, input.from_a)?;
+    let (new_a, new_b) = checked_channel_transfer_balances(
+        channel.balance_a,
+        channel.balance_b,
+        input.amount,
+        input.from_a,
+    )?;
     let updated = PaymentChannel {
         balance_a: new_a,
         balance_b: new_b,
