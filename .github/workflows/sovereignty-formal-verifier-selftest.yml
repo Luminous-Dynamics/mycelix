@@ -13,6 +13,7 @@ on:
       - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla'
       - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.cfg'
       - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als'
+      - 'docs/qualification/fixtures/formal/sovereignty_reference_explorer.py'
       - 'mycelix-governance/specs/ArtificialSovereigntyV1NegativeControls.tla'
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
@@ -44,7 +45,7 @@ jobs:
       - name: Python syntax and JSON validation
         run: |
           set -euo pipefail
-          python3 -m py_compile             mycelix-governance/tools/formal/qualify_sovereignty_formal.py             mycelix-governance/tools/formal/test_qualify_sovereignty_formal_blackbox.py             mycelix-governance/tools/formal/sovereignty_reference_explorer.py
+          python3 -m py_compile             mycelix-governance/tools/formal/qualify_sovereignty_formal.py             mycelix-governance/tools/formal/test_qualify_sovereignty_formal_blackbox.py             docs/qualification/fixtures/formal/sovereignty_reference_explorer.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
           python3 -m json.tool mycelix-governance/tools/formal/pins.json >/dev/null
 
