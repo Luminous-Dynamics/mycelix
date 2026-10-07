@@ -232,6 +232,7 @@ def validate_observation_shape(observation: Any) -> None:
     protection_status = protection_api.get("http_status")
     require(isinstance(protection_status, int), "branch protection http_status must be integer")
     if protection_status == 200:
+        require(branch_raw.get("protected") is True, "classic branch protection 200 conflicts with unprotected branch observation")
         normalized_protection = _normalize_branch_protection(protection_raw)
         require(
             observation.get("admin_observation", {}).get("protection") == normalized_protection,
@@ -703,6 +704,9 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
     effective_rules = observation.get("effective_rules", {}).get("entries")
     require(isinstance(effective_rules, list), "effective rules observation missing")
     effective_state, effective_mismatches = _evaluate_effective_rules(effective_rules)
+    if ruleset_state == "VERIFIED" and branch_protected is not True:
+        ruleset_mismatches.append("branch_protected_false_despite_verified_ruleset")
+        ruleset_state = "MISMATCH"
     if ruleset_state == "VERIFIED" and effective_state == "UNVERIFIED":
         ruleset_mismatches.extend(effective_mismatches)
         ruleset_state = "UNVERIFIED"
@@ -1311,6 +1315,13 @@ def self_test(policy: dict[str, Any]) -> None:
     x = copy.deepcopy(fixture_observation(policy))
     protection = x["admin_observation"]["protection"]
     protection["required_approving_review_count"] = True
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["branch"]["protected"] = False
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
