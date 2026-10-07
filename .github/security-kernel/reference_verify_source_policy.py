@@ -569,16 +569,15 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if 'rm -rf -- "$candidate_root"' not in joined or 'install -d -m 0700 -- "$candidate_root"' not in joined:
         fail("S1 candidate staging root lifecycle missing")
     if 'lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"' not in joined:
+        fail("S1 locked dependency identity is not bound to the host staging root")
     for required in (
         'manifest_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml"',
-        "manifest_bytes=",
-        "lock_bytes=",
+        "manifest_bytes=","lock_bytes=",
         'test "$manifest_bytes" -le "$DEPENDENCY_MANIFEST_MAX_BYTES"',
         'test "$lock_bytes" -le "$DEPENDENCY_LOCK_MAX_BYTES"',
     ):
         if required not in joined:
             fail(f"S1 dependency host-staging preflight missing: {required!r}")
-        fail("S1 locked dependency identity is not bound to the host staging root")
     if 'install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"' not in joined or 'install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"' not in joined:
         fail("S1 locked dependency subject must be copied from the trusted host staging root")
     if 'install -m 0444 "$CANDIDATE_VOLUME_NAME/' in joined:
@@ -666,6 +665,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if 'test "$candidate_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"' not in joined:
         fail("S1 candidate source volume instantiated options mismatch")
     if 'set -o pipefail' not in joined or 'tar -C "$candidate_root" -xf - --no-same-owner' not in joined:
+        fail("S1 bounded candidate-source staging pipeline must fail closed")
     for required in (
         "bounded_source_archive()",
         "bounded_source_archive |",
@@ -676,7 +676,6 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     ):
         if required not in joined:
             fail(f"S1 bounded host source-copy control missing: {required!r}")
-        fail("S1 bounded candidate-source staging pipeline must fail closed")
     for required in ("source_volume_name=", "source_volume_spec=", "source_copy_bytes=", "source_copy_files=", "source_copy_inodes="):
         if required not in joined:
             fail(f"S1 source resource receipt field missing: {required!r}")
@@ -1117,11 +1116,10 @@ def main() -> None:
         ),
         "dependency lockfile host staging ceiling removed",
     )
+    expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
         "negative-control transcript capture ceiling weakened",
     )
-    expect_rejection(
-        lambda: verify_s2(
             raw["s2"].replace(b"artifact_size <= 65536", b"artifact_size <= 1048576", 1),
             s0_sha,
             s1_sha,
