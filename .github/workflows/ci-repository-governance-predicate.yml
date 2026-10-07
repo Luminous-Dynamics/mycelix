@@ -164,6 +164,8 @@ jobs:
           assert "head_repository_id" in scanned_text
           assert "trigger_repository_id_live" in scanned_text
           assert "trigger_head_repository_id_live" in scanned_text
+          assert "trigger_repository_id" in scanned_text
+          assert "trigger_head_repository_id" in scanned_text
           assert "base_repository" in scanned_text
           assert "rulesets-index-payload.json" in scanned_text
           assert "rulesets-index-after-payload.json" in scanned_text
