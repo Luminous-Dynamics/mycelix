@@ -210,6 +210,106 @@ def require_exact_job_values(
     found = tuple(actual.get(entry.split(":", 1)[0]) for entry in expected)
     if found != expected:
         fail(f"{description}: job scalar value mismatch: expected {expected!r}, found {found!r}")
+
+def require_exact_child_mapping(
+    lines_: list[str],
+    parent_indent: int,
+    parent_key: str,
+    expected: tuple[str, ...],
+    description: str,
+) -> None:
+    parent_heading = f"{parent_key}:"
+    parent_matches = [
+        i
+        for i, line in enumerate(lines_)
+        if line.strip() == parent_heading and len(line) - len(line.lstrip(" ")) == parent_indent
+    ]
+    if len(parent_matches) != 1:
+        fail(f"{description}: expected exactly one {parent_key!r} mapping at indent {parent_indent}")
+    start = parent_matches[0]
+    actual = []
+    for line in lines_[start + 1:]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= parent_indent:
+            break
+        if indent != parent_indent + 2:
+            continue
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):(?:\s+.*)?", line.strip())
+        if not match:
+            fail(f"{description}: malformed child mapping entry: {line!r}")
+        actual.append(match.group(1))
+    if tuple(actual) != expected:
+        fail(f"{description}: child mapping mismatch: expected {expected!r}, found {tuple(actual)!r}")
+
+def require_exact_workflow_call_inputs(lines_: list[str], description: str) -> None:
+    workflow_matches = [
+        i for i, line in enumerate(lines_)
+        if line.strip() == "workflow_call:" and len(line) - len(line.lstrip(" ")) == 2
+    ]
+    if len(workflow_matches) != 1:
+        fail(f"{description}: expected exactly one root workflow_call mapping")
+    start = workflow_matches[0]
+    input_matches = []
+    for i in range(start + 1, len(lines_)):
+        if not lines_[i].strip():
+            continue
+        indent = len(lines_[i]) - len(lines_[i].lstrip(" "))
+        if indent <= 2:
+            break
+        if lines_[i].strip() == "inputs:" and indent == 4:
+            input_matches.append(i)
+    if len(input_matches) != 1:
+        fail(f"{description}: expected exactly one workflow_call inputs mapping")
+    inputs_start = input_matches[0]
+    specs = {}
+    current = None
+    for line in lines_[inputs_start + 1:]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= 4:
+            break
+        if indent == 6:
+            match = re.fullmatch(r"([A-Za-z0-9_-]+):\s*", line.strip())
+            if not match:
+                fail(f"{description}: malformed workflow_call input heading: {line!r}")
+            current = match.group(1)
+            if current in specs:
+                fail(f"{description}: duplicate workflow_call input {current!r}")
+            specs[current] = []
+            continue
+        if current is None:
+            fail(f"{description}: workflow_call input property appears before an input heading: {line!r}")
+        if indent != 8:
+            fail(f"{description}: unexpected workflow_call input indentation: {line!r}")
+        match = re.fullmatch(r"([A-Za-z0-9_-]+):\s+(.+)", line.strip())
+        if not match:
+            fail(f"{description}: malformed workflow_call input property: {line!r}")
+        specs[current].append(f"{match.group(1)}: {match.group(2)}")
+    expected = {
+        "candidate_pr": (
+            'description: "Exact source PR number"', "required: true", "type: string",
+        ),
+        "candidate_sha": (
+            'description: "Exact source commit SHA"', "required: true", "type: string",
+        ),
+        "candidate_repository": (
+            'description: "Exact source repository full name"', "required: true", "type: string",
+        ),
+        "candidate_repository_id": (
+            'description: "Exact source repository numeric ID"', "required: true", "type: string",
+        ),
+        "trusted_workflow_blob_sha": (
+            'description: "Registered S1 workflow blob SHA supplied by the trusted caller"', "required: true", "type: string",
+        ),
+    }
+    if set(specs) != set(expected):
+        fail(f"{description}: workflow_call input census mismatch: expected {tuple(expected)!r}, found {tuple(specs)!r}")
+    for name, values in expected.items():
+        if tuple(specs[name]) != values:
+            fail(f"{description}: workflow_call input {name!r} mismatch: expected {values!r}, found {tuple(specs[name])!r}")
 def require_exact_root_mapping(
     lines_: list[str],
     mapping_name: str,
@@ -736,6 +836,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         ),
         "S0",
     )
+    require_exact_child_mapping(l, 2, "pull_request_target", ("types",), "S0 trigger")
     require_exact_root_mapping(
         l,
         "concurrency",
@@ -821,6 +922,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         ),
         "S1",
     )
+    require_exact_child_mapping(l, 2, "workflow_call", ("inputs",), "S1 trigger")
+    require_exact_workflow_call_inputs(l, "S1 trigger")
     require_exact_root_mapping(
         l,
         "concurrency",
@@ -1223,7 +1326,8 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         (("verify", ("name", "runs-on", "cache-mode", "timeout-minutes", "steps")),),
         S2,
     )
-    require_exact_root_mapping(
+    require_exact_child_mapping(l, 2, "workflow_run", ("workflows", "types"), "S2 trigger")
+        require_exact_root_mapping(
         l,
         "concurrency",
         (
@@ -1733,6 +1837,57 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 job cache-mode drift",
+    )
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b"  pull_request_target:\n    types: [opened, synchronize, reopened, ready_for_review]\n",
+                b"  pull_request_target:\n    types: [opened, synchronize, reopened, ready_for_review]\n    branches: [main]\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 trigger nested branches filter drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"      candidate_sha:\n        description: \"Exact source commit SHA\"\n        required: true\n        type: string\n",
+                b"      candidate_sha:\n        description: \"Exact source commit SHA\"\n        required: false\n        type: string\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 candidate_sha required-value drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"      trusted_workflow_blob_sha:\n        description: \"Registered S1 workflow blob SHA supplied by the trusted caller\"\n        required: true\n        type: string\n",
+                b"      trusted_workflow_blob_sha:\n        description: \"Registered S1 workflow blob SHA supplied by the trusted caller\"\n        required: true\n        type: number\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 trusted-workflow input type drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b"  workflow_run:\n    workflows: [\"Security Kernel Qualification — Trusted Dispatcher\"]\n    types: [completed]\n",
+                b"  workflow_run:\n    workflows: [\"Security Kernel Qualification — Trusted Dispatcher\"]\n    types: [completed]\n    branches: [main]\n",
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 workflow_run nested branches filter drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
