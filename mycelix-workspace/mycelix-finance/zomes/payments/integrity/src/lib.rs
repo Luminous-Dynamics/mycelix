@@ -301,9 +301,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::ExitRecord(exit) => {
                     validate_create_exit_record(EntryCreationAction::Create(action), exit)
                 }
-                EntryTypes::SapBalance(bal) => validate_sap_balance(&bal),
+                EntryTypes::SapBalance(bal) => validate_update_sap_balance(action, bal),
                 EntryTypes::SapMintRecord(mint) => validate_create_sap_mint_record(&mint),
-                EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
+                EntryTypes::HearthSapPool(pool) => validate_update_hearth_sap_pool(action, pool),
                 EntryTypes::SapMintCapCounterEntry(counter) => {
                     validate_sap_mint_cap_counter(&counter)
                 }
@@ -450,6 +450,50 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_update_sap_balance(
+    action: Update,
+    bal: SapBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    validate_sap_balance(&bal)?;
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<SapBalance>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode SapBalance predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("SapBalance predecessor has wrong type".into())))?;
+    if o.member_did != bal.member_did || bal.last_demurrage_at < o.last_demurrage_at {
+        return Ok(ValidateCallbackResult::Invalid("SAP balance identity/demurrage provenance is inconsistent".into()));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_hearth_sap_pool(
+    action: Update,
+    pool: HearthSapPool,
+) -> ExternResult<ValidateCallbackResult> {
+    validate_hearth_sap_pool(&pool)?;
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<HearthSapPool>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode HearthSapPool predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("HearthSapPool predecessor has wrong type".into())))?;
+    if o.hearth_did != pool.hearth_did || pool.member_count < o.member_count || pool.total_contributed < o.total_contributed || pool.total_withdrawn < o.total_withdrawn || pool.last_demurrage_at < o.last_demurrage_at {
+        return Ok(ValidateCallbackResult::Invalid("HearthSapPool identity/audit counters cannot move backwards".into()));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_sap_mint_cap_counter(
+    action: Update,
+    counter: SapMintCapCounterEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    validate_sap_mint_cap_counter(&counter)?;
+    let r = must_get_valid_record(action.original_action_address.clone())?;
+    let o = r.entry().to_app_option::<SapMintCapCounterEntry>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode SapMintCapCounterEntry predecessor: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("SapMintCapCounterEntry predecessor has wrong type".into())))?;
+    if counter.period_start_micros < o.period_start_micros
+        || counter.last_updated_micros < o.last_updated_micros
+        || (counter.period_start_micros == o.period_start_micros && (counter.cumulative_minted < o.cumulative_minted || counter.mint_count < o.mint_count)) {
+        return Ok(ValidateCallbackResult::Invalid("SAP mint-cap counter cannot move backwards".into()));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_payment(
@@ -645,8 +689,7 @@ fn validate_update_payment_channel(
     let r = must_get_valid_record(action.original_action_address.clone())?;
     let o = r.entry().to_app_option::<PaymentChannel>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode PaymentChannel predecessor: {e:?}"))))?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("PaymentChannel predecessor has wrong type".into())))?;
-    if o.id != channel.id || o.party_a != channel.party_a || o.party_b != channel.party_b
-        || o.currency != channel.currency || o.opened != channel.opened {
+    if o.id != channel.id || o.party_a != channel.party_a || o.party_b != channel.party_b || o.currency != channel.currency || o.opened != channel.opened {
         return Ok(ValidateCallbackResult::Invalid("PaymentChannel identity/configuration is immutable".into()));
     }
     if channel.last_updated < o.last_updated || (o.closed.is_some() && channel.closed != o.closed) || (o.closed.is_some() && channel.closed.is_none()) {
