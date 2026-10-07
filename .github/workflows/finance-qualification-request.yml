@@ -1,0 +1,26 @@
+name: Finance Qualification Request
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+# Request runs contain no checkout, secrets, caches, or repository writes.
+# The trusted verifier consumes their immutable event metadata via workflow_run.
+jobs:
+  request:
+    name: Capture Finance qualification subject
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Emit qualification request identity
+        run: |
+          set -euo pipefail
+          echo "FINANCE_QUALIFICATION_REQUEST"
+          echo "pr_number=${{ github.event.pull_request.number }}"
+          echo "head_sha=${{ github.event.pull_request.head.sha }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha }}"
+          echo "head_repository=${{ github.event.pull_request.head_repository.full_name }}"
+          echo "base_ref=${{ github.event.pull_request.base.ref }}"
