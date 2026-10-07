@@ -322,9 +322,8 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         )));
     }
 
-    // Timelock must be in Ready status (transitioned via mark_timelock_ready after
-    // signature verification). Fall back to accepting Pending if threshold-signing
-    // zome is not installed (graceful degradation).
+    // Timelock must be Ready. Pending is never executable: authorization
+    // verification must have completed before this effect path is entered.
     match current_timelock.status {
         TimelockStatus::Ready => {
             // Normal path — timelock was marked ready after signature verification
@@ -464,15 +463,20 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
                     ))));
                 }
                 _ => {
-                    // Threshold-signing zome not installed — graceful degradation
+                    // FAIL-CLOSED: authorization evidence is part of the effect admission
+                    // boundary. If the verifier is unavailable or returns an unexpected
+                    // response, provider/effect entry is forbidden. "Graceful degradation"
+                    // here would turn an unavailable authorization dependency into implicit
+                    // authority.
                     let _ = emit_signal(serde_json::json!({
-                        "type": "GovernanceWarning",
-                        "warning": "threshold_signing_unavailable",
-                        "message": format!(
-                            "Threshold-signing zome not installed. Executing proposal '{}' without signature verification.",
-                            current_timelock.proposal_id
-                        ),
+                        "type": "GovernanceRefusal",
+                        "reason": "authorization_evidence_unavailable",
+                        "proposal_id": current_timelock.proposal_id,
                     }));
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Refusing execution: threshold-signing authorization evidence is unavailable or invalid."
+                            .into(),
+                    )));
                 }
             }
         }
