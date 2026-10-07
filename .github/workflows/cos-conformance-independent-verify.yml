@@ -240,8 +240,6 @@ jobs:
       contents: read
       pull-requests: read
     cache-mode: none
-    env:
-      GOVERNANCE_ADMIN_TOKEN: ${{ secrets.GOVERNANCE_ADMIN_TOKEN }}
     outputs:
       governance_state: ${{ steps.governance.outputs.governance_state }}
       governance_valid: ${{ steps.governance.outputs.governance_valid }}
@@ -273,6 +271,7 @@ jobs:
         id: governance
         env:
           GH_TOKEN: ${{ github.token }}
+          GOVERNANCE_ADMIN_TOKEN: ${{ secrets.GOVERNANCE_ADMIN_TOKEN }}
           TRUSTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_sha }}
           TRUSTED_WORKFLOW_FILE_BLOB_SHA: ${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}
         run: |
