@@ -32,6 +32,36 @@ ALLOY_UNSAT = {
     "HighSwitchingCostIsReviewable",
 }
 
+ALLOY_NEGATIVE_FACTS = {
+    "PoliticalWeightInvariant": "ScaleDoesNotIncreasePoliticalWeight",
+    "JurisdictionHasExplicitSource": "JurisdictionHasExplicitSourceInvariant",
+    "AcquisitionIsAssetScoped": "AcquisitionDoesNotTransferAuthority",
+    "GatekeepingHasNoAuthorityTransfer": "GatekeepingDoesNotTransferAuthority",
+    "ReviewRequiredAtThreshold": "HighSwitchingCostIsReviewable",
+}
+
+def remove_named_fact(source: str, fact_name: str) -> str:
+    marker = "fact " + fact_name + " {"
+    start = source.find(marker)
+    if start < 0:
+        fail("Alloy negative-control fact not found: " + fact_name)
+    brace = source.find("{", start)
+    depth = 0
+    end = None
+    for i in range(brace, len(source)):
+        if source[i] == "{":
+            depth += 1
+        elif source[i] == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+    if end is None:
+        fail("unterminated Alloy negative-control fact: " + fact_name)
+    if source.find(marker, end) >= 0:
+        fail("duplicate Alloy negative-control fact: " + fact_name)
+    return source[:start] + source[end:]
+
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
@@ -224,6 +254,29 @@ def main() -> int:
             if by[label]["actual"] != "UNSAT" or not by[label]["check"] or by[label]["expects"] != 0:
                 fail("Alloy expected-UNSAT mismatch: " + label)
         receipt["alloy"]["commands"] = rows
+
+        alloy_source = args.alloy.read_text(encoding="utf-8")
+        negative_root = args.evidence_dir / "alloy-negative"
+        negative_root.mkdir(parents=True, exist_ok=True)
+        for fact_name, target in ALLOY_NEGATIVE_FACTS.items():
+            mutated = remove_named_fact(alloy_source, fact_name)
+            model_path = negative_root / (fact_name + ".als")
+            model_path.write_text(mutated, encoding="utf-8")
+            cmd = ["java", "-cp", alloy_cp, "SovereigntyConcentrationAlloyRunner", str(model_path)]
+            result = run(cmd)
+            logfile = args.evidence_dir / ("alloy-negative-" + fact_name + ".log")
+            logfile.write_text(result.stdout, encoding="utf-8")
+            rows = alloy_rows(result.stdout)
+            by = {r["label"]: r for r in rows}
+            receipt["alloy"].setdefault("negative_controls", {})[fact_name] = {
+                "target_assertion": target,
+                "command": cmd,
+                "returncode": result.returncode,
+                "log_sha256": sha256(logfile),
+                "mutated_model_sha256": sha256(model_path),
+            }
+            if result.returncode != 0 or by.get(target, {}).get("actual") != "SAT":
+                fail("Alloy negative control did not expose counterexample: " + fact_name + " -> " + target)
 
         if any(sha256(Path(p)) != digest for p, digest in baseline.items()):
             fail("candidate inputs changed during execution")
