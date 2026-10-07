@@ -109,12 +109,14 @@ def main() -> int:
     ap.add_argument("--tla-jar", type=Path, required=True)
     ap.add_argument("--alloy-jar", type=Path, required=True)
     ap.add_argument("--evidence-dir", type=Path, required=True)
+    ap.add_argument("--crosswalk", type=Path, required=True)
     args = ap.parse_args()
 
     evidence = args.evidence_dir.resolve()
     evidence.mkdir(parents=True, exist_ok=True)
     profile, profile_bytes = read_json(args.profile)
     pins, pins_bytes = read_json(args.pins)
+    crosswalk, crosswalk_bytes = read_json(args.crosswalk)
 
     if profile.get("schema") != "mycelix.sovereignty-concentration-formal-qualification-profile.v1":
         fail("unexpected profile schema")
@@ -124,10 +126,16 @@ def main() -> int:
         fail("profile is not explicitly non-authoritative")
     if profile.get("claim_contract", {}).get("candidate_only") is not True:
         fail("profile candidate_only contract missing")
+    if crosswalk.get("schema") != "mycelix.sovereignty-concentration-formal-crosswalk.v1":
+        fail("unexpected concentration crosswalk schema")
+    if crosswalk.get("status") != "candidate-verification" or crosswalk.get("authority") != "non-authoritative":
+        fail("concentration crosswalk is not explicitly non-authoritative")
 
     subject = profile["semantic_subject"]
     subject_sha = subject["head_sha"]
     subject_tree = subject["tree_sha"]
+    if crosswalk.get("formal_subject_head") != subject_sha or crosswalk.get("formal_subject_tree") != subject_tree:
+        fail("crosswalk subject identity mismatch")
     if not re.fullmatch(r"[0-9a-f]{40}", subject_sha):
         fail("invalid frozen subject SHA")
     if not re.fullmatch(r"[0-9a-f]{40}", subject_tree):
@@ -149,6 +157,23 @@ def main() -> int:
     neg_blob = git_show(subject_sha, neg_meta["path"], model_root / "negative.tla")
     alloy_blob = git_show(subject_sha, alloy_meta["path"], model_root / "model.als")
     ref_blob = git_show(subject_sha, ref_meta["path"], model_root / "reference.py")
+
+    if crosswalk.get("reference_oracle_blob") != ref_blob:
+        fail("crosswalk reference oracle commitment mismatch")
+    verifier_meta = profile.get("verifier", {})
+    expected_bindings = {
+        "qualifier": (Path(__file__), verifier_meta.get("qualifier_path"), verifier_meta.get("qualifier_blob_sha")),
+        "alloy_runner": (args.alloy_runner, verifier_meta.get("alloy_runner_path"), verifier_meta.get("alloy_runner_blob_sha")),
+        "pins": (args.pins, verifier_meta.get("pins_path"), verifier_meta.get("pins_blob_sha")),
+        "crosswalk": (args.crosswalk, verifier_meta.get("crosswalk_path"), verifier_meta.get("crosswalk_blob_sha")),
+    }
+    for label, (path, expected_path, expected_blob) in expected_bindings.items():
+        if not expected_path or path.as_posix() != expected_path:
+            fail(label + " path does not match profile binding")
+        if not expected_blob:
+            fail(label + " blob commitment is missing from profile")
+        if git_blob_sha1(path.read_bytes()) != expected_blob:
+            fail(label + " blob does not match profile binding")
 
     for actual, expected, label in [
         (tla_blob, tla_meta["git_blob_sha"], "TLA"),
@@ -185,7 +210,12 @@ def main() -> int:
                     "model_blobs": {"tla": tla_blob, "cfg": cfg_blob, "negative_tla": neg_blob,
                                     "alloy": alloy_blob, "reference": ref_blob}},
         "verifier": {"profile_sha256": hashlib.sha256(profile_bytes).hexdigest(),
-                     "pins_sha256": hashlib.sha256(pins_bytes).hexdigest()},
+                     "pins_sha256": hashlib.sha256(pins_bytes).hexdigest(),
+                     "crosswalk_sha256": hashlib.sha256(crosswalk_bytes).hexdigest(),
+                     "qualifier_git_blob_sha": git_blob_sha1(Path(__file__).read_bytes()),
+                     "alloy_runner_git_blob_sha": git_blob_sha1(args.alloy_runner.read_bytes()),
+                     "pins_git_blob_sha": git_blob_sha1(args.pins.read_bytes()),
+                     "crosswalk_git_blob_sha": git_blob_sha1(args.crosswalk.read_bytes())},
         "tools": {"tla2tools": {"version": pins["tools"]["tla2tools"]["version"], "sha256": sha256_file(args.tla_jar)},
                   "alloy": {"version": pins["tools"]["alloy"]["version"], "sha256": sha256_file(args.alloy_jar), "solver": "SAT4J"}},
         "canonical": {}, "negative_controls": {"tla": {}, "alloy": {}},
@@ -197,6 +227,7 @@ def main() -> int:
         "pins": sha256_file(args.pins),
         "workflow": hashlib.sha256(workflow.encode("utf-8")).hexdigest(),
         "alloy_runner": sha256_file(args.alloy_runner),
+        "crosswalk": sha256_file(args.crosswalk),
     }
 
     try:
