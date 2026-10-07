@@ -183,18 +183,26 @@ mod tests {
     }
 
     #[test]
-    fn holochain_raw_byte_derivation_matches_canonical_dna_wasm() {
+    fn holochain_raw_byte_derivation_matches_canonical_dna_wasm_for_binary_corpus() {
         use holochain_types::dna::wasm::DnaWasm;
 
-        let code = artifact();
-        let canonical = WasmHash::with_data_sync(&DnaWasm::from(code.clone()));
-        let raw_byte_derivation = WasmHash::with_data_sync(code);
+        let mut corpus = vec![
+            artifact(),
+            vec![0x00, 0xff, 0x80, 0x7f, 0x0a, 0x0d, 0x22, 0x27],
+            (0u8..=255).collect(),
+        ];
+        corpus.push((0..=511).map(|index| (index % 256) as u8).collect());
 
-        assert_eq!(
-            canonical.get_raw_39(),
-            raw_byte_derivation.get_raw_39(),
-            "FPM byte-domain derivation must equal Holochain 0.7 DnaWasm derivation",
-        );
+        for code in corpus {
+            let canonical = WasmHash::with_data_sync(&DnaWasm::from(code.clone()));
+            let raw_byte_derivation = WasmHash::with_data_sync(code);
+
+            assert_eq!(
+                canonical.get_raw_39(),
+                raw_byte_derivation.get_raw_39(),
+                "FPM byte-domain derivation must equal Holochain 0.7 DnaWasm derivation for every raw-byte corpus member",
+            );
+        }
     }
 
     #[test]
