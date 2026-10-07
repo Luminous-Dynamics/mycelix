@@ -400,6 +400,25 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
 
 def record_metadata_policy() -> dict:
     return {
+        "record_fields": [
+            "d6s2_authority_ledger_schema",
+            "d6s1_corpus_sha256",
+            "manifest_version",
+            "manifest_git_blob_sha",
+            "evidence_verifier_git_blob_sha",
+            "lock_verifier_git_blob_sha",
+            "case_coverage",
+            "supplemental_coverage",
+            "application_check_coverage",
+            "case_outcome_classes",
+            "runtime",
+            "hdk",
+            "hdi",
+            "test",
+            "supported_cases",
+            "unsupported_cases",
+            "claim_ceiling",
+        ],
         "d6s2_authority_ledger_schema": "v1",
         "d6s1_corpus_sha256": "a" * 64,
         "manifest_version": 11,
