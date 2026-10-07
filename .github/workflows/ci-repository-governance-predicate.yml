@@ -160,6 +160,10 @@ jobs:
           assert "base_sha" in scanned_text
           assert "base_ref" in scanned_text
           assert 'test "${base_ref}" = "main"' in scanned_text
+          assert "base_repository_id" in scanned_text
+          assert "head_repository_id" in scanned_text
+          assert "trigger_repository_id_live" in scanned_text
+          assert "trigger_head_repository_id_live" in scanned_text
           assert "base_repository" in scanned_text
           assert "rulesets-index-payload.json" in scanned_text
           assert "rulesets-index-after-payload.json" in scanned_text
@@ -172,6 +176,7 @@ jobs:
           assert "branch-protection-http-status-after.txt" in scanned_text
           assert "rulesets/${ruleset_id}.json" in scanned_text
           assert "set(index_ids) == set(full_ids)" in scanned_text
+          assert "1176351975" in scanned_text
           PY
 
       - name: Run fail-closed evaluator self-tests
