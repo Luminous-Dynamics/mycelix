@@ -1066,6 +1066,17 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
     }
 }
 
+fn classify_governance_proposal_status(status: &str) -> ExternResult<bool> {
+    match status {
+        "Approved" | "Executed" => Ok(true),
+        "Pending" | "Rejected" => Ok(false),
+        other => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Unsupported governance proposal status {:?}",
+            other
+        )))),
+    }
+}
+
 /// Verify that a governance proposal exists and is in Approved/Executed state.
 ///
 /// This is an authorization-bearing cross-hApp query. Missing, malformed, or
@@ -1089,14 +1100,12 @@ pub fn verify_governance_proposal(proposal_id: String) -> ExternResult<bool> {
                 )))
             })?;
 
-            match status.as_str() {
-                "Approved" | "Executed" => Ok(true),
-                "Pending" | "Rejected" => Ok(false),
-                other => Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Governance proposal {} returned unsupported status {:?}",
-                    proposal_id, other
-                )))),
-            }
+            classify_governance_proposal_status(&status).map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance proposal {} returned invalid status: {:?}",
+                    proposal_id, e
+                )))
+            })
         }
         Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Governance proposal {} returned unexpected response: {:?}",
@@ -2581,6 +2590,29 @@ pub fn get_unread_count(_: ()) -> ExternResult<u32> {
         GetStrategy::default(),
     )?;
     Ok(links.len() as u32)
+}
+
+#[cfg(test)]
+mod ac177_governance_tests {
+    use super::*;
+
+    #[test]
+    fn approved_and_executed_are_authorized() {
+        assert!(classify_governance_proposal_status("Approved").unwrap());
+        assert!(classify_governance_proposal_status("Executed").unwrap());
+    }
+
+    #[test]
+    fn pending_and_rejected_are_not_authorized() {
+        assert!(!classify_governance_proposal_status("Pending").unwrap());
+        assert!(!classify_governance_proposal_status("Rejected").unwrap());
+    }
+
+    #[test]
+    fn unknown_status_is_rejected() {
+        assert!(classify_governance_proposal_status("Superseded").is_err());
+        assert!(classify_governance_proposal_status("").is_err());
+    }
 }
 
 #[cfg(test)]
