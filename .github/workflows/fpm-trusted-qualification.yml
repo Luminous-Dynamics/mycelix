@@ -420,8 +420,8 @@ jobs:
           print(f"receipt_sha256={digest}")
           print(f"execution_pass={execution_pass}")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"receipt_sha256={digest}\\n")
-              output.write(f"execution_pass={str(execution_pass).lower()}\\n")
+              output.write(f"receipt_sha256={digest}\n")
+              output.write(f"execution_pass={str(execution_pass).lower()}\n")
           PY
 
       - name: Upload canonical qualification evidence
@@ -490,7 +490,7 @@ jobs:
           out = os.path.join(os.environ["FPM_EVIDENCE_DIR"], "artifact-binding-index.json")
           with open(out, "wb") as f:
               f.write(canonical)
-              f.write(b"\\n")
+              f.write(b"\n")
           os.chmod(out, 0o400)
           print(f"artifact_index_sha256={digest}")
           PY
