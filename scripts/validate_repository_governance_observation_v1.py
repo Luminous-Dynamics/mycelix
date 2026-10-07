@@ -1054,10 +1054,14 @@ def self_test(policy: dict[str, Any]) -> None:
         "actor_id": None,
         "bypass_mode": "pull_request",
     }]
-_refresh_bound_fixture_payloads(x)
-result = evaluate(policy, x)
-assert result["governance_state"] == "UNVERIFIED"
-assert result["grants_trusted_verifier_root"] is False
+    rulesets_raw = json.dumps(
+        x["rulesets"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["rulesets_payload_base64"] = base64.b64encode(rulesets_raw).decode()
+    x["rulesets_payload_sha256"] = hashlib.sha256(rulesets_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy))
     x["rulesets"]["entries"][0]["bypass_actors"] = [{"actor_type": "User", "actor_id": 7}]
