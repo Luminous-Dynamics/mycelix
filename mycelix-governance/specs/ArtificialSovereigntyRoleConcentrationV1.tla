@@ -31,6 +31,7 @@ IndependentReviewRecorded(s) ==
     \E reviewer \in Subjects :
       /\ reviewer \in externalReviewers[s]
       /\ reviewer # s
+      /\ \A role \in Roles : reviewer \notin roleHolder[role]
 
 AssignRole(s, r) ==
     /\ Advanceable
@@ -59,6 +60,7 @@ RecordExternalReview(s, reviewer) ==
     /\ s \in Subjects
     /\ reviewer \in Subjects
     /\ reviewer # s
+    /\ \A role \in Roles : reviewer \notin roleHolder[role]
     /\ externalReviewers' =
          [externalReviewers EXCEPT ![s] = @ \cup {reviewer}]
     /\ UNCHANGED <<roleHolder, conflictFinding>>
