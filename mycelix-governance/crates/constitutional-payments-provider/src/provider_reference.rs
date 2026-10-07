@@ -15,8 +15,6 @@
 //! values are not accepted by the seed constructor.
 
 use blake3::Hasher;
-use thiserror::Error;
-
 pub const PROVIDER_REFERENCE_SEED_SCHEMA_VERSION: u16 = 1;
 pub const PROVIDER_REFERENCE_SEED_PREFIX: &str = "payments-provider-reference-seed-v1:";
 pub const PROVIDER_REFERENCE_DESCRIPTOR_PREFIX: &str =
