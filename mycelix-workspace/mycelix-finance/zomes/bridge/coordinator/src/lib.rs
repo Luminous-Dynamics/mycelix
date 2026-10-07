@@ -42,7 +42,6 @@ const FINANCE_HAPP_ID: &str = "mycelix-finance";
 /// proceed without governance verification. The permissive default allowed
 /// currency creation and proposal verification to bypass governance during
 /// network partitions, which is unacceptable for production deployments.
-const STRICT_GOVERNANCE_MODE: bool = true;
 
 /// 24 hours in microseconds
 const DAY_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
@@ -604,7 +603,7 @@ pub fn deposit_collateral(input: DepositCollateralInput) -> ExternResult<Record>
     let sap_minted = (input.collateral_amount as f64 * input.oracle_rate) as u64;
 
     // Tier-scaled daily rate limit: higher consciousness tiers get larger limits
-    let mycel_score = fetch_mycel_score(&input.depositor_did);
+    let mycel_score = fetch_mycel_score(&input.depositor_did)?;
     let tier = FeeTier::from_mycel(mycel_score);
     let daily_limit_pct = match tier {
         FeeTier::Newcomer => 1, // 1% for newcomers (shouldn't reach here due to tier gate, but defense in depth)
@@ -802,7 +801,7 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
 
     // Enforce tier-scaled rate limit on redemption
     let now = sys_time()?;
-    let mycel_score = fetch_mycel_score(&deposit.depositor_did);
+    let mycel_score = fetch_mycel_score(&deposit.depositor_did)?;
     let redeem_tier = FeeTier::from_mycel(mycel_score);
     let redeem_daily_limit_pct = match redeem_tier {
         FeeTier::Newcomer => 1,
@@ -887,7 +886,7 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
 /// what fee rate a member should pay. Fetches MYCEL from recognition zome.
 #[hdk_extern]
 pub fn get_member_fee_tier(member_did: String) -> ExternResult<FeeTierResponse> {
-    let mycel_score = fetch_mycel_score(&member_did);
+    let mycel_score = fetch_mycel_score(&member_did)?;
     let tier = FeeTier::from_mycel(mycel_score);
 
     // Create a sovereign profile placeholder for the response
@@ -918,7 +917,7 @@ pub fn get_member_fee_tier(member_did: String) -> ExternResult<FeeTierResponse> 
 #[hdk_extern]
 pub fn get_member_tend_limit(member_did: String) -> ExternResult<TendLimitResponse> {
     // Fetch current vitality from tend oracle
-    let vitality = fetch_oracle_vitality();
+    let vitality = fetch_oracle_vitality()?;
     let tier = TendLimitTier::from_vitality(vitality);
     let limit = tier.limit();
 
@@ -938,9 +937,21 @@ pub struct TendLimitResponse {
     pub effective_limit: i32,
 }
 
+/// Validate a recognition score before it is used as Finance policy input.
+fn validate_mycel_score(score: f64) -> ExternResult<f64> {
+    if !score.is_finite() || !(0.0..=1.0).contains(&score) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition returned an invalid MYCEL score: {score:?}"
+        ))));
+    }
+    Ok(score)
+}
+
 /// Fetch MYCEL score via cross-zome call to recognition.
-/// Falls back to 0.0 (Newcomer tier) if unavailable.
-fn fetch_mycel_score(member_did: &str) -> f64 {
+///
+/// MYCEL determines Finance fee/rate-limit policy. Missing, malformed,
+/// non-finite, or out-of-range authority data therefore fails closed.
+fn fetch_mycel_score(member_did: &str) -> ExternResult<f64> {
     match call(
         CallTargetCell::Local,
         ZomeName::from("recognition"),
@@ -953,44 +964,29 @@ fn fetch_mycel_score(member_did: &str) -> f64 {
             struct MycelState {
                 mycel_score: f64,
             }
-            match result.decode::<MycelState>() {
-                Ok(state) if state.mycel_score.is_finite() => state.mycel_score,
-                Ok(state) => {
-                    debug!(
-                        "fetch_mycel_score: non-finite MYCEL score {:?} for {}, defaulting to 0.0",
-                        state.mycel_score, member_did
-                    );
-                    0.0
-                }
-                Err(e) => {
-                    debug!(
-                        "fetch_mycel_score: decode error for {}: {:?}, defaulting to 0.0",
-                        member_did, e
-                    );
-                    0.0
-                }
-            }
+            let state = result.decode::<MycelState>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Recognition MYCEL score response was malformed for {}: {:?}",
+                    member_did, e
+                )))
+            })?;
+            validate_mycel_score(state.mycel_score)
         }
-        Ok(other) => {
-            debug!(
-                "fetch_mycel_score: recognition zome returned {:?} for {}, defaulting to 0.0",
-                other, member_did
-            );
-            0.0
-        }
-        Err(e) => {
-            debug!(
-                "fetch_mycel_score: recognition zome unreachable for {}: {:?}, defaulting to 0.0",
-                member_did, e
-            );
-            0.0
-        }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition MYCEL score authority returned unexpected response for {}: {:?}",
+            member_did, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recognition MYCEL score authority unavailable for {}: {:?}",
+            member_did, e
+        )))),
     }
 }
 
 /// Fetch current oracle vitality via cross-zome call to tend.
+/// Fetch current oracle vitality via cross-zome call to tend.
 /// Falls back to 50 (Normal tier) if unavailable.
-fn fetch_oracle_vitality() -> u32 {
+fn fetch_oracle_vitality() -> ExternResult<u32> {
     match call(
         CallTargetCell::Local,
         ZomeName::from("tend"),
@@ -1003,46 +999,36 @@ fn fetch_oracle_vitality() -> u32 {
             struct OracleResp {
                 vitality: u32,
             }
-            match result.decode::<OracleResp>() {
-                Ok(state) => state.vitality,
-                Err(e) => {
-                    debug!(
-                        "fetch_oracle_vitality: decode error: {:?}, defaulting to 50 (Normal tier)",
-                        e
-                    );
-                    50
-                }
-            }
+            result.decode::<OracleResp>().map(|state| state.vitality).map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "TEND oracle vitality response was malformed: {:?}",
+                    e
+                )))
+            })
         }
-        Ok(other) => {
-            debug!(
-                "fetch_oracle_vitality: tend zome returned {:?}, defaulting to 50 (Normal tier)",
-                other
-            );
-            50
-        }
-        Err(e) => {
-            debug!(
-                "fetch_oracle_vitality: tend zome unreachable: {:?}, defaulting to 50 (Normal tier)",
-                e
-            );
-            50
-        }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "TEND oracle vitality authority returned unexpected response: {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "TEND oracle vitality authority unavailable: {:?}",
+            e
+        )))),
     }
 }
 
+ // ---------------------------------------------------------------------------
+ // Community Membership Queries
 // ---------------------------------------------------------------------------
 // Community Membership Queries
 // ---------------------------------------------------------------------------
 
 /// Get the number of members in a community/DAO.
 ///
-/// Used by the currency-mint governance gate to determine whether a community
-/// needs a governance proposal to create a currency (>10 members).
-/// Queries the identity/governance cluster via cross-role call.
+/// This count feeds a governance gate. Missing, malformed, or unexpected
+/// authority state is therefore unavailable evidence rather than zero.
 #[hdk_extern]
 pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
-    // Try cross-cluster call to governance for membership roster
     match call(
         CallTargetCell::OtherRole("governance".into()),
         ZomeName::from("governance_bridge"),
@@ -1050,58 +1036,41 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
         None,
         dao_did.clone(),
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => Ok(result.decode::<u32>().unwrap_or(0)),
-        Ok(other) => {
-            // SECURITY NOTE: Returning 0 members is PERMISSIVE — it means the governance
-            // proposal requirement (>10 members) will be skipped. This is deliberate:
-            // when the governance cluster is unreachable (bootstrap, standalone, or network
-            // partition), we allow small-community operations to proceed rather than blocking
-            // all currency creation/amendment. The integrity zome still enforces zero-sum
-            // and constitutional limits regardless of governance gate.
-            //
-            // When STRICT_GOVERNANCE_MODE is true, this returns an error instead,
-            // blocking the operation until governance is reachable.
-            if STRICT_GOVERNANCE_MODE {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Circuit breaker: governance cluster unavailable for {}, operation suspended: {:?}",
-                    dao_did, other
-                ))));
-            }
-            debug!(
-                "get_community_member_count: governance returned {:?} for {}, defaulting to 0 (permissive)",
-                other, dao_did
-            );
-            Ok(0)
-        }
-        Err(e) => {
-            // SECURITY NOTE: Same permissive default as above — see comment.
-            // When STRICT_GOVERNANCE_MODE is true, fail-closed instead.
-            if STRICT_GOVERNANCE_MODE {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Circuit breaker: governance cluster unreachable for {}, operation suspended: {:?}",
-                    dao_did, e
-                ))));
-            }
-            debug!(
-                "get_community_member_count: governance unreachable for {}: {:?}, defaulting to 0 (permissive)",
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<u32>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Governance member-count response was malformed for {}: {:?}",
                 dao_did, e
-            );
-            Ok(0)
-        }
+            )))
+        }),
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance member-count authority returned unexpected response for {}: {:?}",
+            dao_did, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance member-count authority unavailable for {}: {:?}",
+            dao_did, e
+        )))),
+    }
+}
+
+
+fn classify_governance_proposal_status(status: &str) -> ExternResult<bool> {
+    match status {
+        "Approved" | "Executed" => Ok(true),
+        "Pending" | "Rejected" => Ok(false),
+        other => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Unsupported governance proposal status {:?}",
+            other
+        )))),
     }
 }
 
 /// Verify that a governance proposal exists and is in Approved/Executed state.
 ///
-/// Used by currency-mint to validate that governance_proposal_id references a real
-/// proposal before creating/amending currencies. Returns true if the proposal is
-/// valid, false if not found or not approved.
-///
-/// **Fallback behavior** depends on `STRICT_GOVERNANCE_MODE`:
-/// - `false` (default): Returns `true` when governance is unreachable (permissive).
-/// - `true`: Returns `false` when governance is unreachable (fail-closed),
-///   blocking any operation that requires a governance proposal until the
-///   governance cluster is available.
+/// This is an authorization-bearing cross-hApp query. Missing, malformed, or
+/// unexpected Governance authority is therefore an error, never an affirmative
+/// authorization result. Only an authoritative Approved/Executed response
+/// returns `true`.
 #[hdk_extern]
 pub fn verify_governance_proposal(proposal_id: String) -> ExternResult<bool> {
     match call(
@@ -1112,31 +1081,28 @@ pub fn verify_governance_proposal(proposal_id: String) -> ExternResult<bool> {
         proposal_id.clone(),
     ) {
         Ok(ZomeCallResponse::Ok(result)) => {
-            // Expect a string status like "Approved", "Executed", "Pending", "Rejected"
-            let status = result.decode::<String>().unwrap_or_default();
-            Ok(status == "Approved" || status == "Executed")
-        }
-        Ok(_other) => {
-            // Governance returned non-Ok — proposal likely doesn't exist
-            Ok(false)
-        }
-        Err(e) => {
-            // Circuit breaker: When governance cluster is unreachable, behavior depends
-            // on STRICT_GOVERNANCE_MODE. In strict mode we fail-closed (return error),
-            // blocking operations that need governance approval. In permissive mode
-            // we return true, relying on local verify_governance_agent as a fallback.
-            if STRICT_GOVERNANCE_MODE {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Circuit breaker: governance cluster unreachable for proposal {}, operation suspended: {:?}",
+            let status = result.decode::<String>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance proposal status response was malformed for {}: {:?}",
                     proposal_id, e
-                ))));
-            }
-            debug!(
-                "verify_governance_proposal: governance unreachable for {}, defaulting to true (permissive): {:?}",
-                proposal_id, e
-            );
-            Ok(true)
+                )))
+            })?;
+
+            classify_governance_proposal_status(&status).map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance proposal {} returned invalid status: {:?}",
+                    proposal_id, e
+                )))
+            })
         }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance proposal {} returned unexpected response: {:?}",
+            proposal_id, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance authority unavailable for proposal {}: {:?}",
+            proposal_id, e
+        )))),
     }
 }
 
@@ -1158,18 +1124,24 @@ pub fn query_sap_balance(member_did: String) -> ExternResult<BalanceResponse> {
         member_did.clone(),
     ) {
         Ok(ZomeCallResponse::Ok(result)) => {
-            #[derive(Debug, Deserialize)]
-            struct SapBalance {
-                balance: u64,
+            let response = result
+                .decode::<finance_wire_types::SapBalanceResponse>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "SAP balance response was malformed for {}: {:?}",
+                        member_did, e
+                    )))
+                })?;
+            if response.member_did != member_did {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "SAP balance response subject mismatch: requested {}, received {}",
+                    member_did, response.member_did
+                ))));
             }
-            let balance = result
-                .decode::<SapBalance>()
-                .map(|b| b.balance)
-                .unwrap_or(0);
             Ok(BalanceResponse {
                 member_did,
                 currency: "SAP".into(),
-                balance,
+                balance: response.effective_balance,
                 available: true,
             })
         }
@@ -1217,14 +1189,16 @@ pub fn query_tend_balance(member_did: String) -> ExternResult<TendBalanceRespons
             struct TendBalance {
                 balance: i32,
             }
-            let balance = result
-                .decode::<TendBalance>()
-                .map(|b| b.balance)
-                .unwrap_or(0);
-            let tier = fetch_mycel_score(&member_did);
+            let response = result.decode::<TendBalance>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "TEND balance response was malformed for {}: {:?}",
+                    member_did, e
+                )))
+            })?;
+            let tier = fetch_mycel_score(&member_did)?;
             Ok(TendBalanceResponse {
                 member_did,
-                balance,
+                balance: response.balance,
                 mycel_score: tier,
                 available: true,
             })
@@ -1754,7 +1728,7 @@ pub fn update_collateral_health(input: UpdateCollateralHealthInput) -> ExternRes
     let now = sys_time()?;
 
     // Fetch current collateral value from oracle
-    let current_value = fetch_collateral_value(&input.collateral_id);
+    let current_value = fetch_collateral_value(&input.collateral_id)?;
 
     let ltv_ratio = if current_value > 0 {
         input.obligation_amount as f64 / current_value as f64
@@ -1825,12 +1799,12 @@ fn map_wire_asset_type(asset_type: finance_wire_types::AssetType) -> AssetType {
 
 /// Fetch current value for a collateral position from the price oracle.
 /// Falls back to 0 if oracle is unreachable.
-fn fetch_collateral_value(collateral_id: &str) -> u64 {
-    #[derive(Serialize, Debug)]
+fn fetch_collateral_value(collateral_id: &str) -> ExternResult<u64> {
+    #[derive(Serialize, Deserialize, Debug)]
     struct GetValueInput {
         collateral_id: String,
     }
-    #[derive(Debug, Deserialize)]
+    #[derive(Serialize, Deserialize, Debug)]
     struct ValueResult {
         value: u64,
     }
@@ -1844,16 +1818,23 @@ fn fetch_collateral_value(collateral_id: &str) -> u64 {
             collateral_id: collateral_id.to_string(),
         },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => {
-            result.decode::<ValueResult>().map(|v| v.value).unwrap_or(0)
-        }
-        _ => {
-            debug!(
-                "fetch_collateral_value: oracle unreachable for {}, defaulting to 0",
-                collateral_id
-            );
-            0
-        }
+        Ok(ZomeCallResponse::Ok(result)) => result
+            .decode::<ValueResult>()
+            .map(|v| v.value)
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Collateral value response was malformed for {}: {:?}",
+                    collateral_id, e
+                )))
+            }),
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Collateral value authority returned unexpected response for {}: {:?}",
+            collateral_id, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Collateral value authority unavailable for {}: {:?}",
+            collateral_id, e
+        )))),
     }
 }
 
