@@ -92,6 +92,7 @@ jobs:
           assert contract["ruleset_source_scope_must_be_validated"] is True
           assert contract["ruleset_condition_schema_must_match_source_type"] is True
           assert contract["ruleset_source_identity_must_match_source_type"] is True
+          assert contract["github_ref_pattern_pathname_semantics_must_be_bound"] is True
           assert contract["effective_rule_provenance_must_be_bound"] is True
           assert contract["effective_rule_definition_must_match_observed_ruleset"] is True
           assert contract["repository_subject_identity_must_be_bound"] is True
