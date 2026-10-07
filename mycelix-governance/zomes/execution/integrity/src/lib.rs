@@ -700,17 +700,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterCreateLink {
             link_type,
             base_address: _,
-            target_address: _,
+            target_address,
             tag: _,
-            action: _,
+            action,
         } => match link_type {
             LinkTypes::ProposalToTimelock => Ok(ValidateCallbackResult::Valid),
             LinkTypes::TimelockToExecution => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::TimelockToExecutionAttempt => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::TimelockToExecutionAttempt => {
+                validate_execution_index_target(action, target_address, ExecutionIndexTargetKind::Attempt)
+            }
             LinkTypes::PendingTimelocks => Ok(ValidateCallbackResult::Valid),
             LinkTypes::GuardianToVeto => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ProposalToFundAllocation => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::TimelockById => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::TimelockById => {
+                validate_execution_index_target(action, target_address, ExecutionIndexTargetKind::Timelock)
+            }
             LinkTypes::VetoToOverrideVotes => Ok(ValidateCallbackResult::Valid),
             LinkTypes::VetoToOverrideResult => Ok(ValidateCallbackResult::Valid),
         },
@@ -731,6 +735,63 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+#[derive(Clone, Copy)]
+enum ExecutionIndexTargetKind {
+    Timelock,
+    Attempt,
+}
+
+fn validate_execution_index_target(
+    action: CreateLink,
+    target_address: AnyLinkableHash,
+    expected: ExecutionIndexTargetKind,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_action_hash = target_address.into_action_hash().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Execution index target must be an action hash".into())
+    ))?;
+
+    let target_record = must_get_valid_record(target_action_hash)?;
+
+    if action.author() != target_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Execution index target must be authored by the link author".into(),
+        ));
+    }
+
+    match expected {
+        ExecutionIndexTargetKind::Timelock => {
+            let timelock = target_record
+                .entry()
+                .to_app_option::<Timelock>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "TimelockById target has no Timelock entry".into()
+                )))?;
+            if timelock.id.trim().is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "TimelockById target has an empty timelock ID".into(),
+                ));
+            }
+        }
+        ExecutionIndexTargetKind::Attempt => {
+            let attempt = target_record
+                .entry()
+                .to_app_option::<ExecutionAttempt>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "TimelockToExecutionAttempt target has no ExecutionAttempt entry".into()
+                )))?;
+            if attempt.id.trim().is_empty() || attempt.timelock_id.trim().is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Execution attempt index target has incomplete identity fields".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate timelock creation
