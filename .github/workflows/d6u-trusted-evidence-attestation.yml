@@ -33,6 +33,7 @@ jobs:
       GH_CONFIG_DIR: ${{ runner.temp }}/d6u-gh-config
       D6U_TRIGGER_REPOSITORY: ${{ github.event.workflow_run.repository.full_name }}
       D6U_TRIGGER_REPOSITORY_ID: ${{ github.repository_id }}
+      D6U_TRUSTED_REPOSITORY_ID: ${{ github.repository_id }}
       D6U_TRIGGER_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
       D6U_TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
       D6U_TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
