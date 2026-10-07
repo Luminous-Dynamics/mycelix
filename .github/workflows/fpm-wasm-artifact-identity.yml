@@ -46,14 +46,13 @@ jobs:
           components: rustfmt
 
       - name: Verify dependency policy before Cargo execution
+        working-directory: ${{ github.workspace }}
         env:
           EXPECTED_MANIFEST_BLOB_SHA: c94b53f61ed8a9bfb6249b1b339550dddd074d6c
         run: |
           set -eu
-          test ! -e .cargo/config.toml
-          test ! -e .cargo/config
-          test ! -e crates/fpm-wasm-artifact-identity/.cargo/config.toml
-          test ! -e crates/fpm-wasm-artifact-identity/.cargo/config
+          config_hit="$(git ls-files | grep -E '(^|/)\.cargo/config(\.toml)?$' || true)"
+          test -z "$config_hit"
           actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
           test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
           grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
