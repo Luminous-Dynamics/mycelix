@@ -18,6 +18,11 @@ use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 use threshold_signing_integrity::*;
 
+/// Deterministic hash for a threshold-signing integrity anchor.
+fn anchor_hash(anchor: &str) -> ExternResult<EntryHash> {
+    hash_entry(EntryTypes::Anchor(Anchor(anchor.to_owned())))
+}
+
 
 /// Retrieve the latest committee record addressed by deterministic committee ID.
 ///
@@ -30,8 +35,7 @@ pub fn get_committee(committee_id: String) -> ExternResult<Option<Record>> {
         )));
     }
 
-    let anchor_entry_hash = hash_entry(Anchor(format!("committee:{}", committee_id)))
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let anchor_entry_hash = anchor_hash(&format!("committee:{}", committee_id))?;
 
     let links = get_links(
         LinkQuery::try_new(anchor_entry_hash, LinkTypes::CommitteeById)?,
@@ -70,11 +74,7 @@ pub fn get_proposal_signature(proposal_id: String) -> ExternResult<Option<Record
         )));
     }
 
-    let proposal_anchor_hash = hash_entry(Anchor(format!(
-        "proposal-signature:{}",
-        proposal_id
-    )))
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let proposal_anchor_hash = anchor_hash(&format!("proposal-signature:{}", proposal_id))?;
 
     let links = get_links(
         LinkQuery::try_new(proposal_anchor_hash, LinkTypes::ProposalToSignature)?,
@@ -161,8 +161,7 @@ pub fn create_committee(input: CreateCommitteeInput) -> ExternResult<Record> {
     let action_hash = create_entry(&EntryTypes::SigningCommittee(committee))?;
 
     let committee_anchor = Anchor(format!("committee:{}", input.committee_id));
-    let committee_anchor_hash = hash_entry(committee_anchor.clone())
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let committee_anchor_hash = anchor_hash(committee_anchor.0.as_str())?;
     let _anchor_action_hash = create_entry(&EntryTypes::Anchor(committee_anchor))?;
 
     create_link(
