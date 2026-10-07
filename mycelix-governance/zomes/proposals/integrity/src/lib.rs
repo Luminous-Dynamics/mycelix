@@ -643,26 +643,30 @@ mod tests {
 
     #[test]
     fn test_proposal_temporal_fields_are_immutable_after_creation() {
-        let original = valid_proposal();
+        let original = make_proposal();
         let mut changed_start = original.clone();
         changed_start.voting_starts = ts(4_000_000);
+        changed_start.version += 1;
         assert!(check_update_proposal(&original, &changed_start).is_err());
 
         let mut changed_end = original.clone();
         changed_end.voting_ends = ts(5_000_000);
+        changed_end.version += 1;
         assert!(check_update_proposal(&original, &changed_end).is_err());
 
         let mut changed_created = original.clone();
         changed_created.created = ts(9_000_000);
+        changed_created.version += 1;
         assert!(check_update_proposal(&original, &changed_created).is_err());
     }
 
     #[test]
     fn test_proposal_discussion_url_is_immutable_after_draft() {
-        let mut original = valid_proposal();
+        let mut original = make_proposal();
         original.status = ProposalStatus::Active;
         let mut changed = original.clone();
         changed.discussion_url = Some("https://example.invalid/changed".into());
+        changed.version += 1;
         assert!(check_update_proposal(&original, &changed).is_err());
     }
 
