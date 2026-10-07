@@ -14,7 +14,6 @@ on:
       - "scripts/validate_repository_governance_observation_v1.py"
       - ".github/workflows/ci-repository-governance-predicate.yml"
       - ".github/workflows/cos-conformance-independent-verify.yml"
-      - ".github/workflows/cos-conformance-independent-verify.yml"
 
 permissions: {}
 
