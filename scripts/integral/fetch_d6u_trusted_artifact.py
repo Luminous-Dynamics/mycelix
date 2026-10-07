@@ -52,7 +52,8 @@ def github_get(repo: str, api_path: str, token: str) -> dict:
         f"https://api.github.com/repos/{repo}{api_path}",
         headers={**API_HEADERS, "Authorization": f"Bearer {token}"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    opener = urllib.request.build_opener(NoAuthorizationRedirectHandler())
+    with opener.open(request, timeout=30) as response:
         payload = response.read(MAX_GITHUB_JSON_BYTES + 1)
         if len(payload) > MAX_GITHUB_JSON_BYTES:
             raise RuntimeError(
