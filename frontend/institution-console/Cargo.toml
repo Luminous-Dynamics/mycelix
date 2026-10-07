@@ -12,11 +12,15 @@ crate-type = ["cdylib", "rlib"]
 leptos = "0.8.19"
 leptos_router = "0.8.19"
 leptos_meta = "0.8.19"
+finance-leptos-types = { path = "../../mycelix-finance/crates/finance-leptos-types" }
 axum = { version = "0.8", optional = true }
 leptos_axum = { version = "0.8", optional = true }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+mycelix-leptos-client = { path = "../../crates/mycelix-leptos-client" }
 
 [features]
 hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen"]
