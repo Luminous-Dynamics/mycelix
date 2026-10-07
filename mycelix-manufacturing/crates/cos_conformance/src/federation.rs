@@ -2251,6 +2251,14 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             }
         }
 
+        if let Some(required_verifier_profile_sha256) = policy.required_verifier_profile_sha256() {
+            if self.verifier_profile_sha256() != Some(required_verifier_profile_sha256) {
+                return Err(
+                    FederationExternalVerificationPolicyAdmissionViolation::VerifierProfileDigestNotAdmitted,
+                );
+            }
+        }
+
         if required_witness_kind != self.witness_kind() {
             return Err(
                 FederationExternalVerificationPolicyAdmissionViolation::WitnessKindNotAdmitted,
@@ -2362,6 +2370,7 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
             verifier_identity_profile: self.verifier_identity_profile().into(),
             verifier_identity_sha256: self.verifier_identity_sha256().into(),
             verifier_profile: self.verifier_profile().into(),
+            verifier_profile_sha256: self.verifier_profile_sha256().map(str::to_owned),
             verifier_schema_version: self.verifier_schema_version(),
             claim: self.claim(),
             statement_sha256: self.statement_sha256().into(),
@@ -2398,6 +2407,7 @@ fn federation_external_verification_policy_admission_sha256(
         verifier_identity_profile: admission.verifier_identity_profile.clone(),
         verifier_identity_sha256: admission.verifier_identity_sha256.clone(),
         verifier_profile: admission.verifier_profile.clone(),
+        verifier_profile_sha256: admission.verifier_profile_sha256.clone(),
         verifier_schema_version: admission.verifier_schema_version,
         claim: admission.claim,
         statement_sha256: admission.statement_sha256.clone(),
