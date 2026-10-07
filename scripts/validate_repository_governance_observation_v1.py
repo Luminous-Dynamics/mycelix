@@ -264,6 +264,10 @@ def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
     """Match GitHub ruleset ref patterns with pathname-aware fnmatch semantics."""
     if not isinstance(value, str) or not isinstance(pattern, str) or not pattern:
         return False
+    # GitHub does not support '^' as a bracket-expression complement.
+    # Refuse that Python-only interpretation rather than risking a false match.
+    if re.search(r"\\\[\\\^", pattern):
+        return False
     value_parts = value.split("/")
     pattern_parts = pattern.split("/")
 
@@ -1395,6 +1399,13 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/heads/[^m]ain"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs*main"]
