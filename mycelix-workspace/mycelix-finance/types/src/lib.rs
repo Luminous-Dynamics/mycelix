@@ -14,6 +14,7 @@
 //! All zomes SHOULD import these types rather than re-defining them locally.
 
 use serde::{Deserialize, Serialize};
+use holochain_serialized_bytes::prelude::SerializedBytes;
 
 // =============================================================================
 // CURRENCIES
@@ -65,7 +66,7 @@ impl core::fmt::Display for Currency {
 /// Hashes are stored as their canonical 36-byte HoloHash payloads so this
 /// dependency-free types crate remains usable by both HDI integrity and HDK
 /// coordinator zomes.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SerializedBytes)]
 pub struct GovernanceAgentRegistration {
     /// Agent granted governance membership.
     ///
