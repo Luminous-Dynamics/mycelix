@@ -63,11 +63,25 @@
         "Acquisition": 4,
         "Gatekeeping": 4,
         "int": 4
+      },
+      "negative_controls": {
+        "PoliticalWeightInvariant": "ScaleDoesNotIncreasePoliticalWeight",
+        "JurisdictionHasExplicitSource": "JurisdictionHasExplicitSourceInvariant",
+        "AcquisitionIsAssetScoped": "AcquisitionDoesNotTransferAuthority",
+        "GatekeepingHasNoAuthorityTransfer": "GatekeepingDoesNotTransferAuthority",
+        "ReviewRequiredAtThreshold": "HighSwitchingCostIsReviewable"
       }
     },
     "reference": {
       "path": "mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py",
-      "git_blob_sha": "10b619941db08d078b904b8c5cad08c784abfd62"
+      "git_blob_sha": "10b619941db08d078b904b8c5cad08c784abfd62",
+      "controls": {
+        "accumulate": "ScaleDoesNotIncreasePoliticalWeight",
+        "gatekeep": "AuthorityHasExplicitSource",
+        "acquire": "JurisdictionHasExplicitSource",
+        "critical": "JurisdictionHasExplicitSource",
+        "gatekeep-review": "HighSwitchingCostTriggersReview"
+      }
     }
   },
   "claim_contract": {
@@ -80,7 +94,9 @@
       "expected Alloy UNSAT checks",
       "exact Alloy integer bitwidth",
       "bounded reference exploration",
-      "candidate classifier bytes are frozen before execution"
+      "candidate classifier bytes are frozen before execution",
+      "Alloy enforcing facts are independently mutation-tested against their assertions",
+      "every profiled reference negative control emits its expected counterexample marker"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
@@ -97,7 +113,7 @@
   "execution": {
     "classifier": {
       "path": "mycelix-governance/tools/formal/qualify_sovereignty_concentration_candidate.py",
-      "git_blob_sha": "eb297b53c3d5a3e0dd0d9ecb343f528ae3dafc58"
+      "git_blob_sha": "79d79df1d77fdb1b690f7237f4911090177a5bae"
     },
     "alloy_runner": {
       "path": "mycelix-governance/tools/formal/SovereigntyConcentrationAlloyRunner.java",
@@ -108,6 +124,6 @@
       "git_blob_sha": "e9a7978e5d192441a62d00d94e32bc6e92adc0a6"
     },
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json",
-    "crosswalk_git_blob_sha": "02af80151888d7dcca825cd039a5317cb38c78f3"
+    "crosswalk_git_blob_sha": "95a91e233b29f4903876ed7f3d572d761a03c62c"
   }
 }
