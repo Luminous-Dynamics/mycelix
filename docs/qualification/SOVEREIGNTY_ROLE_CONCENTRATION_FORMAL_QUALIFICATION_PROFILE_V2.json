@@ -7,34 +7,36 @@
   "semantic_subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v4-role-concentration-subject-clean",
-    "head_sha": "fd47f13fce3331cf4f721da8e0ae9b63f5818665",
-    "tree_sha": "da2a37ef91e3095e3d1d93657ed01a184f087cea"
+    "head_sha": "ae6bc2a600381901cd74162c27b0be00c90090ff",
+    "tree_sha": "0d574bc40fdbfcfcd9f301cf7d1a51c46c63d112"
   },
   "models": {
     "tla": {
       "path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.tla",
-      "git_blob_sha": "cf55d7662ee452a5ecefcaeb714ed7ca99cb33b5",
+      "git_blob_sha": "7788913451949ed6901f8ceee9f5306f4e3f874f",
       "config_path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.cfg",
-      "config_git_blob_sha": "6f91aade6162dc6b245feef743df116998429ca9",
+      "config_git_blob_sha": "5c9455820853e066f4d532de930fc085aad400de",
       "invariants": [
         "TypeOK",
         "RoleConcentrationRequiresFinding",
-        "FullControlRequiresIndependentExternalReview"
+        "FullControlRequiresIndependentExternalReview",
+        "ReviewerRoleDisjointness"
       ]
     },
     "negative_tla": {
       "path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1NegativeControls.tla",
-      "git_blob_sha": "a801b3f92adbc6bf8c7e11721c0862e6ff908745",
+      "git_blob_sha": "adb6477b09b29f9ca38528cd2f32d858a118788e",
       "controls": {
         "role-conflict": "RoleConcentrationRequiresFinding",
         "full-control-review": "FullControlRequiresIndependentExternalReview",
         "self-review-full-control": "FullControlRequiresIndependentExternalReview",
-        "same-role-review-full-control": "FullControlRequiresIndependentExternalReview"
+        "same-role-review-full-control": "FullControlRequiresIndependentExternalReview",
+        "reviewer-role-drift": "ReviewerRoleDisjointness"
       }
     },
     "alloy": {
       "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyRoleConcentrationV1.als",
-      "git_blob_sha": "8fb88f37fa90e51bd6f6e3e8a116c008076fb971",
+      "git_blob_sha": "7227158312f53c5b955506dc18d65f629d47f828",
       "solver": "SAT4J",
       "bitwidth": 4,
       "expected_sat": [
@@ -44,12 +46,14 @@
       ],
       "expected_unsat_runs": [
         "SelfReviewOnlyFullControl",
-        "SameRoleReviewerFullControl"
+        "SameRoleReviewerFullControl",
+        "ReviewerRoleDriftState"
       ],
       "expected_unsat_checks": [
         "RoleConcentrationRequiresFindingInvariant",
         "FullControlRequiresIndependentReviewInvariant",
-        "SelfReviewAloneDoesNotCountAsIndependentReview"
+        "SelfReviewAloneDoesNotCountAsIndependentReview",
+        "ReviewerCannotHoldQualificationRole"
       ],
       "scope": {
         "overall": 4,
@@ -60,7 +64,7 @@
     },
     "reference": {
       "path": "mycelix-governance/tools/formal/sovereignty_role_concentration_reference_explorer.py",
-      "git_blob_sha": "239fcee238c0bc33d924dcd880138f004da1b6f5"
+      "git_blob_sha": "d318d36ba0f662f7f2ba7365e6985885ac35c6c6"
     }
   },
   "theorem": {
@@ -84,7 +88,8 @@
       "explicit Alloy integer bitwidth",
       "bounded reference oracle canonical and negative outputs",
       "independent reviewer is role-disjoint from the concentrated subject",
-      "exact qualifier/pins/runner/crosswalk/workflow blobs are bound"
+      "exact qualifier/pins/runner/crosswalk/workflow blobs are bound",
+      "reviewer-role drift remains forbidden after review assignment"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
