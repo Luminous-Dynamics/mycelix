@@ -39,7 +39,9 @@
     "admin_api_403_state": "secondary_observation_unavailable",
     "unknown_or_unobservable_state": "UNVERIFIED",
     "secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists": true,
-    "applicable_rulesets_must_be_aggregated": true
+    "applicable_rulesets_must_be_aggregated": true,
+    "ruleset_repository_targeting_must_be_evaluated": true,
+    "repository_subject_identity_must_be_bound": true
   },
   "result_states": [
     "VERIFIED",
@@ -59,5 +61,6 @@
     "A SHA-256 commitment proves policy or payload identity, not the truth of an administrator attestation.",
     "This contract does not mutate branch protection or rulesets.",
     "This contract does not establish semantic independence of the verifier."
-  ]
+  ],
+  "organization_id": 216969177
 }
