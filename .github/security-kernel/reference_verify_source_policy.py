@@ -1465,6 +1465,55 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     joined = "\n".join(l)
     require_exact_run_sequence(
         l,
+        "Pull and preflight pinned sandbox image",
+        (
+            "docker run --rm --platform=linux/amd64 --pull=never \\",
+            "  --network=none \\",
+            "  --read-only \\",
+            "  --cap-drop=ALL \\",
+            "  --security-opt=no-new-privileges:true \\",
+            "  --security-opt=seccomp=default \\",
+            "  --pids-limit=512 \\",
+            "  --memory=256m \\",
+            "  --memory-swap=256m \\",
+            "  --cpus=1 \\",
+            "  --ulimit=nofile=4096:4096 \\",
+            "  --ulimit=core=0:0 \\",
+            "  --user \"$runner_uid:$runner_gid\" \\",
+            "  --init \\",
+            "  --stop-timeout=5 \\",
+            "  --ipc=private \\",
+            "  --pid=private \\",
+            "  --cgroupns=private \\",
+            "  --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \\",
+            "  --env HOME=/tmp \\",
+            "  --env GITHUB_TOKEN= \\",
+            "  --env GH_TOKEN= \\",
+            "  --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \\",
+            "  --env ACTIONS_ID_TOKEN_REQUEST_URL= \\",
+            "  --env ACTIONS_RUNTIME_TOKEN= \\",
+            "  \"$SANDBOX_IMAGE\" /bin/bash -euc '",
+        ),
+        "S1 sandbox preflight Docker isolation invocation",
+    )
+    require_exact_run_sequence(
+        l,
+        "Verify dependency substrate immutability",
+        (
+            "docker run --rm --platform=linux/amd64 --pull=never \\",
+            "  --network=none --read-only --cap-drop=ALL \\",
+            "  --security-opt=no-new-privileges:true --security-opt=seccomp=default \\",
+            "  --pids-limit=128 --memory=256m --memory-swap=256m --cpus=1 \\",
+            "  --ulimit=nofile=2048:2048 --ulimit=core=0:0 \\",
+            "  --user \"$runner_uid:$runner_gid\" --ipc=private --pid=private --cgroupns=private \\",
+            "  --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \\",
+            "  --volume \"$VENDOR_VOLUME_NAME:/vendor:ro\" \\",
+            "  \"$SANDBOX_IMAGE\" /bin/bash -euc '",
+        ),
+        "S1 dependency postflight Docker isolation invocation",
+    )
+    require_exact_run_sequence(
+        l,
         "Execute candidate qualification in disposable networkless sandbox",
         (
             "  timeout --signal=TERM --kill-after=30s \"$wall\" docker run --name \"$name\" --rm --platform=linux/amd64 --pull=never \\",
@@ -2568,6 +2617,17 @@ def main() -> None:
             s1_sha,
         ),
         "S1 candidate Docker network isolation drift",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          --network=none --read-only --cap-drop=ALL \\\n',
+                b'          --network=bridge --read-only --cap-drop=ALL \\\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 dependency postflight network isolation drift",
     )
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
