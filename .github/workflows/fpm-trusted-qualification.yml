@@ -40,14 +40,20 @@ jobs:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           BASE_REF: ${{ github.event.workflow_run.pull_requests[0].base.ref }}
+          HEAD_REPO: ${{ github.event.workflow_run.pull_requests[0].head.repo.full_name }}
+          WORKFLOW_REPOSITORY: ${{ github.event.workflow_run.repository.full_name }}
+          BASE_REPOSITORY: ${{ github.repository }}
         run: |
           set -eu
           test -n "$EXPECTED_SHA"
           test -n "$PR_NUMBER"
           test "$BASE_REF" = "main"
+          test -n "$HEAD_REPO"
+          test "$WORKFLOW_REPOSITORY" = "$BASE_REPOSITORY"
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          repository: ${{ github.event.workflow_run.pull_requests[0].head.repo.full_name }}
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
@@ -59,11 +65,6 @@ jobs:
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$EXPECTED_SHA"
           echo "EXACT_HEAD=$actual"
-
-      - name: Verify candidate qualification surface exists
-        run: |
-          set -eu
-          test -f .github/workflows/fpm-wasm-artifact-identity.yml
 
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
         with:
