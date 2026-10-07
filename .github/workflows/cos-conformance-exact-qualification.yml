@@ -212,6 +212,27 @@ jobs:
             exit 1
           fi
 
+      - name: Reconfirm exact PR head and base before qualification closes
+        id: final_identity
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.pull_request.number }}" --jq '.head.sha')"
+          current_base="$(gh api "repos/${GITHUB_REPOSITORY}/branches/${{ github.event.pull_request.base.ref }}" --jq '.commit.sha')"
+          test "$current_head" = "$HEAD_SHA" || {
+            echo "PR head advanced during qualification: start=$HEAD_SHA final=$current_head"
+            exit 1
+          }
+          test "$current_base" = "$BASE_SHA" || {
+            echo "PR base advanced during qualification: start=$BASE_SHA final=$current_base"
+            exit 1
+          }
+          echo "Final exact PR head: $current_head"
+          echo "Final exact PR base: $current_base"
+
       - name: Emit exact qualification receipt
         if: ${{ always() }}
         shell: bash
@@ -240,6 +261,8 @@ jobs:
             "checked_out_head_sha": "$(git rev-parse HEAD)",
             "event_base_sha": "${BASE_SHA}",
             "base_guard_current_sha": "$(gh api "repos/${GITHUB_REPOSITORY}/branches/${{ github.event.pull_request.base.ref }}" --jq '.commit.sha')",
+            "final_pr_head_sha": "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.pull_request.number }}" --jq '.head.sha')",
+            "final_base_sha": "$(gh api "repos/${GITHUB_REPOSITORY}/branches/${{ github.event.pull_request.base.ref }}" --jq '.commit.sha')",
             "rust_toolchain": "${{ env.RUST_TOOLCHAIN }}",
             "rustc_version": "$(rustc -V)",
             "cargo_version": "$(cargo -V)",
@@ -249,6 +272,7 @@ jobs:
             "clippy_conclusion": "${{ steps.clippy.conclusion }}",
             "boundary_conclusion": "${{ steps.boundary.conclusion }}",
             "base_guard_conclusion": "${{ steps.base.conclusion }}",
+            "final_identity_guard_conclusion": "${{ steps.final_identity.conclusion }}",
             "federation_source_sha256": "$(sha256sum "$source" | cut -d' ' -f1)",
             "cargo_manifest_sha256": "$(sha256sum "$MANIFEST" | cut -d' ' -f1)",
             "claim_ceiling": "ReferenceModelOnly",
