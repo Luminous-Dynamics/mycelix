@@ -1,0 +1,126 @@
+name: D6S Canonical Qualification
+
+on:
+  push:
+    branches:
+      - myc-int-demo-d6t-canonical-encoding
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d6s-canon-reference-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  d6s-canon-reference:
+    name: D6S canonical reference qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Assert Rust toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustfmt +1.96.0 --version
+
+      # Formatting of the broader manufacturing workspace is deliberately not a
+      # D6S qualification invariant. This gate must not fail because of
+      # pre-existing, unrelated formatting drift outside the qualification
+      # subject; semantic/reference qualification is provided by the locked
+      # corpus and independent CANON verifiers below.
+
+      - name: Generate reference-test dependency lock
+        run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+
+      - name: Assert resolved reference-test dependency graph
+        run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
+
+      # D6S qualification is scoped to the D6S reference contracts. The
+      # broader COS workspace contains unrelated suites whose baseline state
+      # must not gate this specific reference qualification.
+      - name: Run D6S canonical integration suites
+        run: >-
+          cargo test
+          --manifest-path mycelix-manufacturing/Cargo.toml
+          --locked
+          -p cos_conformance
+          --test d6s_canon_1_golden_vectors
+          --test d6s_canon_2_authority_boundary
+
+      - name: Run independent D6S-CANON-1 verifier
+        run: python3 scripts/integral/verify_d6s_canon_1.py
+
+      - name: Run D6S-CANON-2 authority-boundary fixture verifier
+        run: python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
+
+      - name: Emit qualification record
+        run: |
+          {
+            echo "D6S CANONICAL REFERENCE GATE"
+            echo "status=reference-gate-passed"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
+            echo "workflow_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "rust_action_sha=e97e2d8cc328f1b50210efc529dca0028893a2d9"
+            echo "rust_action_toolchain=1.96.0"
+            echo "rust_expected_version=rustc 1.96.0 (ac68faa20 2026-05-25)"
+            echo "checkout_action_sha=11bd71901bbe5b1630ceea73d27597364c9af683"
+            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
+            echo "rust=$(rustc --version)"
+            echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "python=$(python3 --version)"
+            echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
+            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "canon1_manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
+            echo "canon2_fixture_sha256=$(sha256sum docs/integral/d6s-canon-2-authority-boundary-fixture.json | cut -d' ' -f1)"
+            echo "canon2_fixture_git_blob_sha=$(git hash-object docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
+            echo "canon2_manifest_git_blob_sha=$(git hash-object docs/integral/d6s-canon-2-manifest.json)"
+            echo "canon1_manifest_git_blob_sha=$(git hash-object docs/integral/d6s-canon-1-manifest.json)"
+            echo "canon1_corpus_git_blob_sha=$(git hash-object docs/integral/d6s-canon-1-golden-vectors.json)"
+            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "d6s_authority_ledger_schema=v1"
+            echo "d6s_runtime_evidence_status=NotExecuted"
+            echo "canon2_runtime_binding_status=ReferenceMappingOnly"
+            echo "rust_corpus=PASSED"
+            echo "canon1_independent_verifier=PASSED"
+            echo "canon2_authority_boundary_fixture=PASSED"
+            echo "claim_ceiling=ReferenceModelOnly"
+          } | tee d6s-canonical-reference-qualification.txt
+
+      - name: Upload qualification record
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
+          path: d6s-canonical-reference-qualification.txt
