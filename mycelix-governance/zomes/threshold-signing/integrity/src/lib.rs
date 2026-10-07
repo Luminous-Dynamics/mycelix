@@ -393,17 +393,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterCreateLink {
             link_type,
             base_address: _,
-            target_address: _,
+            target_address,
             tag: _,
-            action: _,
+            action,
         } => match link_type {
-            LinkTypes::CommitteeById => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::CommitteeById => {
+                validate_index_target(action, target_address, IndexTargetKind::Committee)
+            }
             LinkTypes::CommitteeToMember => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CommitteeToSignature => Ok(ValidateCallbackResult::Valid),
             LinkTypes::SignatureToShare => Ok(ValidateCallbackResult::Valid),
             LinkTypes::AgentToCommittee => Ok(ValidateCallbackResult::Valid),
             LinkTypes::EpochToCommittee => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ProposalToSignature => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::ProposalToSignature => {
+                validate_index_target(action, target_address, IndexTargetKind::Signature)
+            }
             LinkTypes::CommitteeToViolation => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ParticipantToViolation => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CommitteeToAttestor => Ok(ValidateCallbackResult::Valid),
@@ -416,6 +420,65 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+#[derive(Clone, Copy)]
+enum IndexTargetKind {
+    Committee,
+    Signature,
+}
+
+fn validate_index_target(
+    action: CreateLink,
+    target_address: AnyLinkableHash,
+    expected: IndexTargetKind,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_action_hash = target_address.into_action_hash().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Indexed target must be an action hash".into())
+    ))?;
+
+    let target_record = must_get_valid_record(target_action_hash)?;
+
+    if action.author() != target_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Indexed target link must be authored by the target record's author".into(),
+        ));
+    }
+
+    match expected {
+        IndexTargetKind::Committee => {
+            let committee = target_record
+                .entry()
+                .to_app_option::<SigningCommittee>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Committee index target has no SigningCommittee entry".into()
+                )))?;
+
+            if committee.id.trim().is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Committee index target has an empty committee ID".into(),
+                ));
+            }
+        }
+        IndexTargetKind::Signature => {
+            let signature = target_record
+                .entry()
+                .to_app_option::<ThresholdSignature>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Proposal signature index target has no ThresholdSignature entry".into()
+                )))?;
+
+            if signature.id.trim().is_empty() || signature.committee_id.trim().is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Proposal signature index target has incomplete identity fields".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate committee creation
