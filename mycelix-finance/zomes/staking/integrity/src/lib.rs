@@ -818,30 +818,134 @@ fn validate_escrow(_action: Create, escrow: CryptoEscrow) -> ExternResult<Valida
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate escrow update
+/// Validate escrow update.
 fn validate_update_escrow(
     action: Update,
     escrow: CryptoEscrow,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Basic validation
     if !escrow.depositor_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Depositor must be a valid DID".into(),
         ));
     }
 
-    // Enforce status transition rules
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<CryptoEscrow>() {
-            if original.status != escrow.status
-                && !original.status.can_transition_to(&escrow.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid escrow status transition: {:?} → {:?}",
-                    original.status, escrow.status
-                )));
-            }
-        }
+    // An escrow update is valid only relative to its exact, valid predecessor.
+    // Never turn a missing/unresolved/malformed predecessor into Valid.
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<CryptoEscrow>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode original CryptoEscrow predecessor: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original escrow update predecessor is not a CryptoEscrow entry".into(),
+            ))
+        })?;
+
+    // Identity and escrow terms are immutable. Only fulfillment/status metadata
+    // may evolve through the documented state machine.
+    if original.id != escrow.id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow ID is immutable across updates".into(),
+        ));
+    }
+    if original.depositor_did != escrow.depositor_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow depositor_did is immutable across updates".into(),
+        ));
+    }
+    if original.beneficiary_did != escrow.beneficiary_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow beneficiary_did is immutable across updates".into(),
+        ));
+    }
+    if original.sap_amount != escrow.sap_amount {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow sap_amount is immutable across updates".into(),
+        ));
+    }
+    if original.purpose != escrow.purpose {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow purpose is immutable across updates".into(),
+        ));
+    }
+    if original.conditions != escrow.conditions {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow conditions are immutable across updates".into(),
+        ));
+    }
+    if original.required_conditions != escrow.required_conditions {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow required_conditions are immutable across updates".into(),
+        ));
+    }
+    if original.hash_lock != escrow.hash_lock {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow hash_lock is immutable across updates".into(),
+        ));
+    }
+    if original.timelock != escrow.timelock {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow timelock is immutable across updates".into(),
+        ));
+    }
+    if original.multisig_threshold != escrow.multisig_threshold {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow multisig_threshold is immutable across updates".into(),
+        ));
+    }
+    if original.multisig_signers != escrow.multisig_signers {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow multisig_signers are immutable across updates".into(),
+        ));
+    }
+    if original.created_at != escrow.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow created_at is immutable across updates".into(),
+        ));
+    }
+
+    if original.status != escrow.status && !original.status.can_transition_to(&escrow.status) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid escrow status transition: {:?} → {:?}",
+            original.status, escrow.status
+        )));
+    }
+
+    // Release/refund metadata may only appear on their terminal transitions.
+    if !matches!(escrow.status, EscrowStatus::Released)
+        && escrow.released_at.is_some()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "released_at may only be set when escrow is Released".into(),
+        ));
+    }
+    if original.status == EscrowStatus::Released && escrow.status != EscrowStatus::Released {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Released escrow is terminal and cannot transition further".into(),
+        ));
+    }
+    if original.status == EscrowStatus::Refunded && escrow.status != EscrowStatus::Refunded {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Refunded escrow is terminal and cannot transition further".into(),
+        ));
+    }
+    if original.status == EscrowStatus::Expired && escrow.status != EscrowStatus::Expired {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Expired escrow is terminal and cannot transition further".into(),
+        ));
+    }
+
+    // This legacy mutable signature vector is retained only for compatibility;
+    // it must never be modified by an update of the escrow record.
+    if original.collected_signatures != escrow.collected_signatures {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow collected_signatures must be preserved; use EscrowSignatureEntry".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -1238,6 +1342,86 @@ mod tests {
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
+
+
+fn validate_escrow_update_terms(
+    original: &CryptoEscrow,
+    escrow: &CryptoEscrow,
+) -> ValidateCallbackResult {
+    if original.id != escrow.id {
+        return ValidateCallbackResult::Invalid("Escrow ID is immutable across updates".into());
+    }
+    if original.depositor_did != escrow.depositor_did {
+        return ValidateCallbackResult::Invalid(
+            "Escrow depositor_did is immutable across updates".into(),
+        );
+    }
+    if original.beneficiary_did != escrow.beneficiary_did {
+        return ValidateCallbackResult::Invalid(
+            "Escrow beneficiary_did is immutable across updates".into(),
+        );
+    }
+    if original.sap_amount != escrow.sap_amount {
+        return ValidateCallbackResult::Invalid("Escrow sap_amount is immutable across updates".into());
+    }
+    if original.purpose != escrow.purpose {
+        return ValidateCallbackResult::Invalid("Escrow purpose is immutable across updates".into());
+    }
+    if original.conditions != escrow.conditions {
+        return ValidateCallbackResult::Invalid("Escrow conditions are immutable across updates".into());
+    }
+    if original.required_conditions != escrow.required_conditions {
+        return ValidateCallbackResult::Invalid(
+            "Escrow required_conditions are immutable across updates".into(),
+        );
+    }
+    if original.hash_lock != escrow.hash_lock {
+        return ValidateCallbackResult::Invalid("Escrow hash_lock is immutable across updates".into());
+    }
+    if original.timelock != escrow.timelock {
+        return ValidateCallbackResult::Invalid("Escrow timelock is immutable across updates".into());
+    }
+    if original.multisig_threshold != escrow.multisig_threshold {
+        return ValidateCallbackResult::Invalid(
+            "Escrow multisig_threshold is immutable across updates".into(),
+        );
+    }
+    if original.multisig_signers != escrow.multisig_signers {
+        return ValidateCallbackResult::Invalid(
+            "Escrow multisig_signers are immutable across updates".into(),
+        );
+    }
+    if original.created_at != escrow.created_at {
+        return ValidateCallbackResult::Invalid("Escrow created_at is immutable across updates".into());
+    }
+    if original.status != escrow.status && !original.status.can_transition_to(&escrow.status) {
+        return ValidateCallbackResult::Invalid(format!(
+            "Invalid escrow status transition: {:?} → {:?}",
+            original.status, escrow.status
+        ));
+    }
+    if !matches!(escrow.status, EscrowStatus::Released) && escrow.released_at.is_some() {
+        return ValidateCallbackResult::Invalid(
+            "released_at may only be set when escrow is Released".into(),
+        );
+    }
+    if original.status == EscrowStatus::Released && escrow.status != EscrowStatus::Released {
+        return ValidateCallbackResult::Invalid("Released escrow is terminal and cannot transition further".into());
+    }
+    if original.status == EscrowStatus::Refunded && escrow.status != EscrowStatus::Refunded {
+        return ValidateCallbackResult::Invalid("Refunded escrow is terminal and cannot transition further".into());
+    }
+    if original.status == EscrowStatus::Expired && escrow.status != EscrowStatus::Expired {
+        return ValidateCallbackResult::Invalid("Expired escrow is terminal and cannot transition further".into());
+    }
+    if original.collected_signatures != escrow.collected_signatures {
+        return ValidateCallbackResult::Invalid(
+            "Escrow collected_signatures must be preserved; use EscrowSignatureEntry".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
     // ---- Escrow: release condition float validation ----
 
     fn valid_escrow() -> CryptoEscrow {
@@ -1260,6 +1444,49 @@ mod tests {
             status: EscrowStatus::Pending,
             created_at: ts(1_000_000),
             released_at: None,
+        }
+    }
+
+
+
+    #[test]
+    fn escrow_update_preserves_identity_and_terms() {
+        let original = valid_escrow();
+        let mut updated = original.clone();
+        updated.status = EscrowStatus::Releasable;
+        updated.met_conditions = vec![0];
+
+        let result = validate_escrow_update_terms(&original, &updated);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn escrow_update_rejects_identity_and_term_mutation() {
+        let original = valid_escrow();
+        let mut cases = Vec::new();
+
+        let mut changed_id = original.clone();
+        changed_id.id.push_str("-mutated");
+        cases.push(changed_id);
+
+        let mut changed_beneficiary = original.clone();
+        changed_beneficiary.beneficiary_did = "did:mycelix:mallory".into();
+        cases.push(changed_beneficiary);
+
+        let mut changed_amount = original.clone();
+        changed_amount.sap_amount += 1;
+        cases.push(changed_amount);
+
+        let mut changed_purpose = original.clone();
+        changed_purpose.purpose.push_str(" mutated");
+        cases.push(changed_purpose);
+
+        for updated in cases {
+            let result = validate_escrow_update_terms(&original, &updated);
+            assert!(
+                matches!(result, ValidateCallbackResult::Invalid(_)),
+                "escrow identity/terms must be immutable"
+            );
         }
     }
 
