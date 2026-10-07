@@ -134,3 +134,32 @@ summary:focus-visible {
   .grid { grid-template-columns: 1fr; }
   .legend-grid { grid-template-columns: 1fr; }
 }
+
+/* Reconciliation workspace */
+.reconciliation-page { max-width: 1500px; margin: 0 auto; }
+.page-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 18px; }
+.page-header h1 { margin: 4px 0 6px; font-size: 30px; letter-spacing: -.02em; }
+.control-chip { display: flex; gap: 9px; align-items: center; padding: 9px 12px; border: 1px solid #e7eaf0; border-radius: 10px; background: #fff; font-size: 12px; }
+.reconciliation-layout { display: grid; grid-template-columns: minmax(340px, .85fr) minmax(0, 1.35fr); gap: 16px; align-items: start; }
+.case-count { color: #667085; font-size: 12px; }
+.case-list { overflow: hidden; }
+.case-row { width: 100%; display: grid; gap: 7px; text-align: left; padding: 14px 0; border: 0; border-top: 1px solid #e7eaf0; background: transparent; color: #18202b; }
+.case-row.active { background: #f8fafc; margin: 0 -18px; padding-left: 18px; padding-right: 18px; width: calc(100% + 36px); }
+.case-row:hover { background: #f8fafc; }
+.case-row-main, .case-row-meta { display: flex; justify-content: space-between; gap: 12px; }
+.case-row-main span, .case-row-meta { color: #667085; font-size: 12px; }
+.mini-status { white-space: nowrap; }
+.case-detail { min-width: 0; }
+.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.detail-cell { min-width: 0; padding: 12px; border: 1px solid #e7eaf0; border-radius: 10px; background: #f8fafc; }
+.detail-cell span, .detail-cell strong { display: block; }
+.detail-cell span { color: #667085; font-size: 11px; margin-bottom: 4px; }
+.detail-cell strong { overflow-wrap: anywhere; font-size: 12px; line-height: 1.4; }
+.evidence-flow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 14px 0; }
+.flow-node { padding: 9px 10px; border: 1px solid #e7eaf0; border-radius: 9px; background: #fff; font-size: 12px; }
+.review-boundary { margin-top: 12px; padding: 16px; border: 1px solid #f1cc9d; border-radius: 12px; background: #fffaf2; }
+.review-boundary p { margin: 6px 0 12px; }
+.review-boundary .action[disabled] { cursor: not-allowed; opacity: .65; }
+@media (max-width: 900px) {
+  .reconciliation-layout { grid-template-columns: 1fr; }
+}
