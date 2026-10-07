@@ -70,15 +70,19 @@ jobs:
           components: rustfmt, clippy
 
       - name: Format COS conformance
+        id: fmt
         run: cargo fmt --manifest-path "$MANIFEST" --all --check
 
       - name: Test COS conformance
+        id: test
         run: cargo test --manifest-path "$MANIFEST" -p cos_conformance
 
       - name: Clippy COS conformance
+        id: clippy
         run: cargo clippy --manifest-path "$MANIFEST" -p cos_conformance --all-targets -- -D warnings
 
       - name: Enforce exact external-verification boundary
+        id: boundary
         shell: bash
         run: |
           set -euo pipefail
@@ -178,3 +182,42 @@ jobs:
             echo 'Policy admission must remain non-deserializable.'
             exit 1
           fi
+
+      - name: Emit exact qualification receipt
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-receipt
+          source='mycelix-manufacturing/crates/cos_conformance/src/federation.rs'
+          cat > qualification-receipt/cos-exact-qualification-receipt.json <<EOF
+          {
+            "schema": "cos-exact-qualification-receipt-v1",
+            "repository": "${GITHUB_REPOSITORY}",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "workflow_sha": "${{ github.workflow_sha }}",
+            "event": "${{ github.event_name }}",
+            "pull_request_number": "${{ github.event.pull_request.number || '' }}",
+            "event_head_sha": "${HEAD_SHA}",
+            "checked_out_head_sha": "$(git rev-parse HEAD)",
+            "base_sha": "${{ github.event.pull_request.base.sha || '' }}",
+            "job_status": "${{ job.status }}",
+            "fmt_conclusion": "${{ steps.fmt.conclusion }}",
+            "test_conclusion": "${{ steps.test.conclusion }}",
+            "clippy_conclusion": "${{ steps.clippy.conclusion }}",
+            "boundary_conclusion": "${{ steps.boundary.conclusion }}",
+            "federation_source_sha256": "$(sha256sum "$source" | cut -d' ' -f1)",
+            "cargo_manifest_sha256": "$(sha256sum "$MANIFEST" | cut -d' ' -f1)",
+            "claim_ceiling": "ReferenceModelOnly",
+            "qualification_scope": "Exact PR-head COS semantic conformance only"
+          }
+          EOF
+          jq -e '.schema == "cos-exact-qualification-receipt-v1" and .event_head_sha == .checked_out_head_sha and .claim_ceiling == "ReferenceModelOnly"' qualification-receipt/cos-exact-qualification-receipt.json
+
+      - name: Upload exact qualification receipt
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cos-exact-qualification-receipt
+          path: qualification-receipt/cos-exact-qualification-receipt.json
+          if-no-files-found: error
