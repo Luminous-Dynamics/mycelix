@@ -9,6 +9,7 @@ on:
       - 'mycelix-governance/tools/formal/pins.json'
       - 'docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json'
       - 'docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json'
+      - 'docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json'
       - '.github/workflows/sovereignty-formal-qualification.yml'
       - '.github/workflows/sovereignty-formal-verifier-selftest.yml'
       - 'docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla'
