@@ -79,7 +79,8 @@
       "expected Alloy SAT witnesses",
       "expected Alloy UNSAT checks",
       "exact Alloy integer bitwidth",
-      "bounded reference exploration"
+      "bounded reference exploration",
+      "candidate classifier bytes are frozen before execution"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
@@ -92,5 +93,19 @@
     "No market structure is declared illegal.",
     "No scalar power or sovereignty score is created.",
     "This candidate does not prove production equivalence or external recognition."
-  ]
+  ],
+  "execution": {
+    "classifier": {
+      "path": "mycelix-governance/tools/formal/qualify_sovereignty_concentration_candidate.py",
+      "git_blob_sha": "cb975cb06d5dffdb495d76e548b152f12d99aff6"
+    },
+    "alloy_runner": {
+      "path": "mycelix-governance/tools/formal/SovereigntyConcentrationAlloyRunner.java",
+      "git_blob_sha": "0272b0a5dedb9c6b94b5082428c5fa701a127977"
+    },
+    "pins": {
+      "path": "mycelix-governance/tools/formal/sovereignty_concentration_pins.json",
+      "git_blob_sha": "e9a7978e5d192441a62d00d94e32bc6e92adc0a6"
+    }
+  }
 }
