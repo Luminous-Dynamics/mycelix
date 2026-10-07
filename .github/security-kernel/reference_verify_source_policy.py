@@ -2282,7 +2282,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         S2,
     )
     require_exact_child_mapping(l, 2, "workflow_run", ("workflows", "types"), "S2 trigger")
-        require_exact_root_mapping(
+    require_exact_root_mapping(
         l,
         "concurrency",
         (
