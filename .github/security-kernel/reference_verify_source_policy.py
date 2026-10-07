@@ -96,7 +96,7 @@ def top_level_keys(lines_: list[str]) -> tuple[str, ...]:
     return tuple(
         match.group(1)
         for line in lines_
-        if (match := re.fullmatch(r"([A-Za-z0-9_-]+):\s*", line))
+        if (match := re.fullmatch(r"([A-Za-z0-9_-]+):(?:\s+.*)?", line))
     )
 
 
