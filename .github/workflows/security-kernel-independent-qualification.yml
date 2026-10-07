@@ -1307,7 +1307,6 @@ jobs:
             exit "$status"
           }
           trap vendor_cleanup_on_failure EXIT
-          trap vendor_cleanup_on_failure EXIT
           docker run --rm --platform=linux/amd64 --pull=never \
             --network=none --read-only --cap-drop=ALL \
             --security-opt=no-new-privileges:true --security-opt=seccomp=default \
@@ -1347,6 +1346,14 @@ jobs:
           fi
           if ! remaining_vendor_volumes="$(docker volume ls --format '{{.Name}}')"; then
             echo "security-kernel vendor volume inventory query failed after cleanup" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then
+            echo "security-kernel vendor volume remains after cleanup" >&2
+            exit 1
+          fi
+          if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_CONFIG_VOLUME_NAME"; then
+            echo "security-kernel vendor-config volume remains after cleanup" >&2
             exit 1
           fi
           if printf "%s\n" "$remaining_vendor_volumes" | grep -Fxq "$VENDOR_VOLUME_NAME"; then
