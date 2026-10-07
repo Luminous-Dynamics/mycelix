@@ -506,8 +506,106 @@ jobs:
                   raise AssertionError("candidate workflow step parser accepted unnamed step")
 
               assert "secrets." not in workflow
-              uses=re.findall(r"(?m)^\s*-\s*uses:\s*([^\n]+)$",workflow)
-              assert uses and all(re.search(r"@[0-9a-fA-F]{40}(?:\s+#.*)?$",line.strip()) for line in uses)
+
+              def candidate_step_maps(text):
+                  lines = text.splitlines()
+                  steps = []
+                  current = None
+                  in_run_block = False
+                  in_with = False
+
+                  def flush():
+                      nonlocal current
+                      if current is not None:
+                          steps.append(current)
+                      current = None
+
+                  for line in lines:
+                      step_match = re.fullmatch(r"\s{6}- name: (.+)", line)
+                      if step_match:
+                          flush()
+                          current = {"name": step_match.group(1), "uses": [], "with": []}
+                          in_run_block = False
+                          in_with = False
+                          continue
+                      if current is None:
+                          continue
+                      indent = len(line) - len(line.lstrip(" "))
+                      if in_run_block:
+                          if indent > 8:
+                              continue
+                          in_run_block = False
+                      if in_with:
+                          if indent <= 8:
+                              in_with = False
+                          else:
+                              assert indent == 10, f"candidate workflow with-entry indentation invalid: {line!r}"
+                              match = re.fullmatch(r"([A-Za-z0-9_-]+):\s+(.+)", line.strip())
+                              assert match, f"candidate workflow with-entry malformed: {line!r}"
+                              current["with"].append((match.group(1), match.group(2)))
+                              continue
+                      if re.fullmatch(r"\s{8}run:\s*\|?\s*", line):
+                          in_run_block = True
+                          continue
+                      uses_match = re.fullmatch(r"\s{8}uses:\s+(.+)", line)
+                      if uses_match:
+                          current["uses"].append(uses_match.group(1).strip())
+                          continue
+                      if re.fullmatch(r"\s{8}with:\s*", line):
+                          in_with = True
+                          continue
+                  flush()
+                  return steps
+
+              def candidate_structural_controls(text):
+                  lines = text.splitlines()
+                  root_permissions = [line for line in lines if line == "permissions:"]
+                  assert len(root_permissions) == 1, f"candidate workflow must contain exactly one root permissions mapping: {root_permissions!r}"
+                  assert not any(re.fullmatch(r"\s{2}pull_request_target:\s*.*", line) for line in lines), "candidate workflow must not contain a structural pull_request_target trigger"
+                  assert sum(line == "    runs-on: ubuntu-24.04" for line in lines) == 1, "candidate workflow must contain exactly one structural ubuntu-24.04 runner"
+                  assert candidate_permissions(text) == [("contents: read",)]
+                  steps = candidate_step_maps(text)
+                  assert steps, "candidate workflow must contain at least one structural named step"
+                  uses = [value for step in steps for value in step["uses"]]
+                  assert uses, "candidate workflow must contain at least one direct step-level action"
+                  assert all(re.search(r"@[0-9a-fA-F]{40}(?:\s+#.*)?$", value) for value in uses), "candidate workflow direct actions must be pinned to full SHAs"
+                  ref_values = [value for step in steps for key, value in step["with"] if key == "ref"]
+                  persist_values = [value for step in steps for key, value in step["with"] if key == "persist-credentials"]
+                  expected_ref = "$" + "{{ github.event.pull_request.head.sha || github.sha }}"
+                  assert ref_values == [expected_ref], f"candidate workflow ref binding mismatch: {ref_values!r}"
+                  assert persist_values == ["false"], f"candidate workflow credential-persistence binding mismatch: {persist_values!r}"
+                  for structural_line in lines:
+                      if len(structural_line) - len(structural_line.lstrip(" ")) > 8:
+                          continue
+                      assert not re.search(r"(^|\s)[&*][A-Za-z0-9_-]+(?:\s|$)", structural_line), f"candidate workflow contains YAML anchor/alias: {structural_line!r}"
+                      assert not re.match(r"^\s{0,8}<<:\s*", structural_line), f"candidate workflow contains YAML merge key: {structural_line!r}"
+
+              candidate_structural_controls(workflow)
+
+              mutated_runner = workflow.replace(
+                  "    runs-on: ubuntu-24.04\n",
+                  "    runs-on: ubuntu-22.04\n# runs-on: ubuntu-24.04\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_runner)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural runner parser accepted comment-only ubuntu-24.04 evidence")
+
+              mutated_ref = workflow.replace(
+                  "          ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}\n",
+                  "          ref: refs/heads/main\n",
+                  1,
+              )
+              try:
+                  candidate_structural_controls(mutated_ref)
+              except AssertionError:
+                  pass
+              else:
+                  raise AssertionError("candidate structural with-parser accepted mutated checkout ref")
+
               for value in (
                   "runs-on: ubuntu-24.04",
                   "ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}",
