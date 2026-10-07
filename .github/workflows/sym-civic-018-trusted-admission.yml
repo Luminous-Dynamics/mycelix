@@ -1,0 +1,181 @@
+name: SYM-CIVIC-018 Independent Trusted Admission Verify
+
+on:
+  workflow_run:
+    workflows: ["SYM-CIVIC-018 CBOR Encoding v4 — GREEN-parent FP/depth successor"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: sym-civic-018-trusted-admission-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify trusted 018 admission
+    if: >-
+      ${{ github.event.workflow_run.event == 'pull_request' &&
+          github.event.workflow_run.repository.id == github.repository_id &&
+          github.event.workflow_run.head_repository.id == github.repository_id }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    steps:
+      - name: Assert trusted workflow control plane
+        env:
+          EXPECTED_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/sym-civic-018-trusted-admission.yml@refs/heads/main
+          ACTUAL_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+          test "${ACTUAL_WORKFLOW_REF}" = "${EXPECTED_WORKFLOW_REF}"
+
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert trusted verifier checkout
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.workflow_sha }}"
+
+      - name: Verify exact trusted admission target
+        env:
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          manifest="mycelix-workspace/docs/civic-resilience/sym_civic_018_trusted_admission_v1.json"
+          test -s "${manifest}"
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" > /tmp/trigger.json
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}/jobs?per_page=100" > /tmp/trigger-jobs.json
+
+          python3 - "${manifest}" /tmp/trigger.json /tmp/trigger-jobs.json <<'PY'
+          import json
+          import re
+          import sys
+
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          run = json.load(open(sys.argv[2], encoding="utf-8"))
+          jobs = json.load(open(sys.argv[3], encoding="utf-8"))
+
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          assert manifest["schema"] == "MYCELIX-SYM-CIVIC-018-TRUSTED-ADMISSION-V1"
+          admission = manifest["qualification_workflow"]
+          assert admission["workflow_id"] == 375144995
+          assert admission["path"] == ".github/workflows/sym-civic-018-cbor-encoding.yml"
+          assert admission["repository_id"] == 1176351975
+          assert admission["repository"] == "Luminous-Dynamics/mycelix"
+          assert admission["event"] == "pull_request"
+
+          target = manifest["candidate_subject"]
+          parent = manifest["parent_subject"]
+          assert sha40.fullmatch(target)
+          assert sha40.fullmatch(parent)
+          assert run["id"] == int(sys.argv[0]) if False else run["id"] == int(run["id"])
+          assert run["head_sha"] == target
+          assert run["workflow_id"] == admission["workflow_id"]
+          assert run["path"] == admission["path"]
+          assert run["event"] == "pull_request"
+          assert run["repository"]["id"] == admission["repository_id"]
+          assert run["repository"]["full_name"] == admission["repository"]
+          assert run["head_repository"]["id"] == admission["repository_id"]
+          assert run["head_repository"]["full_name"] == admission["repository"]
+          assert run["conclusion"] == "success"
+
+          matches = [
+              job for job in jobs.get("jobs", [])
+              if job.get("run_id") == run["id"]
+              and job.get("name") == "CBOR encoding boundary"
+              and job.get("status") == "completed"
+              and job.get("conclusion") == "success"
+          ]
+          assert len(matches) == 1
+          print("trigger workflow/job identity: PASS")
+          print("trigger run:", run["id"])
+          print("trigger job:", matches[0]["id"])
+          print("candidate:", target)
+          print("parent:", parent)
+          PY
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.workflow_run.pull_requests[0].number }}" > /tmp/pr.json
+
+          python3 - "${manifest}" /tmp/pr.json <<'PY'
+          import json
+          import re
+          import sys
+
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          pr = json.load(open(sys.argv[2], encoding="utf-8"))
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          assert pr["number"] == manifest["pr_number"]
+          assert pr["state"] == "open"
+          assert pr["head"]["sha"] == manifest["candidate_subject"]
+          assert pr["base"]["sha"] == manifest["parent_subject"]
+          assert pr["head"]["repo"]["id"] == 1176351975
+          assert pr["head"]["repo"]["full_name"] == "Luminous-Dynamics/mycelix"
+          assert pr["base"]["repo"]["id"] == 1176351975
+          assert pr["base"]["repo"]["full_name"] == "Luminous-Dynamics/mycelix"
+          assert sha40.fullmatch(pr["head"]["sha"])
+          assert sha40.fullmatch(pr["base"]["sha"])
+          print("live PR identity: PASS")
+          PY
+
+          git fetch --no-tags origin "${TARGET_SHA}"
+          git cat-file -e "${TARGET_SHA}^{commit}"
+          parent="$(python3 - "${manifest}" <<'PY'
+          import json
+          import sys
+          print(json.load(open(sys.argv[1], encoding="utf-8"))["parent_subject"])
+          PY
+          )"
+
+          test "$(git merge-base "${TARGET_SHA}" "${parent}")" = "${parent}"
+          test "$(git rev-parse "${TARGET_SHA}^")" = "${parent}"
+          test "$(git rev-list --count "${parent}..${TARGET_SHA}")" = "1"
+
+          expected="$(python3 - "${manifest}" <<'PY'
+          import json
+          import sys
+          print("\n".join(sorted(json.load(open(sys.argv[1], encoding="utf-8"))["expected_changed_files"])))
+          PY
+          )"
+          actual="$(git diff --name-only "${parent}" "${TARGET_SHA}" | sort)"
+          test "${actual}" = "${expected}"
+          git diff --check "${parent}" "${TARGET_SHA}"
+
+          python3 - "${manifest}" "${TARGET_SHA}" <<'PY'
+          import json
+          import subprocess
+          import sys
+
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          target = sys.argv[2]
+          expected = manifest["expected_blob_sha"]
+          actual = {}
+          for path in manifest["expected_changed_files"]:
+              value = subprocess.check_output(
+                  ["git", "rev-parse", f"{target}:{path}"], text=True
+              ).strip()
+              actual[path] = value
+          assert actual == expected, {"expected": expected, "actual": actual}
+          print("candidate research-surface blob identities: PASS")
+          for path in manifest["expected_changed_files"]:
+              print(f"{path}={actual[path]}")
+          PY
+
+          test "$(git rev-parse "${{ github.workflow_sha }}:.github/workflows/sym-civic-018-trusted-admission.yml")" != ""
+          printf 'trusted workflow sha=%s\n' "${{ github.workflow_sha }}"
+          printf 'trusted workflow file blob=%s\n' "$(git rev-parse "${{ github.workflow_sha }}:.github/workflows/sym-civic-018-trusted-admission.yml")"
+          printf 'target head=%s\n' "${TARGET_SHA}"
+          printf 'target parent=%s\n' "${parent}"
+          echo "SYM-CIVIC-018 TRUSTED_ADMISSION=PASS"
