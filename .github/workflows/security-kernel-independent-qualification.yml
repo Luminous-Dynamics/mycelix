@@ -912,6 +912,31 @@ jobs:
             exit "$status"
           }
           trap negative_control_cleanup_on_exit EXIT
+          negative_controls_capture_limit=65536
+          negative_controls_log="$RUNNER_TEMP/security-kernel-negative-controls.log"
+          capture_negative_controls_output() {
+            python3 - "$negative_controls_log" "$negative_controls_capture_limit" <<'PY'
+          import pathlib, sys
+          output=pathlib.Path(sys.argv[1]); limit=int(sys.argv[2]); written=0; overflow=False
+          with output.open("wb") as handle:
+              while True:
+                  chunk=sys.stdin.buffer.read(65536)
+                  if not chunk:
+                      break
+                  if written < limit:
+                      remaining=limit-written
+                      handle.write(chunk[:remaining])
+                      written += min(len(chunk), remaining)
+                      if len(chunk) > remaining:
+                          overflow=True
+                  else:
+                      overflow=True
+          if overflow:
+              print(f"security-kernel negative-controls transcript capture exceeded {limit} bytes", file=sys.stderr)
+              raise SystemExit(1)
+          PY
+          }
+          set +e
           {
           timeout --signal=TERM --kill-after=20s 3m docker run --name "$container_name" --rm --platform=linux/amd64 --pull=never \
             --network=none \
@@ -982,8 +1007,12 @@ jobs:
               kill "$child"
               echo "PASS: active negative controls rejected writable-root, source/vendor/config mutation, token visibility, device exposure, network access, and untrusted background-process assumptions"
             '
-          } > "$RUNNER_TEMP/security-kernel-negative-controls.log" 2>&1
-          test -s "$RUNNER_TEMP/security-kernel-negative-controls.log"
+          } 2>&1 | capture_negative_controls_output
+          pipeline_status=("${PIPESTATUS[@]}")
+          set -e
+          test "${pipeline_status[0]}" -eq 0
+          test "${pipeline_status[1]}" -eq 0
+          test -s "$negative_controls_log"
           cat "$RUNNER_TEMP/security-kernel-negative-controls.log"
           if ! remaining_containers="$(docker ps -aq --filter "name=^/${container_name}$")"; then
             echo "security-kernel negative-control container inventory query failed after run" >&2
