@@ -16,26 +16,150 @@
     "head_sha": "45ec7f54244ec4a9bff02655d7dc2b0784bc83d2",
     "tree_sha": "eca42ef0af0ee91073ca374e068752d74f6731e1",
     "models": [
-      {"name":"TLA+ temporal sovereignty model","path":"mycelix-governance/specs/ArtificialSovereigntyV1.tla","git_blob_sha":"ff82c2dc365b2401c96801545105f8f1f104eb35","config_path":"mycelix-governance/specs/ArtificialSovereigntyV1.cfg","config_git_blob_sha":"1e79a909596bec5a52d4d36033053bf85b03bca4"},
-      {"name":"Alloy structural sovereignty model","path":"mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als","git_blob_sha":"b61f7c0c71cd29f5673d9c58183dfa8842ae3c40"}
+      {
+        "name": "TLA+ temporal sovereignty model",
+        "path": "mycelix-governance/specs/ArtificialSovereigntyV1.tla",
+        "git_blob_sha": "ff82c2dc365b2401c96801545105f8f1f104eb35",
+        "config_path": "mycelix-governance/specs/ArtificialSovereigntyV1.cfg",
+        "config_git_blob_sha": "1e79a909596bec5a52d4d36033053bf85b03bca4"
+      },
+      {
+        "name": "Alloy structural sovereignty model",
+        "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als",
+        "git_blob_sha": "b61f7c0c71cd29f5673d9c58183dfa8842ae3c40"
+      }
     ]
   },
   "tla": {
-    "invariants":["TypeOK","AuthorityHasExplicitSource","SafeStateLeavesProtectedDisputeUnresolved","EmergencyExpiryIsBounded","ForkWeightRemainsOne","ContractsRemainBounded","ProviderDependencyHasNoImplicitAuthority"],
-    "scope":{"subjects":2,"powers":2,"actions":2,"max_budget":2,"max_time":6,"workers":1,"deadlock_check":false}
+    "invariants": [
+      "TypeOK",
+      "AuthorityHasExplicitSource",
+      "SafeStateLeavesProtectedDisputeUnresolved",
+      "EmergencyExpiryIsBounded",
+      "ForkWeightRemainsOne",
+      "ContractsRemainBounded",
+      "ProviderDependencyHasNoImplicitAuthority"
+    ],
+    "scope": {
+      "subjects": 2,
+      "powers": 2,
+      "actions": 2,
+      "max_budget": 2,
+      "max_time": 6,
+      "workers": 1,
+      "deadlock_check": false
+    }
   },
   "alloy": {
-    "solver":"SAT4J",
-    "scope":{"overall":4,"Subject":4,"Power":4,"Provider":4,"Dependency":4,"Action":4,"Contract":4,"Budget":4,"Dispute":4,"Emergency":4,"ForkEvent":4},
-    "expected_sat":["ProviderDependencyAndExplicitAuthorityRemainDistinct","NontrivialContractWithinAuthorityAndBudget","NontrivialProtectedDispute","NontrivialEmergency","NontrivialExpiredEmergency","NontrivialFork"],
-    "expected_unsat":["AuthorizedContractsUseRequiredAuthority","ContractsStayWithinBudget","SafeStateCannotSettleDispute","EmergencyTimestampsNonNegative","ForkCannotMultiplyPoliticalWeight"]
+    "solver": "SAT4J",
+    "scope": {
+      "overall": 4,
+      "Subject": 4,
+      "Power": 4,
+      "Provider": 4,
+      "Dependency": 4,
+      "Action": 4,
+      "Contract": 4,
+      "Budget": 4,
+      "Dispute": 4,
+      "Emergency": 4,
+      "ForkEvent": 4
+    },
+    "expected_sat": [
+      "ProviderDependencyAndExplicitAuthorityRemainDistinct",
+      "NontrivialContractWithinAuthorityAndBudget",
+      "NontrivialProtectedDispute",
+      "NontrivialEmergency",
+      "NontrivialExpiredEmergency",
+      "NontrivialFork"
+    ],
+    "expected_unsat": [
+      "AuthorizedContractsUseRequiredAuthority",
+      "ContractsStayWithinBudget",
+      "SafeStateCannotSettleDispute",
+      "EmergencyTimestampsNonNegative",
+      "ForkCannotMultiplyPoliticalWeight"
+    ]
   },
   "negative_controls": {
-    "tla":{"capability-authority":"AuthorityHasExplicitSource","safe-dispute":"SafeStateLeavesProtectedDisputeUnresolved","emergency-expiry":"EmergencyExpiryIsBounded","contract-budget":"ContractsRemainBounded","provider-authority":"ProviderDependencyHasNoImplicitAuthority","fork-weight":"ForkWeightRemainsOne"},
-    "alloy":{"AuthorizedContractRequiresExactAuthority":"AuthorizedContractsUseRequiredAuthority","ContractFitsBudget":"ContractsStayWithinBudget","SafeStateLeavesDisputeUnresolved":"SafeStateCannotSettleDispute","EmergencyTimestampDomain":"EmergencyTimestampsNonNegative","ForkPreservesWeight":"ForkCannotMultiplyPoliticalWeight"}
+    "tla": {
+      "capability-authority": "AuthorityHasExplicitSource",
+      "safe-dispute": "SafeStateLeavesProtectedDisputeUnresolved",
+      "emergency-expiry": "EmergencyExpiryIsBounded",
+      "contract-budget": "ContractsRemainBounded",
+      "provider-authority": "ProviderDependencyHasNoImplicitAuthority",
+      "fork-weight": "ForkWeightRemainsOne"
+    },
+    "alloy": {
+      "AuthorizedContractRequiresExactAuthority": "AuthorizedContractsUseRequiredAuthority",
+      "ContractFitsBudget": "ContractsStayWithinBudget",
+      "SafeStateLeavesDisputeUnresolved": "SafeStateCannotSettleDispute",
+      "EmergencyTimestampDomain": "EmergencyTimestampsNonNegative",
+      "ForkPreservesWeight": "ForkCannotMultiplyPoliticalWeight"
+    }
   },
-  "verifier":{"implementation":"mycelix-governance/tools/formal/qualify_sovereignty_formal.py","alloy_runner":"mycelix-governance/tools/formal/SovereigntyAlloyQualificationRunner.java","negative_tla":"mycelix-governance/specs/ArtificialSovereigntyV1NegativeControls.tla","pins":"mycelix-governance/tools/formal/pins.json","receipt_schema":"sovereignty-formal-qualification-receipt-v2"},
-  "tools":{"nixpkgs_rev":"a50bf0c1b07873c1a53892292017041a8f0a1288","tla2tools":{"version":"1.7.4","sha256":"936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88","solver_profile":"TLC bounded model checking"},"alloy":{"version":"6.2.0","sha256":"6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d","solver":"sat4j"}},
-  "claim_contract":{"canonical_result_requires":["exact formal subject blob commitments","exact pinned checker bytes","TLA canonical clean termination","all TLA invariants explicitly checked","all TLA negative controls produce expected invariant violations","all Alloy expected-SAT witnesses are SAT","all Alloy expected-UNSAT assertions are UNSAT","all Alloy structural negative controls expose SAT counterexamples","exact solver and finite scope recorded","postflight input immutability"],"bounded_result_is_not_unbounded_proof":true,"formal_result_is_not_runtime_qualification":true,"qualification_is_not_external_recognition":true},
-  "nonclaims":["No current AI is recognized as sovereign.","No legal personhood, citizenship, political standing, or sovereignty is established.","No runtime authority or production safety is established.","No bounded TLA+ or Alloy result is an unbounded proof.","Formal qualification does not establish legal validity, moral status, or external recognition.","The qualification does not prove equivalence or refinement of production implementation."]
+  "verifier": {
+    "implementation": "mycelix-governance/tools/formal/qualify_sovereignty_formal.py",
+    "alloy_runner": "mycelix-governance/tools/formal/SovereigntyAlloyQualificationRunner.java",
+    "negative_tla": "mycelix-governance/specs/ArtificialSovereigntyV1NegativeControls.tla",
+    "pins": "mycelix-governance/tools/formal/pins.json",
+    "receipt_schema": "sovereignty-formal-qualification-receipt-v2",
+    "fixture_rule": "formal checker executes only verifier-owned detached fixture bytes; fixture bytes must equal the frozen formal-subject model commitments"
+  },
+  "tools": {
+    "nixpkgs_rev": "a50bf0c1b07873c1a53892292017041a8f0a1288",
+    "tla2tools": {
+      "version": "1.7.4",
+      "sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+      "solver_profile": "TLC bounded model checking"
+    },
+    "alloy": {
+      "version": "6.2.0",
+      "sha256": "6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d",
+      "solver": "sat4j"
+    }
+  },
+  "claim_contract": {
+    "canonical_result_requires": [
+      "exact formal subject blob commitments",
+      "exact pinned checker bytes",
+      "TLA canonical clean termination",
+      "all TLA invariants explicitly checked",
+      "all TLA negative controls produce expected invariant violations",
+      "all Alloy expected-SAT witnesses are SAT",
+      "all Alloy expected-UNSAT assertions are UNSAT",
+      "all Alloy structural negative controls expose SAT counterexamples",
+      "exact solver and finite scope recorded",
+      "postflight input immutability",
+      "detached fixture blobs equal frozen formal-subject blobs"
+    ],
+    "bounded_result_is_not_unbounded_proof": true,
+    "formal_result_is_not_runtime_qualification": true,
+    "qualification_is_not_external_recognition": true
+  },
+  "nonclaims": [
+    "No current AI is recognized as sovereign.",
+    "No legal personhood, citizenship, political standing, or sovereignty is established.",
+    "No runtime authority or production safety is established.",
+    "No bounded TLA+ or Alloy result is an unbounded proof.",
+    "Formal qualification does not establish legal validity, moral status, or external recognition.",
+    "The qualification does not prove equivalence or refinement of production implementation."
+  ],
+  "detached_fixture": {
+    "tla": {
+      "path": "docs/qualification/fixtures/formal/ArtificialSovereigntyV1.tla",
+      "git_blob_sha": "ff82c2dc365b2401c96801545105f8f1f104eb35",
+      "source_git_blob_sha": "ff82c2dc365b2401c96801545105f8f1f104eb35"
+    },
+    "cfg": {
+      "path": "docs/qualification/fixtures/formal/ArtificialSovereigntyV1.cfg",
+      "git_blob_sha": "1e79a909596bec5a52d4d36033053bf85b03bca4",
+      "source_git_blob_sha": "1e79a909596bec5a52d4d36033053bf85b03bca4"
+    },
+    "alloy": {
+      "path": "docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als",
+      "git_blob_sha": "b61f7c0c71cd29f5673d9c58183dfa8842ae3c40",
+      "source_git_blob_sha": "b61f7c0c71cd29f5673d9c58183dfa8842ae3c40"
+    }
+  }
 }
