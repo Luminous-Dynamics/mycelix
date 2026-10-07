@@ -206,6 +206,81 @@ An unplanned post-hoc analysis is exploratory, not a replacement primary result.
 
 Repeated observations from one trajectory must not silently become independent samples.
 
+## Experiment-attempt completeness
+
+A frozen protocol and independent evaluator are still insufficient when execution history can be selectively omitted.
+
+The canonical campaign evidence must make this chain reconstructible:
+
+    campaign plan
+        ->
+    started attempts
+        ->
+    terminal dispositions
+        ->
+    confirmatory analysis
+        ->
+    human-facing report
+
+Before execution, commit the campaign plan, including:
+
+- campaign identity;
+- exact protocol/evaluator identities;
+- candidate universe or generation budget;
+- planned decision points/slots;
+- seed/randomization policy;
+- evaluation horizons;
+- terminal taxonomy;
+- stopping rules;
+- retry policy.
+
+For every started attempt, preserve:
+
+- exact campaign and attempt identity;
+- subject/candidate identity;
+- evaluator and execution-environment identity;
+- seed/randomization identity;
+- terminal disposition;
+- failure/divergence reason where available;
+- artifact/trace roots.
+
+The verifier should reconcile:
+
+    planned slots
+    =
+    started attempts
+    +
+    explicit unstarted slots
+    +
+    declared protocol-level exclusions
+
+Every started attempt must have exactly one terminal disposition.
+
+### Retry and negative-evidence rules
+
+A retry creates a new attempt identity and retains the original attempt.
+
+Do not overwrite a failed, divergent, null, harmful, or infrastructure-indeterminate attempt with a successful retry.
+
+Preserve:
+
+- null results;
+- negative deltas;
+- harmful updates;
+- no-op candidates;
+- failed adaptation;
+- divergence;
+- invariant failures;
+- safety-triggered stops;
+- infrastructure-indeterminate attempts;
+- rejected candidates;
+- unused planned slots with an explicit reason.
+
+Campaign supersession creates a new campaign identity. Historical plans and attempts remain immutable evidence.
+
+Deleting, replacing, canceling, rerunning, or selectively reporting an attempt must leave a detectable gap in the campaign census rather than silently improving the confirmatory result.
+
+
 ## Protected outcomes
 
 A revision can show positive primary value while failing protected outcomes. That must remain a failure or conditional state under the declared policy.
@@ -527,6 +602,7 @@ Mycelix:
 - #4565 — adaptive peeking and multiplicity;
 - #4566 — interference/carryover/shared-environment contamination;
 - #4569 — evaluator identity/state integrity and assessor-adaptation controls;
+- #4571 — experiment-attempt completeness and immutable negative evidence;
 - #4570 — action-dependent observation and policy-induced distribution shift.
 
 Symthaea:
