@@ -372,9 +372,11 @@ def verify_index(
     artifact_digest = require_sha256(artifact["sha256_hex"], "index artifact sha256_hex")
     if f"sha256:{artifact_digest}" != primary_artifact["digest"]:
         fail("index artifact digest mismatch")
-    if not isinstance(artifact["url"], str) or not artifact["url"].startswith(
-        f"https://github.com/{BASE_REPOSITORY}/actions/runs/{trusted_run_id}/artifacts/"
-    ):
+    expected_artifact_url = (
+        f"https://github.com/{BASE_REPOSITORY}/actions/runs/"
+        f"{trusted_run_id}/artifacts/{artifact_id}"
+    )
+    if artifact["url"] != expected_artifact_url:
         fail("index artifact URL mismatch")
     if artifact["retention_days"] != 90:
         fail("unexpected retention policy")
@@ -414,6 +416,9 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     if not isinstance(artifact_items, list):
         fail("artifact list is malformed")
 
+    if len(artifact_items) != 2:
+        fail(f"trusted qualification run must contain exactly 2 artifacts, found {len(artifact_items)}")
+
     subject_from_names = [
         item
         for item in artifact_items
@@ -432,6 +437,12 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         fail("expected exactly one receipt artifact")
     if len(index_from_names) != 1:
         fail("expected exactly one index artifact")
+    expected_artifact_names = {
+        subject_from_names[0]["name"],
+        index_from_names[0]["name"],
+    }
+    if {item.get("name") for item in artifact_items} != expected_artifact_names:
+        fail("trusted qualification artifact set contains an unexpected artifact")
 
     primary_artifact = subject_from_names[0]
     index_artifact = index_from_names[0]
