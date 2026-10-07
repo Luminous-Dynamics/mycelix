@@ -19,7 +19,8 @@ sig Subject {
   class: one SubjectClass,
   powers: set Power,
   capabilities: set Capability,
-  budget: one Budget
+  budget: one Budget,
+  contracts: set Contract
 }
 
 sig Power {}
@@ -66,14 +67,21 @@ sig Contract {
   slotsUsed: one Int
 }
 
+fact SubjectContractInverse {
+  all s: Subject |
+    s.contracts = {c: Contract | c.subject = s}
+}
+
 fact AuthorizedContractRequiresExactAuthority {
   all c: Contract |
     c.authorized = On implies c.action.requiredPower in c.subject.powers
 }
 
 fact ContractFitsBudget {
-  all c: Contract |
-    c.slotsUsed >= 0 and c.slotsUsed <= c.subject.budget.value
+  all s: Subject |
+    (sum c: Contract | c.subject = s implies c.slotsUsed else 0) <= s.budget.value
+  and
+    all c: Contract | c.slotsUsed >= 0
 }
 
 sig Emergency {
@@ -117,7 +125,7 @@ pred NontrivialContractWithinAuthorityAndBudget {
   some c: Contract |
     c.authorized = On and
     c.action.requiredPower in c.subject.powers and
-    c.slotsUsed >= 0 and
+    c.slotsUsed > 0 and
     c.slotsUsed <= c.subject.budget.value
 }
 
@@ -173,8 +181,10 @@ assert AuthorizedContractsUseRequiredAuthority {
 }
 
 assert ContractsStayWithinBudget {
-  all c: Contract |
-    c.slotsUsed >= 0 and c.slotsUsed <= c.subject.budget.value
+  all s: Subject |
+    (sum c: Contract | c.subject = s implies c.slotsUsed else 0) <= s.budget.value
+  and
+    all c: Contract | c.slotsUsed >= 0
 }
 
 assert SafeStateCannotSettleDispute {
