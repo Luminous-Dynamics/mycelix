@@ -196,6 +196,9 @@ pub enum ExecutionStatus {
     Success,
     PartialSuccess,
     Failed,
+    /// Provider/effect entry occurred or may have occurred, but no authoritative
+    /// no-effect proof exists yet. This is deliberately distinct from Failed.
+    Indeterminate,
 }
 
 /// Guardian veto (for emergency cancellation)
@@ -909,6 +912,14 @@ fn validate_update_fund_allocation(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn execution_indeterminate_is_not_a_failed_outcome() {
+        assert_ne!(
+            ExecutionStatus::Indeterminate,
+            ExecutionStatus::Failed
+        );
+    }
+
     #[test]
     fn execution_attempt_starts_only_at_dispatch_pending() {
         let now = Timestamp::from_micros(1);
