@@ -1606,6 +1606,11 @@ pub enum FederationExternalVerificationPolicyDecision {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FederationExternalVerificationPolicyAdmissionIntegrityViolation {
+    AdmissionDigestMismatch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationExternalVerificationPolicyAdmissionViolation {
     RejectedClaim,
     AnchorReferenceNotAdmitted,
@@ -2431,6 +2436,18 @@ fn federation_external_verification_policy_admission_sha256(
 
 impl FederationExternalVerificationPolicyAdmissionV1 {
     pub fn admission_sha256(&self) -> &str { &self.admission_sha256 }
+    pub fn validate_integrity(
+        &self,
+    ) -> Result<(), FederationExternalVerificationPolicyAdmissionIntegrityViolation> {
+        if self.admission_sha256
+            != federation_external_verification_policy_admission_sha256(self)
+        {
+            return Err(
+                FederationExternalVerificationPolicyAdmissionIntegrityViolation::AdmissionDigestMismatch
+            );
+        }
+        Ok(())
+    }
     pub fn policy_sha256(&self) -> &str { &self.policy_sha256 }
     pub fn anchor_reference_sha256(&self) -> &str { &self.anchor_reference_sha256 }
     pub fn witness_kind(&self) -> FederationStateMachineTraceExternalWitnessKind { self.witness_kind }
@@ -2441,6 +2458,9 @@ impl FederationExternalVerificationPolicyAdmissionV1 {
     pub fn verifier_identity_profile(&self) -> &str { &self.verifier_identity_profile }
     pub fn verifier_identity_sha256(&self) -> &str { &self.verifier_identity_sha256 }
     pub fn verifier_profile(&self) -> &str { &self.verifier_profile }
+    pub fn verifier_profile_sha256(&self) -> Option<&str> {
+        self.verifier_profile_sha256.as_deref()
+    }
     pub fn verifier_schema_version(&self) -> u16 { self.verifier_schema_version }
     pub fn verifier_identity_use_method(
         &self,
@@ -5475,6 +5495,19 @@ mod tests {
             "admission receipt must preserve the identity-use evidence digest"
         );
         assert_eq!(typed_admission.admission_sha256(), raw_admission.admission_sha256());
+        typed_admission
+            .validate_integrity()
+            .expect("fresh admission receipt must validate its content address");
+        raw_admission
+            .validate_integrity()
+            .expect("raw compatibility admission receipt must validate its content address");
+
+        let mut tampered = typed_admission.clone();
+        tampered.verifier_schema_version += 1;
+        assert_eq!(
+            tampered.validate_integrity(),
+            Err(FederationExternalVerificationPolicyAdmissionIntegrityViolation::AdmissionDigestMismatch)
+        );
 
         let mut changed = typed_admission.clone();
         changed.evaluated_at_unix_seconds += 1;
