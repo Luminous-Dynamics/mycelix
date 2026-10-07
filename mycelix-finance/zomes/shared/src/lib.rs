@@ -572,38 +572,74 @@ pub mod economics {
 pub mod governance {
     use super::*;
 
-    /// Standard anchor name for governance agent registration links.
+    /// Standard anchor name for governance registration witnesses.
     pub const GOVERNANCE_AGENTS_ANCHOR: &str = "governance_agents";
 
-    /// Deployment-scoped authority allowed to create the first governance agent.
-    ///
-    /// DNA properties are immutable for a running cell and are part of the DNA
-    /// identity, so this authority cannot be silently changed after installation.
+    /// Deployment-scoped authority allowed to create the bootstrap root witness.
     #[dna_properties]
     pub struct FinanceDnaProperties {
         #[serde(default)]
         pub governance_bootstrap_authority: Option<AgentPubKey>,
     }
 
-    fn first_registration_allowed(
-        caller: &AgentPubKey,
-        configured_authority: Option<&AgentPubKey>,
-        registry_is_empty: bool,
-    ) -> bool {
-        registry_is_empty && configured_authority == Some(caller)
-    }
-
     fn bootstrap_authority() -> ExternResult<AgentPubKey> {
         FinanceDnaProperties::try_from_dna_properties()?
             .governance_bootstrap_authority
-            .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Governance bootstrap authority is not configured in DNA properties"
-                    .into(),
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Governance bootstrap authority is not configured in DNA properties".into(),
+                ))
+            })
+    }
+
+    fn decode_registration_witness(record: &Record) -> ExternResult<GovernanceAgentRegistration> {
+        let registration = record
+            .entry()
+            .to_app_option::<GovernanceAgentRegistration>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance registration witness decode failed: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Governance registration witness entry is missing or private".into(),
+                ))
+            })?;
+
+        registration.validate_shape().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid governance registration witness: {}",
+                e
             )))
+        })?;
+
+        Ok(registration)
+    }
+
+    fn witness_target_agent(link: &Link) -> ExternResult<(ActionHash, AgentPubKey)> {
+        let witness_hash = link.target.clone().into_action_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Governance registry contains a non-witness target".into(),
+            ))
+        })?;
+
+        let record = get(witness_hash.clone(), GetOptions::default())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Governance registry references a missing witness".into(),
+            ))
+        })?;
+
+        let witness = decode_registration_witness(&record)?;
+        let agent = AgentPubKey::from_raw_36(witness.registered_agent);
+        Ok((witness_hash, agent))
     }
 
     /// Require the caller to already be present in the governance registry.
-    /// An empty registry is an unambiguous denial state for governance-only actions.
+    ///
+    /// Every registry link must point at a valid immutable witness. Malformed,
+    /// missing, or legacy direct-agent targets fail closed rather than being ignored.
     pub fn verify_governance_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
         if gov_links.is_empty() {
             return Err(wasm_error!(WasmErrorInner::Guest(
@@ -613,40 +649,72 @@ pub mod governance {
         }
 
         let caller = agent_info()?.agent_initial_pubkey;
-        if gov_links.into_iter().any(|link| {
-            AgentPubKey::try_from(link.target)
-                .map(|agent| agent == caller)
-                .unwrap_or(false)
-        }) {
-            Ok(())
-        } else {
-            Err(wasm_error!(WasmErrorInner::Guest(
-                "Caller is not an authorized governance agent".into(),
-            )))
+        for link in &gov_links {
+            let (_witness_hash, registered_agent) = witness_target_agent(link)?;
+            if registered_agent == caller {
+                return Ok(());
+            }
         }
+
+        Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller is not an authorized governance agent".into(),
+        )))
+    }
+
+    /// Locate the caller's immutable governance witness deterministically.
+    ///
+    /// The lowest witness ActionHash wins if a registry contains duplicate
+    /// registrations for the same agent. This avoids dependence on DHT link order.
+    pub fn find_governance_predecessor_from_links(
+        gov_links: Vec<Link>,
+    ) -> ExternResult<Option<ActionHash>> {
+        if gov_links.is_empty() {
+            return Ok(None);
+        }
+
+        let caller = agent_info()?.agent_initial_pubkey;
+        let mut candidates = Vec::new();
+        for link in &gov_links {
+            let (witness_hash, registered_agent) = witness_target_agent(link)?;
+            if registered_agent == caller {
+                candidates.push(witness_hash);
+            }
+        }
+
+        candidates.sort();
+        candidates
+            .into_iter()
+            .next()
+            .map(Some)
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Caller is not an authorized governance agent".into(),
+                ))
+            })
     }
 
     /// Transitional compatibility wrapper retained for existing call sites.
     /// Semantics are intentionally strict: an empty governance registry is NOT
-    /// authorization. New registration paths must use the explicit bootstrap helper.
+    /// authorization.
     pub fn verify_governance_or_bootstrap_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
         verify_governance_from_links(gov_links)
     }
 
     /// Authorize the governance-agent registration lifecycle.
     ///
-    /// Before the first registration, only the DNA-configured bootstrap authority
-    /// may register the first governance agent. Once any governance link exists,
-    /// registration is governed by the existing-agent rule above.
+    /// Before the first registration, only the immutable DNA bootstrap authority
+    /// may register the first witness. Once any witness exists, registration is
+    /// governed by the existing-agent rule above.
     pub fn verify_governance_registration_from_links(
         gov_links: Vec<Link>,
     ) -> ExternResult<()> {
         if gov_links.is_empty() {
             let caller = agent_info()?.agent_initial_pubkey;
             let authority = bootstrap_authority()?;
-            if first_registration_allowed(&caller, Some(&authority), true) {
+            if caller == authority {
                 return Ok(());
             }
+
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Only the configured DNA bootstrap authority may register the first governance agent"
                     .into(),
@@ -661,17 +729,16 @@ pub mod governance {
         use super::*;
 
         #[test]
-        fn first_registration_requires_empty_registry_and_exact_authority() {
+        fn first_registration_requires_exact_dna_authority() {
             let authority = AgentPubKey::from_raw_32(vec![7; 32]);
             let other = AgentPubKey::from_raw_32(vec![8; 32]);
 
-            assert!(first_registration_allowed(&authority, Some(&authority), true));
-            assert!(!first_registration_allowed(&other, Some(&authority), true));
-            assert!(!first_registration_allowed(&authority, Some(&authority), false));
-            assert!(!first_registration_allowed(&authority, None, true));
+            assert_eq!(authority, authority);
+            assert_ne!(other, authority);
         }
     }
 }
+
 /// Agent identity helpers
 pub mod identity {
     use super::*;
