@@ -379,7 +379,6 @@ pub fn mark_timelock_ready(input: MarkTimelockReadyInput) -> ExternResult<Record
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
     let _signature = require_verified_threshold_signature(
         &current_timelock.proposal_id,
-        &current_timelock.id,
         ready_action_key.digest(),
     )?;
 
@@ -485,12 +484,14 @@ fn ensure_execution_authorized(
 
 fn execution_authorization_digest(
     proposal_id: &str,
-    timelock_id: &str,
     action_key_digest: &str,
 ) -> [u8; 32] {
+    // Authorization is attached to the approved proposal material, not to a
+    // future timelock identifier. Timelocks are execution/replay metadata and
+    // are separately protected by ActionKey + AttemptIdentity.
     let mut hasher = blake3::Hasher::new();
-    hasher.update(b"MYCELIX-GOVERNANCE-EXECUTION-AUTHORIZATION\0V1\0");
-    for value in [proposal_id, timelock_id, action_key_digest] {
+    hasher.update(b"MYCELIX-GOVERNANCE-EXECUTION-AUTHORIZATION\0V2\0");
+    for value in [proposal_id, action_key_digest] {
         hasher.update(&(value.len() as u64).to_be_bytes());
         hasher.update(value.as_bytes());
     }
@@ -623,7 +624,7 @@ fn require_verified_threshold_signature(
     }
 
     let expected_authorization_digest =
-        execution_authorization_digest(proposal_id, timelock_id, action_key_digest);
+        execution_authorization_digest(proposal_id, action_key_digest);
 
     if signature.signed_content_hash.as_slice() != expected_authorization_digest {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -790,7 +791,6 @@ pub fn prepare_timelock_execution(
 
     let _signature = require_verified_threshold_signature(
         &timelock.proposal_id,
-        &timelock.id,
         action_key.digest(),
     )?;
     let attempt_identity = execution_attempt_identity(&caller, &input.timelock_id)
@@ -2350,10 +2350,12 @@ mod tests {
     #[test]
     fn execution_authorization_digest_binds_exact_tuple() {
         let action = "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        let a = execution_authorization_digest("proposal-1", "timelock-1", action);
-        let b = execution_authorization_digest("proposal-1", "timelock-2", action);
-        let c = execution_authorization_digest("proposal-1", "timelock-1",
-            "constitutional-action-key-v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        let a = execution_authorization_digest("proposal-1", action);
+        let b = execution_authorization_digest("proposal-2", action);
+        let c = execution_authorization_digest(
+            "proposal-1",
+            "constitutional-action-key-v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        );
         assert_ne!(a, b);
         assert_ne!(a, c);
     }
