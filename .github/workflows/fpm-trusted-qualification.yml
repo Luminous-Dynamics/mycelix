@@ -502,5 +502,4 @@ jobs:
           name: fpm-trusted-qualification-index-${{ steps.preflight.outputs.expected_head_sha || github.event.workflow_run.head_sha || github.run_id }}
           path: ${{ env.FPM_EVIDENCE_DIR }}/artifact-binding-index.json
           if-no-files-found: error
-          archive: false
           retention-days: 90
