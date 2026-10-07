@@ -544,6 +544,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 bounded source staging copy must enforce declared resource ceilings")
     if "source_volume_cleanup_on_failure" not in joined or "trap source_volume_cleanup_on_failure EXIT" not in joined:
         fail("S1 candidate source volume cleanup must be fail-closed")
+    if "negative_control_cleanup_on_exit()" not in joined or "trap negative_control_cleanup_on_exit EXIT" not in joined:
+        fail("S1 negative-control container cleanup trap missing")
     if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
         fail("S1 vendor resource volume create profile mismatch")
     if exact_count(l, VENDOR_VOLUME_RW) != 1:
@@ -797,6 +799,14 @@ def main() -> None:
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(VENDOR_VOLUME_RW.encode(), b'--volume "$vendor_root:/vendor:rw"', 1), s1_sha),
         "writable host-backed vendor root",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(b"trap negative_control_cleanup_on_exit EXIT", b"# negative-control cleanup trap removed", 1),
+            s1_sha,
+        ),
+        "negative-control container cleanup trap removed",
     )
 
     expect_rejection(
