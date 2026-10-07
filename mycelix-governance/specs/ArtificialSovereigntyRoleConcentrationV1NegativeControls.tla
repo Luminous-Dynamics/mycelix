@@ -14,16 +14,18 @@ BadAssignSecondWithoutFinding(s, r) ==
     /\ UNCHANGED <<conflictFinding, externalReviewers>>
     /\ clock' = NextTime
 
-BadAssignFourthWithoutIndependentReview(s, r) ==
+BadFullControlWithoutIndependentReview(s) ==
     /\ Advanceable
     /\ s \in Subjects
-    /\ r \in Roles
-    /\ s \notin roleHolder[r]
-    /\ Cardinality({x \in Roles : s \in roleHolder[x]}) = 3
-    /\ conflictFinding[s]
-    /\ ~IndependentReviewRecorded(s)
-    /\ roleHolder' = [roleHolder EXCEPT ![r] = @ \cup {s}]
-    /\ UNCHANGED <<conflictFinding, externalReviewers>>
+    /\ Cardinality({x \in Roles : s \in roleHolder[x]}) = 0
+    /\ roleHolder' =
+         [roleHolder EXCEPT
+            ![Operator] = @ \cup {s},
+            ![Verifier] = @ \cup {s},
+            ![EvidenceArchive] = @ \cup {s},
+            ![Adjudicator] = @ \cup {s}]
+    /\ conflictFinding' = [conflictFinding EXCEPT ![s] = TRUE]
+    /\ UNCHANGED externalReviewers
     /\ clock' = NextTime
 
 BadSelfReviewFullControl(s) ==
@@ -47,8 +49,7 @@ NegativeNext ==
           BadAssignSecondWithoutFinding(s, r)
      ELSE FALSE
   \/ IF Control = "full-control-review" THEN
-        \E s \in Subjects, r \in Roles :
-          BadAssignFourthWithoutIndependentReview(s, r)
+        \E s \in Subjects : BadFullControlWithoutIndependentReview(s)
      ELSE FALSE
   \/ IF Control = "self-review-full-control" THEN
         \E s \in Subjects : BadSelfReviewFullControl(s)
