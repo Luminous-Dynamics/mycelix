@@ -340,7 +340,7 @@ fn validate_create_treasury(
 }
 
 fn validate_update_treasury(
-    _action: Update,
+    action: Update,
     treasury: Treasury,
 ) -> ExternResult<ValidateCallbackResult> {
     if !treasury.reserve_ratio.is_finite()
@@ -349,6 +349,26 @@ fn validate_update_treasury(
     {
         return Ok(ValidateCallbackResult::Invalid(
             "Reserve ratio must be a finite number between 0 and 1".into(),
+        ));
+    }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<Treasury>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original Treasury predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original treasury update predecessor is not a Treasury entry".into(),
+        ))
+    })?;
+    if original.id != treasury.id
+        || original.name != treasury.name
+        || original.description != treasury.description
+        || original.currency != treasury.currency
+        || original.created != treasury.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Treasury identity and immutable configuration cannot change across updates".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
