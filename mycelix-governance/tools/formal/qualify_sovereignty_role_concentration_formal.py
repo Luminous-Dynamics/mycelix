@@ -212,12 +212,12 @@ def main() -> int:
             fail("workflow action pin mismatch: " + action)
 
     baseline = {
-        "profile": sha256_file(args.profile),
-        "pins": sha256_file(args.pins),
-        "crosswalk": sha256_file(args.crosswalk),
-        "workflow": sha256_file(workflow),
-        "qualifier": sha256_file(Path(__file__)),
-        "alloy_runner": sha256_file(args.alloy_runner),
+        str(args.profile): sha256_file(args.profile),
+        str(args.pins): sha256_file(args.pins),
+        str(args.crosswalk): sha256_file(args.crosswalk),
+        str(workflow): sha256_file(workflow),
+        str(Path(__file__)): sha256_file(Path(__file__)),
+        str(args.alloy_runner): sha256_file(args.alloy_runner),
     }
 
     receipt = {
@@ -339,7 +339,8 @@ def main() -> int:
         receipt["canonical"]["alloy"]["solver"] = "SAT4J"
         receipt["canonical"]["alloy"]["bitwidth"] = alloy_meta["bitwidth"]
 
-        if {k: sha256_file(Path(k)) for k in baseline} != baseline:
+        after = {k: sha256_file(Path(k)) for k in baseline}
+        if after != baseline:
             fail("verifier inputs changed during qualification")
         if subprocess.run(["git", "status", "--porcelain"], text=True, stdout=subprocess.PIPE).stdout.strip():
             fail("repository changed during qualification")
