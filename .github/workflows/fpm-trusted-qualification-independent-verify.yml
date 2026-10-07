@@ -46,6 +46,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import subprocess
           from pathlib import Path
 
           record = {
@@ -55,7 +56,7 @@ jobs:
               "ref": "refs/heads/main",
               "workflow_ref": os.environ["GITHUB_WORKFLOW_REF"],
               "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
-              "workflow_blob_sha": subprocess_sha := __import__("subprocess").check_output(
+              "workflow_blob_sha": subprocess.check_output(
                   ["git", "rev-parse", "HEAD:.github/workflows/fpm-trusted-qualification-independent-verify.yml"],
                   text=True,
               ).strip(),
