@@ -489,6 +489,7 @@ def require_exact_run_fragment(
     step_name: str,
     expected: tuple[str, ...],
     description: str,
+    expected_start_index: int | None = None,
 ) -> None:
     matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
     if len(matches) != 1:
@@ -509,6 +510,10 @@ def require_exact_run_fragment(
             break
         actual.append(line[10:])
     window = len(expected)
+    if expected_start_index is not None:
+        if expected_start_index < 0 or tuple(actual[expected_start_index:expected_start_index + window]) != expected:
+            fail(f"{description}: expected output-producer fragment moved or mutated")
+        return
     occurrences = sum(
         1 for i in range(0, len(actual) - window + 1)
         if tuple(actual[i:i + window]) == expected
@@ -1133,6 +1138,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         "    output.write(f\"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\\n\")",
     ),
         "S0 resolver output-producer binding",
+        84,
     )
     require_exact_run_prefix_boundary(
         l,
@@ -1467,6 +1473,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "  \"$candidate_tree\" \"$source_tree_entry_count\" \"$source_file_count\" \"$source_total_path_bytes\" \"$source_total_bytes\" \"$source_max_blob_bytes\" \"$FETCH_IMAGE\" >> \"$GITHUB_OUTPUT\"",
     ),
         "S1 Resolve exact candidate source output-producer binding",
+        155,
     )
     require_exact_run_fragment(
         l,
@@ -1475,6 +1482,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "printf 'source_digest=%s\\n' \"$source_digest\" >> \"$GITHUB_OUTPUT\"",
     ),
         "S1 Snapshot exact candidate source identity output-producer binding",
+        26,
     )
     require_exact_run_fragment(
         l,
@@ -1483,6 +1491,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "printf 'lock_digest=%s\\nlock_package_count=%s\\nlock_dependency_edges=%s\\n' \"$lock_digest\" \"$lock_package_count\" \"$lock_dependency_edges\" >> \"$GITHUB_OUTPUT\"",
     ),
         "S1 Snapshot locked dependency identity output-producer binding",
+        10,
     )
     require_exact_run_fragment(
         l,
@@ -1491,6 +1500,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "printf 'rust_version=%s\\nrust_commit=%s\\n' \"$rust_version\" \"$rust_commit\" >> \"$GITHUB_OUTPUT\"",
     ),
         "S1 Pull and preflight pinned sandbox image output-producer binding",
+        65,
     )
     require_exact_run_fragment(
         l,
@@ -1499,6 +1509,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "printf 'dependency_root=%s\\n' \"$dependency_root\" >> \"$GITHUB_OUTPUT\"",
     ),
         "S1 Prepare locked dependency subject output-producer binding",
+        6,
     )
     require_exact_run_fragment(
         l,
@@ -1507,6 +1518,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "printf 'vendor_volume_name=%s\\nvendor_config=%s\\nvendor_metrics=%s\\nvendor_digest=%s\\nvendor_observed_bytes=%s\\nvendor_observed_files=%s\\nvendor_observed_inodes=%s\\n' \"$vendor_volume_name\" \"$vendor_config\" \"$vendor_metrics\" \"$vendor_digest\" \"$vendor_observed_bytes\" \"$vendor_observed_files\" \"$vendor_observed_inodes\" >> \"$GITHUB_OUTPUT\"",
     ),
         "S1 Vendor locked dependency closure in fetch sandbox output-producer binding",
+        74,
     )
     require_exact_run_fragment(
         l,
@@ -1515,6 +1527,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "printf 'negative_controls=passed\\nsentinel_digest=%s\\nnegative_controls_log_digest=%s\\n' \"$sentinel_digest\" \"$negative_controls_log_digest\" >> \"$GITHUB_OUTPUT\"",
     ),
         "S1 Execute sandbox negative controls output-producer binding",
+        98,
     )
     require_exact_run_fragment(
         l,
@@ -1523,6 +1536,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         "printf 'dependency_substrate=passed\\n' >> \"$GITHUB_OUTPUT\"",
     ),
         "S1 Verify dependency substrate immutability output-producer binding",
+        53,
     )
     require_exact_run_command_count(
         l,
@@ -2194,6 +2208,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         "    output.write(f\"execution_reference_binding_sha256={execution_reference_binding_sha256}\\n\")",
     ),
         "S2 result-binding output-producer binding",
+        597,
     )
     require_exact_step_token_count(
         l,
@@ -2216,6 +2231,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         "    output.write(f\"retention_reference_binding_sha256={retention_reference_digest}\\n\")",
     ),
         "S2 evidence-binding output-producer binding",
+        212,
     )
     require_exact_step_mapping(
         l,
