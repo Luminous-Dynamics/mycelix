@@ -302,7 +302,7 @@ impl SettlementClaim {
         }
 
         if matches!(
-            self.finality,
+            &self.finality,
             SettlementFinality::Disputed | SettlementFinality::Superseded
         ) {
             return Err(SettlementValidationError::NonAdmissibleFinality);
