@@ -4996,7 +4996,7 @@ mod tests {
         );
         assert_eq!(
             FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION,
-            3
+            4
         );
 
         for legacy_version in [1, 2, 3] {
