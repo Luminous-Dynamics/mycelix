@@ -32,7 +32,10 @@ VENDOR_VOLUME_CREATE = "docker volume create --driver local --opt type=tmpfs --o
 VENDOR_VOLUME_RW = '--volume "$vendor_volume_name:/vendor:rw"'
 VENDOR_VOLUME_RO = '--volume "$VENDOR_VOLUME_NAME:/vendor:ro"'
 VENDOR_VOLUME_INSPECT = "vendor_volume_spec=\"$(docker volume inspect --format '{{.Driver}}|{{index .Options \"type\"}}|{{index .Options \"device\"}}|{{index .Options \"o\"}}' \"$vendor_volume_name\")\""
-SOURCE_RESOURCE_PROFILE = "v1"
+VENDOR_CONFIG_VOLUME_CREATE = "docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=16m,nr_inodes=64"
+VENDOR_CONFIG_VOLUME_RW = '--volume "$vendor_config_volume_name:/vendor-config:rw"'
+VENDOR_CONFIG_VOLUME_RO = '--volume "$VENDOR_CONFIG_VOLUME_NAME:/vendor-config:ro"'
+VENDOR_CONFIG_VOLUME_INSPECT = 'vendor_config_volume_spec="$(docker volume inspect --format '{{.Driver}}|{{index .Options "type"}}|{{index .Options "device"}}|{{index .Options "o"}}' "$vendor_config_volume_name")"'
 SOURCE_MAX_BYTES = "1073741824"
 SOURCE_MAX_INODES = "300000"
 SOURCE_TMPFS_SIZE = "1024m"
@@ -514,7 +517,17 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 trusted workflow blob input binding mismatch")
     if exact_count(l, 'CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}') != 1:
         fail("S1 candidate repository ID binding mismatch")
-    for key, expected in (("VENDOR_RESOURCE_PROFILE", "v2"), ("VENDOR_MAX_BYTES", "1073741824"), ("VENDOR_MAX_FILES", "100000"), ("VENDOR_MAX_INODES", "150000"), ("VENDOR_TMPFS_SIZE", "1024m"), ("VENDOR_TMPFS_NR_INODES", "150000")):
+    for key, expected in (
+        ("VENDOR_RESOURCE_PROFILE", "v2"), ("VENDOR_MAX_BYTES", "1073741824"),
+        ("VENDOR_MAX_FILES", "100000"), ("VENDOR_MAX_INODES", "150000"),
+        ("VENDOR_TMPFS_SIZE", "1024m"), ("VENDOR_TMPFS_NR_INODES", "150000"),
+        ("VENDOR_CONFIG_RESOURCE_PROFILE", "v1"), ("VENDOR_CONFIG_MAX_BYTES", "16777216"),
+        ("VENDOR_CONFIG_MAX_INODES", "64"), ("VENDOR_CONFIG_TMPFS_SIZE", "16m"),
+        ("VENDOR_CONFIG_TMPFS_NR_INODES", "64"),
+    ):
+        if exact_count(l, f'  {key}: "{expected}"') != 1:
+            fail(f"S1 vendor resource profile mismatch: {key}")
+    require_no_fail_open_controls(l, "S1")
         if exact_count(l, f'  {key}: "{expected}"') != 1:
             fail(f"S1 vendor resource profile mismatch: {key}")
     require_no_fail_open_controls(l, "S1")
@@ -650,7 +663,14 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 bounded vendor volume read-only mount count mismatch")
     if exact_count(l, VENDOR_VOLUME_INSPECT) != 1:
         fail("S1 vendor volume instantiation must be independently inspected")
-    if 'if docker volume inspect "$vendor_volume_name"' in joined:
+    if exact_count(l, VENDOR_CONFIG_VOLUME_CREATE) != 1:
+        fail("S1 vendor-config resource volume create profile mismatch")
+    if exact_count(l, VENDOR_CONFIG_VOLUME_RW) != 1:
+        fail("S1 vendor-config acquisition must use one bounded Docker volume for writes")
+    if exact_count(l, VENDOR_CONFIG_VOLUME_RO) != 3:
+        fail("S1 bounded vendor-config volume read-only mount count mismatch")
+    if exact_count(l, VENDOR_CONFIG_VOLUME_INSPECT) != 1:
+        fail("S1 vendor-config volume instantiation must be independently inspected")
         fail("S1 vendor collision detection must not treat volume-inspect failure as absence")
     if 'if [ "$status" -ne 0 ] && docker volume inspect "$vendor_volume_name"' in joined:
         fail("S1 vendor cleanup must not use masked volume-inspect status")
@@ -662,9 +682,25 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             fail(f"S1 vendor fail-closed inventory control missing: {required!r}")
     if 'test "$vendor_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"' not in joined:
         fail("S1 vendor volume instantiated options mismatch")
-    if '--volume "$vendor_root:/vendor:rw"' in joined or '--volume "$VENDOR_ROOT:/vendor:rw"' in joined:
+    if 'test "$vendor_config_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=16m,nr_inodes=64"' not in joined:
+        fail("S1 vendor-config volume instantiated options mismatch")
+    if 'cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config/config.toml' not in joined:
+        fail("S1 cargo vendor config output must terminate on bounded vendor-config volume")
+    if 'vendor_config="$RUNNER_TEMP/' in joined:
+        fail("S1 vendor-config must not use a host-backed runner-temp file")
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
-    for required in ("vendor_volume_name=\"security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT\"", "vendor_observed_bytes=", "vendor_observed_files=", "vendor_observed_inodes=", "vendor_cleanup_on_failure", "docker volume rm \"$vendor_volume_name\"", "vendor volume remains after cleanup", "dependency_substrate=passed"):
+    for required in (
+        'vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"',
+        'vendor_config_volume_name="security-kernel-vendor-config-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"',
+        "vendor_observed_bytes=", "vendor_observed_files=", "vendor_observed_inodes=",
+        "vendor_config_observed_bytes=", "vendor_config_observed_inodes=", "vendor_config_digest=",
+        "vendor_cleanup_on_failure", "docker volume rm \"$vendor_volume_name\"",
+        "docker volume rm \"$vendor_config_volume_name\"",
+        "vendor volume remains after cleanup", "vendor-config volume remains after cleanup",
+        "dependency_substrate=passed",
+    ):
+        if required not in joined:
+            fail(f"S1 vendor resource-bound control missing: {required!r}")
         if required not in joined:
             fail(f"S1 vendor resource-bound control missing: {required!r}")
     if any("docker rm -f " in line and "|| true" in line for line in l):
@@ -1026,7 +1062,27 @@ def main() -> None:
         "vendor volume instantiated-option mismatch",
     )
     expect_rejection(
-        lambda: verify_s1(raw["s1"].replace(SOURCE_VOLUME_CREATE.encode(), b'docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=1024m', 1),
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(VENDOR_CONFIG_VOLUME_CREATE.encode(), b'docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=16m', 1), s1_sha),
+        "vendor-config tmpfs without inode ceiling",
+    )
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(VENDOR_CONFIG_VOLUME_INSPECT.encode(), b'vendor_config_volume_spec="wrong|volume|driver|options"', 1), s1_sha),
+        "vendor-config volume instantiated-option mismatch",
+    )
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(VENDOR_CONFIG_VOLUME_RW.encode(), b'--volume "$vendor_root:/vendor-config:rw"', 1), s1_sha),
+        "writable host-backed vendor-config root",
+    )
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(b'cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config/config.toml', b'cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor > /vendor-config', 1), s1_sha),
+        "unbounded vendor-config output target",
+    )
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(b'if ! docker volume rm "$VENDOR_CONFIG_VOLUME_NAME" >/dev/null; then\n', b'# vendor-config cleanup removed\n', 1), s1_sha),
+        "vendor-config cleanup removed",
+    )
+
         s1_sha),
         "candidate source tmpfs without inode ceiling",
     )
