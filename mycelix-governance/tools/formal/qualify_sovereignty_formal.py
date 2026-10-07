@@ -408,10 +408,13 @@ def main() -> int:
             if by_label[label]["actual"] != "UNSAT" or by_label[label]["expects"] != 0:
                 fail(f"Alloy expected-UNSAT command was not UNSAT/expect-0: {label}")
         scope = profile["alloy"]["scope"]
+        bitwidth = profile["alloy"]["bitwidth"]
         for row in rows:
             command_text = row["command"]
             if f"for {scope['overall']}" not in command_text:
                 fail("Alloy command omitted expected overall scope: " + row["label"])
+            if f"{bitwidth} int" not in command_text:
+                fail("Alloy command omitted expected integer bitwidth: " + str(bitwidth) + " int for " + row["label"])
             for name in ["Subject", "Power", "Provider", "Dependency", "Action", "Contract", "Budget", "Dispute", "Emergency", "ForkEvent"]:
                 token = f"{scope[name]} {name}"
                 if token not in command_text:
