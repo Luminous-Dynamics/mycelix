@@ -1322,7 +1322,12 @@ mod tests {
             .mark_invoked(&key, &first_owner, "owner-token-attempt-1")
             .unwrap();
         model
-            .release_after_failed(&key, &first_owner, "owner-token-attempt-1")
+            .release_after_failed(
+                &key,
+                &first_owner,
+                "owner-token-attempt-1",
+                &terminal_evidence(TerminalOutcomeV1::Failed, "attempt-1"),
+            )
             .unwrap();
 
         let second_owner = attempt("attempt-2");
@@ -1516,7 +1521,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            model.release_after_failed(&key(), &first_attempt, "wrong-owner"),
+            model.release_after_failed(
+            &key(),
+            &first_attempt,
+            "wrong-owner",
+            &terminal_evidence(TerminalOutcomeV1::Failed, "attempt-1"),
+        ),
             Err(ActionFenceMutationError::OwnershipTokenMismatch)
         );
         assert!(model.fence(key().digest()).is_some());
@@ -1528,7 +1538,12 @@ mod tests {
             .mark_invoked(&key(), &first_attempt, "owner-token-attempt-1")
             .unwrap();
         model
-            .release_after_failed(&key(), &first_attempt, "owner-token-attempt-1")
+            .release_after_failed(
+                &key(),
+                &first_attempt,
+                "owner-token-attempt-1",
+                &terminal_evidence(TerminalOutcomeV1::Failed, "attempt-1"),
+            )
             .unwrap();
 
         assert!(model.fence(key().digest()).is_none());
@@ -1622,7 +1637,12 @@ mod tests {
             Err(ActionFenceMutationError::NotOwner)
         );
         assert_eq!(
-            model.release_after_failed(&key(), &second_attempt, "owner-token-attempt-2"),
+            model.release_after_failed(
+                &key(),
+                &second_attempt,
+                "owner-token-attempt-2",
+                &terminal_evidence(TerminalOutcomeV1::Failed, "attempt-2"),
+            ),
             Err(ActionFenceMutationError::NotOwner)
         );
         assert!(model.fence(key().digest()).is_some());
@@ -1648,36 +1668,46 @@ mod tests {
     }
 
     #[test]
-    fn terminal_attempts_cannot_be_admitted_as_occupiers() {
-        let mut model = AtomicActionFenceModelV1::new();
-        assert!(model
-            .admit(
-                &key(),
-                &attempt("attempt-1"),
-                record(
-                    "attempt-1",
-                    "operation-1",
-                    AttemptRecordState::Executed
-                ),
-            )
-            .is_err());
-        assert!(model
-            .admit(
-                &key(),
-                &attempt("attempt-2"),
-                record(
-                    "attempt-2",
-                    "operation-2",
-                    AttemptRecordState::Failed
-                ),
-            )
-            .is_err());
+    fn terminal_attempt_records_require_transition_proof() {
+        let key = key();
+        assert!(AttemptRecordV1::new(
+            &attempt("attempt-1"),
+            "operation-1",
+            "native-replay-1",
+            key.material_action_digest(),
+            &key,
+            Some("provider-seed-1".into()),
+            Some("provider-descriptor-1".into()),
+            "stripe-live-account-1",
+            "payments-audience-1",
+            "payments-adapter-v1",
+            "owner-token-attempt-1",
+            AttemptRecordState::Executed,
+        )
+        .is_err());
+
+        assert!(AttemptRecordV1::new(
+            &attempt("attempt-2"),
+            "operation-2",
+            "native-replay-1",
+            key.material_action_digest(),
+            &key,
+            Some("provider-seed-1".into()),
+            Some("provider-descriptor-1".into()),
+            "stripe-live-account-1",
+            "payments-audience-1",
+            "payments-adapter-v1",
+            "owner-token-attempt-2",
+            AttemptRecordState::Failed,
+        )
+        .is_err());
+
         assert!(AttemptRecordV1::new(
             &attempt("attempt-3"),
             "operation-3",
             "native-replay-1",
-            key().material_action_digest(),
-            &key(),
+            key.material_action_digest(),
+            &key,
             Some("provider-seed-1".into()),
             Some("provider-descriptor-1".into()),
             "stripe-live-account-1",
@@ -1712,7 +1742,12 @@ mod tests {
             Err(ActionFenceMutationError::InvalidTransition)
         );
         assert_eq!(
-            model.release_after_failed(&key(), &owner, "owner-token-attempt-1"),
+            model.release_after_failed(
+            &key(),
+            &owner,
+            "owner-token-attempt-1",
+            &terminal_evidence(TerminalOutcomeV1::Failed, "attempt-1"),
+        ),
             Err(ActionFenceMutationError::InvalidTransition)
         );
         assert!(model.fence(key().digest()).is_some());
@@ -1751,6 +1786,37 @@ mod tests {
     }
 
     #[test]
+    fn wrong_terminal_outcome_cannot_close_or_release() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let owner = attempt("attempt-1");
+        model
+            .admit(
+                &key(),
+                &owner,
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+        model
+            .mark_dispatch_pending(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invoked(&key(), &owner, "owner-token-attempt-1")
+            .unwrap();
+
+        let failed_proof = terminal_evidence(TerminalOutcomeV1::Failed, "attempt-1");
+        assert_eq!(
+            model.close_executed(
+                &key(),
+                &owner,
+                "owner-token-attempt-1",
+                &failed_proof,
+            ),
+            Err(ActionFenceMutationError::NotOwner)
+        );
+        assert!(model.fence(key().digest()).is_some());
+    }
+
+    #[test]
     fn terminal_close_is_replay_stable_but_does_not_reopen() {
         let mut model = AtomicActionFenceModelV1::new();
         let owner = attempt("attempt-1");
@@ -1769,7 +1835,12 @@ mod tests {
             .mark_invoked(&key(), &owner, "owner-token-attempt-1")
             .unwrap();
         model
-            .close_executed(&key(), &owner, "owner-token-attempt-1")
+            .close_executed(
+                &key(),
+                &owner,
+                "owner-token-attempt-1",
+                &terminal_evidence(TerminalOutcomeV1::Executed, "attempt-1"),
+            )
             .unwrap();
 
         assert_eq!(
@@ -1781,7 +1852,12 @@ mod tests {
             AtomicAdmissionDecision::ActionAlreadyExecuted
         );
         assert_eq!(
-            model.close_executed(&key(), &owner, "owner-token-attempt-1"),
+            model.close_executed(
+            &key(),
+            &owner,
+            "owner-token-attempt-1",
+            &terminal_evidence(TerminalOutcomeV1::Executed, "attempt-1"),
+        ),
             Err(ActionFenceMutationError::AlreadyClosed)
         );
     }
