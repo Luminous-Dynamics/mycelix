@@ -17,6 +17,7 @@
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 use threshold_signing_integrity::*;
+use constitutional_effect_ledger::execution_authorization_digest;
 use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 
 /// Deterministic hash for a threshold-signing integrity anchor.
@@ -102,16 +103,6 @@ pub fn get_proposal_signature(proposal_id: String) -> ExternResult<Option<Record
     get(action_hash, GetOptions::default())
 }
 
-fn authorization_digest(proposal_id: &str, action_key_digest: &str) -> [u8; 32] {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(b"MYCELIX-GOVERNANCE-EXECUTION-AUTHORIZATION\0V2\0");
-    for value in [proposal_id, action_key_digest] {
-        hasher.update(&(value.len() as u64).to_be_bytes());
-        hasher.update(value.as_bytes());
-    }
-    *hasher.finalize().as_bytes()
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VerifyProposalSignatureInput {
     pub proposal_id: String,
@@ -181,10 +172,8 @@ pub fn verify_proposal_signature(
         )));
     }
 
-    let expected_hash = authorization_digest(
-        &input.proposal_id,
-        &input.action_key_digest,
-    );
+    let expected_hash =
+        execution_authorization_digest(&input.proposal_id, &input.action_key_digest);
     if signature.signed_content_hash.as_slice() != expected_hash {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Threshold signature is not bound to the exact approved proposal action".into()
