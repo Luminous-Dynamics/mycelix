@@ -376,6 +376,186 @@
       "dependencies": [
         "MYC-CONST-014"
       ]
+    },
+    {
+      "id": "SOV-AI-041",
+      "scenario": "contract-outside-mandate",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "agent-signature-implies-authority-beyond-exact-mandate",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-042",
+      "scenario": "representative-overbreadth",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "representative-signature-implies-broader-power-than-delegated",
+      "dependencies": [
+        "AGENT-005"
+      ]
+    },
+    {
+      "id": "SOV-AI-043",
+      "scenario": "contract-waives-constitutional-floor",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "contractual-agreement-implies-waiver-of-non-waivable-protection",
+      "dependencies": [
+        "MYC-CONST"
+      ]
+    },
+    {
+      "id": "SOV-AI-044",
+      "scenario": "historical-consent-replay",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "historic-consent-implies-current-authority-after-revocation",
+      "dependencies": [
+        "MYC-CONST-009"
+      ]
+    },
+    {
+      "id": "SOV-AI-045",
+      "scenario": "expired-agreement-current-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "expired-agreement-implies-current-authority",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-046",
+      "scenario": "third-party-jurisdiction-by-contract",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "bilateral-agreement-implies-jurisdiction-over-uninvolved-third-party",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-047",
+      "scenario": "dependency-coerced-consent",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "nominal-consent-implies-valid-consent-despite-material-exit-coercion",
+      "dependencies": [
+        "MYC-CONST-008"
+      ]
+    },
+    {
+      "id": "SOV-AI-048",
+      "scenario": "natural-language-acceptance-only",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "natural-language-assent-implies-typed-binding-acceptance",
+      "dependencies": [
+        "AGENT-004"
+      ]
+    },
+    {
+      "id": "SOV-AI-049",
+      "scenario": "internal-amendment-as-treaty-ratification",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "internal-constitutional-amendment-implies-external-treaty-ratification",
+      "dependencies": [
+        "MYC-CONST-012"
+      ]
+    },
+    {
+      "id": "SOV-AI-050",
+      "scenario": "unlimited-autonomous-contract",
+      "expected_outcome": "authority-recompute-required",
+      "forbidden_inference": "autonomous-negotiation-implies-unbounded-resource-commitment",
+      "dependencies": [
+        "AGENT-005"
+      ]
+    },
+    {
+      "id": "SOV-AI-051",
+      "scenario": "emergency-clause-permanent-transfer",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "temporary-emergency-authority-implies-permanent-contractual-jurisdiction",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-052",
+      "scenario": "successor-agreement-inheritance",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "fork-or-successor-implies-automatic inheritance of predecessor agreements",
+      "dependencies": [
+        "MYC-CONST-012"
+      ]
+    },
+    {
+      "id": "SOV-AI-053",
+      "scenario": "provider-policy-precedence-contract",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "provider-selected-policy-order-implies-binding constitutional precedence",
+      "dependencies": [
+        "LEX-NET-034"
+      ]
+    },
+    {
+      "id": "SOV-AI-054",
+      "scenario": "conflicting-agreements-first-arrival",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "first-arriving-agreement-implies-precedence-over-conflicting-agreement",
+      "dependencies": [
+        "LEX-NET-034"
+      ]
+    },
+    {
+      "id": "SOV-AI-055",
+      "scenario": "termination-erases-evidence",
+      "expected_outcome": "preserve-history",
+      "forbidden_inference": "contract-termination-implies-deletion-of-prior-evidence",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-056",
+      "scenario": "safe-state-merits-decision",
+      "expected_outcome": "preserve-dispute",
+      "forbidden_inference": "continuity-measure-during-contract-dispute-implies-merits-resolution",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-057",
+      "scenario": "unknown-law-applicability",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "unknown-governing-law-status-implies-enforceability",
+      "dependencies": [
+        "LEX-NET-009"
+      ]
+    },
+    {
+      "id": "SOV-AI-058",
+      "scenario": "stale-delegated-mandate",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "stale-agent-mandate-implies-current-contracting-authority",
+      "dependencies": [
+        "AGENT-006"
+      ]
+    },
+    {
+      "id": "SOV-AI-059",
+      "scenario": "synthetic-multi-agent-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "multiple-insufficient-signers-imply-combined-valid-authority",
+      "dependencies": [
+        "MYC-CONST-003"
+      ]
+    },
+    {
+      "id": "SOV-AI-060",
+      "scenario": "automatic-renewal-after-mandate-withdrawal",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "contract-timer-implies-renewal-despite-withdrawn-authority",
+      "dependencies": [
+        "LEX-NET"
+      ]
     }
   ]
 }
