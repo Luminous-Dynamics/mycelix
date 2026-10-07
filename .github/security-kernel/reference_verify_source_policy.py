@@ -531,6 +531,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     for key, expected in (
         ("DEPENDENCY_MANIFEST_MAX_BYTES", "2097152"),
         ("DEPENDENCY_LOCK_MAX_BYTES", "33554432"),
+        ("QUALIFICATION_RECEIPT_MAX_BYTES", "16384"),
     ):
         if exact_count(l, f'  {key}: "{expected}"') != 1:
             fail(f"S1 host-staging resource profile mismatch: {key}")
@@ -664,6 +665,12 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor-config cleanup must not mask Docker volume-removal failures")
     if '--volume "$vendor_root:/vendor:rw"' in joined or '--volume "$VENDOR_ROOT:/vendor:rw"' in joined:
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
+    if "QUALIFICATION_RECEIPT_MAX_BYTES" not in joined:
+        fail("S1 qualification receipt sink ceiling missing")
+    if 'test "$receipt_bytes" -le "$QUALIFICATION_RECEIPT_MAX_BYTES"' not in joined:
+        fail("S1 qualification receipt byte ceiling enforcement missing")
+    if 'test "$receipt_lines" -le 128' not in joined:
+        fail("S1 qualification receipt line ceiling enforcement missing")
     if "negative_controls_capture_limit=65536" not in joined:
         fail("S1 negative-control transcript capture must declare a 64 KiB host-storage ceiling")
     if "capture_negative_controls_output() {" not in joined:
@@ -1060,6 +1067,17 @@ def main() -> None:
         "host-backed dependency subject reintroduced",
     )
     expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          test "$receipt_bytes" -le "$QUALIFICATION_RECEIPT_MAX_BYTES"\n',
+                b"          # qualification receipt byte ceiling removed\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "qualification receipt byte ceiling removed",
+    )
+        expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
         "negative-control transcript capture ceiling weakened",
     )
