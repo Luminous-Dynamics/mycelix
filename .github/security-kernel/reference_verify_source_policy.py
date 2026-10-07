@@ -697,7 +697,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
     if "negative_controls_capture_limit=65536" not in joined:
         fail("S1 negative-control transcript capture must declare a 64 KiB host-storage ceiling")
-    if "def capture_negative_controls_output()" not in joined:
+    if "capture_negative_controls_output() {" not in joined:
         fail("S1 negative-control transcript bounded capture function missing")
     if "} 2>&1 | capture_negative_controls_output" not in joined:
         fail("S1 negative-control container output must pass through bounded capture")
