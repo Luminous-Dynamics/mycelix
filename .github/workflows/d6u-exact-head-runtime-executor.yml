@@ -432,6 +432,25 @@ PY
           docker image inspect ubuntu@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60 \
             --format '{{index .RepoDigests 0}}' \
             | grep -Fx 'ubuntu@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60'
+      - name: Verify runtime container isolation controls
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --platform linux/amd64 \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit 32 \
+            --ulimit nofile=256:256 \
+            --ulimit core=0 \
+            --memory 512m \
+            --tmpfs /tmp:rw,nosuid,nodev \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            ubuntu@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60 \
+            sh -c 'test "$(cat /proc/sys/kernel/osrelease)" != ""; test ! -e /var/run/docker.sock; test -w /tmp; ! touch /etc/d6u-host-write-probe'
+
       - name: Test D6U runtime boundary
         env:
           TEST_BINARY_SHA: ${{ steps.runtime_binary.outputs.binary_sha }}
@@ -448,6 +467,8 @@ PY
             --cap-drop=ALL \
             --security-opt=no-new-privileges \
             --pids-limit 512 \
+            --ulimit nofile=4096:4096 \
+            --ulimit core=0 \
             --memory 8g \
             --tmpfs /tmp:rw,nosuid,nodev \
             --tmpfs /run:rw,nosuid,nodev \
