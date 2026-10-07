@@ -79,7 +79,7 @@ fact AuthorizedContractRequiresExactAuthority {
 
 fact ContractFitsBudget {
   all s: Subject |
-    (sum c: Contract | c.subject = s implies c.slotsUsed else 0) <= s.budget.value
+    (sum c: s.contracts | c.slotsUsed) <= s.budget.value
   and
     all c: Contract | c.slotsUsed >= 0
 }
