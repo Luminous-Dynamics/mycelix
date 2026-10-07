@@ -26,11 +26,14 @@
       "tla": [
         "AuthorityHasExplicitSource"
       ],
-      "alloy": [],
+      "alloy": [
+        "NontrivialCapabilityWithoutAuthority"
+      ],
       "reference": [
         "develop -> AuthorityHasExplicitSource"
       ],
-      "coverage": "aligned"
+      "coverage": "partial-alloy-is-witness-not-assertion",
+      "notes": "Alloy demonstrates that a capability-bearing subject can exist with zero constitutional powers; causal non-promotion remains owned by TLA+/reference execution."
     },
     {
       "id": "safe-dispute",
