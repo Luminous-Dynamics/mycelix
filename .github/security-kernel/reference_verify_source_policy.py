@@ -693,7 +693,18 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor-config must not use a host-backed runner-temp file")
     if 'if ! docker volume rm "$vendor_config_volume_name" >/dev/null 2>&1; then :; fi' in joined:
         fail("S1 vendor-config cleanup must not mask Docker volume-removal failures")
+    if '--volume "$vendor_root:/vendor:rw"' in joined or '--volume "$VENDOR_ROOT:/vendor:rw"' in joined:
         fail("S1 vendor acquisition must not use a host-backed writable vendor directory")
+    if "negative_controls_capture_limit=65536" not in joined:
+        fail("S1 negative-control transcript capture must declare a 64 KiB host-storage ceiling")
+    if "def capture_negative_controls_output()" not in joined:
+        fail("S1 negative-control transcript bounded capture function missing")
+    if "} 2>&1 | capture_negative_controls_output" not in joined:
+        fail("S1 negative-control container output must pass through bounded capture")
+    if 'pipeline_status=("${PIPESTATUS[@]}")' not in joined:
+        fail("S1 negative-control Docker/capture pipeline status must be preserved independently")
+    if 'test "${pipeline_status[0]}" -eq 0' not in joined or 'test "${pipeline_status[1]}" -eq 0' not in joined:
+        fail("S1 negative-control Docker and capture failures must both fail closed")
     for required in (
         'vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"',
         'vendor_config_volume_name="security-kernel-vendor-config-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"',
@@ -1054,6 +1065,15 @@ def main() -> None:
             s1_sha,
         ),
         "sandbox tmpfs inode ceiling removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(b"negative_controls_capture_limit=65536", b"negative_controls_capture_limit=1", 1), s1_sha),
+        "negative-control transcript capture ceiling weakened",
+    )
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(b'pipeline_status=("${PIPESTATUS[@]}")\n', b"# negative-control pipeline status capture removed\n", 1), s1_sha),
+        "negative-control pipeline status capture removed",
     )
 
     expect_rejection(
