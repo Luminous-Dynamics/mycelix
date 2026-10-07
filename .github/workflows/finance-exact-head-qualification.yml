@@ -9,6 +9,7 @@ on:
       - 'mycelix-workspace/mycelix-finance/**'
       - 'crates/mycelix-bridge-*/**'
       - 'scripts/security/finance_update_integrity_audit.py'
+      - '.github/workflows/finance-exact-head-qualification.yml'
   workflow_dispatch:
 
 # Qualification evidence is intentionally separate from supersedable merge CI.
@@ -19,7 +20,7 @@ permissions:
 jobs:
   qualify:
     name: Finance Exact-Head Qualification
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false && github.event.pull_request.head_repository.full_name == github.repository)
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
