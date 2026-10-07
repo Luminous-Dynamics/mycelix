@@ -65,6 +65,9 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     workflow_run = event["workflow_run"]
     event_repo = event["repository"]
     assert event_repo["full_name"] == repo
+    assert workflow_run["repository"]["full_name"] == repo
+    assert workflow_run["head_repository"]["full_name"] == repo
+    assert event_repo["id"] == workflow_run["repository"]["id"] == workflow_run["head_repository"]["id"]
     assert workflow_run["event"] == "workflow_run"
     assert workflow_run["name"] == policy["workflow_name"]
     assert workflow_run["path"] == policy["workflow_path"]
@@ -108,6 +111,7 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     assert workflow_artifact_run["id"] == run_id
     assert workflow_artifact_run["repository_id"] == event["repository"]["id"]
     assert workflow_artifact_run["head_repository_id"] == event["repository"]["id"]
+    assert workflow_artifact_run["repository_id"] == workflow_artifact_run["head_repository_id"]
     assert workflow_artifact_run["head_branch"] == workflow_run["head_branch"]
     assert workflow_artifact_run["head_sha"] == workflow_run["head_sha"]
 
@@ -141,6 +145,7 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     assert current_run["run_attempt"] == run_attempt
     assert current_run["repository"]["full_name"] == repo
     assert current_run["head_repository"]["full_name"] == repo
+    assert current_run["repository"]["id"] == current_run["head_repository"]["id"]
     expected_ref = f"refs/heads/{current_run['head_branch']}"
     assert os.environ["GITHUB_REF"] == expected_ref
     assert current_run["head_sha"] == os.environ["GITHUB_SHA"]
@@ -162,6 +167,7 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     assert workflow_artifact_run["id"] == run_id
     assert workflow_artifact_run["repository_id"] == current_run["repository"]["id"]
     assert workflow_artifact_run["head_repository_id"] == current_run["head_repository"]["id"]
+    assert workflow_artifact_run["repository_id"] == workflow_artifact_run["head_repository_id"]
     assert workflow_artifact_run["head_branch"] == current_run["head_branch"]
     assert workflow_artifact_run["head_sha"] == current_run["head_sha"]
     digest = artifact.get("digest", "")
