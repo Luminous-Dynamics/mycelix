@@ -610,8 +610,15 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
     observation["branch_protection_payload_sha256"] = hashlib.sha256(protection_bytes).hexdigest()
 
 
-def self_test() -> None:
-    policy = fixture_policy()
+def self_test(policy: dict[str, Any]) -> None:
+    fixture = fixture_policy()
+    require(
+        policy.get("repository") == fixture["repository"]
+        and policy.get("repository_id") == fixture["repository_id"]
+        and policy.get("target_ref") == fixture["target_ref"]
+        and policy.get("required_controls") == fixture["required_controls"],
+        "committed policy controls drift from evaluator self-test fixture",
+    )
     positive = evaluate(policy, fixture_observation())
     assert positive["governance_state"] == "VERIFIED"
     assert positive["grants_trusted_verifier_root"] is True
@@ -753,7 +760,7 @@ def main() -> int:
     try:
         policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
         if args.self_test:
-            self_test()
+            self_test(policy)
             print(json.dumps({
                 "evaluator_id": EVALUATOR_ID,
                 "self_test": "PASS",
