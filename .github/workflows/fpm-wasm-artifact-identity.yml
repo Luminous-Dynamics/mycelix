@@ -22,9 +22,6 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: crates/fpm-wasm-artifact-identity
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -50,17 +47,17 @@ jobs:
           EXPECTED_MANIFEST_BLOB_SHA: c94b53f61ed8a9bfb6249b1b339550dddd074d6c
         run: |
           set -eu
-          test ! -e .cargo/config.toml
-          test ! -e .cargo/config
-          test ! -e crates/fpm-wasm-artifact-identity/.cargo/config.toml
-          test ! -e crates/fpm-wasm-artifact-identity/.cargo/config
+          config_hit="$(git ls-files | grep -E '(^|/)\.cargo/config(\.toml)?$' || true)"
+          test -z "$config_hit"
           actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
           test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
           grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
           grep -Fx 'holochain_types = "=0.7.0"' crates/fpm-wasm-artifact-identity/Cargo.toml
 
       - name: Cargo fmt
+        working-directory: crates/fpm-wasm-artifact-identity
         run: cargo fmt --check
 
       - name: Cargo test
+        working-directory: crates/fpm-wasm-artifact-identity
         run: cargo test
