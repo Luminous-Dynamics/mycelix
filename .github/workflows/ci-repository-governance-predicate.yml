@@ -2,6 +2,7 @@ name: Repository Governance Predicate
 
 on:
   push:
+    branches: [main]
     paths:
       - "docs/ci/repository_governance_policy_v1.json"
       - "scripts/validate_repository_governance_observation_v1.py"
@@ -78,7 +79,7 @@ jobs:
           scanned = []
           audit_block = False
           for line in text.splitlines():
-              if line.startswith("      - name: Validate immutable action pins"):
+              if line.startswith("      - name: Validate immutable verifier action pins"):
                   audit_block = True
               if audit_block:
                   if line == "          PY":
