@@ -332,8 +332,10 @@ def main() -> int:
             work = negative_dir / control
             work.mkdir()
             wrapper = work / args.negative_tla.name
+            canonical_module = work / args.tla.name
             config = work / "negative.cfg"
             wrapper.write_text(negative_source, encoding="utf-8")
+            canonical_module.write_text(args.tla.read_text(encoding="utf-8"), encoding="utf-8")
             config.write_text(cfg_text, encoding="utf-8")
             cmd = ["java", "-cp", str(args.tla_jar), "tlc2.TLC", "-workers", "1",
                    "-config", str(config), str(wrapper)]
@@ -342,6 +344,7 @@ def main() -> int:
                 **record_command(evidence, f"tla-negative-{control}", cmd, result),
                 "target_invariant": target,
                 "wrapper_sha256": sha256_file(wrapper),
+                "canonical_module_sha256": sha256_file(canonical_module),
                 "config_sha256": sha256_file(config),
             }
             if result.returncode == 0 or f"Error: Invariant {target} is violated." not in result.stdout:
