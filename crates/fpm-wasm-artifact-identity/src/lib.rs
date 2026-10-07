@@ -14,7 +14,7 @@ pub const SHA256_HEX_LEN: usize = 64;
 pub const HOLOHASH_RAW_39_LEN: usize = 39;
 /// HoloHash 0.7 synchronous hashing rejects larger content; keep this explicit so
 /// the verifier fails closed before calling the constructor.
-pub const MAX_ARTIFACT_BYTES: usize = 16_000_000;
+pub const MAX_ARTIFACT_BYTES: usize = holo_hash::MAX_HASHABLE_CONTENT_LEN;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
