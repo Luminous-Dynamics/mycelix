@@ -112,8 +112,9 @@ impl FederationExternalVerifierIdentityUseStatementV1 {
 /// It intentionally omits `Deserialize` and has private fields so callers cannot
 /// manufacture a validated capability by deserializing or struct construction.
 ///
-/// The capability is bound to the exact verification-statement digest, verifier identity,
-/// verifier report, use method/profile, and use-evidence digest that were validated together.
+/// The capability is bound to the exact identity-use statement digest, underlying
+/// verification-statement digest, verifier identity, verifier report, use method/profile,
+/// and use-evidence digest that were validated together.
 ///
 /// ```compile_fail
 /// use serde_json::from_str;
@@ -140,6 +141,7 @@ impl FederationExternalVerifierIdentityUseStatementV1 {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationExternalVerifierIdentityUseVerificationResult {
+    identity_use_statement_sha256: String,
     verification_statement_sha256: String,
     use_method: FederationExternalVerifierIdentityUseMethod,
     use_evidence_profile: String,
@@ -151,6 +153,7 @@ pub struct FederationExternalVerifierIdentityUseVerificationResult {
 }
 
 impl FederationExternalVerifierIdentityUseVerificationResult {
+    pub fn identity_use_statement_sha256(&self) -> &str { &self.identity_use_statement_sha256 }
     pub fn verification_statement_sha256(&self) -> &str { &self.verification_statement_sha256 }
     pub fn use_method(&self) -> FederationExternalVerifierIdentityUseMethod { self.use_method }
     pub fn use_evidence_profile(&self) -> &str { &self.use_evidence_profile }
@@ -1503,6 +1506,7 @@ pub fn validate_federation_external_verifier_identity_use_statement_chain(
     validate_federation_external_verifier_identity_use_statement_against_result(result, statement)?;
 
     Ok(FederationExternalVerifierIdentityUseVerificationResult {
+        identity_use_statement_sha256: statement.statement_sha256.clone(),
         verification_statement_sha256: statement.verification_statement_sha256.clone(),
         use_method: statement.use_method,
         use_evidence_profile: statement.use_evidence_profile.clone(),
@@ -2193,7 +2197,7 @@ impl FederationStateMachineTraceExternalEvidenceVerificationResult {
                 .required_verifier_identity_use_profile()
                 .map(str::to_owned),
             verifier_identity_use_statement_sha256: identity_use
-                .map(|identity_use| identity_use.verification_statement_sha256().to_owned()),
+                .map(|identity_use| identity_use.identity_use_statement_sha256().to_owned()),
             verifier_identity_use_evidence_sha256: identity_use
                 .map(|identity_use| identity_use.use_evidence_sha256().to_owned()),
         })
@@ -4853,6 +4857,10 @@ mod tests {
             )
             .expect("validated identity-use statement must mint a typed capability");
 
+        assert_eq!(
+            capability.identity_use_statement_sha256(),
+            identity_use.statement_sha256()
+        );
         assert_eq!(
             capability.verification_statement_sha256(),
             result_a.statement_sha256()
