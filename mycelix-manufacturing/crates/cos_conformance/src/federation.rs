@@ -4582,12 +4582,12 @@ mod tests {
         let statement = federation_external_verifier_identity_use_statement(
             FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
             "cms-signature-binding-v1",
+            TEST_VERIFICATION_STATEMENT_SHA256,
             FederationExternalVerifierIdentityKind::PublicKey,
             "ed25519-spki-sha256-v1",
             identity_material,
             verifier_report,
-            use_evidence,
-            TEST_VERIFICATION_STATEMENT_SHA256
+            use_evidence
         )
         .expect("identity-use statement must build");
 
@@ -4632,12 +4632,12 @@ mod tests {
         let mut statement = federation_external_verifier_identity_use_statement(
             FederationExternalVerifierIdentityUseMethod::CertificateBoundSignature,
             "cms-signingcertificatev2-binding-v1",
+            TEST_VERIFICATION_STATEMENT_SHA256,
             FederationExternalVerifierIdentityKind::SigningCertificate,
             "rfc5035-certid-v2",
             identity_material,
             verifier_report,
-            use_evidence,
-            TEST_VERIFICATION_STATEMENT_SHA256
+            use_evidence
         )
         .expect("identity-use statement must build");
 
@@ -4738,12 +4738,12 @@ mod tests {
         let identity_use = federation_external_verifier_identity_use_statement(
             FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
             "rfc3161-signed-report-binding-v1",
+            statement.statement_sha256(),
             FederationExternalVerifierIdentityKind::PublicKey,
             "rfc3161-tsa-key-sha256-v1",
             identity_material,
             verifier_report,
-            b"signature-evidence",
-            statement.statement_sha256()
+            b"signature-evidence"
         )
         .expect("identity-use statement must build");
 
@@ -4872,7 +4872,7 @@ mod tests {
         let serialized = serde_json::to_string_pretty(&capability)
             .expect("typed capability must remain serializable for reporting");
         assert!(
-            serialized.contains(""verification_statement_sha256""),
+            serialized.contains("\"verification_statement_sha256\""),
             "typed capability serialization must expose its bound context for reporting"
         );
 
@@ -5029,13 +5029,13 @@ mod tests {
         assert_eq!(
             federation_external_verifier_identity_use_statement(
                 FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
-                "",
-                FederationExternalVerifierIdentityKind::Opaque,
-                "opaque-v1",
-                valid_identity,
-                valid_report,
-                valid_evidence,
-            TEST_VERIFICATION_STATEMENT_SHA256
+            "",
+            TEST_VERIFICATION_STATEMENT_SHA256,
+            FederationExternalVerifierIdentityKind::Opaque,
+            "opaque-v1",
+            valid_identity,
+            valid_report,
+            valid_evidence
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyUseEvidenceProfile
@@ -5044,13 +5044,13 @@ mod tests {
         assert_eq!(
             federation_external_verifier_identity_use_statement(
                 FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
-                "opaque-binding-v1",
-                FederationExternalVerifierIdentityKind::Opaque,
-                "",
-                valid_identity,
-                valid_report,
-                valid_evidence,
-            TEST_VERIFICATION_STATEMENT_SHA256
+            "opaque-binding-v1",
+            TEST_VERIFICATION_STATEMENT_SHA256,
+            FederationExternalVerifierIdentityKind::Opaque,
+            "",
+            valid_identity,
+            valid_report,
+            valid_evidence
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierIdentityProfile
@@ -5059,13 +5059,13 @@ mod tests {
         assert_eq!(
             federation_external_verifier_identity_use_statement(
                 FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
-                "opaque-binding-v1",
-                FederationExternalVerifierIdentityKind::Opaque,
-                "opaque-v1",
-                b"",
-                valid_report,
-                valid_evidence,
-            TEST_VERIFICATION_STATEMENT_SHA256
+            "opaque-binding-v1",
+            TEST_VERIFICATION_STATEMENT_SHA256,
+            FederationExternalVerifierIdentityKind::Opaque,
+            "opaque-v1",
+            b"",
+            valid_report,
+            valid_evidence
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierIdentityMaterial
@@ -5074,13 +5074,13 @@ mod tests {
         assert_eq!(
             federation_external_verifier_identity_use_statement(
                 FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
-                "opaque-binding-v1",
-                FederationExternalVerifierIdentityKind::Opaque,
-                "opaque-v1",
-                valid_identity,
-                b"",
-                valid_evidence,
-            TEST_VERIFICATION_STATEMENT_SHA256
+            "opaque-binding-v1",
+            TEST_VERIFICATION_STATEMENT_SHA256,
+            FederationExternalVerifierIdentityKind::Opaque,
+            "opaque-v1",
+            valid_identity,
+            b"",
+            valid_evidence
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyVerifierReport
@@ -5089,13 +5089,13 @@ mod tests {
         assert_eq!(
             federation_external_verifier_identity_use_statement(
                 FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
-                "opaque-binding-v1",
-                FederationExternalVerifierIdentityKind::Opaque,
-                "opaque-v1",
-                valid_identity,
-                valid_report,
-                b"",
-            TEST_VERIFICATION_STATEMENT_SHA256
+            "opaque-binding-v1",
+            TEST_VERIFICATION_STATEMENT_SHA256,
+            FederationExternalVerifierIdentityKind::Opaque,
+            "opaque-v1",
+            valid_identity,
+            valid_report,
+            b""
             ),
             Err(
                 FederationExternalVerifierIdentityUseStatementBuildViolation::EmptyUseEvidence
@@ -5105,12 +5105,12 @@ mod tests {
         let statement = federation_external_verifier_identity_use_statement(
             FederationExternalVerifierIdentityUseMethod::ExternalAttestation,
             "opaque-binding-v1",
+            TEST_VERIFICATION_STATEMENT_SHA256,
             FederationExternalVerifierIdentityKind::Opaque,
             "opaque-v1",
             valid_identity,
             valid_report,
-            valid_evidence,
-            TEST_VERIFICATION_STATEMENT_SHA256
+            valid_evidence
         )
         .expect("identity-use statement must build");
         let mut value =
@@ -5430,12 +5430,12 @@ mod tests {
         let identity_use = federation_external_verifier_identity_use_statement(
             FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
             "rfc3161-signed-report-binding-v1",
+            result.statement_sha256(),
             FederationExternalVerifierIdentityKind::Opaque,
             "opaque-v1",
             b"identity",
             b"report",
-            b"evidence",
-            result.statement_sha256()
+            b"evidence"
         )
         .expect("identity-use statement must build");
 
@@ -5527,12 +5527,12 @@ mod tests {
         let identity_use = federation_external_verifier_identity_use_statement(
             FederationExternalVerifierIdentityUseMethod::SignatureOnVerifierReport,
             "rfc3161-signed-report-binding-v1",
+            statement.statement_sha256(),
             FederationExternalVerifierIdentityKind::PublicKey,
             "rfc3161-tsa-key-sha256-v1",
             identity_material,
             verifier_report,
-            b"signature-binding-evidence",
-            statement.statement_sha256()
+            b"signature-binding-evidence"
         )
         .expect("identity-use statement must build");
 
