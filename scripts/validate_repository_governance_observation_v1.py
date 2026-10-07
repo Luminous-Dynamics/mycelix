@@ -122,8 +122,14 @@ def validate_observation_shape(observation: Any) -> None:
     full_ids = [entry.get("id") for entry in rulesets_raw if isinstance(entry, dict)]
     require(len(index_ids) == len(rulesets_index_raw), "rulesets index entry is not an object")
     require(len(full_ids) == len(rulesets_raw), "full ruleset entry is not an object")
-    require(all(isinstance(value, int) for value in index_ids), "rulesets index id missing")
-    require(all(isinstance(value, int) for value in full_ids), "full ruleset id missing")
+    require(
+        all(isinstance(value, int) and not isinstance(value, bool) for value in index_ids),
+        "rulesets index id missing",
+    )
+    require(
+        all(isinstance(value, int) and not isinstance(value, bool) for value in full_ids),
+        "full ruleset id missing",
+    )
     require(len(index_ids) == len(set(index_ids)), "duplicate ruleset ids in index")
     require(len(full_ids) == len(set(full_ids)), "duplicate ruleset ids in full rulesets")
     require(set(index_ids) == set(full_ids), "ruleset index/full object id sets differ")
@@ -1121,8 +1127,39 @@ def self_test(policy: dict[str, Any]) -> None:
         "actor_type": "User",
         "actor_id": 7,
     }]
-    _refresh_bound_fixture_payloads(x)
     x["rulesets"]["entries"][0]["bypass_actors"][0].pop("bypass_mode", None)
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["rules"] = [
+        {"type": "pull_request"},
+        {},
+    ]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["effective_rules"]["entries"] = [
+        {"type": "pull_request", "parameters": {
+            "dismiss_stale_reviews_on_push": True,
+            "require_last_push_approval": True,
+            "required_approving_review_count": 1,
+            "required_review_thread_resolution": True,
+        }},
+        {},
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
     result = evaluate(policy, x)
     assert result["governance_state"] == "UNVERIFIED"
     assert result["grants_trusted_verifier_root"] is False
