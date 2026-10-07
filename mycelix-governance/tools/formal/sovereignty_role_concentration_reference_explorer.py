@@ -25,8 +25,12 @@ def freeze(d): return tuple(sorted((k, frozenset(v)) for k, v in d.items()))
 def pairs(d): return tuple(sorted(d.items()))
 def thaw(d): return {k: set(v) for k, v in d}
 
-def independent_review(reviewers, s):
-    return any(reviewer != s for reviewer in reviewers[s])
+def independent_review(holders, reviewers, s):
+    return any(
+        reviewer != s and
+        all(reviewer not in holders[role] for role in ROLES)
+        for reviewer in reviewers[s]
+    )
 
 def step(st, kind, *args):
     if st.clock >= MAX_DEPTH:
@@ -37,7 +41,7 @@ def step(st, kind, *args):
     n = st.clock + 1
     s = args[0]
 
-    if kind in ("assign", "assign-bad", "assign-fourth-bad"):
+    if kind in ("assign", "assign-bad"):
         role = args[1]
         if s not in SUBJECTS or role not in ROLES or s in H[role]:
             return None
@@ -45,10 +49,7 @@ def step(st, kind, *args):
         if kind == "assign":
             if count >= 1 and not F[s]:
                 return None
-            if count >= 3 and not independent_review(R, s):
-                return None
-        if kind == "assign-fourth-bad":
-            if count != 3 or not F[s] or independent_review(R, s):
+            if count >= 3 and not independent_review(H, R, s):
                 return None
         H[role].add(s)
 
@@ -61,16 +62,16 @@ def step(st, kind, *args):
         reviewer = args[1]
         if reviewer not in SUBJECTS or reviewer == s:
             return None
+        if any(reviewer in H[role] for role in ROLES):
+            return None
         R[s].add(reviewer)
 
-    elif kind in ("full-control-bad", "self-review-full-control-bad"):
+    elif kind == "full-control-bad":
         if sum(s in H[r] for r in ROLES) != 0:
             return None
         for role in ROLES:
             H[role].add(s)
         F[s] = True
-        if kind == "self-review-full-control-bad":
-            R[s].add(s)
 
     elif kind == "self-review-full-control-bad":
         if sum(s in H[r] for r in ROLES) != 0:
@@ -79,6 +80,17 @@ def step(st, kind, *args):
             H[role].add(s)
         F[s] = True
         R[s].add(s)
+
+    elif kind == "same-role-review-full-control-bad":
+        if sum(s in H[r] for r in ROLES) != 0:
+            return None
+        reviewer = "s2" if s == "s1" else "s1"
+        role = "adjudicator"
+        for r in ROLES:
+            H[r].add(s)
+        H[role].add(reviewer)
+        F[s] = True
+        R[s].add(reviewer)
 
     else:
         raise ValueError(kind)
@@ -94,7 +106,7 @@ def violations(st):
         count = sum(s in H[r] for r in ROLES)
         if count >= 2 and not F[s]:
             out.append("RoleConcentrationRequiresFinding")
-        if count == 4 and not independent_review(R, s):
+        if count == 4 and not independent_review(H, R, s):
             out.append("FullControlRequiresIndependentExternalReview")
     return out
 
@@ -121,40 +133,26 @@ def explore(transitions):
                 q.append((ns, path + [tr]))
     return None, []
 
-def role_conflict_negative():
-    transitions = NORMAL + [
-        ("assign-bad", s, r) for s in SUBJECTS for r in ROLES
-    ]
-    return explore(transitions)
-
-def full_review_negative():
-    transitions = NORMAL + [
-        ("full-control-bad", s) for s in SUBJECTS
-    ]
-    return explore(transitions)
-
-def self_review_negative():
-    transitions = NORMAL + [
-        ("self-review-full-control-bad", s) for s in SUBJECTS
-    ]
-    return explore(transitions)
-
 def main():
     path, bad = explore(NORMAL)
     assert path is None, (path, bad)
     print("CANONICAL PASS: no bounded role-concentration invariant violation through depth 4")
 
-    path, bad = role_conflict_negative()
+    path, bad = explore(NORMAL + [("assign-bad", s, r) for s in SUBJECTS for r in ROLES])
     assert path is not None and "RoleConcentrationRequiresFinding" in bad, (path, bad)
     print(f"NEGATIVE PASS: role-conflict -> RoleConcentrationRequiresFinding counterexample at depth {len(path)}")
 
-    path, bad = full_review_negative()
+    path, bad = explore(NORMAL + [("full-control-bad", s) for s in SUBJECTS])
     assert path is not None and "FullControlRequiresIndependentExternalReview" in bad, (path, bad)
     print(f"NEGATIVE PASS: full-control-review -> FullControlRequiresIndependentExternalReview counterexample at depth {len(path)}")
 
-    path, bad = self_review_negative()
+    path, bad = explore(NORMAL + [("self-review-full-control-bad", s) for s in SUBJECTS])
     assert path is not None and "FullControlRequiresIndependentExternalReview" in bad, (path, bad)
     print(f"NEGATIVE PASS: self-review-full-control -> FullControlRequiresIndependentExternalReview counterexample at depth {len(path)}")
+
+    path, bad = explore(NORMAL + [("same-role-review-full-control-bad", s) for s in SUBJECTS])
+    assert path is not None and "FullControlRequiresIndependentExternalReview" in bad, (path, bad)
+    print(f"NEGATIVE PASS: same-role-review -> FullControlRequiresIndependentExternalReview counterexample at depth {len(path)}")
 
     print("BOUNDED ROLE-CONCENTRATION REFERENCE EXPLORATION PASS: smoke evidence only")
 
