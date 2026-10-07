@@ -78,7 +78,7 @@ def run_cli(root: Path, env_extra: dict[str, str]) -> subprocess.CompletedProces
         "--alloy-jar", "fake-alloy.jar",
         "--evidence-dir", str(root.parent / (root.name + "-evidence")),
         "--workflow", ".github/workflows/sovereignty-formal-qualification.yml",
-        "--reference-explorer", "mycelix-governance/tools/formal/sovereignty_reference_explorer.py",
+        "--reference-explorer", "docs/qualification/fixtures/formal/sovereignty_reference_explorer.py",
     ]
     return subprocess.run(cmd, cwd=root, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
