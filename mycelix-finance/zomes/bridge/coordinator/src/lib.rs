@@ -42,7 +42,6 @@ const FINANCE_HAPP_ID: &str = "mycelix-finance";
 /// proceed without governance verification. The permissive default allowed
 /// currency creation and proposal verification to bypass governance during
 /// network partitions, which is unacceptable for production deployments.
-const STRICT_GOVERNANCE_MODE: bool = true;
 
 /// 24 hours in microseconds
 const DAY_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
@@ -1055,17 +1054,23 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
 }
 
 
+fn classify_governance_proposal_status(status: &str) -> ExternResult<bool> {
+    match status {
+        "Approved" | "Executed" => Ok(true),
+        "Pending" | "Rejected" => Ok(false),
+        other => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Unsupported governance proposal status {:?}",
+            other
+        )))),
+    }
+}
+
 /// Verify that a governance proposal exists and is in Approved/Executed state.
 ///
-/// Used by currency-mint to validate that governance_proposal_id references a real
-/// proposal before creating/amending currencies. Returns true if the proposal is
-/// valid, false if not found or not approved.
-///
-/// **Fallback behavior** depends on `STRICT_GOVERNANCE_MODE`:
-/// - `false` (default): Returns `true` when governance is unreachable (permissive).
-/// - `true`: Returns `false` when governance is unreachable (fail-closed),
-///   blocking any operation that requires a governance proposal until the
-///   governance cluster is available.
+/// This is an authorization-bearing cross-hApp query. Missing, malformed, or
+/// unexpected Governance authority is therefore an error, never an affirmative
+/// authorization result. Only an authoritative Approved/Executed response
+/// returns `true`.
 #[hdk_extern]
 pub fn verify_governance_proposal(proposal_id: String) -> ExternResult<bool> {
     match call(
@@ -1076,31 +1081,28 @@ pub fn verify_governance_proposal(proposal_id: String) -> ExternResult<bool> {
         proposal_id.clone(),
     ) {
         Ok(ZomeCallResponse::Ok(result)) => {
-            // Expect a string status like "Approved", "Executed", "Pending", "Rejected"
-            let status = result.decode::<String>().unwrap_or_default();
-            Ok(status == "Approved" || status == "Executed")
-        }
-        Ok(_other) => {
-            // Governance returned non-Ok — proposal likely doesn't exist
-            Ok(false)
-        }
-        Err(e) => {
-            // Circuit breaker: When governance cluster is unreachable, behavior depends
-            // on STRICT_GOVERNANCE_MODE. In strict mode we fail-closed (return error),
-            // blocking operations that need governance approval. In permissive mode
-            // we return true, relying on local verify_governance_agent as a fallback.
-            if STRICT_GOVERNANCE_MODE {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Circuit breaker: governance cluster unreachable for proposal {}, operation suspended: {:?}",
+            let status = result.decode::<String>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance proposal status response was malformed for {}: {:?}",
                     proposal_id, e
-                ))));
-            }
-            debug!(
-                "verify_governance_proposal: governance unreachable for {}, defaulting to true (permissive): {:?}",
-                proposal_id, e
-            );
-            Ok(true)
+                )))
+            })?;
+
+            classify_governance_proposal_status(&status).map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance proposal {} returned invalid status: {:?}",
+                    proposal_id, e
+                )))
+            })
         }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance proposal {} returned unexpected response: {:?}",
+            proposal_id, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance authority unavailable for proposal {}: {:?}",
+            proposal_id, e
+        )))),
     }
 }
 
