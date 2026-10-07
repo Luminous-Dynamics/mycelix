@@ -113,6 +113,8 @@ def validate_observation_shape(observation: Any) -> None:
         "normalized default_branch observation does not match raw repository payload",
     )
     require(isinstance(branch_raw, dict), "branch raw payload must be an object")
+    require(branch_raw.get("name") == "main", "branch raw name drift")
+    require(isinstance(branch_raw.get("protected"), bool), "branch raw protected must be boolean")
     require(isinstance(rulesets_index_raw, list), "rulesets index raw payload must be a list")
     require(isinstance(rulesets_raw, list), "rulesets raw payload must be a list")
     require(isinstance(effective_rules_raw, list), "effective rules raw payload must be a list")
@@ -213,9 +215,11 @@ def _validate_ruleset_bypass_actors(entry: dict[str, Any], prefix: str) -> str |
         actor_type = actor.get("actor_type")
         if actor_type not in allowed_types:
             return f"{prefix}_bypass_actor_type_invalid"
-        mode = actor.get("bypass_mode", "always")
+        mode = actor.get("bypass_mode")
         if mode not in allowed_modes:
-            return f"{prefix}_bypass_mode_invalid"
+            return f"{prefix}_bypass_mode_invalid_or_missing"
+        if actor_type == "DeployKey" and mode == "pull_request":
+            return f"{prefix}_deploy_key_pull_request_bypass_mode_invalid"
         actor_id = actor.get("actor_id")
         if actor_type in {"Integration", "RepositoryRole", "Team", "User"}:
             if not isinstance(actor_id, int) or isinstance(actor_id, bool):
@@ -223,7 +227,9 @@ def _validate_ruleset_bypass_actors(entry: dict[str, Any], prefix: str) -> str |
         elif actor_type == "DeployKey":
             if actor_id is not None:
                 return f"{prefix}_deploy_key_actor_id_invalid"
-        elif actor_id is not None and not isinstance(actor_id, int):
+        elif actor_id is not None and (
+            not isinstance(actor_id, int) or isinstance(actor_id, bool)
+        ):
             return f"{prefix}_administrative_actor_id_invalid"
     return None
 
@@ -246,12 +252,13 @@ def _evaluate_rulesets(
         excludes = ref_name.get("exclude")
         if not isinstance(includes, list) or not isinstance(excludes, list):
             return "UNVERIFIED", [f"ruleset[{index}]_target_patterns_not_enumerated"]
-        if "~DEFAULT_BRANCH" in includes or "~DEFAULT_BRANCH" in excludes:
-            return "UNVERIFIED", [f"ruleset[{index}]_default_branch_target_unbound"]
+        # ~DEFAULT_BRANCH is resolved only against the observed repository
+        # default branch; evaluation itself refuses any default branch other
+        # than the policy target, so this remains fail-closed.
 
     targeted: list[dict[str, Any]] = []
     for entry in ruleset_entries:
-        if _ruleset_targets_main(entry):
+        if _ruleset_targets_main(entry, default_branch):
             targeted.append(entry)
 
     if not targeted:
@@ -277,8 +284,11 @@ def _evaluate_rulesets(
 
         for rule in rules:
             if not isinstance(rule, dict):
-                continue
-            all_rule_types.add(rule.get("type"))
+                return "UNVERIFIED", [f"{prefix}_rule_not_enumerated"]
+            rule_type = rule.get("type")
+            if not isinstance(rule_type, str) or not rule_type:
+                return "UNVERIFIED", [f"{prefix}_rule_type_missing"]
+            all_rule_types.add(rule_type)
             if rule.get("type") != "pull_request":
                 continue
             parameters = rule.get("parameters")
@@ -335,6 +345,8 @@ def _evaluate_effective_rules(
         if not isinstance(rule, dict):
             return "UNVERIFIED", [f"effective_rule[{index}]_not_enumerated"]
         rule_type = rule.get("type")
+        if not isinstance(rule_type, str) or not rule_type:
+            return "UNVERIFIED", [f"effective_rule[{index}]_type_missing"]
         observed_types.add(rule_type)
         if rule_type != "pull_request":
             continue
@@ -913,9 +925,19 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["~DEFAULT_BRANCH"]
+    _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["~ALL"]
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["exclude"] = ["~DEFAULT_BRANCH"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404))
     second = copy.deepcopy(x["rulesets"]["entries"][0])
@@ -1093,6 +1115,17 @@ def self_test(policy: dict[str, Any]) -> None:
     x["admin_observation"]["source"] = "github_token"
     result = evaluate(policy, x)
     assert result["governance_state"] == "UNVERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["bypass_actors"] = [{
+        "actor_type": "User",
+        "actor_id": 7,
+    }]
+    _refresh_bound_fixture_payloads(x)
+    x["rulesets"]["entries"][0]["bypass_actors"][0].pop("bypass_mode", None)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy))
     x["admin_observation"]["protection"]["block_force_push"] = False
