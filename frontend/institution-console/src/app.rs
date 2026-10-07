@@ -1,94 +1,11 @@
+use crate::domain::{InstitutionProfile, SecurityState, WorkspaceContext};
+use crate::ui::{AuthorityNotice, SecurityBadge, SecurityLegend};
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
     StaticSegment,
 };
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum InstitutionProfile {
-    Bank,
-    CreditUnion,
-    PaymentInstitution,
-    CorporateTreasury,
-    Custodian,
-    CommonsFinance,
-}
-
-impl InstitutionProfile {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Bank => "Bank",
-            Self::CreditUnion => "Credit union / cooperative",
-            Self::PaymentInstitution => "Payment institution / fintech",
-            Self::CorporateTreasury => "Corporate treasury",
-            Self::Custodian => "Custodian / market infrastructure",
-            Self::CommonsFinance => "Commons / cooperative finance",
-        }
-    }
-
-    fn modules(self) -> &'static [&'static str] {
-        match self {
-            Self::Bank => &[
-                "Overview", "Journal", "Reconciliation", "Treasury",
-                "Payments", "Credit", "Risk", "Compliance", "Settlement", "Evidence",
-            ],
-            Self::CreditUnion => &[
-                "Overview", "Members", "Journal", "Reconciliation", "Treasury",
-                "Payments", "Credit", "Community", "Settlement", "Evidence",
-            ],
-            Self::PaymentInstitution => &[
-                "Overview", "Payments", "Reconciliation", "Fraud",
-                "Liquidity", "Settlement", "Cases", "Evidence",
-            ],
-            Self::CorporateTreasury => &[
-                "Overview", "Cash", "Liquidity", "Funding", "FX",
-                "Counterparties", "Settlement", "Reconciliation", "Evidence",
-            ],
-            Self::Custodian => &[
-                "Overview", "Positions", "Collateral", "Settlement",
-                "Corporate actions", "Reconciliation", "Risk", "Evidence",
-            ],
-            Self::CommonsFinance => &[
-                "Overview", "Pools", "Allocations", "Journal",
-                "Reconciliation", "Treasury", "Settlement", "Evidence",
-            ],
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum EvidenceState {
-    Observed,
-    Verified,
-    Qualified,
-    Authorized,
-    Pending,
-    Included,
-    Finalized,
-    Reconciled,
-    Disputed,
-    Superseded,
-    Indeterminate,
-}
-
-impl EvidenceState {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Observed => "Observed",
-            Self::Verified => "Verified",
-            Self::Qualified => "Qualified",
-            Self::Authorized => "Authorized",
-            Self::Pending => "Pending",
-            Self::Included => "Included",
-            Self::Finalized => "Finalized",
-            Self::Reconciled => "Reconciled",
-            Self::Disputed => "Disputed",
-            Self::Superseded => "Superseded",
-            Self::Indeterminate => "Indeterminate",
-        }
-    }
-}
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -133,6 +50,7 @@ pub fn App() -> impl IntoView {
 #[component]
 fn InstitutionHomePage() -> impl IntoView {
     let profile = RwSignal::new(InstitutionProfile::Bank);
+    let context = move || WorkspaceContext::demo(profile.get());
 
     view! {
         <div class="console">
@@ -145,7 +63,8 @@ fn InstitutionHomePage() -> impl IntoView {
                     </div>
                 </div>
 
-                <label class="field-label" for="institution-profile">"Workspace profile"</label>
+                <div class="demo-label">"DEVELOPMENT / DEMONSTRATION"</div>
+                <label class="field-label" for="institution-profile">"Profile simulation"</label>
                 <select
                     id="institution-profile"
                     class="profile-select"
@@ -161,15 +80,19 @@ fn InstitutionHomePage() -> impl IntoView {
                         });
                     }
                 >
-                    <option value="bank">"Bank"</option>
-                    <option value="credit-union">"Credit union / cooperative"</option>
-                    <option value="payment">"Payment institution / fintech"</option>
-                    <option value="treasury">"Corporate treasury"</option>
-                    <option value="custodian">"Custodian / market infrastructure"</option>
-                    <option value="commons">"Commons / cooperative finance"</option>
+                    <For
+                        each=|| InstitutionProfile::ALL
+                        key=|profile| profile.css_key()
+                        children=|profile| view! {
+                            <option value=profile.css_key()>{profile.label()}</option>
+                        }
+                    />
                 </select>
+                <p class="side-note">
+                    "Production profile selection must come from the authorized workspace context, not this client control."
+                </p>
 
-                <nav class="nav">
+                <nav class="nav" aria-label="Institution modules">
                     <div class="nav-heading">"Workspace"</div>
                     <For
                         each=move || profile.get().modules().iter().enumerate().map(|(index, name)| (index, *name)).collect::<Vec<_>>()
@@ -182,7 +105,7 @@ fn InstitutionHomePage() -> impl IntoView {
 
                 <div class="sidebar-footer">
                     <span class="security-dot"></span>
-                    <span>"Policy controls active"</span>
+                    <span>"Security semantics centralized"</span>
                 </div>
             </aside>
 
@@ -194,24 +117,26 @@ fn InstitutionHomePage() -> impl IntoView {
                     </div>
                     <div class="identity">
                         <span class="identity-label">"Workspace"</span>
-                        <strong>"Example Financial Entity"</strong>
-                        <span class="identity-meta">"Legal entity scope · configured"</span>
+                        <strong>"Demonstration Entity"</strong>
+                        <span class="identity-meta">"No live legal-entity binding"</span>
                     </div>
                 </header>
 
+                <AuthorityNotice context=context() />
+
                 <div class="security-banner">
                     <div>
-                        <strong>"Security state"</strong>
-                        <span>"Browser state is advisory; every privileged action is re-authorized at the control boundary."</span>
+                        <strong>"Control boundary"</strong>
+                        <span>"Browser state is advisory. Material actions must be authorized independently with principal, tenant, legal entity, capability and policy context."</span>
                     </div>
-                    <EvidenceBadge state=EvidenceState::Qualified/>
+                    <SecurityBadge state=SecurityState::Qualified/>
                 </div>
 
-                <section class="metrics">
-                    <MetricCard title="Available liquidity" value="$18.4M" detail="Projected through current evidence frontier" />
-                    <MetricCard title="Open reconciliation breaks" value="27" detail="5 high-priority · 22 ordinary" />
-                    <MetricCard title="Settlement in flight" value="$4.2M" detail="3 rails · 8 obligations" />
-                    <MetricCard title="Control exceptions" value="4" detail="2 awaiting human decision" />
+                <section class="metrics" aria-label="Synthetic demonstration metrics">
+                    <MetricCard title="Available liquidity" value="$18.4M" detail="Synthetic · evidence frontier placeholder" />
+                    <MetricCard title="Open reconciliation breaks" value="27" detail="Synthetic · 5 high-priority" />
+                    <MetricCard title="Settlement in flight" value="$4.2M" detail="Synthetic · 3 rails" />
+                    <MetricCard title="Control exceptions" value="4" detail="Synthetic · 2 awaiting decision" />
                 </section>
 
                 <section class="grid">
@@ -221,12 +146,12 @@ fn InstitutionHomePage() -> impl IntoView {
                                 <span class="eyebrow">"RECONCILIATION"</span>
                                 <h2>"Continuous control"</h2>
                             </div>
-                            <EvidenceBadge state=EvidenceState::Reconciled/>
+                            <SecurityBadge state=SecurityState::Reconciled/>
                         </div>
                         <div class="break-row">
                             <div>
                                 <strong>"Processor ↔ Core"</strong>
-                                <span>"Amount mismatch · 12 minutes ago"</span>
+                                <span>"Amount mismatch · synthetic example"</span>
                             </div>
                             <span class="amount">"$18,420"</span>
                             <button class="action" type="button">"Review"</button>
@@ -234,7 +159,7 @@ fn InstitutionHomePage() -> impl IntoView {
                         <div class="break-row">
                             <div>
                                 <strong>"Custodian ↔ GL"</strong>
-                                <span>"Timing difference · 32 minutes ago"</span>
+                                <span>"Timing difference · synthetic example"</span>
                             </div>
                             <span class="amount">"$7,210"</span>
                             <button class="action" type="button">"Inspect"</button>
@@ -242,7 +167,7 @@ fn InstitutionHomePage() -> impl IntoView {
                         <div class="break-row">
                             <div>
                                 <strong>"Rail ↔ Settlement journal"</strong>
-                                <span>"Indeterminate external outcome"</span>
+                                <span>"Indeterminate external outcome · synthetic example"</span>
                             </div>
                             <span class="amount">"$92,000"</span>
                             <button class="action warning" type="button">"Resolve"</button>
@@ -262,7 +187,7 @@ fn InstitutionHomePage() -> impl IntoView {
                         <div class="liquidity-row total"><span>"Projected closing"</span><strong>"$23.4M"</strong></div>
                         <div class="chart-placeholder">
                             <div class="chart-line"></div>
-                            <span>"Evidence-backed forecast"</span>
+                            <span>"Synthetic evidence-backed forecast"</span>
                         </div>
                     </article>
 
@@ -273,10 +198,10 @@ fn InstitutionHomePage() -> impl IntoView {
                                 <h2>"Active obligations"</h2>
                             </div>
                         </div>
-                        <SettlementRow name="ACH / Local" amount="$1.2M" state=EvidenceState::Finalized />
-                        <SettlementRow name="Ethereum / Anchor" amount="$890K" state=EvidenceState::Included />
-                        <SettlementRow name="Polygon / Payments" amount="$640K" state=EvidenceState::Pending />
-                        <SettlementRow name="Bank / Correspondent" amount="$1.5M" state=EvidenceState::Authorized />
+                        <SettlementRow name="Local rail" amount="$1.2M" state=SecurityState::Finalized />
+                        <SettlementRow name="Ethereum anchor" amount="$890K" state=SecurityState::Included />
+                        <SettlementRow name="Polygon rail" amount="$640K" state=SecurityState::Pending />
+                        <SettlementRow name="Correspondent bank" amount="$1.5M" state=SecurityState::Authorized />
                     </article>
 
                     <article class="panel large">
@@ -298,9 +223,13 @@ fn InstitutionHomePage() -> impl IntoView {
                             <span class="arrow">"→"</span>
                             <span class="lineage-node">"Settlement receipt"</span>
                         </div>
-                        <p class="muted">"Every material metric is intended to retain its source frontier, policy version, model/version identity, and reconciliation state."</p>
+                        <p class="muted">
+                            "A production implementation should retain source frontier, policy version, model/version identity, authority context and reconciliation state for every material metric."
+                        </p>
                     </article>
                 </section>
+
+                <SecurityLegend/>
             </section>
         </div>
     }
@@ -318,32 +247,14 @@ fn MetricCard(title: &'static str, value: &'static str, detail: &'static str) ->
 }
 
 #[component]
-fn EvidenceBadge(state: EvidenceState) -> impl IntoView {
-    let class = match state {
-        EvidenceState::Observed => "badge observed",
-        EvidenceState::Verified => "badge verified",
-        EvidenceState::Qualified => "badge qualified",
-        EvidenceState::Authorized => "badge authorized",
-        EvidenceState::Pending => "badge pending",
-        EvidenceState::Included => "badge included",
-        EvidenceState::Finalized => "badge finalized",
-        EvidenceState::Reconciled => "badge reconciled",
-        EvidenceState::Disputed => "badge disputed",
-        EvidenceState::Superseded => "badge superseded",
-        EvidenceState::Indeterminate => "badge indeterminate",
-    };
-    view! { <span class=class>{state.label()}</span> }
-}
-
-#[component]
-fn SettlementRow(name: &'static str, amount: &'static str, state: EvidenceState) -> impl IntoView {
+fn SettlementRow(name: &'static str, amount: &'static str, state: SecurityState) -> impl IntoView {
     view! {
         <div class="settlement-row">
             <div>
                 <strong>{name}</strong>
                 <span>{amount}</span>
             </div>
-            <EvidenceBadge state/>
+            <SecurityBadge state/>
         </div>
     }
 }
