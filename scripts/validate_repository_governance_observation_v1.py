@@ -462,7 +462,11 @@ def fixture_policy() -> dict[str, Any]:
     }
 
 
-def fixture_observation(protection_status: int = 200, admin_status: str = "verified") -> dict[str, Any]:
+def fixture_observation(
+    policy: dict[str, Any],
+    protection_status: int = 200,
+    admin_status: str = "verified",
+) -> dict[str, Any]:
     ruleset_entry = {
         "id": 1,
         "target": "branch",
@@ -508,7 +512,7 @@ def fixture_observation(protection_status: int = 200, admin_status: str = "verif
         "target_ref": TARGET_REF,
         "observed_at_utc": "2026-10-07T00:00:00Z",
         "policy_sha256": hashlib.sha256(
-            json.dumps(fixture_policy(), sort_keys=True, separators=(",", ":")).encode()
+            json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest(),
         "branch_payload_base64": base64.b64encode(branch_raw).decode(),
         "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
@@ -619,11 +623,11 @@ def self_test(policy: dict[str, Any]) -> None:
         and policy.get("required_controls") == fixture["required_controls"],
         "committed policy controls drift from evaluator self-test fixture",
     )
-    positive = evaluate(policy, fixture_observation())
+    positive = evaluate(policy, fixture_observation(policy))
     assert positive["governance_state"] == "VERIFIED"
     assert positive["grants_trusted_verifier_root"] is True
 
-    x = copy.deepcopy(fixture_observation())
+    x = copy.deepcopy(fixture_observation(policy))
     x["branch"]["protected"] = False
     x["rulesets"]["entries"] = []
     _refresh_bound_fixture_payloads(x)
@@ -631,17 +635,17 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["governance_state"] == "MISMATCH"
     assert result["grants_trusted_verifier_root"] is False
 
-    x = copy.deepcopy(fixture_observation(protection_status=403))
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403))
     result = evaluate(policy, x)
     assert result["governance_state"] == "UNVERIFIED"
     assert result["grants_trusted_verifier_root"] is False
 
-    x = copy.deepcopy(fixture_observation(protection_status=404))
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
 
-    x = copy.deepcopy(fixture_observation(protection_status=404))
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
     second = copy.deepcopy(x["rulesets"]["entries"][0])
     x["rulesets"]["entries"][0]["rules"] = [
         {
@@ -670,7 +674,7 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
 
-    x = copy.deepcopy(fixture_observation())
+    x = copy.deepcopy(fixture_observation(policy))
     x["policy_sha256"] = "f" * 64
     try:
         evaluate(policy, x)
@@ -679,7 +683,7 @@ def self_test(policy: dict[str, Any]) -> None:
     else:
         raise AssertionError("policy digest substitution must be rejected")
 
-    x = copy.deepcopy(fixture_observation())
+    x = copy.deepcopy(fixture_observation(policy))
     x["branch_payload_base64"] = base64.b64encode(
         b'{"name":"attacker","protected":true}'
     ).decode()
@@ -690,7 +694,7 @@ def self_test(policy: dict[str, Any]) -> None:
     else:
         raise AssertionError("raw branch payload substitution must be rejected")
 
-    x = copy.deepcopy(fixture_observation())
+    x = copy.deepcopy(fixture_observation(policy))
     raw_branch = json.dumps(
         {"name": "attacker", "protected": True},
         separators=(",", ":"),
@@ -705,7 +709,7 @@ def self_test(policy: dict[str, Any]) -> None:
     else:
         raise AssertionError("rehashed raw branch substitution must be rejected at normalization binding")
 
-    x = copy.deepcopy(fixture_observation())
+    x = copy.deepcopy(fixture_observation(policy))
     x["admin_observation"]["source"] = "github_token"
     try:
         evaluate(policy, x)
@@ -714,7 +718,7 @@ def self_test(policy: dict[str, Any]) -> None:
     else:
         raise AssertionError("a non-administration observation source must not qualify for VERIFIED")
 
-    x = copy.deepcopy(fixture_observation())
+    x = copy.deepcopy(fixture_observation(policy))
     x["branch"]["protected"] = False
     x["rulesets"]["entries"][0]["rules"] = [
         {"type": "non_fast_forward"},
@@ -726,7 +730,7 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
 
-    x = copy.deepcopy(fixture_observation())
+    x = copy.deepcopy(fixture_observation(policy))
     x["rulesets"]["entries"][0]["rules"] = [
         {"type": "non_fast_forward"},
         {"type": "deletion"},
@@ -737,13 +741,13 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "UNVERIFIED"
 
-    x = copy.deepcopy(fixture_observation())
+    x = copy.deepcopy(fixture_observation(policy))
     x["admin_observation"]["protection"]["block_force_push"] = False
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
 
-    x = copy.deepcopy(fixture_observation())
+    x = copy.deepcopy(fixture_observation(policy))
     x["admin_observation"]["protection"]["bypass_actors"] = [{"actor_type": "User", "actor_id": 123}]
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
