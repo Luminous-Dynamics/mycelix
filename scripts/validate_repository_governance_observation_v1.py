@@ -138,6 +138,14 @@ def validate_policy(policy: Any) -> None:
         observation_contract.get("effective_rule_definition_must_match_observed_ruleset") is True,
         "effective rule definition contract drift",
     )
+    require(
+        observation_contract.get("ruleset_condition_schema_must_match_source_type") is True,
+        "ruleset condition schema contract drift",
+    )
+    require(
+        observation_contract.get("ruleset_source_identity_must_match_source_type") is True,
+        "ruleset source identity contract drift",
+    )
 
     fail_closed = policy.get("fail_closed")
     require(isinstance(fail_closed, dict), "fail_closed missing")
@@ -266,7 +274,9 @@ def _ref_pattern_matches_main(pattern: Any, default_branch: str) -> bool:
 
 
 def _scope_pattern_matches(value: str, pattern: str) -> bool:
-    return pattern == "~ALL" or fnmatch.fnmatchcase(value, pattern)
+    # GitHub account/repository names are case-insensitive; preserve fnmatch
+    # semantics while normalizing only the compared name operands.
+    return pattern == "~ALL" or fnmatch.fnmatchcase(value.casefold(), pattern.casefold())
 
 
 def _selector_state(
@@ -384,9 +394,37 @@ def _ruleset_target_state(entry: Any, default_branch: str) -> str:
     source_type = entry.get("source_type")
     if source_type not in {"Repository", "Organization", "Enterprise"}:
         return "UNVERIFIED"
+
+    source = entry.get("source")
+    if not isinstance(source, str) or not source:
+        return "UNVERIFIED"
+    if source_type == "Repository" and source.casefold() != REPOSITORY.casefold():
+        return "UNVERIFIED"
+    if source_type == "Organization" and source.casefold() != ORGANIZATION_NAME.casefold():
+        return "UNVERIFIED"
+
     conditions = entry.get("conditions")
     if not isinstance(conditions, dict):
         return "UNVERIFIED"
+
+    selector_keys = {"repository_name", "repository_id", "repository_property"}
+    organization_selector_keys = {"organization_name", "organization_id", "organization_property"}
+    present_repo = selector_keys.intersection(conditions)
+    present_org = organization_selector_keys.intersection(conditions)
+
+    # GitHub repository branch rulesets use only ref_name. Organization branch
+    # rulesets use one repository selector plus ref_name. Enterprise branch
+    # rulesets use one organization selector plus one repository selector plus
+    # ref_name. Reject any shape outside those documented combinations.
+    if source_type == "Repository":
+        if set(conditions) != {"ref_name"}:
+            return "UNVERIFIED"
+    elif source_type == "Organization":
+        if len(present_repo) != 1 or present_org or set(conditions) != present_repo | {"ref_name"}:
+            return "UNVERIFIED"
+    else:
+        if len(present_repo) != 1 or len(present_org) != 1 or set(conditions) != present_repo | present_org | {"ref_name"}:
+            return "UNVERIFIED"
 
     repo_state = _repository_condition_state(conditions, source_type)
     if repo_state == "UNVERIFIED":
@@ -563,10 +601,11 @@ def _validate_effective_rule_provenance(
     for index, ruleset in enumerate(applicable_rulesets):
         if not isinstance(ruleset, dict):
             return "UNVERIFIED", [f"ruleset[{index}]_not_enumerated"]
+        source = ruleset.get("source")
         identity = (
             ruleset.get("id"),
             ruleset.get("source_type"),
-            ruleset.get("source"),
+            source.casefold() if isinstance(source, str) else source,
         )
         if (
             not isinstance(identity[0], int)
@@ -595,7 +634,7 @@ def _validate_effective_rule_provenance(
             or not source
         ):
             return "UNVERIFIED", [f"effective_rule[{index}]_ruleset_provenance_missing"]
-        identity = (ruleset_id, source_type, source)
+        identity = (ruleset_id, source_type, source.casefold())
         ruleset = by_identity.get(identity)
         if ruleset is None:
             failures.append(f"effective_rule[{index}]_ruleset_provenance_not_applicable")
@@ -1529,6 +1568,46 @@ def self_test(policy: dict[str, Any]) -> None:
     x["admin_observation"]["source"] = "github_token"
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source"] = "other-owner/other-repository"
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["organization_name"] = {
+        "include": ["Luminous-Dynamics"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["MYCELIX"],
+        "exclude": [],
+    }
+    x["rulesets"]["entries"][0]["source_type"] = "Organization"
+    x["rulesets"]["entries"][0]["source"] = "luminous-dynamics"
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Enterprise"
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["MYCELIX"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["source_type"] = "Organization"
