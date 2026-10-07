@@ -63,6 +63,15 @@ def step(st, kind, *args):
             return None
         R[s].add(reviewer)
 
+    elif kind in ("full-control-bad", "self-review-full-control-bad"):
+        if sum(s in H[r] for r in ROLES) != 0:
+            return None
+        for role in ROLES:
+            H[role].add(s)
+        F[s] = True
+        if kind == "self-review-full-control-bad":
+            R[s].add(s)
+
     elif kind == "self-review-full-control-bad":
         if sum(s in H[r] for r in ROLES) != 0:
             return None
@@ -120,7 +129,7 @@ def role_conflict_negative():
 
 def full_review_negative():
     transitions = NORMAL + [
-        ("assign-fourth-bad", s, r) for s in SUBJECTS for r in ROLES
+        ("full-control-bad", s) for s in SUBJECTS
     ]
     return explore(transitions)
 
