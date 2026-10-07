@@ -24,6 +24,9 @@ pub const ATTEMPT_RECORD_SCHEMA_VERSION: u16 = 1;
 pub const ACTION_FENCE_SCHEMA_VERSION: u16 = 1;
 pub const ATTEMPT_RECORD_PREFIX: &str = "constitutional-attempt-record-v1:";
 pub const ACTION_FENCE_RECORD_PREFIX: &str = "constitutional-action-fence-v1:";
+pub const NATIVE_REPLAY_BINDING_SCHEMA_VERSION: u16 = 1;
+pub const NATIVE_REPLAY_BINDING_PREFIX: &str =
+    "constitutional-native-replay-binding-v1:";
 const MAX_ID_LEN: usize = 256;
 const MAX_REF_LEN: usize = 512;
 const ATTEMPT_RECORD_DOMAIN: &[u8] =
@@ -631,7 +634,7 @@ impl NativeReplayBindingV1 {
         action_key_digest: impl Into<String>,
     ) -> Result<Self, String> {
         let out = Self {
-            schema_version: ATTEMPT_RECORD_SCHEMA_VERSION,
+            schema_version: NATIVE_REPLAY_BINDING_SCHEMA_VERSION,
             native_replay_identity: native_replay_identity.into(),
             operation_id: operation_id.into(),
             action_key_digest: action_key_digest.into(),
@@ -641,7 +644,7 @@ impl NativeReplayBindingV1 {
     }
 
     fn validate(&self) -> Result<(), String> {
-        if self.schema_version != ATTEMPT_RECORD_SCHEMA_VERSION {
+        if self.schema_version != NATIVE_REPLAY_BINDING_SCHEMA_VERSION {
             return Err("unsupported native replay binding schema version".into());
         }
         require_opaque(
@@ -656,6 +659,16 @@ impl NativeReplayBindingV1 {
             crate::ACTION_KEY_PREFIX,
         )?;
         Ok(())
+    }
+
+    pub fn digest(&self) -> String {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-NATIVE-REPLAY-BINDING\0V1\0");
+        hasher.update(&self.schema_version.to_be_bytes());
+        push_str(&mut hasher, &self.native_replay_identity);
+        push_str(&mut hasher, &self.operation_id);
+        push_str(&mut hasher, &self.action_key_digest);
+        tagged(NATIVE_REPLAY_BINDING_PREFIX, hasher.finalize())
     }
 }
 
@@ -1335,6 +1348,25 @@ mod tests {
         assert_ne!(a.action_digest, a.effecting_target_identity);
         assert!(a.provider_reference_seed_digest.is_some());
         assert!(a.provider_reference_descriptor_digest.is_some());
+    }
+
+    #[test]
+    fn native_replay_binding_digest_is_deterministic() {
+        let a = NativeReplayBindingV1::new(
+            "native-replay-1",
+            "operation-1",
+            key().digest(),
+        )
+        .unwrap();
+        let b = NativeReplayBindingV1::new(
+            "native-replay-1",
+            "operation-1",
+            key().digest(),
+        )
+        .unwrap();
+
+        assert_eq!(a.digest(), b.digest());
+        assert!(a.digest().starts_with(NATIVE_REPLAY_BINDING_PREFIX));
     }
 
     #[test]
