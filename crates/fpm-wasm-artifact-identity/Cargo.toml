@@ -9,7 +9,7 @@ description = "Versioned cross-binding between SHA-256 artifact identity and Hol
 [workspace]
 
 [dependencies]
-holo_hash = { version = "=0.7.0", features = ["hashing"] }
+holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }
 serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.10"
 
