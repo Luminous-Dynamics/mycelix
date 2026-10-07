@@ -7,8 +7,8 @@
   "semantic_subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v3-concentration-subject-clean",
-    "head_sha": "2c447b2160c6a4991b5230806490bb6677e4aca3",
-    "tree_sha": "0b808ff5c2cd99447cdd2eb8c95788b6b036fcdd"
+    "head_sha": "885f770318801e1b6a24ae5694db6a0b80f87b7f",
+    "tree_sha": "a5adce02796ae70724596850aec521146738882f"
   },
   "models": {
     "tla": {
@@ -67,7 +67,7 @@
     },
     "reference": {
       "path": "mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py",
-      "git_blob_sha": "048d93c911010074a169d879ff13508ae12e4293"
+      "git_blob_sha": "2b0b3fee81faa46eeaeafdbf640bc6f8603ff87f"
     }
   },
   "claim_contract": {
@@ -79,7 +79,8 @@
       "expected Alloy SAT witnesses",
       "expected Alloy UNSAT checks",
       "exact Alloy integer bitwidth",
-      "bounded reference exploration"
+      "bounded reference exploration",
+      "exact frozen subject SHA/tree are resolved before tool execution"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
