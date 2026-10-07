@@ -13,8 +13,8 @@
   "formal_subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v2-subject",
-    "head_sha": "86483d6604f7f7e84fc09e512425c0363a2b9459",
-    "tree_sha": "39cbe055023b38a8345f319af2b6f6946145532c",
+    "head_sha": "fdffab27308e8eb148efd4b9f577b5a32129b962",
+    "tree_sha": "48b1959a41647fde7aac2c81d71585327ef00eab",
     "models": [
       {
         "name": "TLA+ temporal sovereignty model",
@@ -26,7 +26,7 @@
       {
         "name": "Alloy structural sovereignty model",
         "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyV1.als",
-        "git_blob_sha": "b61f7c0c71cd29f5673d9c58183dfa8842ae3c40"
+        "git_blob_sha": "334e6dc54068e7f1d03dd81790d110207c76648f"
       }
     ],
     "reference_explorer": {
@@ -81,7 +81,7 @@
       "AuthorizedContractsUseRequiredAuthority",
       "ContractsStayWithinBudget",
       "SafeStateCannotSettleDispute",
-      "EmergencyTimestampsNonNegative",
+      "EmergencyLifetimeIsBounded",
       "ForkCannotMultiplyPoliticalWeight"
     ]
   },
@@ -98,8 +98,8 @@
       "AuthorizedContractRequiresExactAuthority": "AuthorizedContractsUseRequiredAuthority",
       "ContractFitsBudget": "ContractsStayWithinBudget",
       "SafeStateLeavesDisputeUnresolved": "SafeStateCannotSettleDispute",
-      "EmergencyTimestampDomain": "EmergencyTimestampsNonNegative",
-      "ForkPreservesWeight": "ForkCannotMultiplyPoliticalWeight"
+      "ForkPreservesWeight": "ForkCannotMultiplyPoliticalWeight",
+      "EmergencyBoundedLifetime": "EmergencyLifetimeIsBounded"
     }
   },
   "verifier": {
@@ -163,8 +163,8 @@
     },
     "alloy": {
       "path": "docs/qualification/fixtures/formal/ArtificialSovereigntyV1.als",
-      "git_blob_sha": "b61f7c0c71cd29f5673d9c58183dfa8842ae3c40",
-      "source_git_blob_sha": "b61f7c0c71cd29f5673d9c58183dfa8842ae3c40"
+      "git_blob_sha": "334e6dc54068e7f1d03dd81790d110207c76648f",
+      "source_git_blob_sha": "334e6dc54068e7f1d03dd81790d110207c76648f"
     },
     "reference_explorer": {
       "path": "docs/qualification/fixtures/formal/sovereignty_reference_explorer.py",
