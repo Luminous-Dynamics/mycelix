@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 RUNNER = ROOT / "mycelix-governance/tools/formal/qualify_sovereignty_formal.py"
 PROFILE = ROOT / "docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json"
+CROSSWALK = ROOT / "docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json"
 PINS = ROOT / "mycelix-governance/tools/formal/pins.json"
 WORKFLOW = ROOT / ".github/workflows/sovereignty-formal-qualification.yml"
 REFERENCE = ROOT / "mycelix-governance/tools/formal/sovereignty_reference_explorer.py"
@@ -78,6 +79,7 @@ def run_cli(root: Path, env_extra: dict[str, str]) -> subprocess.CompletedProces
         "--alloy-jar", "fake-alloy.jar",
         "--evidence-dir", str(root.parent / (root.name + "-evidence")),
         "--workflow", ".github/workflows/sovereignty-formal-qualification.yml",
+        "--crosswalk", "docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json",
         "--reference-explorer", "docs/qualification/fixtures/formal/sovereignty_reference_explorer.py",
     ]
     return subprocess.run(cmd, cwd=root, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -92,6 +94,7 @@ def prepare_workspace(tmp: Path) -> tuple[str, str]:
     for source, rel in [
         (RUNNER, "mycelix-governance/tools/formal/qualify_sovereignty_formal.py"),
         (PROFILE, "docs/qualification/SOVEREIGNTY_FORMAL_QUALIFICATION_PROFILE_V1.json"),
+        (CROSSWALK, "docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json"),
         (PINS, "mycelix-governance/tools/formal/pins.json"),
         (WORKFLOW, ".github/workflows/sovereignty-formal-qualification.yml"),
         (REFERENCE, "mycelix-governance/tools/formal/sovereignty_reference_explorer.py"),
