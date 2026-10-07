@@ -12,7 +12,7 @@ pub const SCHEMA_VERSION: &str = "fpm.verifier-artifact-identity.v1";
 pub const HOLOCHAIN_PROFILE: &str = "holochain-0.7.0-wasmhash-v1";
 pub const SHA256_HEX_LEN: usize = 64;
 pub const HOLOHASH_RAW_39_LEN: usize = 39;
-pub const MAX_ARTIFACT_BYTES: usize = 64 * 1024 * 1024;
+/// HoloHash 0.7 synchronous hashing rejects larger content; keep this explicit so\n/// the verifier fails closed before calling the constructor.\npub const MAX_ARTIFACT_BYTES: usize = 16_000_000;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FpmWasmArtifactIdentity {
