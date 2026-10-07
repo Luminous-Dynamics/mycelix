@@ -51,7 +51,7 @@ jobs:
       - name: Verify exact candidate fixture and semantic commitment
         run: |
           set -euo pipefail
-          python3 tools/qualification/verify_sovereignty_v1_independent.py             --subject "${{ steps.profile.outputs.subject_path }}"             --profile "docs/qualification/SOVEREIGNTY_QUAL_001_PROFILE_V1.json"             --subject-commit "${{ steps.profile.outputs.subject_sha }}"             --subject-tree "${{ steps.profile.outputs.subject_tree }}"             --verifier-commit "${{ github.sha }}"
+          python3 tools/qualification/verify_sovereignty_v1_independent.py --subject "${{ steps.profile.outputs.subject_path }}" --profile "docs/qualification/SOVEREIGNTY_QUAL_001_PROFILE_V1.json" --subject-commit "${{ steps.profile.outputs.subject_sha }}" --subject-tree "${{ steps.profile.outputs.subject_tree }}" --verifier-commit "${{ github.sha }}"
 
       - name: Postflight immutability
         run: |
