@@ -7,8 +7,8 @@
   "semantic_subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v3-concentration-subject-main-current",
-    "head_sha": "916798472b76f27cd7ea3451bb40171c46205bdd",
-    "tree_sha": "610bde646c0ea575cfa85928e8fc1ace34bd2dfe"
+    "head_sha": "f2a5a2a553992238b49ec451a128518fd8705f1c",
+    "tree_sha": "302d943e29bb01f6b3ac181d97269c9d9f2c259c"
   },
   "models": {
     "tla": {
@@ -67,7 +67,7 @@
     },
     "reference": {
       "path": "mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py",
-      "git_blob_sha": "048d93c911010074a169d879ff13508ae12e4293"
+      "git_blob_sha": "10b619941db08d078b904b8c5cad08c784abfd62"
     }
   },
   "claim_contract": {
@@ -97,7 +97,7 @@
   "execution": {
     "classifier": {
       "path": "mycelix-governance/tools/formal/qualify_sovereignty_concentration_candidate.py",
-      "git_blob_sha": "cb975cb06d5dffdb495d76e548b152f12d99aff6"
+      "git_blob_sha": "eb297b53c3d5a3e0dd0d9ecb343f528ae3dafc58"
     },
     "alloy_runner": {
       "path": "mycelix-governance/tools/formal/SovereigntyConcentrationAlloyRunner.java",
@@ -108,6 +108,6 @@
       "git_blob_sha": "e9a7978e5d192441a62d00d94e32bc6e92adc0a6"
     },
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json",
-    "crosswalk_git_blob_sha": "f86bdfe99b88c2c589d28a97bd3bbb477430812a"
+    "crosswalk_git_blob_sha": "95a91e233b29f4903876ed7f3d572d761a03c62c"
   }
 }
