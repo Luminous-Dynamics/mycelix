@@ -458,6 +458,38 @@ def require_exact_step_mapping(
 
 
 
+def require_exact_run_command_count(
+    lines_: list[str],
+    step_name: str,
+    command_pattern: str,
+    expected_count: int,
+    description: str,
+) -> None:
+    matches = [i for i, line in enumerate(lines_) if line.strip() == f"- name: {step_name}"]
+    if len(matches) != 1:
+        fail(f"{description}: expected exactly one step named {step_name!r}")
+    start = matches[0]
+    run_indexes = []
+    for i in range(start + 1, len(lines_)):
+        if re.fullmatch(r"\s{8}run:\s*\|\s*", lines_[i]):
+            run_indexes.append(i)
+        if re.fullmatch(r"\s{6}- name: .+", lines_[i]):
+            break
+    if len(run_indexes) != 1:
+        fail(f"{description}: expected exactly one run mapping under {step_name!r}")
+    actual = []
+    for line in lines_[run_indexes[0] + 1:]:
+        indent = len(line) - len(line.lstrip(" "))
+        if indent < 10:
+            break
+        actual.append(line[10:])
+    count = sum(1 for line in actual if re.search(command_pattern, line))
+    if count != expected_count:
+        fail(
+            f"{description}: expected exactly {expected_count} command matches for {command_pattern!r}, "
+            f"found {count}"
+        )
+
 def require_exact_run_sequence(
     lines_: list[str],
     step_name: str,
@@ -1287,6 +1319,42 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             "SANDBOX_IMAGE: \"docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d\"",
         ),
         "S1",
+    )
+
+    require_exact_run_command_count(
+        l,
+        "Pull and preflight pinned sandbox image",
+        r"\bdocker run\b",
+        1,
+        "S1 sandbox preflight Docker command census",
+    )
+    require_exact_run_command_count(
+        l,
+        "Verify dependency substrate immutability",
+        r"\bdocker run\b",
+        1,
+        "S1 dependency postflight Docker command census",
+    )
+    require_exact_run_command_count(
+        l,
+        "Execute candidate qualification in disposable networkless sandbox",
+        r"\bdocker run\b",
+        1,
+        "S1 candidate-execution Docker command census",
+    )
+    require_exact_run_command_count(
+        l,
+        "Execute sandbox negative controls",
+        r"\bdocker run\b",
+        1,
+        "S1 negative-control Docker command census",
+    )
+    require_exact_run_command_count(
+        l,
+        "Vendor locked dependency closure in fetch sandbox",
+        r"\bdocker volume create\b",
+        1,
+        "S1 vendor volume-create command census",
     )
 
     require_exact_run_sequence(
@@ -2629,6 +2697,41 @@ def main() -> None:
         ),
         "S1 dependency postflight network isolation drift",
     )
+    def inject_additional_docker_run(raw: bytes, next_step: bytes) -> bytes:
+        marker = next_step
+        insertion = b'          docker run --rm --network=none "$SANDBOX_IMAGE" /bin/true\n'
+        if marker not in raw:
+            fail(f"additional-docker-run regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, insertion + marker, 1)
+
+    def inject_additional_vendor_volume_create(raw: bytes, next_step: bytes) -> bytes:
+        marker = next_step
+        insertion = b'          docker volume create --driver local --opt type=tmpfs --opt device=tmpfs --opt o=rw,nosuid,nodev,noexec,size=64m,nr_inodes=4096 extra-volume >/dev/null\n'
+        if marker not in raw:
+            fail(f"additional-vendor-volume regression fixture marker missing: {marker!r}")
+        return raw.replace(marker, insertion + marker, 1)
+
+    expect_rejection(
+        lambda: verify_s1(
+            inject_additional_docker_run(
+                raw["s1"],
+                b"      - name: Verify candidate source immutability\n",
+            ),
+            s1_sha,
+        ),
+        "S1 additional Docker invocation after candidate sandbox",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            inject_additional_vendor_volume_create(
+                raw["s1"],
+                b"      - name: Execute sandbox negative controls\n",
+            ),
+            s1_sha,
+        ),
+        "S1 additional vendor volume creation",
+    )
+
     def inject_unregistered_top_level_key(raw: bytes) -> bytes:
         marker = b"jobs:\n"
         if marker not in raw:
