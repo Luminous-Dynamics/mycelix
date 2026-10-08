@@ -165,6 +165,11 @@ pub fn grant_machine_controller(
             "Could not deserialize machine".into(),
         )))?;
 
+    if !matches!(machine_record.action(), Action::Create(_)) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "controller authority must target the machine's root creation action".into(),
+        )));
+    }
     if machine_record.action().author() != agent_info()?.agent_initial_pubkey {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "only the machine registrant may grant controller authority".into(),
@@ -302,24 +307,29 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
 pub fn get_available_machines(_: ()) -> ExternResult<Vec<Record>> {
     let all_path = Path::from("all_machines").typed(LinkTypes::AllMachines)?;
     let links = get_links(
-        GetLinksInputBuilder::try_new(all_path.path_entry_hash()?, LinkTypes::AllMachines)?.build(),
+        GetLinksInputBuilder::try_new(
+            all_path.path_entry_hash()?,
+            LinkTypes::AllMachines,
+        )?
+        .build(),
     )?;
 
     let mut available = Vec::new();
     for link in links {
-        if let Some(hash) = link.target.into_action_hash() {
-            if let Some(record) = get(hash, GetOptions::default())? {
-                if let Some(machine) = record
-                    .entry()
-                    .to_app_option::<MachineEntry>()
-                    .ok()
-                    .flatten()
-                {
-                    if machine.status == MachineStatus::Available {
-                        available.push(record);
-                    }
-                }
-            }
+        let Some(root_hash) = link.target.clone().into_action_hash() else {
+            continue;
+        };
+
+        let MachineStateResolution::Resolved {
+            status: MachineStatus::Available,
+            head_action,
+        } = get_current_machine_state(root_hash)?
+        else {
+            continue;
+        };
+
+        if let Some(record) = get(head_action, GetOptions::default())? {
+            available.push(record);
         }
     }
     Ok(available)
