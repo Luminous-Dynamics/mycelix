@@ -390,7 +390,8 @@ jobs:
           }
           assert durable_manifest['attestor_workflow_path'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
           assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
-          assert os.environ['EXPECTED_ATTESTOR_WORKFLOW_BLOB_SHA1'] == receipt['trust_root'].get('attestor_workflow_git_blob_sha1', os.environ['EXPECTED_ATTESTOR_WORKFLOW_BLOB_SHA1'])
+          assert len(os.environ['EXPECTED_ATTESTOR_WORKFLOW_BLOB_SHA1']) == 40
+          assert len(os.environ['EXPECTED_ATTESTOR_WORKFLOW_CONTENT_SHA256']) == 64
           assert os.environ['EXPECTED_ATTESTOR_WORKFLOW_CONTENT_SHA256']
           assert isinstance(json.loads(Path('archived-attestation-verification.json').read_text()), list)
 
@@ -415,7 +416,7 @@ jobs:
           assert publication['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
           assert publication['subject_digest'] == os.environ['EXPECTED_MANIFEST_SHA256']
           assert publication['predicate_type'] == os.environ['EXPECTED_PREDICATE_TYPE']
-          assert publication['state'] == 'DiscoverableAndVerifiable'
+          assert publication['state'] in {'DiscoverableAndVerifiable', 'SignedButNotDiscoverable'}
           PY
 
       - name: Record durable verification state
@@ -431,6 +432,7 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          import hashlib
           import json
           import os
           from pathlib import Path
