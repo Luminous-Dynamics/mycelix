@@ -54,6 +54,8 @@ def failures(p: Projection) -> list[str]:
         out.append("EffectFieldsAuthorized")
     if not REQUIRED_FIELDS <= p.effect_fields:
         out.append("RequiredFieldsPresent")
+    if not (p.effect_fields - p.defaulted_fields) <= p.decision_value_fields:
+        out.append("EffectFieldsDecisionBacked")
     if (
         p.source_operation,
         p.source_target,
@@ -78,10 +80,20 @@ def failures(p: Projection) -> list[str]:
 assert failures(CANONICAL) == []
 
 CASES = {
-    "uncovered-field": replace(CANONICAL, effect_fields=CANONICAL.effect_fields | {"destination"}),
+    "uncovered-field": replace(
+        CANONICAL,
+        effect_fields=CANONICAL.effect_fields | {"destination"},
+        decision_value_fields=CANONICAL.decision_value_fields | {"destination"},
+    ),
+    "unbacked-field": replace(
+        CANONICAL,
+        authorized_fields=CANONICAL.authorized_fields | {"destination"},
+        effect_fields=CANONICAL.effect_fields | {"destination"},
+    ),
     "unknown-field": replace(
         CANONICAL,
         authorized_fields=CANONICAL.authorized_fields | {"x-extra"},
+        decision_value_fields=CANONICAL.decision_value_fields | {"x-extra"},
         effect_fields=CANONICAL.effect_fields | {"x-extra"},
     ),
     "value-substitution": replace(CANONICAL, projected_amount="200"),
@@ -97,6 +109,7 @@ CASES = {
 
 EXPECTED = {
     "uncovered-field": "EffectFieldsAuthorized",
+    "unbacked-field": "EffectFieldsDecisionBacked",
     "unknown-field": "EffectFieldsKnown",
     "value-substitution": "ProjectedValuesConserved",
     "source-substitution": "ProjectionSourcesExact",
@@ -107,6 +120,7 @@ EXPECTED = {
 
 MARKERS = {
     "uncovered-field": "UNCOVERED field NEGATIVE PASS",
+    "unbacked-field": "UNBACKED field NEGATIVE PASS",
     "unknown-field": "UNKNOWN field NEGATIVE PASS",
     "value-substitution": "VALUE substitution NEGATIVE PASS",
     "source-substitution": "SOURCE substitution NEGATIVE PASS",
