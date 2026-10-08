@@ -917,6 +917,27 @@ impl EffectBoundaryHostV1 {
         attempt_identity: &AttemptIdentityV1,
         record: AttemptRecordV1,
     ) -> Result<BoundaryOutcome, BoundaryError> {
+        // Admission is idempotent for an already materialized exact attempt.
+        // Do this read before issuing a new time-bound authorization proof so
+        // replaying the same logical admission does not become an ownership
+        // conflict merely because the proof timestamp changed.
+        if let Some(existing) = self
+            .store
+            .durably_read_attempt(attempt_identity)
+            .map_err(BoundaryError::Store)?
+        {
+            if existing.attempt_identity != attempt_identity.digest()
+                || existing.action_key_digest != action_key.digest()
+            {
+                return Err(BoundaryError::Semantic(
+                    "existing attempt/action-key identity mismatch".into(),
+                ));
+            }
+            return Ok(BoundaryOutcome::Admitted(
+                AtomicAdmissionDecision::DuplicateAttempt,
+            ));
+        }
+
         let now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
         let proof = self
             .trust_root
@@ -2111,6 +2132,34 @@ mod tests {
         ));
         assert!(boundary.store.durably_read_attempt(&owner).unwrap().is_none());
         assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
+    }
+
+    #[test]
+    fn duplicate_admission_remains_idempotent_with_new_proof_timestamp() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("admission-duplicate.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store, test_root()).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-admission-duplicate");
+        let record = attempt_record(
+            "attempt-admission-duplicate",
+            "operation-admission-duplicate",
+            AttemptRecordState::Consumed,
+        );
+
+        assert!(matches!(
+            boundary.admit(&action_key, &owner, record.clone()).unwrap(),
+            BoundaryOutcome::Admitted(AtomicAdmissionDecision::Admitted)
+        ));
+
+        assert!(matches!(
+            boundary.admit(&action_key, &owner, record).unwrap(),
+            BoundaryOutcome::Admitted(AtomicAdmissionDecision::DuplicateAttempt)
+        ));
+
+        let persisted = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
+        assert!(persisted.authorization_admission_proof_digest().is_some());
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_some());
     }
 
     #[test]
