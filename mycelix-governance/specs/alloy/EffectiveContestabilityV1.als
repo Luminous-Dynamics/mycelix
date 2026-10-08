@@ -81,10 +81,15 @@ fact MigrationPreservesContinuity {
       m.historyPreserved = On
 }
 
-fact MigrationPreservesAuthorityAndJurisdiction {
+fact MigrationPreservesAuthority {
   all m: Migration |
     m.to in m.subject.effective implies
-      m.authorityUnchanged = On and
+      m.authorityUnchanged = On
+}
+
+fact MigrationPreservesJurisdiction {
+  all m: Migration |
+    m.to in m.subject.effective implies
       m.jurisdictionUnchanged = On
 }
 
@@ -162,7 +167,13 @@ pred MigrationContinuityBreakWitness {
 pred MigrationAuthorityTransferWitness {
   some m: Migration |
     m.to in m.subject.effective and
-    (m.authorityUnchanged = Off or m.jurisdictionUnchanged = Off)
+    m.authorityUnchanged = Off
+}
+
+pred MigrationJurisdictionTransferWitness {
+  some m: Migration |
+    m.to in m.subject.effective and
+    m.jurisdictionUnchanged = Off
 }
 
 pred ProviderFailureAuthorityTransferWitness {
