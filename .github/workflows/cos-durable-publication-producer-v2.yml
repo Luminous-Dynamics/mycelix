@@ -267,12 +267,20 @@ jobs:
           root_api= strict('trust-root-api.json'); signer_api=strict('signer-workflow-api.json')
           root_bytes=base64.b64decode(''.join(root_api['content'].splitlines()),validate=True)
           signer_bytes=base64.b64decode(''.join(signer_api['content'].splitlines()),validate=True)
-          root=strict_text(root_bytes.decode('utf-8')) if False else json.loads(root_bytes.decode('utf-8'))
+          root=json.loads(root_bytes.decode('utf-8'))
+          assert root['schema']=='MYCELIX-COS-QUALIFICATION-TRUST-ROOT-V2'
+          assert root['repository']==os.environ['GITHUB_REPOSITORY']
+          assert root['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert root['status']=='candidate_not_authoritative_until_protected_adoption'
+          assert root['claim_ceiling']=='ReferenceModelOnly'
+          assert root['activation_rule']=={'authoritative':False,'requires_protected_main_readback':True,'requires_exact_adoption_of_component_bytes':True,'requires_rotation_recovery_path':True,'requires_durable_subject_publication':True,'transient_actions_artifacts_are_insufficient':True,'required_durability_profile':'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1'}
           component=root['components']['qualification_attestor_workflow']
           assert component['path']=='.github/workflows/cos-conformance-qualification-attestor.yml'
           assert subprocess.check_output(['git','hash-object','--stdin'],input=signer_bytes).decode().strip()==component['git_blob_sha1']
           assert hashlib.sha256(signer_bytes).hexdigest()==component['content_sha256']
           facts=json.loads(Path('source-facts.json').read_text())
+          receipt=json.loads(Path('durable-source/attestor-run-receipt.json').read_text())
+          assert receipt['trust_root']['main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']
           assert hashlib.sha256(root_bytes).hexdigest()==facts['trust_root_manifest_sha256']
           assert subprocess.check_output(['git','hash-object','--stdin'],input=root_bytes).decode().strip()==facts['trust_root_manifest_blob_sha1']
           facts.update({'attestor_workflow_git_blob_sha1':component['git_blob_sha1'],'attestor_workflow_content_sha256':component['content_sha256']})
