@@ -538,5 +538,9 @@
       "expected_semantic_graph_digest_sha256": "sha256:733d40d84c954f0480a692472465539b05225d20452d2b7ca7d88f7ba1593ec6",
       "expected_claim_local_graph_digest_sha256": "sha256:733d40d84c954f0480a692472465539b05225d20452d2b7ca7d88f7ba1593ec6"
     }
-  ]
+  ],
+  "policy_binding": {
+    "path": "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json",
+    "git_blob_sha": "ea15b5b4466821c71f457a833c3347ec3c02d8b5"
+  }
 }
