@@ -58,6 +58,7 @@ jobs:
           assert 'test "${GITHUB_REF}" = "refs/heads/main"' in publish
           assert 'COS_RELEASE_ADMIN_TOKEN:' in publish
           assert 'gh release create' in publish
+          assert '--latest=false' in publish
           assert 'gh release edit' in publish
           assert 'isImmutable' in publish
           assert 'gh release verify-asset' in publish
