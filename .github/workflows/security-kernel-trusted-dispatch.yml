@@ -155,7 +155,7 @@ jobs:
               output.write(f"candidate_pr={candidate_pr}\n"); output.write(f"candidate_sha={candidate_sha}\n"); output.write(f"candidate_repository={candidate_repository}\n"); output.write(f"candidate_repository_id={candidate_repository_id}\n"); output.write(f"invocation_source={invocation_source}\n"); output.write(f"dispatch_decision={dispatch_decision}\n"); output.write(f"eligible_count={eligible_count}\n")
           PY
   decision:
-    name: Dispatch decision: ${{ needs.resolve.outputs.invocation_source }}/${{ needs.resolve.outputs.dispatch_decision }}/eligible=${{ needs.resolve.outputs.eligible_count }}
+    name: "Dispatch decision: ${{ needs.resolve.outputs.invocation_source }}/${{ needs.resolve.outputs.dispatch_decision }}/eligible=${{ needs.resolve.outputs.eligible_count }}"
     needs: resolve
     runs-on: ubuntu-24.04
     timeout-minutes: 5
