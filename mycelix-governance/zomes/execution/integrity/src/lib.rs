@@ -859,8 +859,8 @@ mod tests {
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
             executor: "did:key:z6Mk".into(),
-            status: ExecutionStatus::Success,
-            result: Some(r#"{"ok":true}"#.into()),
+            status: ExecutionStatus::Prepared,
+            result: None,
             error: None,
             executed_at: ts(3_000_000),
         }
