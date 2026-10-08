@@ -162,6 +162,13 @@ def expect_failure(base: Path, target: str, label: str, mutator) -> None:
         shutil.rmtree(root)
 
 
+def assert_artifact_collector_http_contract() -> None:
+    collector = COLLECTOR.read_text(encoding="utf-8")
+    assert "?per_page={PAGE_SIZE}&page={page}&direction=asc" in collector
+    assert '"-f"' not in collector
+    assert "enumerate_consistent_artifacts(get_page)" in collector
+
+
 def assert_workflow_target_extractor_dependencies() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
     marker = "      - name: Extract evidence targets with strict JSON parser\n"
@@ -173,6 +180,7 @@ def assert_workflow_target_extractor_dependencies() -> None:
 
 
 def main() -> None:
+    assert_artifact_collector_http_contract()
     assert_workflow_target_extractor_dependencies()
     with tempfile.TemporaryDirectory(prefix="fpm-ref-corpus-") as td:
         root = Path(td)
