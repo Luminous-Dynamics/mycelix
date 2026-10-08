@@ -856,16 +856,24 @@ def test_privileged_actions_are_exactly_pinned() -> None:
         )
     )
     workflow_path = Path(__file__).parents[2] / policy["trusted_workflow"]["path"]
-    uses = [
-        line.strip().split("uses:", 1)[1].strip()
-        for line in workflow_path.read_text(encoding="utf-8").splitlines()
-        if line.strip().startswith("uses:")
-    ]
+    uses = []
+    for line in workflow_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not re.match(r"^(?:-\\s*)?uses\\s*:", stripped):
+            continue
+        value = stripped.split(":", 1)[1].strip()
+        uses.append(value)
+
     expected_uses = {
         f"{name}@{config['ref']} # {config['version']}"
         for name, config in policy["trusted_actions"].items()
     }
     assert set(uses) == expected_uses
+    for action in uses:
+        reference = action.split("#", 1)[0].strip().rsplit("@", 1)[-1]
+        assert re.fullmatch(r"[0-9a-f]{40}", reference), (
+            f"privileged workflow action is not pinned to a full commit SHA: {action!r}"
+        )
 
 
 def test_forbidden_cargo_config_is_rejected() -> None:
