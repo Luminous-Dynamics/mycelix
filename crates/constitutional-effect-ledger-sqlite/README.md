@@ -127,3 +127,21 @@ The claim is held while this gate runs. A rejected or expired proof is atomicall
 converted to NotEntered and the action fence is released before any provider
 call. If that release cannot be confirmed, the attempt remains held rather than
 being reported as a clean refusal.
+
+
+## Durable final-entry proof
+
+The final authorization/status proof is recorded on the attempt before the
+provider call. The provider-entry claim stays held while this proof is persisted,
+and the provider permit requires the persisted proof digest to match the proof
+that was just verified.
+
+This gives restart/reconciliation a durable record of the exact final-entry
+admission decision. A process crash after proof persistence but before provider
+entry therefore cannot be reclassified as NotEntered merely because the
+process disappeared.
+
+An orphaned proof on a DISPATCH_PENDING attempt is treated as corrupted durable
+state and fails closed on restart. A rejected final-entry check clears the proof,
+claim, and action fence atomically as NotEntered; if that cleanup cannot be
+confirmed, the attempt remains held.
