@@ -907,8 +907,14 @@ impl EffectBoundaryHostV1 {
                     "existing attempt/action-key identity mismatch".into(),
                 ));
             }
+            record.validate().map_err(BoundaryError::Semantic)?;
+            if existing.same_admission_projection(&record) {
+                return Ok(BoundaryOutcome::Admitted(
+                    AtomicAdmissionDecision::DuplicateAttempt,
+                ));
+            }
             return Ok(BoundaryOutcome::Admitted(
-                AtomicAdmissionDecision::DuplicateAttempt,
+                AtomicAdmissionDecision::AttemptOwnershipConflict,
             ));
         }
 
@@ -930,8 +936,16 @@ impl EffectBoundaryHostV1 {
             ));
         }
 
+        let durable_admission_now_unix_ms =
+            current_unix_ms().map_err(BoundaryError::Store)?;
         self.store
-            .atomically_admit(action_key, attempt_identity, record, proof)
+            .atomically_admit(
+                action_key,
+                attempt_identity,
+                record,
+                proof,
+                durable_admission_now_unix_ms,
+            )
             .map(BoundaryOutcome::Admitted)
             .map_err(BoundaryError::Semantic)
     }
