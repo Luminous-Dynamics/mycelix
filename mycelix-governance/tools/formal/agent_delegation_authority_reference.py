@@ -98,10 +98,6 @@ def steady_state_failures(state: State) -> list[str]:
 def transition_failures(state: State) -> list[str]:
     failures: list[str] = []
     for evidence in state.evidence:
-        if evidence.recorded and set(evidence.grants_before) != set(evidence.grants_after):
-            # A grant change is permitted to exist in the *state*; the failure is
-            # that the evidence-recording transition claimed responsibility for it.
-            pass
         if evidence.recorded and evidence.authority_before != evidence.authority_after:
             failures.append("EvidenceDoesNotMintAuthority")
     return sorted(set(failures))
@@ -120,6 +116,53 @@ def main() -> int:
         authority_before_failure=empty,
     )
 
+    # Preserve the previously exercised steady-state controls.
+    bad_child = replace(
+        valid,
+        authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1", "P2")), ("C", ("P1",))),
+    )
+    assert "NoAuthorityWithoutCurrentGrant" in steady_state_failures(bad_child)
+
+    valid_with_four = replace(
+        valid,
+        grants=(
+            replace(g1, active=True),
+            replace(g2, active=True),
+            replace(g3, active=True),
+            replace(g4, active=True),
+        ),
+        authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1", "P2")), ("C", ("P1",))),
+    )
+    assert not steady_state_failures(valid_with_four), steady_state_failures(valid_with_four)
+
+    g3_bad = replace(g3, power="P2")
+    bad_transitive = replace(
+        valid_with_four,
+        grants=(
+            replace(g1, active=True),
+            replace(g2, active=True),
+            replace(g3_bad, active=True),
+            replace(g4, active=True),
+        ),
+        authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1", "P2")), ("C", ("P2",))),
+    )
+    assert "TransitiveDelegationBounded" in steady_state_failures(bad_transitive)
+
+    bad_revocation = replace(
+        valid,
+        grants=(replace(g1, active=True, revoked=True), replace(g2, active=True), replace(g3, active=True)),
+    )
+    assert "ActiveGrantCurrent" in steady_state_failures(bad_revocation)
+    assert "RevocationPropagates" in steady_state_failures(bad_revocation)
+
+    failure_bad = replace(
+        valid,
+        provider_failed=True,
+        authority=(("Root", ("P1", "P2")), ("A", ("P1", "P2")), ("B", ("P1",)), ("C", ("P1",))),
+    )
+    assert "FailureDoesNotMintAuthority" in steady_state_failures(failure_bad)
+
+    # Canonical evidence recording preserves authority and does not mint it.
     canonical_evidence = replace(
         valid,
         evidence=(
@@ -135,17 +178,9 @@ def main() -> int:
     assert not steady_state_failures(canonical_evidence), steady_state_failures(canonical_evidence)
     assert not transition_failures(canonical_evidence), transition_failures(canonical_evidence)
 
-    after_grant = replace(
-        valid,
-        grants=(
-            replace(g1, active=True),
-            replace(g2, active=True),
-            replace(g3, active=True),
-            replace(g4, active=True),
-        ),
-        authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1", "P2")), ("C", ("P1",))),
-    )
-
+    # Isolated evidence negative: the resulting authority is fully grant-backed,
+    # yet the evidence-recording transition itself changes authority.
+    after_grant = valid_with_four
     bad_evidence = replace(
         after_grant,
         evidence=(
@@ -158,14 +193,15 @@ def main() -> int:
             ),
         ),
     )
-
-    # The resulting authority is completely grant-backed; only the transition
-    # attribution is invalid.
     assert not steady_state_failures(bad_evidence), steady_state_failures(bad_evidence)
     assert "EvidenceDoesNotMintAuthority" in transition_failures(bad_evidence)
 
     print("CANONICAL PASS: bounded valid delegation state")
     print("CANONICAL PASS: evidence recording preserves authority")
+    print("NEGATIVE PASS: undelegated child authority detected")
+    print("NEGATIVE PASS: transitive delegation authority amplification detected")
+    print("NEGATIVE PASS: revoked ancestor with active descendant detected")
+    print("NEGATIVE PASS: provider failure authority amplification detected")
     print("ISOLATION PASS: evidence delta leaves steady-state grant provenance valid")
     print("NEGATIVE PASS: evidence-only transition attribution detected")
     return 0
