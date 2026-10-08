@@ -850,7 +850,7 @@ The first dependency-light executable reference is intentionally outside the pro
 
 The fixture verifier currently supports the restricted fixture dialect only. Its canonicalization profile is RFC 8785 JCS for the fixture subset, with SHA-256 graph digests. RFC 8785 defines deterministic property ordering for canonical JSON and requires I-JSON-compatible inputs; its verified errata additionally call out `-0` handling, which the reference verifier treats conservatively. citeturn693055search0turn693055search2
 
-Local rehearsal result for the committed fixture corpus: 10 cases / 0 failures. This is development evidence only; it is not an independent qualification result.
+Reference-model rehearsal for the current fixed corpus: 26 cases / 0 semantic-verdict failures. This is development evidence only; it is not an independent qualification result.
 
 The executable reference must remain subordinate to the future independently controlled verifier and must never become a new trust root merely because its regression lane is green.
 
@@ -864,7 +864,29 @@ The ledger fixtures now have two independent dependency-free reference implement
 
 Both implement the restricted fixture dialect, independently compute the graph digest, apply the mutation language, and derive the expected join verdict. Their agreement is a development regression signal, not qualification authority.
 
-Local differential rehearsal: 10 cases / 0 failures in each implementation. The hosted workflow is non-authoritative and must not be treated as an independent verifier merely because it succeeds.
+Reference-model differential rehearsal: 26 fixed cases / 0 failures. The same research lane also contains 288 deterministic generated property cases, 9 raw-input parser cases, 6 shared-claim projection cases, and 7 policy-liveness mutations. These counts describe development evidence only.
+
+## Executable research surface
+
+The current dependency-light research surface is:
+
+- fixed ledger corpus: 26 adversarial cases;
+- generated property corpus: 288 deterministic cases from seed 0x46480001;
+- raw-input parser corpus: 9 cases;
+- shared-claim projection scope corpus: 6 cases;
+- declarative policy-liveness campaign: 7 mutations;
+- Python and Node reference implementations for ledger semantics;
+- Python and Node reference implementations for raw parsing;
+- Python and Node property evaluators;
+- Python shared-claim projection verifier plus an independent Node counterpart;
+- non-authoritative PR regression workflow.
+
+The generated campaign is derived from the fixed fixture base graph; it does not define a second semantic source.
+
+The policy-liveness campaign deliberately changes policy semantics and runs the resulting policy through both reference ledger verifiers. A mutation is accepted only when the weakened/altered policy produces the declared changed verdict.
+
+None of these artifacts is the authoritative qualification verifier.
+
 
 ## Policy identity binding
 
@@ -883,6 +905,26 @@ The regression workflow derives the expected policy blob identity from the check
 A deliberate policy-byte substitution (for example, appending a newline to an otherwise valid policy) must fail closed because the raw policy blob identity changes.
 
 This protects research reproducibility, but does not make the candidate-owned policy independently trusted. The authoritative qualification layer must independently control and pin the policy, consistent with QUAL-001/#866 and the FPM trusted-policy work.
+
+
+## Typed relation and directed projection controls
+
+Every ledger relation has an explicit source/target semantic-type contract in addition to its traversal direction.
+
+The semantic normalizer rejects:
+
+- unknown relation types;
+- reversed relations;
+- wrong source types;
+- wrong target types;
+- duplicate edges;
+- dangling endpoints.
+
+This occurs before claim evaluation.
+
+Claim-local closure then applies relation-specific directions rather than unrestricted bidirectional traversal.
+
+This prevents a shared-subject or shared-evaluator graph from importing another claim's evidence merely through a reverse path.
 
 
 ## Semantic graph identity and claim-local projection
@@ -1068,6 +1110,13 @@ Mycelix:
 - #4618 — evidence dependence and shared-ancestry accounting;
 - #4634 — raw-input parser integrity;
 - #4634 — raw receipt parsing and parser-equivalence attacks;
+- #4646 — semantic graph canonicalization and order-invariant evidence identity;
+- #4647 — claim-local projection and explicit provenance-edge closure;
+- #4648 — deterministic property/metamorphic mutation campaign;
+- #4652 — exact policy identity binding;
+- #4655 — directed claim-local projection;
+- #4658 — typed relation endpoint constraints;
+- #4661 — declarative policy-rule liveness;
 - #4646 — semantic graph canonicalization and order-invariant evidence identity;
 - #4647 — claim-local projection and explicit provenance-edge closure;
 - #4648 — deterministic property/metamorphic mutation campaign;
