@@ -8,6 +8,8 @@ on:
       - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json'
       - 'mycelix-governance/tools/formal/test_effective_contestability_control_matrix.py'
       - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CONTROL_MATRIX_V1.json'
+      - 'mycelix-governance/tools/formal/test_effective_contestability_control_matrix.py'
+      - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CONTROL_MATRIX_V1.json'
       - 'mycelix-governance/tools/formal/effective_contestability_pins.json'
       - 'mycelix-governance/tools/formal/qualify_effective_contestability.py'
       - 'docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla'
@@ -23,6 +25,8 @@ on:
     paths:
       - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_QUALIFICATION_PROFILE_V1.json'
       - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json'
+      - 'mycelix-governance/tools/formal/test_effective_contestability_control_matrix.py'
+      - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CONTROL_MATRIX_V1.json'
       - 'mycelix-governance/tools/formal/effective_contestability_pins.json'
       - 'mycelix-governance/tools/formal/qualify_effective_contestability.py'
       - 'docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla'
@@ -131,7 +135,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: sovereignty-contestability-candidate-${{ github.sha }}
+          name: sovereignty-contestability-candidate-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/contestability-evidence
           if-no-files-found: warn
           retention-days: 30
