@@ -24,7 +24,8 @@ pub enum Disposition {
 
 use manufacturing_common::{
     evaluate_capability, CapabilityProfile, CapabilityQualification, CapabilityRequirement,
-};
+    PROCESS_RECIPE_SCHEMA_ID,
+}
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
 struct WorkOrderRevisionProjection {
@@ -842,7 +843,7 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                         .ok_or(wasm_error!(WasmErrorInner::Guest(
                             "execution process recipe record has no entry".into(),
                         )))?;
-                    if recipe.schema_id != "mycelix-manufacturing-process-recipe-v1"
+                    if recipe.schema_id != PROCESS_RECIPE_SCHEMA_ID
                         || recipe.recipe_id.is_empty()
                         || recipe.revision.is_empty()
                         || recipe.process_family.is_empty()
