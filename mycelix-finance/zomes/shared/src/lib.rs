@@ -108,6 +108,39 @@ pub mod update_chain {
     /// an action with no further updates.
     ///
     /// Stops after [`MAX_UPDATE_CHAIN_DEPTH`] hops to prevent unbounded traversal.
+    /// Strict traversal for financial state where competing successors are a conflict.
+    ///
+    /// Unlike the generic follow_update_chain helper, this never resolves a fork
+    /// by ActionHash. Any predecessor with more than one successor returns a conflict.
+    pub fn follow_update_chain_strict(action_hash: ActionHash) -> ExternResult<Record> {
+        let mut current_hash = action_hash;
+        for _ in 0..MAX_UPDATE_CHAIN_DEPTH {
+            let details = get_details(current_hash.clone(), GetOptions::default())?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("Record not found".into())),
+            )?;
+            match details {
+                Details::Record(record_details) => {
+                    match record_details.updates.as_slice() {
+                        [] => return Ok(record_details.record),
+                        [only] => current_hash = only.action_address().clone(),
+                        _ => {
+                            return Err(wasm_error!(WasmErrorInner::Guest(
+                                "Financial state has competing update successors; lineage is frozen".into(),
+                            )));
+                        }
+                    }
+                }
+                _ => {
+                    return get(current_hash, GetOptions::default())?.ok_or(wasm_error!(
+                        WasmErrorInner::Guest("Record not found".into())
+                    ));
+                }
+            }
+        }
+        Err(wasm_error!(WasmErrorInner::Guest(
+            "Financial update chain exceeded maximum depth".into(),
+        )))
+    }
     pub fn follow_update_chain(action_hash: ActionHash) -> ExternResult<Record> {
         let mut current_hash = action_hash;
         for _ in 0..MAX_UPDATE_CHAIN_DEPTH {
