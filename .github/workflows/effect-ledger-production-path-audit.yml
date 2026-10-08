@@ -134,6 +134,21 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'validate_execution_resolution_for_refund' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: fund refund lacks an exact failed-resolution scope predicate."
+            exit 1
+          }
+
+          grep -Fq 'find_failed_resolution_for_prepared_execution' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: prepared execution refunds lack a failed-resolution lookup."
+            exit 1
+          }
+
+          grep -Fq 'Prepared' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' &&           grep -Fq 'test_prepared_timelock_cannot_be_cancelled_without_host_resolution' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: Prepared timelock cancellation guard is missing."
+            exit 1
+          }
+
           grep -Fq 'LinkTypes::ExecutionByTimelock' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
             echo "NOT QUALIFIED: fund release does not use the stable timelock-to-execution index."
             exit 1
