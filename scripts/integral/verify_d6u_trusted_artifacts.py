@@ -388,6 +388,17 @@ def verify_record_metadata(record: dict[str, str], policy: dict) -> None:
         f"runtime evidence record schema mismatch: "
         f"expected={sorted(expected_record_fields)!r}, observed={sorted(record)!r}"
     )
+    for key in (
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "executor_run_id",
+        "executor_run_attempt",
+    ):
+        assert re.fullmatch(r"[1-9][0-9]*", record[key]), (
+            f"runtime evidence run identity is not canonical: {key}={record[key]!r}"
+        )
+    assert record["workflow_run_id"] == record["executor_run_id"]
+    assert record["workflow_run_attempt"] == record["executor_run_attempt"]
     assert record["d6s2_authority_ledger_schema"] == policy["d6s2_authority_ledger_schema"]
     assert record["d6s1_corpus_sha256"] == policy["d6s1_corpus_sha256"]
 
