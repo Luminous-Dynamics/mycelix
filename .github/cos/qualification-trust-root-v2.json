@@ -19,13 +19,13 @@
   "components": {
     "independent_verifier_workflow": {
       "path": ".github/workflows/cos-conformance-independent-verify.yml",
-      "git_blob_sha1": "122c709ff92f35544ee3c6e84c032599c6b6a277",
-      "content_sha256": "de95c43e309cc9d229a3702ab38334704bbd7a15008ead35cda1fef031acadd7"
+      "git_blob_sha1": "3c329ef659df75123947a53194fbc979da3f2463",
+      "content_sha256": "32ba8a6265c54a5adb6231d6c59004d8815ab6538a3a9146aebede2414d491ab"
     },
     "qualification_attestor_workflow": {
       "path": ".github/workflows/cos-conformance-qualification-attestor.yml",
-      "git_blob_sha1": "174ddf93a6b3ba7ae58a3d6bef10df6b1b515397",
-      "content_sha256": "ae913c6730ebe8d10381e8331ae29133a86439ab29f1684a07ac4d0687c32030"
+      "git_blob_sha1": "3bd2851ada411b9659ce0961c88fea0fe03eebfc",
+      "content_sha256": "013139760e83ef4160007e0705a66be4ace46e4d43e756ec7311c032b6c485c3"
     },
     "federation_semantic_manifest": {
       "path": ".github/cos/federation-semantic-manifest-v1.json",
