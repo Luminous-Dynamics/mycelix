@@ -66,6 +66,7 @@ pub enum LinkTypes {
     AllOperations,
     AllCapabilityRequirements,
     DesignToRouting,
+    RoutingToInspectionCriteria,
     RoutingToOperations,
 }
 
