@@ -18,13 +18,7 @@ pub enum Disposition {
     Quarantined,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum CapabilityQualification {
-    Declared,
-    Observed,
-    Verified,
-    Qualified,
-}
+use manufacturing_common::CapabilityQualification;
 
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
