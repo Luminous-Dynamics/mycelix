@@ -88,10 +88,25 @@ def policy() -> dict:
         "d6s2_authority_ledger_schema": "v1",
         "d6s1_corpus_sha256": "a" * 64,
         "manifest_version": 11,
+        "repository_identity": {
+            "full_name": "Luminous-Dynamics/mycelix",
+            "repository_id": 1176351975,
+        },
+        "trigger_workflow": {
+            "name": "D6S Canonical Qualification",
+            "path": ".github/workflows/d6s-canonical-qualification.yml",
+            "workflow_id": 371215723,
+        },
+        "executor_workflow": {
+            "name": "D6U Exact-Head Runtime Executor",
+            "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+        },
+        "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
         "required_source_blobs": {
             "docs/integral/d6u-runtime-manifest.json": "b" * 40,
             "scripts/integral/verify_d6u_runtime_evidence.py": "c" * 40,
             "scripts/integral/verify_d6u_runtime_lock.py": "d" * 40,
+            ".github/workflows/d6s-canonical-qualification.yml": "e" * 40,
         },
         "expected_case_coverage": "14-of-14",
         "expected_supplemental_coverage": "4-of-4",
@@ -256,6 +271,76 @@ def run(candidate_root: pathlib.Path) -> None:
 
     record = valid_record()
     verifier.verify_record_metadata(record, p)
+
+    repository = "Luminous-Dynamics/mycelix"
+    trigger_run = {
+        "name": "D6S Canonical Qualification",
+        "path": ".github/workflows/d6s-canonical-qualification.yml",
+        "workflow_id": 371215723,
+        "event": "pull_request",
+        "conclusion": "success",
+        "head_repository": {"full_name": repository, "id": 1176351975},
+        "repository": {"full_name": repository, "id": 1176351975},
+        "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "head_sha": "a" * 40,
+        "id": 100,
+        "run_attempt": 1,
+    }
+    verifier.verify_trigger_run_record(record, trigger_run, p, repository)
+
+    tampered_trigger = dict(trigger_run)
+    tampered_trigger["head_sha"] = "0" * 40
+    assert_rejected(
+        lambda: verifier.verify_trigger_run_record(
+            record, tampered_trigger, p, repository
+        ),
+        'trigger["head_sha"] == record["source_commit"]',
+        "candidate verifier accepted a D6S trigger run for a different source SHA",
+    )
+
+    tampered_trigger = dict(trigger_run)
+    tampered_trigger["workflow_id"] = 999
+    assert_rejected(
+        lambda: verifier.verify_trigger_run_record(
+            record, tampered_trigger, p, repository
+        ),
+        'int(trigger["workflow_id"]) == int(cfg["workflow_id"])',
+        "candidate verifier accepted a different trigger workflow identity",
+    )
+
+    executor_run = {
+        "name": "D6U Exact-Head Runtime Executor",
+        "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+        "event": "workflow_run",
+        "conclusion": "success",
+        "repository": {"full_name": repository, "id": 1176351975},
+        "head_repository": {"full_name": repository, "id": 1176351975},
+        "head_branch": "main",
+        "head_sha": "f" * 40,
+        "id": 200,
+        "run_attempt": 1,
+    }
+    verifier.verify_executor_run_record(executor_run, record, p, repository)
+
+    tampered_executor = dict(executor_run)
+    tampered_executor["head_sha"] = "0" * 40
+    assert_rejected(
+        lambda: verifier.verify_executor_run_record(
+            tampered_executor, record, p, repository
+        ),
+        'record["executor_workflow_commit_sha"] == head_sha',
+        "candidate verifier accepted an executor run with a different workflow commit",
+    )
+
+    tampered_executor = dict(executor_run)
+    tampered_executor["run_attempt"] = 2
+    assert_rejected(
+        lambda: verifier.verify_executor_run_record(
+            tampered_executor, record, p, repository
+        ),
+        'executor_run["run_attempt"] == int(record["executor_run_attempt"])',
+        "candidate verifier accepted an executor run from a different attempt",
+    )
 
     tampered = dict(record)
     tampered["workflow_run_id"] = "201"
