@@ -539,7 +539,9 @@ def _github_fnmatch_matches(
             return False
 
         component_start = value_index == 0 or (
-            value_index > 0 and value[value_index - 1] == "/"
+            pathname
+            and value_index > 0
+            and value[value_index - 1] == "/"
         )
         if (
             component_start
