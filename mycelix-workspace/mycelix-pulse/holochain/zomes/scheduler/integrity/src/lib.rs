@@ -91,7 +91,7 @@ pub enum LinkTypes {
 
 /// Validate scheduled email
 fn validate_create_scheduled_email(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     scheduled: ScheduledEmail,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate ID
@@ -126,7 +126,7 @@ fn validate_create_scheduled_email(
 
 /// Validate snooze reminder
 fn validate_create_snooze_reminder(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     reminder: SnoozeReminder,
 ) -> ExternResult<ValidateCallbackResult> {
     if reminder.id.is_empty() {
