@@ -82,6 +82,21 @@ INDEX_KEYS = frozenset(
     }
 )
 
+ENUMERATION_KEYS = frozenset(
+    {
+        "schema",
+        "page_size",
+        "max_pages",
+        "max_artifacts",
+        "total_count_reported",
+        "enumerated_count",
+        "page_counts",
+        "terminal_page",
+        "artifact_identity_sha256",
+        "complete",
+    }
+)
+
 INDEX_ARTIFACT_KEYS = frozenset(
     {
         "id",
@@ -366,6 +381,50 @@ def verify_receipt(
     return hashlib.sha256(canonical).hexdigest(), verifier_sha, verifier_blob_sha
 
 
+def verify_artifact_enumeration(
+    enumeration: dict[str, Any], items: list[dict[str, Any]]
+) -> None:
+    if set(enumeration) != ENUMERATION_KEYS:
+        fail(
+            "artifact enumeration closed-world mismatch: "
+            f"missing={sorted(ENUMERATION_KEYS - set(enumeration))!r} "
+            f"extra={sorted(set(enumeration) - ENUMERATION_KEYS)!r}"
+        )
+    if enumeration["schema"] != "mycelix.fpm.trusted-qualification-artifact-enumeration.v1":
+        fail("unexpected artifact enumeration schema")
+    if enumeration["page_size"] != 100:
+        fail("unexpected artifact enumeration page size")
+    if enumeration["max_pages"] != 4:
+        fail("unexpected artifact enumeration page bound")
+    if enumeration["max_artifacts"] != 256:
+        fail("unexpected artifact enumeration global bound")
+    if enumeration["complete"] is not True:
+        fail("artifact enumeration is not marked complete")
+    counts = enumeration["page_counts"]
+    if not isinstance(counts, list) or not counts:
+        fail("artifact enumeration page_counts is invalid")
+    if any(type(x) is not int or x < 0 or x > 100 for x in counts):
+        fail("artifact enumeration page count is invalid")
+    if enumeration["terminal_page"] != len(counts):
+        fail("terminal page does not match page_counts length")
+    if enumeration["enumerated_count"] != len(items):
+        fail("enumerated count does not match artifact list")
+    if enumeration["total_count_reported"] != len(items):
+        fail("reported total count does not match artifact list")
+    if sum(counts) != len(items):
+        fail("page counts do not sum to artifact count")
+    if counts[-1] >= 100:
+        fail("artifact enumeration did not observe a short/empty terminal page")
+    identities = [
+        {"id": item["id"], "name": item["name"]}
+        for item in items
+    ]
+    commitment = hashlib.sha256(
+        json.dumps(identities, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    if enumeration["artifact_identity_sha256"] != commitment:
+        fail("artifact identity enumeration commitment mismatch")
+
 def verify_index(
     index: dict[str, Any],
     receipt_digest: str,
@@ -434,10 +493,13 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     candidate_lock = json.loads((snapshot_dir / "candidate-lock.json").read_text(encoding="utf-8"))
     main_ref = json.loads((snapshot_dir / "main-ref.json").read_text(encoding="utf-8"))
     artifacts = json.loads((snapshot_dir / "artifacts.json").read_text(encoding="utf-8"))
+    enumeration = load_canonical_json(snapshot_dir / "artifact-enumeration.json")
 
     artifact_items = artifacts.get("artifacts")
     if not isinstance(artifact_items, list):
         fail("artifact list is malformed")
+
+    verify_artifact_enumeration(enumeration, artifact_items)
 
     if len(artifact_items) != 2:
         fail(f"trusted qualification run must contain exactly 2 artifacts, found {len(artifact_items)}")
