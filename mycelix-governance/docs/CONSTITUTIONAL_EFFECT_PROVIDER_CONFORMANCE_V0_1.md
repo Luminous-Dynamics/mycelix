@@ -392,6 +392,12 @@ from the records fetched by the coordinator; they are not caller-selected IDs.
 This makes the source-chain provenance of a host-side resolution independently
 locatable without promoting the DHT into a global provider lock.
 
+Fund release is also treated as a consequential effect: the governance coordinator
+must not release a locked allocation solely because its creator requests release.
+A release requires an Executed ExecutionResolution whose execution/timelock ActionHash
+anchors match the exact prepared source records. Refund paths for cancellation or
+expiration remain separately scoped and do not imply successful execution.
+
 This separation is intentional: a hardened boundary is a prerequisite for provider
 qualification, not evidence that the providers themselves satisfy the boundary.
 

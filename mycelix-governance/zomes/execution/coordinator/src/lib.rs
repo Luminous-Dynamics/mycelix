@@ -1498,6 +1498,41 @@ pub fn release_locked_funds(input: ReleaseFundsInput) -> ExternResult<Record> {
         ))));
     }
 
+    let timelock_id = alloc.timelock_id.trim();
+    if timelock_id.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Fund allocation is missing the timelock required for release verification".into()
+        )));
+    }
+
+    let timelock_record = find_timelock_by_id(timelock_id)?;
+    let timelock: Timelock = timelock_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid timelock entry for fund release".into()
+        )))?;
+
+    let resolution = find_executed_resolution_for_prepared_execution(
+        &timelock_record,
+        &timelock,
+    )?
+    .ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Locked funds cannot be released without an exact Executed host-side resolution".into()
+    )))?;
+
+    if resolution.proposal_id != alloc.proposal_id
+        || resolution.timelock_id != timelock.id
+        || resolution.execution_action_hash.is_none()
+        || resolution.timelock_action_hash.as_ref()
+            != Some(timelock_record.action_address())
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Execution resolution does not exactly match the locked fund scope".into()
+        )));
+    }
+
     let released = FundAllocation {
         status: AllocationStatus::Released,
         status_reason: Some(
@@ -1575,6 +1610,115 @@ pub fn refund_locked_funds(input: RefundFundsInput) -> ExternResult<Record> {
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find updated allocation".into()
     )))
+}
+
+/// Find an authenticated-by-structure host-side resolution for the exact prepared
+/// execution attached to this timelock. This checks source ActionHash anchors and
+/// the immutable resolution outcome, but deliberately does not claim that the
+/// proof roots themselves have been externally verified by this zome.
+fn validate_execution_resolution_for_release(
+    resolution: &ExecutionResolution,
+    execution: &Execution,
+    execution_action_hash: &ActionHash,
+    timelock: &Timelock,
+    timelock_action_hash: &ActionHash,
+) -> Result<(), String> {
+    if resolution.outcome != ExecutionResolutionOutcome::Executed {
+        return Err("execution resolution is not terminally Executed".into());
+    }
+    if resolution.execution_id != execution.id
+        || resolution.timelock_id != timelock.id
+        || resolution.proposal_id != timelock.proposal_id
+        || execution.timelock_id != timelock.id
+        || execution.proposal_id != timelock.proposal_id
+    {
+        return Err("execution resolution does not match timelock/execution scope".into());
+    }
+    if resolution.executor != execution.executor {
+        return Err("execution resolution executor does not match prepared execution".into());
+    }
+    if resolution.execution_action_hash.as_ref() != Some(execution_action_hash)
+        || resolution.timelock_action_hash.as_ref() != Some(timelock_action_hash)
+    {
+        return Err("execution resolution source ActionHash anchors do not match".into());
+    }
+    Ok(())
+}
+
+fn find_executed_resolution_for_prepared_execution(
+    timelock_record: &Record,
+    timelock: &Timelock,
+) -> ExternResult<Option<ExecutionResolution>> {
+    let execution_links = get_links(
+        LinkQuery::try_new(
+            timelock_record.action_address().clone(),
+            LinkTypes::TimelockToExecution,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    for execution_link in execution_links {
+        let execution_hash = match ActionHash::try_from(execution_link.target.clone()) {
+            Ok(hash) => hash,
+            Err(_) => continue,
+        };
+        let Some(execution_record) = get_latest_record(execution_hash)? else {
+            continue;
+        };
+        let Some(execution) = execution_record
+            .entry()
+            .to_app_option::<Execution>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            continue;
+        };
+
+        if execution.timelock_id != timelock.id
+            || execution.proposal_id != timelock.proposal_id
+            || execution.status != ExecutionStatus::Prepared
+        {
+            continue;
+        }
+
+        let resolution_links = get_links(
+            LinkQuery::try_new(
+                execution_record.action_address().clone(),
+                LinkTypes::ExecutionToResolution,
+            )?,
+            GetStrategy::default(),
+        )?;
+
+        for resolution_link in resolution_links {
+            let resolution_hash = match ActionHash::try_from(resolution_link.target.clone()) {
+                Ok(hash) => hash,
+                Err(_) => continue,
+            };
+            let Some(resolution_record) = get_latest_record(resolution_hash)? else {
+                continue;
+            };
+            let Some(resolution) = resolution_record
+                .entry()
+                .to_app_option::<ExecutionResolution>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            else {
+                continue;
+            };
+
+            if validate_execution_resolution_for_release(
+                &resolution,
+                &execution,
+                execution_record.action_address(),
+                timelock,
+                timelock_record.action_address(),
+            )
+            .is_ok()
+            {
+                return Ok(Some(resolution));
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 /// Input for refunding funds
@@ -1663,6 +1807,66 @@ mod tests {
     // =========================================================================
 
     // --- TransferCredits ---
+
+    #[test]
+    fn execution_resolution_for_release_requires_exact_source_anchors() {
+        let timelock_hash = ActionHash::from_raw_36(vec![1; 36]);
+        let execution_hash = ActionHash::from_raw_36(vec![2; 36]);
+        let timelock = Timelock {
+            id: "tl-1".into(),
+            proposal_id: "prop-1".into(),
+            actions: "[]".into(),
+            started: ts(1_000_000),
+            expires: ts(2_000_000),
+            status: TimelockStatus::Prepared,
+            cancellation_reason: None,
+        };
+        let execution = Execution {
+            id: "execution-1".into(),
+            timelock_id: "tl-1".into(),
+            proposal_id: "prop-1".into(),
+            executor: "did:mycelix:test".into(),
+            status: ExecutionStatus::Prepared,
+            result: None,
+            error: None,
+            executed_at: ts(2_000_001),
+        };
+        let mut resolution = ExecutionResolution {
+            id: "resolution:execution-1".into(),
+            execution_id: "execution-1".into(),
+            timelock_id: "tl-1".into(),
+            proposal_id: "prop-1".into(),
+            executor: "did:mycelix:test".into(),
+            execution_action_hash: Some(execution_hash.clone()),
+            timelock_action_hash: Some(timelock_hash.clone()),
+            attempt_identities: vec![],
+            action_key_digests: vec![],
+            terminal_evidence_digests: vec![],
+            authorization_admission_proof_digests: vec![],
+            final_provider_entry_proof_digests: vec![],
+            outcome: ExecutionResolutionOutcome::Executed,
+            resolved_at: ts(2_000_010),
+        };
+
+        assert!(validate_execution_resolution_for_release(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_ok());
+
+        resolution.execution_action_hash = None;
+        assert!(validate_execution_resolution_for_release(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_err());
+    }
 
     #[test]
     fn test_transfer_credits_valid() {
