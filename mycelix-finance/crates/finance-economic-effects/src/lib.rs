@@ -203,7 +203,7 @@ impl EconomicEffectV1 {
     fn require_source_account(&self) -> Result<(), EconomicEffectError> {
         if self.debits.len() == 1
             && self.debits[0].role == AllocationRole::Account
-            && self.debits[0].party_id == self.source_owner
+            && self.debits[0].party_id == self.identity.source_owner
         {
             Ok(())
         } else {
@@ -214,7 +214,7 @@ impl EconomicEffectV1 {
     fn require_distinct_counterparty(&self) -> Result<(), EconomicEffectError> {
         if self.credits.len() == 1
             && self.credits[0].role == AllocationRole::Account
-            && self.credits[0].party_id != self.source_owner
+            && self.credits[0].party_id != self.identity.source_owner
         {
             Ok(())
         } else {
@@ -247,7 +247,6 @@ pub struct ValidatedEconomicEffect<'a> {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EconomicEffectObservation {
-    pub predecessor_action_reference: String,
     pub successor_action_reference: String,
     pub effect_identity: EconomicEffectIdentityV1,
 }
@@ -306,7 +305,7 @@ pub fn classify_successors(
     let mut unique_by_action: BTreeMap<String, EconomicEffectIdentityV1> = BTreeMap::new();
     for observation in observations {
         observation.validate_shape()?;
-        if observation.predecessor_action_reference != predecessor_action_reference {
+        if observation.effect_identity.predecessor_action_reference != predecessor_action_reference {
             return Err(EconomicEffectError::PredecessorReferenceMismatch);
         }
         match unique_by_action.get(&observation.successor_action_reference) {
@@ -442,12 +441,13 @@ mod tests {
     fn base_transfer() -> EconomicEffectV1 {
         EconomicEffectV1 {
             schema_version: ECONOMIC_EFFECT_V1_SCHEMA_VERSION,
-            effect_identity: effect.identity.clone(),
-            predecessor_action_reference: "prev-1".into(),
-            cause_action_reference: "cause-1".into(),
-            asset: "SAP".into(),
-            mutation_class: MutationClass::Transfer,
-            source_owner: "alice".into(),
+            identity: EconomicEffectIdentityV1 {
+                predecessor_action_reference: "prev-1".into(),
+                cause_action_reference: "cause-1".into(),
+                asset: "SAP".into(),
+                mutation_class: MutationClass::Transfer,
+                source_owner: "alice".into(),
+            },
             debits: vec![allocation("alice", AllocationRole::Account, 100)],
             credits: vec![allocation("bob", AllocationRole::Account, 100)],
         }
@@ -600,12 +600,10 @@ mod tests {
     fn fork_is_conflict_not_winner_selection() {
         let observations = vec![
             EconomicEffectObservation {
-                predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: base_transfer().identity.clone(),
             },
             EconomicEffectObservation {
-                predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-b".into(),
                 effect_identity: EconomicEffectIdentityV1 {
                     predecessor_action_reference: "prev-1".into(),
