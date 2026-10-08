@@ -6,6 +6,8 @@ on:
     paths:
       - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_QUALIFICATION_PROFILE_V1.json'
       - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json'
+      - 'mycelix-governance/tools/formal/test_effective_contestability_control_matrix.py'
+      - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CONTROL_MATRIX_V1.json'
       - 'mycelix-governance/tools/formal/effective_contestability_pins.json'
       - 'mycelix-governance/tools/formal/qualify_effective_contestability.py'
       - 'docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla'
@@ -64,10 +66,20 @@ jobs:
       - name: Validate source syntax
         run: |
           set -euo pipefail
-          python3 -m py_compile mycelix-governance/tools/formal/qualify_effective_contestability.py docs/qualification/fixtures/effective-contestability/effective_contestability_reference_explorer.py
+          python3 -m py_compile mycelix-governance/tools/formal/qualify_effective_contestability.py docs/qualification/fixtures/effective-contestability/effective_contestability_reference_explorer.py mycelix-governance/tools/formal/test_effective_contestability_control_matrix.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_QUALIFICATION_PROFILE_V1.json >/dev/null
           python3 -m json.tool docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json >/dev/null
           python3 -m json.tool mycelix-governance/tools/formal/effective_contestability_pins.json >/dev/null
+
+      - name: Verify cross-model control matrix
+        run: |
+          set -euo pipefail
+          python3 mycelix-governance/tools/formal/test_effective_contestability_control_matrix.py \
+            --matrix docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CONTROL_MATRIX_V1.json \
+            --tla docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla \
+            --negative-tla docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1NegativeControls.tla \
+            --alloy docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.als \
+            --reference docs/qualification/fixtures/effective-contestability/effective_contestability_reference_explorer.py
 
       - name: Install pinned Nix toolchain
         uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b
@@ -106,7 +118,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/contestability-evidence"
           nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#jdk17_headless" "github:NixOS/nixpkgs/$NIXPKGS_REV#coreutils" --command bash -euo pipefail -c '
-            python3 mycelix-governance/tools/formal/qualify_effective_contestability.py --profile docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_QUALIFICATION_PROFILE_V1.json --pins mycelix-governance/tools/formal/effective_contestability_pins.json --tla docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla --cfg docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.cfg --negative-tla docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1NegativeControls.tla --alloy docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.als --alloy-runner-java docs/qualification/fixtures/effective-contestability/EffectiveContestabilityAlloyRunner.java --alloy-runner-class "$RUNNER_TEMP/contestability-java/EffectiveContestabilityAlloyRunner.class" --alloy-runner-class-dir "$RUNNER_TEMP/contestability-java" --tla-jar "$RUNNER_TEMP/contestability-tools/tla2tools.jar" --alloy-jar "$RUNNER_TEMP/contestability-tools/alloy.jar" --evidence-dir "$RUNNER_TEMP/contestability-evidence" --workflow .github/workflows/sovereignty-contestability-formal-candidate.yml --crosswalk docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json --reference-explorer docs/qualification/fixtures/effective-contestability/effective_contestability_reference_explorer.py --runtime-metadata "$RUNNER_TEMP/contestability-evidence/runtime.json"
+            python3 mycelix-governance/tools/formal/qualify_effective_contestability.py --profile docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_QUALIFICATION_PROFILE_V1.json --pins mycelix-governance/tools/formal/effective_contestability_pins.json --control-matrix docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CONTROL_MATRIX_V1.json --tla docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla --cfg docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.cfg --negative-tla docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1NegativeControls.tla --alloy docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.als --alloy-runner-java docs/qualification/fixtures/effective-contestability/EffectiveContestabilityAlloyRunner.java --alloy-runner-class "$RUNNER_TEMP/contestability-java/EffectiveContestabilityAlloyRunner.class" --alloy-runner-class-dir "$RUNNER_TEMP/contestability-java" --tla-jar "$RUNNER_TEMP/contestability-tools/tla2tools.jar" --alloy-jar "$RUNNER_TEMP/contestability-tools/alloy.jar" --evidence-dir "$RUNNER_TEMP/contestability-evidence" --workflow .github/workflows/sovereignty-contestability-formal-candidate.yml --crosswalk docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json --reference-explorer docs/qualification/fixtures/effective-contestability/effective_contestability_reference_explorer.py --runtime-metadata "$RUNNER_TEMP/contestability-evidence/runtime.json"
           '
 
       - name: Verify repository postflight
