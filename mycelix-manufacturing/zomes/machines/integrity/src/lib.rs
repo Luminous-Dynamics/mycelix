@@ -19,6 +19,10 @@ pub const MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-transition-approval-v1";
 pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
 
+fn default_lease_schema_version() -> u8 {
+    1
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineControllerLeasePayload {
     pub schema_id: String,
@@ -67,7 +71,7 @@ pub struct MachineControllerAuthorityEntry {
     pub controller_agent: AgentPubKey,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
-    #[serde(default)]
+    #[serde(default = "default_lease_schema_version")]
     pub lease_schema_version: u8,
     #[serde(default)]
     pub requires_transition_approval: bool,
@@ -125,6 +129,7 @@ impl MachineControllerTransitionApprovalEntry {
         }
     }
 }
+
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct MachineStatusLog {
