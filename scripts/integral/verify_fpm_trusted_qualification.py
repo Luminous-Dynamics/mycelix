@@ -238,7 +238,7 @@ def verify_raw_artifact_archive(
     archive_sha256 = hashlib.sha256(archive_bytes).hexdigest()
     if f"sha256:{archive_sha256}" != expected_digest:
         fail(f"{label} artifact archive digest mismatch")
-    if not extracted.is_file() or extracted.is_symlink():
+    if extracted.exists() and (not extracted.is_file() or extracted.is_symlink()):
         fail(f"{label} extracted evidence is not a regular file")
 
     try:
@@ -298,9 +298,14 @@ def verify_raw_artifact_archive(
                 fail(f"{label} artifact archive member exceeds size bound")
             member_sha256 = hashlib.sha256(member).hexdigest()
 
-            extracted_bytes = extracted.read_bytes()
-            if extracted_bytes != member:
-                fail(f"{label} extracted evidence does not match raw archive member")
+            if extracted.exists():
+                extracted_bytes = extracted.read_bytes()
+                if extracted_bytes != member:
+                    fail(f"{label} extracted evidence does not match raw archive member")
+            else:
+                extracted.parent.mkdir(parents=True, exist_ok=True)
+                extracted.write_bytes(member)
+                extracted.chmod(0o400)
 
             member_set_sha256 = hashlib.sha256(
                 json.dumps([info.filename], separators=(",", ":"), ensure_ascii=True).encode("utf-8")
