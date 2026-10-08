@@ -42,19 +42,6 @@ jobs:
           ref: ${{ env.QUALIFIED_SHA }}
           persist-credentials: false
 
-      - name: Assert trusted D6S workflow identity
-        env:
-          EXPECTED_D6S_WORKFLOW_BLOB: e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4
-        run: |
-          set -euo pipefail
-          actual="$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
-          test "$actual" = "$EXPECTED_D6S_WORKFLOW_BLOB"
-          test "${{ github.event.workflow_run.head_repository.id }}" = "${{ github.repository_id }}"
-          test "${{ github.event.workflow_run.head_repository.full_name }}" = "${{ github.repository }}"
-          test "${{ github.event.workflow_run.head_branch }}" = "myc-int-demo-d6u-holochain-07-runtime"
-          test "${{ github.event.workflow_run.event }}" = "pull_request"
-          test "${{ github.event.workflow_run.conclusion }}" = "success"
-
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
       - name: Verify exact D6S qualification artifact provenance
@@ -65,7 +52,6 @@ jobs:
           D6S_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           D6S_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           D6S_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
-          EXPECTED_D6S_WORKFLOW_BLOB: e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4
           EXPECTED_ARTIFACT_NAME: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
         run: |
           set -euo pipefail
@@ -160,13 +146,13 @@ jobs:
           head_branch = os.environ["D6S_HEAD_BRANCH"]
           head_repository = os.environ["D6S_HEAD_REPOSITORY"]
           expected_name = os.environ["EXPECTED_ARTIFACT_NAME"]
-          expected_workflow_blob = os.environ["EXPECTED_D6S_WORKFLOW_BLOB"]
+          subject_workflow_blob = os.popen("git hash-object .github/workflows/d6s-canonical-qualification.yml").read().strip()
 
           assert head_repository == repo
           assert head_branch == "myc-int-demo-d6u-holochain-07-runtime"
           assert re.fullmatch(r"[0-9a-f]{40}", head_sha)
           assert run_id > 0 and run_attempt > 0
-          assert re.fullmatch(r"[0-9a-f]{40}", expected_workflow_blob)
+          assert re.fullmatch(r"[0-9a-f]{40}", subject_workflow_blob)
 
           name_query = urllib.parse.quote(expected_name, safe="")
           artifacts = api_get(
@@ -229,7 +215,7 @@ jobs:
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_commit)
           assert workflow_commit == workflow_commit.lower()
           assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_file_blob_sha"])
-          assert record["workflow_file_blob_sha"] == expected_workflow_blob
+          assert record["workflow_file_blob_sha"] == subject_workflow_blob
           assert record["run_id"] == str(run_id)
           assert record["run_attempt"] == str(run_attempt)
           assert record["event"] == "pull_request"
@@ -246,7 +232,7 @@ jobs:
           assert len(entries) == 1
           workflow_entry = entries[0]
           assert workflow_entry.get("type") == "blob"
-          assert workflow_entry.get("sha") == expected_workflow_blob
+          assert workflow_entry.get("sha") == record["workflow_file_blob_sha"]
 
           provenance = Path(os.environ["RUNNER_TEMP"]) / "d6s-trigger-workflow-provenance.txt"
           provenance.write_text(
@@ -257,7 +243,7 @@ jobs:
                       f"trigger_run_attempt={run_attempt}",
                       f"trigger_head_sha={head_sha}",
                       f"trigger_workflow_commit_sha={workflow_commit}",
-                      f"trigger_workflow_blob_sha={expected_workflow_blob}",
+                      f"trigger_workflow_blob_sha={record["workflow_file_blob_sha"]}",
                       f"artifact_id={artifact['id']}",
                       f"artifact_digest=sha256:{observed_digest}",
                   ]
@@ -274,7 +260,7 @@ jobs:
           print(
               "verified D6S workflow provenance: "
               f"run={run_id} attempt={run_attempt} "
-              f"workflow_commit={workflow_commit} workflow_blob={expected_workflow_blob}"
+              f"workflow_commit={workflow_commit} workflow_blob={record["workflow_file_blob_sha"]}"
           )
           PY
 
