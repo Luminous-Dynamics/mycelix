@@ -71,6 +71,14 @@ def load_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_json_keys)
 
 
+def write_json(path: Path, value: object):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
 def git(root: Path, *args: str):
     return subprocess.check_output(["git", *args], cwd=root, text=True).strip()
 
@@ -488,7 +496,13 @@ def result_digest(per_case):
     return digest.hexdigest()
 
 
-def verify_subject(candidate_root: Path, run_meta: dict, jobs_meta: dict, trusted: dict):
+def verify_subject(
+    candidate_root: Path,
+    run_meta: dict,
+    jobs_meta: dict,
+    trusted: dict,
+    result_json: Path | None = None,
+):
     target = trusted["candidate_sha"]
     parent = trusted["parent_sha"]
 
@@ -666,6 +680,41 @@ def verify_subject(candidate_root: Path, run_meta: dict, jobs_meta: dict, truste
     if resource_results != trusted["resource_results"]:
         raise AssertionError({"expected_resource": trusted["resource_results"], "actual_resource": resource_results})
 
+    result_payload = {
+        "schema": "MYCELIX-SYM-CIVIC-018-INDEPENDENT-SEMANTIC-RESULT-V1",
+        "candidate_pr": trusted["candidate_pr"],
+        "candidate_sha": target,
+        "parent_sha": parent,
+        "run_id": run_meta["id"],
+        "job_id": jobs[0]["id"],
+        "job_name": jobs[0]["name"],
+        "candidate_schema": trusted["candidate_schema"],
+        "candidate_program": trusted["candidate_program"],
+        "message_corpus_sha256": message_digest,
+        "depth_corpus_sha256": depth_digest,
+        "resource_corpus_sha256": resource_digest,
+        "message_results_sha256": message_results_digest,
+        "counts": counts,
+        "depth_results": depth_results,
+        "resource_results": resource_results,
+        "anchors": {
+            "C-03": per_case["C-03"],
+            "C-04": per_case["C-04"],
+            "C-11": per_case["C-11"],
+            "C-12": per_case["C-12"],
+            "C-28": per_case["C-28"],
+            "C-29": per_case["C-29"],
+            "C-30": per_case["C-30"],
+            "C-31": per_case["C-31"],
+        },
+        "metamorphic": "NOT_RECOMPUTED",
+        "disposition": "TRUSTED_INDEPENDENT_SEMANTIC_RECOMPUTATION_PASS",
+        "boundary": "trusted_candidate_independent_semantic_recomputation",
+        "claim_ceiling": "SYNTHETIC_RESEARCH_ONLY",
+    }
+    if result_json is not None:
+        write_json(result_json, result_payload)
+
     print("SYM-CIVIC-018-INDEPENDENT-SEMANTIC=PASS")
     print(f"candidate={target}")
     print(f"parent={parent}")
@@ -687,12 +736,19 @@ def main():
     parser.add_argument("--candidate-root", required=True, type=Path)
     parser.add_argument("--run-json", required=True, type=Path)
     parser.add_argument("--jobs-json", required=True, type=Path)
+    parser.add_argument("--result-json", type=Path)
     args = parser.parse_args()
 
     trusted = load_json(TRUSTED_MANIFEST)
     if trusted["schema"] != "MYCELIX-SYM-CIVIC-018-INDEPENDENT-SEMANTIC-V1":
         raise SystemExit("trusted manifest schema mismatch")
-    verify_subject(args.candidate_root.resolve(), load_json(args.run_json), load_json(args.jobs_json), trusted)
+    verify_subject(
+        args.candidate_root.resolve(),
+        load_json(args.run_json),
+        load_json(args.jobs_json),
+        trusted,
+        args.result_json,
+    )
 
 
 if __name__ == "__main__":

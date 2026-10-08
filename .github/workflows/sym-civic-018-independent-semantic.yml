@@ -90,9 +90,86 @@ jobs:
           test "$(git -C candidate-source rev-parse HEAD)" = "${{ github.event.workflow_run.head_sha }}"
 
       - name: Run trusted candidate-independent semantic verifier
+        env:
+          SEMANTIC_RESULT: /tmp/sym-civic-018-independent-semantic-result.json
         run: |
           set -euo pipefail
-          python3 scripts/qualification/sym_civic_018_independent_semantic_v1.py             --candidate-root candidate-source             --run-json /tmp/trigger-run.json             --jobs-json /tmp/trigger-jobs.json
+          python3 scripts/qualification/sym_civic_018_independent_semantic_v1.py \
+            --candidate-root candidate-source \
+            --run-json /tmp/trigger-run.json \
+            --jobs-json /tmp/trigger-jobs.json \
+            --result-json "$SEMANTIC_RESULT"
+
+      - name: Revalidate live PR immediately before receipt creation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pulls/4322" > /tmp/live-pr-final.json
+          python3 - <<'PY'
+          import json, os
+          pr = json.load(open("/tmp/live-pr-final.json", encoding="utf-8"))
+          assert pr["number"] == 4322
+          assert pr["state"] == "open"
+          assert pr["head"]["sha"] == os.environ["EXPECTED_HEAD"]
+          assert pr["base"]["sha"] == "1196889eb2a849ddc359d8d05edf063aa9537699"
+          assert pr["head"]["repo"]["id"] == 1176351975
+          assert pr["base"]["repo"]["id"] == 1176351975
+          assert pr["head"]["repo"]["full_name"] == "Luminous-Dynamics/mycelix"
+          assert pr["base"]["repo"]["full_name"] == "Luminous-Dynamics/mycelix"
+          print("final live PR identity: PASS")
+          PY
+
+      - name: Capture triggering workflow-file identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRIGGER_WORKFLOW_SHA: ${{ github.event.workflow_run.workflow_sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/sym-civic-018-cbor-encoding.yml?ref=$TRIGGER_WORKFLOW_SHA" > /tmp/trigger-workflow-file.json
+          python3 - <<'PY'
+          import json
+          payload = json.load(open("/tmp/trigger-workflow-file.json", encoding="utf-8"))
+          assert payload["path"] == ".github/workflows/sym-civic-018-cbor-encoding.yml"
+          assert payload["sha"] == "27359c1bc7d130780ca82bababa927a1952f170b"
+          print("trigger workflow-file blob identity: PASS")
+          PY
+
+      - name: Build, verify, and preserve immutable semantic receipt
+        env:
+          RECEIPT_OUT: /tmp/sym-civic-018-independent-semantic-receipt.json
+          SEMANTIC_RESULT: /tmp/sym-civic-018-independent-semantic-result.json
+        run: |
+          set -euo pipefail
+          python3 scripts/qualification/sym_civic_018_independent_semantic_receipt_v1.py \
+            --contract scripts/qualification/sym_civic_018_independent_semantic_receipt_contract_v1.json \
+            --candidate-root candidate-source \
+            --run-json /tmp/trigger-run.json \
+            --jobs-json /tmp/trigger-jobs.json \
+            --live-pr-json /tmp/live-pr-final.json \
+            --trigger-workflow-json /tmp/trigger-workflow-file.json \
+            --semantic-result "$SEMANTIC_RESULT" \
+            --trusted-root . \
+            --output "$RECEIPT_OUT" \
+            --verification-output /tmp/sym-civic-018-independent-semantic-receipt-verification.json
+
+      - name: Verify trusted checkout immutability after receipt generation
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse HEAD)" = "${{ github.workflow_sha }}"
+
+      - name: Upload immutable semantic evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sym-civic-018-independent-semantic-receipt-${{ github.event.workflow_run.id }}
+          path: |
+            /tmp/sym-civic-018-independent-semantic-receipt.json
+            /tmp/sym-civic-018-independent-semantic-result.json
+            /tmp/sym-civic-018-independent-semantic-receipt-verification.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Emit immutable trusted capture
         run: |
@@ -100,5 +177,6 @@ jobs:
           printf 'TRUSTED_WORKFLOW_SHA=%s\n' "${{ github.workflow_sha }}"
           printf 'TRUSTED_WORKFLOW_REF=%s\n' "${{ github.workflow_ref }}"
           printf 'TRIGGER_RUN_ID=%s\n' "${{ github.event.workflow_run.id }}"
+          printf 'TRIGGER_WORKFLOW_SHA=%s\n' "${{ github.event.workflow_run.workflow_sha }}"
           printf 'CANDIDATE_SHA=%s\n' "${{ github.event.workflow_run.head_sha }}"
           echo 'VERDICT=TRUSTED_INDEPENDENT_SEMANTIC_RECOMPUTATION_PASS'
