@@ -6,7 +6,7 @@ import {execFileSync} from "node:child_process";
 
 const BUNDLE_SCHEMA="mycelix.continual-adaptation.censoring-classification-anchor-audit-bundle.v2";
 const CAMPAIGN_SCHEMA="mycelix.continual-adaptation.censoring-classification-anchor-audit-bundle-campaign.v2";
-const STACK_HEAD="ca58c468c0203b45e3d3d917e100c98764ec7775";
+const STACK_HEAD="b87104050e3e785890d2df245a6cc494984ad888";
 const BUNDLE_ID="mycelix.audit-bundle.v2@"+STACK_HEAD;
 const WREG_ID="mycelix.research.anchor-witness-registry.v2";
 const VDS_ID="mycelix.research.anchor-statement-sequence.v1";
