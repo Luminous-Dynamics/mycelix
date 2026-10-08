@@ -449,5 +449,10 @@
     "require_exact_run_attempt": true,
     "require_head_branch_match_trigger": true,
     "require_head_sha_match_trigger": true
+  },
+  "trusted_source_root": {
+    "ref": "refs/heads/main",
+    "commit_sha": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+    "purpose": "Immutable source root for policy-pinned D6S workflow definition."
   }
 }
