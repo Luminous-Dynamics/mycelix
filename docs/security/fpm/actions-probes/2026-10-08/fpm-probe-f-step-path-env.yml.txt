@@ -1,0 +1,14 @@
+name: FPM probe step PATH env
+on:
+  push:
+permissions: {}
+env:
+  FPM_TOOLCHAIN_ROOT: /tmp/toolchain
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: path
+        env:
+          PATH: ${{ env.FPM_TOOLCHAIN_ROOT }}/bin:${{ env.PATH }}
+        run: echo ok
