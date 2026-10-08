@@ -866,6 +866,38 @@ Both implement the restricted fixture dialect, independently compute the graph d
 
 Local differential rehearsal: 10 cases / 0 failures in each implementation. The hosted workflow is non-authoritative and must not be treated as an independent verifier merely because it succeeds.
 
+## Semantic graph identity and claim-local projection
+
+JSON canonicalization alone does not define semantic identity for an unordered evidence graph because array order remains significant in JSON.
+
+This profile therefore separates:
+
+    raw-input canonicalization
+        ->
+    graph-structure validation
+        ->
+    semantic graph normalization
+        ->
+    claim-local projection
+
+For this profile:
+
+- node collections are unordered by node ID;
+- edge collections are unordered by edge tuple;
+- duplicate node IDs are invalid;
+- duplicate edges are invalid;
+- dangling endpoints are invalid;
+- arrays are ordered unless the schema explicitly declares otherwise.
+
+The semantic graph digest must therefore be invariant under representation-only reordering while remaining sensitive to semantic changes.
+
+Claim-local projection begins at the claim root and traverses only the policy-declared provenance relation allowlist. Unrelated graph growth must not strengthen or alter the projected claim.
+
+Claim-relevant provenance is represented by explicit typed edges. Hidden fields such as a free-form derived_from attribute are not sufficient to establish graph-addressable ancestry.
+
+The first implementation is exercised by the fixed adversarial corpus plus a deterministic 256-case generated property campaign.
+
+
 ## Freshness and target-regime drift
 
 Transport evidence is historical evidence about the exact validated subject, target regime, evaluator, observation process, and applicability profile.
@@ -979,7 +1011,11 @@ Mycelix:
 - #4599 — measurement invariance across regimes;
 - #4617 — canonical claim-local evidence ledger, executable fixtures, and differential reference verification;
 - #4618 — evidence dependence and shared-ancestry accounting;
+- #4634 — raw-input parser integrity;
 - #4634 — raw receipt parsing and parser-equivalence attacks;
+- #4646 — semantic graph canonicalization and order-invariant evidence identity;
+- #4647 — claim-local projection and explicit provenance-edge closure;
+- #4648 — deterministic property/metamorphic mutation campaign;
 
 Symthaea:
 
