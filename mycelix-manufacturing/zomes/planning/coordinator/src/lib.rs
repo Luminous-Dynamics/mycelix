@@ -88,6 +88,7 @@ pub struct CapabilityPlanDecision {
     pub machine_hash: Option<ActionHash>,
     pub capability_contract_hash: ActionHash,
     pub machine_status: Option<MachineStatus>,
+    pub machine_state_head: Option<ActionHash>,
     pub eligible: bool,
     pub mismatch: Option<CapabilityMismatch>,
     pub rejection: Option<CapabilityPlanRejection>,
@@ -171,6 +172,7 @@ pub fn select_live_capability(
         ActionHash,
         CapabilityProfile,
         MachineStatus,
+        ActionHash,
     )> = Vec::new();
     let mut rejected: Vec<CapabilityPlanDecision> = Vec::new();
 
@@ -199,6 +201,7 @@ pub fn select_live_capability(
                         machine_hash: None,
                         capability_contract_hash: contract_hash,
                         machine_status: None,
+                        machine_state_head: None,
                         eligible: false,
                         mismatch: None,
                         rejection: Some(CapabilityPlanRejection::ContractNotFound),
@@ -229,6 +232,7 @@ pub fn select_live_capability(
                         machine_hash: None,
                         capability_contract_hash: contract_hash,
                         machine_status: None,
+                        machine_state_head: None,
                         eligible: false,
                         mismatch: None,
                         rejection: Some(CapabilityPlanRejection::ContractMalformed),
@@ -270,8 +274,19 @@ pub fn select_live_capability(
         match resolution {
             MachineStateResolutionProjection::Resolved {
                 status: MachineStatus::Available,
-                ..
-            } => {}
+                head_action,
+            } => {
+                let profile = capability_profile(&contract);
+                raw.push((
+                    machine_hash.to_string(),
+                    machine_hash.clone(),
+                    contract_hash.clone(),
+                    profile,
+                    MachineStatus::Available,
+                    head_action,
+                ));
+                continue;
+            }
             MachineStateResolutionProjection::Resolved { status, .. } => {
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
@@ -318,14 +333,7 @@ pub fn select_live_capability(
             }
         }
 
-        let profile = capability_profile(&contract);
-        raw.push((
-            machine_hash.to_string(),
-            machine_hash,
-            contract_hash,
-            profile,
-            MachineStatus::Available,
-        ));
+
     }
 
     raw.sort_by(|a, b| {
@@ -334,19 +342,20 @@ pub fn select_live_capability(
     });
 
     let mut machine_contract_counts = std::collections::HashMap::new();
-    for (machine_id, _, _, _, _) in &raw {
+    for (machine_id, _, _, _, _, _) in &raw {
         *machine_contract_counts.entry(machine_id.clone()).or_insert(0usize) += 1;
     }
 
     let mut candidates = Vec::new();
     let mut candidate_meta = Vec::new();
 
-    for (machine_id, machine_hash, contract_hash, profile, status) in raw {
+    for (machine_id, machine_hash, contract_hash, profile, status, head_action) in raw {
         if machine_contract_counts.get(&machine_id).copied().unwrap_or(0) != 1 {
             rejected.push(CapabilityPlanDecision {
                 machine_hash: Some(machine_hash),
                 capability_contract_hash: contract_hash,
                 machine_status: Some(status),
+                machine_state_head: Some(head_action),
                 eligible: false,
                 mismatch: None,
                 rejection: Some(CapabilityPlanRejection::MultipleContractsForMachine),
@@ -358,14 +367,14 @@ pub fn select_live_capability(
             machine_id: machine_id.clone(),
             profile,
         });
-        candidate_meta.push((machine_id, machine_hash, contract_hash, status));
+        candidate_meta.push((machine_id, machine_hash, contract_hash, status, head_action));
     }
 
     let selection = select_capable_machine(&input.requirement, candidates);
 
     let mut decisions = rejected;
     for decision in selection.decisions {
-        if let Some((_, machine_hash, contract_hash, status)) = candidate_meta
+        if let Some((_, machine_hash, contract_hash, status, head_action)) = candidate_meta
             .iter()
             .find(|(id, _, _, _)| *id == decision.machine_id)
         {
@@ -373,6 +382,7 @@ pub fn select_live_capability(
                 machine_hash: Some(machine_hash.clone()),
                 capability_contract_hash: contract_hash.clone(),
                 machine_status: Some(status.clone()),
+                machine_state_head: Some(head_action.clone()),
                 eligible: decision.eligible,
                 mismatch: decision.mismatch,
                 rejection: None,
@@ -395,14 +405,14 @@ pub fn select_live_capability(
     let selected_machine_hash = selection.selected_machine_id.and_then(|id| {
         candidate_meta
             .iter()
-            .find(|(machine_id, _, _, _)| *machine_id == id)
-            .map(|(_, hash, _, _)| hash.clone())
+            .find(|(machine_id, _, _, _, _)| *machine_id == id)
+            .map(|(_, hash, _, _, _)| hash.clone())
     });
     let selected_capability_contract_hash = selected_machine_hash.as_ref().and_then(|hash| {
         candidate_meta
             .iter()
-            .find(|(_, machine_hash, _, _)| machine_hash == hash)
-            .map(|(_, _, contract_hash, _)| contract_hash.clone())
+            .find(|(_, machine_hash, _, _, _)| machine_hash == hash)
+            .map(|(_, _, contract_hash, _, _)| contract_hash.clone())
     });
 
     Ok(CapabilityPlanSelection {
