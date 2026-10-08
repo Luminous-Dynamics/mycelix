@@ -177,12 +177,18 @@ jobs:
               "requires_protected_main_readback",
               "requires_exact_adoption_of_component_bytes",
               "requires_rotation_recovery_path",
+              "requires_durable_subject_publication",
+              "transient_actions_artifacts_are_insufficient",
+              "required_durability_profile",
           }
           assert root["activation_rule"] == {
               "authoritative": False,
               "requires_protected_main_readback": True,
               "requires_exact_adoption_of_component_bytes": True,
               "requires_rotation_recovery_path": True,
+              "requires_durable_subject_publication": True,
+              "transient_actions_artifacts_are_insufficient": True,
+              "required_durability_profile": "CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1",
           }
           assert isinstance(root["nonclaims"], list) and root["nonclaims"]
           assert root["components"]["qualification_attestor_workflow"]["git_blob_sha1"] == Path("trusted-attestor-workflow-blob-sha.txt").read_text().strip()
@@ -336,6 +342,10 @@ jobs:
           assert "trust root content changed during attestation publication" in scanned
           assert "TRUST_ROOT_REF: ${{ github.sha }}" in scanned
           assert "linear_history_required_for_protected_main" in scanned
+          assert "requires_durable_subject_publication" in scanned
+          assert "transient_actions_artifacts_are_insufficient" in scanned
+          assert "required_durability_profile" in scanned
+          assert "CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1" in scanned
           assert "two_party_review_required_for_root_changes" in scanned
           assert 'root_manifest="${TRUST_ROOT_MANIFEST_PATH}"' in scanned
           assert "TRUST_ROOT_MANIFEST_PATH: .github/cos/qualification-trust-root-v2.json" in scanned
