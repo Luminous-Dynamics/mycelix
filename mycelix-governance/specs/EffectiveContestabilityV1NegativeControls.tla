@@ -7,8 +7,9 @@ BadNominalPromotion(s, p) ==
   /\ Advanceable
   /\ NominalAlternative(s, p)
   /\ nominalExit' = nominalExit
-  /\ effectiveExit' = [effectiveExit EXCEPT ![s] = @ \cup {p}]
-  /\ UNCHANGED <<currentProvider, viableProviders, nominalExit, portable,
+  /\ portable' = [portable EXCEPT ![s] = FALSE]
+  /\ effectiveExit' = [effectiveExit EXCEPT ![s] = @ \\cup {p}]
+  /\ UNCHANGED <<currentProvider, viableProviders,
                   obligationsPreserved, historyPreserved, authority, jurisdiction,
                   switchingCost, reviewRequired, providerFailed, failureObserved,
                   failureAuthority, switchObserved, authorityBeforeSwitch,
@@ -18,7 +19,7 @@ BadNominalPromotion(s, p) ==
 BadSharedRoot(s, p) ==
   /\ Advanceable
   /\ NominalAlternative(s, p)
-  /\ effectiveExit' = [effectiveExit EXCEPT ![s] = @ \cup {p}]
+  /\ effectiveExit' = [effectiveExit EXCEPT ![s] = @ \\cup {p}]
   /\ UNCHANGED <<currentProvider, viableProviders, nominalExit, portable,
                   obligationsPreserved, historyPreserved, authority, jurisdiction,
                   switchingCost, reviewRequired, providerFailed, failureObserved,
@@ -28,10 +29,10 @@ BadSharedRoot(s, p) ==
 
 BadFailureAuthority(p) ==
   /\ Advanceable
-  /\ p \in Providers
-  /\ providerFailed' = providerFailed \cup {p}
+  /\ p \\in Providers
+  /\ providerFailed' = providerFailed \\cup {p}
   /\ failureObserved' = TRUE
-  /\ authority' = [authority EXCEPT ![S1] = @ \cup {PowerA}]
+  /\ authority' = [authority EXCEPT ![S1] = @ \\cup {PowerA}]
   /\ failureAuthority' = authority
   /\ UNCHANGED <<currentProvider, viableProviders, nominalExit, effectiveExit, portable,
                   obligationsPreserved, historyPreserved, jurisdiction,
@@ -41,7 +42,7 @@ BadFailureAuthority(p) ==
 
 BadSwitchObligation(s, p) ==
   /\ Advanceable
-  /\ p \in effectiveExit[s]
+  /\ p \\in effectiveExit[s]
   /\ currentProvider' = [currentProvider EXCEPT ![s] = p]
   /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
   /\ obligationsPreserved' = [obligationsPreserved EXCEPT ![s] = FALSE]
@@ -53,10 +54,10 @@ BadSwitchObligation(s, p) ==
 
 BadSwitchJurisdiction(s, p) ==
   /\ Advanceable
-  /\ p \in effectiveExit[s]
+  /\ p \\in effectiveExit[s]
   /\ currentProvider' = [currentProvider EXCEPT ![s] = p]
   /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
-  /\ jurisdiction' = [jurisdiction EXCEPT ![s] = @ \cup {J2}]
+  /\ jurisdiction' = [jurisdiction EXCEPT ![s] = @ \\cup {J2}]
   /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
                   obligationsPreserved, historyPreserved, authority,
                   switchingCost, reviewRequired, providerFailed, failureObserved,
@@ -65,37 +66,36 @@ BadSwitchJurisdiction(s, p) ==
 
 BadSwitchReview(s) ==
   /\ Advanceable
-  /\ s \in Subjects
+  /\ s \\in Subjects
   /\ switchingCost' = [switchingCost EXCEPT ![s] = ReviewThreshold]
   /\ reviewRequired' = [reviewRequired EXCEPT ![s] = FALSE]
   /\ UNCHANGED <<currentProvider, viableProviders, nominalExit, effectiveExit,
                   portable, obligationsPreserved, historyPreserved, authority,
-                  jurisdiction, switchingCost, providerFailed, failureObserved,
-                  failureAuthority, switchObserved, authorityBeforeSwitch,
-                  jurisdictionBeforeSwitch>>
+                  jurisdiction, providerFailed, failureObserved, failureAuthority,
+                  switchObserved, authorityBeforeSwitch, jurisdictionBeforeSwitch>>
   /\ clock' = NextTime
 
 NegativeNext ==
   \/ Next
   \/ IF Control = "nominal-effective" THEN
-       \E s \in Subjects, p \in Providers : BadNominalPromotion(s, p)
+       \\E s \\in Subjects, p \\in Providers : BadNominalPromotion(s, p)
      ELSE FALSE
   \/ IF Control = "shared-root" THEN
-       \E s \in Subjects, p \in Providers : BadSharedRoot(s, p)
+       \\E s \\in Subjects, p \\in Providers : BadSharedRoot(s, p)
      ELSE FALSE
   \/ IF Control = "failure-authority" THEN
-       \E p \in Providers : BadFailureAuthority(p)
+       \\E p \\in Providers : BadFailureAuthority(p)
      ELSE FALSE
   \/ IF Control = "switch-obligation" THEN
-       \E s \in Subjects, p \in Providers : BadSwitchObligation(s, p)
+       \\E s \\in Subjects, p \\in Providers : BadSwitchObligation(s, p)
      ELSE FALSE
   \/ IF Control = "switch-jurisdiction" THEN
-       \E s \in Subjects, p \in Providers : BadSwitchJurisdiction(s, p)
+       \\E s \\in Subjects, p \\in Providers : BadSwitchJurisdiction(s, p)
      ELSE FALSE
   \/ IF Control = "switch-review" THEN
-       \E s \in Subjects : BadSwitchReview(s)
+       \\E s \\in Subjects : BadSwitchReview(s)
      ELSE FALSE
 
-NegativeSpec == Init /\ [][NegativeNext]_vars
+NegativeSpec == Init /\\ [][NegativeNext]_vars
 
 ==========================================================================
