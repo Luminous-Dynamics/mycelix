@@ -96,9 +96,9 @@ jobs:
                               remaining_int=int(remaining)
                           except ValueError as exc:
                               raise SystemExit("GitHub API x-ratelimit-remaining was not an integer") from exc
-                          if remaining_int < SCHEDULE_RATE_LIMIT_MIN_REMAINING:
+                          if remaining_int <= SCHEDULE_RATE_LIMIT_MIN_REMAINING:
                               raise SystemExit(
-                                  f"GitHub API rate-limit reserve exhausted: remaining={remaining_int} reserve={SCHEDULE_RATE_LIMIT_MIN_REMAINING}"
+                                  f"GitHub API rate-limit reserve exhausted or fully consumed: remaining={remaining_int} reserve={SCHEDULE_RATE_LIMIT_MIN_REMAINING}"
                               )
                       return json.load(response)
               except urllib.error.HTTPError as error:

@@ -645,8 +645,8 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 schedule API wrapper must fail closed when the rate-limit header is absent")
     if exact_count(l, 'remaining_int=int(remaining)') != 1:
         fail("S0 schedule API wrapper must parse the rate-limit remaining header as an integer")
-    if exact_count(l, "if remaining_int < RATE_LIMIT_MIN_REMAINING:") != 1:
-        fail("S0 schedule API wrapper must fail closed below the reserved rate-limit floor")
+    if exact_count(l, "if remaining_int <= RATE_LIMIT_MIN_REMAINING:") != 1:
+        fail("S0 schedule API wrapper must fail closed at or below the reserved rate-limit floor")
     if exact_count(l, 'test "$GITHUB_REF_PROTECTED" = "true"') != 1:
         fail("S0 must contain exactly one protected-ref runtime guard")
     if exact_count(l, '  group: security-kernel-trusted-dispatch-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}') != 1:
@@ -1229,6 +1229,14 @@ def main() -> None:
             1,
         ), s1_sha),
         "S0 scheduled GitHub API rate-limit reserve removed",
+    )
+    expect_rejection(
+        lambda: verify_s0(raw["s0"].replace(
+            b'if remaining_int <= SCHEDULE_RATE_LIMIT_MIN_REMAINING:',
+            b'if remaining_int < SCHEDULE_RATE_LIMIT_MIN_REMAINING:',
+            1,
+        ), s1_sha),
+        "S0 scheduled GitHub API reserve comparator weakened to consume the reserve",
     )
 
     expect_rejection(
