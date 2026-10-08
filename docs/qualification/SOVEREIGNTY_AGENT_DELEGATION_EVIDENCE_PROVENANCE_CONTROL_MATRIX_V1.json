@@ -1,0 +1,13 @@
+{
+  "schema": "mycelix.agent-delegation-authority-evidence-control-matrix.v1",
+  "controls": [
+    {
+      "id": "evidence-transition",
+      "boundary": "recording evidence must not change authority",
+      "tla_invariant": "EvidenceDoesNotMintAuthority",
+      "tla_control": "evidence-mint",
+      "alloy_witness": "EvidenceGrantBackedAuthorityDeltaWitness",
+      "reference_marker": "ISOLATION PASS: evidence delta leaves steady-state grant provenance valid -> NEGATIVE PASS: evidence-only transition attribution detected"
+    }
+  ]
+}
