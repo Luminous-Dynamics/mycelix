@@ -217,6 +217,11 @@ def check_case(base: dict, policy: dict, case: dict) -> dict:
         )
     elif prop == "identity_sensitivity":
         ok = actual["verdict"] != "qualified" and actual["semantic_digest"] != base_semantic
+    elif prop == "required_dependency_rejection":
+        ok = (
+            actual["verdict"] == "unresolved"
+            and actual["semantic_digest"] != "invalid"
+        )
     elif prop == "structural_rejection":
         ok = actual["verdict"] == "unresolved" and actual["semantic_digest"] == "invalid"
     elif prop == "ordered_array_sensitivity":
