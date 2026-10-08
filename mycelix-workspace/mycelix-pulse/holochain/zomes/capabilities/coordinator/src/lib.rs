@@ -285,7 +285,6 @@ fn is_action_permitted(permissions: &MailboxPermissions, action: &AuditAction) -
         _ => false,
     }
 }
-}
 
 #[cfg(test)]
 mod tests {
