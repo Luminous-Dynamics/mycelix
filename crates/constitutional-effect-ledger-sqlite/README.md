@@ -149,33 +149,37 @@ confirmed, the attempt remains held.
 
 ## Constructor-bound trust root
 
-Evidence verification and recovery authority are now bound to the host boundary
-at construction rather than supplied by each dispatch or recovery call.
+Evidence verification, admission authority, recovery authority, and provider
+selection are fixed when the effect boundary is constructed rather than supplied
+by each dispatch or recovery call.
 
 The trust root pins:
 - initial admission authorizer + expected verifier identity
-- provider adapter authorizer
 - terminal outcome verifier + expected verifier identity
 - final provider-entry verifier + expected verifier identity
 - pre-entry recovery authority
 - stranded provider-entry claim recovery authority
 
-This prevents a caller that can reach the host API from selecting a weaker
-verifier or recovery authority for one attempt while using a stronger verifier
-for another. The provider adapter remains a separate deployment concern; this
-trust root does not claim to authenticate executable code.
+Provider selection is separately fixed by the constructor-pinned provider registry.
+The trust root therefore controls the authorities that can authorize the boundary,
+while the registry controls which concrete provider objects can execute within it.
 
 
-## Pinned provider adapter binding
+## Constructor-pinned provider registry
 
-Provider selection is now authorized by the constructor-bound trust root before
-the durable dispatch transition is acquired. The attempt carries its declared
-adapter identity, the concrete adapter must report the same identity, and the
-pinned adapter-authorizer must permit that identity.
+Provider adapter selection is now an ownership property of the effect boundary.
+The host is constructed with a PinnedProviderAdapterRegistry that owns the concrete
+ProviderAdapter objects for the lifetime of the boundary.
 
-This is a deployment binding, not executable-code attestation. A deployment
-that needs code-measurement guarantees must supply an adapter authorizer that
-verifies its own platform-specific measurement or registry evidence.
+An attempt records the adapter identity it requires. The boundary resolves that
+identity only inside the pinned registry; dispatch and reconciliation expose no
+caller-supplied provider parameter. An unregistered identity cannot reach provider
+entry at all.
+
+The registry pins the concrete adapter object, but the adapter identity itself is
+not executable-code attestation. Deployments that require measured-code assurance
+must construct the registry only from adapters whose provenance has already been
+verified by their deployment trust root.
 
 
 ## Idempotency protocol semantics
@@ -190,3 +194,15 @@ key when the material action or provider scope changes. There is no independent
 expiry policy for this internal key: the durable attempt/fence lifecycle is the
 retention boundary, and any provider-facing retention policy must be explicitly
 qualified by that provider adapter.
+
+
+### Provider object ownership invariant
+
+There is intentionally no `dispatch(..., &mut ProviderAdapter)` or
+`reconcile(..., &mut ProviderAdapter)` API. The caller supplies only the action,
+attempt identity, and ownership token. The boundary owns the provider object and
+selects it from the constructor-pinned registry.
+
+This closes the distinction between an allowed identity string and an allowed
+executable object: a caller cannot inject an arbitrary object that merely
+self-reports a permitted adapter identity.

@@ -14,7 +14,7 @@ use constitutional_effect_ledger::{
     ProviderEntryClaimV1, TerminalEvidenceV1, TerminalOutcomeV1,
 };
 
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProviderObservation {
@@ -663,73 +663,63 @@ impl AdmissionAuthorizer for PinnedAdmissionAuthorizer {
     }
 }
 
-pub trait ProviderAdapterAuthorizer {
-    fn verify(
-        &self,
-        provider: &dyn ProviderAdapter,
-        attempt: &AttemptRecordV1,
-        action_key: &ActionKeyV1,
-    ) -> Result<(), String>;
+/// Constructor-pinned registry of concrete provider adapter objects.
+///
+/// Adapter instances are owned by the boundary for its lifetime. A caller
+/// cannot substitute an arbitrary implementation at dispatch time and merely
+/// self-report an allowed adapter identity.
+pub struct PinnedProviderAdapterRegistry {
+    adapters: BTreeMap<String, Box<dyn ProviderAdapter>>,
 }
 
-/// Deployment configuration that pins which provider adapter identities may cross
-/// the effect boundary. This validates identity binding, not executable-code
-/// authenticity.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PinnedProviderAdapterAuthorizer {
-    allowed_adapter_identities: BTreeSet<String>,
-}
-
-impl PinnedProviderAdapterAuthorizer {
-    pub fn new<I, S>(identities: I) -> Result<Self, String>
+impl PinnedProviderAdapterRegistry {
+    pub fn new<I>(adapters: I) -> Result<Self, String>
     where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
+        I: IntoIterator<Item = Box<dyn ProviderAdapter>>,
     {
-        let allowed_adapter_identities = identities
-            .into_iter()
-            .map(Into::into)
-            .filter(|identity| !identity.trim().is_empty())
-            .collect::<BTreeSet<_>>();
-        if allowed_adapter_identities.is_empty() {
-            return Err("at least one provider adapter identity must be pinned".into());
+        let mut registered = BTreeMap::new();
+        for adapter in adapters {
+            let identity = adapter.adapter_identity().to_owned();
+            if identity.trim().is_empty() {
+                return Err("provider adapter identity must be non-empty".into());
+            }
+            if registered.insert(identity.clone(), adapter).is_some() {
+                return Err(format!(
+                    "provider adapter identity is registered more than once: {identity}"
+                ));
+            }
         }
-        Ok(Self {
-            allowed_adapter_identities,
-        })
+        if registered.is_empty() {
+            return Err("provider adapter registry must contain at least one adapter".into());
+        }
+        Ok(Self { adapters: registered })
     }
-}
 
-impl ProviderAdapterAuthorizer for PinnedProviderAdapterAuthorizer {
-    fn verify(
-        &self,
-        provider: &dyn ProviderAdapter,
-        attempt: &AttemptRecordV1,
-        action_key: &ActionKeyV1,
-    ) -> Result<(), String> {
-        if action_key.digest() != attempt.action_key_digest
-            || action_key.effecting_target_identity() != attempt.effecting_target_identity
-        {
-            return Err("provider adapter authorization action scope mismatch".into());
+    fn contains(&self, identity: &str) -> bool {
+        self.adapters.contains_key(identity)
+    }
+
+    fn get_mut(&mut self, identity: &str) -> Result<&mut dyn ProviderAdapter, String> {
+        match self.adapters.get_mut(identity) {
+            Some(adapter) => Ok(adapter.as_mut()),
+            None => Err(format!(
+                "provider adapter identity is not registered in the constructor-pinned registry: {identity}"
+            )),
         }
-        if provider.adapter_identity() != attempt.adapter_identity {
-            return Err("provider adapter identity does not match the attempt".into());
-        }
-        if !self
-            .allowed_adapter_identities
-            .contains(provider.adapter_identity())
-        {
-            return Err("provider adapter identity is not pinned by the trust root".into());
-        }
-        Ok(())
+    }
+
+    #[cfg(test)]
+    fn identities(&self) -> impl Iterator<Item = &str> {
+        self.adapters.keys().map(String::as_str)
     }
 }
 
 /// Constructor-bound authority/evidence trust root.
 ///
-/// Admission authority, provider-adapter selection, terminal evidence
-/// verification, final-entry freshness verification, and both recovery
-/// authorities are pinned when the boundary is constructed.
+/// Admission authority, terminal evidence verification, final-entry freshness
+/// verification, and both recovery authorities are pinned when the boundary is
+/// constructed. Concrete provider adapter objects are separately owned by the
+/// constructor-pinned provider registry.
 pub trait BoundaryTrustRoot {
     fn admission_verifier_identity(&self) -> &str;
     fn authorize_admission(
@@ -739,12 +729,6 @@ pub trait BoundaryTrustRoot {
         now_unix_ms: u64,
     ) -> Result<AuthorizationAdmissionProofV1, String>;
 
-    fn authorize_provider_adapter(
-        &self,
-        provider: &dyn ProviderAdapter,
-        attempt: &AttemptRecordV1,
-        action_key: &ActionKeyV1,
-    ) -> Result<(), String>;
     fn outcome_verifier(&self) -> &dyn OutcomeVerifier;
     fn outcome_verifier_identity(&self) -> &str;
     fn final_entry_verifier(&self) -> &dyn FinalProviderEntryVerifier;
@@ -760,7 +744,6 @@ pub trait BoundaryTrustRoot {
 pub struct PinnedBoundaryTrustRoot {
     admission_authorizer: Box<dyn AdmissionAuthorizer>,
     admission_verifier_identity: String,
-    provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
     outcome_verifier: Box<dyn OutcomeVerifier>,
     outcome_verifier_identity: String,
     final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -773,7 +756,6 @@ impl PinnedBoundaryTrustRoot {
     pub fn new(
         admission_authorizer: Box<dyn AdmissionAuthorizer>,
         admission_verifier_identity: impl Into<String>,
-        provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_verifier_identity: impl Into<String>,
         final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -793,7 +775,6 @@ impl PinnedBoundaryTrustRoot {
         Ok(Self {
             admission_authorizer,
             admission_verifier_identity,
-            provider_adapter_authorizer,
             outcome_verifier,
             outcome_verifier_identity,
             final_entry_verifier,
@@ -817,16 +798,6 @@ impl BoundaryTrustRoot for PinnedBoundaryTrustRoot {
     ) -> Result<AuthorizationAdmissionProofV1, String> {
         self.admission_authorizer
             .verify(attempt, action_key, now_unix_ms)
-    }
-
-    fn authorize_provider_adapter(
-        &self,
-        provider: &dyn ProviderAdapter,
-        attempt: &AttemptRecordV1,
-        action_key: &ActionKeyV1,
-    ) -> Result<(), String> {
-        self.provider_adapter_authorizer
-            .verify(provider, attempt, action_key)
     }
 
     fn outcome_verifier(&self) -> &dyn OutcomeVerifier {
@@ -891,6 +862,7 @@ impl std::error::Error for BoundaryError {}
 pub struct EffectBoundaryHostV1 {
     store: SqliteActionFenceStore,
     trust_root: Box<dyn BoundaryTrustRoot>,
+    provider_registry: PinnedProviderAdapterRegistry,
     entry_claim_nonce: u64,
 }
 
@@ -898,11 +870,13 @@ impl EffectBoundaryHostV1 {
     pub fn new(
         store: SqliteActionFenceStore,
         trust_root: Box<dyn BoundaryTrustRoot>,
+        provider_registry: PinnedProviderAdapterRegistry,
     ) -> Result<Self, BoundaryError> {
         store.audit_integrity().map_err(BoundaryError::Store)?;
         Ok(Self {
             store,
             trust_root,
+            provider_registry,
             entry_claim_nonce: 0,
         })
     }
@@ -991,12 +965,11 @@ impl EffectBoundaryHostV1 {
 
     /// Provider invocation is reachable only after a durable read confirms
     /// DISPATCH_PENDING for the exact attempt owner.
-    pub fn dispatch<P: ProviderAdapter>(
+    pub fn dispatch(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
-        provider: &mut P,
     ) -> Result<BoundaryOutcome, BoundaryError> {
         let current = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
         if current.state.is_terminal() {
@@ -1006,9 +979,12 @@ impl EffectBoundaryHostV1 {
             return Ok(BoundaryOutcome::PreEntryStopRequired);
         }
 
-        self.trust_root
-            .authorize_provider_adapter(provider, &current, action_key)
-            .map_err(BoundaryError::Semantic)?;
+        if !self.provider_registry.contains(&current.adapter_identity) {
+            return Err(BoundaryError::Semantic(format!(
+                "provider adapter identity is not registered in the constructor-pinned registry: {}",
+                current.adapter_identity
+            )));
+        }
 
         self.store
             .atomically_mark_dispatch_pending(action_key, attempt_identity, owner_token_digest)
@@ -1166,26 +1142,31 @@ impl EffectBoundaryHostV1 {
             final_entry_proof,
             pre_entry_now_unix_ms,
         )?;
-        let observation = match provider.invoke(&permit) {
-            Ok(value) => value,
-            Err(error) => {
-                self.store
-                    .atomically_mark_invoked(
+        let observation = {
+            let provider = self
+                .provider_registry
+                .get_mut(permit.context().adapter_identity())
+                .map_err(BoundaryError::Semantic)?;
+            match provider.invoke(&permit) {
+                Ok(value) => value,
+                Err(error) => {
+                    self.store
+                        .atomically_mark_invoked(
+                            action_key,
+                            attempt_identity,
+                            owner_token_digest,
+                            permit.claim_token_digest(),
+                        )
+                        .map_err(BoundaryError::Mutation)?;
+                    return self.mark_indeterminate(
                         action_key,
                         attempt_identity,
                         owner_token_digest,
-                        permit.claim_token_digest(),
-                    )
-                    .map_err(BoundaryError::Mutation)?;
-                return self.mark_indeterminate(
-                    action_key,
-                    attempt_identity,
-                    owner_token_digest,
-                    format!("provider invocation outcome is ambiguous: {error}"),
-                );
+                        format!("provider invocation outcome is ambiguous: {error}"),
+                    );
+                }
             }
         };
-
         self.store
             .atomically_mark_invoked(
                 action_key,
@@ -1359,24 +1340,31 @@ impl EffectBoundaryHostV1 {
     /// Reconciliation first makes any stranded DISPATCH_PENDING/INVOKED attempt
     /// explicitly INDETERMINATE, preventing a concurrent original path from
     /// recording its outcome after reconciliation begins.
-    pub fn reconcile<P: ProviderAdapter>(
+    pub fn reconcile(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
-        provider: &mut P,
     ) -> Result<BoundaryOutcome, BoundaryError> {
         let current = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
         if current.state.is_terminal() {
             return Ok(BoundaryOutcome::TerminalAlreadyReached(current.state));
         }
-        if matches!(current.state, AttemptRecordState::Consumed | AttemptRecordState::Reserved) {
+        if matches!(
+            current.state,
+            AttemptRecordState::Consumed | AttemptRecordState::Reserved,
+        ) {
             return Ok(BoundaryOutcome::PreEntryStopRequired);
         }
 
-        self.trust_root
-            .authorize_provider_adapter(provider, &current, action_key)
-            .map_err(BoundaryError::Semantic)?;
+        if !self.provider_registry.contains(&current.adapter_identity) {
+            return Ok(BoundaryOutcome::IndeterminateHeld {
+                reason: format!(
+                    "provider adapter identity is not registered in the constructor-pinned registry: {}",
+                    current.adapter_identity
+                ),
+            });
+        }
 
         if current.state == AttemptRecordState::DispatchPending {
             if self
@@ -1396,15 +1384,25 @@ impl EffectBoundaryHostV1 {
                 .map_err(BoundaryError::Mutation)?;
         }
 
-        let indeterminate = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
+        let indeterminate = self.owned_attempt(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+        )?;
         let provider_context =
             ProviderActionContextV1::from_attempt(&indeterminate, action_key)?;
-        let observation = match provider.reconcile(&provider_context) {
-            Ok(value) => value,
-            Err(error) => {
-                return Ok(BoundaryOutcome::IndeterminateHeld {
-                    reason: format!("authoritative reconciliation unavailable: {error}"),
-                });
+        let observation = {
+            let provider = self
+                .provider_registry
+                .get_mut(provider_context.adapter_identity())
+                .map_err(BoundaryError::Semantic)?;
+            match provider.reconcile(&provider_context) {
+                Ok(value) => value,
+                Err(error) => {
+                    return Ok(BoundaryOutcome::IndeterminateHeld {
+                        reason: format!("authoritative reconciliation unavailable: {error}"),
+                    });
+                }
             }
         };
 
@@ -1413,8 +1411,7 @@ impl EffectBoundaryHostV1 {
                 reason: "authoritative reconciliation remains indeterminate".into(),
             }),
             ProviderObservation::Executed { .. } | ProviderObservation::Failed { .. } => {
-                let provider_idempotency_key =
-                    indeterminate.provider_idempotency_key.clone();
+                let provider_idempotency_key = indeterminate.provider_idempotency_key.clone();
                 match self.trust_root.outcome_verifier().verify(
                     &indeterminate,
                     &provider_idempotency_key,
@@ -1437,7 +1434,6 @@ impl EffectBoundaryHostV1 {
             }
         }
     }
-
     /// Recover a stranded provider-entry claim into INDETERMINATE.
     ///
     /// The authorization is exact-attempt scoped and must be issued only after
@@ -1646,6 +1642,28 @@ mod tests {
         }
     }
 
+    struct MustNotInvoke;
+
+    impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
+        fn invoke(
+            &mut self,
+            _permit: &ProviderEntryPermitV1,
+        ) -> Result<ProviderObservation, String> {
+            panic!("provider invocation must not be reached in this test");
+        }
+
+        fn reconcile(
+            &mut self,
+            _context: &ProviderActionContextV1,
+        ) -> Result<ProviderObservation, String> {
+            panic!("provider reconciliation must not be reached in this test");
+        }
+    }
+
     struct RejectAdmission;
 
     impl AdmissionAuthorizer for RejectAdmission {
@@ -1833,7 +1851,6 @@ mod tests {
 
     struct TestTrustRoot {
         admission_authorizer: Box<dyn AdmissionAuthorizer>,
-        provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_identity: String,
         final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -1857,15 +1874,6 @@ mod tests {
                 .verify(attempt, action_key, now_unix_ms)
         }
 
-        fn authorize_provider_adapter(
-            &self,
-            provider: &dyn ProviderAdapter,
-            attempt: &AttemptRecordV1,
-            action_key: &ActionKeyV1,
-        ) -> Result<(), String> {
-            self.provider_adapter_authorizer
-                .verify(provider, attempt, action_key)
-        }
 
         fn outcome_verifier(&self) -> &dyn OutcomeVerifier {
             self.outcome_verifier.as_ref()
@@ -1899,9 +1907,6 @@ mod tests {
     ) -> Box<dyn BoundaryTrustRoot> {
         Box::new(TestTrustRoot {
             admission_authorizer: admission,
-            provider_adapter_authorizer: Box::new(
-                PinnedProviderAdapterAuthorizer::new(["provider-adapter-v1"]).unwrap(),
-            ),
             outcome_verifier: Box::new(Verifier),
             outcome_identity: "verified-provider-v1".into(),
             final_entry_verifier: Box::new(AllowFinalEntry),
@@ -1928,9 +1933,6 @@ mod tests {
                 )
                 .unwrap(),
             ),
-            provider_adapter_authorizer: Box::new(
-                PinnedProviderAdapterAuthorizer::new(["provider-adapter-v1"]).unwrap(),
-            ),
             outcome_verifier: outcome,
             outcome_identity: outcome_identity.to_owned(),
             final_entry_verifier: final_entry,
@@ -1949,14 +1951,51 @@ mod tests {
         )
     }
 
+    fn default_test_provider() -> Box<dyn ProviderAdapter> {
+        Box::new(FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "default-provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "default-reconcile-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        })
+    }
+
+    fn test_registry(provider: Box<dyn ProviderAdapter>) -> PinnedProviderAdapterRegistry {
+        PinnedProviderAdapterRegistry::new([provider]).unwrap()
+    }
+
     fn test_host(store: SqliteActionFenceStore) -> EffectBoundaryHostV1 {
-        EffectBoundaryHostV1::new(store, test_root()).unwrap()
+        EffectBoundaryHostV1::new(store, test_root(), test_registry(default_test_provider()))
+            .unwrap()
+    }
+
+    fn test_host_with_provider(
+        store: SqliteActionFenceStore,
+        provider: Box<dyn ProviderAdapter>,
+    ) -> EffectBoundaryHostV1 {
+        EffectBoundaryHostV1::new(store, test_root(), test_registry(provider)).unwrap()
+    }
+
+    fn test_host_with_admission(
+        store: SqliteActionFenceStore,
+        admission: Box<dyn AdmissionAuthorizer>,
+    ) -> EffectBoundaryHostV1 {
+        EffectBoundaryHostV1::new(
+            store,
+            test_root_with_admission(admission),
+            test_registry(default_test_provider()),
+        )
+        .unwrap()
     }
 
     fn test_host_with_outcome(
         store: SqliteActionFenceStore,
         outcome: Box<dyn OutcomeVerifier>,
         outcome_identity: &str,
+        provider: Box<dyn ProviderAdapter>,
     ) -> EffectBoundaryHostV1 {
         EffectBoundaryHostV1::new(
             store,
@@ -1966,6 +2005,7 @@ mod tests {
                 Box::new(AllowFinalEntry),
                 "final-entry-verifier-v1",
             ),
+            test_registry(provider),
         )
         .unwrap()
     }
@@ -1974,6 +2014,7 @@ mod tests {
         store: SqliteActionFenceStore,
         final_entry: Box<dyn FinalProviderEntryVerifier>,
         final_entry_identity: &str,
+        provider: Box<dyn ProviderAdapter>,
     ) -> EffectBoundaryHostV1 {
         EffectBoundaryHostV1::new(
             store,
@@ -1983,10 +2024,10 @@ mod tests {
                 final_entry,
                 final_entry_identity,
             ),
+            test_registry(provider),
         )
         .unwrap()
     }
-
     fn action() -> ActionKeyV1 {
         ActionKeyV1::new("rp-test", "provider-target", "material-action-1").unwrap()
     }
@@ -2017,7 +2058,12 @@ mod tests {
         }
     }
 
-    fn attempt_record(id: &str, op: &str, state: AttemptRecordState) -> AttemptRecordV1 {
+    fn attempt_record_with_adapter(
+        id: &str,
+        op: &str,
+        adapter_identity: &str,
+        state: AttemptRecordState,
+    ) -> AttemptRecordV1 {
         let action = action();
         AttemptRecordV1::new(
             &identity(id),
@@ -2029,11 +2075,62 @@ mod tests {
             Some("provider-descriptor".into()),
             "provider-env",
             "provider-audience",
-            "provider-adapter-v1",
+            adapter_identity,
             format!("owner-{id}"),
             state,
         )
         .unwrap()
+    }
+
+    fn attempt_record_with_adapter(
+        id: &str,
+        op: &str,
+        adapter_identity: &str,
+        state: AttemptRecordState,
+    ) -> AttemptRecordV1 {
+        let action = action();
+        AttemptRecordV1::new(
+            &identity(id),
+            op,
+            format!("native-{op}"),
+            action.material_action_digest(),
+            &action,
+            Some("provider-seed".into()),
+            Some("provider-descriptor".into()),
+            "provider-env",
+            "provider-audience",
+            adapter_identity,
+            format!("owner-{id}"),
+            state,
+        )
+        .unwrap()
+    }
+
+    fn attempt_record(id: &str, op: &str, state: AttemptRecordState) -> AttemptRecordV1 {
+        attempt_record_with_adapter(id, op, "provider-adapter-v1", state)
+    }
+
+    #[test]
+    fn pinned_provider_registry_rejects_duplicate_identities() {
+        let registry = PinnedProviderAdapterRegistry::new(vec![
+            default_test_provider(),
+            default_test_provider(),
+        ]);
+        assert!(matches!(
+            registry,
+            Err(message) if message.contains("registered more than once")
+        ));
+    }
+
+    #[test]
+    fn pinned_provider_registry_exposes_only_registered_identity() {
+        let registry = PinnedProviderAdapterRegistry::new(vec![default_test_provider()]).unwrap();
+        assert!(registry.contains("provider-adapter-v1"));
+        assert!(!registry.contains("wrong-provider-adapter-v1"));
+        assert_eq!(
+            registry.identities().collect::<Vec<_>>(),
+            vec!["provider-adapter-v1"],
+        );
     }
 
     #[test]
@@ -2066,19 +2163,21 @@ mod tests {
     }
 
     #[test]
-    fn provider_adapter_must_match_pinned_attempt_identity() {
+    fn provider_adapter_selection_requires_pinned_registry_entry() {
         let dir = tempdir().unwrap();
-        let store = SqliteActionFenceStore::open(dir.path().join("adapter-identity.db")).unwrap();
+        let store =
+            SqliteActionFenceStore::open(dir.path().join("adapter-registry.db")).unwrap();
         let mut boundary = test_host(store);
         let action_key = action();
-        let owner = identity("attempt-adapter-identity");
+        let owner = identity("attempt-adapter-registry");
         boundary
             .admit(
                 &action_key,
                 &owner,
-                attempt_record(
-                    "attempt-adapter-identity",
-                    "operation-adapter-identity",
+                attempt_record_with_adapter(
+                    "attempt-adapter-registry",
+                    "operation-adapter-registry",
+                    "unregistered-provider-adapter-v1",
                     AttemptRecordState::Consumed,
                 ),
             )
@@ -2087,13 +2186,12 @@ mod tests {
         let result = boundary.dispatch(
             &action_key,
             &owner,
-            "owner-attempt-adapter-identity",
-            &mut WrongAdapter,
+            "owner-attempt-adapter-registry",
         );
         assert!(matches!(
             result,
             Err(BoundaryError::Semantic(message))
-                if message.contains("provider adapter identity does not match the attempt")
+                if message.contains("not registered in the constructor-pinned registry")
         ));
 
         let attempt = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
@@ -2105,7 +2203,6 @@ mod tests {
             .unwrap()
             .is_none());
     }
-
     #[test]
     fn admission_proof_identity_must_match_pinned_trust_root() {
         let dir = tempdir().unwrap();
@@ -2203,16 +2300,8 @@ mod tests {
     fn provider_is_not_called_before_confirmed_dispatch_pending() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("dispatch.db")).unwrap();
-        let mut boundary = test_host(store);
         let action = action();
         let owner = identity("attempt-1");
-        boundary
-            .admit(
-                &action,
-                &owner,
-                attempt_record("attempt-1", "operation-1", AttemptRecordState::Consumed),
-            )
-            .unwrap();
 
         let states = Arc::new(Mutex::new(Vec::new()));
         let mut provider = FakeProvider {
@@ -2225,13 +2314,21 @@ mod tests {
             invoked_states: Arc::clone(&states),
         };
 
+        let mut boundary = test_host_with_provider(store, Box::new(provider));
+        boundary
+            .admit(
+                &action,
+                &owner,
+                attempt_record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+
         assert_eq!(
             boundary
                 .dispatch(
                     &action,
                     &owner,
                     "owner-attempt-1",
-                    &mut provider,
                 )
                 .unwrap(),
             BoundaryOutcome::ExecutedConfirmed
@@ -2257,9 +2354,10 @@ mod tests {
 
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("ambiguous.db")).unwrap();
-        let mut boundary = test_host(store);
         let action = action();
         let owner = identity("attempt-ambiguous");
+        let provider = ErrorProvider;
+        let mut boundary = test_host_with_provider(store, Box::new(provider));
         boundary
             .admit(
                 &action,
@@ -2267,11 +2365,8 @@ mod tests {
                 attempt_record("attempt-ambiguous", "operation-ambiguous", AttemptRecordState::Consumed),
             )
             .unwrap();
-
-        let mut provider = ErrorProvider;
         assert!(matches!(
-            boundary
-                .dispatch(&action, &owner, "owner-attempt-ambiguous", &mut provider)
+            boundary.dispatch(&action, &owner, "owner-attempt-ambiguous")
                 .unwrap(),
             BoundaryOutcome::IndeterminateHeld { .. }
         ));
@@ -2418,16 +2513,12 @@ mod tests {
     fn final_entry_verifier_identity_must_match_pinned_trust_root() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("pinned-final-identity.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(
+        let mut boundary = test_host_with_final(
             store,
-            test_root_with(
-                Box::new(Verifier),
-                "verified-provider-v1",
-                Box::new(AllowFinalEntry),
-                "pinned-final-entry-v2",
-            ),
-        )
-        .unwrap();
+            Box::new(AllowFinalEntry),
+            "pinned-final-entry-v2",
+            Box::new(MustNotInvoke),
+        );
         let action_key = action();
         let owner = identity("attempt-pinned-final-identity");
         boundary
@@ -2442,33 +2533,11 @@ mod tests {
             )
             .unwrap();
 
-        struct MustNotInvoke;
-        impl ProviderAdapter for MustNotInvoke {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("pinned verifier identity mismatch must prevent provider invocation");
-            }
-
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                unreachable!()
-            }
-        }
-
         let result = boundary
             .dispatch(
                 &action_key,
                 &owner,
                 "owner-attempt-pinned-final-identity",
-                &mut MustNotInvoke,
             )
             .unwrap();
         assert!(matches!(
@@ -2488,7 +2557,12 @@ mod tests {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("final-gate-rejected.db")).unwrap();
         let mut boundary =
-            test_host_with_final(store, Box::new(RejectFinalEntry), "reject-final-entry-v1");
+            test_host_with_final(
+                store,
+                Box::new(RejectFinalEntry),
+                "reject-final-entry-v1",
+                Box::new(MustNotInvoke),
+            );
         let action_key = action();
         let owner = identity("attempt-final-gate-rejected");
         boundary
@@ -2503,33 +2577,11 @@ mod tests {
             )
             .unwrap();
 
-        struct MustNotInvoke;
-        impl ProviderAdapter for MustNotInvoke {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("final-entry rejection must prevent provider invocation");
-            }
-
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                unreachable!()
-            }
-        }
-
         let result = boundary
             .dispatch(
                 &action_key,
                 &owner,
                 "owner-attempt-final-gate-rejected",
-                &mut MustNotInvoke,
             )
             .unwrap();
 
@@ -2554,7 +2606,12 @@ mod tests {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("final-gate-expired.db")).unwrap();
         let mut boundary =
-            test_host_with_final(store, Box::new(ExpiredFinalEntry), "expired-entry-verifier-v1");
+            test_host_with_final(
+                store,
+                Box::new(ExpiredFinalEntry),
+                "expired-entry-verifier-v1",
+                Box::new(MustNotInvoke),
+            );
         let action_key = action();
         let owner = identity("attempt-final-gate-expired");
         boundary
@@ -2569,33 +2626,11 @@ mod tests {
             )
             .unwrap();
 
-        struct MustNotInvoke;
-        impl ProviderAdapter for MustNotInvoke {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("expired final-entry proof must prevent provider invocation");
-            }
-
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                unreachable!()
-            }
-        }
-
         let result = boundary
             .dispatch(
                 &action_key,
                 &owner,
                 "owner-attempt-final-gate-expired",
-                &mut MustNotInvoke,
             )
             .unwrap();
 
@@ -2622,7 +2657,12 @@ mod tests {
         let store =
             SqliteActionFenceStore::open(dir.path().join("final-gate-post-verify.db")).unwrap();
         let mut boundary =
-            test_host_with_final(store, Box::new(SlowExpiryFinalEntry), "slow-final-entry-verifier-v1");
+            test_host_with_final(
+                store,
+                Box::new(SlowExpiryFinalEntry),
+                "slow-final-entry-verifier-v1",
+                Box::new(MustNotInvoke),
+            );
         let action_key = action();
         let owner = identity("attempt-final-gate-post-verify");
         boundary
@@ -2637,33 +2677,11 @@ mod tests {
             )
             .unwrap();
 
-        struct MustNotInvoke;
-        impl ProviderAdapter for MustNotInvoke {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("post-verifier expiry must prevent provider invocation");
-            }
-
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                unreachable!()
-            }
-        }
-
         let result = boundary
             .dispatch(
                 &action_key,
                 &owner,
                 "owner-attempt-final-gate-post-verify",
-                &mut MustNotInvoke,
             )
             .unwrap();
 
@@ -2694,16 +2712,21 @@ mod tests {
         let dir = tempdir().unwrap();
         let store =
             SqliteActionFenceStore::open(dir.path().join("pinned-terminal-identity.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(
+        let provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
+        let mut boundary = test_host_with_outcome(
             store,
-            test_root_with(
-                Box::new(Verifier),
-                "pinned-terminal-v2",
-                Box::new(AllowFinalEntry),
-                "final-entry-verifier-v1",
-            ),
-        )
-        .unwrap();
+            Box::new(Verifier),
+            "pinned-terminal-v2",
+            Box::new(provider),
+        );
         let action_key = action();
         let owner = identity("attempt-pinned-terminal-identity");
         boundary
@@ -2718,22 +2741,11 @@ mod tests {
             )
             .unwrap();
 
-        let mut provider = FakeProvider {
-            invocation: ProviderObservation::Executed {
-                evidence_commitment: "provider-proof".into(),
-            },
-            reconciliation: ProviderObservation::Executed {
-                evidence_commitment: "reconciled-proof".into(),
-            },
-            invoked_states: Arc::new(Mutex::new(Vec::new())),
-        };
-
         let result = boundary
             .dispatch(
                 &action_key,
                 &owner,
                 "owner-attempt-pinned-terminal-identity",
-                &mut provider,
             )
             .unwrap();
         assert!(matches!(
@@ -2752,10 +2764,20 @@ mod tests {
     fn mismatched_provider_idempotency_proof_holds_the_fence() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("mismatch-idempotency.db")).unwrap();
+        let provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
         let mut boundary = test_host_with_outcome(
             store,
             Box::new(MismatchedIdempotencyVerifier),
             "malbound-verifier",
+            Box::new(provider),
         );
         let action_key = action();
         let owner = identity("attempt-mismatch-idempotency");
@@ -2767,21 +2789,10 @@ mod tests {
 
         boundary.admit(&action_key, &owner, record).unwrap();
 
-        let mut provider = FakeProvider {
-            invocation: ProviderObservation::Executed {
-                evidence_commitment: "provider-proof".into(),
-            },
-            reconciliation: ProviderObservation::Executed {
-                evidence_commitment: "reconciled-proof".into(),
-            },
-            invoked_states: Arc::new(Mutex::new(Vec::new())),
-        };
-
         let result = boundary.dispatch(
             &action_key,
             &owner,
             "owner-attempt-mismatch-idempotency",
-            &mut provider,
         );
         assert!(matches!(
             result,
@@ -2806,10 +2817,20 @@ mod tests {
     fn mismatched_terminal_verification_proof_holds_the_fence() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("mismatch.db")).unwrap();
+        let provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
         let mut boundary = test_host_with_outcome(
             store,
             Box::new(MismatchedVerifier),
             "malbound-verifier",
+            Box::new(provider),
         );
         let action_key = action();
         let owner = identity("attempt-mismatch");
@@ -2820,21 +2841,10 @@ mod tests {
             BoundaryOutcome::Admitted(AtomicAdmissionDecision::Admitted)
         );
 
-        let mut provider = FakeProvider {
-            invocation: ProviderObservation::Executed {
-                evidence_commitment: "provider-proof".into(),
-            },
-            reconciliation: ProviderObservation::Executed {
-                evidence_commitment: "reconciled-proof".into(),
-            },
-            invoked_states: Arc::new(Mutex::new(Vec::new())),
-        };
-
         let result = boundary.dispatch(
             &action_key,
             &owner,
             "owner-attempt-mismatch",
-            &mut provider,
         );
         assert!(matches!(
             result,
@@ -2889,31 +2899,10 @@ mod tests {
             .unwrap();
         assert_eq!(claim.action_key_digest, action_key.digest());
 
-        struct MustNotRun;
-        impl ProviderAdapter for MustNotRun {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("reconciliation test must not invoke provider");
-            }
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("active claim must block reconciliation before provider access");
-            }
-        }
-
         let result = boundary.reconcile(
             &action_key,
             &owner,
             "owner-attempt-claim-race",
-            &mut MustNotRun,
         );
         assert!(matches!(
             result,
