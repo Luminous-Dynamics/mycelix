@@ -14,7 +14,7 @@ use constitutional_effect_ledger::{
     ProviderEntryClaimV1, TerminalEvidenceV1, TerminalOutcomeV1,
 };
 
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProviderObservation {
@@ -663,65 +663,54 @@ impl AdmissionAuthorizer for PinnedAdmissionAuthorizer {
     }
 }
 
-pub trait ProviderAdapterAuthorizer {
-    fn verify(
-        &self,
-        provider: &dyn ProviderAdapter,
-        attempt: &AttemptRecordV1,
-        action_key: &ActionKeyV1,
-    ) -> Result<(), String>;
+/// Constructor-pinned registry of concrete provider adapter objects.
+///
+/// Adapter instances are owned by the boundary for its lifetime. A caller
+/// cannot substitute an arbitrary implementation at dispatch time and merely
+/// self-report an allowed adapter identity.
+pub struct PinnedProviderAdapterRegistry {
+    adapters: BTreeMap<String, Box<dyn ProviderAdapter>>,
 }
 
-/// Deployment configuration that pins which provider adapter identities may cross
-/// the effect boundary. This validates identity binding, not executable-code
-/// authenticity.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PinnedProviderAdapterAuthorizer {
-    allowed_adapter_identities: BTreeSet<String>,
-}
-
-impl PinnedProviderAdapterAuthorizer {
-    pub fn new<I, S>(identities: I) -> Result<Self, String>
+impl PinnedProviderAdapterRegistry {
+    pub fn new<I>(adapters: I) -> Result<Self, String>
     where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
+        I: IntoIterator<Item = Box<dyn ProviderAdapter>>,
     {
-        let allowed_adapter_identities = identities
-            .into_iter()
-            .map(Into::into)
-            .filter(|identity| !identity.trim().is_empty())
-            .collect::<BTreeSet<_>>();
-        if allowed_adapter_identities.is_empty() {
-            return Err("at least one provider adapter identity must be pinned".into());
+        let mut registered = BTreeMap::new();
+        for adapter in adapters {
+            let identity = adapter.adapter_identity().to_owned();
+            if identity.trim().is_empty() {
+                return Err("provider adapter identity must be non-empty".into());
+            }
+            if registered.insert(identity.clone(), adapter).is_some() {
+                return Err(format!(
+                    "provider adapter identity is registered more than once: {identity}"
+                ));
+            }
         }
-        Ok(Self {
-            allowed_adapter_identities,
-        })
+        if registered.is_empty() {
+            return Err("provider adapter registry must contain at least one adapter".into());
+        }
+        Ok(Self { adapters: registered })
     }
-}
 
-impl ProviderAdapterAuthorizer for PinnedProviderAdapterAuthorizer {
-    fn verify(
-        &self,
-        provider: &dyn ProviderAdapter,
-        attempt: &AttemptRecordV1,
-        action_key: &ActionKeyV1,
-    ) -> Result<(), String> {
-        if action_key.digest() != attempt.action_key_digest
-            || action_key.effecting_target_identity() != attempt.effecting_target_identity
-        {
-            return Err("provider adapter authorization action scope mismatch".into());
+    fn contains(&self, identity: &str) -> bool {
+        self.adapters.contains_key(identity)
+    }
+
+    fn get_mut(&mut self, identity: &str) -> Result<&mut dyn ProviderAdapter, String> {
+        match self.adapters.get_mut(identity) {
+            Some(adapter) => Ok(adapter.as_mut()),
+            None => Err(format!(
+                "provider adapter identity is not registered in the constructor-pinned registry: {identity}"
+            )),
         }
-        if provider.adapter_identity() != attempt.adapter_identity {
-            return Err("provider adapter identity does not match the attempt".into());
-        }
-        if !self
-            .allowed_adapter_identities
-            .contains(provider.adapter_identity())
-        {
-            return Err("provider adapter identity is not pinned by the trust root".into());
-        }
-        Ok(())
+    }
+
+    #[cfg(test)]
+    fn identities(&self) -> impl Iterator<Item = &str> {
+        self.adapters.keys().map(String::as_str)
     }
 }
 
@@ -739,12 +728,6 @@ pub trait BoundaryTrustRoot {
         now_unix_ms: u64,
     ) -> Result<AuthorizationAdmissionProofV1, String>;
 
-    fn authorize_provider_adapter(
-        &self,
-        provider: &dyn ProviderAdapter,
-        attempt: &AttemptRecordV1,
-        action_key: &ActionKeyV1,
-    ) -> Result<(), String>;
     fn outcome_verifier(&self) -> &dyn OutcomeVerifier;
     fn outcome_verifier_identity(&self) -> &str;
     fn final_entry_verifier(&self) -> &dyn FinalProviderEntryVerifier;
@@ -760,7 +743,6 @@ pub trait BoundaryTrustRoot {
 pub struct PinnedBoundaryTrustRoot {
     admission_authorizer: Box<dyn AdmissionAuthorizer>,
     admission_verifier_identity: String,
-    provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
     outcome_verifier: Box<dyn OutcomeVerifier>,
     outcome_verifier_identity: String,
     final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -773,7 +755,6 @@ impl PinnedBoundaryTrustRoot {
     pub fn new(
         admission_authorizer: Box<dyn AdmissionAuthorizer>,
         admission_verifier_identity: impl Into<String>,
-        provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_verifier_identity: impl Into<String>,
         final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -793,7 +774,6 @@ impl PinnedBoundaryTrustRoot {
         Ok(Self {
             admission_authorizer,
             admission_verifier_identity,
-            provider_adapter_authorizer,
             outcome_verifier,
             outcome_verifier_identity,
             final_entry_verifier,
@@ -817,16 +797,6 @@ impl BoundaryTrustRoot for PinnedBoundaryTrustRoot {
     ) -> Result<AuthorizationAdmissionProofV1, String> {
         self.admission_authorizer
             .verify(attempt, action_key, now_unix_ms)
-    }
-
-    fn authorize_provider_adapter(
-        &self,
-        provider: &dyn ProviderAdapter,
-        attempt: &AttemptRecordV1,
-        action_key: &ActionKeyV1,
-    ) -> Result<(), String> {
-        self.provider_adapter_authorizer
-            .verify(provider, attempt, action_key)
     }
 
     fn outcome_verifier(&self) -> &dyn OutcomeVerifier {
@@ -891,6 +861,7 @@ impl std::error::Error for BoundaryError {}
 pub struct EffectBoundaryHostV1 {
     store: SqliteActionFenceStore,
     trust_root: Box<dyn BoundaryTrustRoot>,
+    provider_registry: PinnedProviderAdapterRegistry,
     entry_claim_nonce: u64,
 }
 
@@ -898,11 +869,13 @@ impl EffectBoundaryHostV1 {
     pub fn new(
         store: SqliteActionFenceStore,
         trust_root: Box<dyn BoundaryTrustRoot>,
+        provider_registry: PinnedProviderAdapterRegistry,
     ) -> Result<Self, BoundaryError> {
         store.audit_integrity().map_err(BoundaryError::Store)?;
         Ok(Self {
             store,
             trust_root,
+            provider_registry,
             entry_claim_nonce: 0,
         })
     }
@@ -991,12 +964,11 @@ impl EffectBoundaryHostV1 {
 
     /// Provider invocation is reachable only after a durable read confirms
     /// DISPATCH_PENDING for the exact attempt owner.
-    pub fn dispatch<P: ProviderAdapter>(
+    pub fn dispatch(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
-        provider: &mut P,
     ) -> Result<BoundaryOutcome, BoundaryError> {
         let current = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
         if current.state.is_terminal() {
@@ -1006,9 +978,12 @@ impl EffectBoundaryHostV1 {
             return Ok(BoundaryOutcome::PreEntryStopRequired);
         }
 
-        self.trust_root
-            .authorize_provider_adapter(provider, &current, action_key)
-            .map_err(BoundaryError::Semantic)?;
+        if !self.provider_registry.contains(&current.adapter_identity) {
+            return Err(BoundaryError::Semantic(format!(
+                "provider adapter identity is not registered in the constructor-pinned registry: {}",
+                current.adapter_identity
+            )));
+        }
 
         self.store
             .atomically_mark_dispatch_pending(action_key, attempt_identity, owner_token_digest)
@@ -1166,26 +1141,31 @@ impl EffectBoundaryHostV1 {
             final_entry_proof,
             pre_entry_now_unix_ms,
         )?;
-        let observation = match provider.invoke(&permit) {
-            Ok(value) => value,
-            Err(error) => {
-                self.store
-                    .atomically_mark_invoked(
+        let observation = {
+            let provider = self
+                .provider_registry
+                .get_mut(permit.context().adapter_identity())
+                .map_err(BoundaryError::Semantic)?;
+            match provider.invoke(&permit) {
+                Ok(value) => value,
+                Err(error) => {
+                    self.store
+                        .atomically_mark_invoked(
+                            action_key,
+                            attempt_identity,
+                            owner_token_digest,
+                            permit.claim_token_digest(),
+                        )
+                        .map_err(BoundaryError::Mutation)?;
+                    return self.mark_indeterminate(
                         action_key,
                         attempt_identity,
                         owner_token_digest,
-                        permit.claim_token_digest(),
-                    )
-                    .map_err(BoundaryError::Mutation)?;
-                return self.mark_indeterminate(
-                    action_key,
-                    attempt_identity,
-                    owner_token_digest,
-                    format!("provider invocation outcome is ambiguous: {error}"),
-                );
+                        format!("provider invocation outcome is ambiguous: {error}"),
+                    );
+                }
             }
         };
-
         self.store
             .atomically_mark_invoked(
                 action_key,
@@ -1359,12 +1339,11 @@ impl EffectBoundaryHostV1 {
     /// Reconciliation first makes any stranded DISPATCH_PENDING/INVOKED attempt
     /// explicitly INDETERMINATE, preventing a concurrent original path from
     /// recording its outcome after reconciliation begins.
-    pub fn reconcile<P: ProviderAdapter>(
+    pub fn reconcile(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
-        provider: &mut P,
     ) -> Result<BoundaryOutcome, BoundaryError> {
         let current = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
         if current.state.is_terminal() {
@@ -1377,6 +1356,15 @@ impl EffectBoundaryHostV1 {
         self.trust_root
             .authorize_provider_adapter(provider, &current, action_key)
             .map_err(BoundaryError::Semantic)?;
+
+        if !self.provider_registry.contains(&current.adapter_identity) {
+            return Ok(BoundaryOutcome::IndeterminateHeld {
+                reason: format!(
+                    "provider adapter identity is not registered in the constructor-pinned registry: {}",
+                    current.adapter_identity
+                ),
+            });
+        }
 
         if current.state == AttemptRecordState::DispatchPending {
             if self
@@ -1399,7 +1387,15 @@ impl EffectBoundaryHostV1 {
         let indeterminate = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
         let provider_context =
             ProviderActionContextV1::from_attempt(&indeterminate, action_key)?;
-        let observation = match provider.reconcile(&provider_context) {
+        let observation = {
+            let provider = self
+                .provider_registry
+                .get_mut(provider_context.adapter_identity())
+                .map_err(BoundaryError::Semantic)?;
+            provider
+                .reconcile(&provider_context)
+                .map_err(BoundaryError::Semantic)?
+        };
             Ok(value) => value,
             Err(error) => {
                 return Ok(BoundaryOutcome::IndeterminateHeld {
