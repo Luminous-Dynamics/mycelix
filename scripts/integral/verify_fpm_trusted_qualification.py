@@ -603,6 +603,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         and pr["draft"] is False
         and pr["head"]["sha"] == receipt_subject
         and pr["base"]["sha"] == main_sha
+        and trusted_run["head_sha"] == main_sha
     )
 
     return {
