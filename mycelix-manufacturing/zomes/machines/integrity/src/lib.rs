@@ -25,20 +25,42 @@ pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-temporal-attestation-v1";
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineTemporalEvidenceObservation {
+    pub attestation_hash: ActionHash,
+    pub authority_agent: AgentPubKey,
+    pub profile_hash: ActionHash,
+    pub subject_hash: ActionHash,
+    pub evidence_kind: MachineTemporalEvidenceKind,
+    pub attested_at: Timestamp,
+    pub source_reference: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum MachineTemporalEvidenceResolution {
     NoEvidence,
-    Unique(Timestamp),
-    Conflicting(Vec<Timestamp>),
+    Unique {
+        time: Timestamp,
+        evidence: Vec<MachineTemporalEvidenceObservation>,
+    },
+    Conflicting(Vec<MachineTemporalEvidenceObservation>),
     InvalidEvidence,
 }
 
-pub fn resolve_temporal_times(mut times: Vec<Timestamp>) -> MachineTemporalEvidenceResolution {
-    times.sort_by_key(|time| time.as_micros());
-    times.dedup();
-    match times.as_slice() {
+pub fn resolve_temporal_evidence(
+    mut evidence: Vec<MachineTemporalEvidenceObservation>,
+) -> MachineTemporalEvidenceResolution {
+    evidence.sort_by_key(|observation| observation.attested_at.as_micros());
+    match evidence.as_slice() {
         [] => MachineTemporalEvidenceResolution::NoEvidence,
-        [time] => MachineTemporalEvidenceResolution::Unique(*time),
-        _ => MachineTemporalEvidenceResolution::Conflicting(times),
+        [first, rest @ ..]
+            if rest.iter().all(|observation| observation.attested_at == first.attested_at) =>
+        {
+            MachineTemporalEvidenceResolution::Unique {
+                time: first.attested_at,
+                evidence,
+            }
+        }
+        _ => MachineTemporalEvidenceResolution::Conflicting(evidence),
     }
 }
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -1078,7 +1100,6 @@ mod content_restriction_tests {
         ));
     }
     #[test]
-    #[test]
     fn temporal_evidence_kind_serde_round_trips() {
         for kind in [
             MachineTemporalEvidenceKind::TransitionApproval,
@@ -1090,10 +1111,47 @@ mod content_restriction_tests {
         }
     }
 
-    fn temporal_evidence_conflicts_fail_closed() {
-        assert_eq!(resolve_temporal_times(vec![]), MachineTemporalEvidenceResolution::NoEvidence);
-        assert_eq!(resolve_temporal_times(vec![Timestamp::from_micros(100), Timestamp::from_micros(100)]), MachineTemporalEvidenceResolution::Unique(Timestamp::from_micros(100)));
-        assert_eq!(resolve_temporal_times(vec![Timestamp::from_micros(100), Timestamp::from_micros(200)]), MachineTemporalEvidenceResolution::Conflicting(vec![Timestamp::from_micros(100), Timestamp::from_micros(200)]));
+    fn temporal_observation(
+        attestation_byte: u8,
+        authority_byte: u8,
+        time: i64,
+    ) -> MachineTemporalEvidenceObservation {
+        MachineTemporalEvidenceObservation {
+            attestation_hash: ActionHash::from_raw_36(vec![attestation_byte; 36]),
+            authority_agent: AgentPubKey::from_raw_32(vec![authority_byte; 32]),
+            profile_hash: ActionHash::from_raw_36(vec![3; 36]),
+            subject_hash: ActionHash::from_raw_36(vec![4; 36]),
+            evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
+            attested_at: Timestamp::from_micros(time),
+            source_reference: format!("tsa://example/{attestation_byte}"),
+        }
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_preserves_agreeing_provenance() {
+        let a = temporal_observation(1, 7, 100);
+        let b = temporal_observation(2, 8, 100);
+        assert_eq!(
+            resolve_temporal_evidence(vec![a.clone(), b.clone()]),
+            MachineTemporalEvidenceResolution::Unique {
+                time: Timestamp::from_micros(100),
+                evidence: vec![a, b],
+            }
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_conflicts_fail_closed_with_provenance() {
+        let a = temporal_observation(1, 7, 100);
+        let b = temporal_observation(2, 8, 200);
+        assert_eq!(
+            resolve_temporal_evidence(vec![b.clone(), a.clone()]),
+            MachineTemporalEvidenceResolution::Conflicting(vec![a, b])
+        );
+        assert_eq!(
+            resolve_temporal_evidence(vec![]),
+            MachineTemporalEvidenceResolution::NoEvidence
+        );
     }
     #[test]
     fn temporal_approval_evidence_must_overlap_approval_window() {
