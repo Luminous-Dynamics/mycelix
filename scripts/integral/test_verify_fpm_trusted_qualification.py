@@ -83,6 +83,7 @@ def snapshot(root: Path) -> None:
         "sandbox_image_digest": "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
         "sandbox_probe": "passed",
         "dependency_cache_sha256": "a" * 64,
+        "dependency_source_policy": "crates-io-registry-only-v1",
         "steps": {k: "success" for k in
                   ("preflight", "checkout", "source", "toolchain", "lock", "dependencies", "sandbox_image", "fmt", "sandbox_probe", "tests", "postflight")},
         "execution_pass": True,
@@ -407,6 +408,7 @@ version = "1.0.0"
             ("receipt.sandbox_image_digest", lambda x: x.__setitem__("sandbox_image_digest", "sha256:" + "b" * 64)),
             ("receipt.sandbox_probe", lambda x: x.__setitem__("sandbox_probe", "failed")),
             ("receipt.dependency_cache_sha256", lambda x: x.__setitem__("dependency_cache_sha256", "b" * 64)),
+            ("receipt.dependency_source_policy", lambda x: x.__setitem__("dependency_source_policy", "unrestricted")),
             ("receipt.execution_pass", lambda x: x.__setitem__("execution_pass", False)),
             ("receipt.promotion_authority", lambda x: x.__setitem__("promotion_authority", "authorized")),
         ]
