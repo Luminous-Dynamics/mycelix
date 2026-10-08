@@ -2843,27 +2843,36 @@ def test_github_api_reader_uses_non_forwarding_redirect_handler() -> None:
     import verify_d6u_trusted_artifacts as verifier
 
     class EmptyResponse:
+        def __init__(self, final_url: str):
+            self.final_url = final_url
+
         def __enter__(self):
             return self
 
         def __exit__(self, exc_type, exc, tb):
             return False
 
+        def geturl(self):
+            return self.final_url
+
         def read(self, _size):
             return b"{}"
 
     class FakeOpener:
+        def __init__(self, final_url: str):
+            self.final_url = final_url
+
         def open(self, request, timeout):
             assert request.full_url.startswith("https://api.github.com/")
             assert request.headers["Authorization"] == "Bearer token"
             assert timeout == 30
-            return EmptyResponse()
+            return EmptyResponse(self.final_url)
 
     for module in (fetcher, verifier):
         with patch.object(
             module.urllib.request,
             "build_opener",
-            return_value=FakeOpener(),
+            return_value=FakeOpener("https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/runs/1"),
         ) as build_opener:
             assert module.github_get(
                 "Luminous-Dynamics/mycelix",
@@ -2875,6 +2884,37 @@ def test_github_api_reader_uses_non_forwarding_redirect_handler() -> None:
             build_opener.call_args.args[0],
             module.NoAuthorizationRedirectHandler,
         )
+
+
+def test_github_api_reader_rejects_cross_host_final_url() -> None:
+    import fetch_d6u_trusted_artifact as fetcher
+    import verify_d6u_trusted_artifacts as verifier
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def geturl(self):
+            return "https://attacker.example/redirected-json"
+
+        def read(self, _size):
+            return b"{}"
+
+    class Opener:
+        def open(self, request, timeout):
+            return Response()
+
+    for module in (fetcher, verifier):
+        with patch.object(module.urllib.request, "build_opener", return_value=Opener()):
+            assert_rejected(
+                lambda module=module: module.github_get(
+                    "Luminous-Dynamics/mycelix", "/actions/runs/1", "token"
+                ),
+                f"cross-host JSON API redirect was accepted by {module.__name__}",
+            )
 
 
 def test_artifact_redirect_strips_authorization_header() -> None:
