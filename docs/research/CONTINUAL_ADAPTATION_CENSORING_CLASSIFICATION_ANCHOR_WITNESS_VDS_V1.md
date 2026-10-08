@@ -4,7 +4,7 @@ Status: research-only.
 
 This layer adds a concrete append-only history proof above cryptographically authenticated witness observations.
 
-The VDS profile follows the core Merkle-tree construction from RFC 9162: leaves use a 0x00 domain separator, internal nodes use 0x01, and consistency proofs demonstrate that an older tree is a prefix of a newer tree. RFC 9162 defines consistency proofs specifically to prove the append-only property. citeturn209962view1turn425976view0
+The VDS profile follows the core Merkle-tree construction from RFC 9162: leaves use a 0x00 domain separator, internal nodes use 0x01, and consistency proofs demonstrate that an older tree is a prefix of a newer tree. RFC 9162 defines consistency proofs specifically to prove the append-only property. (RFC 9162, Sections 2.1.1 and 2.1.4)
 
 The semantic pipeline is now:
 
@@ -57,7 +57,7 @@ It does not yet prove:
 - inclusion proofs or non-inclusion proofs;
 - protection against an adversary controlling the trust root and all observers.
 
-SCITT requires an applicable VDS to be append-only, non-equivocating, and replayable; SCITT also allows consistency proofs as an additional proof type. citeturn425976view1
+SCITT requires an applicable VDS to be append-only, non-equivocating, and replayable; SCITT also allows consistency proofs as an additional proof type. (RFC 9943, Section 5.1.3)
 
 The next boundary is therefore not another hash check. It is making tree heads and consistency receipts independently observable and authenticated, then testing delayed observer convergence and split-view detection.
 
