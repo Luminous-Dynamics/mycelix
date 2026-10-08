@@ -222,7 +222,7 @@ jobs:
           root_api= strict('trust-root-api.json'); signer_api=strict('signer-workflow-api.json')
           root_bytes=base64.b64decode(''.join(root_api['content'].splitlines()),validate=True)
           signer_bytes=base64.b64decode(''.join(signer_api['content'].splitlines()),validate=True)
-          root=strict_text(root_bytes.decode('utf-8')) if False else json.loads(root_bytes.decode('utf-8'))
+          root=json.loads(root_bytes.decode('utf-8'))
           component=root['components']['qualification_attestor_workflow']
           assert component['path']=='.github/workflows/cos-conformance-qualification-attestor.yml'
           assert subprocess.check_output(['git','hash-object','--stdin'],input=signer_bytes).decode().strip()==component['git_blob_sha1']
@@ -364,13 +364,13 @@ jobs:
           set -euo pipefail
           claim_id="${{ needs.prepare.outputs.claim_id }}"
           release_tag="cos-qualification-${claim_id}"
+          GH_TOKEN="${GITHUB_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName > draft-release.json
           release_id="$(python - <<'PY'
           import json
           from pathlib import Path
-          print(json.loads(Path('existing-release.json').read_text())['id'] if Path('existing-release.json').exists() else json.loads(__import__('subprocess').check_output(['gh','release','view',"cos-qualification-"+__import__('os').environ['CLAIM_ID'],'--repo',__import__('os').environ['GITHUB_REPOSITORY'],'--json','id'],text=True))['id'])
+          print(json.loads(Path('draft-release.json').read_text())['id'])
           PY
           )"
-          true
           cp -a handoff/durable-source durable-source
           asset_name="cos-durable-${claim_id}.tar.gz"
           CLAIM_ID="${claim_id}" RELEASE_TAG="${release_tag}" RELEASE_ID="${release_id}" EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
