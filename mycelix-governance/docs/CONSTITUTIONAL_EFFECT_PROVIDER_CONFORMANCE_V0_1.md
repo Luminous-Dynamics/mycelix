@@ -400,6 +400,8 @@ expiration remain separately scoped and do not imply successful execution.
 
 Fund refunds are likewise consequence-gated. A locked allocation may refund before host preparation only after cancellation or expiry; once a timelock is Prepared, refund requires an exact Failed ExecutionResolution with matching source-chain anchors. Direct Prepared-to-Cancelled transitions are rejected.
 
+Proposal IDs are resolved through the canonical ProposalById index using the latest version of the single source target; duplicate source targets fail closed. Timelock creation and fund allocation creation both bind to the resulting proposal state and exact action payload.
+
 Fund-allocation identity is immutable across terminal updates: allocation ID, proposal ID, timelock ID, source account, currency, amount, and lock timestamp cannot be rewritten by a release/refund transition, and DHT validation binds updates to the original allocation creator.
 
 This separation is intentional: a hardened boundary is a prerequisite for provider
