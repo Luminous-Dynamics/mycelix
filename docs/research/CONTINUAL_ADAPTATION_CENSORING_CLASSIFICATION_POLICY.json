@@ -1,5 +1,5 @@
 {
-  "schema": "mycelix.continual-adaptation.censoring-classification-policy.v2",
+  "schema": "mycelix.continual-adaptation.censoring-classification-policy.v1",
   "status": "research-policy-only",
   "epoch_order": [
     "t0",
