@@ -100,7 +100,11 @@ impl EconomicEffectIdentityV1 {
             | (EconomicIdentityNamespaceV1::Burn, MutationClass::Burn)
             | (EconomicIdentityNamespaceV1::CollateralMint, MutationClass::Mint)
             | (EconomicIdentityNamespaceV1::GovernanceMint, MutationClass::Mint)
-            | (EconomicIdentityNamespaceV1::Generic, _) => {}
+            | (EconomicIdentityNamespaceV1::CollateralLock, MutationClass::CollateralLock)
+            | (EconomicIdentityNamespaceV1::CollateralRelease, MutationClass::CollateralRelease)
+            | (EconomicIdentityNamespaceV1::StakingReturn, MutationClass::StakingReturn)
+            | (EconomicIdentityNamespaceV1::StakingSlash, MutationClass::StakingSlash)
+            | (EconomicIdentityNamespaceV1::ReconciliationCorrection, MutationClass::ReconciliationCorrection) => {}
             _ => return Err(EconomicEffectError::IdentityNamespaceMismatch),
         }
         validate_id(
