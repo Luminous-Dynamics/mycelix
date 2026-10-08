@@ -341,8 +341,9 @@ def verify(
     nodes = node_index(graph)
     assert nodes is not None
 
-    # Object identity is anchored outside the mutable graph. The anchor binds
-    # the logical object identifier to the exact semantic commitment.
+    # Object identity is supplied separately from the semantic graph. In this
+    # fixture dialect the anchor is co-versioned with the fixture, so it proves
+    # consistency with the supplied anchor but not independent anchor custody.
     object_anchors = object_identity_anchors
     if isinstance(object_anchors, dict):
         for node_id, anchor in object_anchors.items():
@@ -351,7 +352,7 @@ def verify(
                 continue
             if node.get("commitment") is None:
                 return "unresolved"
-            identity = digest({"id": node_id, "commitment": node["commitment"]})
+            identity = digest({"id": node_id, "type": node.get("type"), "commitment": node["commitment"]})
             if identity != anchor:
                 return "unqualified"
 
