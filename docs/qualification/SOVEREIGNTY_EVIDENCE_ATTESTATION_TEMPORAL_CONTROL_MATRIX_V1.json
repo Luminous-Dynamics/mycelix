@@ -1,0 +1,16 @@
+{
+  "schema": "mycelix.evidence-attestation-temporal-expiration-control-matrix.v1",
+  "control": {
+    "id": "expiry-persistence",
+    "boundary": "an expired grant must not remain effective authority",
+    "tla_invariant": "ExpiredGrantNotEffective",
+    "tla_control": "expiry-persistence",
+    "alloy_witness": "ExpiredGrantPersistenceWitness",
+    "alloy_assertion": "EffectiveAuthorityMatchesCurrentTime",
+    "alloy_mutant_fact": "ExpiredGrantNotEffective",
+    "reference_markers": [
+      "ISOLATION PASS: expired grant remains structurally grant-backed",
+      "NEGATIVE PASS: expired authority persistence detected"
+    ]
+  }
+}
