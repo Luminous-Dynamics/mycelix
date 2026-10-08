@@ -17,6 +17,30 @@ pub enum Disposition {
     Quarantined,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum CapabilityQualification {
+    Declared,
+    Observed,
+    Verified,
+    Qualified,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct CapabilityContractEntry {
+    pub contract_id: String,
+    pub machine_hash: ActionHash,
+    pub process_family: String,
+    pub material_classes: Vec<String>,
+    pub envelope_x_mm: Option<u32>,
+    pub envelope_y_mm: Option<u32>,
+    pub envelope_z_mm: Option<u32>,
+    pub tolerance_um: Option<u32>,
+    pub supported_protocols: Vec<String>,
+    pub qualification: CapabilityQualification,
+    pub created_at: Timestamp,
+}
+
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct MaterialLotEntry {
@@ -60,6 +84,7 @@ pub struct ExecutionReceiptEntry {
     pub routing_hash: Option<ActionHash>,
     pub operation_sequence: u32,
     pub machine_hash: ActionHash,
+    pub capability_contract_hash: Option<ActionHash>,
     pub process_parameters_hash: Option<String>,
     pub input_lot_hashes: Vec<ActionHash>,
     pub output_lot_hashes: Vec<ActionHash>,
@@ -78,6 +103,7 @@ pub enum EntryTypes {
     MaterialLot(MaterialLotEntry),
     Measurement(MeasurementEntry),
     Calibration(CalibrationEntry),
+    CapabilityContract(CapabilityContractEntry),
     ExecutionReceipt(ExecutionReceiptEntry),
 }
 
@@ -86,9 +112,11 @@ pub enum LinkTypes {
     AllMaterialLots,
     AllMeasurements,
     AllCalibrations,
+    AllCapabilityContracts,
     AllExecutions,
     WorkOrderToExecutions,
     MachineToExecutions,
+    MachineToCapabilities,
     ExecutionToInputs,
     ExecutionToOutputs,
     ExecutionToMeasurements,
@@ -162,6 +190,27 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 ));
             }
         }
+        EntryTypes::CapabilityContract(c) => {
+            if c.contract_id.is_empty() || c.process_family.is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "contract_id and process_family are required".into(),
+                ));
+            }
+            if c.material_classes.is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "at least one material class is required".into(),
+                ));
+            }
+            if c.envelope_x_mm == Some(0)
+                || c.envelope_y_mm == Some(0)
+                || c.envelope_z_mm == Some(0)
+                || c.tolerance_um == Some(0)
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "envelope and tolerance values must be > 0 when provided".into(),
+                ));
+            }
+        }
         EntryTypes::ExecutionReceipt(e) => {
             if e.operation_sequence == 0 {
                 return Ok(ValidateCallbackResult::Invalid(
@@ -194,6 +243,13 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
             // legitimately lack one or both categories while still being
             // recorded as observed events.
             if matches!(e.disposition, Disposition::Accepted)
+                && e.capability_contract_hash.is_none()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "accepted execution requires a capability contract".into(),
+                ));
+            }
+            if matches!(e.disposition, Disposition::Accepted)
                 && e.measurement_hashes.is_empty()
             {
                 return Ok(ValidateCallbackResult::Invalid(
@@ -213,6 +269,30 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
             // from being populated with hashes for unrelated records.
             must_get_valid_record(e.work_order_hash.clone())?;
             must_get_valid_record(e.machine_hash.clone())?;
+            if let Some(hash) = e.capability_contract_hash.clone() {
+                let record = must_get_valid_record(hash)?;
+                let contract: Option<CapabilityContractEntry> = record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                let Some(contract) = contract else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "capability_contract_hash does not reference a capability contract".into(),
+                    ));
+                };
+                if contract.machine_hash != e.machine_hash {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "capability contract is bound to a different machine".into(),
+                    ));
+                }
+                if matches!(e.disposition, Disposition::Accepted)
+                    && !matches!(contract.qualification, CapabilityQualification::Qualified)
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "accepted execution requires a Qualified capability contract".into(),
+                    ));
+                }
+            }
             if let Some(hash) = e.bom_hash.clone() {
                 must_get_valid_record(hash)?;
             }
@@ -327,6 +407,7 @@ mod tests {
             routing_hash: None,
             operation_sequence: 1,
             machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            capability_contract_hash: Some(ActionHash::from_raw_36(vec![4; 36])),
             process_parameters_hash: None,
             input_lot_hashes: vec![ActionHash::from_raw_36(vec![2; 36])],
             output_lot_hashes: vec![ActionHash::from_raw_36(vec![3; 36])],
