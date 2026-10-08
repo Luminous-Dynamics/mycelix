@@ -1101,6 +1101,7 @@ def fixture_policy() -> dict[str, Any]:
             "unobserved_repository_selector_properties_must_fail_closed": True,
             "repository_owner_identity_must_be_rechecked": True,
             "live_main_tip_must_be_rechecked": True,
+            "enterprise_ruleset_source_identity_must_be_observed": True,
             "effective_rule_provenance_must_be_bound": True,
             "effective_rule_definition_must_match_observed_ruleset": True,
         },
