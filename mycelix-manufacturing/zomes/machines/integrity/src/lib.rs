@@ -20,7 +20,7 @@ pub const MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID: &str =
 pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
 
 pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
-    "mycelix-manufacturing-machine-time-authority-profile-v2";
+    "mycelix-manufacturing-machine-time-authority-profile-v3";
 pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-temporal-attestation-v4";
 /// Hard upper bound used to keep temporal uncertainty arithmetic bounded.
@@ -109,6 +109,7 @@ pub struct MachineTimeAuthorityProfilePayload {
     pub profile_id: String,
     pub source_profile: String,
     pub source_authority_commitment: Vec<u8>,
+    pub commitment_algorithm: MachineTemporalCommitmentAlgorithm,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
     pub max_accuracy_micros: i64,
@@ -188,6 +189,7 @@ pub struct MachineTimeAuthorityProfileEntry {
     pub profile_id: String,
     pub source_profile: String,
     pub source_authority_commitment: Vec<u8>,
+    pub commitment_algorithm: MachineTemporalCommitmentAlgorithm,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
     pub max_accuracy_micros: i64,
@@ -203,6 +205,7 @@ impl MachineTimeAuthorityProfileEntry {
             profile_id: self.profile_id.clone(),
             source_profile: self.source_profile.clone(),
             source_authority_commitment: self.source_authority_commitment.clone(),
+            commitment_algorithm: self.commitment_algorithm.clone(),
             valid_from: self.valid_from,
             valid_until: self.valid_until,
             max_accuracy_micros: self.max_accuracy_micros,
@@ -539,6 +542,7 @@ fn validate_create_temporal_attestation(
     if profile.machine_hash != attestation.machine_hash
         || profile.authority_agent != action.author()
         || attestation.accuracy_micros > profile.max_accuracy_micros
+        || attestation.source_commitment_algorithm != profile.commitment_algorithm
         || !temporal_profile_contains_interval(
             &profile,
             attestation.attested_at,
@@ -1316,6 +1320,7 @@ mod content_restriction_tests {
             profile_id: "profile-1".into(),
             source_profile: "rfc3161".into(),
             source_authority_commitment: vec![9; 32],
+            commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
             valid_from: Timestamp::from_micros(0),
             valid_until: Timestamp::from_micros(1_000),
             max_accuracy_micros: 5,
@@ -1331,6 +1336,25 @@ mod content_restriction_tests {
 
         let encoded_profile_id = "p".repeat(MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES + 1);
         assert!(encoded_profile_id.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES);
+    }
+
+    #[test]
+    fn temporal_profile_commitment_algorithm_is_signed() {
+        let mut profile = MachineTimeAuthorityProfileEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            profile_id: "profile-1".into(),
+            source_profile: "rfc3161".into(),
+            source_authority_commitment: vec![9; 32],
+            commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(1_000),
+            max_accuracy_micros: 5,
+            registrant_signature: Signature(vec![0; 64]),
+        };
+        let before = profile.signed_payload();
+        profile.commitment_algorithm = MachineTemporalCommitmentAlgorithm::Sha512;
+        assert_ne!(profile.signed_payload(), before);
     }
 
     #[test]
