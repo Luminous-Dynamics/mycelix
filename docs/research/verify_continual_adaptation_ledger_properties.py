@@ -237,6 +237,12 @@ def check_case(base: dict, policy: dict, case: dict) -> dict:
     return actual
 
 
+def git_blob_sha(path: Path) -> str:
+    data = path.read_bytes()
+    header = f"blob {len(data)}\\0".encode("ascii")
+    return hashlib.sha1(header + data).hexdigest()
+
+
 def main() -> int:
     if len(sys.argv) != 5:
         print(
@@ -247,9 +253,14 @@ def main() -> int:
         return 2
 
     expected_policy_blob_sha = sys.argv[1]
-    policy = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+    policy_path = Path(sys.argv[2])
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
     corpus = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
-    if corpus.get("policy_binding", {}).get("git_blob_sha") != expected_policy_blob_sha:
+    actual_policy_blob_sha = git_blob_sha(policy_path)
+    if (
+        actual_policy_blob_sha != expected_policy_blob_sha
+        or corpus.get("policy_binding", {}).get("git_blob_sha") != actual_policy_blob_sha
+    ):
         print("policy binding mismatch", file=sys.stderr)
         return 1
 
