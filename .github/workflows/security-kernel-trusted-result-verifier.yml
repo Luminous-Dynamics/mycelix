@@ -28,7 +28,7 @@ env:
   EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "b660622db144aa69a8536ebb5ca5736f658992b4"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "253b2ebce29b6f332de9458334a172e4d1fa6d26"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "0a3e4266cb44d021b50a7d3c408340eb2ed18782"
   EGRESS_BROKER_PATH: ".github/security-kernel/github_egress_proxy.py"
   EGRESS_BROKER_BLOB_SHA: "65b140b0fbc2df0b457de46ba2b42f349629f543"
   EGRESS_BROKER_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
