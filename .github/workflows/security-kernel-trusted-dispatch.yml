@@ -13,7 +13,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}
+  group: security-kernel-trusted-dispatch-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -38,6 +38,7 @@ jobs:
       invocation_source: ${{ steps.resolve.outputs.invocation_source }}
     steps:
       - name: Verify trusted dispatcher context and exact PR identity
+        id: resolve
         env:
           TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
