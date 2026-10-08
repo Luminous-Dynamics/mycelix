@@ -63,7 +63,7 @@ jobs:
           test -n "${RELEASE_TAG}"
           test -n "${ASSET_NAME}"
           gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
-            --json id,tagName,isDraft,isImmutable,isPrerelease,publishedAt,targetCommitish,assets \
+            --json id,tagName,isDraft,isImmutable,isLatest,isPrerelease,publishedAt,targetCommitish,assets \
             > release.json
           python - <<'PY'
           import json
@@ -72,13 +72,14 @@ jobs:
 
           data = json.loads(Path("release.json").read_text())
           assert set(data) == {
-              "id", "tagName", "isDraft", "isImmutable",
+              "id", "tagName", "isDraft", "isImmutable", "isLatest",
               "isPrerelease", "publishedAt", "targetCommitish", "assets"
           }
           assert data["tagName"] == os.environ["RELEASE_TAG"]
           assert data["isDraft"] is False
           assert data["isImmutable"] is True
           assert data["isLatest"] is False
+          assert data["isPrerelease"] is False
           assert data["publishedAt"]
           assert isinstance(data["assets"], list)
           matches = [asset for asset in data["assets"] if asset.get("name") == os.environ["ASSET_NAME"]]
