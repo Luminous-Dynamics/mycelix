@@ -1,0 +1,83 @@
+name: Sovereignty compound constraint witness matching candidate
+on:
+  push:
+    branches:
+      - sov-ai-auth-v19-compound-constraint-witness-matching
+  pull_request:
+    branches:
+      - sov-ai-auth-v18-constraint-algebra-deny-preservation
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  TLA_URL: https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+  TLA_SHA256: 936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
+  ALLOY_URL: https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.2.0/org.alloytools.alloy.dist.jar
+  ALLOY_SHA256: 6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d
+jobs:
+  compound-witness-matching:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Assert exact head
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Static matrix alignment
+        run: |
+          set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
+          python3 -m py_compile mycelix-governance/tools/formal/compound_constraint_witness_reference.py mycelix-governance/tools/formal/test_compound_constraint_witness_matrix.py mycelix-governance/tools/formal/compound_constraint_witness_formal_runner.py
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_CONSTRAINT_WITNESS_CONTROL_MATRIX_V1.json >/dev/null
+          python3 mycelix-governance/tools/formal/test_compound_constraint_witness_matrix.py --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_CONSTRAINT_WITNESS_CONTROL_MATRIX_V1.json --reference mycelix-governance/tools/formal/compound_constraint_witness_reference.py
+      - name: Install pinned Nix toolchain
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Download and hash formal tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/compound-witness-tools" "$RUNNER_TEMP/compound-witness-java" "$RUNNER_TEMP/compound-witness-evidence"
+          nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#curl" "github:NixOS/nixpkgs/$NIXPKGS_REV#coreutils" --command bash -euo pipefail -c '
+            curl --fail --location --retry 3 --retry-all-errors --output "$RUNNER_TEMP/compound-witness-tools/tla2tools.jar" "$TLA_URL"
+            curl --fail --location --retry 3 --retry-all-errors --output "$RUNNER_TEMP/compound-witness-tools/alloy.jar" "$ALLOY_URL"
+            printf "%s  %s\n" "$TLA_SHA256" "$RUNNER_TEMP/compound-witness-tools/tla2tools.jar" | sha256sum --check --strict
+            printf "%s  %s\n" "$ALLOY_SHA256" "$RUNNER_TEMP/compound-witness-tools/alloy.jar" | sha256sum --check --strict
+          '
+      - name: Compile Alloy runner
+        run: |
+          set -euo pipefail
+          nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#jdk17_headless" --command bash -euo pipefail -c '
+            javac -cp "$RUNNER_TEMP/compound-witness-tools/alloy.jar" -d "$RUNNER_TEMP/compound-witness-java" mycelix-governance/tools/formal/AgentDelegationAuthorityAlloyRunner.java
+          '
+      - name: Create runtime receipt input
+        run: |
+          set -euo pipefail
+          python3 -c 'import json,os; json.dump({"schema":"mycelix.evidence-attestation-capability-formal-runtime.v1","nixpkgs_rev":os.environ["NIXPKGS_REV"],"jdk_package":"jdk17_headless","java_major":17},open(os.environ["RUNNER_TEMP"]+"/compound-witness-evidence/runtime.json","w"))'
+      - name: Execute exact formal matrix
+        run: |
+          set -euo pipefail
+          python3 mycelix-governance/tools/formal/compound_constraint_witness_formal_runner.py --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_CONSTRAINT_WITNESS_CONTROL_MATRIX_V1.json --tla mycelix-governance/specs/EvidenceAttestationCompoundConstraintWitnessMatchingV1.tla --canonical-cfg mycelix-governance/specs/EvidenceAttestationCompoundConstraintWitnessMatchingV1.cfg --negative-cfg-dir mycelix-governance/specs --alloy mycelix-governance/specs/alloy/EvidenceAttestationCompoundConstraintWitnessMatchingV1.als --runner-class-dir "$RUNNER_TEMP/compound-witness-java" --alloy-jar "$RUNNER_TEMP/compound-witness-tools/alloy.jar" --tla-jar "$RUNNER_TEMP/compound-witness-tools/tla2tools.jar" --evidence-dir "$RUNNER_TEMP/compound-witness-evidence"
+      - name: Verify repository postflight
+        if: always()
+        run: |
+          set -euo pipefail
+          test "$(git status --porcelain)" = ""
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sovereignty-compound-constraint-witness-${{ github.sha }}
+          path: ${{ runner.temp }}/compound-witness-evidence
+          if-no-files-found: warn
+          retention-days: 30
