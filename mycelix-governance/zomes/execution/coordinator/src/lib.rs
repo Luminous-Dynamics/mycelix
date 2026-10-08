@@ -1989,6 +1989,32 @@ mod tests {
     // --- TransferCredits ---
 
     #[test]
+    fn terminal_resolution_selector_deduplicates_identical_receipts() {
+        let receipt = ExecutionResolution {
+            id: "resolution:duplicate".into(),
+            execution_id: "execution:duplicate".into(),
+            timelock_id: "timelock-1".into(),
+            proposal_id: "proposal-1".into(),
+            executor: "did:mycelix:test".into(),
+            execution_action_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
+            timelock_action_hash: Some(ActionHash::from_raw_36(vec![2; 36])),
+            attempt_identities: vec![],
+            action_key_digests: vec![],
+            terminal_evidence_digests: vec![],
+            authorization_admission_proof_digests: vec![],
+            final_provider_entry_proof_digests: vec![],
+            outcome: ExecutionResolutionOutcome::Failed,
+            resolved_at: ts(3_000_000),
+        };
+
+        let selected =
+            select_unique_terminal_resolution(vec![receipt.clone(), receipt.clone()])
+                .unwrap()
+                .unwrap();
+        assert_eq!(selected, receipt);
+    }
+
+    #[test]
     fn execution_by_timelock_anchor_is_stable_across_timelock_updates() {
         let first = execution_by_timelock_anchor("timelock-42");
         let second = execution_by_timelock_anchor("timelock-42");
