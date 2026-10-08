@@ -312,11 +312,11 @@ checksum = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                 b'checksum = "not-a-checksum"',
                 1,
             )),
-            ("extra-source-free", lock_base.replace(
-                b'[[package]]\nname = "holo_hash"',
-                b'[[package]]\nname = "local-helper"',
-                0,
-            )),
+            ("extra-source-free", lock_base + b'''
+[[package]]
+name = "local-helper"
+version = "1.0.0"
+'''),
         ]
         for label, lock_bytes in lock_mutations:
             try:
