@@ -52,10 +52,10 @@ function semanticNormalize(graph, policy) {
 
   const normalized = structuredClone(graph);
   if (policy.graph_canonicalization.node_collection === "unordered-by-id") {
-    normalized.nodes.sort((a,b) => a.id.localeCompare(b.id));
+    normalized.nodes.sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   }
   if (policy.graph_canonicalization.edge_collection === "unordered-by-tuple") {
-    normalized.edges.sort((a,b) => canonicalRecursive(a).localeCompare(canonicalRecursive(b)));
+    normalized.edges.sort((a,b) => canonicalRecursive(a) < canonicalRecursive(b) ? -1 : canonicalRecursive(a) > canonicalRecursive(b) ? 1 : 0);
   }
   return normalized;
 }
