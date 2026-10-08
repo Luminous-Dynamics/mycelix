@@ -175,6 +175,8 @@ jobs:
           assert "admin-capability-probe-payload.json" in scanned_text
           assert "admin-capability-probe-http-status.txt" in scanned_text
           assert "admin_capability_probe" in scanned_text
+          assert "rulesets/rule-suites?per_page=1" in scanned_text
+          assert "orgs/Luminous-Dynamics/rulesets?per_page=1" not in scanned_text
           assert "admin-capability-probe-payload-after.json" in scanned_text
           assert "admin-capability-probe-http-status-after.txt" in scanned_text
           assert "admin capability observation status changed during governance observation" in scanned_text
