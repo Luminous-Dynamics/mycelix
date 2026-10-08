@@ -559,6 +559,7 @@ pub fn resolve_machine_temporal_attestations(
             attestation_hash: hash,
             authority_agent: profile_record.authority_agent,
             profile_hash: attestation.profile_hash,
+            source_authority_commitment: profile_record.source_authority_commitment,
             subject_hash: attestation.subject_hash,
             evidence_kind: attestation.evidence_kind,
             attested_at: attestation.attested_at,
