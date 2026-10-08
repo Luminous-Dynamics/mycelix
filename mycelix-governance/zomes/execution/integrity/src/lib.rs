@@ -108,6 +108,8 @@ pub const EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX: &str =
     "constitutional-authorization-admission-proof-v1:";
 pub const EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX: &str =
     "constitutional-final-provider-entry-proof-v1:";
+pub const EXECUTION_TERMINAL_EVIDENCE_PREFIX: &str =
+    "constitutional-terminal-evidence-v3:";
 
 pub const CHARTER_THREAT_CATEGORIES: &[&str] = &[
     "constitutional_violation",
@@ -479,7 +481,10 @@ pub fn check_create_execution_resolution(
         .attempt_identities
         .iter()
         .any(|v| !is_tagged_digest(v, EXECUTION_ATTEMPT_IDENTITY_PREFIX))
-        || resolution.terminal_evidence_digests.iter().any(|v| v.is_empty())
+        || resolution
+            .terminal_evidence_digests
+            .iter()
+            .any(|v| !is_tagged_digest(v, EXECUTION_TERMINAL_EVIDENCE_PREFIX))
         || resolution.action_key_digests.iter().any(|v| {
             !is_tagged_digest(
                 v,
@@ -1158,7 +1163,10 @@ mod tests {
                 "e".repeat(64)
             )],
             action_key_digests: vec![format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "a".repeat(64))],
-            terminal_evidence_digests: vec![format!("terminal-evidence-v1:{}", "b".repeat(64))],
+            terminal_evidence_digests: vec![format!(
+                "{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}",
+                "b".repeat(64)
+            )],
             authorization_admission_proof_digests: vec![format!("{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}", "c".repeat(64))],
             final_provider_entry_proof_digests: vec![format!("{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}", "d".repeat(64))],
             outcome: ExecutionResolutionOutcome::Executed,
@@ -1178,6 +1186,11 @@ mod tests {
         bad_auth_root.authorization_admission_proof_digests[0] =
             "not-a-canonical-admission-root".into();
         assert!(check_create_execution_resolution(&bad_auth_root).is_err());
+
+        let mut bad_terminal_root = valid.clone();
+        bad_terminal_root.terminal_evidence_digests[0] =
+            "not-a-canonical-terminal-evidence-root".into();
+        assert!(check_create_execution_resolution(&bad_terminal_root).is_err());
 
         let mut bad_final_root = valid.clone();
         bad_final_root.final_provider_entry_proof_digests[0] =
