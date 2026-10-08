@@ -482,7 +482,7 @@ mod tests {
             started_at: Timestamp::from_micros(0),
             completed_at: Timestamp::from_micros(1),
             disposition: Disposition::Accepted,
-            evidence_references: vec!["evidence".into()],
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
             notes: None,
         };
         let result = validate_create(EntryTypes::ExecutionReceipt(entry)).unwrap();
