@@ -30,7 +30,7 @@ env:
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
   SOURCE_POLICY_VERIFIER_BLOB_SHA: "41a921254154ff5423126012bea7ebdf42313195"
   EGRESS_BROKER_PATH: ".github/security-kernel/github_egress_proxy.py"
-  EGRESS_BROKER_BLOB_SHA: "b288278af2e2c821eda8acb52c705229b97a0d84"
+  EGRESS_BROKER_BLOB_SHA: "65b140b0fbc2df0b457de46ba2b42f349629f543"
   EGRESS_BROKER_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
