@@ -890,9 +890,9 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             fail(f"S1 candidate source resource ceiling missing: {required!r}")
     if "source_copy_pipeline_status" in joined or "bounded_source_archive" in joined:
         fail("S1 obsolete host archive/staging pipeline residue detected")
-    if exact_count(l, '--label "security-kernel.run=$GITHUB_RUN_ID"') != 11:
+    if exact_count(l, '--label "security-kernel.run=$GITHUB_RUN_ID"') != 9:
         fail("S1 trusted Docker/network ownership label census mismatch")
-    if exact_count(l, '--label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT"') != 11:
+    if exact_count(l, '--label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT"') != 9:
         fail("S1 trusted Docker/network ownership label census mismatch")
     if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
         fail("S1 vendor resource volume create profile mismatch")
