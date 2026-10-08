@@ -1,7 +1,7 @@
 {
   "schema": "mycelix.continual-adaptation.censoring-classification-anchor-governance-campaign.v1",
   "status": "research-fixture-only",
-  "expected_trust_root_sha256": "sha256:680fa5d99d1f6c5ba47575cb9ef52bdde9bf5563d481e868c12adc044aef5b76",
+  "expected_trust_root_sha256": "sha256:d70d03373580c0714a84d03b2fd3c8a443cad3f9928a71af42b9b35a89d85331",
   "current_manifest_version": 2,
   "previous_manifest_version": 1,
   "cases": [
@@ -128,7 +128,7 @@
         [
           "set",
           "previous_manifest_sha256",
-          "sha256:54ebc1b7f6d922cf069d1f1c577d159867ee777fa52aaa67cbe50433e5a11511"
+          "sha256:290649ab061c8ec5cdfb81c0add4946fbb597c4df96a8ac613fbc4f9b371f31f"
         ]
       ],
       "derive_manifest_hash": true
@@ -264,7 +264,7 @@
         [
           "set",
           "previous_manifest_sha256",
-          "sha256:54ebc1b7f6d922cf069d1f1c577d159867ee777fa52aaa67cbe50433e5a11511"
+          "sha256:290649ab061c8ec5cdfb81c0add4946fbb597c4df96a8ac613fbc4f9b371f31f"
         ]
       ],
       "derive_manifest_hash": true,
@@ -287,7 +287,7 @@
         [
           "set",
           "previous_root_sha256",
-          "sha256:680fa5d99d1f6c5ba47575cb9ef52bdde9bf5563d481e868c12adc044aef5b76"
+          "sha256:d70d03373580c0714a84d03b2fd3c8a443cad3f9928a71af42b9b35a89d85331"
         ]
       ],
       "derive_root_hash": true,
