@@ -11,6 +11,7 @@ on:
       - hardening/effect-ledger-final-entry-gate-v1
       - hardening/effect-ledger-pinned-trust-root-v1
       - hardening/effect-ledger-provider-binding-v1
+      - hardening/effect-ledger-admission-proof-v1
   pull_request:
   workflow_dispatch:
 
@@ -139,6 +140,13 @@ jobs:
           grep -Fq 'expired_final_entry_proof_cannot_reach_provider' "$boundary"
           grep -Fq 'final_entry_proof_is_rechecked_after_verifier_returns' "$boundary"
           grep -Fq 'provider_entry_permit_requires_durable_entry_proof' "$boundary"
+          grep -Fq 'AuthorizationAdmissionProofV1' "$boundary"
+          grep -Fq 'AdmissionAuthorizer' "$boundary"
+          grep -Fq 'admission_verifier_identity' "$boundary"
+          grep -Fq 'rejected_admission_cannot_consume_or_fence' "$boundary"
+          grep -Fq 'admission_proof_identity_must_match_pinned_trust_root' "$boundary"
+          grep -Fq 'authorization_admission_proof_digest' "$source"
+          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 6' "$source"
           grep -Fq 'entry_admission_proof_survives_restart' "$source"
           grep -Fq 'persisted_entry_proof_without_claim_fails_closed_on_restart' "$source"
           grep -Fq 'DISPATCH_PENDING attempt with entry proof is missing its provider entry claim' "$source"
