@@ -475,7 +475,10 @@ pub fn check_create_execution_resolution(
     {
         return Err("Resolution binding vectors must have equal lengths".into());
     }
-    if resolution.attempt_identities.iter().any(|v| v.is_empty())
+    if resolution
+        .attempt_identities
+        .iter()
+        .any(|v| !is_tagged_digest(v, EXECUTION_ATTEMPT_IDENTITY_PREFIX))
         || resolution.terminal_evidence_digests.iter().any(|v| v.is_empty())
         || resolution.action_key_digests.iter().any(|v| {
             !is_tagged_digest(
@@ -1150,7 +1153,10 @@ mod tests {
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
             executor: "did:key:z6Mk".into(),
-            attempt_identities: vec!["attempt-1".into()],
+            attempt_identities: vec![format!(
+                "{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}",
+                "e".repeat(64)
+            )],
             action_key_digests: vec![format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "a".repeat(64))],
             terminal_evidence_digests: vec![format!("terminal-evidence-v1:{}", "b".repeat(64))],
             authorization_admission_proof_digests: vec![format!("{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}", "c".repeat(64))],
