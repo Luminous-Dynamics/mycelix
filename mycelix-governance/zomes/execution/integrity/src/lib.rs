@@ -490,6 +490,27 @@ pub fn check_create_execution_resolution(
     Ok(())
 }
 
+/// Validate that the action-addressed timelock is the exact prepared
+/// authority context named by a resolution.
+pub fn check_resolution_prepared_timelock_scope(
+    resolution: &ExecutionResolution,
+    prepared_timelock: &Timelock,
+) -> Result<(), String> {
+    if resolution.prepared_timelock_action_hash.is_none() {
+        return Err("Resolution must bind the exact prepared timelock action hash".into());
+    }
+    if prepared_timelock.status != TimelockStatus::Prepared
+        || prepared_timelock.id != resolution.timelock_id
+        || prepared_timelock.proposal_id != resolution.proposal_id
+    {
+        return Err(
+            "Resolution prepared-timelock action does not match its timelock/proposal scope"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
 /// Validate the parallel proof/action binding vectors carried by an execution
 /// resolution. Shared by coordinator and integrity validation paths.
 pub fn check_execution_resolution_bindings(
@@ -806,15 +827,10 @@ fn validate_create_execution_resolution(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Prepared timelock action hash does not reference a Timelock entry".into()
         )))?;
-    if prepared_timelock.status != TimelockStatus::Prepared
-        || prepared_timelock.id != resolution.timelock_id
-        || prepared_timelock.proposal_id != resolution.proposal_id
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Resolution prepared-timelock action does not match its timelock/proposal scope".into(),
-        ));
+    match check_resolution_prepared_timelock_scope(&resolution, &prepared_timelock) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
     }
-    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_execution(
@@ -1304,6 +1320,18 @@ mod tests {
             MAX_EXECUTION_RESOLUTION_BINDINGS + 1
         ];
         assert!(check_create_execution_resolution(&too_many).is_err());
+
+        let mut prepared_timelock = make_timelock();
+        prepared_timelock.status = TimelockStatus::Prepared;
+        assert!(check_resolution_prepared_timelock_scope(&valid, &prepared_timelock).is_ok());
+
+        let mut wrong_status = prepared_timelock.clone();
+        wrong_status.status = TimelockStatus::Cancelled;
+        assert!(check_resolution_prepared_timelock_scope(&valid, &wrong_status).is_err());
+
+        let mut wrong_proposal = prepared_timelock.clone();
+        wrong_proposal.proposal_id = "another-proposal".into();
+        assert!(check_resolution_prepared_timelock_scope(&valid, &wrong_proposal).is_err());
 
         let mut missing_timelock_root = valid.clone();
         missing_timelock_root.prepared_timelock_action_hash = None;
