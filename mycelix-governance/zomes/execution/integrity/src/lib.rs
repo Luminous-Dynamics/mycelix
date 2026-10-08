@@ -425,6 +425,27 @@ pub fn check_create_execution(execution: &Execution) -> Result<(), String> {
 }
 
 /// Check that a host-side execution resolution is structurally complete.
+fn require_versioned_digest(
+    label: &str,
+    value: &str,
+    prefix: &str,
+) -> Result<(), String> {
+    let hex = value
+        .strip_prefix(prefix)
+        .ok_or_else(|| format!("{label} must use {prefix}<64-lowercase-hex>"))?;
+    if hex.len() != 64
+        || !hex
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(format!(
+            "{label} must contain exactly 64 lowercase hexadecimal digits"
+        ));
+    }
+    Ok(())
+}
+
+
 pub fn check_create_execution_resolution(
     action: &Create,
     resolution: &ExecutionResolution,
@@ -458,6 +479,42 @@ pub fn check_create_execution_resolution(
     {
         return Err("Resolution binding vectors must have equal lengths".into());
     }
+    for value in &resolution.attempt_identities {
+        require_versioned_digest(
+            "attempt_identity",
+            value,
+            "constitutional-attempt-identity-v1:",
+        )?;
+    }
+    for value in &resolution.action_key_digests {
+        require_versioned_digest(
+            "action_key_digest",
+            value,
+            "constitutional-action-key-v1:",
+        )?;
+    }
+    for value in &resolution.terminal_evidence_digests {
+        require_versioned_digest(
+            "terminal_evidence_digest",
+            value,
+            "constitutional-terminal-evidence-v3:",
+        )?;
+    }
+    for value in &resolution.authorization_admission_proof_digests {
+        require_versioned_digest(
+            "authorization_admission_proof_digest",
+            value,
+            "constitutional-authorization-admission-proof-v1:",
+        )?;
+    }
+    for value in &resolution.final_provider_entry_proof_digests {
+        require_versioned_digest(
+            "final_provider_entry_proof_digest",
+            value,
+            "constitutional-final-provider-entry-proof-v1:",
+        )?;
+    }
+
     if resolution.attempt_identities.iter().any(|v| v.is_empty())
         || resolution.action_key_digests.iter().any(|v| v.is_empty())
         || resolution.terminal_evidence_digests.iter().any(|v| v.is_empty())
@@ -1141,6 +1198,11 @@ mod tests {
         let mut bad = valid.clone();
         bad.terminal_evidence_digests.clear();
         assert!(check_create_execution_resolution(&bad).is_err());
+
+        let mut bad_prefix = valid.clone();
+        bad_prefix.authorization_admission_proof_digests[0] =
+            "not-a-proof-root".into();
+        assert!(check_create_execution_resolution(&bad_prefix).is_err());
 
         let mut missing_auth = valid.clone();
         missing_auth.authorization_admission_proof_digests.clear();
