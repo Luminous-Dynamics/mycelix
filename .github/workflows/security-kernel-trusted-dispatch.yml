@@ -36,6 +36,8 @@ jobs:
       candidate_repository: ${{ steps.resolve.outputs.candidate_repository }}
       candidate_repository_id: ${{ steps.resolve.outputs.candidate_repository_id }}
       invocation_source: ${{ steps.resolve.outputs.invocation_source }}
+      dispatch_decision: ${{ steps.resolve.outputs.dispatch_decision }}
+      eligible_count: ${{ steps.resolve.outputs.eligible_count }}
     steps:
       - name: Verify trusted dispatcher context and exact PR identity
         id: resolve
@@ -138,17 +140,53 @@ jobs:
                       if any(isinstance(item,dict) and item.get("filename") in trust_paths for item in items): matched=True; break
                       if len(items)<100: break
                   if matched: eligible.append(pr)
-              if not eligible: raise SystemExit("no eligible Security Kernel PR found by scheduled bounded discovery")
-              eligible.sort(key=lambda item:int(item["number"])); selected=eligible[run_id % len(eligible)]; candidate_pr=int(selected["number"])
-              current=get(f"/repos/{repo}/pulls/{candidate_pr}"); candidate_sha=current["head"]["sha"]; candidate_repository=current["head"]["repo"]["full_name"]; candidate_repository_id=int(current["head"]["repo"]["id"])
-          current=get(f"/repos/{repo}/pulls/{candidate_pr}")
-          assert current["number"]==candidate_pr and current["state"]=="open"; assert current["base"]["repo"]["full_name"]==repo and current["base"]["repo"]["id"]==int(os.environ["BASE_REPOSITORY_ID"]) and current["base"]["ref"]=="main"
-          assert current["head"]["sha"]==candidate_sha and current["head"]["repo"]["full_name"]==candidate_repository and current["head"]["repo"]["id"]==candidate_repository_id
+              if not eligible:
+                  dispatch_decision="suppressed"; eligible_count="0"
+                  candidate_pr=""; candidate_sha=""; candidate_repository=""; candidate_repository_id=""
+              else:
+                  dispatch_decision="qualified"; eligible_count=str(len(eligible))
+                  eligible.sort(key=lambda item:int(item["number"])); selected=eligible[run_id % len(eligible)]; candidate_pr=int(selected["number"])
+                  current=get(f"/repos/{repo}/pulls/{candidate_pr}"); candidate_sha=current["head"]["sha"]; candidate_repository=current["head"]["repo"]["full_name"]; candidate_repository_id=int(current["head"]["repo"]["id"])
+          if dispatch_decision=="qualified":
+              current=get(f"/repos/{repo}/pulls/{candidate_pr}")
+              assert current["number"]==candidate_pr and current["state"]=="open"; assert current["base"]["repo"]["full_name"]==repo and current["base"]["repo"]["id"]==int(os.environ["BASE_REPOSITORY_ID"]) and current["base"]["ref"]=="main"
+              assert current["head"]["sha"]==candidate_sha and current["head"]["repo"]["full_name"]==candidate_repository and current["head"]["repo"]["id"]==candidate_repository_id
           with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf-8") as output:
-              output.write(f"candidate_pr={candidate_pr}\n"); output.write(f"candidate_sha={candidate_sha}\n"); output.write(f"candidate_repository={candidate_repository}\n"); output.write(f"candidate_repository_id={candidate_repository_id}\n"); output.write(f"invocation_source={invocation_source}\n")
+              output.write(f"candidate_pr={candidate_pr}\n"); output.write(f"candidate_sha={candidate_sha}\n"); output.write(f"candidate_repository={candidate_repository}\n"); output.write(f"candidate_repository_id={candidate_repository_id}\n"); output.write(f"invocation_source={invocation_source}\n"); output.write(f"dispatch_decision={dispatch_decision}\n"); output.write(f"eligible_count={eligible_count}\n")
           PY
+  decision:
+    name: Dispatch decision: ${{ needs.resolve.outputs.invocation_source }}/${{ needs.resolve.outputs.dispatch_decision }}/eligible=${{ needs.resolve.outputs.eligible_count }}
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify dispatch decision witness
+        shell: bash
+        env:
+          INVOCATION_SOURCE: ${{ needs.resolve.outputs.invocation_source }}
+          DISPATCH_DECISION: ${{ needs.resolve.outputs.dispatch_decision }}
+          ELIGIBLE_COUNT: ${{ needs.resolve.outputs.eligible_count }}
+        run: |
+          set -euo pipefail
+          case "$INVOCATION_SOURCE:$DISPATCH_DECISION" in
+            trusted-dispatch:qualified)
+              test "$ELIGIBLE_COUNT" = "event"
+              ;;
+            scheduled-fallback:qualified)
+              printf "%s" "$ELIGIBLE_COUNT" | grep -Eq "^[1-9][0-9]?$"
+              ;;
+            scheduled-fallback:suppressed)
+              test "$ELIGIBLE_COUNT" = "0"
+              ;;
+            *)
+              echo "unsupported Security Kernel dispatch decision witness" >&2
+              exit 1
+              ;;
+          esac
+
   qualify:
     name: Execute exact candidate qualification
+    if: ${{ needs.resolve.outputs.dispatch_decision == 'qualified' }}
     needs: resolve
     permissions:
       actions: read
