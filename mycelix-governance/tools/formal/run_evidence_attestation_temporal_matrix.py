@@ -105,11 +105,11 @@ receipt["reference"] = {
     "stdout_sha256": sha(reference.stdout.encode()),
 }
 
-def tlc(cfg, label):
+def tlc(cfg, module_path, label):
     r = run([
         "java", "-cp", str(a.tla_jar),
         "tlc2.TLC", "-workers", "1",
-        "-config", str(cfg), str(a.tla),
+        "-config", str(cfg), str(module_path),
     ])
     (a.evidence_dir / (label + ".log")).write_text(r.stdout, encoding="utf-8")
     if r.returncode == 0 and "Model checking completed. No error has been found." in r.stdout:
@@ -125,11 +125,11 @@ def tlc(cfg, label):
         " | ".join(r.stdout.splitlines()[-8:])
     )
 
-canonical_violations = tlc(a.canonical_cfg, "tla-canonical")
+canonical_violations = tlc(a.canonical_cfg, a.tla, "tla-canonical")
 if canonical_violations:
     raise RuntimeError("canonical TLA failed: " + repr(sorted(canonical_violations)))
 
-negative_violations = tlc(a.negative_cfg, "tla-negative")
+negative_violations = tlc(a.negative_cfg, a.negative_tla, "tla-negative")
 if negative_violations != {"ExpiredGrantNotEffective"}:
     raise RuntimeError(
         "temporal TLA negative did not isolate target: " +
