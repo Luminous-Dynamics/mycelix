@@ -488,20 +488,12 @@
             "type": "UnrelatedEvidence",
             "commitment": "N2"
           }
-        ],
-        [
-          "add_edge",
-          [
-            "noise1",
-            "noise2",
-            "uses"
-          ]
         ]
       ],
       "expected_verdict": "qualified",
       "reason": "unrelated disconnected subgraph",
-      "expected_graph_digest_sha256": "sha256:3f27506b8501a62fad1e7d26904c3d18c5c08b321a548b67da5b22e9d463cd9b",
-      "expected_semantic_graph_digest_sha256": "sha256:263ea8cb76c7c497ff04fd27e37b4442fde204927ce7288a38cad2d1afbc98ce",
+      "expected_graph_digest_sha256": "sha256:ceaf573829ed4e43e7200bd832e2a21bf06cf2db80e49b0e2908749bced6b53a",
+      "expected_semantic_graph_digest_sha256": "sha256:2075ff5c8d9d4f5f599ee0790eeb31e63b426ed2a6ea524209ab92ca8f15d2a7",
       "expected_claim_local_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
     },
     {
