@@ -1495,6 +1495,48 @@ pub fn lock_proposal_funds(input: LockFundsInput) -> ExternResult<Record> {
         )));
     }
 
+    let proposal_io = governance_utils::call_local(
+        "proposals",
+        "get_proposal",
+        input.proposal_id.clone(),
+    )?;
+    let proposal_record = proposal_io
+        .decode::<Option<Record>>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Canonical proposal lookup returned no proposal".into()
+        )))?;
+    let proposal = proposal_record
+        .entry()
+        .to_app_option::<ProposalMirrorForTimelock>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Canonical proposal record could not be decoded".into()
+        )))?;
+
+    validate_timelock_proposal_binding(
+        &proposal,
+        &input.proposal_id,
+        &proposal.actions,
+    )
+    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
+
+    if let Some(ref timelock_id) = input.timelock_id {
+        let timelock_record = find_timelock_by_id(timelock_id)?;
+        let timelock = timelock_record
+            .entry()
+            .to_app_option::<Timelock>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Invalid timelock for fund allocation".into()
+            )))?;
+        if timelock.proposal_id != input.proposal_id {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Fund allocation timelock does not belong to the requested proposal".into()
+            )));
+        }
+    }
+
     // Check for existing locked allocation for this proposal
     if let Some(_existing) = find_fund_allocation_for_proposal(&input.proposal_id)? {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
