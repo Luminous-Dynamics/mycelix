@@ -200,7 +200,7 @@ function checkCase(base, policy, testCase) {
       row.status = row.verdict === "qualified" && row.semantic_digest !== baseSemantic && row.claim_local_digest !== baseLocal ? "pass" : "fail";
       break;
     case "provenance_dependence":
-      row.status = row.verdict === "qualified-with-dependence" && row.claim_local_digest !== baseLocal ? "pass" : "fail";
+      row.status = row.verdict === "qualified-with-dependence" && row.semantic_digest !== baseSemantic ? "pass" : "fail";
       break;
     case "result_conflict":
       row.status = row.verdict === "unresolved" && row.claim_local_digest !== baseLocal ? "pass" : "fail";
