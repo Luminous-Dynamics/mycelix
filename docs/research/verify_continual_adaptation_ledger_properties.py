@@ -238,11 +238,21 @@ def check_case(base: dict, policy: dict, case: dict) -> dict:
 
 
 def main() -> int:
-    if len(sys.argv) != 4:
-        print("usage: verify_generated_properties.py POLICY.json GENERATED.json REPORT.json", file=sys.stderr)
+    if len(sys.argv) != 5:
+        print(
+            "usage: verify_generated_properties.py "
+            "EXPECTED_POLICY_BLOB_SHA POLICY.json GENERATED.json REPORT.json",
+            file=sys.stderr,
+        )
         return 2
-    policy = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    corpus = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+
+    expected_policy_blob_sha = sys.argv[1]
+    policy = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+    corpus = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+    if corpus.get("policy_binding", {}).get("git_blob_sha") != expected_policy_blob_sha:
+        print("policy binding mismatch", file=sys.stderr)
+        return 1
+
     report = [check_case(corpus["base_graph"], policy, case) for case in corpus["cases"]]
     Path(sys.argv[3]).write_text(
         json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
