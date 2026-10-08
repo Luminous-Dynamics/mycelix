@@ -1,0 +1,38 @@
+name: continual-adaptation-ledger-fixtures
+
+on:
+  push:
+    paths:
+      - "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json"
+      - "docs/research/verify_continual_adaptation_ledger.py"
+      - ".github/workflows/continual-adaptation-ledger-fixtures.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-regression:
+    name: Research fixture regression (non-authoritative)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch exact event commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${{ github.repository }}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout --detach "${GITHUB_SHA}"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Run dependency-free reference verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_continual_adaptation_ledger.py             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+
+      - name: State non-authoritative boundary
+        run: |
+          echo "Fixture regression is research evidence only."
+          echo "This workflow is not the qualification authority."
