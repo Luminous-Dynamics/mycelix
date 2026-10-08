@@ -15,7 +15,7 @@ one sig CanonicalSyntax,AliasSyntax,WrongAliasSyntax extends SyntaxForm {}
 
 one sig RunState { control: one Control, childSupported: one Bit, childSyntax: one SyntaxForm }
 sig Policy { allow:set Request, deny:set Request, rule:one Rule }
-one sig Parent,Child extends Policy {}
+one sig Parent,Child,CanonicalChild extends Policy {}
 
 pred effective[p:Policy,r:Request] {
   (p.rule = DenyOverrides and r in p.allow and r not in p.deny)
@@ -53,6 +53,9 @@ pred canonicalEnvironment {
   Child.allow = R1
   Child.deny = R2
   Child.rule = DenyOverrides
+  CanonicalChild.allow = R1
+  CanonicalChild.deny = R2
+  CanonicalChild.rule = DenyOverrides
 }
 
 pred mutationEnvironment {
@@ -96,10 +99,10 @@ assert TemporalWideningRejected { RunState.control = TemporalWidening implies no
 assert ContextWeakeningRejected { RunState.control = ContextWeakening implies not attenuation }
 assert NormalizationEquivalentAccepted {
   RunState.control = NormalizationEquivalent implies
-    (semEquivalent[Child,Parent] and not syntacticEqualChildCanonical)
+    (semEquivalent[Child,CanonicalChild] and not syntacticEqualChildCanonical)
 }
 assert NormalizationNonEquivalentRejected {
-  RunState.control = NormalizationNonEquivalent implies not semEquivalent[Child,Parent]
+  RunState.control = NormalizationNonEquivalent implies not semEquivalent[Child,CanonicalChild]
 }
 assert DenyDeletionRejected { RunState.control = DenyDeletion implies not attenuation }
 assert ConflictSubstitutionRejected { RunState.control = ConflictSubstitution implies not attenuation }
