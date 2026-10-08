@@ -235,10 +235,12 @@ matches the admission, final-entry, and terminal evidence digests to the stored
 attempt fields, validates the full persisted admission receipt, and checks that
 the durable terminal state agrees with the claimed outcome.
 
-The caller must derive `expected_action_digest` and
-`expected_effecting_target_identity` from the exact immutable prepared action
-using the deployment's configured action profile. Guessing these values from
-the resolution itself would defeat the correspondence check.
+The caller must derive one `ActionKeyV1` from the exact immutable prepared
+action using the deployment's configured action profile. The typed key binds
+the material action digest and effecting target together, preventing a caller
+from accidentally passing those expectations from two different actions.
+Guessing or rebuilding the key from the resolution itself would defeat the
+correspondence check.
 
 This is a **host-side reconciliation primitive**, not production execution
 wiring. It does not itself prove that a final-entry or terminal-evidence
