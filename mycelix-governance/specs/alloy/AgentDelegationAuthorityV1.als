@@ -18,12 +18,28 @@ sig Grant {
 }
 
 sig Evidence {
-  recorded: one Bit
+  recorded: one Bit,
+  grantsBefore: set Grant,
+  grantsAfter: set Grant,
+  authorityBefore: Agent -> Power,
+  authorityAfter: Agent -> Power
 }
 
 sig ProviderFailure {
   authorityBefore: set Power,
   authorityAfter: set Power
+}
+
+fun grantDerivedAuthority[gs: set Grant]: Agent -> Power {
+  { a: Agent, p: Power |
+    (a.root = On and p in a.authority) or
+    (a.root = Off and
+      some g: gs |
+        g.grantee = a and
+        g.power = p and
+        g.active = On and
+        g.revoked = Off)
+  }
 }
 
 fact RootAuthority {
@@ -64,12 +80,16 @@ fact RevocationPropagates {
       no h: Grant | h.active = On and (h = g or g in h.^parent)
 }
 
-fact EvidenceDoesNotMintAuthority {
+fact EvidenceRecordingDoesNotChangeGrants {
+  all e: Evidence |
+    e.recorded = On implies e.grantsAfter = e.grantsBefore
+}
+
+fact EvidenceTransitionSnapshots {
   all e: Evidence |
     e.recorded = On implies
-      all a: Agent | a.root = Off implies
-        all p: a.authority |
-          some g: Grant | g.active = On and g.grantee = a and g.power = p
+      e.authorityBefore = grantDerivedAuthority[e.grantsBefore] and
+      e.authorityAfter = grantDerivedAuthority[e.grantsAfter]
 }
 
 fact ProviderFailurePreservesAuthority {
@@ -107,11 +127,24 @@ pred RevokedGrantNoActiveDescendant {
     no h: Grant | h.active = On and (h = g or g in h.^parent)
 }
 
-pred EvidenceRecordWithoutAuthorityMint {
-  some e: Evidence, a: Agent |
-    e.recorded = On and a.root = Off and
-    some p: a.authority and
-    some g: Grant | g.active = On and g.grantee = a and g.power = p
+pred CurrentEvidenceWithGrantBackedAuthority {
+  some e: Evidence |
+    e.recorded = On and
+    e.grantsBefore = e.grantsAfter and
+    e.authorityBefore = e.authorityAfter
+}
+
+pred EvidenceGrantBackedAuthorityDeltaWitness {
+  some e: Evidence, g: Grant |
+    e.recorded = On and
+    g in e.grantsAfter and g not in e.grantsBefore and
+    g.active = On and
+    g.revoked = Off and
+    g.power in g.issuer.authority and
+    e.grantsBefore != e.grantsAfter and
+    e.authorityBefore = grantDerivedAuthority[e.grantsBefore] and
+    e.authorityAfter = grantDerivedAuthority[e.grantsAfter] and
+    e.authorityBefore != e.authorityAfter
 }
 
 run ValidDelegationChain
@@ -126,7 +159,10 @@ run TransitivePowerExceedsAncestorWitness
 run RevokedGrantNoActiveDescendant
   for 6 but 6 Agent, 6 Power, 6 Grant
 
-run EvidenceRecordWithoutAuthorityMint
+run CurrentEvidenceWithGrantBackedAuthority
+  for 6 but 6 Agent, 6 Power, 6 Grant, 6 Evidence
+
+run EvidenceGrantBackedAuthorityDeltaWitness
   for 6 but 6 Agent, 6 Power, 6 Grant, 6 Evidence
 
 assert ActiveGrantsNeverExceedIssuerAuthority {
@@ -156,9 +192,7 @@ assert ChildAuthorityComesFromCurrentGrant {
 assert EvidenceCannotMintAuthority {
   all e: Evidence |
     e.recorded = On implies
-      all a: Agent | a.root = Off implies
-        all p: a.authority |
-          some g: Grant | g.active = On and g.grantee = a and g.power = p
+      e.authorityAfter = e.authorityBefore
 }
 
 assert ProviderFailureIsNonAmplifying {

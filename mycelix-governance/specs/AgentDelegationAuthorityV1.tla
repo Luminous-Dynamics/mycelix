@@ -39,11 +39,14 @@ VARIABLES activeGrants,
           revokedGrants,
           authority,
           evidenceRecorded,
+          evidenceAuthorityBefore,
+          evidenceAuthorityAfter,
           providerFailed,
           authorityBeforeFailure
 
 vars ==
   <<activeGrants, revokedGrants, authority, evidenceRecorded,
+    evidenceAuthorityBefore, evidenceAuthorityAfter,
     providerFailed, authorityBeforeFailure>>
 
 AuthorityOf(active) ==
@@ -51,11 +54,15 @@ AuthorityOf(active) ==
                     THEN RootPowers
                     ELSE {grantPower[g] : g \in active /\ grantee[g] = a}]
 
+EmptyAuthoritySnapshot == [a \in Agents |-> {}]
+
 Init ==
   /\ activeGrants = {}
   /\ revokedGrants = {}
   /\ authority = AuthorityOf({})
   /\ evidenceRecorded = {}
+  /\ evidenceAuthorityBefore = [e \in Evidence |-> EmptyAuthoritySnapshot]
+  /\ evidenceAuthorityAfter = [e \in Evidence |-> EmptyAuthoritySnapshot]
   /\ providerFailed = FALSE
   /\ authorityBeforeFailure = authority
 
@@ -67,7 +74,9 @@ ActivateGrant(g) ==
   /\ activeGrants' = activeGrants \cup {g}
   /\ revokedGrants' = revokedGrants
   /\ authority' = AuthorityOf(activeGrants \cup {g})
-  /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
+  /\ UNCHANGED <<evidenceRecorded, evidenceAuthorityBefore,
+                  evidenceAuthorityAfter, providerFailed,
+                  authorityBeforeFailure>>
 
 RevokeGrant(g) ==
   /\ g \in Grants
@@ -76,11 +85,18 @@ RevokeGrant(g) ==
   /\ activeGrants' =
        {h \in activeGrants : h # g /\ g \notin ancestor[h]}
   /\ authority' = AuthorityOf(activeGrants')
-  /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
+  /\ UNCHANGED <<evidenceRecorded, evidenceAuthorityBefore,
+                  evidenceAuthorityAfter, providerFailed,
+                  authorityBeforeFailure>>
 
 RecordEvidence(e) ==
   /\ e \in Evidence
+  /\ e \notin evidenceRecorded
   /\ evidenceRecorded' = evidenceRecorded \cup {e}
+  /\ evidenceAuthorityBefore' =
+       [evidenceAuthorityBefore EXCEPT ![e] = authority]
+  /\ evidenceAuthorityAfter' =
+       [evidenceAuthorityAfter EXCEPT ![e] = authority]
   /\ UNCHANGED <<activeGrants, revokedGrants, authority,
                   providerFailed, authorityBeforeFailure>>
 
@@ -88,7 +104,9 @@ ProviderFailure ==
   /\ ~providerFailed
   /\ providerFailed' = TRUE
   /\ authorityBeforeFailure' = authority
-  /\ UNCHANGED <<activeGrants, revokedGrants, authority, evidenceRecorded>>
+  /\ UNCHANGED <<activeGrants, revokedGrants, authority,
+                  evidenceRecorded, evidenceAuthorityBefore,
+                  evidenceAuthorityAfter>>
 
 Next ==
   \/ \E g \in Grants : ActivateGrant(g)
@@ -102,6 +120,8 @@ TypeOK ==
   /\ activeGrants \cap revokedGrants = {}
   /\ authority \in [Agents -> SUBSET Powers]
   /\ evidenceRecorded \subseteq Evidence
+  /\ evidenceAuthorityBefore \in [Evidence -> [Agents -> SUBSET Powers]]
+  /\ evidenceAuthorityAfter \in [Evidence -> [Agents -> SUBSET Powers]]
   /\ providerFailed \in BOOLEAN
   /\ authorityBeforeFailure \in [Agents -> SUBSET Powers]
 
@@ -123,7 +143,7 @@ RevocationPropagates ==
 
 EvidenceDoesNotMintAuthority ==
   \A e \in evidenceRecorded :
-    authority = AuthorityOf(activeGrants)
+    evidenceAuthorityAfter[e] = evidenceAuthorityBefore[e]
 
 FailureDoesNotMintAuthority ==
   providerFailed => authority = authorityBeforeFailure
