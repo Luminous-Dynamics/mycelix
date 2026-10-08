@@ -83,6 +83,11 @@ def git_blob(data: bytes) -> str:
 def run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
+
+def tla_violations(output: str) -> set[str]:
+    import re
+    return set(re.findall(r"Error: Invariant ([A-Za-z][A-Za-z0-9_]*) is violated\.", output))
+
 def emit(path: Path, data: object) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -109,11 +114,27 @@ def main() -> int:
     parser.add_argument("--evidence-dir", type=Path, required=True)
     parser.add_argument("--pins", type=Path, required=True)
     parser.add_argument("--workflow", type=Path, required=True)
+    parser.add_argument("--runtime-metadata", type=Path, required=True)
+    parser.add_argument("--alloy-runner-class", type=Path, required=True)
     args = parser.parse_args()
 
     args.evidence_dir.mkdir(parents=True, exist_ok=True)
     profile = json.loads(args.profile.read_text(encoding="utf-8"))
     pins = json.loads(args.pins.read_text(encoding="utf-8"))
+    runtime = json.loads(args.runtime_metadata.read_text(encoding="utf-8"))
+    runtime_contract = profile.get("runtime", {})
+    if runtime.get("schema") != "mycelix.sovereignty-concentration-formal-runtime.v1":
+        fail("unexpected concentration runtime metadata schema")
+    if runtime.get("nixpkgs_rev") != pins["nixpkgs_rev"]:
+        fail("concentration runtime Nixpkgs mismatch")
+    if runtime.get("jdk_package") != runtime_contract.get("jdk_package", "jdk17_headless"):
+        fail("concentration runtime JDK package mismatch")
+    if runtime.get("java_major") != runtime_contract.get("java_major", 17):
+        fail("concentration runtime Java major mismatch")
+    if not str(runtime.get("java_version", "")).startswith('openjdk version "17.'):
+        fail("concentration runtime java version is not OpenJDK 17")
+    if not str(runtime.get("javac_version", "")).startswith("javac 17."):
+        fail("concentration runtime javac version is not OpenJDK 17")
     if pins["nixpkgs_rev"] != "a50bf0c1b07873c1a53892292017041a8f0a1288":
         fail("unexpected Nixpkgs pin")
     if pins["schema"] != "mycelix.sovereignty-concentration-formal-tool-pins.v1":
@@ -201,7 +222,8 @@ def main() -> int:
     baseline = {
         str(p): sha256(p)
         for p in [
-            args.profile, args.pins, args.tla, args.cfg, args.negative_tla, args.alloy
+            args.profile, args.pins, args.tla, args.cfg, args.negative_tla, args.alloy,
+            args.runtime_metadata, args.alloy_runner_class
         ]
     }
 
@@ -221,6 +243,11 @@ def main() -> int:
             "reference": model["reference"]["git_blob_sha"],
         },
         "tools": pins["tools"],
+        "runtime": runtime,
+        "verifier": {
+            "runtime_metadata_sha256": sha256(args.runtime_metadata),
+            "alloy_runner_class_sha256": sha256(args.alloy_runner_class),
+        },
         "tla": {"canonical": {}, "negative_controls": {}},
         "alloy": {"canonical": {}, "scope": profile["models"]["alloy"]["scope"]},
         "reference": {},
@@ -277,8 +304,10 @@ def main() -> int:
                 "returncode": result.returncode,
                 "log_sha256": sha256(logfile),
             }
-            if result.returncode == 0 or f"Error: Invariant {target} is violated." not in result.stdout:
-                fail(f"TLA negative control failed: {control} -> {target}")
+            violations = tla_violations(result.stdout)
+            receipt["tla"]["negative_controls"][control]["violated_invariants"] = sorted(violations)
+            if result.returncode == 0 or violations != {target}:
+                fail(f"TLA negative control did not isolate expected {control} -> {target}; observed {sorted(violations)}")
 
         alloy_cp = f"{args.alloy_runner_class_dir}:{args.alloy_jar}"
         alloy_cmd = ["java", "-cp", alloy_cp, "SovereigntyConcentrationAlloyRunner", str(args.alloy)]
@@ -305,12 +334,16 @@ def main() -> int:
                     fail("Alloy scope missing from command: " + str(count) + " " + name + " for " + row["label"])
         by = {r["label"]: r for r in rows}
         for label in ALLOY_SAT:
-            if by[label]["actual"] != "SAT" or by[label]["check"]:
+            if by[label]["actual"] != "SAT" or by[label]["check"] or by[label]["expects"] != 1:
                 fail("Alloy expected-SAT mismatch: " + label)
         for label in ALLOY_UNSAT:
             if by[label]["actual"] != "UNSAT" or not by[label]["check"] or by[label]["expects"] != 0:
                 fail("Alloy expected-UNSAT mismatch: " + label)
+        for row in rows:
+            if not __import__("re").fullmatch(r"[0-9a-f]{64}", str(row.get("solution_sha256", ""))):
+                fail("Alloy runner omitted solution digest: " + row["label"])
         receipt["alloy"]["commands"] = rows
+        canonical_alloy = {r["label"]: r["actual"] for r in rows}
 
         alloy_source = args.alloy.read_text(encoding="utf-8")
         negative_root = args.evidence_dir / "alloy-negative"
@@ -334,6 +367,14 @@ def main() -> int:
             }
             if result.returncode != 0 or by.get(target, {}).get("actual") != "SAT":
                 fail("Alloy negative control did not expose counterexample: " + fact_name + " -> " + target)
+            if set(by) != set(canonical_alloy):
+                fail("Alloy negative control label set changed: " + fact_name)
+            for label, expected in canonical_alloy.items():
+                if label != target and by[label]["actual"] != expected:
+                    fail("Alloy negative control changed unrelated outcome: " + fact_name + " -> " + label)
+            for row in rows:
+                if not __import__("re").fullmatch(r"[0-9a-f]{64}", str(row.get("solution_sha256", ""))):
+                    fail("Alloy negative control omitted solution digest: " + fact_name)
 
         if any(sha256(Path(p)) != digest for p, digest in baseline.items()):
             fail("candidate inputs changed during execution")
