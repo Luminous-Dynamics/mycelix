@@ -1,0 +1,45 @@
+{
+  "schema": "mycelix.evidence-attestation-commit-time-race-control-matrix.v1",
+  "controls": [
+    {
+      "id": "authority-epoch",
+      "boundary": "preflight authorization cannot cross an intervening authority mutation into effect commit without current-state revalidation",
+      "tla_invariant": "CommitRequiresCurrentRevalidation",
+      "tla_control": "authority-epoch",
+      "alloy_witness": "AuthorityEpochRaceWitness",
+      "alloy_assertion": "CommitRequiresCurrentRevalidation",
+      "alloy_mutant_fact": "CommitRequiresCurrentRevalidation",
+      "reference_marker": "CANONICAL PASS: preflight snapshot is revalidated at commit time"
+    },
+    {
+      "id": "request-commitment",
+      "boundary": "preflight authorization cannot cross an intervening authority mutation into effect commit without current-state revalidation",
+      "tla_invariant": "CommitRequiresCurrentRevalidation",
+      "tla_control": "request-commitment",
+      "alloy_witness": "RequestRaceWitness",
+      "alloy_assertion": "CommitRequiresCurrentRevalidation",
+      "alloy_mutant_fact": "CommitRequiresCurrentRevalidation",
+      "reference_marker": "CANONICAL PASS: preflight snapshot is revalidated at commit time"
+    },
+    {
+      "id": "policy-epoch",
+      "boundary": "preflight authorization cannot cross an intervening authority mutation into effect commit without current-state revalidation",
+      "tla_invariant": "CommitRequiresCurrentRevalidation",
+      "tla_control": "policy-epoch",
+      "alloy_witness": "PolicyEpochRaceWitness",
+      "alloy_assertion": "CommitRequiresCurrentRevalidation",
+      "alloy_mutant_fact": "CommitRequiresCurrentRevalidation",
+      "reference_marker": "CANONICAL PASS: preflight snapshot is revalidated at commit time"
+    },
+    {
+      "id": "capability-expiry",
+      "boundary": "preflight authorization cannot cross an intervening authority mutation into effect commit without current-state revalidation",
+      "tla_invariant": "CommitRequiresCurrentRevalidation",
+      "tla_control": "capability-expiry",
+      "alloy_witness": "CapabilityExpiryRaceWitness",
+      "alloy_assertion": "CommitRequiresCurrentRevalidation",
+      "alloy_mutant_fact": "CommitRequiresCurrentRevalidation",
+      "reference_marker": "CANONICAL PASS: preflight snapshot is revalidated at commit time"
+    }
+  ]
+}
