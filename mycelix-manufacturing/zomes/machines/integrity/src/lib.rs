@@ -363,8 +363,56 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
             "Machine registry records are immutable".into(),
         )),
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => match link_type {
+            LinkTypes::SubjectToTemporalAttestations => {
+                validate_create_temporal_attestation_link(action)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Link(OpLink::DeleteLink { link_type, .. }) => match link_type {
+            LinkTypes::SubjectToTemporalAttestations => Ok(ValidateCallbackResult::Invalid(
+                "Temporal attestation subject links are append-only".into(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_create_temporal_attestation_link(
+    action: TypedAction<CreateLinkData>,
+) -> ExternResult<ValidateCallbackResult> {
+    let Some(subject_hash) = action.data.base_address.clone().into_action_hash() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temporal attestation subject link base must be an action hash".into(),
+        ));
+    };
+    let Some(attestation_hash) = action.data.target_address.clone().into_action_hash() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temporal attestation subject link target must be an action hash".into(),
+        ));
+    };
+
+    let attestation_record = must_get_valid_record(attestation_hash)?;
+    let Some(attestation) = attestation_record
+        .entry()
+        .to_app_option::<MachineTemporalAttestationEntry>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temporal attestation subject link target is not a temporal attestation".into(),
+        ));
+    };
+
+    if attestation.subject_hash != subject_hash
+        || attestation_record.action().author() != action.author()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temporal attestation subject link must match its exact attestation and author".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_time_authority_profile(
