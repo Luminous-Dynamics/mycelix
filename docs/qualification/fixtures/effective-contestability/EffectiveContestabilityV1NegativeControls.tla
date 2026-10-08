@@ -32,7 +32,7 @@ BadFailureAuthority(p) ==
   /\ p \in Providers
   /\ providerFailed' = providerFailed \cup {p}
   /\ failureObserved' = TRUE
-  /\ authority' = [authority EXCEPT ![S1] = @ \cup {PowerA}]
+  /\ authority' = [authority EXCEPT ![S1] = @ \ {PowerA}]
   /\ failureAuthority' = authority
   /\ UNCHANGED <<currentProvider, viableProviders, nominalExit, effectiveExit, portable,
                   obligationsPreserved, historyPreserved, jurisdiction,
@@ -50,6 +50,19 @@ BadSwitchObligation(s, p) ==
                   historyPreserved, authority, jurisdiction, switchingCost,
                   reviewRequired, providerFailed, failureObserved, failureAuthority,
                   authorityBeforeSwitch, jurisdictionBeforeSwitch>>
+  /\ clock' = NextTime
+
+BadSwitchAuthority(s, p) ==
+  /\ Advanceable
+  /\ p \in effectiveExit[s]
+  /\ currentProvider' = [currentProvider EXCEPT ![s] = p]
+  /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
+  /\ authority' = [authority EXCEPT ![s] = @ \ {PowerA}]
+  /\ authorityBeforeSwitch' = [authorityBeforeSwitch EXCEPT ![s] = @]
+  /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
+                  obligationsPreserved, historyPreserved, jurisdiction, switchingCost,
+                  reviewRequired, providerFailed, failureObserved, failureAuthority,
+                  jurisdictionBeforeSwitch>>
   /\ clock' = NextTime
 
 BadSwitchJurisdiction(s, p) ==
@@ -88,6 +101,9 @@ NegativeNext ==
      ELSE FALSE
   \/ IF Control = "switch-obligation" THEN
        \E s \in Subjects, p \in Providers : BadSwitchObligation(s, p)
+     ELSE FALSE
+  \/ IF Control = "switch-authority" THEN
+       \E s \in Subjects, p \in Providers : BadSwitchAuthority(s, p)
      ELSE FALSE
   \/ IF Control = "switch-jurisdiction" THEN
        \E s \in Subjects, p \in Providers : BadSwitchJurisdiction(s, p)
