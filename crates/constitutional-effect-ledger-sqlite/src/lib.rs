@@ -27,9 +27,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 3;
+pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 4;
 pub const SQLITE_FENCE_STORE_PROFILE: &str =
-    "constitutional-effect-ledger/sqlite-fence-store-v3";
+    "constitutional-effect-ledger/sqlite-fence-store-v4";
 pub const SQLITE_FENCE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 const META_TABLE: &str = "effect_fence_store_meta";
@@ -864,6 +864,7 @@ fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
                 ("provider_environment", "TEXT", 1, 0),
                 ("provider_audience", "TEXT", 1, 0),
                 ("adapter_identity", "TEXT", 1, 0),
+                ("provider_idempotency_key", "TEXT", 1, 0),
                 ("ownership_token_digest", "TEXT", 1, 0),
                 ("reconciliation_token_digest", "TEXT", 0, 0),
                 ("terminal_evidence_digest", "TEXT", 0, 0),
@@ -996,7 +997,7 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
                     action_digest, action_key_digest, effecting_target_identity,
                     provider_reference_seed_digest, provider_reference_descriptor_digest,
                     provider_environment, provider_audience, adapter_identity,
-                    ownership_token_digest, reconciliation_token_digest,
+                    provider_idempotency_key, ownership_token_digest, reconciliation_token_digest,
                     terminal_evidence_digest, state,
                     not_entered_marker, record_digest
              FROM {ATTEMPT_TABLE}
@@ -1301,6 +1302,7 @@ CREATE TABLE effect_attempts (
     provider_environment TEXT NOT NULL,
     provider_audience TEXT NOT NULL,
     adapter_identity TEXT NOT NULL,
+    provider_idempotency_key TEXT NOT NULL,
     ownership_token_digest TEXT NOT NULL,
     reconciliation_token_digest TEXT,
     terminal_evidence_digest TEXT,
@@ -1354,11 +1356,11 @@ fn insert_attempt_tx(tx: &Transaction<'_>, record: &AttemptRecordV1) -> Result<(
             action_digest, action_key_digest, effecting_target_identity,
             provider_reference_seed_digest, provider_reference_descriptor_digest,
             provider_environment, provider_audience, adapter_identity,
-            ownership_token_digest, reconciliation_token_digest, terminal_evidence_digest, state,
+            provider_idempotency_key, ownership_token_digest, reconciliation_token_digest, terminal_evidence_digest, state,
             not_entered_marker, record_digest
         ) VALUES (
             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-            ?15, ?16, ?17, ?18
+            ?15, ?16, ?17, ?18, ?19
         )",
         params![
             record.attempt_identity,
@@ -1373,6 +1375,7 @@ fn insert_attempt_tx(tx: &Transaction<'_>, record: &AttemptRecordV1) -> Result<(
             record.provider_environment,
             record.provider_audience,
             record.adapter_identity,
+            record.provider_idempotency_key,
             record.ownership_token_digest,
             record.reconciliation_token_digest,
             record.terminal_evidence_digest,
@@ -1434,7 +1437,7 @@ fn load_attempt_tx(
                     action_digest, action_key_digest, effecting_target_identity,
                     provider_reference_seed_digest, provider_reference_descriptor_digest,
                     provider_environment, provider_audience, adapter_identity,
-                    ownership_token_digest, reconciliation_token_digest,
+                    provider_idempotency_key, ownership_token_digest, reconciliation_token_digest,
                     terminal_evidence_digest, state,
                     not_entered_marker, record_digest
              FROM {ATTEMPT_TABLE}
@@ -1458,7 +1461,7 @@ fn load_attempt_txless(
                     action_digest, action_key_digest, effecting_target_identity,
                     provider_reference_seed_digest, provider_reference_descriptor_digest,
                     provider_environment, provider_audience, adapter_identity,
-                    ownership_token_digest, reconciliation_token_digest,
+                    provider_idempotency_key, ownership_token_digest, reconciliation_token_digest,
                     terminal_evidence_digest, state,
                     not_entered_marker, record_digest
              FROM {ATTEMPT_TABLE}
@@ -1473,7 +1476,7 @@ fn load_attempt_txless(
 }
 
 fn map_attempt_row(row: &rusqlite::Row<'_>) -> Result<AttemptRecordV1, rusqlite::Error> {
-    let state_tag: i64 = row.get(15)?;
+    let state_tag: i64 = row.get(16)?;
     let state = AttemptRecordState::from_storage_tag(state_tag).ok_or_else(|| {
         rusqlite::Error::InvalidParameterName("invalid attempt state tag".to_owned())
     })?;
@@ -1491,14 +1494,15 @@ fn map_attempt_row(row: &rusqlite::Row<'_>) -> Result<AttemptRecordV1, rusqlite:
         provider_environment: row.get(9)?,
         provider_audience: row.get(10)?,
         adapter_identity: row.get(11)?,
-        ownership_token_digest: row.get(12)?,
-        reconciliation_token_digest: row.get(13)?,
-        terminal_evidence_digest: row.get(14)?,
+        provider_idempotency_key: row.get(12)?,
+        ownership_token_digest: row.get(13)?,
+        reconciliation_token_digest: row.get(14)?,
+        terminal_evidence_digest: row.get(15)?,
         state,
-        not_entered_marker: row.get(16)?,
+        not_entered_marker: row.get(17)?,
     };
 
-    let stored_digest: String = row.get(17)?;
+    let stored_digest: String = row.get(18)?;
     record.validate().map_err(|e| {
         rusqlite::Error::InvalidParameterName(format!("invalid persisted attempt: {e}"))
     })?;

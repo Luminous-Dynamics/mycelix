@@ -102,3 +102,15 @@ identity, and the provider idempotency key.
 Boundary custody material is intentionally absent from that type. In particular,
 provider adapters cannot depend on or receive the owner token, durable lifecycle
 state, reconciliation token, or terminal-evidence state.
+
+
+## Persisted provider idempotency
+
+The provider idempotency key is part of the durable attempt record, not just a
+derived value in the host process. The core contract owns the domain-separated
+derivation and validates the persisted value against that versioned algorithm.
+
+The SQLite attempt row therefore preserves the exact downstream idempotency
+identity across restart and prevents a later binary from silently changing the
+key for an INDETERMINATE attempt. Changing the derivation requires a contract
+version/profile change rather than an implicit behavioral change.
