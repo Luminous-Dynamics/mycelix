@@ -28,6 +28,14 @@ def auth_map(state: State) -> dict[str, set[str]]:
 def grants_map(state: State) -> dict[str, Grant]:
     return {g.name: g for g in state.grants}
 
+def ancestor_chain(grant: Grant, grants: dict[str, Grant]) -> set[str]:
+    seen: set[str] = set()
+    parent = grant.parent
+    while parent and parent in grants and parent not in seen:
+        seen.add(parent)
+        parent = grants[parent].parent
+    return seen
+
 def invariant_failures(state: State) -> list[str]:
     amap = auth_map(state)
     gmap = grants_map(state)
@@ -44,14 +52,14 @@ def invariant_failures(state: State) -> list[str]:
             parent = gmap[g.parent]
             if parent.grantee != g.issuer:
                 failures.append("GrantParentMatchesIssuer")
-            if parent.revoked:
-                failures.append("RevocationPropagates")
+        if g.active and any(gmap[a].revoked for a in ancestor_chain(g, gmap) if a in gmap):
+            failures.append("RevocationPropagates")
     for agent, powers in amap.items():
         if agent != "Root":
             for power in powers:
                 if not any(g.active and not g.revoked and g.grantee == agent and g.power == power for g in state.grants):
                     failures.append("NoAuthorityWithoutCurrentGrant")
-    if state.evidence and state.evidence:
+    if state.evidence:
         for agent, powers in amap.items():
             if agent != "Root":
                 for power in powers:
@@ -95,7 +103,7 @@ def main() -> int:
 
     bad_revocation = replace(
         valid,
-        grants=(replace(g1, active=True, revoked=True), replace(g2, active=True), g3),
+        grants=(replace(g1, active=True, revoked=True), replace(g2, active=True), replace(g3, active=True)),
     )
     assert "ActiveGrantCurrent" in invariant_failures(bad_revocation)
     assert "RevocationPropagates" in invariant_failures(bad_revocation)
