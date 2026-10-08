@@ -300,7 +300,7 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -313,7 +313,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<CreateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::MailboxCapability(cap) => validate_capability(&cap, &action),
@@ -325,12 +325,12 @@ fn validate_create_entry(
 
 fn validate_update_entry(
     entry: EntryTypes,
-    action: Update,
+    action: TypedAction<UpdateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         // Capabilities can only be updated by grantor (to revoke)
         EntryTypes::MailboxCapability(cap) => {
-            if cap.grantor != action.author {
+            if cap.grantor != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only grantor can update capability".to_string(),
                 ));
@@ -339,10 +339,10 @@ fn validate_update_entry(
         }
         // Shared mailboxes can be updated by owner or admin
         EntryTypes::SharedMailbox(mailbox) => {
-            if mailbox.owner != action.author {
+            if mailbox.owner != action.author() {
                 // Check if the author is an admin member
                 let is_admin = mailbox.members.iter().any(|m| {
-                    m.agent == action.author && matches!(m.role, SharedMailboxRole::Admin)
+                    m.agent == action.author() && matches!(m.role, SharedMailboxRole::Admin)
                 });
                 if !is_admin {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -365,7 +365,7 @@ fn validate_capability(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Grantor must be author
-    if cap.grantor != action.author {
+    if cap.grantor != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Grantor must match author".to_string(),
         ));
@@ -402,7 +402,7 @@ fn validate_shared_mailbox(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if mailbox.owner != action.author {
+    if mailbox.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must match author".to_string(),
         ));
