@@ -436,6 +436,32 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
 
     flush()
 
+def require_no_duplicate_env_keys(lines_: list[str], description: str) -> None:
+    """Reject duplicate immediate keys inside every env: mapping."""
+    for index, line in enumerate(lines_):
+        if line.strip() != "env:":
+            continue
+        env_indent = len(line) - len(line.lstrip(" "))
+        child_indent = env_indent + 2
+        counts: dict[str, int] = {}
+        for candidate in lines_[index + 1:]:
+            if not candidate.strip():
+                continue
+            actual_indent = len(candidate) - len(candidate.lstrip(" "))
+            if actual_indent <= env_indent:
+                break
+            if actual_indent != child_indent:
+                continue
+            match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*):(?:\s+.*)?", candidate.strip())
+            if not match:
+                continue
+            key = match.group(1)
+            counts[key] = counts.get(key, 0) + 1
+        duplicates = sorted(key for key, count in counts.items() if count > 1)
+        if duplicates:
+            fail(f"{description}: duplicate env mapping keys: {duplicates!r}")
+
+
 def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
     current_name = None
     counts = {}
@@ -656,6 +682,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_no_yaml_reuse_syntax(l, S0)
     require_explicit_bash_for_run_steps(l, S0)
     require_no_duplicate_step_keys(l, S0)
+    require_no_duplicate_env_keys(l, S0)
     require_no_duplicate_github_output_keys(l, S0)
     require_no_forbidden_github_command_files(l, "S0")
     require_step_execution_modes(l, S0)
@@ -905,6 +932,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_yaml_reuse_syntax(l, S1)
     require_explicit_bash_for_run_steps(l, S1)
     require_no_duplicate_step_keys(l, S1)
+    require_no_duplicate_env_keys(l, S1)
     require_no_duplicate_github_output_keys(l, S1)
     require_no_forbidden_github_command_files(l, "S1")
     require_step_execution_modes(l, S1)
@@ -1019,6 +1047,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_no_yaml_reuse_syntax(l, S2)
     require_explicit_bash_for_run_steps(l, S2)
     require_no_duplicate_step_keys(l, S2)
+    require_no_duplicate_env_keys(l, S2)
     require_no_duplicate_github_output_keys(l, S2)
     require_no_forbidden_github_command_files(l, "S2")
     require_step_execution_modes(l, S2)
@@ -1219,6 +1248,18 @@ def main() -> None:
             s1_sha,
         ),
         "scheduled invocation source binding weakened",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          INVOCATION_SOURCE: ${{ inputs.invocation_source }}\\n',
+                b'          INVOCATION_SOURCE: ${{ inputs.invocation_source }}\\n          INVOCATION_SOURCE: ${{ inputs.invocation_source }}\\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "duplicate S1 env mapping key",
     )
 
     expect_rejection(
