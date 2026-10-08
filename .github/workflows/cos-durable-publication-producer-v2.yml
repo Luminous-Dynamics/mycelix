@@ -191,12 +191,24 @@ jobs:
           manifest_sha=hashlib.sha256((d/'qualification-manifest-v1.json').read_bytes()).hexdigest()
           predicate_sha=hashlib.sha256((d/'qualification-attestation-predicate-v3.json').read_bytes()).hexdigest()
           bundle_sha=hashlib.sha256((d/'qualification-attestation-bundle.json').read_bytes()).hexdigest()
+          signing_meta=json.loads(Path('signing-input-source.json').read_text())
+          attestor_meta=json.loads(Path('attestor-source.json').read_text())
           assert manifest['schema']=='MYCELIX-COS-CONFORMANCE-QUALIFICATION-MANIFEST-V1' and manifest['qualification_result']=='passed' and manifest['claim_ceiling']=='ReferenceModelOnly' and manifest['expected_head_sha']==os.environ['EXPECTED_MAIN_SHA']
           assert predicate['schema']=='MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3' and predicate['repository']==os.environ['GITHUB_REPOSITORY'] and predicate['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
           assert predicate['qualification_result']=='passed' and predicate['claim_ceiling']=='ReferenceModelOnly' and predicate['qualification_manifest_sha256']==manifest_sha
+          assert predicate['qualification_manifest_artifact']['id']==signing_meta['artifact_id']
+          assert predicate['qualification_manifest_artifact']['digest']==signing_meta['artifact_digest']
           assert predicate['publication']=={'profile':'COS-TERMINAL-ATTESTATION-V1','state':'preconditions_satisfied_terminal_side_effect'}
+          assert predicate['attestor']['workflow_ref']==receipt['attestor']['workflow_ref']
+          assert predicate['attestor']['workflow_sha']==receipt['attestor']['workflow_sha']
+          assert predicate['attestor']['run_id']==receipt['attestor']['run_id']==attestor_meta['run_id']
+          assert predicate['attestor']['run_attempt']==receipt['attestor']['run_attempt']==attestor_meta['run_attempt']
           assert receipt['schema']=='MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3' and receipt['repository']==os.environ['GITHUB_REPOSITORY'] and receipt['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
           assert receipt['qualification_manifest_sha256']==manifest_sha and receipt['predicate_sha256']==predicate_sha and receipt['attestation']['bundle_sha256']==bundle_sha
+          assert receipt['signing_input_artifact']['id']==signing_meta['artifact_id']
+          assert receipt['signing_input_artifact']['digest']==signing_meta['artifact_digest']
+          assert receipt['verifier_run']['id']==signing_meta['workflow_run_id']
+          assert receipt['verifier_run']['attempt']==signing_meta['workflow_run_attempt']
           assert receipt['qualification_topology']['head_sha']==os.environ['EXPECTED_MAIN_SHA'] and receipt['trust_root']['status']=='candidate_not_authoritative_until_protected_adoption'
           assert receipt['trust_root']['main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']
           separator=bytes([0])
