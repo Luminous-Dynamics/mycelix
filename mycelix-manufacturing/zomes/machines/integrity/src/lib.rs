@@ -1152,6 +1152,23 @@ mod content_restriction_tests {
     }
 
     #[test]
+    fn temporal_attestation_signed_payload_binds_source_commitment() {
+        let mut attestation = MachineTemporalAttestationEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            profile_hash: ActionHash::from_raw_36(vec![2; 36]),
+            subject_hash: ActionHash::from_raw_36(vec![3; 36]),
+            evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
+            attested_at: Timestamp::from_micros(100),
+            source_reference: "tsa://example/1".into(),
+            source_commitment: vec![7; 32],
+            authority_signature: Signature(vec![0; 64]),
+        };
+        let before = attestation.signed_payload();
+        attestation.source_commitment[0] ^= 1;
+        assert_ne!(attestation.signed_payload(), before);
+    }
+
+    #[test]
     fn temporal_evidence_resolution_preserves_agreeing_provenance() {
         let a = temporal_observation(1, 7, 100);
         let b = temporal_observation(2, 8, 100);
