@@ -73,6 +73,13 @@ jobs:
           assert 'required_durability_profile' in text
           assert 'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1' in text
           assert 'activation_rule' in text
+          assert 'environments/cos-durable-publication' in text
+          assert 'custom_branch_policies' in text
+          assert 'protected_branches' in text
+          assert 'prevent_self_review' in text
+          assert 'required_reviewers' in text
+          assert 'environment_policy_sha256' in text
+          assert 'environment-policy-v1.json' in text
           assert 'expected_handoff' in text
           assert 'verifier_run_attempt' in text
           assert 'attestor_run_attempt' in text
