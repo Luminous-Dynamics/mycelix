@@ -797,10 +797,15 @@ pub fn prepare_timelock_execution(
     let action_key = execution_action_key(&timelock.actions)
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
 
-    let _signature = require_verified_threshold_signature(
+    let signature = require_verified_threshold_signature(
         &timelock.proposal_id,
         action_key.digest(),
     )?;
+    let native_replay_identity = derive_native_replay_identity(
+        EXECUTION_AUTHORITY_NAMESPACE,
+        &signature.id,
+    )
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
     let attempt_identity = execution_attempt_identity(&caller, &input.timelock_id)
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
 
@@ -816,6 +821,11 @@ pub fn prepare_timelock_execution(
         if existing_attempt.action_key_digest != action_key.digest()
             || existing_attempt.action_digest != action_key.material_action_digest()
             || existing_attempt.attempt_identity != attempt_identity.digest()
+            || existing_attempt.operation_id != input.timelock_id
+            || existing_attempt.native_replay_identity != native_replay_identity
+            || existing_attempt.provider_environment != EXECUTION_PROVIDER_ENVIRONMENT
+            || existing_attempt.provider_audience != EXECUTION_PROVIDER_AUDIENCE
+            || existing_attempt.adapter_identity != EXECUTION_ADAPTER_IDENTITY
             || existing_attempt.executor != caller
         {
             return Err(wasm_error!(WasmErrorInner::Guest(
@@ -828,12 +838,16 @@ pub fn prepare_timelock_execution(
 
     let attempt = ExecutionAttempt {
         id: format!("execution-attempt:{}", input.timelock_id),
+        operation_id: input.timelock_id.clone(),
         timelock_id: input.timelock_id.clone(),
         proposal_id: timelock.proposal_id.clone(),
         action_digest: action_key.material_action_digest().to_owned(),
         action_key_digest: action_key.digest().to_owned(),
         attempt_identity: attempt_identity.digest().to_owned(),
-        native_replay_identity: input.timelock_id.clone(),
+        native_replay_identity,
+        provider_environment: EXECUTION_PROVIDER_ENVIRONMENT.into(),
+        provider_audience: EXECUTION_PROVIDER_AUDIENCE.into(),
+        adapter_identity: EXECUTION_ADAPTER_IDENTITY.into(),
         executor: caller,
         status: ExecutionAttemptStatus::DispatchPending,
         prepared_at: now,
