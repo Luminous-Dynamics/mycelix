@@ -26,10 +26,19 @@ jobs:
 
     steps:
       - name: Checkout exact source head
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
           ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
+
+      - name: Verify immutable workflow action pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Eq 'uses: actions/checkout@v[0-9]+' "$GITHUB_WORKFLOW"
+          ! grep -Eq 'uses: dtolnay/rust-toolchain@stable' "$GITHUB_WORKFLOW"
+          grep -Fq 'uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' "$GITHUB_WORKFLOW"
+          grep -Fq 'uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067' "$GITHUB_WORKFLOW"
 
       - name: Assert exact qualification head
         shell: bash
