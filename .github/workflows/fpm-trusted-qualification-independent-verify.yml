@@ -108,7 +108,7 @@ jobs:
           set -euo pipefail
           python3 scripts/integral/test_verify_fpm_trusted_qualification.py
 
-      - name: Capture upstream trusted run and artifacts
+      - name: Capture upstream trusted run
         id: upstream
         env:
           GH_TOKEN: ${{ github.token }}
@@ -119,7 +119,23 @@ jobs:
           set -euo pipefail
           mkdir -p snapshot/download/receipt snapshot/download/index
           gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > snapshot/trusted-run.json
-          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" > snapshot/artifacts.json
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          run = json.loads(Path("snapshot/trusted-run.json").read_text())
+          assert run["id"] == int(os.environ["RUN_ID"])
+          assert run["name"] == os.environ["EXPECTED_NAME"]
+          assert run["path"] == os.environ["EXPECTED_PATH"]
+          assert run["event"] == "workflow_run"
+          assert run["status"] == "completed"
+          assert run["conclusion"] == "success"
+          assert run["repository"]["full_name"] == os.environ["GITHUB_REPOSITORY"]
+          assert run["run_attempt"] >= 1
+          PY
+
+          python3 scripts/integral/collect_fpm_trusted_artifacts.py             --repository "${GITHUB_REPOSITORY}"             --run-id "${RUN_ID}"             --artifacts-out snapshot/artifacts.json             --enumeration-out snapshot/artifact-enumeration.json
 
           python3 - <<'PY'
           import json
@@ -127,21 +143,8 @@ jobs:
           import re
           from pathlib import Path
 
-          run = json.loads(Path("snapshot/trusted-run.json").read_text())
           artifacts = json.loads(Path("snapshot/artifacts.json").read_text())
-
-          assert run["id"] == int(__import__("os").environ["RUN_ID"])
-          assert run["name"] == __import__("os").environ["EXPECTED_NAME"]
-          assert run["path"] == __import__("os").environ["EXPECTED_PATH"]
-          assert run["event"] == "workflow_run"
-          assert run["status"] == "completed"
-          assert run["conclusion"] == "success"
-          assert run["repository"]["full_name"] == __import__("os").environ["GITHUB_REPOSITORY"]
-          assert run["run_attempt"] >= 1
-
-          items = artifacts.get("artifacts")
-          assert isinstance(items, list)
-
+          items = artifacts["artifacts"]
           receipts = [
               x for x in items
               if re.fullmatch(r"fpm-trusted-qualification-[0-9a-f]{40}", x.get("name", ""))
@@ -152,21 +155,16 @@ jobs:
           ]
           assert len(receipts) == 1, f"expected one receipt artifact, found {len(receipts)}"
           assert len(indexes) == 1, f"expected one index artifact, found {len(indexes)}"
-
           receipt = receipts[0]
           index = indexes[0]
-
           for artifact in (receipt, index):
               assert artifact["expired"] is False
               assert artifact["size_in_bytes"] > 0
-              assert artifact["workflow_run"]["id"] == run["id"]
+              assert artifact["workflow_run"]["id"] == int(os.environ["RUN_ID"])
               assert artifact["workflow_run"]["repository_id"] == run["repository"]["id"]
-              assert artifact["digest"].startswith("sha256:")
               assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact["digest"])
-
           subject = receipt["name"].removeprefix("fpm-trusted-qualification-")
           assert index["name"] == f"fpm-trusted-qualification-index-{subject}"
-
           Path("upstream-artifact-selection.json").write_text(
               json.dumps(
                   {
@@ -180,8 +178,7 @@ jobs:
                   },
                   sort_keys=True,
                   separators=(",", ":"),
-              )
-              + "\n",
+              ) + "\n",
               encoding="utf-8",
           )
           PY

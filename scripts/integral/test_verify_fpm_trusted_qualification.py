@@ -21,6 +21,8 @@ TW_NAME = "FPM trusted qualification policy"
 TW_PATH = ".github/workflows/fpm-trusted-qualification.yml"
 IW_PATH = ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
 WORKFLOW_PATH = Path(__file__).parents[2] / ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
+COLLECTOR = Path(__file__).with_name("collect_fpm_trusted_artifacts.py")
+COLLECTOR_MODULE = "collect_fpm_trusted_artifacts"
 MANIFEST = "crates/fpm-wasm-artifact-identity/Cargo.toml"
 MANIFEST_SHA = "c94b53f61ed8a9bfb6249b1b339550dddd074d6c"
 
@@ -118,6 +120,25 @@ def snapshot(root: Path) -> None:
         "candidate-lock.json": {"mode": "generated_for_run"},
         "main-ref.json": {"ref": "refs/heads/main", "object": {"sha": BASE}},
     }
+    identities = [{"id": item["id"], "name": item["name"]} for item in artifacts["artifacts"]]
+    enumeration = {
+        "schema": "mycelix.fpm.trusted-qualification-artifact-enumeration.v1",
+        "page_size": 100,
+        "max_pages": 4,
+        "max_artifacts": 256,
+        "total_count_reported": 2,
+        "enumerated_count": 2,
+        "page_counts": [2],
+        "terminal_page": 1,
+        "artifact_identity_sha256": hashlib.sha256(cjson(identities)).hexdigest(),
+        "complete": True,
+        "repeat_enumeration_verified": True,
+        "repeat_total_count_reported": 2,
+        "repeat_page_counts": [2],
+        "repeat_artifact_identity_sha256": hashlib.sha256(cjson(identities)).hexdigest(),
+    }
+    write(root / "artifact-enumeration.json", enumeration)
+
     for name, value in files.items():
         write(root / name, value)
 
@@ -141,6 +162,13 @@ def expect_failure(base: Path, target: str, label: str, mutator) -> None:
         shutil.rmtree(root)
 
 
+def assert_artifact_collector_http_contract() -> None:
+    collector = COLLECTOR.read_text(encoding="utf-8")
+    assert "?per_page={PAGE_SIZE}&page={page}&direction=asc" in collector
+    assert '"-f"' not in collector
+    assert "enumerate_consistent_artifacts(get_page)" in collector
+
+
 def assert_workflow_target_extractor_dependencies() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
     marker = "      - name: Extract evidence targets with strict JSON parser\n"
@@ -152,6 +180,7 @@ def assert_workflow_target_extractor_dependencies() -> None:
 
 
 def main() -> None:
+    assert_artifact_collector_http_contract()
     assert_workflow_target_extractor_dependencies()
     with tempfile.TemporaryDirectory(prefix="fpm-ref-corpus-") as td:
         root = Path(td)
@@ -240,6 +269,79 @@ def main() -> None:
         raw = (root / "qualification-receipt.json").read_bytes()
         (root / "qualification-receipt.json").write_bytes(b" " + raw)
         assert run(root).returncode != 0, "noncanonical receipt accepted"
+
+    with tempfile.TemporaryDirectory(prefix="fpm-artifact-enum-corpus-") as td:
+        fixtures = Path(td) / "fixtures"
+        fixtures.mkdir()
+        all_items = []
+        for artifact_id in range(1, 102):
+            all_items.append({
+                "id": artifact_id,
+                "name": (
+                    f"fpm-trusted-qualification-{SUBJECT}" if artifact_id == 100
+                    else f"unexpected-artifact-{artifact_id}"
+                ),
+            })
+        all_items[100]["name"] = f"fpm-trusted-qualification-index-{SUBJECT}"
+        write(fixtures / "page-1.json", {"total_count": 101, "artifacts": all_items[:100]})
+        write(fixtures / "page-2.json", {"total_count": 101, "artifacts": all_items[100:]})
+        output = Path(td) / "artifacts.json"
+        enumeration = Path(td) / "enumeration.json"
+        result = subprocess.run(
+            [sys.executable, str(COLLECTOR), "--fixtures-dir", str(fixtures),
+             "--artifacts-out", str(output), "--enumeration-out", str(enumeration)],
+            text=True, capture_output=True, check=False,
+        )
+        assert result.returncode == 0, result.stderr + result.stdout
+        collected = json.loads(output.read_text())["artifacts"]
+        meta = json.loads(enumeration.read_text())
+        assert len(collected) == 101
+        assert meta["page_counts"] == [100, 1]
+        assert meta["terminal_page"] == 2
+        assert meta["total_count_reported"] == 101
+        assert any(item["id"] == 101 for item in collected), "artifact beyond first page was lost"
+
+        duplicate_fixtures = Path(td) / "duplicate-fixtures"
+        duplicate_fixtures.mkdir()
+        write(duplicate_fixtures / "page-1.json", {"total_count": 101, "artifacts": all_items[:100]})
+        duplicate = dict(all_items[0])
+        write(duplicate_fixtures / "page-2.json", {"total_count": 101, "artifacts": [duplicate]})
+        result = subprocess.run(
+            [sys.executable, str(COLLECTOR), "--fixtures-dir", str(duplicate_fixtures),
+             "--artifacts-out", str(output), "--enumeration-out", str(enumeration)],
+            text=True, capture_output=True, check=False,
+        )
+        assert result.returncode != 0, "duplicate artifact identity crossed pages without rejection"
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(COLLECTOR_MODULE, COLLECTOR)
+    assert spec and spec.loader
+    collector = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(collector)
+
+    class Counter:
+        value = 0
+
+    counter = Counter()
+    def divergent_page(page):
+        counter.value += 1
+        second_pass = counter.value > 1
+        item_id = 2 if not second_pass else 3
+        if page == 1:
+            return 2, [
+                {"id": 1, "name": "artifact-a"},
+                {"id": item_id, "name": "artifact-b"},
+            ]
+        return 2, []
+
+    try:
+        collector.enumerate_consistent_artifacts(divergent_page)
+    except SystemExit as exc:
+        assert "identity sequence changed" in str(exc)
+    else:
+        raise AssertionError("divergent repeat enumeration was accepted")
+
 
     print("FPM reference-verifier adversarial corpus: PASS")
 
