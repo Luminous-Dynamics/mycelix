@@ -147,7 +147,7 @@ jobs:
           assert run['id']==req['verifier_run_id'] and run['status']=='completed' and run['conclusion']=='success'
           assert run['path']=='.github/workflows/cos-conformance-evidence.yml'
           assert run['head_sha']==os.environ['EXPECTED_MAIN_SHA']
-          Path('signing-input-source.json').write_text(json.dumps({'artifact_id':art['id'],'artifact_name':art['name'],'artifact_digest':art['digest'],'workflow_run_id':run['id']},indent=2,sort_keys=True)+'\n')
+          Path('signing-input-source.json').write_text(json.dumps({'artifact_id':art['id'],'artifact_name':art['name'],'artifact_digest':art['digest'],'workflow_run_id':run['id'],'workflow_run_attempt':run['run_attempt']},indent=2,sort_keys=True)+'\n')
           PY
           signing_name="$(python - <<'PY'
           import json
