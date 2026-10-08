@@ -98,15 +98,17 @@ def validate_structure(graph: dict, policy: dict) -> tuple[bool, str]:
     ):
         return False, "claim-root"
 
-    claim = nodes["claim"]
-    claim_scope_anchor = claim.get("claim_scope_anchor")
-    expected_scope_anchor = digest({"id": claim["id"], "type": claim["type"]})
-    if claim_scope_anchor != expected_scope_anchor:
-        return False, "claim-scope-root"
-    for node in nodes.values():
-        if node.get("type") in {"AttemptCensus", "Attempt", "CensoringClassification"}:
-            if node.get("claim_scope_anchor") != claim_scope_anchor:
-                return False, "claim-scope-mismatch"
+    cfg = policy["classification"]
+    if cfg.get("claim_scope_binding_required", True):
+        claim = nodes["claim"]
+        claim_scope_anchor = claim.get("claim_scope_anchor")
+        expected_scope_anchor = digest({"id": claim["id"], "type": claim["type"]})
+        if claim_scope_anchor != expected_scope_anchor:
+            return False, "claim-scope-root"
+        for node in nodes.values():
+            if node.get("type") in {"AttemptCensus", "Attempt", "CensoringClassification"}:
+                if node.get("claim_scope_anchor") != claim_scope_anchor:
+                    return False, "claim-scope-mismatch"
 
     edges = graph.get("edges")
     if not isinstance(edges, list):
