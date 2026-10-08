@@ -177,6 +177,20 @@ def expect_failure(base: Path, target: str, label: str, mutator) -> None:
         shutil.rmtree(root)
 
 
+def assert_evidence_normalization_contract() -> None:
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    marker = "      - name: Normalize downloaded evidence\n"
+    next_marker = "      - name: Extract evidence targets with strict JSON parser\n"
+    assert marker in workflow and next_marker in workflow
+    block = workflow.split(marker, 1)[1].split(next_marker, 1)[0]
+    assert "root.rglob(\"*\")" in block
+    assert "members != [expected_name]" in block
+    assert "source.is_file()" in block
+    assert "source.is_symlink()" in block
+    assert "find snapshot/download" not in block
+    assert "-print -quit" not in block
+
+
 def assert_artifact_collector_http_contract() -> None:
     collector = COLLECTOR.read_text(encoding="utf-8")
     assert "?per_page={PAGE_SIZE}&page={page}&direction=asc" in collector
@@ -196,6 +210,8 @@ def assert_workflow_target_extractor_dependencies() -> None:
 
 def main() -> None:
     assert_artifact_collector_http_contract()
+    assert_artifact_collector_http_contract()
+    assert_evidence_normalization_contract()
     assert_workflow_target_extractor_dependencies()
     with tempfile.TemporaryDirectory(prefix="fpm-ref-corpus-") as td:
         root = Path(td)
