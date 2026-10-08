@@ -3,6 +3,7 @@ name: continual-adaptation-ledger-fixtures
 on:
   push:
     paths:
+      - "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json"
       - "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json"
       - "docs/research/CONTINUAL_ADAPTATION_RAW_INPUT_FIXTURES.json"
       - "docs/research/verify_continual_adaptation_ledger.py"
@@ -34,13 +35,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 docs/research/verify_continual_adaptation_ledger.py             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+          python3 docs/research/verify_continual_adaptation_ledger.py             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
 
       - name: Run Node ledger verifier
         shell: bash
         run: |
           set -euo pipefail
-          node docs/research/verify_continual_adaptation_ledger.mjs             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+          node docs/research/verify_continual_adaptation_ledger.mjs             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
 
       - name: Run Python raw-input verifier
         shell: bash
