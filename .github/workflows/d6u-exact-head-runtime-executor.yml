@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: d6u-runtime-reference-${{ github.event.workflow_run.head_sha }}
+  group: d6u-runtime-reference-${{ github.workflow_ref }}-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: true
 
 jobs:
