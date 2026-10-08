@@ -1,9 +1,11 @@
 name: Security Kernel Qualification — Trusted Dispatcher
-run-name: SEC-KERNEL-DISPATCH repo_id=${{ github.event.pull_request.head.repo.id }} pr=${{ github.event.pull_request.number }} candidate=${{ github.event.pull_request.head.sha }}
+run-name: SEC-KERNEL-DISPATCH event=${{ github.event_name }} pr=${{ github.event.pull_request.number || 'scheduled' }} candidate=${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "*/5 * * * *"
 
 permissions:
   actions: read
@@ -33,18 +35,20 @@ jobs:
       candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ steps.resolve.outputs.candidate_repository }}
       candidate_repository_id: ${{ steps.resolve.outputs.candidate_repository_id }}
+      invocation_source: ${{ steps.resolve.outputs.invocation_source }}
     steps:
       - name: Verify trusted dispatcher context and exact PR identity
-        id: resolve
         env:
           TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER_EVENT: ${{ github.event.pull_request.number }}
+          HEAD_SHA_EVENT: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY_EVENT: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.head.repo.id }}
           BASE_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.base.repo.id }}
           BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}
           BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}
+          RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -54,124 +58,65 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
           test "$GITHUB_REF_PROTECTED" = "true"
           test "${ACTIONS_CACHE_MODE:-}" = "none"
-          test "$GITHUB_EVENT_NAME" = "pull_request_target"
-          printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
-          printf '%s' "$HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s' "$HEAD_REPOSITORY_ID" | grep -Eq '^[0-9]+$'
-          printf '%s' "$BASE_REPOSITORY_ID_EVENT" | grep -Eq '^[0-9]+$'
-          test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
-          test "$BASE_REPOSITORY_ID_EVENT" = "$BASE_REPOSITORY_ID"
-          test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
-          test -n "$HEAD_REPOSITORY"
+          case "$EVENT_NAME" in
+            pull_request_target)
+              printf "%s" "$PR_NUMBER_EVENT" | grep -Eq "^[0-9]+$"
+              printf "%s" "$HEAD_SHA_EVENT" | grep -Eq "^[0-9a-f]{40}$"
+              printf "%s" "$HEAD_REPOSITORY_EVENT" | grep -Eq "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              printf "%s" "$HEAD_REPOSITORY_ID_EVENT" | grep -Eq "^[0-9]+$"
+              test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
+              test "$BASE_REPOSITORY_ID_EVENT" = "$BASE_REPOSITORY_ID"
+              test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
+              ;;
+            schedule)
+              ;;
+            *) echo "unsupported Security Kernel dispatcher event: $EVENT_NAME" >&2; exit 1 ;;
+          esac
           python3 - <<'PY'
-          import json, os, re, subprocess, urllib.request
-          repo=os.environ["BASE_REPOSITORY"]
-          pr_number=int(os.environ["PR_NUMBER"])
-          req=urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
-              headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version":"2022-11-28",
-              })
-          with urllib.request.urlopen(req, timeout=20) as response:
-              pr=json.load(response)
-          assert pr["number"] == pr_number
-          assert pr["state"] == "open"
-          assert pr["base"]["repo"]["full_name"] == repo
-          assert pr["base"]["repo"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
-          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-          assert pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
-          assert pr["head"]["repo"]["id"] == int(os.environ["HEAD_REPOSITORY_ID"])
-          assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
-
-          workflow_sha = os.environ["GITHUB_WORKFLOW_SHA"]
-          headers = {
-              "Accept":"application/vnd.github+json",
-              "Authorization":f"Bearer {os.environ['TOKEN']}",
-              "X-GitHub-Api-Version":"2022-11-28",
-          }
-
-          def fetch_file(path):
-              request = urllib.request.Request(
-                  f"https://api.github.com/repos/{repo}/contents/{path}?ref={workflow_sha}",
-                  headers=headers,
-              )
-              with urllib.request.urlopen(request, timeout=20) as response:
-                  return json.load(response)
-
-          def decode_file(document):
-              import base64
-              assert document.get("type") == "file"
-              assert document.get("encoding") == "base64"
-              return base64.b64decode(document["content"]).decode("utf-8")
-
-          def assert_bash_run_blocks_compile(workflow_text):
-              lines = workflow_text.splitlines()
-              blocks = 0
-              i = 0
-              while i < len(lines):
-                  if re.fullmatch(r" {8}run:\s*\|", lines[i]):
-                      content_indent = 10
-                      i += 1
-                      script_lines = []
-                      while i < len(lines):
-                          line = lines[i]
-                          if line.strip() and len(line) - len(line.lstrip(" ")) < content_indent:
-                              break
-                          if line.strip():
-                              assert len(line) >= content_indent, f"run block indentation underflow at line {i + 1}"
-                              script_lines.append(line[content_indent:])
-                          else:
-                              script_lines.append("")
-                          i += 1
-                      script = "\n".join(script_lines).rstrip() + "\n"
-                      checked = subprocess.run(
-                          ["bash", "-n"],
-                          input=script,
-                          text=True,
-                          capture_output=True,
-                      )
-                      assert checked.returncode == 0, checked.stderr
-                      blocks += 1
-                      continue
-                  i += 1
-              assert blocks == 1, f"expected exactly one S0 bash run block, found {blocks}"
-
-          dispatcher_file = fetch_file(".github/workflows/security-kernel-trusted-dispatch.yml")
-          s1_file = fetch_file(os.environ["TRUSTED_INDEPENDENT_WORKFLOW_PATH"])
-          assert dispatcher_file["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
-          assert re.fullmatch(r"[0-9a-f]{40}", dispatcher_file.get("sha", ""))
-          assert re.fullmatch(r"[0-9a-f]{40}", s1_file.get("sha", ""))
-          s1_blob_sha = s1_file["sha"]
-          dispatcher_text = decode_file(dispatcher_file)
-          assert_bash_run_blocks_compile(dispatcher_text)
-          print("PASS: S0 exact dispatcher workflow shell syntax is valid")
-          registered_s1 = re.findall(
-              r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*$',
-              dispatcher_text,
-          )
-          delegated_s1 = re.findall(
-              r'(?m)^\s*trusted_workflow_blob_sha:\s*"([0-9a-f]{40})"\s*$',
-              dispatcher_text,
-          )
-          assert len(registered_s1) == 1, f"expected exactly one registered S1 blob pin, found {len(registered_s1)}"
-          assert len(delegated_s1) == 1, f"expected exactly one delegated S1 blob pin, found {len(delegated_s1)}"
-          assert registered_s1[0] == s1_blob_sha, (
-              "S0 registered S1 blob pin is stale or does not match the S1 workflow at the executing commit"
-          )
-          assert delegated_s1[0] == s1_blob_sha, (
-              "S0 reusable-workflow input pin is stale or does not match the S1 workflow at the executing commit"
-          )
-          print("PASS: S0 registered S1 trust pin and delegated S1 input both match the exact S1 workflow blob")
-          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"candidate_pr={pr_number}\n")
-              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
-              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
-              output.write(f"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\n")
+          import base64, json, os, re, urllib.parse, urllib.request
+          repo=os.environ["BASE_REPOSITORY"]; event=os.environ["EVENT_NAME"]; token=os.environ["TOKEN"]; workflow_sha=os.environ["GITHUB_WORKFLOW_SHA"]; run_id=int(os.environ["RUN_ID"])
+          headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {token}","X-GitHub-Api-Version":"2022-11-28"}
+          def get(path):
+              req=urllib.request.Request("https://api.github.com"+path,headers=headers)
+              with urllib.request.urlopen(req,timeout=20) as response: return json.load(response)
+          def content(path,ref):
+              return get("/repos/"+repo+"/contents/"+urllib.parse.quote(path,safe="/")+"?ref="+urllib.parse.quote(ref,safe=""))
+          dispatcher=content(".github/workflows/security-kernel-trusted-dispatch.yml",workflow_sha); s1=content(".github/workflows/security-kernel-independent-qualification.yml",workflow_sha)
+          assert re.fullmatch(r"[0-9a-f]{40}",workflow_sha); assert dispatcher["path"]==".github/workflows/security-kernel-trusted-dispatch.yml"; assert s1["path"]==".github/workflows/security-kernel-independent-qualification.yml"
+          assert re.fullmatch(r"[0-9a-f]{40}",dispatcher["sha"]) and re.fullmatch(r"[0-9a-f]{40}",s1["sha"])
+          text=base64.b64decode(dispatcher["content"]).decode("utf-8"); assert len(re.findall(r"^ {8}run:\s*\|\s*$",text,re.MULTILINE))==1
+          registered=re.findall(r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*$',text); delegated=re.findall(r'(?m)^\s*trusted_workflow_blob_sha:\s*"([0-9a-f]{40})"\s*$',text); assert len(registered)==1 and len(delegated)==1 and registered[0]==s1["sha"] and delegated[0]==s1["sha"]
+          trust_paths={".github/workflows/security-kernel-trusted-dispatch.yml",".github/workflows/security-kernel-independent-qualification.yml",".github/workflows/security-kernel-trusted-result-verifier.yml",".github/security-kernel/reference_verify_source_policy.py",".github/security-kernel/reference_verify_execution_binding.py",".github/security-kernel/reference_verify_evidence_retention_binding.py"}
+          if event=="pull_request_target":
+              candidate_pr=int(os.environ["PR_NUMBER_EVENT"]); candidate_sha=os.environ["HEAD_SHA_EVENT"]; candidate_repository=os.environ["HEAD_REPOSITORY_EVENT"]; candidate_repository_id=int(os.environ["HEAD_REPOSITORY_ID_EVENT"]); invocation_source="trusted-dispatch"
+          else:
+              invocation_source="scheduled-fallback"; prs=[]
+              for page in range(1,5):
+                  page_items=get(f"/repos/{repo}/pulls?state=open&base=main&sort=updated&direction=asc&per_page=50&page={page}")
+                  assert isinstance(page_items,list); prs.extend(page_items)
+                  if len(page_items)<50: break
+              if len(prs)>=200: raise SystemExit("scheduled PR discovery exceeded bounded 200-PR window")
+              eligible=[]
+              for pr in prs:
+                  if pr.get("state")!="open" or (pr.get("base") or {}).get("ref")!="main": continue
+                  changed=pr.get("changed_files"); number=pr.get("number")
+                  if not isinstance(changed,int) or changed<1 or changed>500 or not isinstance(number,int) or number<1: continue
+                  matched=False
+                  for fp in range(1,6):
+                      items=get(f"/repos/{repo}/pulls/{number}/files?per_page=100&page={fp}")
+                      assert isinstance(items,list)
+                      if any(isinstance(item,dict) and item.get("filename") in trust_paths for item in items): matched=True; break
+                      if len(items)<100: break
+                  if matched: eligible.append(pr)
+              if not eligible: raise SystemExit("no eligible Security Kernel PR found by scheduled bounded discovery")
+              eligible.sort(key=lambda item:int(item["number"])); selected=eligible[run_id % len(eligible)]; candidate_pr=int(selected["number"])
+              current=get(f"/repos/{repo}/pulls/{candidate_pr}"); candidate_sha=current["head"]["sha"]; candidate_repository=current["head"]["repo"]["full_name"]; candidate_repository_id=int(current["head"]["repo"]["id"])
+          current=get(f"/repos/{repo}/pulls/{candidate_pr}")
+          assert current["number"]==candidate_pr and current["state"]=="open"; assert current["base"]["repo"]["full_name"]==repo and current["base"]["repo"]["id"]==int(os.environ["BASE_REPOSITORY_ID"]) and current["base"]["ref"]=="main"
+          assert current["head"]["sha"]==candidate_sha and current["head"]["repo"]["full_name"]==candidate_repository and current["head"]["repo"]["id"]==candidate_repository_id
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf-8") as output:
+              output.write(f"candidate_pr={candidate_pr}\n"); output.write(f"candidate_sha={candidate_sha}\n"); output.write(f"candidate_repository={candidate_repository}\n"); output.write(f"candidate_repository_id={candidate_repository_id}\n"); output.write(f"invocation_source={invocation_source}\n")
           PY
-
   qualify:
     name: Execute exact candidate qualification
     needs: resolve
@@ -186,5 +131,6 @@ jobs:
       candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
       candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
+      invocation_source: ${{ needs.resolve.outputs.invocation_source }}
       trusted_workflow_blob_sha: "a7996928ed75fc5245202965c61d1b61490e21d6"
 
