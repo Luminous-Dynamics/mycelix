@@ -398,6 +398,8 @@ A release requires an Executed ExecutionResolution whose execution/timelock Acti
 anchors match the exact prepared source records. Refund paths for cancellation or
 expiration remain separately scoped and do not imply successful execution.
 
+Fund refunds are likewise consequence-gated. A locked allocation may refund before host preparation only after cancellation or expiry; once a timelock is Prepared, refund requires an exact Failed ExecutionResolution with matching source-chain anchors. Direct Prepared-to-Cancelled transitions are rejected.
+
 This separation is intentional: a hardened boundary is a prerequisite for provider
 qualification, not evidence that the providers themselves satisfy the boundary.
 
