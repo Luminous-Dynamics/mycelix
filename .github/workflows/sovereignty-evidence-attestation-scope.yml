@@ -84,10 +84,8 @@ jobs:
           nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#curl" "github:NixOS/nixpkgs/$NIXPKGS_REV#coreutils" --command bash -euo pipefail -c '
             curl --fail --location --retry 3 --retry-all-errors --output "$RUNNER_TEMP/authority-tools/tla2tools.jar" "$TLA_URL"
             curl --fail --location --retry 3 --retry-all-errors --output "$RUNNER_TEMP/authority-tools/alloy.jar" "$ALLOY_URL"
-            printf "%s  %s
-" "$TLA_SHA256" "$RUNNER_TEMP/authority-tools/tla2tools.jar" | sha256sum --check --strict
-            printf "%s  %s
-" "$ALLOY_SHA256" "$RUNNER_TEMP/authority-tools/alloy.jar" | sha256sum --check --strict
+            printf "%s  %s\\n" "$TLA_SHA256" "$RUNNER_TEMP/authority-tools/tla2tools.jar" | sha256sum --check --strict
+            printf "%s  %s\\n" "$ALLOY_SHA256" "$RUNNER_TEMP/authority-tools/alloy.jar" | sha256sum --check --strict
           '
 
       - name: Compile Alloy runner
