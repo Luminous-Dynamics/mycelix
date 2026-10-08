@@ -192,6 +192,49 @@ def validate_artifact_lifetime(item: dict[str, Any], label: str) -> tuple[str, s
     return created, expires
 
 
+def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: str) -> None:
+    if policy_file.get("encoding") != "base64":
+        fail("trusted policy file is not represented as base64 content")
+    encoded = policy_file.get("content")
+    if not isinstance(encoded, str) or not encoded:
+        fail("trusted policy file content is missing")
+    try:
+        raw = base64.b64decode("".join(encoded.split()), validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        fail(f"trusted policy file base64 is invalid: {exc}")
+    required = (
+        f"FPM_SANDBOX_IMAGE: ubuntu@{expected_image_digest}",
+        "--network none",
+        "--read-only",
+        "--cap-drop ALL",
+        "--security-opt no-new-privileges",
+        "--pids-limit 512",
+        "--memory 6g",
+        "--memory-swap 6g",
+        "--cpus 2",
+        "--mount type=bind,src=\"${GITHUB_WORKSPACE}/candidate\",dst=/candidate,readonly",
+        "--mount type=bind,src=\"${FPM_TOOLCHAIN_ROOT}\",dst=/opt/fpm-rust,readonly",
+        "--mount type=bind,src=\"${FPM_CARGO_HOME}\",dst=/cargo-ro,readonly",
+        "--mount type=bind,src=\"${FPM_TARGET_DIR}\",dst=/target",
+        "--user \"${CANDIDATE_UID}:${CANDIDATE_GID}\"",
+        "CARGO_NET_OFFLINE=true",
+        "cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml",
+    )
+    for token in required:
+        if token not in raw.decode("utf-8"):
+            fail(f"trusted sandbox policy is missing required invariant: {token}")
+    forbidden = (
+        "--privileged",
+        "--pid=host",
+        "--network host",
+        "--cap-add",
+        "docker.sock",
+    )
+    policy_text = raw.decode("utf-8")
+    for token in forbidden:
+        if token in policy_text:
+            fail(f"trusted sandbox policy contains forbidden broadening: {token}")
+
 def verify_receipt(
     receipt: dict[str, Any],
     expected_trusted_run_id: int,
@@ -255,6 +298,10 @@ def verify_receipt(
         fail("receipt trusted policy blob mismatch")
     if policy_file.get("path") != TRUSTED_WORKFLOW_PATH:
         fail("policy file path mismatch")
+    verify_sandbox_policy(
+        policy_file,
+        "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
+    )
 
     trusted_run_id = int(receipt["trusted_workflow_run_id"])
     if trusted_run_id != expected_trusted_run_id:
