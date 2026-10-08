@@ -28,7 +28,7 @@ pub enum EntryTypes {
 }
 
 fn validate_create_hybrid_key_bundle_v2(
-    action: TypedAction<CreateData>,
+    action: TypedAction<EntryCreationData>,
     bundle: HybridKeyBundleV2,
 ) -> ExternResult<ValidateCallbackResult> {
     if bundle.version != HYBRID_KEY_BUNDLE_V2 || bundle.suite != HYBRID_SUITE_V2 {
@@ -162,7 +162,7 @@ fn validate_update_pre_key_bundle(
 
 /// Validate pre-key bundle
 fn validate_create_pre_key_bundle(
-    action: TypedAction<CreateData>,
+    action: TypedAction<EntryCreationData>,
     bundle: PreKeyBundle,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate identity key length (32 bytes for X25519)
@@ -233,7 +233,7 @@ fn validate_create_pre_key_bundle(
 /// (X3DH protocol -- the consumer marks the bundle owner's one-time key used) -- that
 /// cross-agent update path is a real, deliberate exception and is NOT touched here.
 fn validate_create_used_pre_key(
-    action: TypedAction<CreateData>,
+    action: TypedAction<EntryCreationData>,
     used: UsedPreKey,
 ) -> ExternResult<ValidateCallbackResult> {
     // Basic validation
