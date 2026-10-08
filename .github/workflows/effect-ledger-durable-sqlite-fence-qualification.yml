@@ -105,6 +105,24 @@ jobs:
           grep -Fq 'persisted_provider_idempotency_key_is_versioned_and_fail_closed' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'FinalProviderEntryProofV1' "$boundary"
           grep -Fq 'FinalProviderEntryVerifier' "$boundary"
+          grep -Fq 'BoundaryTrustRoot' "$boundary"
+          grep -Fq 'PinnedBoundaryTrustRoot' "$boundary"
+          grep -Fq 'pub fn dispatch<P: ProviderAdapter>(' "$boundary"
+          grep -Fq 'pub fn reconcile<P: ProviderAdapter>(' "$boundary"
+          if grep -Fq 'verifier: &V' "$boundary"; then
+            echo 'Per-call terminal verifier injection is not qualified.'
+            exit 1
+          fi
+          if grep -Fq 'entry_verifier: &G' "$boundary"; then
+            echo 'Per-call final-entry verifier injection is not qualified.'
+            exit 1
+          fi
+          if grep -Fq 'pub fn store_mut' "$boundary"; then
+            echo 'Mutable durable-store escape hatch is not qualified.'
+            exit 1
+          fi
+          grep -Fq 'final_entry_verifier_identity' "$boundary"
+          grep -Fq 'terminal_verifier_identity' "$boundary"
           grep -Fq 'FinalEntryRejectedNotEntered' "$boundary"
           grep -Fq 'atomically_release_provider_entry_claim_not_entered' "$source"
           grep -Fq 'atomically_record_provider_entry_proof' "$source"
