@@ -429,20 +429,17 @@ const MAX_SAP_RETRIES: usize = 3;
 const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 
 /// Credit SAP to a member's balance (used by bridge deposits and community issuance).
-/// Auto-initializes the SapBalance entry if the member has none yet.
+/// The caller must initialize a zero balance before a caused credit; this function
+/// never mints through a non-zero balance creation.
 ///
 /// Uses optimistic locking with retry: after updating, re-reads via
 /// `follow_update_chain` to verify our update won. If a concurrent update
 /// created a fork, retries up to `MAX_SAP_RETRIES` times.
 ///
-/// KNOWN HOLE (tracked, not yet closed): this is still a public extern that mints
-/// SAP into any DID. Unlike `debit_sap`, it can't be guarded with a caller==member
-/// check — legitimate credits target *other* members (payee in a transfer) AND the
-/// caller's own balance (bridge collateral deposit, pool withdrawal), so no single
-/// caller rule is correct. The proper fix is the transfer refactor: fold debit+credit
-/// into one conservation-preserving `transfer_sap`, make raw credit non-public, and
-/// route all issuance through authorized mints (`mint_sap_from_governance` already
-/// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
+/// Positive credits are no longer accepted without an integrity-verifiable cause.
+/// Member-to-member transfers use the preceding owner-authorized `SapBalance` debit.
+/// Governance, bridge, and staking credits remain intentionally blocked until their
+/// cross-domain authorization proofs are independently verifiable (AC-154).
 fn ensure_sap_balance_entry(member_did: &str) -> ExternResult<()> {
     if find_sap_balance_record(member_did)?.is_some() {
         return Ok(());
@@ -690,9 +687,10 @@ pub struct TransferSapInput {
 /// that only move value between two members — e.g. bridge `process_payment` — should
 /// use this instead of a separate debit + credit, so no raw mint surface is exposed.
 ///
-/// Debit precedes credit (same ordering/atomicity caveat as `send_payment`): if credit
-/// fails after a successful debit, the sender's SAP is already gone — a pre-existing DHT
-/// limitation (no multi-entry atomicity) that the Phase-1 conservation rebuild will close.
+/// The debit and credit are consecutive source-chain writes inside one zome-function
+/// call. Holochain commits zome-function writes atomically; the integrity validator
+/// additionally requires the debit action itself to be the immediate cause of the
+/// credit action.
 #[hdk_extern]
 pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
     verify_caller_is_did(&input.from_did)?;
