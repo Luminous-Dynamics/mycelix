@@ -711,10 +711,6 @@ impl EffectBoundaryHostV1 {
         &self.store
     }
 
-    pub fn store_mut(&mut self) -> &mut SqliteActionFenceStore {
-        &mut self.store
-    }
-
     pub fn admit(
         &mut self,
         action_key: &ActionKeyV1,
@@ -1916,6 +1912,71 @@ mod tests {
     }
 
     #[test]
+    fn final_entry_verifier_identity_must_match_pinned_trust_root() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("pinned-final-identity.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(
+            store,
+            test_root_with(
+                Box::new(Verifier),
+                "verified-provider-v1",
+                Box::new(AllowFinalEntry),
+                "pinned-final-entry-v2",
+            ),
+        )
+        .unwrap();
+        let action_key = action();
+        let owner = identity("attempt-pinned-final-identity");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-pinned-final-identity",
+                    "operation-pinned-final-identity",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        struct MustNotInvoke;
+        impl ProviderAdapter for MustNotInvoke {
+            fn invoke(
+                &mut self,
+                _permit: &ProviderEntryPermitV1,
+            ) -> Result<ProviderObservation, String> {
+                panic!("pinned verifier identity mismatch must prevent provider invocation");
+            }
+
+            fn reconcile(
+                &mut self,
+                _context: &ProviderActionContextV1,
+            ) -> Result<ProviderObservation, String> {
+                unreachable!()
+            }
+        }
+
+        let result = boundary
+            .dispatch(
+                &action_key,
+                &owner,
+                "owner-attempt-pinned-final-identity",
+                &mut MustNotInvoke,
+            )
+            .unwrap();
+        assert!(matches!(
+            result,
+            BoundaryOutcome::FinalEntryRejectedNotEntered { reason }
+                if reason.contains("pinned trust root")
+        ));
+        assert_eq!(
+            boundary.store.durably_read_attempt(&owner).unwrap().unwrap().state,
+            AttemptRecordState::NotEntered
+        );
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
+    }
+
+    #[test]
     fn final_entry_gate_rejection_cannot_reach_provider() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("final-gate-rejected.db")).unwrap();
@@ -2107,6 +2168,65 @@ mod tests {
             .durably_read_provider_entry_claim(&owner)
             .unwrap()
             .is_none());
+    }
+
+    #[test]
+    fn terminal_verifier_identity_must_match_pinned_trust_root() {
+        let dir = tempdir().unwrap();
+        let store =
+            SqliteActionFenceStore::open(dir.path().join("pinned-terminal-identity.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(
+            store,
+            test_root_with(
+                Box::new(Verifier),
+                "pinned-terminal-v2",
+                Box::new(AllowFinalEntry),
+                "final-entry-verifier-v1",
+            ),
+        )
+        .unwrap();
+        let action_key = action();
+        let owner = identity("attempt-pinned-terminal-identity");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-pinned-terminal-identity",
+                    "operation-pinned-terminal-identity",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        let mut provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
+
+        let result = boundary
+            .dispatch(
+                &action_key,
+                &owner,
+                "owner-attempt-pinned-terminal-identity",
+                &mut provider,
+            )
+            .unwrap();
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("pinned trust root")
+        ));
+        assert_eq!(
+            boundary.store.durably_read_attempt(&owner).unwrap().unwrap().state,
+            AttemptRecordState::Invoked
+        );
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_some());
     }
 
     #[test]
@@ -2369,7 +2489,7 @@ mod tests {
             )
             .unwrap();
         boundary
-            .store_mut()
+            .store
             .atomically_mark_dispatch_pending(&action, &owner, "owner-attempt-recovery")
             .unwrap();
 
