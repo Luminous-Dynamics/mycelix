@@ -94,7 +94,7 @@ pub struct ExecutionReceiptEntry {
     pub started_at: Timestamp,
     pub completed_at: Timestamp,
     pub disposition: Disposition,
-    pub evidence_references: Vec<String>,
+    pub evidence_hashes: Vec<ActionHash>,
     pub notes: Option<String>,
 }
 
@@ -243,10 +243,13 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                     "at least one output lot is required".into(),
                 ));
             }
-            if e.evidence_references.is_empty() {
+            if e.evidence_hashes.is_empty() {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "at least one evidence reference is required".into(),
+                    "at least one evidence hash is required".into(),
                 ));
+            }
+            for hash in &e.evidence_hashes {
+                must_get_valid_record(hash.clone())?;
             }
 
             // A claim of accepted production requires measured and calibrated
@@ -456,7 +459,7 @@ mod tests {
             started_at: Timestamp::from_micros(0),
             completed_at: Timestamp::from_micros(1),
             disposition: Disposition::Accepted,
-            evidence_references: vec!["evidence".into()],
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
             notes: None,
         };
         let result = validate_create(EntryTypes::ExecutionReceipt(entry)).unwrap();
