@@ -68,7 +68,7 @@ jobs:
           assert 'gh release verify-asset' in publish
           assert 'candidate_not_authoritative_until_protected_adoption' in text
           assert 'ReferenceModelOnly' in text
-          assert 'sha256 --check --strict SHA256SUMS' in publish
+          assert 'sha256sum --check --strict SHA256SUMS' in publish
           assert 'isPrerelease' in publish
           assert 'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1' in text
           assert 'MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1' in text
@@ -84,17 +84,17 @@ jobs:
           assert "required_conversation_resolution" in text
           assert "required_linear_history" in text
           assert "app_id':x.get('app_id')" in text
-          assert "fine_checks=list(checks.get('checks',[]))" in text
+          assert "checks is not None and (checks.get('contexts') or checks.get('checks'))" in text
           assert "checks=data.get('required_status_checks')" in text
           assert 'prevent_self_review' in text
           assert 'required_reviewers' in text
           assert 'environment_policy_sha256' in text
           assert 'environment-policy-v1.json' in text
           assert 'X-GitHub-Api-Version: 2026-03-10' in text
-          assert "reported=policy.pop('sha256')" in text
+          assert "reported=data.pop('sha256')" in text
           assert "assert reported==hashlib.sha256(canonical).hexdigest()" in text
-          assert "assert m['main_branch_policy_sha256']==main_policy['sha256']" in text
-          assert "assert m['effective_main_rules_sha256']==effective_rules['sha256']" in text
+          assert "assert m['main_branch_policy_sha256']==hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest()" in text
+          assert "assert m['effective_main_rules_sha256']==hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest()" in text
           assert 'main-branch-policy-v1.json' in text
           assert "'allow_fork_syncing'" in text
           assert "'dismissal_restrictions'" in text
@@ -106,7 +106,7 @@ jobs:
           assert 'verifier_run_attempt' in text
           assert 'attestor_run_attempt' in text
           assert 'publication_handoff_sha256' in text
-          assert "predicate['attestor']['run_id']==receipt['attestor']['run_id']==attestor_meta['run_id']" in text
+          assert "predicate['attestor']['run_id']==receipt['attestor']['run_id']" in text
           assert "receipt['verifier_run']['attempt']==signing_meta['workflow_run_attempt']" in text
           assert "predicate['attestor']['workflow_sha']==receipt['attestor']['workflow_sha']" in text
           assert "predicate['qualification_manifest_artifact']['id']" in text
