@@ -341,14 +341,14 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
             OpEntry::UpdateEntry {
                 app_entry, action, ..
             } => validate_update_entry(app_entry, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreRecord(store_record) => match store_record {
+        FlatOp::CreateRecord(store_record) => match store_record {
             OpRecord::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -358,7 +358,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<CreateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::TrustAttestation(attestation) => validate_attestation(&attestation, &action),
@@ -371,12 +371,12 @@ fn validate_create_entry(
 
 fn validate_update_entry(
     entry: EntryTypes,
-    action: Update,
+    action: TypedAction<UpdateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         // Attestations can only be updated by truster (to revoke)
         EntryTypes::TrustAttestation(attestation) => {
-            if attestation.truster != action.author {
+            if attestation.truster != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only truster can update attestation".to_string(),
                 ));
@@ -385,7 +385,7 @@ fn validate_update_entry(
         }
         // Disputes can be updated for resolution by disputer only
         EntryTypes::TrustDispute(dispute) => {
-            if dispute.disputer != action.author {
+            if dispute.disputer != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only the disputer can update a dispute".to_string(),
                 ));
@@ -401,7 +401,7 @@ fn validate_attestation(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Truster must be the author
-    if attestation.truster != action.author {
+    if attestation.truster != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Truster must match action author".to_string(),
         ));
@@ -545,7 +545,7 @@ fn validate_dispute(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Disputer must be author
-    if dispute.disputer != action.author {
+    if dispute.disputer != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Disputer must match action author".to_string(),
         ));
@@ -566,7 +566,7 @@ fn validate_introduction(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Introducer must be author
-    if intro.introducer != action.author {
+    if intro.introducer != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Introducer must match action author".to_string(),
         ));
