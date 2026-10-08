@@ -159,8 +159,10 @@ jobs:
           subject_tree="$(git rev-parse HEAD^{tree})"
           test "$actual_head" = "${{ steps.preflight.outputs.expected_head_sha }}"
           test -z "$(git ls-files -s -- crates/fpm-wasm-artifact-identity | awk '$1 ~ /^120000$/ {print $4}')"
-          config_hit="$(git ls-files | grep -E '(^|/)\.cargo/config(\.toml)?$' || true)"
-          test -z "$config_hit"
+          root_config_hits="$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)"
+          test -z "$root_config_hits"
+          test ! -e .cargo/config
+          test ! -e .cargo/config.toml
           actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
           test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
           grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
