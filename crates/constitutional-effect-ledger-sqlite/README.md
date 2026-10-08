@@ -162,3 +162,15 @@ This prevents a caller that can reach the host API from selecting a weaker
 verifier or recovery authority for one attempt while using a stronger verifier
 for another. The provider adapter remains a separate deployment concern; this
 trust root does not claim to authenticate executable code.
+
+
+## Pinned provider adapter binding
+
+Provider selection is now authorized by the constructor-bound trust root before
+the durable dispatch transition is acquired. The attempt carries its declared
+adapter identity, the concrete adapter must report the same identity, and the
+pinned adapter-authorizer must permit that identity.
+
+This is a deployment binding, not executable-code attestation. A deployment
+that needs code-measurement guarantees must supply an adapter authorizer that
+verifies its own platform-specific measurement or registry evidence.
