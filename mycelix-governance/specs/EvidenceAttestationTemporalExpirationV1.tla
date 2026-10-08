@@ -21,10 +21,15 @@ Times == {T1, T2, T3}
 Grants == {G1}
 Evidence == {E1}
 
-issuer == [G1 |-> Root]
-grantee == [G1 |-> Alice]
-TimeRank == [T1 |-> 1, T2 |-> 2, T3 |-> 3]
-NextTime == [T1 |-> T2, T2 |-> T3]
+issuer == [g \in Grants |-> Root]
+grantee == [g \in Grants |-> Alice]
+TimeRank == [t \in Times |-> CASE
+  t = T1 -> 1
+  [] t = T2 -> 2
+  [] t = T3 -> 3]
+NextTime == [t \in {T1, T2} |-> CASE
+  t = T1 -> T2
+  [] t = T2 -> T3]
 
 Capability(g) ==
   [resource |-> GrantResource[g],
