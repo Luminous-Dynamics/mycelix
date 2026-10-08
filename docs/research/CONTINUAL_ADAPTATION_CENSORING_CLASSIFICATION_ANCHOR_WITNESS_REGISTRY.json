@@ -1,0 +1,21 @@
+{
+  "schema": "mycelix.continual-adaptation.censoring-classification-anchor-witness-registry.v1",
+  "status": "research-witness-registry-only",
+  "registry_id": "mycelix.research.anchor-witness-registry.v1",
+  "registry_version": 1,
+  "threshold": 2,
+  "witnesses": {
+    "w01": {
+      "role": "anchor-witness",
+      "identity_commitment": "sha256:2aafc3b8d3f9f9c0b7b93e8dfc3f9c5f5f9cebd4ebd1b9dc6d8be3c93f7a5a11"
+    },
+    "w02": {
+      "role": "anchor-witness",
+      "identity_commitment": "sha256:5f17a2c7f1e2d6a1b7f8c6f9d0d22a5df0b8c5c6a4e3f1c2b7d8e9f0011223344"
+    },
+    "w03": {
+      "role": "anchor-witness",
+      "identity_commitment": "sha256:9b0d1e2f3a4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6"
+    }
+  }
+}
