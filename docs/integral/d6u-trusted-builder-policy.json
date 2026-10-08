@@ -298,7 +298,7 @@
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
       "path": "scripts/integral/verify_d6u_trusted_artifacts.py",
-      "blob_sha": "4bd4314dce49a15f38c5e7db27ffa96bfdcb3752"
+      "blob_sha": "20ce5c784bc6b056ab321208851612c30dbeb58e"
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
