@@ -1,0 +1,16 @@
+{
+  "schema": "mycelix.evidence-attestation-composition-provenance-control-matrix.v1",
+  "control": {
+    "id": "contributor-substitution",
+    "boundary": "composed capability evidence must name the exact contributing claim identities",
+    "tla_invariant": "CompositionProvenanceMatchesInputs",
+    "tla_control": "contributor-substitution",
+    "alloy_witness": "ContributorSubstitutionWitness",
+    "alloy_assertion": "CompositionProvenanceIsExact",
+    "alloy_mutant_fact": "CompositionProvenanceMatchesInputs",
+    "reference_markers": [
+      "ISOLATION PASS: contributor substitution leaves capability and grant validity unchanged",
+      "NEGATIVE PASS: exact composition contributor provenance substitution detected"
+    ]
+  }
+}

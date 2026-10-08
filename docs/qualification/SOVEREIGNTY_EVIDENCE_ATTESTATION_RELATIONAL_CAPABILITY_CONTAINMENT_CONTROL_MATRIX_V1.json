@@ -1,0 +1,15 @@
+{
+  "schema":"mycelix.evidence-attestation-relational-capability-containment-control-matrix.v1",
+  "controls":[
+    {"id":"cartesian-recombination","tla_invariant":"CartesianRecombinationRejected","alloy_assertion":"MutantAggregate_cartesian_recombination","alloy_witness":"MutantAggregate_cartesian_recombination","reference_marker":"CARTESIAN RECOMBINATION NEGATIVE PASS"},
+    {"id":"target-currency-correlation","tla_invariant":"TargetCurrencyCorrelationRejected","alloy_assertion":"MutantAggregate_target_currency_correlation","alloy_witness":"MutantAggregate_target_currency_correlation","reference_marker":"TARGET CURRENCY CORRELATION NEGATIVE PASS"},
+    {"id":"operation-argument-correlation","tla_invariant":"OperationArgumentCorrelationRejected","alloy_assertion":"MutantAggregate_operation_argument_correlation","alloy_witness":"MutantAggregate_operation_argument_correlation","reference_marker":"OPERATION ARGUMENT CORRELATION NEGATIVE PASS"},
+    {"id":"audience-target-correlation","tla_invariant":"AudienceTargetCorrelationRejected","alloy_assertion":"MutantAggregate_audience_target_correlation","alloy_witness":"MutantAggregate_audience_target_correlation","reference_marker":"AUDIENCE TARGET CORRELATION NEGATIVE PASS"},
+    {"id":"wildcard-expansion","tla_invariant":"WildcardExpansionRejected","alloy_assertion":"MutantAggregate_wildcard_expansion","alloy_witness":"MutantAggregate_wildcard_expansion","reference_marker":"WILDCARD EXPANSION NEGATIVE PASS"},
+    {"id":"capability-set-identity-substitution","tla_invariant":"CapabilitySetIdentityExact","alloy_assertion":"MutantAggregate_capability_set_identity_substitution","alloy_witness":"MutantAggregate_capability_set_identity_substitution","reference_marker":"CAPABILITY SET IDENTITY SUBSTITUTION NEGATIVE PASS"},
+    {"id":"tuple-normalization-substitution","tla_invariant":"TupleNormalizationNonEquivalentRejected","alloy_assertion":"MutantAggregate_tuple_normalization_substitution","alloy_witness":"MutantAggregate_tuple_normalization_substitution","reference_marker":"TUPLE NORMALIZATION SUBSTITUTION NEGATIVE PASS"},
+    {"id":"profile-widening-unchanged-marginals","tla_invariant":"ProfileWideningWithSameMarginalsRejected","alloy_assertion":"MutantAggregate_profile_widening_unchanged_marginals","alloy_witness":"MutantAggregate_profile_widening_unchanged_marginals","reference_marker":"PROFILE WIDENING UNCHANGED MARGINALS NEGATIVE PASS"},
+    {"id":"effect-outside-relation-inside-marginals","tla_invariant":"EffectOutsideRelationRejected","alloy_assertion":"MutantAggregate_effect_outside_relation_inside_marginals","alloy_witness":"MutantAggregate_effect_outside_relation_inside_marginals","reference_marker":"EFFECT OUTSIDE RELATION INSIDE MARGINALS NEGATIVE PASS"},
+    {"id":"downstream-relational-subset-bypass","tla_invariant":"DownstreamRelationBypassRejected","alloy_assertion":"MutantAggregate_downstream_relational_subset_bypass","alloy_witness":"MutantAggregate_downstream_relational_subset_bypass","reference_marker":"DOWNSTREAM RELATIONAL SUBSET BYPASS NEGATIVE PASS"}
+  ]
+}

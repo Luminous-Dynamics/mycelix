@@ -1,0 +1,104 @@
+{
+  "schema": "mycelix.sovereignty-role-concentration-formal-qualification-profile.v1",
+  "profile_id": "SOV-AI-ROLE-CONCENTRATION-FORMAL-QUAL-001-V1",
+  "status": "candidate-verification-profile",
+  "authority": "non-authoritative",
+  "related_issue": 4530,
+  "semantic_subject": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "source_branch": "sov-ai-formal-v4-role-concentration-subject-clean",
+    "head_sha": "824289de1940bcb6096120da21735cdaa87e3efd",
+    "tree_sha": "49aa06853c7484d0a442faa2784a438791e130f6"
+  },
+  "models": {
+    "tla": {
+      "path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.tla",
+      "git_blob_sha": "cf55d7662ee452a5ecefcaeb714ed7ca99cb33b5",
+      "config_path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1.cfg",
+      "config_git_blob_sha": "6f91aade6162dc6b245feef743df116998429ca9",
+      "invariants": [
+        "TypeOK",
+        "RoleConcentrationRequiresFinding",
+        "FullControlRequiresIndependentExternalReview"
+      ]
+    },
+    "negative_tla": {
+      "path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV1NegativeControls.tla",
+      "git_blob_sha": "bdc7ce97eee185b584cdcf8ac074f477516bc555",
+      "controls": {
+        "role-conflict": "RoleConcentrationRequiresFinding",
+        "full-control-review": "FullControlRequiresIndependentExternalReview",
+        "self-review-full-control": "FullControlRequiresIndependentExternalReview"
+      }
+    },
+    "alloy": {
+      "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyRoleConcentrationV1.als",
+      "git_blob_sha": "8fb88f37fa90e51bd6f6e3e8a116c008076fb971",
+      "solver": "SAT4J",
+      "bitwidth": 4,
+      "expected_sat": [
+        "ConcentratedRolesWithFinding",
+        "FullControlWithIndependentReview",
+        "FullControlWithRoleDisjointReview"
+      ],
+      "expected_unsat_runs": [
+        "SelfReviewOnlyFullControl",
+        "SameRoleReviewerFullControl"
+      ],
+      "expected_unsat_checks": [
+        "RoleConcentrationRequiresFindingInvariant",
+        "FullControlRequiresIndependentReviewInvariant",
+        "SelfReviewAloneDoesNotCountAsIndependentReview"
+      ],
+      "scope": {
+        "overall": 4,
+        "Subject": 4,
+        "Role": 4,
+        "int": 4
+      }
+    },
+    "reference": {
+      "path": "mycelix-governance/tools/formal/sovereignty_role_concentration_reference_explorer.py",
+      "git_blob_sha": "239fcee238c0bc33d924dcd880138f004da1b6f5"
+    }
+  },
+  "theorem": {
+    "separation_of_duties": "A subject may hold multiple qualification-path roles, but role concentration is surfaced as a conflict; full control requires a reviewer that is a distinct subject and holds none of the qualification-path roles.",
+    "roles": [
+      "Operator",
+      "Verifier",
+      "EvidenceArchive",
+      "Adjudicator"
+    ]
+  },
+  "claim_contract": {
+    "candidate_only": true,
+    "requires": [
+      "exact subject SHA/tree and model/config/reference blobs",
+      "bounded TLA+ canonical result",
+      "all profiled TLA+ negative controls",
+      "all profiled Alloy SAT witnesses",
+      "all profiled Alloy UNSAT runs/checks",
+      "explicit Alloy integer bitwidth",
+      "bounded reference oracle canonical and negative outputs",
+      "no self-review-only state qualifies as independent review"
+    ],
+    "bounded_result_is_not_unbounded_proof": true,
+    "formal_result_is_not_runtime_qualification": true,
+    "qualification_is_not_external_recognition": true
+  },
+  "research_basis": [
+    "NIST 2026 concept paper on identity and authority of software agents",
+    "OECD 2026 Artificial Intelligence markets",
+    "OECD 2025/2026 work on AI infrastructure switching barriers and contestability"
+  ],
+  "nonclaims": [
+    "No current AI is recognized as sovereign.",
+    "No legal personhood or political standing is established.",
+    "No runtime authority is granted.",
+    "This is a separation-of-duties governance theorem, not a general legal rule.",
+    "No claim is made that concentrated roles are unlawful.",
+    "No production implementation refinement is established.",
+    "No unbounded theorem is established by the finite model."
+  ]
+}
