@@ -94,6 +94,7 @@ jobs:
           assert contract["ruleset_source_identity_must_match_source_type"] is True
           assert contract["github_ref_pattern_pathname_semantics_must_be_bound"] is True
           assert contract["unobserved_repository_selector_properties_must_fail_closed"] is True
+          assert contract["repository_owner_identity_must_be_rechecked"] is True
           assert contract["effective_rule_provenance_must_be_bound"] is True
           assert contract["effective_rule_definition_must_match_observed_ruleset"] is True
           assert contract["repository_subject_identity_must_be_bound"] is True
