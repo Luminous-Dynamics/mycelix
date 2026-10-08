@@ -2,10 +2,9 @@
 import argparse, hashlib, json, re, subprocess
 from pathlib import Path
 
-IDS=["authority-epoch","request-commitment","policy-epoch","capability-expiry"]
+IDS=["authority-epoch","request-commitment","target","policy-epoch","adapter-profile","invocation-identity","capability-expiry-change","time-expiry"]
 
-def run(cmd):
-    return subprocess.run(cmd,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+def run(cmd): return subprocess.run(cmd,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 def sha(b): return hashlib.sha256(b).hexdigest()
 def fsha(p): return sha(p.read_bytes())
 def rows(out):
@@ -29,8 +28,7 @@ p=argparse.ArgumentParser()
 for n in ("matrix","tla","canonical-cfg","negative-tla","negative-cfg-dir","alloy","runner-class-dir","alloy-jar","tla-jar","reference","runtime","evidence-dir"):
     p.add_argument("--"+n,type=Path,required=True)
 a=p.parse_args(); a.evidence_dir.mkdir(parents=True,exist_ok=True)
-m=json.loads(a.matrix.read_text())
-assert m["schema"]=="mycelix.evidence-attestation-commit-time-race-control-matrix.v1"
+m=json.loads(a.matrix.read_text()); assert m["schema"]=="mycelix.evidence-attestation-commit-time-race-control-matrix.v1"
 controls=m["controls"]; assert [c["id"] for c in controls]==IDS
 head=run(["git","rev-parse","HEAD"]); tree=run(["git","rev-parse","HEAD^{tree}"])
 if head.returncode or tree.returncode: raise RuntimeError("head/tree resolution failed")
@@ -44,6 +42,7 @@ if ref.returncode: raise RuntimeError("reference failed")
 for c in controls:
     if c["reference_marker"] not in ref.stdout: raise RuntimeError("reference marker missing")
 receipt["reference"]={"returncode":0,"stdout_sha256":sha(ref.stdout.encode())}
+
 def tlc(cfg,module,label):
     md=a.evidence_dir/(label+"-metadir"); md.mkdir(parents=True,exist_ok=True)
     r=run(["java","-cp",str(a.tla_jar),"tlc2.TLC","-workers","1","-metadir",str(md),"-config",str(cfg),str(module)])
@@ -52,6 +51,7 @@ def tlc(cfg,module,label):
     v=set(re.findall(r"Error: Invariant ([A-Za-z][A-Za-z0-9_]*) is violated(?: by the initial state)?",r.stdout))
     if v: return v
     raise RuntimeError("TLC failed without classified invariant violation: "+" | ".join(r.stdout.splitlines()[-10:]))
+
 cv=tlc(a.canonical_cfg,a.tla,"tla-canonical")
 if cv: raise RuntimeError("canonical TLA violations: "+repr(sorted(cv)))
 receipt["tla"]={"canonical":"PASS","negatives":{}}
@@ -59,14 +59,17 @@ for c in controls:
     v=tlc(a.negative_cfg_dir/("EvidenceAttestationCommitTimeRaceV1Negative-"+c["id"]+".cfg"),a.negative_tla,"tla-negative-"+c["id"])
     if v != {c["tla_invariant"]}: raise RuntimeError("TLA isolation mismatch "+c["id"]+": "+repr(sorted(v)))
     receipt["tla"]["negatives"][c["id"]]=sorted(v)
+
 cp=f"{a.runner_class_dir}:{a.alloy_jar}"
 canon=run(["java","-cp",cp,"AgentDelegationAuthorityAlloyRunner",str(a.alloy)])
 (a.evidence_dir/"alloy-canonical.log").write_text(canon.stdout)
 if canon.returncode: raise RuntimeError("canonical Alloy failed")
 cr=rows(canon.stdout)
 required={"ValidAtomicCommitWitness":"SAT","CommitRequiresCurrentRevalidation":"UNSAT","CommitOnlyAfterCheck":"UNSAT","PreflightSnapshotExact":"UNSAT"}
-for c in controls: required[c["alloy_witness"]]="UNSAT"
-if {k:cr.get(k) for k in required} != required: raise RuntimeError("canonical Alloy mismatch: "+repr(cr))
+for c in controls:
+    required[c["alloy_witness"]]="UNSAT"
+    required[c["alloy_assertion"]]="UNSAT"
+if {k:cr.get(k) for k in required}!=required: raise RuntimeError("canonical Alloy mismatch: "+repr(cr))
 receipt["alloy"]={"canonical":cr,"mutations":{}}
 src=a.alloy.read_text()
 for c in controls:
@@ -76,10 +79,10 @@ for c in controls:
     (a.evidence_dir/("alloy-negative-"+c["id"]+".log")).write_text(mr.stdout)
     if mr.returncode: raise RuntimeError("Alloy mutant failed "+c["id"])
     rr=rows(mr.stdout)
-    if rr.get(c["alloy_witness"])!="SAT" or rr.get("CommitRequiresCurrentRevalidation")!="SAT":
+    if rr.get(c["alloy_witness"])!="SAT" or rr.get(c["alloy_assertion"])!="SAT" or rr.get("CommitRequiresCurrentRevalidation")!="SAT":
         raise RuntimeError("Alloy negative mismatch "+c["id"]+": "+repr(rr))
     changed={k for k in set(cr)|set(rr) if cr.get(k)!=rr.get(k)}
-    allowed={c["alloy_witness"],"CommitRequiresCurrentRevalidation"}
+    allowed={c["alloy_witness"],c["alloy_assertion"],"CommitRequiresCurrentRevalidation"}
     if changed != allowed: raise RuntimeError("unrelated Alloy outcomes changed "+c["id"]+": "+repr(sorted(changed)))
     receipt["alloy"]["mutations"][c["id"]]={"removed_fact":c["alloy_mutant_fact"],"changed_outcomes":sorted(changed),"outcomes":rr}
 receipt["result"]="ExecutedPass"
