@@ -1,0 +1,171 @@
+{
+  "schema": "mycelix.continual-adaptation.censoring-classification-anchor-witness-campaign.v1",
+  "status": "research-fixture-only",
+  "expected_trust_root_sha256": "sha256:46bbd3215736596eef8f8c0423590c1098f05a6fdd016b2ba10a6e232fc71d61",
+  "cases": [
+    {
+      "case_id": "CAW-001",
+      "base": "baseline",
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CAW-002",
+      "base": "baseline",
+      "remove_witness": "w03",
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CAW-003",
+      "base": "baseline",
+      "remove_witnesses": [
+        "w02",
+        "w03"
+      ],
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-004",
+      "base": "baseline",
+      "fork_witness": "w02",
+      "fork_manifest_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-005",
+      "base": "baseline",
+      "fork_witness": "w01",
+      "fork_manifest_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "fork_predecessor": "sha256:deadbeef",
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-006",
+      "base": "baseline",
+      "duplicate_witness": "w01",
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-007",
+      "base": "baseline",
+      "unknown_witness": "w99",
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-008",
+      "base": "baseline",
+      "tamper_witness": "w02",
+      "tamper_field": "authority_id",
+      "tamper_value": "mycelix.research.attacker.v1",
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-009",
+      "base": "baseline",
+      "tamper_witness": "w03",
+      "tamper_field": "manifest_version",
+      "tamper_value": 1,
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-010",
+      "base": "baseline",
+      "tamper_witness": "w03",
+      "tamper_field": "previous_manifest_sha256",
+      "tamper_value": "sha256:deadbeef",
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-011",
+      "base": "baseline",
+      "root_threshold": 1,
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-012",
+      "base": "baseline",
+      "root_registry_sha256": "sha256:deadbeef",
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-013",
+      "base": "baseline",
+      "registry_witness_id_swap": [
+        "w01",
+        "w02"
+      ],
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-014",
+      "base": "baseline",
+      "reorder": true,
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CAW-015",
+      "base": "candidate",
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CAW-016",
+      "base": "candidate",
+      "remove_witness": "w03",
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CAW-017",
+      "base": "candidate",
+      "candidate_break_predecessor": true,
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-018",
+      "base": "candidate",
+      "candidate_manifest_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-019",
+      "base": "baseline",
+      "conflicting_root_reference": "sha256:deadbeef",
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-020",
+      "base": "baseline",
+      "same_witness_twice": true,
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-021",
+      "base": "baseline",
+      "forged_quorum_claim": 4,
+      "expected_verdict": "unresolved",
+      "remove_witnesses": [
+        "w02",
+        "w03",
+        "w04"
+      ]
+    },
+    {
+      "case_id": "CAW-022",
+      "base": "baseline",
+      "duplicate_case_id_guard": true,
+      "expected_verdict": "unresolved",
+      "forged_quorum_claim": 4,
+      "same_witness_twice": true
+    },
+    {
+      "case_id": "CAW-023",
+      "base": "baseline",
+      "registry_threshold": 4,
+      "expected_verdict": "unresolved"
+    },
+    {
+      "case_id": "CAW-024",
+      "base": "candidate",
+      "candidate_gap": 2,
+      "expected_verdict": "unresolved"
+    }
+  ]
+}
