@@ -138,16 +138,20 @@ jobs:
             *) echo "unsupported Security Kernel invocation source: $INVOCATION_SOURCE" >&2; exit 1 ;;
           esac
           python3 - <<'PY'
-          import base64, json, os, urllib.request
+          import base64, json, os, urllib.error, urllib.request
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+          api_opener=urllib.request.build_opener(NoRedirect)
           repo=os.environ["BASE_REPOSITORY"]; pr_number=int(os.environ["CANDIDATE_PR"])
           req=urllib.request.Request("https://api.github.com/repos/"+repo+"/pulls/"+str(pr_number),headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(req,timeout=20) as response: pr=json.load(response)
+          with api_opener.open(req,timeout=20) as response: pr=json.load(response)
           assert pr["number"]==pr_number and pr["state"]=="open"
           assert pr["base"]["repo"]["full_name"]==repo and pr["base"]["repo"]["id"]==int(os.environ["BASE_REPOSITORY_ID"]) and pr["base"]["ref"]=="main"
           assert pr["head"]["repo"]["full_name"]==os.environ["CANDIDATE_REPOSITORY"] and pr["head"]["repo"]["id"]==int(os.environ["CANDIDATE_REPOSITORY_ID"]) and pr["head"]["sha"]==os.environ["CANDIDATE_SHA"]
           workflow_sha=os.environ["WORKFLOW_SHA"]; assert len(workflow_sha)==40
           wf=urllib.request.Request("https://api.github.com/repos/"+repo+"/contents/.github/workflows/security-kernel-independent-qualification.yml?ref="+workflow_sha,headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(wf,timeout=20) as response: workflow=json.load(response)
+          with api_opener.open(wf,timeout=20) as response: workflow=json.load(response)
           assert workflow.get("sha")==os.environ["TRUSTED_WORKFLOW_BLOB_SHA"]
           print("PASS: S1 exact candidate tuple and trusted workflow identity validated")
           PY
@@ -191,20 +195,24 @@ jobs:
           }
           trap source_volume_cleanup_on_failure EXIT
           python3 - "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$CANDIDATE_SHA" <<'PY' > "$RUNNER_TEMP/security-kernel-candidate-tree.env"
-          import json, os, sys, urllib.parse, urllib.request
+          import json, os, sys, urllib.error, urllib.parse, urllib.request
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+          api_opener=urllib.request.build_opener(NoRedirect)
           repository, repository_id, commit_sha = sys.argv[1], int(sys.argv[2]), sys.argv[3]
           repo_req = urllib.request.Request("https://api.github.com/repos/" + urllib.parse.quote(repository, safe="/"), headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(repo_req, timeout=20) as response: repository_obj=json.load(response)
+          with api_opener.open(repo_req, timeout=20) as response: repository_obj=json.load(response)
           assert repository_obj.get("full_name") == repository
           assert repository_obj.get("id") == repository_id
           assert repository_obj.get("disabled") is not True
           req = urllib.request.Request("https://api.github.com/repos/" + urllib.parse.quote(repository, safe="/") + "/commits/" + commit_sha, headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(req, timeout=30) as response: commit=json.load(response)
+          with api_opener.open(req, timeout=30) as response: commit=json.load(response)
           assert commit.get("sha") == commit_sha
           tree_sha=((commit.get("commit") or {}).get("tree") or {}).get("sha")
           assert isinstance(tree_sha,str) and len(tree_sha)==40
           post_repo_req=urllib.request.Request("https://api.github.com/repos/" + urllib.parse.quote(repository, safe="/"), headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(post_repo_req, timeout=20) as response: post_repository_obj=json.load(response)
+          with api_opener.open(post_repo_req, timeout=20) as response: post_repository_obj=json.load(response)
           assert post_repository_obj.get("full_name") == repository
           assert post_repository_obj.get("id") == repository_id
           assert post_repository_obj.get("disabled") is not True
@@ -213,12 +221,16 @@ jobs:
           candidate_tree="$(cat "$RUNNER_TEMP/security-kernel-candidate-tree.env")"
           printf "%s" "$candidate_tree" | grep -Eq '^[0-9a-f]{40}$'
           python3 - "$CANDIDATE_REPOSITORY" "$candidate_tree" <<'PY'
-          import json, os, sys, urllib.parse, urllib.request
+          import json, os, sys, urllib.error, urllib.parse, urllib.request
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+          api_opener=urllib.request.build_opener(NoRedirect)
           repository, tree_sha=sys.argv[1],sys.argv[2]
           max_entries=300_000; max_files=200_000; max_path_bytes=4096; max_total_path_bytes=64*1024*1024; max_file_bytes=64*1024*1024; max_total_bytes=768*1024*1024
           url="https://api.github.com/repos/"+urllib.parse.quote(repository,safe="/")+"/git/trees/"+tree_sha+"?recursive=1"
           req=urllib.request.Request(url,headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(req,timeout=30) as response: tree=json.load(response)
+          with api_opener.open(req,timeout=30) as response: tree=json.load(response)
           assert tree.get("sha")==tree_sha
           assert not tree.get("truncated")
           entries=tree.get("tree",[]); total=0; count=0; total_path_bytes=0; max_blob=0
@@ -1292,7 +1304,11 @@ jobs:
           local_receipt_digest="$(sha256sum "$RECEIPT_PATH" | awk '{print $1}')"
           test "$local_receipt_digest" = "$EXPECTED_ARTIFACT_DIGEST"
           python3 - <<'PY'
-          import json, os, urllib.request
+          import json, os, urllib.error, urllib.request
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+          api_opener=urllib.request.build_opener(NoRedirect)
           repo=os.environ["BASE_REPOSITORY"]
           artifact_id=os.environ["EXPECTED_ARTIFACT_ID"]
           req=urllib.request.Request(
@@ -1302,7 +1318,7 @@ jobs:
                   "Authorization":f"Bearer {os.environ['TOKEN']}",
                   "X-GitHub-Api-Version":"2022-11-28",
               })
-          with urllib.request.urlopen(req, timeout=20) as response:
+          with api_opener.open(req, timeout=20) as response:
               artifact=json.load(response)
           assert str(artifact["id"]) == artifact_id
           assert artifact["name"] == os.environ["EXPECTED_ARTIFACT_NAME"]
