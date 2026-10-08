@@ -7,6 +7,7 @@ the sole base graph so the generator cannot silently create a second model.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -27,7 +28,7 @@ def token(state: int, prefix: str) -> tuple[int, str]:
 def git_blob_sha(path: Path) -> str:
     data = path.read_bytes()
     header = f"blob {len(data)}\\0".encode("ascii")
-    return __import__("hashlib").sha1(header + data).hexdigest()
+    return hashlib.sha1(header + data).hexdigest()
 
 
 def main() -> int:
