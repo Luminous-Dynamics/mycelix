@@ -55,6 +55,12 @@ fact RequiredFieldsPresent {
       {Operation, Target, Amount, Currency} in p.effectFields
 }
 
+fact EffectFieldsDecisionBacked {
+  all p: EffectProjection |
+    p.committed = On implies
+      (p.effectFields - p.defaultedFields) in p.decision.decisionValueFields
+}
+
 fact ProjectionSourcesExact {
   all p: EffectProjection |
     p.committed = On implies
@@ -91,6 +97,7 @@ assert SemanticProjectionExact {
       p.effectFields in {Operation, Target, Amount, Currency, Destination} and
       p.effectFields in p.decision.authorizedFields and
       {Operation, Target, Amount, Currency} in p.effectFields and
+      (p.effectFields - p.defaultedFields) in p.decision.decisionValueFields and
       p.sourceOperation = Operation and
       p.sourceTarget = Target and
       p.sourceAmount = Amount and
@@ -109,6 +116,22 @@ pred CanonicalProjectionWitness {
     d.authorizedFields = {Operation, Target, Amount, Currency} and
     d.decisionValueFields = {Operation, Target, Amount, Currency} and
     p.effectFields = {Operation, Target, Amount, Currency} and
+    p.defaultedFields = none and
+    d.operationValue = TransferValue and d.targetValue = AliceTarget and
+    d.amountValue = Amount100 and d.currencyValue = UsdValue and
+    p.projectedOperation = TransferValue and p.projectedTarget = AliceTarget and
+    p.projectedAmount = Amount100 and p.projectedCurrency = UsdValue and
+    p.sourceOperation = Operation and p.sourceTarget = Target and
+    p.sourceAmount = Amount and p.sourceCurrency = Currency and
+    d.schema = PaymentV1 and p.schema = PaymentV1
+}
+
+pred UnbackedFieldWitness {
+  some d: Decision, p: EffectProjection |
+    p.committed = On and p.decision = d and
+    d.authorizedFields = {Operation, Target, Amount, Currency, Destination} and
+    d.decisionValueFields = {Operation, Target, Amount, Currency} and
+    p.effectFields = {Operation, Target, Amount, Currency, Destination} and
     p.defaultedFields = none and
     d.operationValue = TransferValue and d.targetValue = AliceTarget and
     d.amountValue = Amount100 and d.currencyValue = UsdValue and
@@ -236,6 +259,7 @@ pred RequiredOmissionWitness {
 check SemanticProjectionExact for 12 but 6 Decision, 6 EffectProjection, 6 AtomValue
 
 run CanonicalProjectionWitness for 12 but 6 Decision, 6 EffectProjection, 6 AtomValue
+run UnbackedFieldWitness for 12 but 6 Decision, 6 EffectProjection, 6 AtomValue
 run UncoveredFieldWitness for 12 but 6 Decision, 6 EffectProjection, 6 AtomValue
 run UnknownFieldWitness for 12 but 6 Decision, 6 EffectProjection, 6 AtomValue
 run ValueSubstitutionWitness for 12 but 6 Decision, 6 EffectProjection, 6 AtomValue
