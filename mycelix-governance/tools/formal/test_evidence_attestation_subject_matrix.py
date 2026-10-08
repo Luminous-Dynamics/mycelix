@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = Path(__file__).resolve().parents[3]
 M = ROOT / "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_SUBJECT_CONTROL_MATRIX_V1.json"
 T = ROOT / "mycelix-governance/specs/EvidenceAttestationProvenanceV1.tla"
 N = ROOT / "mycelix-governance/specs/EvidenceAttestationProvenanceV1NegativeControls.tla"
