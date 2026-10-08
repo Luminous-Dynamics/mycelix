@@ -1,0 +1,21 @@
+name: COS Attestor Digest Witness
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cos-conformance-qualification-attestor.yml"
+      - ".github/workflows/cos-attestor-digest-witness.yml"
+permissions:
+  contents: read
+jobs:
+  digest:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compute exact attestor workflow digest
+        run: |
+          set -euo pipefail
+          path=".github/workflows/cos-conformance-qualification-attestor.yml"
+          test -s "$path"
+          sha256sum "$path"
