@@ -24,6 +24,8 @@ jobs:
   prepare:
     name: Read-only qualification handoff
     runs-on: ubuntu-24.04
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
     timeout-minutes: 20
     outputs:
       claim_id: ${{ steps.claim.outputs.claim_id }}
@@ -372,6 +374,8 @@ jobs:
     if: needs.prepare.result == 'success'
     runs-on: ubuntu-24.04
     environment: cos-durable-publication
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
     permissions:
       actions: read
       contents: read
