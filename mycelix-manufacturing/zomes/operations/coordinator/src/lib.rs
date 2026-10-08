@@ -410,7 +410,9 @@ mod tests {
     fn test_routing_step_supports_typed_capability_requirement() {
         let input = RoutingStepInput {
             sequence: 10,
+            process_recipe_hash: Some(ActionHash::from_raw_36(vec![8; 36])),
             capability_requirement_hash: Some(ActionHash::from_raw_36(vec![7; 36])),
+            required_inspection_criterion_hashes: vec![],
             operation_name: "Mill".to_string(),
             machine_type: "CNC".to_string(),
             setup_time_min: 15,
@@ -427,7 +429,6 @@ mod tests {
         let steps = vec![
             RoutingStepInput {
                 sequence: 10,
-                process_recipe_hash: None,
                 process_recipe_hash: None,
                 capability_requirement_hash: None,
                 required_inspection_criterion_hashes: vec![],
