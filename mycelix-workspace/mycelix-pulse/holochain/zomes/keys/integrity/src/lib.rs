@@ -254,7 +254,7 @@ fn validate_create_used_pre_key(
 
 /// Validate key rotation
 fn validate_create_key_rotation(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     rotation: KeyRotation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Old and new bundles must be different
