@@ -1759,28 +1759,7 @@ jobs:
                   os.environ["MANIFEST_SHA256"],
                   os.environ["TRUST_ROOT_MANIFEST_SHA256"],
               )
-ublication"]["profile"] == "COS-TERMINAL-ATTESTATION-V1"
-              assert receipt["publication"]["state"] == "preconditions_satisfied_terminal_side_effect"
-              assert re.fullmatch(r"[0-9a-f]{64}", receipt["qualification_claim_id"])
-              expected_claim_id = hashlib.sha256(
-                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
-                  + bytes([0])
-                  + os.environ["REPOSITORY_ID"].encode("ascii")
-                  + bytes([0])
-                  + b"MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3"
-                  + bytes([0])
-                  + os.environ["PREDICATE_TYPE"].encode("utf-8")
-                  + bytes([0])
-                  + receipt["publication"]["profile"].encode("utf-8")
-                  + bytes([0])
-                  + b"ReferenceModelOnly"
-                  + bytes([0])
-                  + os.environ["MANIFEST_SHA256"].encode("ascii")
-                  + bytes([0])
-                  + os.environ["TRUST_ROOT_MANIFEST_SHA256"].encode("ascii")
-              ).hexdigest()
               assert receipt["qualification_claim_id"] == expected_claim_id
-
               assert set(receipt["attestor"]) == {"workflow_ref", "workflow_sha"}
               assert receipt["attestor"]["workflow_ref"] == f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main"
               assert receipt["attestor"]["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
