@@ -357,17 +357,32 @@ def classify_policies(parent: Policy, child: Policy, universe: Universe) -> dict
                 "relation": "effective-policy-denotation", "reason": "unknown conflict rule",
                 "finite_universe_size": len(universe.requests()), "qualification": "NOT_CLAIMED"}
 
-    parent_allow, child_allow = denotation(parent.allow, universe), denotation(child.allow, universe)
-    parent_deny, child_deny = deny_denotation(parent, universe), deny_denotation(child, universe)
-    parent_effective, child_effective = effective_denotation(parent, universe), effective_denotation(child, universe)
+    parent_allow = denotation(parent.allow, universe)
+    child_allow = denotation(child.allow, universe)
+    parent_deny = deny_denotation(parent, universe)
+    child_deny = deny_denotation(child, universe)
+    parent_effective = effective_denotation(parent, universe)
+    child_effective = effective_denotation(child, universe)
     expansion = ordered_difference(child_effective, parent_effective, universe)
+    allow_expansion = ordered_difference(child_allow, parent_allow, universe)
+    removed_parent_denies = ordered_difference(parent_deny, child_deny, universe)
+    allow_containment = not allow_expansion
+    deny_preservation = parent_deny <= child_deny
+    conflict_rule_preserved = parent.conflict_rule == child.conflict_rule
+
     result: dict[str, Any] = {
-        "schema": RESULT_SCHEMA, "relation": "effective-policy-denotation",
-        "finite_universe_size": len(universe.requests()), "parent_effective_size": len(parent_effective),
-        "child_effective_size": len(child_effective), "effective_denotational_containment": not expansion,
+        "schema": RESULT_SCHEMA, "relation": "effective-policy-denotation-plus-attenuation-components",
+        "finite_universe_size": len(universe.requests()),
+        "parent_effective_size": len(parent_effective), "child_effective_size": len(child_effective),
+        "effective_denotational_containment": not expansion,
+        "allow_denotational_containment": allow_containment,
+        "deny_preservation": deny_preservation,
+        "conflict_rule_preserved": conflict_rule_preserved,
         "parent_conflict_rule": parent.conflict_rule, "child_conflict_rule": child.conflict_rule,
-        "allow_denotations_equal": parent_allow == child_allow, "parent_deny_size": len(parent_deny),
-        "child_deny_size": len(child_deny), "qualification": "NOT_CLAIMED"}
+        "allow_denotations_equal": parent_allow == child_allow,
+        "parent_deny_size": len(parent_deny), "child_deny_size": len(child_deny),
+        "qualification": "NOT_CLAIMED"}
+
     if expansion:
         request = expansion[0]
         parent_allowed, child_allowed = request in parent_allow, request in child_allow
@@ -392,12 +407,41 @@ def classify_policies(parent: Policy, child: Policy, universe: Universe) -> dict
                     a.id for expr in parent.deny for a in expr.clauses if a.matches(request)),
                 "child_deny_clause_ids_matching_request": sorted(
                     a.id for expr in child.deny for a in expr.clauses if a.matches(request))}})
+    elif not allow_containment or not deny_preservation or not conflict_rule_preserved:
+        if allow_expansion:
+            request = allow_expansion[0]
+            cause = "allow-expansion-masked-by-deny" if request not in child_effective else "allow-denotation-expanded"
+            evidence = {
+                "request": request.json(), "cause": cause,
+                "parent_allow_admits": False, "child_allow_admits": True,
+                "parent_effective_admits": request in parent_effective,
+                "child_effective_admits": request in child_effective,
+            }
+        elif removed_parent_denies:
+            request = removed_parent_denies[0]
+            evidence = {
+                "request": request.json(),
+                "cause": "parent-deny-not-preserved-without-effective-expansion",
+                "parent_deny_matches": True, "child_deny_matches": False,
+                "parent_effective_admits": request in parent_effective,
+                "child_effective_admits": request in child_effective,
+            }
+        else:
+            evidence = {
+                "request": None, "cause": "conflict-rule-substitution-without-finite-witness",
+                "parent_effective_admits": None, "child_effective_admits": None,
+            }
+        result.update({
+            "status": "POLICY_ATTENUATION_VIOLATION",
+            "reason": "effective containment alone does not excuse allow expansion, deny deletion, or conflict-rule substitution",
+            "counterexample": evidence,
+        })
     else:
-        result.update({"status": "EFFECTIVE_POLICY_CONTAINMENT_PASS",
-                       "reason": "no request in the bounded universe gains effective authorization",
-                       "deny_preservation": parent_deny <= child_deny})
+        result.update({
+            "status": "EFFECTIVE_POLICY_CONTAINMENT_PASS",
+            "reason": "effective containment, allow containment, deny preservation, and conflict-rule preservation all hold",
+        })
     return result
-
 
 def evaluate_scenario(raw: dict[str, Any]) -> dict[str, Any]:
     if raw.get("schema") != SCENARIO_SCHEMA:
