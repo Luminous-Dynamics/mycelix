@@ -327,7 +327,9 @@ def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
 
 
 def _validate_ref_pattern_lists(includes: list[str], excludes: list[str]) -> bool:
-    if "~ALL" in excludes or "~DEFAULT_BRANCH" in excludes:
+    if "~ALL" in excludes or "~DEFAULT_BRANCH" in excludes or "~EMUS" in excludes:
+        return False
+    if "~EMUS" in includes:
         return False
     return not ("~ALL" in includes and includes != ["~ALL"])
 
@@ -1130,6 +1132,7 @@ def fixture_policy() -> dict[str, Any]:
             "ruleset_condition_schema_must_match_source_type": True,
             "ruleset_source_identity_must_match_source_type": True,
             "github_ref_pattern_pathname_semantics_must_be_bound": True,
+            "github_special_targeting_token_semantics_must_be_bound": True,
             "unobserved_repository_selector_properties_must_fail_closed": True,
             "repository_owner_identity_must_be_rechecked": True,
             "live_main_tip_must_be_rechecked": True,
