@@ -1331,6 +1331,6 @@ mod tests {
         };
         let json = serde_json::to_string(&output).unwrap();
         let back: MrpOutput = serde_json::from_str(&json).unwrap();
-        assert!(back.result.feasible);
+        assert!(back.result.full_feasible());
     }
 }
