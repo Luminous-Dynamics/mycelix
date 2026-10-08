@@ -716,6 +716,17 @@ pub trait DurableActionFenceStore {
         claim_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError>;
 
+    /// Explicitly abandon a stranded provider-entry claim and atomically move
+    /// the attempt to INDETERMINATE. This is a recovery operation, not a lease
+    /// timeout: callers must supply externally authenticated recovery authority.
+    fn atomically_recover_provider_entry_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError>;
+
     fn atomically_mark_indeterminate(
         &mut self,
         action_key: &ActionKeyV1,
@@ -746,6 +757,21 @@ pub trait DurableActionFenceStore {
         claim_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError> {
         self.mark_invoked_with_claim(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+        )
+    }
+
+    fn atomically_recover_provider_entry_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError> {
+        self.recover_provider_entry_claim(
             action_key,
             attempt_identity,
             owner_token_digest,
@@ -1198,6 +1224,9 @@ impl AtomicActionFenceModelV1 {
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError> {
+        if self.provider_entry_claims.contains_key(attempt_identity.digest()) {
+            return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+        }
         self.transition_state(
             action_key,
             attempt_identity,
@@ -1231,6 +1260,49 @@ impl AtomicActionFenceModelV1 {
         )?;
         self.provider_entry_claims.remove(attempt_identity.digest());
         Ok(())
+    }
+
+    pub fn recover_provider_entry_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError> {
+        let claim = self
+            .provider_entry_claims
+            .get(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::ProviderEntryClaimMismatch)?;
+        if claim.action_key_digest != action_key.digest()
+            || claim.owner_token_digest != owner_token_digest
+            || claim.claim_token_digest != claim_token_digest
+        {
+            return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+        }
+
+        let current = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+        if current.action_key_digest != action_key.digest()
+            || current.ownership_token_digest != owner_token_digest
+            || current.state != AttemptRecordState::DispatchPending
+        {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+
+        current.state = AttemptRecordState::Indeterminate;
+        current.reconciliation_token_digest = Some(reconciliation_token(
+            owner_token_digest,
+            attempt_identity.digest(),
+            action_key.digest(),
+        ));
+        let token = current
+            .reconciliation_token_digest
+            .clone()
+            .ok_or(ActionFenceMutationError::InvalidTransition)?;
+        self.provider_entry_claims.remove(attempt_identity.digest());
+        Ok(token)
     }
 
     pub fn mark_indeterminate(
