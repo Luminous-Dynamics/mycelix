@@ -268,6 +268,64 @@ pub fn evaluate_capability(
     Ok(())
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CapabilityCandidate {
+    pub machine_id: String,
+    pub profile: CapabilityProfile,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CapabilityDecision {
+    pub machine_id: String,
+    pub eligible: bool,
+    pub mismatch: Option<CapabilityMismatch>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CapabilitySelection {
+    pub selected_machine_id: Option<String>,
+    pub decisions: Vec<CapabilityDecision>,
+}
+
+/// Deterministically assess candidates in stable machine-id order and select
+/// the lexicographically first eligible machine. Network order and time do
+/// not participate in the decision.
+pub fn select_capable_machine(
+    requirement: &CapabilityRequirement,
+    mut candidates: Vec<CapabilityCandidate>,
+) -> CapabilitySelection {
+    candidates.sort_by(|a, b| a.machine_id.cmp(&b.machine_id));
+
+    let mut selected_machine_id = None;
+    let mut decisions = Vec::with_capacity(candidates.len());
+
+    for candidate in candidates {
+        match evaluate_capability(requirement, &candidate.profile) {
+            Ok(()) => {
+                let eligible = selected_machine_id.is_none();
+                if eligible {
+                    selected_machine_id = Some(candidate.machine_id.clone());
+                }
+                decisions.push(CapabilityDecision {
+                    machine_id: candidate.machine_id,
+                    eligible: true,
+                    mismatch: None,
+                });
+            }
+            Err(mismatch) => decisions.push(CapabilityDecision {
+                machine_id: candidate.machine_id,
+                eligible: false,
+                mismatch: Some(mismatch),
+            }),
+        }
+    }
+
+    CapabilitySelection {
+        selected_machine_id,
+        decisions,
+    }
+}
+
 impl MachineStatus {
     pub fn can_transition_to(&self, target: &MachineStatus) -> bool {
         match self {
@@ -471,6 +529,55 @@ mod capability_tests {
             evaluate_capability(&requirement, &qualified_cnc()),
             Err(CapabilityMismatch::Protocol)
         );
+    }
+
+    #[test]
+    fn selects_lexicographically_first_eligible_machine() {
+        let selection = select_capable_machine(
+            &aluminum_requirement(),
+            vec![
+                CapabilityCandidate {
+                    machine_id: "CNC-02".into(),
+                    profile: qualified_cnc(),
+                },
+                CapabilityCandidate {
+                    machine_id: "CNC-01".into(),
+                    profile: qualified_cnc(),
+                },
+            ],
+        );
+
+        assert_eq!(selection.selected_machine_id.as_deref(), Some("CNC-01"));
+        assert_eq!(selection.decisions.len(), 2);
+        assert!(selection.decisions.iter().all(|decision| decision.eligible));
+    }
+
+    #[test]
+    fn selection_retains_rejection_reason() {
+        let mut bad = qualified_cnc();
+        bad.tolerance_um = Some(100);
+
+        let selection = select_capable_machine(
+            &aluminum_requirement(),
+            vec![
+                CapabilityCandidate {
+                    machine_id: "CNC-BAD".into(),
+                    profile: bad,
+                },
+                CapabilityCandidate {
+                    machine_id: "CNC-GOOD".into(),
+                    profile: qualified_cnc(),
+                },
+            ],
+        );
+
+        assert_eq!(selection.selected_machine_id.as_deref(), Some("CNC-GOOD"));
+        assert_eq!(
+            selection.decisions[0].mismatch,
+            Some(CapabilityMismatch::Tolerance)
+        );
+        assert!(!selection.decisions[0].eligible);
+        assert!(selection.decisions[1].eligible);
     }
 }
 
