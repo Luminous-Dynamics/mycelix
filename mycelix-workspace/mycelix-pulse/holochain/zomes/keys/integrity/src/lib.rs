@@ -28,7 +28,7 @@ pub enum EntryTypes {
 }
 
 fn validate_create_hybrid_key_bundle_v2(
-    action: Create,
+    action: TypedAction<CreateData>,
     bundle: HybridKeyBundleV2,
 ) -> ExternResult<ValidateCallbackResult> {
     if bundle.version != HYBRID_KEY_BUNDLE_V2 || bundle.suite != HYBRID_SUITE_V2 {
@@ -64,7 +64,7 @@ fn validate_create_hybrid_key_bundle_v2(
     let mut signature = [0; 64];
     signature.copy_from_slice(&bundle.agent_signature);
     if !verify_signature_raw(
-        action.author,
+        action.author(),
         Signature(signature),
         hybrid_key_signing_content(&bundle),
     )? {
@@ -162,7 +162,7 @@ fn validate_update_pre_key_bundle(
 
 /// Validate pre-key bundle
 fn validate_create_pre_key_bundle(
-    action: Create,
+    action: TypedAction<CreateData>,
     bundle: PreKeyBundle,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate identity key length (32 bytes for X25519)
@@ -188,7 +188,7 @@ fn validate_create_pre_key_bundle(
     let mut signature = [0u8; 64];
     signature.copy_from_slice(&bundle.signed_pre_key_signature);
     if !verify_signature_raw(
-        action.author,
+        action.author(),
         Signature(signature),
         pre_key_signing_content(&bundle),
     )? {
@@ -233,7 +233,7 @@ fn validate_create_pre_key_bundle(
 /// (X3DH protocol -- the consumer marks the bundle owner's one-time key used) -- that
 /// cross-agent update path is a real, deliberate exception and is NOT touched here.
 fn validate_create_used_pre_key(
-    action: Create,
+    action: TypedAction<CreateData>,
     used: UsedPreKey,
 ) -> ExternResult<ValidateCallbackResult> {
     // Basic validation
@@ -243,7 +243,7 @@ fn validate_create_used_pre_key(
         ));
     }
 
-    if used.used_by != action.author {
+    if used.used_by != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "UsedPreKey must be recorded by the consuming agent (used_by forgery)".to_string(),
         ));
@@ -271,7 +271,7 @@ fn validate_create_key_rotation(
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action, bundle),
                 EntryTypes::HybridKeyBundleV2(bundle) => {
@@ -305,12 +305,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
