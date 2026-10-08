@@ -80,9 +80,9 @@ jobs:
           grep -Fq 'ProviderEntryClaimV1' "$source"
           grep -Fq 'atomically_claim_provider_entry' "$source"
           grep -Fq 'ProviderEntryPermitV1' "$boundary"
-          grep -Fq 'ProviderAdapterAuthorizer' "$boundary"
-          grep -Fq 'PinnedProviderAdapterAuthorizer' "$boundary"
-          grep -Fq 'authorize_provider_adapter' "$boundary"
+          grep -Fq 'PinnedProviderAdapterRegistry' "$boundary"
+          grep -Fq 'provider_registry' "$boundary"
+          grep -Fq 'provider adapter identity is not registered in the constructor-pinned registry' "$boundary"
           grep -Fq 'fn adapter_identity(&self)' "$boundary"
           grep -Fq 'provider_adapter_must_match_pinned_attempt_identity' "$boundary"
           grep -Fq 'ProviderActionContextV1' "$boundary"
@@ -116,6 +116,11 @@ jobs:
           fi
           if grep -Fq 'entry_verifier: &G' "$boundary"; then
             echo 'Per-call final-entry verifier injection is not qualified.'
+            exit 1
+          fi
+
+          if grep -Fq 'provider: &mut' "$boundary"; then
+            echo 'Provider must not be caller-injected into the effect boundary.'
             exit 1
           fi
           if grep -Fq 'pub fn store_mut' "$boundary"; then
