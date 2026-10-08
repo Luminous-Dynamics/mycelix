@@ -112,6 +112,112 @@ pub struct EconomicEffectV1 {
     pub credits: Vec<EconomicAllocation>,
 }
 
+/// Minimal mutable-account state used only to prove that one balance
+/// successor contains exactly the monetary mutation described by one effect.
+/// Non-monetary account metadata is deliberately required to remain unchanged.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountBalanceProjectionV1 {
+    pub owner: String,
+    pub balance: u64,
+    pub demurrage_marker: i64,
+    pub protected_state: Option<String>,
+}
+
+impl AccountBalanceProjectionV1 {
+    fn validate(&self) -> Result<(), EconomicEffectError> {
+        validate_id(&self.owner, EconomicEffectError::InvalidSourceOwner)?;
+        validate_id(
+            self.protected_state.as_deref().unwrap_or("none"),
+            EconomicEffectError::InvalidProtectedState,
+        )?;
+        Ok(())
+    }
+}
+
+/// Validate one mutable account projection against one typed economic effect.
+///
+/// This deliberately does not calculate demurrage. It only enforces the
+/// mutation boundary: demurrage metadata may change only for a Demurrage effect,
+/// protected/non-monetary metadata may not be smuggled into a monetary effect,
+/// and the account balance delta must match the exact typed allocation.
+pub fn validate_account_balance_projection(
+    effect: &EconomicEffectV1,
+    predecessor: &AccountBalanceProjectionV1,
+    successor: &AccountBalanceProjectionV1,
+) -> Result<(), EconomicEffectError> {
+    predecessor.validate()?;
+    successor.validate()?;
+    let validated = effect.validate(EffectValidationContext {
+        seen_effect_identities: &[],
+        seen_cause_action_references: &[],
+    })?;
+
+    if predecessor.owner != successor.owner
+        || predecessor.owner != effect.identity.source_owner
+            && effect
+                .debits
+                .iter()
+                .chain(effect.credits.iter())
+                .all(|allocation| allocation.party_id != predecessor.owner)
+    {
+        return Err(EconomicEffectError::ProjectionOwnerMismatch);
+    }
+
+    if predecessor.protected_state != successor.protected_state {
+        return Err(EconomicEffectError::HiddenNonMonetaryMutation);
+    }
+
+    match effect.identity.mutation_class {
+        MutationClass::Demurrage => {
+            if successor.demurrage_marker == predecessor.demurrage_marker {
+                return Err(EconomicEffectError::DemurrageMarkerUnchanged);
+            }
+            if successor.demurrage_marker < predecessor.demurrage_marker {
+                return Err(EconomicEffectError::DemurrageMarkerRegressed);
+            }
+        }
+        _ => {
+            if successor.demurrage_marker != predecessor.demurrage_marker {
+                return Err(EconomicEffectError::HiddenDemurrageMutation);
+            }
+        }
+    }
+
+    let debit = effect
+        .debits
+        .iter()
+        .find(|allocation| allocation.role == AllocationRole::Account && allocation.party_id == predecessor.owner);
+    let credit = effect
+        .credits
+        .iter()
+        .find(|allocation| allocation.role == AllocationRole::Account && allocation.party_id == predecessor.owner);
+
+    if debit.is_some() && credit.is_some() {
+        return Err(EconomicEffectError::ProjectionHasBothDebitAndCredit);
+    }
+
+    let expected_balance = if let Some(allocation) = debit {
+        predecessor
+            .balance
+            .checked_sub(allocation.amount)
+            .ok_or(EconomicEffectError::ProjectionUnderflow)?
+    } else if let Some(allocation) = credit {
+        predecessor
+            .balance
+            .checked_add(allocation.amount)
+            .ok_or(EconomicEffectError::ProjectionOverflow)?
+    } else {
+        predecessor.balance
+    };
+
+    if successor.balance != expected_balance {
+        return Err(EconomicEffectError::ProjectionDeltaMismatch);
+    }
+
+    let _ = validated;
+    Ok(())
+}
+
 impl EconomicEffectV1 {
     pub fn validate(
         &self,
@@ -412,6 +518,7 @@ pub enum EconomicEffectError {
     InvalidSuccessorReference,
     InvalidAsset,
     InvalidSourceOwner,
+    InvalidProtectedState,
     InvalidPartyId,
     ZeroAllocation,
     EmptyEffect,
@@ -432,6 +539,15 @@ pub enum EconomicEffectError {
     PredecessorReferenceMismatch,
     SelfReferentialSuccessor,
     InconsistentDuplicateAction,
+    ProjectionOwnerMismatch,
+    HiddenNonMonetaryMutation,
+    HiddenDemurrageMutation,
+    DemurrageMarkerUnchanged,
+    DemurrageMarkerRegressed,
+    ProjectionHasBothDebitAndCredit,
+    ProjectionUnderflow,
+    ProjectionOverflow,
+    ProjectionDeltaMismatch,
 }
 
 #[cfg(test)]
@@ -615,6 +731,122 @@ mod tests {
             validate(&effect),
             Err(EconomicEffectError::UnaccountedDebitRemainder { .. })
         ));
+    }
+
+    #[test]
+    fn transfer_projection_rejects_hidden_demurrage() {
+        let effect = base_transfer();
+        let predecessor = AccountBalanceProjectionV1 {
+            owner: "alice".into(),
+            balance: 100,
+            demurrage_marker: 10,
+            protected_state: None,
+        };
+        let successor = AccountBalanceProjectionV1 {
+            owner: "alice".into(),
+            balance: 0,
+            demurrage_marker: 11,
+            protected_state: None,
+        };
+        assert_eq!(
+            validate_account_balance_projection(&effect, &predecessor, &successor),
+            Err(EconomicEffectError::HiddenDemurrageMutation)
+        );
+    }
+
+    #[test]
+    fn projection_rejects_hidden_protected_state_mutation() {
+        let effect = base_transfer();
+        let predecessor = AccountBalanceProjectionV1 {
+            owner: "alice".into(),
+            balance: 100,
+            demurrage_marker: 10,
+            protected_state: None,
+        };
+        let successor = AccountBalanceProjectionV1 {
+            owner: "alice".into(),
+            balance: 0,
+            demurrage_marker: 10,
+            protected_state: Some("amber".into()),
+        };
+        assert_eq!(
+            validate_account_balance_projection(&effect, &predecessor, &successor),
+            Err(EconomicEffectError::HiddenNonMonetaryMutation)
+        );
+    }
+
+    #[test]
+    fn exact_source_and_recipient_projections_match_transfer() {
+        let effect = base_transfer();
+        let source_before = AccountBalanceProjectionV1 {
+            owner: "alice".into(),
+            balance: 100,
+            demurrage_marker: 10,
+            protected_state: None,
+        };
+        let source_after = AccountBalanceProjectionV1 {
+            owner: "alice".into(),
+            balance: 0,
+            demurrage_marker: 10,
+            protected_state: None,
+        };
+        assert!(validate_account_balance_projection(&effect, &source_before, &source_after).is_ok());
+
+        let recipient_before = AccountBalanceProjectionV1 {
+            owner: "bob".into(),
+            balance: 20,
+            demurrage_marker: 10,
+            protected_state: None,
+        };
+        let recipient_after = AccountBalanceProjectionV1 {
+            owner: "bob".into(),
+            balance: 120,
+            demurrage_marker: 10,
+            protected_state: None,
+        };
+        assert!(validate_account_balance_projection(&effect, &recipient_before, &recipient_after).is_ok());
+    }
+
+    #[test]
+    fn demurrage_projection_requires_distinct_forward_marker() {
+        let mut effect = base_transfer();
+        effect.identity.mutation_class = MutationClass::Demurrage;
+        effect.credits = vec![allocation("commons", AllocationRole::Commons, 100)];
+        assert!(validate_account_balance_projection(
+            &effect,
+            &AccountBalanceProjectionV1 {
+                owner: "alice".into(),
+                balance: 100,
+                demurrage_marker: 10,
+                protected_state: None,
+            },
+            &AccountBalanceProjectionV1 {
+                owner: "alice".into(),
+                balance: 0,
+                demurrage_marker: 11,
+                protected_state: None,
+            }
+        ).is_ok());
+
+        let unchanged = AccountBalanceProjectionV1 {
+            owner: "alice".into(),
+            balance: 0,
+            demurrage_marker: 10,
+            protected_state: None,
+        };
+        assert_eq!(
+            validate_account_balance_projection(
+                &effect,
+                &AccountBalanceProjectionV1 {
+                    owner: "alice".into(),
+                    balance: 100,
+                    demurrage_marker: 10,
+                    protected_state: None,
+                },
+                &unchanged,
+            ),
+            Err(EconomicEffectError::DemurrageMarkerUnchanged)
+        );
     }
 
     #[test]
