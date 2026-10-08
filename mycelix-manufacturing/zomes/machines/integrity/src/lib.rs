@@ -803,6 +803,25 @@ mod content_restriction_tests {
     }
 
     #[test]
+    fn transition_approval_interval_is_bounded() {
+        let start = Timestamp::from_micros(10_000);
+        let within = MachineControllerTransitionApprovalEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_hash: ActionHash::from_raw_36(vec![2; 36]),
+            controller_agent: AgentPubKey::from_raw_32(vec![3; 32]),
+            predecessor_action: ActionHash::from_raw_36(vec![4; 36]),
+            new_status: MachineStatus::Running,
+            work_order_hash: None,
+            valid_from: start,
+            valid_until: Timestamp::from_micros(start.as_micros() + MAX_MACHINE_TRANSITION_APPROVAL_MICROS),
+            issuer_signature: Signature(vec![0; 64]),
+        };
+        assert!(approval_valid_at(&within, Timestamp::from_micros(10_000)));
+        assert!(approval_valid_at(&within, Timestamp::from_micros(10_000 + MAX_MACHINE_TRANSITION_APPROVAL_MICROS)));
+        assert!(!approval_valid_at(&within, Timestamp::from_micros(9_999)));
+        assert!(!approval_valid_at(&within, Timestamp::from_micros(10_000 + MAX_MACHINE_TRANSITION_APPROVAL_MICROS + 1)));
+    }
+    #[test]
     fn control_field_change_requires_authority() {
         let original = valid_machine();
         let mut updated = original.clone();
@@ -852,6 +871,7 @@ mod content_restriction_tests {
             previous_status: MachineStatus::Offline,
             new_status: MachineStatus::Running,
             work_order_hash: None,
+            transition_approval_hash: None,
             changed_at: Timestamp::from_micros(0),
         };
         let result = validate_create_entry(EntryTypes::StatusLog(log)).unwrap();
