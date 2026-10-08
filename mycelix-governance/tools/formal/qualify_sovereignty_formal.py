@@ -90,6 +90,10 @@ def read_json(path: Path) -> tuple[dict, bytes]:
         fail(f"invalid JSON in {path}: {exc}")
 
 
+def tla_violations(output: str) -> set[str]:
+    return set(re.findall(r"Error: Invariant ([A-Za-z][A-Za-z0-9_]*) is violated\.", output))
+
+
 def run(cmd: list[str], *, cwd: Path | None = None, env: dict | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
@@ -194,6 +198,8 @@ def main() -> int:
     parser.add_argument("--workflow", type=Path, required=True)
     parser.add_argument("--crosswalk", type=Path, required=True)
     parser.add_argument("--reference-explorer", type=Path, required=True)
+    parser.add_argument("--runtime-metadata", type=Path, required=True)
+    parser.add_argument("--alloy-runner-class", type=Path, required=True)
     args = parser.parse_args()
 
     args.evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -201,6 +207,20 @@ def main() -> int:
     pins, pins_bytes = read_json(args.pins)
     crosswalk, crosswalk_bytes = read_json(args.crosswalk)
     assert_profile(profile)
+    runtime, runtime_bytes = read_json(args.runtime_metadata)
+    runtime_contract = profile.get("runtime", {})
+    if runtime.get("schema") != "mycelix.sovereignty-formal-runtime.v1":
+        fail("unexpected formal runtime metadata schema")
+    if runtime.get("nixpkgs_rev") != pins.get("nixpkgs_rev"):
+        fail("formal runtime Nixpkgs revision mismatch")
+    if runtime.get("jdk_package") != runtime_contract.get("jdk_package", "jdk17_headless"):
+        fail("formal runtime JDK package mismatch")
+    if runtime.get("java_major") != runtime_contract.get("java_major", 17):
+        fail("formal runtime Java major mismatch")
+    if not re.match(r'^openjdk version "17\.', str(runtime.get("java_version", ""))):
+        fail("formal runtime java version is not OpenJDK 17")
+    if not re.match(r"^javac 17\.", str(runtime.get("javac_version", ""))):
+        fail("formal runtime javac version is not 17")
     if crosswalk.get("schema") != "mycelix.sovereignty-formal-crosswalk.v1":
         fail("unexpected formal crosswalk schema")
     if crosswalk.get("authority") != "non-authoritative" or crosswalk.get("status") != "candidate-verification":
@@ -234,7 +254,8 @@ def main() -> int:
         str(p): sha256_file(p)
         for p in [
             args.profile, args.pins, args.tla, args.cfg, args.alloy,
-            args.negative_tla, args.alloy_runner_java, args.workflow, args.reference_explorer, args.crosswalk
+            args.negative_tla, args.alloy_runner_java, args.workflow, args.reference_explorer, args.crosswalk,
+        args.runtime_metadata, args.alloy_runner_class
         ]
     }
 
@@ -325,7 +346,10 @@ def main() -> int:
             "runner_sha256": sha256_file(Path(__file__)),
             "alloy_runner_sha256": sha256_file(args.alloy_runner_java),
             "crosswalk_sha256": sha256_bytes(crosswalk_bytes),
+            "runtime_metadata_sha256": sha256_bytes(runtime_bytes),
+            "alloy_runner_class_sha256": sha256_file(args.alloy_runner_class),
         },
+        "runtime": runtime,
         "tools": {
             "tla2tools": {
                 "version": pins["tools"]["tla2tools"]["version"],
@@ -368,9 +392,10 @@ def main() -> int:
         receipt["canonical"]["tla"] = record_command(evidence, "tla-canonical", tla_cmd, tla)
         if tla.returncode != 0 or CANONICAL_OK not in tla.stdout:
             fail("canonical TLA+ run did not complete cleanly")
-        for name in INVARIANTS:
-            if f"Error: Invariant {name} is violated." in tla.stdout:
-                fail(f"canonical TLA+ invariant violation: {name}")
+        canonical_violations = tla_violations(tla.stdout)
+        if canonical_violations:
+            fail("canonical TLA+ invariants violated: " + ", ".join(sorted(canonical_violations)))
+        receipt["canonical"]["tla"]["violated_invariants"] = sorted(canonical_violations)
 
         negative_dir = evidence / "tla-negative"
         negative_dir.mkdir()
@@ -399,15 +424,17 @@ def main() -> int:
             cmd = ["java", "-cp", str(args.tla_jar), "tlc2.TLC", "-workers", "1",
                    "-config", str(config), str(wrapper)]
             result = run(cmd)
+            violations = tla_violations(result.stdout)
             receipt["negative_controls"]["tla"][control] = {
                 **record_command(evidence, f"tla-negative-{control}", cmd, result),
                 "target_invariant": target,
+                "violated_invariants": sorted(violations),
                 "wrapper_sha256": sha256_file(wrapper),
                 "canonical_module_sha256": sha256_file(canonical_module),
                 "config_sha256": sha256_file(config),
             }
-            if result.returncode == 0 or f"Error: Invariant {target} is violated." not in result.stdout:
-                fail(f"TLA+ negative control {control} did not produce expected {target} counterexample")
+            if result.returncode == 0 or violations != {target}:
+                fail(f"TLA+ negative control {control} did not isolate expected {target} counterexample; observed {sorted(violations)}")
 
         alloy_cp = f"{args.alloy_runner_class_dir}:{args.alloy_jar}"
         alloy_cmd = ["java", "-cp", alloy_cp,
@@ -438,9 +465,19 @@ def main() -> int:
                 token = f"{scope[name]} {name}"
                 if token not in command_text:
                     fail("Alloy command omitted expected scope: " + token + " for " + row["label"])
+        for row in rows:
+            if not re.fullmatch(r"[0-9a-f]{64}", str(row.get("solution_sha256", ""))):
+                fail("Alloy runner omitted a valid solution digest for " + row["label"])
+            if row["label"] in EXPECTED_ALLOY_SAT:
+                if row["check"] is not False or row["expects"] != 1 or row["actual"] != "SAT":
+                    fail("Alloy SAT command contract mismatch: " + row["label"])
+            else:
+                if row["check"] is not True or row["expects"] != 0 or row["actual"] != "UNSAT":
+                    fail("Alloy UNSAT command contract mismatch: " + row["label"])
         receipt["canonical"]["alloy"]["commands"] = rows
         receipt["canonical"]["alloy"]["solver"] = "SAT4J"
         receipt["canonical"]["alloy"]["scope"] = profile["alloy"]["scope"]
+        canonical_alloy = {row["label"]: row["actual"] for row in rows}
 
         source = alloy_source
         negalloy = evidence / "alloy-negative"
@@ -456,13 +493,22 @@ def main() -> int:
             result = run(cmd)
             rows = alloy_outcomes(result.stdout)
             by_label = {row["label"]: row for row in rows}
+            if set(by_label) != set(canonical_alloy):
+                fail(f"Alloy negative control command label set changed: {fact_name}")
+            if by_label.get(target, {}).get("actual") != "SAT":
+                fail(f"Alloy negative control did not expose counterexample: {fact_name} -> {target}")
+            for label, expected_actual in canonical_alloy.items():
+                if label != target and by_label[label]["actual"] != expected_actual:
+                    fail(f"Alloy negative control changed unrelated outcome: {fact_name} -> {label}")
+            for row in rows:
+                if not re.fullmatch(r"[0-9a-f]{64}", str(row.get("solution_sha256", ""))):
+                    fail("Alloy negative control omitted solution digest: " + fact_name)
             receipt["negative_controls"]["alloy"][fact_name] = {
                 **record_command(evidence, f"alloy-negative-{fact_name}", cmd, result),
                 "target_assertion": target,
                 "mutated_model_sha256": sha256_file(mutated_file),
+                "outcomes": {label: by_label[label]["actual"] for label in sorted(by_label)},
             }
-            if result.returncode != 0 or by_label.get(target, {}).get("actual") != "SAT":
-                fail(f"Alloy negative control did not expose counterexample: {fact_name} -> {target}")
 
         after = {
             str(p): sha256_file(p)
