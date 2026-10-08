@@ -7,7 +7,7 @@ BadNominalPromotion(s, p) ==
   /\ Advanceable
   /\ NominalAlternative(s, p)
   /\ p \in nominalExit[s]
-  /\ nominalExit' = nominalExit
+  /\ nominalExit' = [nominalExit EXCEPT ![s] = @ \cup {p}]
   /\ portable' = [portable EXCEPT ![s] = FALSE]
   /\ effectiveExit' = [effectiveExit EXCEPT ![s] = @ \cup {p}]
   /\ UNCHANGED <<currentProvider, viableProviders,
