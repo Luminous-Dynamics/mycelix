@@ -12,8 +12,8 @@ use hdk::prelude::*;
 use planning_integrity::*;
 use manufacturing_common::{
     select_capable_machine, CapabilityCandidate, CapabilityMismatch, CapabilityProfile,
-    CapabilityQualification, CapabilityRequirement, MaterialShortage, MachineStatus, MrpResult,
-    PlannedOrder,
+    CapabilityQualification, CapabilityRequirement, MaterialShortage, MachineStatus, MrpFeasibility,
+    MrpResult, PlannedOrder,
 };
 use std::collections::HashMap;
 
@@ -608,13 +608,19 @@ pub fn run_mrp(input: RunMrpInput) -> ExternResult<MrpOutput> {
         }
     }
 
-    let feasible = shortages.is_empty();
+    let feasibility = if shortages.is_empty() {
+        MrpFeasibility::SchedulingNotEvaluated
+    } else {
+        MrpFeasibility::MaterialInfeasible
+    };
+    let feasible = matches!(feasibility, MrpFeasibility::Feasible);
 
     let result = MrpResult {
         planned_orders,
-        scheduled_operations: Vec::new(), // TODO: machine scheduling
+        scheduled_operations: Vec::new(), // Scheduling is not evaluated in this MRP-only pass.
         capacity_warnings: Vec::new(),
         material_shortages: shortages,
+        feasibility: feasibility.clone(),
         feasible,
     };
 
@@ -623,6 +629,7 @@ pub fn run_mrp(input: RunMrpInput) -> ExternResult<MrpOutput> {
         work_order_hashes: input.work_order_hashes.clone(),
         horizon_days: horizon,
         run_at: now,
+        feasibility,
         feasible,
     };
     let run_hash = create_entry(EntryTypes::MrpRun(run_entry))?;
@@ -758,6 +765,7 @@ mod tests {
                 quantity_available: 20,
                 short_quantity: 80,
             }],
+            feasibility: MrpFeasibility::MaterialInfeasible,
             feasible: false,
         };
         let json = serde_json::to_string(&result).unwrap();
@@ -793,6 +801,17 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn test_material_success_is_not_full_schedule_feasible() {
+        let feasibility = if Vec::<MaterialShortage>::new().is_empty() {
+            MrpFeasibility::SchedulingNotEvaluated
+        } else {
+            MrpFeasibility::MaterialInfeasible
+        };
+        assert_eq!(feasibility, MrpFeasibility::SchedulingNotEvaluated);
+        assert!(!matches!(feasibility, MrpFeasibility::Feasible));
+    }
+
     fn test_material_shortage_math() {
         let needed = 100u64;
         let available = 20u64;
@@ -809,6 +828,7 @@ mod tests {
                 scheduled_operations: vec![],
                 capacity_warnings: vec![],
                 material_shortages: vec![],
+                feasibility: MrpFeasibility::Feasible,
                 feasible: true,
             },
         };
