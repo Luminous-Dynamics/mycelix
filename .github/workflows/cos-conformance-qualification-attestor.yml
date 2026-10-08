@@ -75,6 +75,7 @@ jobs:
           TRUSTED_ATTESTOR_SHA: ${{ steps.trusted_source.outputs.trusted_workflow_sha }}
           TRUST_ROOT_REF: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
         run: |
           set -euo pipefail
           root_manifest=".github/cos/qualification-trust-root-v2.json"
@@ -134,6 +135,7 @@ jobs:
               "status",
               "claim_ceiling",
               "repository",
+              "repository_id",
               "default_branch",
               "governance",
               "components",
@@ -146,6 +148,7 @@ jobs:
           assert root["status"] == "candidate_not_authoritative_until_protected_adoption"
           assert root["claim_ceiling"] == "ReferenceModelOnly"
           assert root["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert root["repository_id"] == int(os.environ["GITHUB_REPOSITORY_ID"])
           assert root["default_branch"] == "main"
           assert root["governance"]["issue"] == 4601
           assert set(root["governance"]) == {"issue", "required_properties"}
@@ -333,13 +336,16 @@ jobs:
           predicate_validation = scanned[predicate_validation_start:predicate_validation_end]
           assert "          import re" in predicate_validation
           assert "expected_receipt_keys" in scanned
-          assert "claim_id_domain = b\"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\\\x00\"" in scanned
+          assert "claim_id_domain = b\"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3\\\\x00\"" in scanned
           assert "qualification_claim_id" in scanned
-          assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2" in scanned
+          assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3" in scanned
           assert "expected_claim_id = hashlib.sha256" in scanned
           assert "TRUST_ROOT_MANIFEST_SHA256" in scanned
-          assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2" in scanned
+          assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3" in scanned
           assert "changed_root_claim_id" in scanned
+          assert "repository_id" in scanned
+          assert "GITHUB_REPOSITORY_ID" in scanned
+          assert "changed_repository_claim_id" in scanned
           assert "changed_root_claim_id != receipt[\"qualification_claim_id\"]" in scanned
           assert "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3" in scanned
           receipt_step_start = scanned.index("      - name: Write attestor run receipt")
@@ -907,6 +913,8 @@ jobs:
           TRUST_ROOT_MANIFEST_PATH: .github/cos/qualification-trust-root-v2.json
           TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
           TRUST_ROOT_MANIFEST_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          PR_NUMBER: ${{ steps.bind.outputs.pr_number }}
+          REPOSITORY_ID: ${{ github.repository_id }}
         run: |
           set -euo pipefail
           mkdir -p signing-input
@@ -938,10 +946,13 @@ jobs:
               )
           manifest = strict_json_loads(manifest_path.read_text())
           manifest_sha = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+          repository_id = os.environ["REPOSITORY_ID"]
           trust_root_sha = os.environ["TRUST_ROOT_MANIFEST_SHA256"]
-          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3\\x00"
           qualification_claim_id = hashlib.sha256(
               claim_id_domain
+              + repository_id.encode("ascii")
+              + b"\\x00"
               + manifest_sha.encode("ascii")
               + b"\\x00"
               + trust_root_sha.encode("ascii")
@@ -951,6 +962,7 @@ jobs:
               "predicate_type": os.environ["PREDICATE_TYPE"],
               "claim_ceiling": manifest["claim_ceiling"],
               "repository": manifest["repository"],
+              "repository_id": int(os.environ["REPOSITORY_ID"]),
               "pr_number": manifest["pr_number"],
               "expected_head_sha": manifest["expected_head_sha"],
               "expected_base_sha": manifest["expected_base_sha"],
@@ -1021,6 +1033,7 @@ jobs:
           EXPECTED_MANIFEST_SHA: ${{ steps.validate_manifest.outputs.manifest_sha256 }}
           EXPECTED_TRUST_ROOT_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
           EXPECTED_TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
         run: |
           set -euo pipefail
           test -s signing-input/qualification-attestation-predicate-v3.json
@@ -1075,10 +1088,13 @@ jobs:
               parse_constant=reject_nonstandard_constant,
           )
           manifest_sha = hashlib.sha256(Path("signing-input/qualification-manifest-v1.json").read_bytes()).hexdigest()
+          repository_id = os.environ["EXPECTED_REPOSITORY_ID"]
           trust_root_sha = os.environ["EXPECTED_TRUST_ROOT_MANIFEST_SHA256"]
-          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3\\x00"
           expected_claim_id = hashlib.sha256(
               claim_id_domain
+              + repository_id.encode("ascii")
+              + b"\\x00"
               + manifest_sha.encode("ascii")
               + b"\\x00"
               + trust_root_sha.encode("ascii")
@@ -1086,6 +1102,7 @@ jobs:
           expected_predicate_keys = {
               "schema", "predicate_type", "claim_ceiling", "repository",
               "pr_number", "expected_head_sha", "expected_base_sha",
+              "repository_id",
               "qualification_claim_id",
               "publication",
               "qualification_result", "qualification_manifest_sha256",
@@ -1111,6 +1128,7 @@ jobs:
           assert re.fullmatch(r"[0-9a-f]{64}", predicate["qualification_claim_id"])
           assert predicate["qualification_claim_id"] == expected_claim_id
           assert predicate["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert predicate["repository_id"] == int(os.environ["EXPECTED_REPOSITORY_ID"])
           assert predicate["pr_number"] == int(os.environ["PR_NUMBER"])
           assert predicate["expected_head_sha"] == os.environ["EXPECTED_HEAD_SHA"]
           assert predicate["expected_base_sha"] == os.environ["EXPECTED_BASE_SHA"]
@@ -1447,6 +1465,8 @@ jobs:
           TRUST_ROOT_MANIFEST_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
           TRUST_ROOT_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
           TRUST_ROOT_CURRENT_MAIN_HEAD_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}
+          EXPECTED_BASE_SHA: ${{ needs.validate.outputs.expected_base_sha }}
+          REPOSITORY_ID: ${{ github.repository_id }}
         run: |
           test -s attestor-evidence/attestation-bundle-verification.json
           set -euo pipefail
@@ -1460,6 +1480,7 @@ jobs:
               "schema": "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3",
               "predicate_type": os.environ["PREDICATE_TYPE"],
               "repository": os.environ["GITHUB_REPOSITORY"],
+              "repository_id": int(os.environ["REPOSITORY_ID"]),
               "attestor": {
                   "workflow_ref": f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main",
                   "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
@@ -1482,7 +1503,9 @@ jobs:
                   "base_sha": os.environ["EXPECTED_BASE_SHA"],
               },
               "qualification_claim_id": hashlib.sha256(
-                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3\\x00"
+                  + os.environ["REPOSITORY_ID"].encode("ascii")
+                  + b"\\x00"
                   + os.environ["MANIFEST_SHA256"].encode("ascii")
                   + b"\\x00"
                   + os.environ["TRUST_ROOT_MANIFEST_SHA256"].encode("ascii")
@@ -1551,8 +1574,7 @@ jobs:
               sha40 = re.compile(r"^[0-9a-f]{40}$")
               sha64 = re.compile(r"^[0-9a-f]{64}$")
               expected_receipt_keys = {
-                  "schema", "predicate_type", "repository", "attestor",
-                  "trust_root", "verifier_run", "qualification_topology",
+                  "schema", "predicate_type", "repository", "repository_id", "attestor",                  "trust_root", "verifier_run", "qualification_topology",
                   "qualification_claim_id",
                   "publication",
                   "qualification_manifest_sha256", "predicate_sha256",
@@ -1562,12 +1584,15 @@ jobs:
               assert receipt["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3"
               assert receipt["predicate_type"] == os.environ["PREDICATE_TYPE"]
               assert receipt["repository"] == os.environ["GITHUB_REPOSITORY"]
+              assert receipt["repository_id"] == int(os.environ["REPOSITORY_ID"])
               assert set(receipt["publication"]) == {"profile", "state"}
               assert receipt["publication"]["profile"] == "COS-TERMINAL-ATTESTATION-V1"
               assert receipt["publication"]["state"] == "preconditions_satisfied_terminal_side_effect"
               assert re.fullmatch(r"[0-9a-f]{64}", receipt["qualification_claim_id"])
               expected_claim_id = hashlib.sha256(
-                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3\\x00"
+                  + os.environ["REPOSITORY_ID"].encode("ascii")
+                  + b"\\x00"
                   + os.environ["MANIFEST_SHA256"].encode("ascii")
                   + b"\\x00"
                   + os.environ["TRUST_ROOT_MANIFEST_SHA256"].encode("ascii")
@@ -1636,16 +1661,27 @@ jobs:
 
           changed_manifest = "0" * 64
           changed_claim_id = hashlib.sha256(
-              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3\\x00"
               + changed_manifest.encode("ascii")
               + b"\\x00"
               + receipt["trust_root"]["manifest_sha256"].encode("ascii")
           ).hexdigest()
           assert changed_claim_id != receipt["qualification_claim_id"]
 
+          changed_repository = str(int(receipt["repository_id"]) + 1)
+          changed_repository_claim_id = hashlib.sha256(
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3\\x00"
+              + changed_repository.encode("ascii")
+              + b"\\x00"
+              + receipt["qualification_manifest_sha256"].encode("ascii")
+              + b"\\x00"
+              + receipt["trust_root"]["manifest_sha256"].encode("ascii")
+          ).hexdigest()
+          assert changed_repository_claim_id != receipt["qualification_claim_id"]
+
           changed_root = "f" * 64
           changed_root_claim_id = hashlib.sha256(
-              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V3\\x00"
               + receipt["qualification_manifest_sha256"].encode("ascii")
               + b"\\x00"
               + changed_root.encode("ascii")
