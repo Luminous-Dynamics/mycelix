@@ -6,14 +6,14 @@
   "subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v6-contestability-subject",
-    "head_sha": "3f55878096d5eafb63917421d1d4f07e2ffbbee0",
+    "head_sha": "8b4b5f19b44ca7427ef70182b94c9c251d400a66",
     "tree_sha": null,
     "tree_binding": "required-exact-tree; qualification must fail closed until resolved"
   },
   "models": {
     "tla": {
       "path": "mycelix-governance/specs/EffectiveContestabilityV1.tla",
-      "git_blob_sha": "4469ce066173b846e6e95d1cf10a49e4edcbb87b",
+      "git_blob_sha": "0392dafe64a6d4ff000ee682340f2e6774b22955",
       "config_path": "mycelix-governance/specs/EffectiveContestabilityV1.cfg",
       "config_git_blob_sha": "deafbd5e4719e7439d63d7b505e539aba17fcb5d",
       "invariants": [
@@ -72,7 +72,7 @@
     },
     "reference": {
       "path": "mycelix-governance/tools/formal/effective_contestability_reference_explorer.py",
-      "git_blob_sha": "b36515a84daed286654fe5b93383f08aad78fa75",
+      "git_blob_sha": "0fd0288e228128135eeb08eb3abc8bf6154639a4",
       "controls": {
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
@@ -87,7 +87,8 @@
     "profile_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_QUALIFICATION_PROFILE_V1.json",
     "pins_path": "mycelix-governance/tools/formal/effective_contestability_pins.json",
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json",
-    "tree_binding_required": true
+    "tree_binding_required": true,
+    "crosswalk_git_blob_sha": "11321fe69128550ea97efdc7f3519ef5155bad2d"
   },
   "runtime": {
     "jdk_package": "jdk17_headless",
