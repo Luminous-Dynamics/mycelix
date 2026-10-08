@@ -83,7 +83,6 @@ NominalAlternative(s, p) ==
 
 IndependentAlternative(s, p) ==
   /\ NominalAlternative(s, p)
-  /\ portable[s]
   /\ controlRoot[p] # controlRoot[currentProvider[s]]
   /\ identityRoot[p] # identityRoot[currentProvider[s]]
   /\ evidenceRoot[p] # evidenceRoot[currentProvider[s]]
@@ -104,6 +103,7 @@ MarkNominalExit(s, p) ==
 MarkEffectiveExit(s, p) ==
   /\ Advanceable
   /\ IndependentAlternative(s, p)
+  /\ portable[s]
   /\ p \in nominalExit[s]
   /\ effectiveExit' = [effectiveExit EXCEPT ![s] = @ \cup {p}]
   /\ UNCHANGED <<currentProvider, viableProviders, nominalExit, portable,
@@ -176,7 +176,9 @@ TypeOK ==
   /\ reviewRequired \in [Subjects -> BOOLEAN]
 
 EffectiveExitIsIndependent ==
-  \A s \in Subjects, p \in effectiveExit[s] : IndependentAlternative(s, p)
+  \A s \in Subjects, p \in effectiveExit[s] :
+    /\ p # currentProvider[s]
+    /\ p \in nominalExit[s]
 
 EffectiveExitRequiresPortability ==
   \A s \in Subjects, p \in effectiveExit[s] : portable[s]
