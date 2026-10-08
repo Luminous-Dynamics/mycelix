@@ -177,6 +177,13 @@ pub struct ExecutionAttempt {
     pub not_entered_marker: Option<String>,
 }
 
+
+impl ExecutionAttempt {
+    pub fn action_key_anchor(&self) -> String {
+        format!("action-key:{}", self.action_key_digest)
+    }
+}
+
 /// Execution record for a proposal
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -354,6 +361,10 @@ pub enum LinkTypes {
     TimelockToExecution,
     /// Timelock to its durable execution-attempt record
     TimelockToExecutionAttempt,
+    /// Deterministic ActionKey index to execution-attempt records.
+    ///
+    /// This is a DHT discovery/index only; it is not a distributed linearizable lock.
+    ActionKeyToExecutionAttempt,
     /// Pending timelocks
     PendingTimelocks,
     /// Guardian to vetoes
@@ -1120,6 +1131,34 @@ mod tests {
         let mut second_claim = claimed.clone();
         second_claim.updated_at = Timestamp::from_micros(2);
         assert!(check_update_execution_attempt(&claimed, &second_claim).is_err());
+    }
+
+    #[test]
+    fn action_key_anchor_is_deterministic() {
+        let attempt = ExecutionAttempt {
+            id: "a".into(),
+            operation_id: "o".into(),
+            timelock_id: "t".into(),
+            proposal_id: "p".into(),
+            action_digest: "constitutional-material-action-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            action_key_digest: "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            attempt_identity: "constitutional-attempt-identity-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            native_replay_identity: "native".into(),
+            provider_environment: "env".into(),
+            provider_audience: "aud".into(),
+            adapter_identity: "adapter".into(),
+            executor: "did:mycelix:executor".into(),
+            status: ExecutionAttemptStatus::DispatchPending,
+            prepared_at: Timestamp::from_micros(1),
+            updated_at: Timestamp::from_micros(1),
+            outcome_evidence_commitment: None,
+            not_entered_marker: None,
+        };
+
+        assert_eq!(
+            attempt.action_key_anchor(),
+            "action-key:constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
     }
 
     #[test]
