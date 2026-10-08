@@ -67,8 +67,8 @@ function validateStructure(graph, policy) {
   if (claimRoots.length !== 1 || !nodes.has("claim") || nodes.get("claim").type !== "Claim") {
     return [false, "claim-root"];
   }
-  const cfg = policy.classification;
-  if (cfg.claim_scope_binding_required ?? true) {
+  const scopeCfg = policy.classification;
+  if (scopeCfg.claim_scope_binding_required ?? true) {
     const claim = nodes.get("claim");
     const claimScopeAnchor = claim.claim_scope_anchor;
     const expectedScopeAnchor = digest({id: claim.id, type: claim.type});
@@ -318,7 +318,7 @@ const report = {
   cases: rows,
   failures,
   policy_blob_sha: actualSha,
-  schema: "mycelix.continual-adaptation.censoring-classification-provenance-report.v1",
+  schema: "mycelix.continual-adaptation.censoring-classification-provenance-report.v2",
   status: "research-evidence-only"
 };
 fs.writeFileSync(reportPath, canonical(report) + "\n");
