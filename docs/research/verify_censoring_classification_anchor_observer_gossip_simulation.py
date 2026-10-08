@@ -211,7 +211,7 @@ def main():
         print("tree-head-quorum-preflight="+(e4 or e7),file=sys.stderr);return 1
     fork_head=gossip_fixture["subject_heads"]["w02-fork4"]
     ok,err=verify_subject_head(fork_head,wreg)
-    if not ok or fork_head["root_hash"]==q4["root"].hex():
+    if not ok or fork_head["root_hash"][7:]==q4["root"].hex():
         print("signed-fork-head-preflight="+(err or "not-conflicting"),file=sys.stderr);return 1
     for obs_id,obs in gossip_fixture["observations"].items():
         _,err=validate_observation(obs,greg,wreg,gossip_fixture,vds,head_fixture,q4)
