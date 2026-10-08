@@ -274,13 +274,10 @@ jobs:
             test -x "$TOOLCHAIN_ROOT/bin/$tool"
           done
           toolchain_manifest="$RUNNER_TEMP/d6u-toolchain-manifest.sha256"
-          sha256sum \
-            "$TOOLCHAIN_ROOT/bin/cargo" \
-            "$TOOLCHAIN_ROOT/bin/cargo-clippy" \
-            "$TOOLCHAIN_ROOT/bin/clippy-driver" \
-            "$TOOLCHAIN_ROOT/bin/rustc" \
-            "$TOOLCHAIN_ROOT/bin/rustfmt" \
-            > "$toolchain_manifest"
+          (
+            cd "$TOOLCHAIN_ROOT/bin"
+            sha256sum cargo cargo-clippy clippy-driver rustc rustfmt
+          ) > "$toolchain_manifest"
           test "$(wc -l < "$toolchain_manifest")" -eq 5
           docker --context default pull --platform linux/amd64 "$D6U_COMPILER_IMAGE"
           observed="$(docker --context default image inspect "$D6U_COMPILER_IMAGE" --format '{{index .RepoDigests 0}}')"
@@ -300,7 +297,7 @@ jobs:
               test "$(cargo --version | awk "{print \$2}")" = "1.96.1";
               test -x /toolchain/bin/cargo-clippy;
               test -x /toolchain/bin/clippy-driver;
-              sha256sum -c /toolchain-manifest;
+              cd /toolchain/bin; sha256sum -c /toolchain-manifest;
               test ! -e /var/run/docker.sock;
               test "$(grep -E "^CapEff:" /proc/self/status | awk "{print \$2}")" = "0000000000000000";
             '
