@@ -163,16 +163,16 @@ def explore(transitions):
     while q:
         st,path=q.popleft()
         bad=violations(st)
-        if bad:return path,bad
+        if bad:return st,path,bad
         if len(path)==MAX_DEPTH:continue
         for tr in transitions:
             ns=step(st,*tr)
             if ns is not None and ns not in seen:
                 seen.add(ns);q.append((ns,path+[tr]))
-    return None,[]
+    return None,None,[]
 
 def main():
-    path,bad=explore(NORMAL)
+    st,path,bad=explore(NORMAL)
     assert path is None,(path,bad)
     print("CANONICAL PASS: no bounded role-review lifecycle invariant violation through depth 6")
 
@@ -184,14 +184,21 @@ def main():
       ("reviewer-role-drift", [("reviewer-role-drift-bad",s,reviewer,r) for s in SUBJECTS for reviewer in SUBJECTS if reviewer!=s for r in ROLES], "ReviewerRoleDisjointness"),
     ]
     for name,extra,target in controls:
-        path,bad=explore(NORMAL+extra)
+        st,path,bad=explore(NORMAL+extra)
         assert path is not None and target in bad,(name,path,bad)
         print(f"NEGATIVE PASS: {name} -> {target} counterexample at depth {len(path)}")
 
     # Positive bounded regression: after a review closes, its reviewer may later take a role.
     transitions=NORMAL+[("reviewer-after-close",s,reviewer,r) for s in SUBJECTS for reviewer in SUBJECTS if reviewer!=s for r in ROLES]
-    path,bad=explore(transitions)
+    st,path,bad=explore(transitions)
     assert path is None,(path,bad)
+
+    # Directed reachability witness: review -> close -> reviewer role.
+    seed = initial()
+    s1 = step(seed, "review", "s1", "s2")
+    s2 = step(s1, "close", "s1") if s1 else None
+    s3 = step(s2, "reviewer-after-close", "s1", "s2", "operator") if s2 else None
+    assert s3 is not None and "s2" in {k for k,v in s3.holders if "s2" in v}
     print("POSITIVE PASS: closed-review history permits later reviewer role reacquisition")
 
     print("BOUNDED ROLE-REVIEW LIFECYCLE EXPLORATION PASS: smoke evidence only")
