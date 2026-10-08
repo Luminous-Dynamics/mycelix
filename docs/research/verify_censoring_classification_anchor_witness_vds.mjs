@@ -51,7 +51,7 @@ function evaluate(f,c){
 const [fp,cp,op]=process.argv.slice(2);if(!op)process.exit(2);
 const f=JSON.parse(fs.readFileSync(fp,"utf8")),c=JSON.parse(fs.readFileSync(cp,"utf8"));
 if(f.schema!==FIXTURE||c.schema!==CAMPAIGN||c.case_count!==15||c.cases.length!==15)process.exit(1);
-const ids=c.cases.map(x=>x.case_id);if(new Set(ids).size!==ids.length)process.exit(1);
+const ids=c.cases.map(x=>x.case_id);if(new Set(ids).size!==ids.length)process.exit(1);if(subproof(4,f.entries.slice(0,7),true).map(x=>"sha256:"+x.toString("hex")).join("|")!==f.consistency_proof_4_to_7.join("|"))process.exit(1);
 const rows=[],failures=[];
 for(const x of c.cases){const [v,r]=evaluate(f,x);const row={case_id:x.case_id,expected_verdict:x.expected_verdict,actual_verdict:v,reason:r};rows.push(row);if(v!==x.expected_verdict)failures.push([x.case_id,x.expected_verdict,v,r]);}
 fs.writeFileSync(op,canonical({schema:"mycelix.continual-adaptation.censoring-classification-anchor-witness-vds-report.v1",status:"research-evidence-only",case_count:15,cases:rows,failures})+"\n");
