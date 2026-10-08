@@ -12,6 +12,11 @@ BadContributorSubstitution ==
         Capability2 |-> {Claim3}]
   /\ UNCHANGED inputClaims
 
+NegativeInit ==
+  /\ inputClaims = {Claim1, Claim2}
+  /\ composedAuthority = ExpectedAuthority
+  /\ contributorClaims = ExpectedContributors
+
 NegativeNext == BadContributorSubstitution
-NegativeSpec == Init /\ [][NegativeNext]_vars
+NegativeSpec == NegativeInit /\ [][NegativeNext]_vars
 =========================================================================
