@@ -838,6 +838,8 @@ Both reference implementations reject malformed or duplicate-key raw inputs befo
 
 Local differential rehearsal: 9 raw-input cases / 0 failures in Python and 0 failures in Node.
 
+Current research counts are: 26 fixed ledger cases, 288 generated property cases, 9 raw-input parser cases, 6 shared-claim projection cases, and 7 policy-liveness mutations. These are development evidence only and are not an independent qualification result.
+
 This is still research/development evidence only. It does not establish equivalence with every JSON parser implementation.
 
 ## Executable ledger reference
@@ -956,7 +958,7 @@ Claim-local projection begins at the claim root and traverses only the policy-de
 
 Claim-relevant provenance is represented by explicit typed edges. Hidden fields such as a free-form derived_from attribute are not sufficient to establish graph-addressable ancestry.
 
-The first implementation is exercised by the fixed adversarial corpus plus a deterministic 256-case generated property campaign.
+The first implementation is exercised by the fixed adversarial corpus plus a deterministic 288-case generated property campaign.
 
 
 ## Directed projection and typed relation endpoints
@@ -1099,16 +1101,14 @@ Mycelix:
 - #4565 — adaptive peeking and multiplicity;
 - #4566 — interference/carryover/shared-environment contamination;
 - #4569 — evaluator identity/state integrity and assessor-adaptation controls;
+- #4570 — action-dependent observation and policy-induced distribution shift;
 - #4571 — experiment-attempt completeness and immutable negative evidence;
 - #4577 — source-to-target transportability and target-regime validation;
-- #4570 — action-dependent observation and policy-induced distribution shift.
-- #4579 — freshness and target-regime drift after transport validation;
+- #4579 — freshness and target-regime drift;
 - #4598 — intervention-semantic consistency across regimes;
 - #4599 — measurement invariance across regimes;
-- #4617 — canonical claim-local evidence ledger, executable fixtures, and differential reference verification;
-- #4655 — directed projection and shared-claim scope regression;
-- #4618 — evidence dependence and shared-ancestry accounting;
-- #4634 — raw-input parser integrity;
+- #4617 — canonical claim-local evidence ledger and executable fixtures;
+- #4618 — evidence dependence and shared ancestry;
 - #4634 — raw receipt parsing and parser-equivalence attacks;
 - #4646 — semantic graph canonicalization and order-invariant evidence identity;
 - #4647 — claim-local projection and explicit provenance-edge closure;
@@ -1117,29 +1117,26 @@ Mycelix:
 - #4655 — directed claim-local projection;
 - #4658 — typed relation endpoint constraints;
 - #4661 — declarative policy-rule liveness;
-- #4646 — semantic graph canonicalization and order-invariant evidence identity;
-- #4647 — claim-local projection and explicit provenance-edge closure;
-- #4648 — deterministic property/metamorphic mutation campaign;
-- #4652 — exact policy identity binding;
-- #4652 — exact policy identity binding to executable verifier and campaign;
-- #4655 — relation-direction-aware claim-local projection;
-- #4658 — typed relation endpoint constraints;
+- #4665 — full RFC 8785 canonicalization beyond the restricted subset.
 
 Symthaea:
 
-- #55 — stronger continual-compositional validation plan;
-- #3361 — Phase-II continual-learning tournament;
+- #55 — stronger continual/compositional validation;
+- #3322 — perturbational effectome;
+- #3361 — continual-learning tournament;
 - #3395 — uncertainty-guided metaplasticity;
 - #3446 — context remapping and representational reserve;
-- #5859 — sensor provenance-aware learning;
-- #7029 — unified continual-adaptation evaluation spine;
-- #7030 — adaptive cognition evaluation with evaluator-state and observation-shift integrity.
-- #7041 — target-regime transport of continual-adaptation evidence;
-- #7043 — freshness of transported adaptation evidence under regime drift;
-- #7056 — intervention-version and measurement invariance for transported adaptation evidence;
-- #7065 — evidence dependence and shared ancestry in adaptation claims;
+- #5859 — sensor provenance and anti-self-evidence;
+- #7029 — unified continual-adaptation evaluation;
+- #7030 — evaluator-state and observation-shift integrity;
+- #7041 — target-regime transport of adaptation evidence;
+- #7043 — freshness under regime drift;
+- #7056 — intervention-version and measurement invariance;
+- #7065 — evidence dependence and shared ancestry;
+- #7093 — qualification-policy identity and rule liveness.
 
 ## Claim ceiling
+
 
 A qualified implementation of this spine establishes only that the declared synthetic evaluation protocol correctly enforces its identities, partitions, counterfactual structure, evaluator integrity, action-dependent observation controls, statistical controls, resource reporting, and protected outcomes.
 
