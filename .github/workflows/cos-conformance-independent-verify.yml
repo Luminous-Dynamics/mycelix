@@ -1316,6 +1316,7 @@ jobs:
             "repository": "${GITHUB_REPOSITORY}",
             "pr_number": "${{ needs.prepare.outputs.pr_number }}",
             "expected_head_sha": "${{ needs.prepare.outputs.expected_head_sha }}",
+            "live_main_sha": "${{ needs.prepare.outputs.live_main_sha }}",
             "tested_commit_sha": "${tested_commit_sha}",
             "head_repository": "${{ needs.prepare.outputs.head_repository }}",
             "trusted_workflow_sha": "${{ needs.prepare.outputs.trusted_workflow_sha }}",
@@ -1362,6 +1363,7 @@ jobs:
           assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2"
           assert envelope["claim_ceiling"] == "ReferenceModelOnly"
           assert sha40.fullmatch(envelope["expected_head_sha"])
+          assert sha40.fullmatch(envelope["live_main_sha"])
           assert sha40.fullmatch(envelope["tested_commit_sha"])
           assert envelope["expected_head_sha"] == envelope["tested_commit_sha"]
           assert sha40.fullmatch(envelope["trusted_workflow_sha"])
