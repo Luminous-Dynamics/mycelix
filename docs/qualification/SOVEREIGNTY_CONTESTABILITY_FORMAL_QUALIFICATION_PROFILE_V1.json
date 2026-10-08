@@ -6,8 +6,8 @@
   "subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v6-contestability-subject",
-    "head_sha": "0ec459f0ddf83b9a42bd63da3411943824093eba",
-    "tree_sha": "af45f89488cc70392d391e0085ffbb952ffcbaea",
+    "head_sha": "f7e5366138ceff707ca2466bcae703a971bf5f5f",
+    "tree_sha": "c73a54d4abed35fa83b2dad5f1823aa442b4745d",
     "tree_binding": "verified-exact-tree; independently resolved from the exact subject commit"
   },
   "models": {
@@ -30,15 +30,15 @@
     },
     "negative_tla": {
       "path": "mycelix-governance/specs/EffectiveContestabilityV1NegativeControls.tla",
-      "git_blob_sha": "ceae5af0ba4f1e10430e139692eeea0a2f91fce9",
+      "git_blob_sha": "13df98360d8974ee0989921e404bd2f7c2a04aac",
       "controls": {
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
         "switch-obligation": "MigrationPreservesObligationsAndHistory",
+        "switch-authority": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction",
         "switch-jurisdiction": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction",
-        "switch-review": "HighSwitchingCostTriggersReview",
-        "switch-authority": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction"
+        "switch-review": "HighSwitchingCostTriggersReview"
       }
     },
     "alloy": {
