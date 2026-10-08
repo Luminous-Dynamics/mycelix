@@ -1,3 +1,6 @@
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.ast.Command;
@@ -8,6 +11,16 @@ import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.TranslateAlloyToKodkod;
 
 public final class SovereigntyAlloyQualificationRunner {
+    private static String sha256(String s) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256")
+            .digest(s.getBytes(StandardCharsets.UTF_8));
+        StringBuilder out = new StringBuilder();
+        for (byte b : digest) {
+            out.append(String.format("%02x", b));
+        }
+        return out.toString();
+    }
+
     private static String json(String s) {
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
@@ -28,6 +41,7 @@ public final class SovereigntyAlloyQualificationRunner {
                 A4Solution answer = TranslateAlloyToKodkod.execute_command(
                     reporter, world.getAllReachableSigs(), command, options);
                 String actual = answer.satisfiable() ? "SAT" : "UNSAT";
+                String solutionSha256 = sha256(answer.toString());
                 System.out.println("{\"index\":"+index+",\"label\":\""+json(command.label)
                     +"\",\"check\":"+command.check+",\"expects\":"+command.expects
                     +",\"actual\":\""+actual+"\",\"command\":\""+json(command.toString())+"\"}");
