@@ -14,11 +14,12 @@ on:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
 
 jobs:
   prepare:
     name: Prepare deterministic durable publication
+    environment: cos-durable-publication
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
@@ -49,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${COS_RELEASE_ADMIN_TOKEN}" || {
-            echo "COS_RELEASE_ADMIN_TOKEN is required for immutable-release administration read/write" >&2
+            echo "COS_RELEASE_ADMIN_TOKEN is required inside the protected cos-durable-publication environment" >&2
             exit 1
           }
           GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/immutable-releases" > immutable-release-capability.json
