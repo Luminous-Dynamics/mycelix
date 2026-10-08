@@ -1641,6 +1641,77 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         self.admit(action_key, attempt_identity, record)
     }
 
+    fn atomically_mark_dispatch_pending(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.mark_dispatch_pending(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+        )
+    }
+
+    fn atomically_claim_provider_entry(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<ProviderEntryClaimV1, ActionFenceMutationError> {
+        self.claim_provider_entry(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+        )
+    }
+
+    fn atomically_mark_invoked(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.mark_invoked_with_claim(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+        )
+    }
+
+    fn atomically_recover_provider_entry_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError> {
+        self.recover_provider_entry_claim(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+        )
+    }
+
+    fn atomically_mark_indeterminate(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError> {
+        self.mark_indeterminate(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+        )
+    }
+
     fn atomically_release_after_failed(
         &mut self,
         action_key: &ActionKeyV1,
@@ -1679,6 +1750,34 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         marker: String,
     ) -> Result<(), ActionFenceMutationError> {
         self.release_not_entered(action_key, attempt_identity, owner_token_digest, marker)
+    }
+
+    fn durably_read_attempt(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<AttemptRecordV1>, String> {
+        Ok(self.attempts.get(attempt_identity.digest()).cloned())
+    }
+
+    fn durably_read_fence(
+        &self,
+        action_key: &ActionKeyV1,
+    ) -> Result<Option<ActionFenceRecordV1>, String> {
+        Ok(self.fences.get(action_key.digest()).cloned())
+    }
+
+    fn durably_read_replay_binding(
+        &self,
+        native_replay_identity: &str,
+    ) -> Result<Option<NativeReplayBindingV1>, String> {
+        Ok(self.replay_bindings.get(native_replay_identity).cloned())
+    }
+
+    fn durably_read_provider_entry_claim(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<ProviderEntryClaimV1>, String> {
+        Ok(self.provider_entry_claims.get(attempt_identity.digest()).cloned())
     }
 }
 
