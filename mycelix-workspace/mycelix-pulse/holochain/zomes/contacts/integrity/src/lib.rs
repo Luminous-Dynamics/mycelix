@@ -118,7 +118,7 @@ pub enum LinkTypes {
 
 /// Validate contact entry
 fn validate_create_contact(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     contact: Contact,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate display name
