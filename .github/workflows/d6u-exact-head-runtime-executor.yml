@@ -209,6 +209,53 @@ jobs:
               assert len(data) == info.file_size
 
           record = read_record(data)
+          expected_record_fields = {
+              "record_schema",
+              "provenance_mode",
+              "pull_request_number",
+              "qualified_subject_sha",
+              "qualified_subject_ref",
+              "status",
+              "commit",
+              "workflow",
+              "workflow_ref",
+              "workflow_file_commit_sha",
+              "workflow_file_blob_sha",
+              "run_id",
+              "run_attempt",
+              "event",
+              "runner_os",
+              "runner_image",
+              "rust_action_sha",
+              "rust_action_toolchain",
+              "rust_expected_version",
+              "checkout_action_sha",
+              "upload_artifact_action_sha",
+              "rust",
+              "rust_verbose_commit",
+              "cargo",
+              "rustfmt",
+              "python",
+              "cargo_lock_sha256",
+              "canon1_corpus_sha256",
+              "canon1_manifest_sha256",
+              "canon2_fixture_sha256",
+              "canon2_fixture_git_blob_sha",
+              "canon2_manifest_git_blob_sha",
+              "canon1_manifest_git_blob_sha",
+              "canon1_corpus_git_blob_sha",
+              "d6s_authority_ledger_schema",
+              "d6s_runtime_evidence_status",
+              "canon2_runtime_binding_status",
+              "rust_corpus",
+              "canon1_independent_verifier",
+              "canon2_authority_boundary_fixture",
+              "claim_ceiling",
+          }
+          assert set(record) == expected_record_fields, (
+              f"D6S canonical record schema mismatch: "
+              f"expected={sorted(expected_record_fields)!r}, observed={sorted(record)!r}"
+          )
           required = {
               "status",
               "commit",
