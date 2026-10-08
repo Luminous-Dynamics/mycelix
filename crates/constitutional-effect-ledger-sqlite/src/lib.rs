@@ -909,9 +909,9 @@ fn validate_no_explicit_managed_indexes(conn: &Connection) -> Result<(), String>
                 SELECT 1 FROM sqlite_master
                 WHERE type = 'index'
                   AND sql IS NOT NULL
-                  AND tbl_name IN (?1, ?2, ?3, ?4)
+                  AND tbl_name IN (?1, ?2, ?3, ?4, ?5)
             )",
-            params![META_TABLE, ATTEMPT_TABLE, FENCE_TABLE, REPLAY_TABLE],
+            params![META_TABLE, ATTEMPT_TABLE, FENCE_TABLE, REPLAY_TABLE, ENTRY_CLAIM_TABLE],
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
@@ -1182,6 +1182,42 @@ fn validate_foreign_keys(conn: &Connection) -> Result<(), String> {
     {
         return Err(format!(
             "unexpected {FENCE_TABLE} foreign keys: {actual:?}"
+        ));
+    }
+
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA foreign_key_list({ENTRY_CLAIM_TABLE})"))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let actual = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    let expected = vec![
+        (
+            ATTEMPT_TABLE.to_owned(),
+            "attempt_identity".to_owned(),
+            "attempt_identity".to_owned(),
+            "NO ACTION".to_owned(),
+        ),
+        (
+            FENCE_TABLE.to_owned(),
+            "action_key_digest".to_owned(),
+            "action_key_digest".to_owned(),
+            "NO ACTION".to_owned(),
+        ),
+    ];
+    if actual != expected {
+        return Err(format!(
+            "unexpected {ENTRY_CLAIM_TABLE} foreign keys: {actual:?}"
         ));
     }
     Ok(())
