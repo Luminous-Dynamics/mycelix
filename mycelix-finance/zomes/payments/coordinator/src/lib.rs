@@ -703,7 +703,8 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
 // ---------------------------------------------------------------------------
 
 /// Mint SAP from a governance proposal. Creates an immutable SapMintRecord
-/// and credits the recipient's balance.
+/// and attempts to credit the recipient. Cross-domain credit remains fail-closed
+/// until its typed authorization proof is implemented (AC-154).
 ///
 /// This is the ONLY way new SAP enters circulation outside of collateral deposits.
 /// Requires governance authorization (verified via cross-zome call).
