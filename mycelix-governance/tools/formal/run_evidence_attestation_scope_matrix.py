@@ -63,6 +63,8 @@ if matrix.get("schema") != "mycelix.evidence-attestation-scope-attenuation-contr
     raise RuntimeError("matrix schema mismatch")
 if control["id"] != "scope-expansion":
     raise RuntimeError("unexpected control id")
+if control["alloy_mutant_fact"] != "ClaimAuthorizedGrantScopeBounded":
+    raise RuntimeError("scope mutation target is not the canonical enforcement fact")
 
 head = run(["git", "rev-parse", "HEAD"])
 tree = run(["git", "rev-parse", "HEAD^{tree}"])
@@ -144,7 +146,7 @@ if {k: canonical_rows.get(k) for k in expected} != expected:
 
 mutant_path = a.evidence_dir / "alloy-negative-scope-expansion.als"
 mutant_path.write_text(
-    remove_fact(a.alloy.read_text(encoding="utf-8"), "ClaimAuthorizationScopeAttenuated"),
+    remove_fact(a.alloy.read_text(encoding="utf-8"), "ClaimAuthorizedGrantScopeBounded"),
     encoding="utf-8",
 )
 mutant = run([
@@ -172,12 +174,11 @@ receipt["alloy"] = {
     "canonical": canonical_rows,
     "negative": mutant_rows,
     "changed_outcomes": sorted(changed),
-    "removed_fact": "ClaimAuthorizationScopeAttenuated",
+    "removed_fact": "ClaimAuthorizedGrantScopeBounded",
 }
 receipt["result"] = "ExecutedPass"
 (a.evidence_dir / "evidence-attestation-scope-formal-receipt-v1.json").write_text(
-    json.dumps(receipt, indent=2, sort_keys=True) + "
-",
+    json.dumps(receipt, indent=2, sort_keys=True) + "\n",
     encoding="utf-8",
 )
 print(json.dumps(receipt, sort_keys=True))
