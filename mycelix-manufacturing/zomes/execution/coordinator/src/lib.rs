@@ -40,12 +40,27 @@ pub struct CreateCalibrationInput {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct CreateCapabilityContractInput {
+    pub contract_id: String,
+    pub machine_hash: ActionHash,
+    pub process_family: String,
+    pub material_classes: Vec<String>,
+    pub envelope_x_mm: Option<u32>,
+    pub envelope_y_mm: Option<u32>,
+    pub envelope_z_mm: Option<u32>,
+    pub tolerance_um: Option<u32>,
+    pub supported_protocols: Vec<String>,
+    pub qualification: CapabilityQualification,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CreateExecutionInput {
     pub work_order_hash: ActionHash,
     pub bom_hash: Option<ActionHash>,
     pub routing_hash: Option<ActionHash>,
     pub operation_sequence: u32,
     pub machine_hash: ActionHash,
+    pub capability_contract_hash: Option<ActionHash>,
     pub process_parameters_hash: Option<String>,
     pub input_lot_hashes: Vec<ActionHash>,
     pub output_lot_hashes: Vec<ActionHash>,
@@ -113,6 +128,39 @@ pub fn record_calibration(input: CreateCalibrationInput) -> ExternResult<ActionH
 }
 
 #[hdk_extern]
+pub fn record_capability_contract(
+    input: CreateCapabilityContractInput,
+) -> ExternResult<ActionHash> {
+    let hash = create_entry(EntryTypes::CapabilityContract(CapabilityContractEntry {
+        contract_id: input.contract_id,
+        machine_hash: input.machine_hash.clone(),
+        process_family: input.process_family,
+        material_classes: input.material_classes,
+        envelope_x_mm: input.envelope_x_mm,
+        envelope_y_mm: input.envelope_y_mm,
+        envelope_z_mm: input.envelope_z_mm,
+        tolerance_um: input.tolerance_um,
+        supported_protocols: input.supported_protocols,
+        qualification: input.qualification,
+        created_at: sys_time()?,
+    }))?;
+
+    link_from(
+        "all_capability_contracts",
+        LinkTypes::AllCapabilityContracts,
+        hash.clone(),
+    )?;
+    create_link(
+        input.machine_hash,
+        hash.clone(),
+        LinkTypes::MachineToCapabilities,
+        (),
+    )?;
+
+    Ok(hash)
+}
+
+#[hdk_extern]
 pub fn record_execution(input: CreateExecutionInput) -> ExternResult<ActionHash> {
     let hash = create_entry(EntryTypes::ExecutionReceipt(ExecutionReceiptEntry {
         work_order_hash: input.work_order_hash.clone(),
@@ -120,6 +168,7 @@ pub fn record_execution(input: CreateExecutionInput) -> ExternResult<ActionHash>
         routing_hash: input.routing_hash,
         operation_sequence: input.operation_sequence,
         machine_hash: input.machine_hash.clone(),
+        capability_contract_hash: input.capability_contract_hash,
         process_parameters_hash: input.process_parameters_hash,
         input_lot_hashes: input.input_lot_hashes.clone(),
         output_lot_hashes: input.output_lot_hashes.clone(),
@@ -196,6 +245,7 @@ mod tests {
             routing_hash: None,
             operation_sequence: 1,
             machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            capability_contract_hash: Some(ActionHash::from_raw_36(vec![4; 36])),
             process_parameters_hash: Some("recipe-sha256".into()),
             input_lot_hashes: vec![ActionHash::from_raw_36(vec![2; 36])],
             output_lot_hashes: vec![ActionHash::from_raw_36(vec![3; 36])],
