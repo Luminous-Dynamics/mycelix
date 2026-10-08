@@ -263,16 +263,15 @@ jobs:
           module = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(module)
 
-          artifacts = json.loads(Path("snapshot/artifacts.json").read_text(encoding="utf-8"))["artifacts"]
-          receipt = next(
-              item for item in artifacts
-              if item.get("name", "").startswith("fpm-trusted-qualification-")
-              and not item.get("name", "").startswith("fpm-trusted-qualification-index-")
+          selection = json.loads(
+              Path("upstream-artifact-selection.json").read_text(encoding="utf-8")
           )
-          index = next(
-              item for item in artifacts
-              if item.get("name", "").startswith("fpm-trusted-qualification-index-")
-          )
+          artifacts = json.loads(
+              Path("snapshot/artifacts.json").read_text(encoding="utf-8")
+          )["artifacts"]
+          by_id = {item["id"]: item for item in artifacts}
+          receipt = by_id[selection["receipt_artifact_id"]]
+          index = by_id[selection["index_artifact_id"]]
 
           module.verify_raw_artifact_archive(
               Path("snapshot/raw/receipt.zip"),
