@@ -151,6 +151,10 @@ def validate_policy(policy: Any) -> None:
         "ruleset source identity contract drift",
     )
     require(
+        observation_contract.get("github_special_targeting_token_semantics_must_be_bound") is True,
+        "GitHub special targeting token contract drift",
+    )
+    require(
         observation_contract.get("live_main_tip_must_be_rechecked") is True,
         "live main freshness contract drift",
     )
