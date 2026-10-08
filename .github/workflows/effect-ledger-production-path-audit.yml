@@ -144,6 +144,20 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'select_unique_terminal_resolution' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: economic gates do not fail closed on ambiguous terminal resolutions."
+            exit 1
+          }
+
+          grep -Fq 'multiple distinct terminal execution resolutions exist for the same timelock' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: terminal-resolution ambiguity guard is missing."
+            exit 1
+          }
+
+          grep -Fq 'terminal_resolution_selection_fails_closed_on_distinct_candidates' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: terminal-resolution ambiguity regression is missing."
+            exit 1
+          }
           grep -Fq 'Prepared, TimelockStatus::Cancelled' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' && {
             echo "NOT QUALIFIED: Prepared timelock cancellation transition remains permitted."
             exit 1
