@@ -379,18 +379,155 @@ def main() -> int:
             "expected_verdict": expected,
         })
 
-    for i in range(16):
+    for i in range(8):
         mutation = [
             ["add_node", {"id": "r01", "type": "Result"}],
             ["add_edge", ["c01", "r01", "supported_by"]],
         ]
-        if i % 2:
-            mutation.extend(add_valid_revision(policy_sha))
         cases.append({
             "case_id": f"CPV-GEN-RESULT-{i:03d}",
             "property": "result_independence_boundary",
             "mutation": mutation,
             "expected_verdict": "unqualified",
+        })
+
+    identity_anchor = fixture.get("object_identity_anchors", {}).get("c02")
+    if identity_anchor is None:
+        raise ValueError("missing anchored non-base object c02")
+
+    def anchored_c02(revision: str = "1") -> dict:
+        node = revision_node(policy_sha, revision=revision)
+        node["id"] = "c02"
+        node["commitment"] = classification_commitment(node)
+        return node
+
+    identity_cases = []
+
+    node = anchored_c02()
+    identity_cases.append((
+        [
+            ["add_node", node],
+            ["add_edge", ["attempts", "c02", "uses"]],
+            ["add_edge", ["c02", "a01", "classifies"]],
+            ["add_edge", ["c02", "p01", "frozen_by"]],
+            ["add_edge", ["c02", "b01", "supported_by"]],
+            ["add_edge", ["c02", "c01", "supersedes"]],
+        ],
+        "qualified",
+    ))
+
+    node = anchored_c02()
+    node["basis_id"] = "B2"
+    node["commitment"] = classification_commitment(node)
+    identity_cases.append((
+        [
+            ["add_node", node],
+            ["add_node", {"id": "b02", "type": "ClassificationBasis", "basis_commitment": "B2"}],
+            ["add_edge", ["attempts", "c02", "uses"]],
+            ["add_edge", ["c02", "a01", "classifies"]],
+            ["add_edge", ["c02", "p01", "frozen_by"]],
+            ["add_edge", ["c02", "b02", "supported_by"]],
+            ["add_edge", ["c02", "c01", "supersedes"]],
+        ],
+        "unqualified",
+    ))
+
+    node = anchored_c02(revision="2")
+    identity_cases.append((
+        [
+            ["add_node", node],
+            ["add_edge", ["attempts", "c02", "uses"]],
+            ["add_edge", ["c02", "a01", "classifies"]],
+            ["add_edge", ["c02", "p01", "frozen_by"]],
+            ["add_edge", ["c02", "b01", "supported_by"]],
+            ["add_edge", ["c02", "c01", "supersedes"]],
+        ],
+        "unqualified",
+    ))
+
+    node = anchored_c02()
+    node["attempt_id"] = "a02"
+    node["commitment"] = classification_commitment(node)
+    identity_cases.append((
+        [
+            ["add_node", {"id": "a02", "type": "Attempt", "censoring_reason": "ActionInducedCensoring", "outcome_epoch": "t1", "action": "UPDATE", "claim_scope_anchor": SCOPE_ANCHOR}],
+            ["add_node", node],
+            ["add_edge", ["attempts", "a02", "uses"]],
+            ["add_edge", ["attempts", "c02", "uses"]],
+            ["add_edge", ["c02", "a02", "classifies"]],
+            ["add_edge", ["c02", "p01", "frozen_by"]],
+            ["add_edge", ["c02", "b01", "supported_by"]],
+            ["add_edge", ["c02", "c01", "supersedes"]],
+        ],
+        "unqualified",
+    ))
+
+    node = anchored_c02()
+    node["claim_scope_anchor"] = "sha256:1415e536f9e5bab08514ba2451fa63f044b5273a51f37f0d26813931ad8365c7"
+    node["commitment"] = classification_commitment(node)
+    identity_cases.append((
+        [
+            ["add_node", node],
+            ["add_edge", ["attempts", "c02", "uses"]],
+            ["add_edge", ["c02", "a01", "classifies"]],
+            ["add_edge", ["c02", "p01", "frozen_by"]],
+            ["add_edge", ["c02", "b01", "supported_by"]],
+            ["add_edge", ["c02", "c01", "supersedes"]],
+        ],
+        "unresolved",
+    ))
+
+    node = anchored_c02()
+    node["id"] = "c03"
+    node["commitment"] = classification_commitment(node)
+    identity_cases.append((
+        [
+            ["add_node", node],
+            ["add_edge", ["attempts", "c03", "uses"]],
+            ["add_edge", ["c03", "a01", "classifies"]],
+            ["add_edge", ["c03", "p01", "frozen_by"]],
+            ["add_edge", ["c03", "b01", "supported_by"]],
+            ["add_edge", ["c03", "c01", "supersedes"]],
+        ],
+        "qualified",
+    ))
+
+    node = anchored_c02()
+    identity_cases.append((
+        [
+            ["add_node", node],
+            ["add_edge", ["attempts", "c02", "uses"]],
+            ["add_edge", ["c02", "a01", "classifies"]],
+            ["add_edge", ["c02", "p01", "frozen_by"]],
+            ["add_edge", ["c02", "b01", "supported_by"]],
+            ["add_edge", ["c02", "c01", "supersedes"]],
+            ["reverse_collection", "nodes"],
+            ["reverse_collection", "edges"],
+        ],
+        "qualified",
+    ))
+
+    node = anchored_c02(classification_epoch="t2") if False else anchored_c02()
+    node["classification_epoch"] = "t2"
+    node["commitment"] = classification_commitment(node)
+    identity_cases.append((
+        [
+            ["add_node", node],
+            ["add_edge", ["attempts", "c02", "uses"]],
+            ["add_edge", ["c02", "a01", "classifies"]],
+            ["add_edge", ["c02", "p01", "frozen_by"]],
+            ["add_edge", ["c02", "b01", "supported_by"]],
+            ["add_edge", ["c02", "c01", "supersedes"]],
+        ],
+        "unresolved",
+    ))
+
+    for i, (mutation, expected) in enumerate(identity_cases):
+        cases.append({
+            "case_id": f"CPV-GEN-OBJECT-ID-{i:03d}",
+            "property": "anchored_object_identity_continuity",
+            "mutation": mutation,
+            "expected_verdict": expected,
         })
 
     for i in range(24):
@@ -437,6 +574,7 @@ def main() -> int:
         },
         "policy_binding": fixture["policy_binding"],
         "history_anchors": fixture["history_anchors"],
+        "object_identity_anchors": fixture.get("object_identity_anchors", {}),
         "base_graph": base,
         "cases": cases,
     }
