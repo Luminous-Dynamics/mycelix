@@ -1219,7 +1219,7 @@ mod tests {
             fn invoke(&mut self, _permit: &ProviderEntryPermitV1) -> Result<ProviderObservation, String> {
                 Err("timeout after send".into())
             }
-            fn reconcile(&mut self, _attempt: &AttemptRecordV1) -> Result<ProviderObservation, String> {
+            fn reconcile(&mut self, _context: &ProviderActionContextV1) -> Result<ProviderObservation, String> {
                 unreachable!()
             }
         }
