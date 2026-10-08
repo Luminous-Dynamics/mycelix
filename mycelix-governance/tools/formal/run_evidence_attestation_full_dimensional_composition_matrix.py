@@ -131,9 +131,16 @@ def tlc(cfg, module_path, label):
     (a.evidence_dir / (label + ".log")).write_text(result.stdout, encoding="utf-8")
     if result.returncode == 0 and "Model checking completed. No error has been found." in result.stdout:
         return set()
-    return set(re.findall(
-        r"Error: Invariant ([A-Za-z][A-Za-z0-9_]*) is violated\.", result.stdout
+    violations = set(re.findall(
+        r"Error: Invariant ([A-Za-z][A-Za-z0-9_]*) is violated(?: by the initial state)?",
+        result.stdout,
     ))
+    if violations:
+        return violations
+    raise RuntimeError(
+        "TLC execution failed without a classified invariant violation: " +
+        " | ".join(result.stdout.splitlines()[-8:])
+    )
 
 canonical = tlc(a.canonical_cfg, a.tla, "tla-canonical")
 if canonical:
