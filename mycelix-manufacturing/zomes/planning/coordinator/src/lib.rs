@@ -100,6 +100,8 @@ pub struct CapabilityPlanDecision {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CapabilityPlanSelection {
+    /// Time at which live capability and machine-state predicates were observed.
+    pub observed_at: Timestamp,
     pub selected_machine_hash: Option<ActionHash>,
     pub selected_capability_contract_hash: Option<ActionHash>,
     pub decisions: Vec<CapabilityPlanDecision>,
@@ -290,6 +292,7 @@ pub fn select_live_capability(
             };
 
         let mut current_attestations = Vec::new();
+        let mut saw_attestation = false;
         if matches!(contract.qualification, CapabilityQualification::Qualified) {
             let attestation_response = call(
                 CallTargetCell::Local,
@@ -323,6 +326,7 @@ pub fn select_live_capability(
                 let Some(attestation_hash) = link.target.clone().into_action_hash() else {
                     continue;
                 };
+                saw_attestation = true;
                 let response = call(
                     CallTargetCell::Local,
                     ZomeName::from("execution"),
@@ -408,7 +412,11 @@ pub fn select_live_capability(
                     &mut rejected,
                     contract_hash,
                     Some(contract.machine_hash.clone()),
-                    CapabilityPlanRejection::QualificationNotCurrent,
+                    if saw_attestation {
+                        CapabilityPlanRejection::QualificationNotCurrent
+                    } else {
+                        CapabilityPlanRejection::QualificationMissing
+                    },
                     Vec::new(),
                     None,
                     None,
@@ -469,7 +477,7 @@ pub fn select_live_capability(
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
-                    qualification_attestation_hashes: Vec::new(),
+                    qualification_attestation_hashes: current_attestations,
                     machine_status: Some(status),
                     machine_state_head: Some(head_action),
                     eligible: false,
