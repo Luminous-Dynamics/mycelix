@@ -276,6 +276,56 @@ def main() -> None:
             promotion_pr, promotion_receipt, promotion_trusted_run, BASE
         ) is True
 
+        lock_base = b"""version = 4
+
+[[package]]
+name = "fpm-wasm-artifact-identity"
+version = "0.1.0"
+dependencies = ["holo_hash"]
+
+[[package]]
+name = "holo_hash"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+[[package]]
+name = "serde"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+"""
+        verifier.verify_tracked_lock_source_policy(lock_base)
+        lock_mutations = [
+            ("git-source", lock_base.replace(
+                b'registry+https://github.com/rust-lang/crates.io-index',
+                b'git+https://example.invalid/repository#abcdef',
+                1,
+            )),
+            ("alternate-registry", lock_base.replace(
+                b'registry+https://github.com/rust-lang/crates.io-index',
+                b'registry+https://registry.example.invalid/index',
+                1,
+            )),
+            ("missing-checksum", lock_base.replace(
+                b'checksum = "' + b'b' * 64 + b'"',
+                b'checksum = "not-a-checksum"',
+                1,
+            )),
+            ("extra-source-free", lock_base.replace(
+                b'[[package]]\nname = "holo_hash"',
+                b'[[package]]\nname = "local-helper"',
+                0,
+            )),
+        ]
+        for label, lock_bytes in lock_mutations:
+            try:
+                verifier.verify_tracked_lock_source_policy(lock_bytes)
+            except SystemExit:
+                pass
+            else:
+                raise AssertionError(f"tracked Cargo.lock mutation was accepted: {label}")
+
         with tempfile.TemporaryDirectory(prefix="fpm-zip-corpus-") as zip_td:
             zroot = Path(zip_td)
             good_data = b'{"qualification":"ok"}\n'
