@@ -78,15 +78,34 @@ jobs:
           observed_blob="$(git -C _independent-evaluator rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
           test "$observed_blob" = "$EXPECTED_EVALUATOR_BLOB"
 
-      - name: Run immutable independent evaluator
+      - name: Run immutable independent evaluator in a sanitized environment
         run: |
-          python3 _independent-evaluator/scripts/integral/evaluate_d6u_trusted_verifier_independently.py --candidate-root "$GITHUB_WORKSPACE"
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          mkdir "$scratch/home" "$scratch/tmp"
+          env -i \
+            PATH="$PATH" \
+            HOME="$scratch/home" \
+            TMPDIR="$scratch/tmp" \
+            LANG=C.UTF-8 \
+            python3 _independent-evaluator/scripts/integral/evaluate_d6u_trusted_verifier_independently.py \
+              --candidate-root "$GITHUB_WORKSPACE"
 
       - name: Compile trusted verifier
         run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/verify_d6u_trusted_attestation_retention.py scripts/integral/test_d6u_trusted_artifacts.py
 
-      - name: Run trusted verifier self-tests
+      - name: Run candidate-owned self-tests in a sanitized environment
         working-directory: scripts/integral
-        env:
-          D6U_TRUSTED_SOURCE_ROOT: ${{ github.workspace }}/_trusted-main
-        run: python3 test_d6u_trusted_artifacts.py
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          mkdir "$scratch/home" "$scratch/tmp"
+          env -i \
+            PATH="$PATH" \
+            HOME="$scratch/home" \
+            TMPDIR="$scratch/tmp" \
+            LANG=C.UTF-8 \
+            D6U_TRUSTED_SOURCE_ROOT="$GITHUB_WORKSPACE/_trusted-main" \
+            python3 test_d6u_trusted_artifacts.py
