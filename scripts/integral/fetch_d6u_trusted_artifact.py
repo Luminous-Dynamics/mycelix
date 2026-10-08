@@ -54,6 +54,11 @@ def github_get(repo: str, api_path: str, token: str) -> dict:
     )
     opener = urllib.request.build_opener(NoAuthorizationRedirectHandler())
     with opener.open(request, timeout=30) as response:
+        final_url = urllib.parse.urlsplit(response.geturl())
+        assert final_url.scheme == "https"
+        assert final_url.hostname == "api.github.com"
+        assert final_url.username is None and final_url.password is None
+        assert final_url.port in (None, 443)
         payload = response.read(MAX_GITHUB_JSON_BYTES + 1)
         if len(payload) > MAX_GITHUB_JSON_BYTES:
             raise RuntimeError(
