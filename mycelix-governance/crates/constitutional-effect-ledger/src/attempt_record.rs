@@ -345,6 +345,9 @@ impl AttemptRecordState {
 /// Identity-bearing roots are stored as their explicit digests/identifiers rather
 /// than as serialized ActionKeyV1 / AttemptIdentityV1 values. The identity types
 /// themselves remain non-serializable and private-fielded.
+///
+/// The provider idempotency key is persisted as part of this projection so the
+/// downstream identity cannot silently change across restart or binary upgrade.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AttemptRecordV1 {
     pub schema_version: u16,
@@ -1910,6 +1913,35 @@ mod tests {
             state,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn persisted_provider_idempotency_key_is_versioned_and_fail_closed() {
+        let action = key();
+        let record = record(
+            "attempt-provider-key",
+            "operation-provider-key",
+            AttemptRecordState::Consumed,
+        );
+
+        let derived = derive_provider_idempotency_key(
+            &record.native_replay_identity,
+            &record.action_key_digest,
+            &record.provider_environment,
+            &record.provider_audience,
+            &record.adapter_identity,
+        )
+        .unwrap();
+        assert_eq!(record.provider_idempotency_key, derived);
+
+        let mut tampered = record.clone();
+        tampered.provider_idempotency_key = "constitutional-provider-idempotency-v1:tampered".into();
+        assert!(tampered.validate().is_err());
+        assert_ne!(
+            tampered.record_digest(),
+            record.record_digest(),
+        );
+        assert_eq!(action.digest(), record.action_key_digest);
     }
 
     #[test]
