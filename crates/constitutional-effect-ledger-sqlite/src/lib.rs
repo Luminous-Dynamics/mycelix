@@ -112,8 +112,7 @@ impl SqliteActionFenceStore {
     pub fn reconcile_resolution_binding(
         &self,
         binding: &DurableResolutionBindingV1,
-        expected_action_digest: &str,
-        expected_effecting_target_identity: &str,
+        expected_action_key: &ActionKeyV1,
         expected_outcome: DurableResolutionOutcomeV1,
     ) -> Result<AttemptRecordV1, String> {
         self.audit_integrity()?;
@@ -135,10 +134,8 @@ impl SqliteActionFenceStore {
         {
             return Err("resolution binding contains a non-canonical durable root".into());
         }
-        if expected_action_digest.trim().is_empty()
-            || expected_effecting_target_identity.trim().is_empty()
-        {
-            return Err("expected action digest and effecting target are required".into());
+        if binding.action_key_digest != expected_action_key.digest() {
+            return Err("resolution action-key digest does not match prepared action".into());
         }
 
         let conn = open_connection(&self.path)?;
@@ -154,10 +151,10 @@ impl SqliteActionFenceStore {
         if attempt.action_key_digest != binding.action_key_digest {
             return Err("resolution action-key digest does not match durable attempt".into());
         }
-        if attempt.action_digest != expected_action_digest {
+        if attempt.action_digest != expected_action_key.material_action_digest() {
             return Err("durable attempt action digest does not match prepared action".into());
         }
-        if attempt.effecting_target_identity != expected_effecting_target_identity {
+        if attempt.effecting_target_identity != expected_action_key.effecting_target_identity() {
             return Err("durable attempt effecting target does not match prepared action".into());
         }
         if attempt.authorization_admission_proof_digest.as_deref()
@@ -3174,8 +3171,7 @@ mod tests {
         let reconciled = store
             .reconcile_resolution_binding(
                 &binding,
-                action.material_action_digest(),
-                action.effecting_target_identity(),
+                &action,
                 DurableResolutionOutcomeV1::Executed,
             )
             .unwrap();
@@ -3188,44 +3184,47 @@ mod tests {
             store
                 .reconcile_resolution_binding(
                     &wrong_terminal,
-                    action.material_action_digest(),
-                    action.effecting_target_identity(),
+                    &action,
                     DurableResolutionOutcomeV1::Executed,
                 )
                 .unwrap_err()
                 .contains("terminal-evidence digest")
         );
 
+        let wrong_action = key("different-prepared-action-digest");
         assert!(
             store
                 .reconcile_resolution_binding(
                     &binding,
-                    "different-prepared-action-digest",
-                    action.effecting_target_identity(),
+                    &wrong_action,
                     DurableResolutionOutcomeV1::Executed,
                 )
                 .unwrap_err()
-                .contains("action digest")
+                .contains("action-key digest")
+        );
+
+        let wrong_target_action = ActionKeyV1::new(
+            "rp-test",
+            "different-prepared-effect-target",
+            action.material_action_digest(),
+        )
+        .unwrap();
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &binding,
+                    &wrong_target_action,
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("action-key digest")
         );
 
         assert!(
             store
                 .reconcile_resolution_binding(
                     &binding,
-                    action.material_action_digest(),
-                    "different-prepared-effect-target",
-                    DurableResolutionOutcomeV1::Executed,
-                )
-                .unwrap_err()
-                .contains("effecting target")
-        );
-
-        assert!(
-            store
-                .reconcile_resolution_binding(
-                    &binding,
-                    action.material_action_digest(),
-                    action.effecting_target_identity(),
+                    &action,
                     DurableResolutionOutcomeV1::Failed,
                 )
                 .unwrap_err()
@@ -3242,8 +3241,7 @@ mod tests {
             store
                 .reconcile_resolution_binding(
                     &wrong_final_entry,
-                    action.material_action_digest(),
-                    action.effecting_target_identity(),
+                    &action,
                     DurableResolutionOutcomeV1::Executed,
                 )
                 .unwrap_err()
@@ -3257,8 +3255,7 @@ mod tests {
             store
                 .reconcile_resolution_binding(
                     &malformed_admission,
-                    action.material_action_digest(),
-                    action.effecting_target_identity(),
+                    &action,
                     DurableResolutionOutcomeV1::Executed,
                 )
                 .unwrap_err()
@@ -3271,8 +3268,7 @@ mod tests {
             reopened
                 .reconcile_resolution_binding(
                     &binding,
-                    action.material_action_digest(),
-                    action.effecting_target_identity(),
+                    &action,
                     DurableResolutionOutcomeV1::Executed,
                 )
                 .unwrap()
