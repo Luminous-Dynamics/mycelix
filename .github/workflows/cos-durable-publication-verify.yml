@@ -228,8 +228,8 @@ jobs:
           assert isinstance(signer_sha, str) and len(signer_sha) == 40 and all(ch in '0123456789abcdef' for ch in signer_sha)
           Path('attestor-signer-workflow-sha.txt').write_text(signer_sha + '\n')
           PY
-          gh api --method GET "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root-api-response.json
-          gh api --method GET "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=$(cat attestor-signer-workflow-sha.txt)" > attestor-workflow-api-response.json
+          gh api -H 'X-GitHub-Api-Version: 2026-03-10' --method GET "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root-api-response.json
+          gh api -H 'X-GitHub-Api-Version: 2026-03-10' --method GET "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=$(cat attestor-signer-workflow-sha.txt)" > attestor-workflow-api-response.json
           python - <<'PY'
           import base64
           import hashlib
@@ -348,6 +348,21 @@ jobs:
           durable_manifest=strict(durable_manifest_path.read_text())
           bundle_raw=bundle_path.read_bytes()
           bundle_sha256=hashlib.sha256(bundle_raw).hexdigest()
+          def verify_self_hashed_projection(path, schema):
+              data=json.loads(
+                  Path(path).read_text(),
+                  object_pairs_hook=duplicate_reject,
+                  parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f'non-standard JSON constant: {value}'))
+              )
+              assert data['schema']==schema
+              digest=data.pop('sha256')
+              canonical=json.dumps(data,sort_keys=True,separators=(',',':')).encode('utf-8')
+              assert digest==hashlib.sha256(canonical).hexdigest()
+              return data,digest
+
+          environment_policy,environment_policy_sha=verify_self_hashed_projection(root/'environment-policy-v1.json','MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1')
+          effective_rules,effective_rules_sha=verify_self_hashed_projection(root/'effective-main-rules-v1.json','MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1')
+          main_branch_policy,main_branch_policy_sha=verify_self_hashed_projection(root/'main-branch-policy-v1.json','MYCELIX-COS-PROTECTED-MAIN-POLICY-V1')
           environment_policy = strict((root/'environment-policy-v1.json').read_text())
           effective_rules = strict((root/'effective-main-rules-v1.json').read_text())
           main_branch_policy = strict((root/'main-branch-policy-v1.json').read_text())
@@ -373,6 +388,21 @@ jobs:
               'signed_attestation_bundle_sha256','files'
           }
           assert durable_manifest['schema'] == 'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1'
+          assert durable_manifest['environment_policy_sha256']==environment_policy_sha
+          assert durable_manifest['effective_main_rules_sha256']==effective_rules_sha
+          assert durable_manifest['main_branch_policy_sha256']==main_branch_policy_sha
+          assert environment_policy['name']=='cos-durable-publication'
+          assert environment_policy['prevent_self_review'] is True
+          assert environment_policy['required_reviewers']
+          assert environment_policy['deployment_branch_policy']=={'protected_branches':True,'custom_branch_policies':False}
+          assert effective_rules['branch']=='refs/heads/main'
+          assert isinstance(effective_rules['rules'],list)
+          assert main_branch_policy['branch']=='refs/heads/main'
+          assert main_branch_policy['enforce_admins'] is True
+          assert main_branch_policy['required_approving_review_count']>=1
+          assert main_branch_policy['required_status_checks']['checks']
+          assert main_branch_policy['allow_force_pushes'] is False
+          assert main_branch_policy['allow_deletions'] is False
           assert environment_policy['schema']=='MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1'
           assert effective_rules['schema']=='MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1'
           assert main_branch_policy['schema']=='MYCELIX-COS-PROTECTED-MAIN-POLICY-V1'
