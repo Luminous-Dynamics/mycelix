@@ -377,7 +377,7 @@ def _github_fnmatch_pattern_supported(pattern: str) -> bool:
         return False
     # GitHub does not support Ruby File::FNM_EXTGLOB syntax. Refuse the
     # extglob operators instead of inheriting a different glob dialect.
-    if re.search(r"(^|/)[!?+*@]\(", pattern):
+    if re.search(r"[!?+*@]\(", pattern):
         return False
     return True
 
@@ -1653,6 +1653,7 @@ def self_test(policy: dict[str, Any]) -> None:
         "refs/heads/+(main|develop)",
         "refs/heads/?(main|develop)",
         "refs/heads/!(develop)",
+        "refs/heads/main@(develop|main)",
     ):
         x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
         x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = [unsupported_ref_pattern]
@@ -1983,6 +1984,7 @@ def self_test(policy: dict[str, Any]) -> None:
         "+(mycelix|other)",
         "?(mycelix|other)",
         "!(other)",
+        "mycelix@(other|main)",
     ):
         x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
         x["rulesets"]["entries"][0]["source_type"] = "Organization"
