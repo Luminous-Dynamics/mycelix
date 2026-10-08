@@ -1279,7 +1279,7 @@ fn validate_delete_link(
     action: TypedAction<DeleteLinkData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Only the original link author can delete the link
-    if original_action.author != action.author() {
+    if original_action.author() != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the link author can delete a link".to_string(),
         ));
@@ -1473,7 +1473,7 @@ mod tests {
         fn must_get_agent_activity(
             &self,
             _: MustGetAgentActivityInput,
-        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+        ) -> ExternResult<Vec<AgentActivity>> {
             unimplemented!("not exercised by verify_ml_dsa_v2")
         }
         fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
