@@ -2302,13 +2302,6 @@ mod tests {
         let store = SqliteActionFenceStore::open(dir.path().join("dispatch.db")).unwrap();
         let action = action();
         let owner = identity("attempt-1");
-        boundary
-            .admit(
-                &action,
-                &owner,
-                attempt_record("attempt-1", "operation-1", AttemptRecordState::Consumed),
-            )
-            .unwrap();
 
         let states = Arc::new(Mutex::new(Vec::new()));
         let mut provider = FakeProvider {
@@ -2322,6 +2315,14 @@ mod tests {
         };
 
         let mut boundary = test_host_with_provider(store, Box::new(provider));
+        boundary
+            .admit(
+                &action,
+                &owner,
+                attempt_record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+
         assert_eq!(
             boundary
                 .dispatch(
@@ -2355,6 +2356,8 @@ mod tests {
         let store = SqliteActionFenceStore::open(dir.path().join("ambiguous.db")).unwrap();
         let action = action();
         let owner = identity("attempt-ambiguous");
+        let provider = ErrorProvider;
+        let mut boundary = test_host_with_provider(store, Box::new(provider));
         boundary
             .admit(
                 &action,
@@ -2362,9 +2365,6 @@ mod tests {
                 attempt_record("attempt-ambiguous", "operation-ambiguous", AttemptRecordState::Consumed),
             )
             .unwrap();
-
-        let provider = ErrorProvider;
-        let mut boundary = test_host_with_provider(store, Box::new(provider));
         assert!(matches!(
             boundary.dispatch(&action, &owner, "owner-attempt-ambiguous")
                 .unwrap(),
