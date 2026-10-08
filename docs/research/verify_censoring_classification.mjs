@@ -67,14 +67,17 @@ function validateStructure(graph, policy) {
   if (claimRoots.length !== 1 || !nodes.has("claim") || nodes.get("claim").type !== "Claim") {
     return [false, "claim-root"];
   }
-  const claim = nodes.get("claim");
-  const claimScopeAnchor = claim.claim_scope_anchor;
-  const expectedScopeAnchor = digest({id: claim.id, type: claim.type});
-  if (claimScopeAnchor !== expectedScopeAnchor) return [false, "claim-scope-root"];
-  for (const node of nodes.values()) {
-    if (["AttemptCensus", "Attempt", "CensoringClassification"].includes(node.type) &&
-        node.claim_scope_anchor !== claimScopeAnchor) {
-      return [false, "claim-scope-mismatch"];
+  const cfg = policy.classification;
+  if (cfg.claim_scope_binding_required ?? true) {
+    const claim = nodes.get("claim");
+    const claimScopeAnchor = claim.claim_scope_anchor;
+    const expectedScopeAnchor = digest({id: claim.id, type: claim.type});
+    if (claimScopeAnchor !== expectedScopeAnchor) return [false, "claim-scope-root"];
+    for (const node of nodes.values()) {
+      if (["AttemptCensus", "Attempt", "CensoringClassification"].includes(node.type) &&
+          node.claim_scope_anchor !== claimScopeAnchor) {
+        return [false, "claim-scope-mismatch"];
+      }
     }
   }
   if (!Array.isArray(graph.edges)) return [false, "edge-structure"];
