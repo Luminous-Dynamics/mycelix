@@ -101,20 +101,30 @@ jobs:
           },indent=2,sort_keys=True)+'\n')
           PY
 
-      - name: Download exact attestor artifact
+      - name: Verify attestor artifact digest
         env:
-          RUN_ID: ${{ inputs.attestor_run_id }}
           COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
         run: |
           set -euo pipefail
-          rm -rf source-artifact
-          mkdir -p source-artifact
-          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh run download "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --name "$(python - <<'PY'
+          artifact_id="$(python - <<'PY'
           import json
           from pathlib import Path
-          print(json.loads(Path('attestor-source.json').read_text())['artifact_name'])
+          print(json.loads(Path('attestor-source.json').read_text())['artifact_id'])
           PY
-          )" --dir source-artifact
+          )"
+          expected="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('attestor-source.json').read_text())['artifact_digest'].removeprefix('sha256:'))
+          PY
+          )"
+          curl --fail --show-error --silent --location --max-redirs 5 --proto '=https' --tlsv1.2 \
+            -H "Authorization: Bearer ${COS_RELEASE_ADMIN_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            --output attestor-artifact.zip \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip"
+          actual="$(sha256sum attestor-artifact.zip | awk '{print $1}')"
+          test "${actual}" = "${expected}"
 
       - name: Resolve signing-input artifact from attestor receipt
         env:
@@ -200,6 +210,31 @@ jobs:
           print(json.loads(Path('signing-input-source.json').read_text())['artifact_name'])
           PY
           )" --dir signing-input-artifact
+
+      - name: Verify signing-input artifact digest
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('signing-input-source.json').read_text())['artifact_id'])
+          PY
+          )"
+          expected="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('signing-input-source.json').read_text())['artifact_digest'].removeprefix('sha256:'))
+          PY
+          )"
+          curl --fail --show-error --silent --location --max-redirs 5 --proto '=https' --tlsv1.2 \
+            -H "Authorization: Bearer ${COS_RELEASE_ADMIN_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            --output signing-input-artifact.zip \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip"
+          actual="$(sha256sum signing-input-artifact.zip | awk '{print $1}')"
+          test "${actual}" = "${expected}"
 
       - name: Extract and validate source evidence
         env:
@@ -298,49 +333,37 @@ jobs:
             --signer-digest "${signer_sha}" \
             --deny-self-hosted-runners \
             --format json > source-attestation-verification.json
-          test -s source-attestation-verification.json
-
-      - name: Reconcile signer workflow with exact trust root
-        env:
-          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
-          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
-        run: |
-          set -euo pipefail
-          signer_sha="$(python - <<'PY'
-          import json
-          from pathlib import Path
-          print(json.loads(Path('source-facts.json').read_text())['attestor_workflow_sha'])
-          PY
-          )"
-          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root.json
-          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=${signer_sha}" > signer-workflow.json
           python - <<'PY'
-          import base64
-          import hashlib
           import json
-          import os
-          import subprocess
           from pathlib import Path
 
-          def strict(path):
-              data=json.loads(Path(path).read_text())
-              return data
-          root_api=strict('trust-root.json')
-          signer_api=strict('signer-workflow.json')
-          root=base64.b64decode(''.join(root_api['content'].splitlines()),validate=True)
-          signer=base64.b64decode(''.join(signer_api['content'].splitlines()),validate=True)
-          Path('expected-trust-root.json').write_bytes(root)
-          Path('attestor-workflow.yml').write_bytes(signer)
-          root_obj=json.loads(root.decode('utf-8'))
-          component=root_obj['components']['qualification_attestor_workflow']
-          blob_sha1=subprocess.check_output(['git','hash-object','--stdin'],input=signer).decode().strip()
-          content_sha256=hashlib.sha256(signer).hexdigest()
-          assert component['path'] == '.github/workflows/cos-conformance-qualification-attestor.yml'
-          assert component['git_blob_sha1'] == blob_sha1
-          assert component['content_sha256'] == content_sha256
-          facts=json.loads(Path('source-facts.json').read_text())
-          Path('source-facts.json').write_text(json.dumps({**facts,'attestor_workflow_git_blob_sha1':blob_sha1,'attestor_workflow_content_sha256':content_sha256},indent=2,sort_keys=True)+'\n')
+          def reject(pairs):
+              out={}
+              for key,value in pairs:
+                  if key in out:
+                      raise ValueError(f'duplicate JSON key: {key}')
+                  out[key]=value
+              return out
+
+          def reject_constant(value):
+              raise ValueError(f'non-standard JSON constant: {value}')
+
+          data=json.loads(Path('source-attestation-verification.json').read_text(),object_pairs_hook=reject,parse_constant=reject_constant)
+          predicate=json.loads(Path('durable-source/qualification-attestation-predicate-v3.json').read_text(),object_pairs_hook=reject,parse_constant=reject_constant)
+          expected_subject=json.loads(Path('durable-source/qualification-manifest-v1.json').read_text(),object_pairs_hook=reject,parse_constant=reject_constant)
+          assert isinstance(data,list) and data
+          manifest_sha=__import__('hashlib').sha256(Path('durable-source/qualification-manifest-v1.json').read_bytes()).hexdigest()
+          matches=0
+          for item in data:
+              statement=item['verificationResult']['statement']
+              assert statement['predicateType']=='https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1'
+              assert any(subject.get('name')=='qualification-manifest-v1.json' and subject.get('digest',{}).get('sha256')==manifest_sha for subject in statement['subject'])
+              assert statement['predicate']==predicate
+              matches+=1
+          assert matches>=1
+          assert expected_subject['qualification_result']=='passed'
           PY
+          test -s source-attestation-verification.json
 
       - name: Create immutable-release draft
         id: draft
