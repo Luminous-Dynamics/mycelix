@@ -56,6 +56,32 @@ jobs:
           observed="$(git -C _trusted-main rev-parse HEAD)"
           test "$observed" = "$EXPECTED_TRUSTED_ROOT"
 
+      # Provisional integration: immutable commit and blob are pinned below,
+      # but the evaluator is not yet a trusted-main artifact. Promotion must
+      # wait until its code has been independently reviewed and landed/pinned
+      # from the trusted source root.
+      - name: Checkout immutable independent evaluator candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: 88ab59abc8e1d7eb0430fa285005b5de62c83193
+          path: _independent-evaluator
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert independent evaluator commit and blob
+        env:
+          EXPECTED_EVALUATOR_COMMIT: 88ab59abc8e1d7eb0430fa285005b5de62c83193
+          EXPECTED_EVALUATOR_BLOB: b3867cad5901ffc976c2a7077ea03b0c6b8041fe
+        run: |
+          observed_commit="$(git -C _independent-evaluator rev-parse HEAD)"
+          test "$observed_commit" = "$EXPECTED_EVALUATOR_COMMIT"
+          observed_blob="$(git -C _independent-evaluator rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
+          test "$observed_blob" = "$EXPECTED_EVALUATOR_BLOB"
+
+      - name: Run immutable independent evaluator
+        run: |
+          python3 _independent-evaluator/scripts/integral/evaluate_d6u_trusted_verifier_independently.py --candidate-root "$GITHUB_WORKSPACE"
+
       - name: Compile trusted verifier
         run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/verify_d6u_trusted_attestation_retention.py scripts/integral/test_d6u_trusted_artifacts.py
 
