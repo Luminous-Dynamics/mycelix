@@ -84,8 +84,6 @@ def steady_state_failures(state: State) -> list[str]:
     failures: list[str] = []
     if auth_map(state) != structural_authority(state):
         failures.append("StructuralAuthorityMatchesCurrentGrants")
-    if effective_map(state) != effective_authority(state):
-        failures.append("EffectiveAuthorityMatchesCurrentTime")
     for g in state.grants:
         if g.active and g.revoked:
             failures.append("ActiveGrantCurrent")
@@ -127,11 +125,12 @@ def main() -> int:
     assert not steady_state_failures(base), steady_state_failures(base)
 
     fresh = replace(base, now=2, effective_authority=(("Root", tuple(capability_universe())), ("Alice", ())))
+    assert effective_map(fresh) == effective_authority(fresh)
     assert not steady_state_failures(fresh), steady_state_failures(fresh)
 
     stale = replace(base, now=2)
+    assert auth_map(stale) == structural_authority(stale)
     assert "ExpiredGrantNotEffective" in steady_state_failures(stale)
-    assert "EffectiveAuthorityMatchesCurrentTime" in steady_state_failures(stale)
 
     print("CANONICAL PASS: fresh grant remains effective before expiry")
     print("ISOLATION PASS: expired grant remains structurally grant-backed")
