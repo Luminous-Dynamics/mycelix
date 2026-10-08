@@ -27,7 +27,6 @@ members = [
     "crates/constitutional-closure-coverage",
     "crates/constitutional-claim-lifecycle",
     "crates/constitutional-effect-ledger",
-    "crates/constitutional-effect-ledger-sqlite",
 ]
 exclude = ["tests"]
 
