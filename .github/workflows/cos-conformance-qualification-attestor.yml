@@ -300,6 +300,7 @@ jobs:
           assert "continue-on-error:" not in pre_attestation
           post_attestation = scanned[attest_start:]
           for post_name in (
+              "Observe published attestation discoverability",
               "Revalidate trust-root after signing",
               "Preserve attestation bundle",
               "Verify exact preserved attestation bundle",
@@ -311,6 +312,11 @@ jobs:
               step_end = post_attestation.find("\n      - name:", step_start + 1)
               step_text = post_attestation[step_start:] if step_end < 0 else post_attestation[step_start:step_end]
               assert "        continue-on-error: true" in step_text
+          assert "MYCELIX-COS-ATTESTATION-DISCOVERABILITY-V1" in scanned
+          assert "Discoverable" in scanned
+          assert "SignedButNotDiscoverable" in scanned
+          assert "DiscoverabilityMismatch" in scanned
+          assert "EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}" in scanned
           assert "json.load(" not in scanned
           assert "manifest = json.loads(manifest_path.read_text())" not in scanned
           assert "verification = json.loads(Path(" not in scanned
@@ -423,7 +429,7 @@ jobs:
 
           # The construction-audit step is excluded above, leaving 23 executable
           # steps in the actual trusted workflow graph.
-          assert len(step_blocks) == 24, f"unexpected step count: {len(step_blocks)}"
+          assert len(step_blocks) == 25, f"unexpected step count: {len(step_blocks)}"
           step_names = [block[0].split(" - name: ", 1)[1] for block in step_blocks]
           assert len(set(step_names)) == len(step_names), "duplicate workflow step name"
 
@@ -1305,6 +1311,61 @@ jobs:
           subject-name: qualification-manifest-v1.json
           subject-digest: sha256:${{ needs.validate.outputs.manifest_sha256 }}
           predicate-path: signing-input/qualification-attestation-predicate-v3.json
+
+      - name: Observe published attestation discoverability
+        continue-on-error: true
+        env:
+          SUBJECT_DIGEST: sha256:${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_TYPE: ${{ env.PREDICATE_TYPE }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p attestor-evidence
+          raw_path="attestor-evidence/attestation-publication-discovery-raw.json"
+          summary_path="attestor-evidence/attestation-publication-discovery.json"
+          gh api --method GET "repos/${GITHUB_REPOSITORY}/attestations/${SUBJECT_DIGEST}" \
+            -f "predicate_type=${EXPECTED_PREDICATE_TYPE}" > "${raw_path}" || {
+            printf '%s\n' '{"attestations":[]}' > "${raw_path}"
+          }
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+          raw_path = Path("attestor-evidence/attestation-publication-discovery-raw.json")
+          summary_path = Path("attestor-evidence/attestation-publication-discovery.json")
+          data = json.loads(raw_path.read_text())
+          assert set(data) == {"attestations"}
+          attestations = data["attestations"]
+          assert isinstance(attestations, list)
+          expected_repo_id = int(os.environ["EXPECTED_REPOSITORY_ID"])
+          repository_ids = []
+          mismatch = False
+          for item in attestations:
+              assert set(item) >= {"repository_id", "bundle_url", "initiator"}
+              assert isinstance(item["repository_id"], int)
+              repository_ids.append(item["repository_id"])
+              mismatch = mismatch or item["repository_id"] != expected_repo_id
+              assert isinstance(item["bundle_url"], str) and item["bundle_url"]
+              assert isinstance(item["initiator"], str) and item["initiator"]
+          state = "DiscoverabilityMismatch" if mismatch else ("Discoverable" if attestations else "SignedButNotDiscoverable")
+          observation = {
+              "schema": "MYCELIX-COS-ATTESTATION-DISCOVERABILITY-V1",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "repository_id": expected_repo_id,
+              "subject_digest": os.environ["SUBJECT_DIGEST"],
+              "predicate_type": os.environ["EXPECTED_PREDICATE_TYPE"],
+              "attestation_count": len(attestations),
+              "repository_ids": sorted(set(repository_ids)),
+              "state": state,
+          }
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", observation["subject_digest"])
+          assert observation["state"] in {"Discoverable", "SignedButNotDiscoverable", "DiscoverabilityMismatch"}
+          summary_path.write_text(json.dumps(observation, indent=2, sort_keys=True) + "\n")
+          if state != "Discoverable":
+              raise SystemExit(2)
+          PY
 
       - name: Revalidate trust-root after signing
         continue-on-error: true
