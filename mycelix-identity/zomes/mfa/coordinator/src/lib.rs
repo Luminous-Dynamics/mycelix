@@ -44,24 +44,26 @@ const RATE_LIMIT_WINDOW_MICROS: u64 = 15 * 60 * 1_000_000;
 // CROSS-ZOME HELPERS
 // =============================================================================
 
-/// Verify that a DID exists in the did_registry zome
-fn verify_did_exists(did: &str) -> ExternResult<bool> {
-    // Call the did_registry zome to resolve the DID
+/// Verify that a DID is active in the did_registry zome.
+///
+/// MFA state is security-sensitive and must not be initialized or replenished
+/// for a deactivated DID. Use the registry's canonical active-state predicate
+/// rather than treating historical resolution as current authorization.
+fn verify_did_active(did: &str) -> ExternResult<bool> {
     let response = call(
         CallTargetCell::Local,
         ZomeName::new("did_registry"),
-        FunctionName::new("resolve_did"),
+        FunctionName::new("is_did_active"),
         None,
         did.to_string(),
     )?;
 
-    // Decode the response
     match response {
         ZomeCallResponse::Ok(extern_io) => {
-            let result: Option<Record> = extern_io
+            let result: bool = extern_io
                 .decode()
                 .map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
-            Ok(result.is_some())
+            Ok(result)
         }
         ZomeCallResponse::Unauthorized(..) => Err(wasm_error!(WasmErrorInner::Guest(
             "Unauthorized cross-zome call".into()
@@ -296,17 +298,35 @@ pub fn create_mfa_state(input: CreateMfaStateInput) -> ExternResult<MfaStateOutp
         )));
     }
 
-    // Verify DID exists in did_registry (cross-zome call)
-    // Note: This may fail if did_registry is not available, which is acceptable
-    // for standalone testing. In production, both zomes will be present.
-    if let Ok(exists) = verify_did_exists(&input.did) {
-        if !exists {
+    // Verify the DID is active in did_registry (cross-zome call). This is a
+    // security prerequisite: historical/deactivated identity state must not
+    // become authorization for new MFA state.
+    match verify_did_active(&input.did) {
+        Ok(true) => {}
+        Ok(false) => {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "DID does not exist in registry. Create DID first.".into()
+                "DID is not active in the registry. Create or reactivate the DID before creating MFA state.".into()
             )));
         }
+        Err(error) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "DID active-state verification failed; refusing MFA initialization: {}",
+                error
+            ))));
+        }
     }
-    // If cross-zome call fails, we proceed (for testing without did_registry)
+
+    // Bind the initial factor identifier to the caller's canonical Holochain
+    // AgentPubKey representation. This prevents callers from inventing an
+    // arbitrary sha256 identifier and labeling it as the primary key.
+    let mut hasher = Sha256::new();
+    hasher.update(agent_info.agent_initial_pubkey.get_raw_39());
+    let expected_key_hash = format!("sha256:{}", hex_encode(&hasher.finalize()));
+    if !bool::from(input.primary_key_hash.as_bytes().ct_eq(expected_key_hash.as_bytes())) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Primary key factor ID does not match the caller's AgentPubKey".into()
+        )));
+    }
 
     // Create initial factor (primary key pair)
     let primary_factor = EnrolledFactor {
@@ -381,6 +401,14 @@ pub fn create_mfa_state(input: CreateMfaStateInput) -> ExternResult<MfaStateOutp
 /// Enroll a new identity factor
 #[hdk_extern]
 pub fn enroll_factor(input: EnrollFactorInput) -> ExternResult<MfaStateOutput> {
+    // Deactivation is a terminal authority boundary. Keep historical MFA
+    // state readable, but refuse new security mutations for inactive DIDs.
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing MFA mutation".into()
+        )));
+    }
+
     let now = sys_time()?;
     let agent_info = agent_info()?;
 
@@ -497,6 +525,14 @@ pub fn enroll_factor(input: EnrollFactorInput) -> ExternResult<MfaStateOutput> {
 /// Revoke an existing factor
 #[hdk_extern]
 pub fn revoke_factor(input: RevokeFactorInput) -> ExternResult<MfaStateOutput> {
+    // Deactivation is a terminal authority boundary. Keep historical MFA
+    // state readable, but refuse new security mutations for inactive DIDs.
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing MFA mutation".into()
+        )));
+    }
+
     let now = sys_time()?;
     let agent_info = agent_info()?;
 
@@ -603,6 +639,14 @@ pub fn revoke_factor(input: RevokeFactorInput) -> ExternResult<MfaStateOutput> {
 /// For production use, additional cryptographic verification would be needed.
 #[hdk_extern]
 pub fn verify_factor(input: VerifyFactorInput) -> ExternResult<MfaStateOutput> {
+    // Deactivation is a terminal authority boundary. Keep historical MFA
+    // state readable, but refuse new security mutations for inactive DIDs.
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing MFA mutation".into()
+        )));
+    }
+
     let now = sys_time()?;
     let agent_info = agent_info()?;
 
@@ -2320,6 +2364,83 @@ pub fn get_mfa_summary(did: String) -> ExternResult<Option<MfaSummary>> {
     }
 }
 
+fn mask_factor_identifier(value: &str) -> String {
+    let chars: Vec<char> = value.chars().collect();
+    if chars.len() <= 12 {
+        let prefix: String = chars.iter().take(4).collect();
+        return format!("{prefix}…");
+    }
+    let prefix: String = chars.iter().take(8).collect();
+    let suffix: String = chars.iter().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
+    format!("{prefix}…{suffix}")
+}
+
+// =============================================================================
+// Browser-safe projections
+// =============================================================================
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MfaStateView {
+    pub did: String,
+    pub factors: Vec<MfaFactorView>,
+    pub assurance_level: AssuranceLevel,
+    pub effective_strength: f32,
+    pub category_count: u8,
+    pub updated: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MfaFactorView {
+    pub factor_type: FactorType,
+    pub factor_id: String,
+    pub enrolled_at: i64,
+    pub last_verified: i64,
+    pub effective_strength: f32,
+    pub active: bool,
+    pub metadata: String,
+}
+
+/// Return a browser-safe projection of the caller's MFA state.
+///
+/// This keeps AgentPubKey, ActionHash, and Holochain Record serialization out
+/// of frontend code while preserving the canonical MFA state in the DHT.
+#[hdk_extern]
+pub fn get_mfa_view(did: String) -> ExternResult<Option<MfaStateView>> {
+    let now = sys_time()?;
+    match get_mfa_state_internal(&did) {
+        Ok((state, _)) => {
+            let (assurance_level, effective_strength, category_count) = state.calculate_assurance(now);
+            let updated = state.updated.as_micros();
+            let did = state.did.clone();
+            Ok(Some(MfaStateView {
+                did,
+                factors: state
+                    .factors
+                    .into_iter()
+                    .map(|factor| MfaFactorView {
+                        factor_type: factor.factor_type,
+                        // Browser clients receive only a display-safe hint. Raw
+                        // credential/device identifiers and metadata stay inside the
+                        // Holochain runtime.
+                        factor_id: mask_factor_identifier(&factor.factor_id),
+                        enrolled_at: factor.enrolled_at.as_micros(),
+                        last_verified: factor.last_verified.as_micros(),
+                        // Recompute using the canonical factor-specific decay policy.
+                        effective_strength: factor.current_strength(now),
+                        active: factor.active,
+                        metadata: String::new(),
+                    })
+                    .collect(),
+                assurance_level,
+                effective_strength,
+                category_count,
+                updated,
+            }))
+        }
+        Err(_) => Ok(None),
+    }
+}
+
 // =============================================================================
 // INTERNAL HELPERS
 // =============================================================================
@@ -2332,16 +2453,28 @@ fn get_mfa_state_internal(did: &str) -> ExternResult<(MfaState, ActionHash)> {
         GetStrategy::default(),
     )?;
 
-    // Get the most recent link
-    let link = links
-        .into_iter()
-        .max_by_key(|l| l.timestamp)
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("MFA state not found".into())))?;
+    // DID-to-state is security state. Never choose among distinct legacy
+    // targets using mutable DHT link timestamps.
+    let mut action_hash: Option<ActionHash> = None;
+    for link in links {
+        let target = link
+            .target
+            .into_action_hash()
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
 
-    let action_hash = link
-        .target
-        .into_action_hash()
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(existing) = action_hash.as_ref() {
+            if existing != &target {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous MFA state: multiple distinct DID-to-state targets exist".into(),
+                )));
+            }
+        } else {
+            action_hash = Some(target);
+        }
+    }
+
+    let action_hash = action_hash
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("MFA state not found".into())))?;
 
     let record = get_latest_record(action_hash.clone())?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("MFA state record not found".into())))?;

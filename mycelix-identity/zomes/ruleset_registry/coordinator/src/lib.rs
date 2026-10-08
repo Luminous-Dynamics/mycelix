@@ -17,6 +17,48 @@ use mycelix_bridge_common::civic_requirement_basic;
 use ruleset_registry_integrity::*;
 
 use mycelix_zome_helpers as _;
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
+
 
 /// Input for [`publish_ruleset`] — `publisher` is deliberately absent; the
 /// coordinator sets it from `agent_info()` so the DHT-level check in the
@@ -45,13 +87,18 @@ fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
 /// *guardian's* decision at import time, not this registry's to pre-judge.
 #[hdk_extern]
 pub fn publish_ruleset(input: PublishRulesetInput) -> ExternResult<Record> {
+    let publisher = agent_info()?.agent_initial_pubkey;
+    verify_did_active(
+        &format!("did:mycelix:{}", publisher),
+        "ruleset publication",
+    )?;
+
     let _eligibility = mycelix_zome_helpers::require_civic(
         "identity_bridge",
         &civic_requirement_basic(),
         "publish_ruleset",
     )?;
 
-    let publisher = agent_info()?.agent_initial_pubkey;
     let record = RulesetRecord {
         publisher: publisher.clone(),
         name: input.name,

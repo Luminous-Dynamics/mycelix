@@ -3,13 +3,18 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Verifiable Credential Integrity Zome
 //!
-//! W3C Verifiable Credentials Data Model 2.0 compliant implementation
+//! Mycelix's VC 2.0 application profile with W3C Data Integrity support.
+//!
+//! The wire model follows the VC Data Model 2.0 security model and implements
+//! the W3C eddsa-jcs-2022 cryptosuite, while intentionally constraining
+//! @context entries to string-valued terms in the Holochain entry schema.
 //! <https://www.w3.org/TR/vc-data-model-2.0/>
+//! <https://www.w3.org/TR/vc-di-eddsa-1.1/>
 
 use hdi::prelude::*;
 
 /// W3C Verifiable Credential
-/// Full implementation of VC Data Model 2.0
+/// VC 2.0 application-profile entry with Mycelix integrity constraints.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct VerifiableCredential {
@@ -122,7 +127,8 @@ pub struct CredentialProof {
     pub proof_value: String,
     /// For DataIntegrityProof: cryptosuite used
     pub cryptosuite: Option<String>,
-    /// Algorithm identifier (multicodec u16). None defaults to Ed25519 (0xed01).
+    /// Optional Mycelix algorithm identifier (multicodec u16). W3C cryptosuites such as
+    /// eddsa-jcs-2022 define their algorithm through the cryptosuite and omit this field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub algorithm: Option<u16>,
     /// Challenge value for replay protection (W3C Data Integrity spec).
@@ -133,6 +139,15 @@ pub struct CredentialProof {
     /// When present, the verifier MUST supply the same domain to verify.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
+    /// Proof-level @context used by W3C Data Integrity JCS proofs.
+    /// At Mycelix admission it is required to equal the secured document's
+    /// @context; verifier-side interoperability permits ordered-prefix context.
+    #[serde(
+        rename = "@context",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub proof_context: Option<Vec<String>>,
 }
 
 /// Verifiable Presentation - for presenting credentials
@@ -162,6 +177,11 @@ pub struct VerifiablePresentation {
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct DerivedCredential {
+    /// Exact ActionHash of the original immutable credential.
+    ///
+    /// The human-readable ID remains for presentation/interoperability, but
+    /// lineage-sensitive operations must use this cryptographic action reference.
+    pub original_credential_action: ActionHash,
     /// Original credential ID
     pub original_credential_id: String,
     /// DID of the original issuer
@@ -227,6 +247,9 @@ pub struct CredentialRequest {
     pub created: Timestamp,
     /// Status update timestamp
     pub updated: Timestamp,
+    /// Exact credential action that fulfilled this request once the request is Issued.
+    /// This makes the Issued state proof-carrying rather than a free-standing label.
+    pub issued_credential: Option<ActionHash>,
 }
 
 /// Evidence supporting a credential request
@@ -355,22 +378,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
-            match link_type {
-                LinkTypes::IssuerToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SubjectToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::HolderToPresentation => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CredentialToDerived => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SchemaToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::IssuerToRequest => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::RequesterToRequest => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CredentialIdToCredential => Ok(ValidateCallbackResult::Valid),
-            }
+            validate_credential_link(
+                link_type,
+                &base_address,
+                &target_address,
+                &action,
+            )
         }
         FlatOp::RegisterDeleteLink {
             original_action,
@@ -382,36 +407,593 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the link creator can delete their links".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+            Ok(ValidateCallbackResult::Invalid(
+                "Credential indexes and lineage links cannot be deleted".into(),
+            ))
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
-            let original = must_get_action(action.original_action_address.clone())?;
-            if *original.action().author() != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the original entry author can update their entries".into(),
-                ));
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::VerifiableCredential),
+                action,
+            } => validate_credential_id_chain_uniqueness(action),
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::CredentialRequest),
+                action,
+            } => validate_request_id_chain_uniqueness(action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterUpdate(update) => match update {
+            OpUpdate::Entry {
+                app_entry,
+                action,
+                ..
+            } => {
+                if matches!(app_entry, EntryTypes::CredentialRequest(_)) {
+                    return match app_entry {
+                        EntryTypes::CredentialRequest(req) => {
+                            validate_update_credential_request(action, req)
+                        }
+                        _ => Ok(ValidateCallbackResult::Invalid(
+                            "Credential request update dispatch became inconsistent".into(),
+                        )),
+                    };
+                }
+
+                let original = must_get_action(action.original_action_address.clone())?;
+                if *original.action().author() != action.author {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original entry author can update their entries".into(),
+                    ));
+                }
+
+                match app_entry {
+                    EntryTypes::EncryptedEntry(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Encrypted entries are append-only (re-encrypt instead)".into(),
+                    )),
+                    _ => Ok(ValidateCallbackResult::Invalid(
+                        "Credentials and presentations cannot be updated".into(),
+                    )),
+                }
             }
-            Ok(ValidateCallbackResult::Valid)
+            OpUpdate::PrivateEntry { action, .. }
+            | OpUpdate::Agent { action, .. }
+            | OpUpdate::CapClaim { action, .. }
+            | OpUpdate::CapGrant { action, .. } => {
+                let original = must_get_action(action.original_action_address.clone())?;
+                if *original.action().author() != action.author {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original entry author can update their entries".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
         }
-        FlatOp::RegisterDelete(OpDelete { action }) => {
-            let original = must_get_action(action.deletes_address.clone())?;
-            if *original.action().author() != action.author {
+        FlatOp::RegisterDelete(OpDelete { .. }) => Ok(ValidateCallbackResult::Invalid(
+            "Verifiable credentials, presentations, derived credentials, requests, and encrypted entries are append-only"
+                .into(),
+        )),
+    }
+}
+
+fn string_to_entry_hash(value: &str) -> EntryHash {
+    let bytes = holo_hash::blake2b_256(value.as_bytes())
+        .into_iter()
+        .chain([0u8; 4])
+        .collect::<Vec<u8>>();
+    EntryHash::from_raw_36(bytes)
+}
+
+/// Return true when a DID URL's authority component names exactly the supplied DID.
+///
+/// The coordinator verifies signatures with the issuer/holder AgentPubKey, so a
+/// mismatched verification-method DID would otherwise become unauthenticated
+/// metadata: the proof could claim a method controlled by a different DID while
+/// the signature is actually checked against the issuer/holder key.
+fn verification_method_matches_did(verification_method: &str, did: &str) -> bool {
+    let method_did = verification_method.split_once('#').map_or(verification_method, |(base, _)| base);
+    method_did == did && !verification_method.is_empty()
+}
+
+fn did_to_agent(did: &str) -> Option<AgentPubKey> {
+    did.strip_prefix("did:mycelix:")
+        .and_then(|value| AgentPubKey::try_from(value).ok())
+}
+
+fn action_target(
+    target_address: &AnyLinkableHash,
+    label: &str,
+) -> ExternResult<ActionHash> {
+    target_address.clone().into_action_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} target must be an ActionHash"
+        )))
+    })
+}
+
+/// Recompute the content hash used by the coordinator's derived-credential proof.
+///
+/// This intentionally mirrors `compute_credential_hash` in the coordinator zome so
+/// an integrity validator can bind a derived credential to the exact credential
+/// content it claims to derive from. The binding is to the credential content hash,
+/// not merely its human-readable ID.
+fn is_date_time_stamp(value: &str) -> bool {
+    // VC 2.x validity values are XML Schema dateTimeStamp-like values:
+    // full date + time + an explicit timezone. Fractional seconds are allowed.
+    if value.len() < 20 || value.as_bytes().get(10) != Some(&b'T') {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !bytes[0..10].iter().enumerate().all(|(i, b)| {
+        if matches!(i, 4 | 7) { *b == b'-' } else { b.is_ascii_digit() }
+    }) {
+        return false;
+    }
+    if bytes[13] != b':' || bytes[16] != b':' {
+        return false;
+    }
+    if !bytes[11..19].iter().enumerate().all(|(i, b)| {
+        if matches!(i, 2 | 5) { *b == b':' } else { b.is_ascii_digit() }
+    }) {
+        return false;
+    }
+
+    if value.ends_with('Z') {
+        return value.parse::<Timestamp>().is_ok();
+    }
+    if value.len() < 25 {
+        return false;
+    }
+    let tz_start = value.len() - 6;
+    (bytes[tz_start] == b'+' || bytes[tz_start] == b'-')
+        && bytes[tz_start + 3] == b':'
+        && bytes[tz_start + 1].is_ascii_digit()
+        && bytes[tz_start + 2].is_ascii_digit()
+        && bytes[tz_start + 4].is_ascii_digit()
+        && bytes[tz_start + 5].is_ascii_digit()
+        && value.parse::<Timestamp>().is_ok()
+}
+
+fn eddsa_jcs_hash_data_from_values(
+    mut unsecured: Value,
+    mut proof_config: Value,
+) -> ExternResult<Vec<u8>> {
+    let document_context = unsecured
+        .get("@context")
+        .cloned()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "JCS secured document must contain an @context".into()
+        )))?;
+
+    let proof_config_map = proof_config.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("JCS proof configuration must serialize to a JSON object".into())
+    ))?;
+
+    if let Some(proof_context) = proof_config_map.get("@context").cloned() {
+        let document_values = document_context.as_array().ok_or(wasm_error!(
+            WasmErrorInner::Guest("JCS document @context must be an array".into())
+        ))?;
+        let proof_values = proof_context.as_array().ok_or(wasm_error!(
+            WasmErrorInner::Guest("JCS proof @context must be an array".into())
+        ))?;
+        if proof_values.is_empty()
+            || proof_values.len() > document_values.len()
+            || document_values[..proof_values.len()] != proof_values[..]
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "JCS proof @context must be an ordered prefix of the document @context".into()
+            )));
+        }
+
+        // Per eddsa-jcs-2022 verification, the transformed unsecured
+        // document uses the proof's context for canonicalization.
+        unsecured
+            .as_object_mut()
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "JCS secured document must serialize to an object".into()
+            )))?
+            .insert("@context".into(), proof_context);
+    }
+
+    let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "JCS document canonicalization failed: {e}"
+        )))
+    })?;
+    let canonical_proof_config = serde_json_canonicalizer::to_vec(&proof_config).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "JCS proof configuration canonicalization failed: {e}"
+        )))
+    })?;
+    let transformed_document_hash = Sha256::digest(&canonical_document);
+    let proof_config_hash = Sha256::digest(&canonical_proof_config);
+    let mut hash_data = Vec::with_capacity(64);
+    hash_data.extend_from_slice(&proof_config_hash);
+    hash_data.extend_from_slice(&transformed_document_hash);
+    Ok(hash_data)
+}
+
+
+fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
+    let mut unsecured = serde_json::to_value(vc).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Credential JSON serialization failed: {e}"
+        )))
+    })?;
+    let unsecured_map = unsecured.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Credential must serialize to a JSON object".into())
+    ))?;
+    unsecured_map.remove("proof");
+
+    let proof_value = serde_json::to_value(&vc.proof).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Proof JSON serialization failed: {e}"
+        )))
+    })?;
+    let mut proof_config = proof_value.as_object().cloned().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Credential proof must serialize to a JSON object".into())
+    ))?;
+    proof_config.remove("proofValue");
+
+    eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
+}
+fn decode_raw_jcs_signature(value: &str) -> Result<[u8; 64], String> {
+    if !value.starts_with('z') || value.len() <= 1 {
+        return Err("W3C JCS proofValue must use base58-btc Multibase (z prefix)".into());
+    }
+    let decoded = bs58::decode(&value[1..])
+        .with_alphabet(bs58::Alphabet::BITCOIN)
+        .into_vec()
+        .map_err(|e| format!("Invalid proofValue base58-btc payload: {e}"))?;
+    <[u8; 64]>::try_from(decoded.as_slice())
+        .map_err(|_| "W3C JCS proofValue must decode to exactly 64 Ed25519 bytes".into())
+}
+
+fn verify_credential_signature_at_validation(
+    action_author: &AgentPubKey,
+    vc: &VerifiableCredential,
+) -> ExternResult<bool> {
+    let hash_data = match vc.proof.cryptosuite.as_deref() {
+        None | Some("mycelix-blake2b-ed25519-2026") => compute_credential_content_hash(vc),
+        Some("eddsa-jcs-2022") => eddsa_jcs_hash_data(vc)?,
+        Some(_) => return Ok(false),
+    };
+
+    if vc.proof.cryptosuite.as_deref() == Some("eddsa-jcs-2022") {
+        let raw = decode_raw_jcs_signature(&vc.proof.proof_value).map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(e))
+        })?;
+        return verify_signature(
+            action_author.clone(),
+            Signature::from(raw),
+            hash_data,
+        );
+    }
+
+    let tagged = TaggedSignature::from_multibase(&vc.proof.proof_value)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if tagged.algorithm != AlgorithmId::Ed25519 {
+        return Ok(false);
+    }
+    if tagged.signature_bytes.len() != 64 {
+        return Ok(false);
+    }
+    let raw = <[u8; 64]>::try_from(tagged.signature_bytes.as_slice())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Ed25519 proofValue must decode to exactly 64 bytes".into()
+        )))?;
+
+    verify_signature(action_author.clone(), Signature::from(raw), hash_data)
+}
+
+fn compute_credential_content_hash(vc: &VerifiableCredential) -> Vec<u8> {
+    let mut content = Vec::new();
+    content.extend(vc.id.as_bytes());
+    content.push(0);
+    content.extend(vc.issuer.did().as_bytes());
+    content.push(0);
+    content.extend(vc.credential_subject.id.as_bytes());
+    content.push(0);
+    content.extend(vc.valid_from.as_bytes());
+    content.push(0);
+    if let Ok(claims_json) = serde_json::to_string(&vc.credential_subject.claims) {
+        content.extend(claims_json.as_bytes());
+    } else {
+        return Vec::new();
+    }
+    content.push(0);
+    content.extend(vc.mycelix_schema_id.as_bytes());
+
+    holo_hash::blake2b_256(&content).to_vec()
+}
+
+
+fn eddsa_jcs_hash_data_for_presentation(
+    vp: &VerifiablePresentation,
+) -> ExternResult<Vec<u8>> {
+    let mut unsecured = serde_json::to_value(vp).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation JSON serialization failed: {e}"
+        )))
+    })?;
+    let unsecured_map = unsecured.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Presentation must serialize to a JSON object".into())
+    ))?;
+    unsecured_map.remove("proof");
+
+    let proof_value = serde_json::to_value(&vp.proof).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation proof JSON serialization failed: {e}"
+        )))
+    })?;
+    let mut proof_config = proof_value.as_object().cloned().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Presentation proof must serialize to a JSON object".into())
+    ))?;
+    proof_config.remove("proofValue");
+
+    eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
+}
+
+fn compute_presentation_content_hash(vp: &VerifiablePresentation) -> Vec<u8> {
+    // Preserve the exact legacy payload layout used by the historical
+    // coordinator profile for backward verification of existing presentations.
+    let mut content = vp.id.as_bytes().to_vec();
+    content.extend(vp.holder.as_bytes());
+    for credential in &vp.verifiable_credential {
+        content.extend(credential.id.as_bytes());
+    }
+    if let Some(challenge) = &vp.proof.challenge {
+        content.extend(challenge.as_bytes());
+    }
+    if let Some(domain) = &vp.proof.domain {
+        content.extend(domain.as_bytes());
+    }
+
+    holo_hash::blake2b_256(&content).to_vec()
+}
+
+fn verify_presentation_signature_at_validation(
+    action_author: &AgentPubKey,
+    vp: &VerifiablePresentation,
+) -> ExternResult<bool> {
+    let hash_data = match vp.proof.cryptosuite.as_deref() {
+        Some("eddsa-jcs-2022") => eddsa_jcs_hash_data_for_presentation(vp)?,
+        None | Some("mycelix-blake2b-ed25519-2026") => compute_presentation_content_hash(vp),
+        Some(_) => return Ok(false),
+    };
+
+    if vp.proof.cryptosuite.as_deref() == Some("eddsa-jcs-2022") {
+        let raw = decode_raw_jcs_signature(&vp.proof.proof_value)
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+        return verify_signature(action_author.clone(), Signature::from(raw), hash_data);
+    }
+
+    let tagged = TaggedSignature::from_multibase(&vp.proof.proof_value)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if tagged.algorithm != AlgorithmId::Ed25519 || tagged.signature_bytes.len() != 64 {
+        return Ok(false);
+    }
+    let raw = <[u8; 64]>::try_from(tagged.signature_bytes.as_slice()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Presentation Ed25519 proofValue must decode to exactly 64 bytes".into()
+        ))
+    })?;
+    verify_signature(action_author.clone(), Signature::from(raw), hash_data)
+}
+
+fn validate_credential_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let target = action_target(target_address, "Credential link")?;
+    let record = must_get_valid_record(target)?;
+
+    match link_type {
+        LinkTypes::IssuerToCredential
+        | LinkTypes::SubjectToCredential
+        | LinkTypes::SchemaToCredential
+        | LinkTypes::CredentialIdToCredential => {
+            let vc: VerifiableCredential = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Credential index target must contain a VerifiableCredential".into(),
+                )))?;
+            let issuer = did_to_agent(vc.issuer.did()).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Credential issuer must be a did:mycelix AgentPubKey".into())
+            ))?;
+            if action.author != issuer {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Only the original entry author can delete their entries".into(),
+                    "Credential index link must be authored by the credential issuer".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+
+            let expected_base = match link_type {
+                LinkTypes::IssuerToCredential => string_to_entry_hash(vc.issuer.did()),
+                LinkTypes::SubjectToCredential => string_to_entry_hash(&vc.credential_subject.id),
+                LinkTypes::SchemaToCredential => string_to_entry_hash(&vc.mycelix_schema_id),
+                LinkTypes::CredentialIdToCredential => string_to_entry_hash(&vc.id),
+                _ => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Unexpected credential link type for credential index".into(),
+                    ));
+                }
+            };
+            let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Credential index link base must be an EntryHash".into(),
+                ))
+            })?;
+            if actual_base != expected_base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Credential index link base does not match the target credential".into(),
+                ));
+            }
+        }
+        LinkTypes::HolderToPresentation => {
+            let vp: VerifiablePresentation = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "HolderToPresentation target must contain a VerifiablePresentation".into(),
+                )))?;
+            if vp.holder != format!("did:mycelix:{}", action.author) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HolderToPresentation link must be authored by the presentation holder".into(),
+                ));
+            }
+            let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "HolderToPresentation base must be an EntryHash".into(),
+                ))
+            })?;
+            if actual_base != string_to_entry_hash(&vp.holder) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HolderToPresentation base does not match the presentation holder".into(),
+                ));
+            }
+        }
+        LinkTypes::CredentialToDerived => {
+            let dc: DerivedCredential = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToDerived target must contain a DerivedCredential".into(),
+                )))?;
+            if dc.holder != format!("did:mycelix:{}", action.author) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived link must be authored by the derived-credential holder".into(),
+                ));
+            }
+            let actual_base = base_address.clone().into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToDerived base must be an ActionHash".into(),
+                ))
+            })?;
+            let original_record = must_get_valid_record(actual_base.clone())?;
+            let original_vc: VerifiableCredential = original_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToDerived base must reference a VerifiableCredential".into(),
+                )))?;
+            if actual_base != dc.original_credential_action {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived base does not match the derived credential's pinned source action".into(),
+                ));
+            }
+            if original_vc.id != dc.original_credential_id {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived base does not match the referenced original credential ID".into(),
+                ));
+            }
+            if dc.original_issuer != original_vc.issuer.did() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived original issuer does not match the referenced credential".into(),
+                ));
+            }
+            if dc.holder != original_vc.credential_subject.id
+                || dc.derived_content.id != dc.holder
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived holder must match the original credential subject".into(),
+                ));
+            }
+
+            let expected_hash = compute_credential_content_hash(&original_vc);
+            if dc.derivation_proof.original_credential_hash != expected_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived proof hash does not match the referenced credential content".into(),
+                ));
+            }
+
+            let original_claims = original_vc.credential_subject.claims.as_object().ok_or(
+                wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToDerived original credential claims must be an object".into(),
+                )),
+            )?;
+            let derived_claims = dc.derived_content.claims.as_object().ok_or(
+                wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToDerived derived claims must be an object".into(),
+                )),
+            )?;
+
+            for (i, claim) in dc.selected_claims.iter().enumerate() {
+                if dc.selected_claims.iter().skip(i + 1).any(|other| other == claim) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "CredentialToDerived selected claims must not contain duplicates".into(),
+                    ));
+                }
+                let Some(original_value) = original_claims.get(claim) else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "CredentialToDerived selected claim is absent from the original credential".into(),
+                    ));
+                };
+                let Some(derived_value) = derived_claims.get(claim) else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "CredentialToDerived selected claim is absent from the derived credential".into(),
+                    ));
+                };
+                if original_value != derived_value {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "CredentialToDerived selected claim value does not match the original credential".into(),
+                    ));
+                }
+            }
+
+            if derived_claims.keys().any(|key| {
+                !dc.selected_claims.iter().any(|selected| selected == key)
+            }) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived contains an unselected derived claim".into(),
+                ));
+            }
+        }
+        LinkTypes::IssuerToRequest | LinkTypes::RequesterToRequest => {
+            let req: CredentialRequest = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Credential request link target must contain a CredentialRequest".into(),
+                )))?;
+            let requester = did_to_agent(&req.requester_did).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Credential requester must be a did:mycelix AgentPubKey".into())
+            ))?;
+            if action.author != requester {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Credential request index link must be authored by the requester".into(),
+                ));
+            }
+            let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Credential request link base must be an EntryHash".into(),
+                ))
+            })?;
+            let expected_base = match link_type {
+                LinkTypes::IssuerToRequest => string_to_entry_hash(&req.issuer_did),
+                LinkTypes::RequesterToRequest => string_to_entry_hash(&req.requester_did),
+                _ => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Unexpected credential request link type for request index".into(),
+                    ));
+                }
+            };
+            if actual_base != expected_base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Credential request link base does not match the target request".into(),
+                ));
+            }
         }
     }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// The DID that a self-issued entry's issuer/owner field must equal, derived
@@ -434,6 +1016,93 @@ fn require_issuer_is_author(issuer_did: &str, author_did: &str) -> ValidateCallb
     ValidateCallbackResult::Valid
 }
 
+fn validate_credential_id_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current: VerifiableCredential = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "VerifiableCredential entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::VerifiableCredential)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior: VerifiableCredential = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential ID history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior.id == current.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A credential ID may only have one creation on an issuer source chain".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_request_id_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current: CredentialRequest = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "CredentialRequest entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::CredentialRequest)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior: CredentialRequest = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential request ID history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior.id == current.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A credential request ID may only have one creation on a requester source chain"
+                    .into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate verifiable credential creation
 fn validate_create_verifiable_credential(
     action: EntryCreationAction,
@@ -450,10 +1119,11 @@ fn validate_create_verifiable_credential(
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
-    // Validate context includes W3C VC context
-    if !vc.context.iter().any(|c| c.contains("credentials")) {
+    // W3C VC Data Model 2.0 requires the base credentials-v2 context
+    // to be the first item in the ordered @context set.
+    if vc.context.first().map(String::as_str) != Some("https://www.w3.org/ns/credentials/v2") {
         return Ok(ValidateCallbackResult::Invalid(
-            "Credential must include W3C credentials context".into(),
+            "Credential @context must begin with https://www.w3.org/ns/credentials/v2".into(),
         ));
     }
 
@@ -481,10 +1151,136 @@ fn validate_create_verifiable_credential(
         ));
     }
 
-    // Validate proof exists and has required fields
+    // The Mycelix creation timestamp is provenance metadata, not an issuer-
+    // controlled validity date. It must not claim a time after the actual
+    // Holochain create action.
+    if vc.mycelix_created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential mycelix_created timestamp cannot be in the future relative to its create action".into(),
+        ));
+    }
+
+    // Validate the W3C temporal fields before accepting them into the DHT.
+    // Holochain Timestamp parsing gives us a concrete temporal value, allowing
+    // us to enforce the VC validity interval rather than trusting arbitrary text.
+    if !is_date_time_stamp(&vc.valid_from) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential validFrom must be an explicit dateTimeStamp with timezone".into(),
+        ));
+    }
+    if let Some(valid_until) = vc.valid_until.as_deref() {
+        if !is_date_time_stamp(valid_until) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Credential validUntil must be an explicit dateTimeStamp with timezone".into(),
+            ));
+        }
+    }
+
+    let valid_from = vc.valid_from.parse::<Timestamp>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Credential validFrom must be a valid RFC3339 timestamp: {e}"
+        )))
+    })?;
+    if let Some(valid_until_str) = vc.valid_until.as_deref() {
+        let valid_until = valid_until_str.parse::<Timestamp>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential validUntil must be a valid RFC3339 timestamp: {e}"
+            )))
+        })?;
+        if valid_from > valid_until {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Credential validFrom must not be later than validUntil".into(),
+            ));
+        }
+    }
+
+    if vc.mycelix_schema_id.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential must include a Mycelix schema ID".into(),
+        ));
+    }
+    if let Some(schema) = &vc.credential_schema {
+        if schema.id != vc.mycelix_schema_id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "credentialSchema.id must match mycelix_schema_id".into(),
+            ));
+        }
+        if schema.schema_type.is_empty() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "credentialSchema.type must not be empty".into(),
+            ));
+        }
+    }
+
+    match vc.proof.cryptosuite.as_deref() {
+        None => {}
+        Some("mycelix-blake2b-ed25519-2026") => {
+            if vc.proof.algorithm != Some(0xed01) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Mycelix BLAKE2b-Ed25519 proof must declare the Ed25519 0xed01 algorithm".into(),
+                ));
+            }
+        }
+        Some("eddsa-jcs-2022") => {
+            if vc.proof.proof_type != "DataIntegrityProof" {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 proofs must use DataIntegrityProof".into(),
+                ));
+            }
+            if vc.proof.algorithm.is_some() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 proofs must not declare a non-standard algorithm field".into(),
+                ));
+            }
+            if vc.proof.proof_context.as_deref() != Some(vc.context.as_slice()) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 proof @context must exactly match the credential @context at admission".into(),
+                ));
+            }
+        }
+        Some(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Unsupported credential cryptosuite for the current in-DNA verifier".into(),
+            ));
+        }
+    }
+
+    // Validate proof exists and has required fields.
     if vc.proof.proof_type.is_empty() || vc.proof.proof_value.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Credential must have valid proof".into(),
+        ));
+    }
+    if !is_date_time_stamp(&vc.proof.created) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential proof created value must be an explicit dateTimeStamp with timezone".into(),
+        ));
+    }
+    let proof_created = vc.proof.created.parse::<Timestamp>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Credential proof created value must parse as a timestamp: {e}"
+        )))
+    })?;
+    if proof_created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential proof created value cannot be in the future relative to its create action".into(),
+        ));
+    }
+
+    // The proof verification method must belong to the same DID whose key
+    // authenticates the credential signature. The fragment is an identifier
+    let signature_valid = verify_credential_signature_at_validation(&action.author(), &vc)?;
+    if !signature_valid {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential proof signature does not verify against the committing agent".into(),
+        ));
+    }
+
+    // within that DID document; the verifier's cryptographic key is derived
+    // from the issuer DID itself.
+    if !verification_method_matches_did(&vc.proof.verification_method, vc.issuer.did()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential proof verification method must belong to the issuer DID".into(),
         ));
     }
 
@@ -503,21 +1299,24 @@ fn validate_create_verifiable_presentation(
     action: EntryCreationAction,
     vp: VerifiablePresentation,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Author-binding: the coordinator's create_presentation already derives
-    // `holder_did` from agent_info() rather than trusting caller input (it
-    // isn't even part of CreatePresentationInput), but that's bypassable by
-    // a modified coordinator -- the integrity validator is the real
-    // security boundary. Without this, any agent could commit a
-    // VerifiablePresentation claiming to be presented by an arbitrary
-    // holder DID.
     let expected_holder_did = format!("did:mycelix:{}", action.author());
     if vp.holder != expected_holder_did {
         return Ok(ValidateCallbackResult::Invalid(
             "Presentation holder DID must correspond to the committing agent".into(),
         ));
     }
+    if vp.mycelix_created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation mycelix_created timestamp cannot be in the future relative to its create action".into(),
+        ));
+    }
 
-    // Validate type includes VerifiablePresentation
+    if vp.context.first().map(String::as_str) != Some("https://www.w3.org/ns/credentials/v2") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation @context must start with the W3C credentials/v2 context".into(),
+        ));
+    }
+
     if !vp
         .presentation_type
         .contains(&"VerifiablePresentation".to_string())
@@ -527,24 +1326,93 @@ fn validate_create_verifiable_presentation(
         ));
     }
 
-    // Validate holder is a DID
     if !vp.holder.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Holder must be a valid DID".into(),
         ));
     }
 
-    // Validate at least one credential
     if vp.verifiable_credential.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Presentation must contain at least one credential".into(),
         ));
     }
 
-    // Validate proof purpose for presentation
+    if !verification_method_matches_did(&vp.proof.verification_method, &vp.holder) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation proof verification method must belong to the holder DID".into(),
+        ));
+    }
+
     if vp.proof.proof_purpose != "authentication" {
         return Ok(ValidateCallbackResult::Invalid(
             "Presentation proof purpose must be 'authentication'".into(),
+        ));
+    }
+
+    match vp.proof.cryptosuite.as_deref() {
+        Some("eddsa-jcs-2022") => {
+            if vp.proof.proof_type != "DataIntegrityProof" {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 presentation proofs must use DataIntegrityProof".into(),
+                ));
+            }
+            if vp.proof.algorithm.is_some() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 presentation proofs must not declare algorithm".into(),
+                ));
+            }
+            if vp.proof.proof_context.as_deref() != Some(vp.context.as_slice()) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 presentation proof @context must exactly match the presentation @context at admission".into(),
+                ));
+            }
+            let expected_method = format!("{}#keys-1-multikey", vp.holder);
+            if vp.proof.verification_method != expected_method {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 presentation proof must use the holder's canonical Multikey".into(),
+                ));
+            }
+        }
+        None | Some("mycelix-blake2b-ed25519-2026") => {
+            if vp.proof.algorithm != Some(0xed01) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Mycelix presentation proof must declare the Ed25519 0xed01 algorithm".into(),
+                ));
+            }
+        }
+        Some(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Unsupported presentation cryptosuite".into(),
+            ));
+        }
+    }
+
+    if vp.proof.proof_type.is_empty() || vp.proof.proof_value.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation must have a valid proof".into(),
+        ));
+    }
+    if !is_date_time_stamp(&vp.proof.created) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation proof created value must be an explicit dateTimeStamp with timezone".into(),
+        ));
+    }
+    let proof_created = vp.proof.created.parse::<Timestamp>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation proof created value must parse as a timestamp: {e}"
+        )))
+    })?;
+    if proof_created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation proof created value cannot be in the future relative to its create action".into(),
+        ));
+    }
+
+    let signature_valid = verify_presentation_signature_at_validation(&action.author(), &vp)?;
+    if !signature_valid {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation proof signature does not verify against the committing holder".into(),
         ));
     }
 
@@ -566,6 +1434,11 @@ fn validate_create_derived_credential(
     if dc.holder != expected_holder_did {
         return Ok(ValidateCallbackResult::Invalid(
             "Derived credential holder DID must correspond to the committing agent".into(),
+        ));
+    }
+    if dc.created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential created timestamp cannot be in the future relative to its create action".into(),
         ));
     }
 
@@ -590,6 +1463,79 @@ fn validate_create_derived_credential(
         ));
     }
 
+    // The entry itself must carry complete source lineage; link validation is
+    // an additional integrity layer, not the primary admission boundary.
+    let source_record = must_get_valid_record(dc.original_credential_action.clone())?;
+    let source: VerifiableCredential = source_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Derived credential source action must reference a VerifiableCredential".into(),
+        )))?;
+
+    if dc.original_credential_id != source.id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential original_credential_id does not match the pinned source".into(),
+        ));
+    }
+    if dc.original_issuer != source.issuer.did() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential original_issuer does not match the pinned source".into(),
+        ));
+    }
+    if dc.holder != source.credential_subject.id || dc.derived_content.id != dc.holder {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential holder/subject lineage does not match the pinned source".into(),
+        ));
+    }
+
+    let source_hash = compute_credential_content_hash(&source);
+    if dc.derivation_proof.original_credential_hash != source_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential proof hash does not match the pinned source content".into(),
+        ));
+    }
+
+    match source.valid_from.parse::<Timestamp>() {
+        Ok(source_valid_from) if dc.created < source_valid_from => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Derived credential cannot be created before the source credential becomes valid".into(),
+            ));
+        }
+        Ok(_) => {}
+        Err(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Pinned source validFrom is not parseable: {e}"
+            ))));
+        }
+    }
+
+    if let Some(expires) = dc.expires {
+        if expires <= dc.created {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Derived credential expiration must be after creation".into(),
+            ));
+        }
+
+        if let Some(source_valid_until) = source.valid_until.as_deref() {
+            let source_valid_until = source_valid_until.parse::<Timestamp>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Pinned source validUntil is not parseable: {e}"
+                )))
+            })?;
+            if expires > source_valid_until {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Derived credential expiration exceeds source credential expiration".into(),
+                ));
+            }
+        }
+    } else if source.valid_until.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential must carry an expiration when the source credential expires".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -598,6 +1544,12 @@ fn validate_create_credential_request(
     action: EntryCreationAction,
     req: CredentialRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    if req.created > action.timestamp() || req.updated > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request timestamps cannot be in the future relative to its create action".into(),
+        ));
+    }
+
     // Validate requester DID
     if !req.requester_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -625,6 +1577,12 @@ fn validate_create_credential_request(
         ));
     }
 
+    if req.issued_credential.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "A newly created credential request cannot already be marked as Issued".into(),
+        ));
+    }
+
     // Validate schema ID
     if !req.schema_id.starts_with("mycelix:schema:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -635,33 +1593,111 @@ fn validate_create_credential_request(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate credential request update
+fn valid_request_status_transition(from: &RequestStatus, to: &RequestStatus) -> bool {
+    matches!(
+        (from, to),
+        (RequestStatus::Pending, RequestStatus::UnderReview)
+            | (RequestStatus::Pending, RequestStatus::Rejected)
+            | (RequestStatus::UnderReview, RequestStatus::Approved)
+            | (RequestStatus::UnderReview, RequestStatus::Rejected)
+            | (RequestStatus::Approved, RequestStatus::Issued)
+            // Re-publishing the exact same state is intentionally idempotent.
+            | (RequestStatus::Pending, RequestStatus::Pending)
+            | (RequestStatus::UnderReview, RequestStatus::UnderReview)
+            | (RequestStatus::Approved, RequestStatus::Approved)
+            | (RequestStatus::Rejected, RequestStatus::Rejected)
+            | (RequestStatus::Issued, RequestStatus::Issued)
+    )
+}
+
+
+fn credential_claims_satisfy_request(
+    requested: &serde_json::Value,
+    issued: &serde_json::Value,
+) -> bool {
+    match (requested.as_object(), issued.as_object()) {
+        (Some(requested), Some(issued)) => requested
+            .iter()
+            .all(|(key, value)| issued.get(key) == Some(value)),
+        _ => requested == issued,
+    }
+}
+
+fn validate_issued_credential_binding(
+    req: &CredentialRequest,
+) -> ExternResult<ValidateCallbackResult> {
+    let credential_hash = req.issued_credential.clone().ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Issued credential request must reference the credential action that fulfilled it".into(),
+        )
+    ))?;
+
+    let record = must_get_valid_record(credential_hash)?;
+    let credential: VerifiableCredential = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Issued credential reference must point to a VerifiableCredential".into(),
+        )))?;
+
+    let issuer = did_to_agent(&req.issuer_did).ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Issued credential request issuer must be a did:mycelix AgentPubKey".into(),
+        )
+    ))?;
+
+    if record.action().author() != &issuer {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential must be committed by the request's target issuer".into(),
+        ));
+    }
+    if credential.issuer.did() != req.issuer_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential issuer does not match the credential request issuer".into(),
+        ));
+    }
+    if credential.credential_subject.id != req.requester_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential subject does not match the credential requester".into(),
+        ));
+    }
+    if credential.mycelix_schema_id != req.schema_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential schema does not match the credential request schema".into(),
+        ));
+    }
+    if credential.proof.cryptosuite.as_deref() != Some("eddsa-jcs-2022") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Request-bound issuance requires an eddsa-jcs-2022 credential proof".into(),
+        ));
+    }
+    if credential.proof.proof_type != "DataIntegrityProof" {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Request-bound issuance requires a DataIntegrityProof".into(),
+        ));
+    }
+    if !credential_claims_satisfy_request(&req.provided_claims, &credential.credential_subject.claims) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential claims do not fulfill the claims supplied in the credential request".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate credential request update.
 ///
-/// Author-binding for updates is already enforced universally by this
-/// crate's `FlatOp::RegisterUpdate` arm in `validate()` (checks
-/// `original.action().author() == action.author` for every entry type), so
-/// this function only needs to check content invariants and state-machine
-/// transitions, not identity.
-///
-/// KNOWN GAP found while reviewing this path (2026-07-08, out of scope to
-/// fix here): the coordinator's `update_request_status` is explicitly
-/// gated to the ISSUER (`req.issuer_did != caller_did` -> reject), i.e. a
-/// DIFFERENT agent than whoever authored the original CredentialRequest
-/// (the requester). This can never actually succeed: (1) it locates the
-/// request via `query()`, which only searches the CALLING agent's own
-/// local source chain, so the issuer -- who never authored the request --
-/// gets "Request not found" every time; and (2) even if it did find it,
-/// authoring the Update as the issuer would fail this crate's
-/// author-must-match-original RegisterUpdate check. Same architectural bug
-/// as recovery's `check_and_update_request_status` (see that zome's
-/// commit for detail) -- likely a systemic pattern wherever a zome pairs
-/// this generic same-author-only update handler with a cross-agent
-/// approval workflow. Not fixed here; flagging for a dedicated follow-up.
+/// Credential requests are created by the requester but status transitions are
+/// authorized by the target issuer. The update therefore intentionally breaks
+/// the usual same-author rule for this one append-only workflow while retaining
+/// strict authorship: only the issuer named by the original request can publish
+/// a status transition.
 fn validate_update_credential_request(
     action: Update,
     req: CredentialRequest,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Fetch original to enforce state transitions
+    // Fetch original to enforce identity, immutability, and state transitions.
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original: CredentialRequest = original_record
         .entry()
@@ -671,7 +1707,19 @@ fn validate_update_credential_request(
             "Original credential request not found".into()
         )))?;
 
-    // Immutable fields
+    // The issuer is the sole authority over request state after creation.
+    let issuer = did_to_agent(&original.issuer_did).ok_or(wasm_error!(
+        WasmErrorInner::Guest("Original credential request issuer must be a did:mycelix AgentPubKey".into())
+    ))?;
+    if action.author != issuer {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request status updates must be authored by the target issuer".into(),
+        ));
+    }
+
+    // The request payload is immutable. Only status and the monotonic updated
+    // timestamp may change after creation; otherwise an issuer could silently
+    // replace the claimant's evidence/claims while approving the same request.
     if req.id != original.id {
         return Ok(ValidateCallbackResult::Invalid(
             "Request ID cannot be changed".into(),
@@ -692,17 +1740,66 @@ fn validate_update_credential_request(
             "Schema ID cannot be changed".into(),
         ));
     }
+    if req.provided_claims != original.provided_claims {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Provided claims cannot be changed after request creation".into(),
+        ));
+    }
+    if req.evidence != original.evidence {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request evidence cannot be changed after request creation".into(),
+        ));
+    }
+    if req.created != original.created {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request creation timestamp cannot be changed".into(),
+        ));
+    }
+    if original.status == RequestStatus::Issued
+        && req.issued_credential != original.issued_credential
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "An Issued request's credential binding is immutable".into(),
+        ));
+    }
+    if req.status != RequestStatus::Issued
+        && req.issued_credential != original.issued_credential
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "The issued credential binding cannot change before the request reaches Issued".into(),
+        ));
+    }
+    if req.status == RequestStatus::Issued {
+        if original.status != RequestStatus::Approved {
+            // The transition helper below will reject other paths; this early
+            // branch gives the binding a precise, proof-oriented error.
+            if req.issued_credential.is_none() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Issued status requires a credential action reference".into(),
+                ));
+            }
+        }
+        match validate_issued_credential_binding(&req)? {
+            ValidateCallbackResult::Valid => {}
+            invalid @ ValidateCallbackResult::Invalid(_) => return Ok(invalid),
+        }
+    } else if req.issued_credential.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only an Issued request may carry an issued credential reference".into(),
+        ));
+    }
+    if req.updated <= original.updated {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request updated timestamp must advance monotonically".into(),
+        ));
+    }
+    if req.updated > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request updated timestamp cannot be in the future relative to its update action".into(),
+        ));
+    }
 
-    // State machine: valid transitions
-    let valid = match (&original.status, &req.status) {
-        (RequestStatus::Pending, RequestStatus::UnderReview)
-        | (RequestStatus::Pending, RequestStatus::Rejected)
-        | (RequestStatus::UnderReview, RequestStatus::Approved)
-        | (RequestStatus::UnderReview, RequestStatus::Rejected)
-        | (RequestStatus::Approved, RequestStatus::Issued) => true,
-        (a, b) if a == b => true, // No-op allowed
-        _ => false,
-    };
+    let valid = valid_request_status_transition(&original.status, &req.status);
 
     if !valid {
         return Ok(ValidateCallbackResult::Invalid(
@@ -772,6 +1869,7 @@ mod tests {
             algorithm: None,
             challenge: None,
             domain: None,
+            proof_context: None,
         }
     }
 
@@ -965,6 +2063,212 @@ mod tests {
 
     // --- Validation conditions ---
 
+
+    #[test]
+    fn jcs_hash_matches_w3c_1_1_vector() {
+        // W3C Data Integrity EdDSA Cryptosuites v1.1, Examples 30-36.
+        let document = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+            "type": ["VerifiableCredential", "AlumniCredential"],
+            "name": "Alumni Credential",
+            "description": "A minimum viable example of an Alumni Credential.",
+            "issuer": "https://vc.example/issuers/5678",
+            "validFrom": "2023-01-01T00:00:00Z",
+            "credentialSubject": {
+                "id": "did:example:abcdefgh",
+                "alumniOf": "The School of Examples"
+            }
+        });
+        let proof_config = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2023-02-24T23:36:38Z",
+            "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+            "proofPurpose": "assertionMethod"
+        });
+
+        let hash_data = eddsa_jcs_hash_data_from_values(document, proof_config)
+            .expect("W3C 1.1 JCS vector must canonicalize");
+        let hex = hash_data
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        assert_eq!(
+            hex,
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
+        );
+    }
+
+    #[test]
+    fn jcs_proof_context_must_be_ordered_prefix() {
+        let mut document = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://w3id.org/security/data-integrity/v2"
+            ],
+            "id": "urn:uuid:jcs-context-prefix-test"
+        });
+        let proof_prefix = serde_json::json!({
+            "@context": ["https://www.w3.org/ns/credentials/v2"],
+            "type": "DataIntegrityProof"
+        });
+        assert!(eddsa_jcs_hash_data_from_values(
+            document.clone(),
+            proof_prefix
+        ).is_ok());
+
+        let bad_proof = serde_json::json!({
+            "@context": ["https://w3id.org/security/data-integrity/v2"],
+            "type": "DataIntegrityProof"
+        });
+        assert!(eddsa_jcs_hash_data_from_values(document.clone(), bad_proof).is_err());
+
+        document["@context"] = serde_json::json!("https://www.w3.org/ns/credentials/v2");
+        let array_proof = serde_json::json!({
+            "@context": ["https://www.w3.org/ns/credentials/v2"],
+            "type": "DataIntegrityProof"
+        });
+        assert!(eddsa_jcs_hash_data_from_values(document, array_proof).is_err());
+    }
+
+    #[test]
+    fn jcs_presentation_hash_uses_unsecured_document_and_proof_configuration() {
+        let mut vp = valid_presentation(format!("did:mycelix:{}", me()));
+        vp.proof.cryptosuite = Some("eddsa-jcs-2022".into());
+        vp.proof.proof_context = Some(vp.context.clone());
+        vp.proof.verification_method =
+            format!("{}#keys-1-multikey", vp.holder);
+        vp.proof.proof_value = String::new();
+
+        let first = eddsa_jcs_hash_data_for_presentation(&vp)
+            .expect("JCS presentation hash must be constructible");
+        vp.proof.challenge = Some("challenge-2".into());
+        let second = eddsa_jcs_hash_data_for_presentation(&vp)
+            .expect("JCS presentation hash must remain constructible");
+        assert_ne!(first, second, "challenge is part of the secured presentation");
+        assert_eq!(first.len(), 64);
+        assert_eq!(second.len(), 64);
+    }
+
+    #[test]
+    fn native_cryptosuite_requires_ed25519_algorithm() {
+        let algorithm = Some(0xed01u16);
+        assert_eq!(algorithm, Some(0xed01));
+        assert_ne!(Some(0xF001u16), Some(0xed01));
+    }
+
+    #[test]
+    fn vc_context_must_use_w3c_base_as_first_item() {
+        let mut vc = minimal_vc();
+        assert_eq!(
+            vc.context.first().map(String::as_str),
+            Some("https://www.w3.org/ns/credentials/v2")
+        );
+        vc.context = vec!["https://example.invalid/first".into(), "https://www.w3.org/ns/credentials/v2".into()];
+        assert_ne!(
+            vc.context.first().map(String::as_str),
+            Some("https://www.w3.org/ns/credentials/v2")
+        );
+    }
+
+    #[test]
+    fn date_time_stamp_requires_explicit_timezone() {
+        assert!(is_date_time_stamp("2026-01-01T00:00:00Z"));
+        assert!(is_date_time_stamp("2026-01-01T00:00:00+02:00"));
+        assert!(is_date_time_stamp("2026-01-01T00:00:00.123Z"));
+        assert!(!is_date_time_stamp("2026-01-01"));
+        assert!(!is_date_time_stamp("2026-01-01T00:00:00"));
+        assert!(!is_date_time_stamp("2026-13-99T99:99:99Z"));
+    }
+
+    #[test]
+    fn vc_validator_rejects_future_creation_provenance() {
+        let mut vc = minimal_vc();
+        vc.mycelix_created = ts(2_100_000_000_000_000);
+
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("mycelix_created"))
+        );
+    }
+
+    #[test]
+    fn vc_validator_rejects_future_proof_creation() {
+        let mut vc = minimal_vc();
+        vc.proof.created = "2100-01-01T00:00:00Z".into();
+
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("proof created"))
+        );
+    }
+
+    #[test]
+    fn vc_validator_rejects_inverted_validity_interval() {
+        let mut vc = minimal_vc();
+        vc.valid_until = Some("2025-12-31T23:59:59Z".into());
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn vc_validator_rejects_malformed_validity_timestamp() {
+        let mut vc = minimal_vc();
+        vc.valid_from = "not-a-timestamp".into();
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn vc_validator_requires_base_context_first() {
+        let mut vc = minimal_vc();
+        vc.context = vec![
+            "https://example.invalid/context".into(),
+            "https://www.w3.org/ns/credentials/v2".into(),
+        ];
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn vc_validity_interval_is_ordered() {
+        let from = "2026-01-01T00:00:00Z".parse::<Timestamp>().unwrap();
+        let until = "2026-01-02T00:00:00Z".parse::<Timestamp>().unwrap();
+        assert!(from <= until);
+        assert!("2026-01-01T00:00:00Z".parse::<Timestamp>().is_ok());
+        assert!("not-a-timestamp".parse::<Timestamp>().is_err());
+    }
+
     #[test]
     fn vc_must_include_credentials_context() {
         let ctx = vec!["https://www.w3.org/ns/credentials/v2".to_string()];
@@ -1131,6 +2435,7 @@ mod tests {
     #[test]
     fn derived_credential_json_round_trip() {
         let dc = DerivedCredential {
+            original_credential_action: ActionHash::from_raw_36(vec![9u8; 36]),
             original_credential_id: "urn:uuid:cred-001".into(),
             original_issuer: "did:mycelix:issuer1".into(),
             holder: "did:mycelix:holder1".into(),
@@ -1165,7 +2470,7 @@ mod author_binding_tests {
     fn test_action(author: AgentPubKey) -> Create {
         Create {
             author,
-            timestamp: Timestamp::from_micros(0),
+            timestamp: Timestamp::from_micros(2_000_000_000_000_000),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             entry_type: EntryType::App(AppEntryDef::new(
@@ -1210,6 +2515,7 @@ mod author_binding_tests {
                 algorithm: None,
                 challenge: None,
                 domain: None,
+                proof_context: None,
             },
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
@@ -1233,9 +2539,36 @@ mod author_binding_tests {
                 algorithm: None,
                 challenge: None,
                 domain: None,
+                proof_context: None,
             },
             mycelix_created: Timestamp::from_micros(0),
         }
+    }
+
+    #[test]
+    fn credential_verification_method_must_match_issuer_did() {
+        let vc = minimal_vc();
+        assert!(verification_method_matches_did(
+            &vc.proof.verification_method,
+            vc.issuer.did()
+        ));
+        assert!(!verification_method_matches_did(
+            "did:mycelix:other#key-1",
+            vc.issuer.did()
+        ));
+    }
+
+    #[test]
+    fn presentation_verification_method_must_match_holder_did() {
+        let vp = valid_presentation("did:mycelix:holder".into());
+        assert!(verification_method_matches_did(
+            &vp.proof.verification_method,
+            &vp.holder
+        ));
+        assert!(!verification_method_matches_did(
+            "did:mycelix:other#keys-1",
+            &vp.holder
+        ));
     }
 
     #[test]
@@ -1260,8 +2593,48 @@ mod author_binding_tests {
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
+    #[test]
+    fn presentation_validator_rejects_future_proof_creation() {
+        let mut vp = valid_presentation(format!("did:mycelix:{}", me()));
+        vp.proof.created = "2100-01-01T00:00:00Z".into();
+
+        let result = validate_create_verifiable_presentation(
+            EntryCreationAction::Create(test_action(me())),
+            vp,
+        )
+        .unwrap();
+
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("proof created"))
+        );
+    }
+
+    fn derived_for_integrity_tests(holder: String, original: &VerifiableCredential) -> DerivedCredential {
+        let original_hash = compute_credential_content_hash(original);
+        DerivedCredential {
+            original_credential_action: ActionHash::from_raw_36(vec![9u8; 36]),
+            original_credential_id: original.id.clone(),
+            original_issuer: original.issuer.did().to_string(),
+            holder,
+            selected_claims: vec!["degree".into()],
+            derived_content: CredentialSubject {
+                id: original.credential_subject.id.clone(),
+                claims: serde_json::json!({"degree": "BSc CS"}),
+            },
+            derivation_proof: DerivationProof {
+                proof_type: "SelectiveDisclosureProof".into(),
+                original_credential_hash: original_hash,
+                claim_proofs: vec![],
+                holder_signature: vec![1u8; 64],
+            },
+            created: Timestamp::from_micros(1),
+            expires: None,
+        }
+    }
+
     fn valid_derived(holder: String) -> DerivedCredential {
         DerivedCredential {
+            original_credential_action: ActionHash::from_raw_36(vec![9u8; 36]),
             original_credential_id: "urn:uuid:cred-1".into(),
             original_issuer: "did:mycelix:issuer1".into(),
             holder,
@@ -1279,6 +2652,126 @@ mod author_binding_tests {
             created: Timestamp::from_micros(0),
             expires: None,
         }
+    }
+
+    #[test]
+    fn credential_request_state_machine_accepts_only_forward_or_idempotent_transitions() {
+        use RequestStatus::*;
+
+        let valid = [
+            (Pending, UnderReview),
+            (Pending, Rejected),
+            (UnderReview, Approved),
+            (UnderReview, Rejected),
+            (Approved, Issued),
+            (Pending, Pending),
+            (UnderReview, UnderReview),
+            (Approved, Approved),
+            (Rejected, Rejected),
+            (Issued, Issued),
+        ];
+        for (from, to) in valid {
+            assert!(
+                valid_request_status_transition(&from, &to),
+                "expected transition {:?} -> {:?} to be valid",
+                from,
+                to
+            );
+        }
+    }
+
+    #[test]
+    fn credential_request_state_machine_rejects_resurrection_and_skips() {
+        use RequestStatus::*;
+
+        let invalid = [
+            (Rejected, Pending),
+            (Rejected, UnderReview),
+            (Rejected, Approved),
+            (Rejected, Issued),
+            (Issued, Pending),
+            (Issued, UnderReview),
+            (Issued, Approved),
+            (Issued, Rejected),
+            (Approved, UnderReview),
+            (Approved, Rejected),
+            (Pending, Approved),
+            (Pending, Issued),
+            (UnderReview, Pending),
+            (UnderReview, Issued),
+        ];
+        for (from, to) in invalid {
+            assert!(
+                !valid_request_status_transition(&from, &to),
+                "unexpected transition {:?} -> {:?} accepted",
+                from,
+                to
+            );
+        }
+    }
+
+    #[test]
+    fn eddsa_jcs_hash_matches_w3c_published_vector() {
+        let credential = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+            "type": ["VerifiableCredential", "AlumniCredential"],
+            "name": "Alumni Credential",
+            "description": "A minimum viable example of an Alumni Credential.",
+            "issuer": "https://vc.example/issuers/5678",
+            "validFrom": "2023-01-01T00:00:00Z",
+            "credentialSubject": {
+                "id": "did:example:abcdefgh",
+                "alumniOf": "The School of Examples"
+            }
+        });
+
+        let proof_options = serde_json::json!({
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2023-02-24T23:36:38Z",
+            "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+            "proofPurpose": "assertionMethod"
+        });
+
+        let hash_data = eddsa_jcs_hash_data_from_values(credential, proof_options).unwrap();
+        let expected = concat!(
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db",
+            "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
+        );
+        let actual = hash_data.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn derived_content_hash_is_deterministic() {
+        let vc = minimal_vc();
+        assert_eq!(
+            compute_credential_content_hash(&vc),
+            compute_credential_content_hash(&vc)
+        );
+    }
+
+    #[test]
+    fn derived_binding_requires_exact_original_issuer_and_holder() {
+        let original = minimal_vc();
+        let mut dc = derived_for_integrity_tests(original.credential_subject.id.clone(), &original);
+        dc.original_issuer = "did:mycelix:forged".into();
+        assert_ne!(dc.original_issuer, original.issuer.did());
+    }
+
+    #[test]
+    fn derived_binding_helper_corpus_hash_changes_with_content() {
+        let original = minimal_vc();
+        let mut altered = original.clone();
+        altered.credential_subject.claims = serde_json::json!({"degree":"different"});
+        assert_ne!(
+            compute_credential_content_hash(&original),
+            compute_credential_content_hash(&altered)
+        );
     }
 
     #[test]
@@ -1312,6 +2805,7 @@ mod author_binding_tests {
             status: RequestStatus::Pending,
             created: Timestamp::from_micros(0),
             updated: Timestamp::from_micros(0),
+            issued_credential: None,
         }
     }
 

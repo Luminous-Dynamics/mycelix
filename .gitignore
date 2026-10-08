@@ -19,6 +19,7 @@ node_modules/
 Thumbs.db
 
 # Holochain conductor
+.hc_auth
 .conductor/
 .hc_live_*
 

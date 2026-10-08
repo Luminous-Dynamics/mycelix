@@ -30,6 +30,45 @@ pub enum AssuranceLevel {
     ConstitutionallyCritical,
 }
 
+/// Require the DID registry to report an active canonical identity.
+/// Historical resolution alone is insufficient authorization for recovery state.
+fn verify_did_active(did: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(io) => {
+            let active: bool = io
+                .decode()
+                .map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(
+                    "DID is not active in the registry; refusing recovery configuration".into(),
+                )))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            "DID registry authorization failed; refusing recovery configuration".into(),
+        ))),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "DID active-state verification failed (network error: {err})"
+        )))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed (countersigning: {err})")
+        ))),
+        ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            "DID active-state verification failed (authentication)".into(),
+        ))),
+    }
+}
+
 /// Check if a DID has sufficient MFA assurance for recovery operations
 fn verify_mfa_assurance_for_recovery(did: &str) -> ExternResult<bool> {
     let response = call(
@@ -159,8 +198,43 @@ fn enroll_social_recovery_factor(did: &str, trustees: &[String]) -> ExternResult
     }
 }
 
-/// Notify bridge of successful recovery execution so other hApps are informed
-fn notify_bridge_of_recovery(did: &str, new_agent: &AgentPubKey) -> ExternResult<()> {
+
+/// Emit recovery lifecycle events only after the corresponding source-chain
+/// write has committed. Failures are logged and never roll back recovery state.
+#[hdk_extern(infallible)]
+pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
+    for action in committed_actions {
+        let action_hash = action.action_address().clone();
+        let Some(record) = get(action_hash, GetOptions::default()).ok().flatten() else {
+            continue;
+        };
+
+        let Ok(Some(request)) = record.entry().to_app_option::<RecoveryRequest>() else {
+            continue;
+        };
+
+        let is_create = matches!(&action.action().data, ActionData::Create(_));
+        if is_create {
+            let payload = serde_json::json!({
+                "did": request.did,
+                "initiated_by": request.initiated_by,
+                "request_id": request.id,
+                "event": "recovery_initiated",
+            }).to_string();
+            notify_bridge_event("RecoveryInitiated", &request.did, &payload);
+        } else if request.status == RecoveryStatus::Completed {
+            let payload = serde_json::json!({
+                "did": request.did,
+                "new_agent": format!("{}", request.new_agent),
+                "request_id": request.id,
+                "event": "recovery_completed",
+            }).to_string();
+            notify_bridge_event("DidRecovered", &request.did, &payload);
+        }
+    }
+}
+
+fn notify_bridge_event(event_type: &str, subject: &str, payload: &str) {
     #[derive(Serialize, Deserialize, Debug)]
     struct BroadcastEventInput {
         event_type: String,
@@ -169,36 +243,26 @@ fn notify_bridge_of_recovery(did: &str, new_agent: &AgentPubKey) -> ExternResult
         source_happ: String,
     }
 
-    let payload = serde_json::json!({
-        "did": did,
-        "new_agent": format!("{}", new_agent),
-        "event": "recovery_completed",
-    })
-    .to_string();
-
     let input = BroadcastEventInput {
-        event_type: "DidRecovered".to_string(),
-        subject: did.to_string(),
-        payload,
+        event_type: event_type.to_string(),
+        subject: subject.to_string(),
+        payload: payload.to_string(),
         source_happ: "mycelix-identity".to_string(),
     };
 
-    let response = call(
+    match call(
         CallTargetCell::Local,
         ZomeName::new("identity_bridge"),
         FunctionName::new("broadcast_event"),
         None,
         input,
-    )?;
-
-    match response {
-        ZomeCallResponse::Ok(_) => Ok(()),
-        _ => {
+    ) {
+        Ok(ZomeCallResponse::Ok(_)) => {}
+        Ok(_) | Err(_) => {
             debug!(
-                "Bridge notification failed for recovery of {} - non-critical",
-                did
+                "Post-commit bridge notification failed for event={} subject={}",
+                event_type, subject
             );
-            Ok(())
         }
     }
 }
@@ -244,7 +308,24 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
             "Threshold must be between 1 and the number of trustees".into()
         )));
     }
+    if get_recovery_config(input.did.clone())?.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery configuration already exists for this DID; update the existing configuration instead of creating a second one".into()
+        )));
+    }
+
     let agent_info = agent_info()?;
+    let agent_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    if input.did != agent_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the controller can configure recovery for their own DID".into()
+        )));
+    }
+
+    // Recovery configuration is security state. Historical DID resolution
+    // is not enough; the registry must report the canonical DID as active.
+    verify_did_active(&input.did)?;
+
     let now = sys_time()?;
 
     let config = RecoveryConfig {
@@ -278,15 +359,49 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
         )?;
     }
 
-    // Enroll SocialRecovery factor in MFA state
-    // This allows social recovery to contribute to the identity's assurance level
-    if let Err(e) = enroll_social_recovery_factor(&input.did, &config.trustees) {
-        debug!("Failed to enroll SocialRecovery factor in MFA: {:?}", e);
-    }
+    // Recovery setup is incomplete without its MFA binding. Fail closed
+    // rather than advertising recovery protection that the MFA state does not
+    // actually contain.
+    enroll_social_recovery_factor(&input.did, &config.trustees)?;
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find recovery config".into()
     )))
+}
+
+/// Browser-safe social recovery configuration projection.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RecoveryConfigView {
+    pub did: String,
+    pub trustees: Vec<String>,
+    pub threshold: u32,
+    pub time_lock_secs: u64,
+    pub active: bool,
+    pub created: i64,
+}
+
+#[hdk_extern]
+pub fn get_recovery_view(did: String) -> ExternResult<Option<RecoveryConfigView>> {
+    match get_recovery_config(did)? {
+        Some(record) => {
+            let config: RecoveryConfig = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Invalid recovery config record".into()
+                )))?;
+            Ok(Some(RecoveryConfigView {
+                did: config.did,
+                trustees: config.trustees,
+                threshold: config.threshold,
+                time_lock_secs: config.time_lock,
+                active: config.active,
+                created: config.created.as_micros(),
+            }))
+        }
+        None => Ok(None),
+    }
 }
 
 /// Input for setting up recovery
@@ -316,19 +431,41 @@ pub fn get_recovery_config(did: String) -> ExternResult<Option<Record>> {
         return Ok(None);
     }
 
-    let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
-    if let Some(link) = latest_link {
+    // Multiple distinct config creation links for one DID are ambiguous
+    // authorization state. New duplicates are rejected at the integrity
+    // source-chain boundary; legacy ambiguity fails closed here.
+    let mut config_target: Option<ActionHash> = None;
+    for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        return get(action_hash, GetOptions::default());
+        if let Some(existing) = config_target.as_ref() {
+            if existing != &action_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous recovery configuration: multiple distinct config records exist for this DID".into(),
+                )));
+            }
+        } else {
+            config_target = Some(action_hash);
+        }
     }
 
-    Ok(None)
+    match config_target {
+        Some(action_hash) => get_latest_record(action_hash),
+        None => Ok(None),
+    }
 }
 
 /// Initiate a recovery request (trustee only)
 #[hdk_extern]
 pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
+    // A deactivated DID is a terminal authority state; do not create new
+    // recovery requests against historical identity authority.
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing recovery initiation".into()
+        )));
+    }
+
     if input.did.is_empty() || input.did.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "DID must be 1-256 characters".into()
@@ -418,19 +555,17 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let request_id = format!("recovery:{}:{}", input.did, now.as_micros());
 
-    // Save values for bridge event before they are moved
-    let did_for_event = input.did.clone();
-    let initiator_for_event = input.initiator_did.clone();
-
     let request = RecoveryRequest {
         id: request_id.clone(),
         did: input.did.clone(),
         new_agent: input.new_agent,
         initiated_by: input.initiator_did.clone(),
+        recovery_config_action_hash: config_record.action_address().clone(),
         reason: input.reason,
         status: RecoveryStatus::Pending,
         created: now,
         time_lock_expires: None,
+        approval_certificate: None,
     };
 
     let action_hash = create_entry(&EntryTypes::RecoveryRequest(request))?;
@@ -443,8 +578,14 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         (),
     )?;
 
-    // Save request_id for bridge event before it's moved
-    let request_id_for_event = request_id.clone();
+    // Index by request ID so every peer can retrieve the originating request
+    // from the DHT without scanning the request author's source chain.
+    create_link(
+        string_to_entry_hash(&request_id.clone()),
+        action_hash.clone(),
+        LinkTypes::RecoveryRequestIdToRequest,
+        (),
+    )?;
 
     // Create initial approval vote from initiator
     let vote = RecoveryVote {
@@ -452,6 +593,8 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         trustee: input.initiator_did,
         vote: VoteDecision::Approve,
         comment: Some("Initiated recovery".to_string()),
+        // Informational application timestamp; authorization ordering uses
+        // the signed source-chain action sequence instead.
         voted_at: now,
     };
 
@@ -464,44 +607,6 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         (),
     )?;
 
-    // Broadcast RecoveryInitiated event to bridge for ecosystem-wide awareness
-    {
-        #[derive(Serialize, Deserialize, Debug)]
-        struct BroadcastEventInput {
-            event_type: String,
-            subject: String,
-            payload: String,
-            source_happ: String,
-        }
-
-        let payload = serde_json::json!({
-            "did": did_for_event,
-            "initiated_by": initiator_for_event,
-            "request_id": request_id_for_event,
-            "event": "recovery_initiated",
-        })
-        .to_string();
-
-        let event_input = BroadcastEventInput {
-            event_type: "RecoveryInitiated".to_string(),
-            subject: did_for_event.to_string(),
-            payload,
-            source_happ: "mycelix-identity".to_string(),
-        };
-
-        match call(
-            CallTargetCell::Local,
-            ZomeName::new("identity_bridge"),
-            FunctionName::new("broadcast_event"),
-            None,
-            event_input,
-        ) {
-            Ok(ZomeCallResponse::Ok(_)) => {}
-            _ => {
-                debug!("Bridge notification failed for RecoveryInitiated event - non-critical");
-            }
-        }
-    }
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find recovery request".into()
@@ -536,6 +641,59 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
                 "Comment must be under 2048 characters".into()
             )));
         }
+    }
+
+    // The referenced request must exist in the DHT before a vote can be
+    // authored. This prevents orphaned vote spam and makes the vote's scope
+    // explicit before it enters the shared DHT.
+    let request_record = get_recovery_request(input.request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery request record".into()
+        )))?;
+
+    if !verify_did_active(&request.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery target DID is not active; refusing vote".into()
+        )));
+    }
+    if !verify_did_active(&input.trustee_did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Trustee DID is not active; refusing recovery vote".into()
+        )));
+    }
+
+    if matches!(
+        request.status,
+        RecoveryStatus::Completed | RecoveryStatus::Rejected | RecoveryStatus::Cancelled
+    ) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot vote on a terminal recovery request".into()
+        )));
+    }
+
+    let config_record = get(request.recovery_config_action_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Pinned recovery configuration not found".into()
+        )))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid pinned recovery configuration".into()
+        )))?;
+
+    if !config.trustees.contains(&input.trustee_did) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller is not a trustee for this recovery request".into()
+        )));
     }
 
     // Verify caller is the claimed trustee
@@ -583,7 +741,9 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
 
     let action_hash = create_entry(&EntryTypes::RecoveryVote(vote))?;
 
-    // Link to request
+    // Index the vote from the deterministic request-ID anchor. Readers and
+    // integrity validation use this same base, allowing every peer to derive
+    // the quorum from DHT-visible trustee votes.
     let request_hash = string_to_entry_hash(&input.request_id);
     create_link(
         request_hash,
@@ -635,114 +795,150 @@ pub fn get_recovery_votes(request_id: String) -> ExternResult<Vec<Record>> {
     Ok(votes)
 }
 
-/// Check threshold and update request status
+/// Check threshold and update request status.
+/// Select exactly one vote per trustee using the cryptographically ordered
+/// source-chain action sequence, with an ActionHash tie-breaker for any
+/// pathological duplicate action sequence.
+///
+/// DHT link traversal order is not an authorization primitive. New duplicate
+/// votes are rejected at the chain-authority integrity boundary. This
+/// canonicalization remains as deterministic defense-in-depth for legacy or
+/// otherwise already-visible conflicting records.
+fn canonical_trustee_votes(
+    votes: Vec<(String, u32, ActionHash, VoteDecision)>,
+) -> std::collections::BTreeMap<String, (u32, ActionHash, VoteDecision)> {
+    let mut canonical = std::collections::BTreeMap::new();
+    for (trustee, action_seq, action_hash, decision) in votes {
+        let replace = match canonical.get(&trustee) {
+            None => true,
+            Some((existing_seq, existing_hash, _)) => {
+                (action_seq, action_hash.to_string())
+                    < (*existing_seq, existing_hash.to_string())
+            }
+        };
+        if replace {
+            canonical.insert(trustee, (action_seq, action_hash, decision));
+        }
+    }
+    canonical
+}
+
 fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
-    // Get all votes for this request
-    let vote_records = get_recovery_votes(request_id.clone())?;
-
-    let mut approve_count = 0u32;
-    let mut reject_count = 0u32;
-
-    for record in vote_records {
-        if let Some(vote) = record
-            .entry()
-            .to_app_option::<RecoveryVote>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            match vote.vote {
-                VoteDecision::Approve => approve_count += 1,
-                VoteDecision::Reject => reject_count += 1,
-                VoteDecision::Abstain => {}
-            }
-        }
-    }
-
-    // Find the recovery request to get the DID
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::RecoveryRequest,
-        )?))
-        .include_entries(true);
-
-    let records = query(filter)?;
-
-    let mut request_record: Option<Record> = None;
-    let mut request_data: Option<RecoveryRequest> = None;
-    for record in records {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<RecoveryRequest>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_data = Some(req);
-                request_record = Some(record);
-            }
-        }
-    }
-
-    let (current_record, current_request) = match (request_record, request_data) {
-        (Some(r), Some(d)) => (r, d),
-        _ => return Ok(()), // Request not found on this agent's chain
+    // This compatibility helper only mutates the request when invoked by its
+    // original author. Cross-agent quorum state is exposed by get_recovery_status.
+    let request_record = match get_recovery_request(request_id.clone())? {
+        Some(record) => record,
+        None => return Ok(()),
     };
+    let caller = agent_info()?.agent_initial_pubkey;
+    if request_record.action().author() != &caller {
+        return Ok(());
+    }
 
-    // Only process pending requests
+    let current_request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery request".into()
+        )))?;
+
     if current_request.status != RecoveryStatus::Pending {
         return Ok(());
     }
 
-    // Get the recovery config to check threshold
-    let config_record = get_recovery_config(current_request.did.clone())?;
-    let config: RecoveryConfig = match config_record {
-        Some(rec) => rec
+    let vote_records = get_recovery_votes(request_id.clone())?;
+    let config_record = get(current_request.recovery_config_action_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Pinned recovery config snapshot not found".into()
+        )))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid pinned recovery config".into()
+        )))?;
+
+    let mut candidate_votes = Vec::new();
+    for record in vote_records {
+        let Some(vote) = record
             .entry()
-            .to_app_option()
+            .to_app_option::<RecoveryVote>()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Invalid recovery config".into()
-            )))?,
-        None => return Ok(()), // No config found
-    };
+        else {
+            continue;
+        };
+        if vote.request_id == request_id && config.trustees.contains(&vote.trustee) {
+            candidate_votes.push((
+                vote.trustee,
+                record.action().action_seq(),
+                record.action_address().clone(),
+                vote.vote,
+            ));
+        }
+    }
+
+    let canonical_votes = canonical_trustee_votes(candidate_votes);
+    let mut approve_count = 0u32;
+    let mut reject_count = 0u32;
+    for (_, (_, _, vote)) in canonical_votes {
+        match vote {
+            VoteDecision::Approve => approve_count += 1,
+            VoteDecision::Reject => reject_count += 1,
+            VoteDecision::Abstain => {}
+        }
+    }
 
     let total_trustees = config.trustees.len() as u32;
-
     if approve_count >= config.threshold {
-        // Threshold reached — approve and set time lock
-        let now = sys_time()?;
-        let time_lock_expires =
-            Timestamp::from_micros(now.as_micros() as i64 + (config.time_lock as i64 * 1_000_000));
+        let certificate_hash = create_recovery_approval_certificate(
+            &request_record,
+            &current_request,
+            &config_record,
+            &config,
+        )?;
+
+        // The committed certificate action is the sole authoritative lock
+        // clock. Derive expiry from that signed action, exactly as the
+        // explicit arming path does.
+        let certificate_record = get(certificate_hash.clone(), GetOptions::default())?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Could not retrieve newly-created recovery approval certificate".into()
+            )))?;
+        let duration_micros = (config.time_lock as i64)
+            .checked_mul(1_000_000)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Recovery time-lock duration overflow".into()
+            )))?;
+        let expires_micros = certificate_record
+            .action()
+            .timestamp()
+            .as_micros()
+            .checked_add(duration_micros)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Recovery time-lock expiry overflow".into()
+            )))?;
+        let expires = Timestamp::from_micros(expires_micros);
 
         let approved_request = RecoveryRequest {
-            id: current_request.id,
-            did: current_request.did,
-            new_agent: current_request.new_agent,
-            initiated_by: current_request.initiated_by,
-            reason: current_request.reason,
             status: RecoveryStatus::Approved,
-            created: current_request.created,
-            time_lock_expires: Some(time_lock_expires),
+            time_lock_expires: Some(expires),
+            approval_certificate: Some(certificate_hash),
+            ..current_request
         };
-
         update_entry(
-            current_record.action_address().clone(),
+            request_record.action_address().clone(),
             &EntryTypes::RecoveryRequest(approved_request),
         )?;
-    } else if reject_count > total_trustees - config.threshold {
-        // Impossible to reach threshold — reject
+    } else if reject_count > total_trustees.saturating_sub(config.threshold) {
         let rejected_request = RecoveryRequest {
-            id: current_request.id,
-            did: current_request.did,
-            new_agent: current_request.new_agent,
-            initiated_by: current_request.initiated_by,
-            reason: current_request.reason,
             status: RecoveryStatus::Rejected,
-            created: current_request.created,
             time_lock_expires: None,
+            ..current_request
         };
-
         update_entry(
-            current_record.action_address().clone(),
+            request_record.action_address().clone(),
             &EntryTypes::RecoveryRequest(rejected_request),
         )?;
     }
@@ -770,6 +966,58 @@ pub fn evaluate_threshold(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn duplicate_trustee_votes_use_earliest_action_sequence() {
+        let trustee = "did:mycelix:trustee".to_string();
+        let first_hash = ActionHash::from_raw_36(vec![1u8; 36]);
+        let later_hash = ActionHash::from_raw_36(vec![0u8; 36]);
+
+        let canonical = canonical_trustee_votes(vec![
+            (
+                trustee.clone(),
+                20,
+                later_hash,
+                VoteDecision::Approve,
+            ),
+            (
+                trustee.clone(),
+                10,
+                first_hash.clone(),
+                VoteDecision::Reject,
+            ),
+        ]);
+
+        let (_, selected_hash, selected_vote) = canonical.get(&trustee).unwrap();
+        assert_eq!(*selected_hash, first_hash);
+        assert_eq!(*selected_vote, VoteDecision::Reject);
+    }
+
+    #[test]
+    fn duplicate_same_action_sequence_uses_action_hash_tiebreaker() {
+        let trustee = "did:mycelix:trustee".to_string();
+        let low_hash = ActionHash::from_raw_36(vec![0u8; 36]);
+        let high_hash = ActionHash::from_raw_36(vec![1u8; 36]);
+
+        let canonical = canonical_trustee_votes(vec![
+            (
+                trustee.clone(),
+                10,
+                high_hash,
+                VoteDecision::Approve,
+            ),
+            (
+                trustee.clone(),
+                10,
+                low_hash.clone(),
+                VoteDecision::Reject,
+            ),
+        ]);
+
+        let (_, selected_hash, selected_vote) = canonical.get(&trustee).unwrap();
+        assert_eq!(*selected_hash, low_hash);
+        assert_eq!(*selected_vote, VoteDecision::Reject);
+    }
 
     #[test]
     fn test_approved_exact_threshold() {
@@ -836,42 +1084,207 @@ mod tests {
     }
 }
 
-/// Execute recovery (after time lock)
+fn create_recovery_approval_certificate(
+    request_record: &Record,
+    request: &RecoveryRequest,
+    config_record: &Record,
+    config: &RecoveryConfig,
+) -> ExternResult<ActionHash> {
+    let vote_records = get_recovery_votes(request.id.clone())?;
+    let mut candidate_votes = Vec::new();
+    for record in vote_records {
+        let Some(vote) = record
+            .entry()
+            .to_app_option::<RecoveryVote>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            continue;
+        };
+
+        if vote.request_id == request.id && config.trustees.contains(&vote.trustee) {
+            candidate_votes.push((
+                vote.trustee,
+                record.action().action_seq(),
+                record.action_address().clone(),
+                vote.vote,
+            ));
+        }
+    }
+
+    let canonical_votes = canonical_trustee_votes(candidate_votes);
+    let mut approvals: Vec<(String, ActionHash)> = canonical_votes
+        .into_iter()
+        .filter_map(|(trustee, (_, action_hash, vote))| {
+            (vote == VoteDecision::Approve).then_some((trustee, action_hash))
+        })
+        .collect();
+    approvals.sort_by(|a, b| a.0.cmp(&b.0));
+
+    if approvals.len() < config.threshold as usize {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DHT-visible approvals no longer satisfy the configured recovery threshold".into()
+        )));
+    }
+
+    let vote_action_hashes = approvals
+        .into_iter()
+        .take(config.threshold as usize)
+        .map(|(_, hash)| hash)
+        .collect();
+
+    let certificate = RecoveryApprovalCertificate {
+        request_id: request.id.clone(),
+        request_action_hash: request_record.action_address().clone(),
+        recovery_config_action_hash: config_record.action_address().clone(),
+        vote_action_hashes,
+        threshold: config.threshold,
+        issued_at: sys_time()?,
+    };
+
+    create_entry(&EntryTypes::RecoveryApprovalCertificate(certificate))
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))
+}
+
+/// Arm the recovery time lock after a DHT-derived quorum reaches threshold.
+///
+/// Only the original recovery-request author can mutate the RecoveryRequest.
+/// This explicit step bridges the cross-agent quorum observation with
+/// Holochain's source-chain authorship model. The final protocol is expected
+/// to replace this mutable request update with an immutable readiness record.
 #[hdk_extern]
-pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
+pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
     if request_id.is_empty() || request_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Request ID must be 1-256 characters".into()
         )));
     }
-    // Find the request
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::RecoveryRequest,
-        )?))
-        .include_entries(true);
 
-    let records = query(filter)?;
-
-    let mut request_record: Option<Record> = None;
-    for record in records {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<RecoveryRequest>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_record = Some(record);
-            }
-        }
+    let request_record = get_recovery_request(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
+    let caller = agent_info()?.agent_initial_pubkey;
+    if request_record.action().author() != &caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the original recovery-request author can arm the time lock".into()
+        )));
     }
 
-    let current_record = request_record.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Recovery request not found".into()
-    )))?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery request record".into()
+        )))?;
 
-    let current_request: RecoveryRequest = current_record
+    if !verify_did_active(&request.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery target DID is not active; refusing time-lock mutation".into()
+        )));
+    }
+
+    if request.status == RecoveryStatus::Approved && request.time_lock_expires.is_some() {
+        if request.approval_certificate.is_some() {
+            return Ok(request_record);
+        }
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Approved recovery is missing its quorum certificate".into()
+        )));
+    }
+
+    if request.status != RecoveryStatus::Pending || request.time_lock_expires.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request is not in an armable pending state".into()
+        )));
+    }
+
+    let status = get_recovery_status(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery quorum state not found".into()
+        )))?;
+
+    if status.status != RecoveryStatus::Approved {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recovery quorum is not approved (current derived status: {:?})",
+            status.status
+        )));
+    }
+
+    let config_record = get(request.recovery_config_action_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Pinned recovery configuration snapshot not found".into()
+        )))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery configuration".into()
+        )))?;
+
+    let certificate_hash = create_recovery_approval_certificate(
+        &request_record,
+        &request,
+        &config_record,
+        &config,
+    )?;
+
+    // Use the committed certificate action timestamp as the authoritative
+    // lock clock. This avoids any gap between the pre-commit application
+    // timestamp and the signed Holochain action timestamp.
+    let certificate_record = get(certificate_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Could not retrieve newly-created recovery approval certificate".into()
+        )))?;
+    let duration_micros = (config.time_lock as i64)
+        .checked_mul(1_000_000)
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery time-lock duration overflow".into()
+        )))?;
+    let expires_micros = certificate_record
+        .action()
+        .timestamp()
+        .as_micros()
+        .checked_add(duration_micros)
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery time-lock expiry overflow".into()
+        )))?;
+    let expires = Timestamp::from_micros(expires_micros);
+
+    let approved = RecoveryRequest {
+        status: RecoveryStatus::Approved,
+        time_lock_expires: Some(expires),
+        approval_certificate: Some(certificate_hash),
+        ..request
+    };
+
+    let action_hash = update_entry(
+        request_record.action_address().clone(),
+        &EntryTypes::RecoveryRequest(approved),
+    )?;
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Could not find armed recovery request".into()
+    )))
+}
+
+/// Execute recovery (after time lock)
+#[hdk_extern]
+pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    if request_id.is_empty() || request_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Request ID must be 1-256 characters".into()
+        )));
+    }
+
+    let request = get_recovery_request(request_id)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
+
+    let current_request: RecoveryRequest = request
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
@@ -879,72 +1292,22 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
             "Invalid recovery request".into()
         )))?;
 
-    // Verify caller is the designated new agent or the recovery initiator
-    let caller = agent_info()?.agent_initial_pubkey;
-    let caller_did = format!("did:mycelix:{}", caller);
-    if caller != current_request.new_agent && caller_did != current_request.initiated_by {
+    if caller != current_request.new_agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only the designated new agent or recovery initiator can execute recovery".into()
+            "Only the designated replacement agent may execute recovery".into()
         )));
     }
 
-    // Verify status allows execution
-    if current_request.status != RecoveryStatus::Approved
-        && current_request.status != RecoveryStatus::ReadyToExecute
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Recovery request is not approved".into()
-        )));
-    }
-
-    // Verify time lock has expired
-    let now = sys_time()?;
-    if let Some(expires) = current_request.time_lock_expires {
-        if now < expires {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Time lock has not expired".into()
-            )));
-        }
-    } else {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Time lock not set".into()
-        )));
-    }
-
-    // Save values for MFA notification before moving
-    let did_for_mfa = current_request.did.clone();
-    let new_agent_for_mfa = current_request.new_agent.clone();
-
-    // Update request to completed
-    let completed_request = RecoveryRequest {
-        id: current_request.id,
-        did: current_request.did,
-        new_agent: current_request.new_agent,
-        initiated_by: current_request.initiated_by,
-        reason: current_request.reason,
-        status: RecoveryStatus::Completed,
-        created: current_request.created,
-        time_lock_expires: current_request.time_lock_expires,
-    };
-
-    let action_hash = update_entry(
-        current_record.action_address().clone(),
-        &EntryTypes::RecoveryRequest(completed_request),
-    )?;
-
-    // Broadcast recovery event to bridge so other hApps are informed
-    if let Err(e) = notify_bridge_of_recovery(&did_for_mfa, &new_agent_for_mfa) {
-        debug!("Failed to notify bridge of recovery execution: {:?}", e);
-    }
-
-    // DID transfer completes when the new agent calls did_registry::claim_recovered_did().
-    // This two-step pattern is required by Holochain's agent-centric architecture:
-    // only the new agent can create entries on their own source chain.
-
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not find completed request".into()
+    // Do not report a recovery as completed until the method-specific
+    // successor-DID/controller-transfer protocol exists. Marking the request
+    // Completed without changing the identity would create false security
+    // semantics for callers and downstream hApps.
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Recovery execution is disabled until successor-DID/controller-transfer protocol #3873 is implemented"
+            .into()
     )))
 }
+
 
 /// Cancel a recovery request (owner only, before execution)
 #[hdk_extern]
@@ -954,34 +1317,11 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
             "Request ID must be 1-256 characters".into()
         )));
     }
-    let agent_info = agent_info()?;
 
-    // Find the request
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::RecoveryRequest,
-        )?))
-        .include_entries(true);
-
-    let records = query(filter)?;
-
-    let mut request_record: Option<Record> = None;
-    for record in records {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<RecoveryRequest>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_record = Some(record);
-            }
-        }
-    }
-
-    let current_record = request_record.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Recovery request not found".into()
-    )))?;
+    let current_record = get_recovery_request(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
 
     let current_request: RecoveryRequest = current_record
         .entry()
@@ -991,43 +1331,47 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
             "Invalid recovery request".into()
         )))?;
 
-    // Get recovery config to verify owner
-    let config_record = get_recovery_config(current_request.did.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Recovery config not found".into())
-    ))?;
+    if !verify_did_active(&current_request.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery target DID is not active; refusing cancellation".into()
+        )));
+    }
+
+    // The request is pinned to the exact recovery configuration that governed
+    // it at creation time; cancellation must use that same immutable snapshot.
+    let config_record = get(
+        current_request.recovery_config_action_hash.clone(),
+        GetOptions::default(),
+    )?
+    .ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Pinned recovery config not found".into()
+    )))?;
 
     let config: RecoveryConfig = config_record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid recovery config".into()
+            "Invalid pinned recovery config".into()
         )))?;
 
-    // Verify caller is owner
-    if config.owner != agent_info.agent_initial_pubkey {
+    let caller = agent_info()?.agent_initial_pubkey;
+    if config.owner != caller {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only owner can cancel recovery".into()
         )));
     }
 
-    // Verify not already completed
     if current_request.status == RecoveryStatus::Completed {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Cannot cancel completed recovery".into()
         )));
     }
 
-    // Update to cancelled
     let cancelled_request = RecoveryRequest {
-        id: current_request.id,
-        did: current_request.did,
-        new_agent: current_request.new_agent,
-        initiated_by: current_request.initiated_by,
-        reason: current_request.reason,
         status: RecoveryStatus::Cancelled,
-        created: current_request.created,
-        time_lock_expires: current_request.time_lock_expires,
+        approval_certificate: current_request.approval_certificate.clone(),
+        ..current_request
     };
 
     let action_hash = update_entry(
@@ -1045,17 +1389,57 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
 pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> {
     if request_id.is_empty() || request_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Request ID must be 1-256 characters".into(),
+            "Request ID must be 1-256 characters".into()
         )));
     }
 
+    let links = get_links(
+        LinkQuery::try_new(
+            string_to_entry_hash(&request_id),
+            LinkTypes::RecoveryRequestIdToRequest,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    let mut found: Option<Record> = None;
+    let mut found_action: Option<ActionHash> = None;
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid request link target".into())))?;
+        if let Some(record) = get_latest_record(action_hash.clone())? {
+            if let Some(request) = record
+                .entry()
+                .to_app_option::<RecoveryRequest>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if request.id == request_id {
+                    if let Some(existing) = found_action.as_ref() {
+                        if existing != &action_hash {
+                            return Err(wasm_error!(WasmErrorInner::Guest(
+                                "Ambiguous recovery request ID: multiple distinct request records exist".into(),
+                            )));
+                        }
+                    } else {
+                        found_action = Some(action_hash);
+                        found = Some(record);
+                    }
+                }
+            }
+        }
+    }
+
+    if found.is_some() {
+        return Ok(found);
+    }
+
+    // Backward-compatible fallback for requests created before the request-ID
+    // index existed.
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::RecoveryRequest,
         )?))
         .include_entries(true);
 
-    let mut found: Option<Record> = None;
     for record in query(filter)? {
         if let Some(req) = record
             .entry()
@@ -1063,13 +1447,139 @@ pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> 
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         {
             if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                found = Some(record);
+                let action_hash = record.action_address().clone();
+                if let Some(existing) = found_action.as_ref() {
+                    if existing != &action_hash {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "Ambiguous legacy recovery request ID: multiple request records exist".into(),
+                        )));
+                    }
+                } else {
+                    found_action = Some(action_hash);
+                    found = Some(record);
+                }
             }
         }
     }
 
     Ok(found)
+}
+
+/// A DHT-derived recovery status snapshot.
+///
+/// Unlike RecoveryRequest.status, this value is computed from the request's
+/// immutable configuration plus the complete vote set visible through the DHT.
+/// It therefore works across trustee source chains.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RecoveryStatusView {
+    pub request_id: String,
+    pub did: String,
+    pub status: RecoveryStatus,
+    pub approve_count: u32,
+    pub reject_count: u32,
+    pub threshold: u32,
+    pub trustee_count: u32,
+    pub time_lock_expires: Option<Timestamp>,
+}
+
+#[hdk_extern]
+pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoveryStatusView>> {
+    let request_record = match get_recovery_request(request_id.clone())? {
+        Some(record) => record,
+        None => return Ok(None),
+    };
+
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery request record".into()
+        )))?;
+
+    let config_record = get(request.recovery_config_action_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Pinned recovery config not found".into())))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery config record".into()
+        )))?;
+
+    // Once a quorum certificate exists, the certificate—not later mutable
+    // vote observations—is the authorization fact. We still compute the
+    // visible vote counts for observability, but the certified request state
+    // is not allowed to regress because a trustee later publishes a conflicting
+    // immutable vote.
+    let vote_records = get_recovery_votes(request.id.clone())?;
+    let mut candidate_votes = Vec::new();
+
+    for record in vote_records {
+        let Some(vote) = record
+            .entry()
+            .to_app_option::<RecoveryVote>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            continue;
+        };
+
+        if vote.request_id == request.id && config.trustees.contains(&vote.trustee) {
+            candidate_votes.push((
+                vote.trustee,
+                record.action().action_seq(),
+                record.action_address().clone(),
+                vote.vote,
+            ));
+        }
+    }
+
+    // Use the exact same canonical trustee projection as the quorum
+    // transition and approval-certificate builder. This keeps every
+    // authorization-facing read deterministic even if duplicate immutable
+    // votes are present in the DHT.
+    let canonical_votes = canonical_trustee_votes(candidate_votes);
+    let mut approve_count = 0u32;
+    let mut reject_count = 0u32;
+
+    for (_, (_, _, vote)) in canonical_votes {
+        match vote {
+            VoteDecision::Approve => approve_count += 1,
+            VoteDecision::Reject => reject_count += 1,
+            VoteDecision::Abstain => {}
+        }
+    }
+
+    let derived_status = if matches!(
+        request.status,
+        RecoveryStatus::Completed | RecoveryStatus::Rejected | RecoveryStatus::Cancelled
+    ) {
+        request.status.clone()
+    } else if request.approval_certificate.is_some()
+        && matches!(
+            request.status,
+            RecoveryStatus::Approved | RecoveryStatus::ReadyToExecute
+        )
+    {
+        request.status.clone()
+    } else if approve_count >= config.threshold {
+        RecoveryStatus::Approved
+    } else if reject_count > (config.trustees.len() as u32).saturating_sub(config.threshold) {
+        RecoveryStatus::Rejected
+    } else {
+        RecoveryStatus::Pending
+    };
+
+    Ok(Some(RecoveryStatusView {
+        request_id: request.id,
+        did: request.did,
+        status: derived_status,
+        approve_count,
+        reject_count,
+        threshold: config.threshold,
+        trustee_count: config.trustees.len() as u32,
+        time_lock_expires: request.time_lock_expires,
+    }))
 }
 
 /// Get pending recovery requests for a trustee
@@ -1090,12 +1600,102 @@ pub fn get_trustee_responsibilities(trustee_did: String) -> ExternResult<Vec<Rec
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
+        if let Some(record) = get_latest_record(action_hash)? {
             configs.push(record);
         }
     }
 
     Ok(configs)
+}
+
+// =============================================================================
+ // Browser-safe self-recovery projection
+ // =============================================================================
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SelfRecoveryAnchorView {
+    pub anchor_type: String,
+    pub masked_identifier: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SelfRecoveryConfigView {
+    pub did: String,
+    pub anchors: Vec<SelfRecoveryAnchorView>,
+    pub anchor_threshold: u32,
+    pub time_lock_secs: u64,
+    pub active: bool,
+    pub superseded_by_social: bool,
+    pub created: i64,
+}
+
+fn mask_anchor(value: &str) -> String {
+    let chars: Vec<char> = value.chars().collect();
+    if chars.len() <= 12 {
+        let prefix: String = chars.iter().take(4).collect();
+        return format!("{prefix}…");
+    }
+    let prefix: String = chars.iter().take(8).collect();
+    let suffix: String = chars.iter().rev().take(4).collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    format!("{prefix}…{suffix}")
+}
+
+fn self_recovery_anchor_view(anchor: VerificationAnchor) -> SelfRecoveryAnchorView {
+    match anchor {
+        VerificationAnchor::PhoneHash(value) => SelfRecoveryAnchorView {
+            anchor_type: "Phone".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+        VerificationAnchor::EmailHash(value) => SelfRecoveryAnchorView {
+            anchor_type: "Email".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+        VerificationAnchor::PasskeyCredentialId(value) => SelfRecoveryAnchorView {
+            anchor_type: "Passkey".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+        VerificationAnchor::DeviceAttestation(value) => SelfRecoveryAnchorView {
+            anchor_type: "Device".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+        VerificationAnchor::BiometricHash(value) => SelfRecoveryAnchorView {
+            anchor_type: "Biometric".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+    }
+}
+
+#[hdk_extern]
+pub fn get_self_recovery_view(did: String) -> ExternResult<Option<SelfRecoveryConfigView>> {
+    match get_self_recovery_config(did)? {
+        Some(record) => {
+            let config: SelfRecoveryConfig = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Invalid self-recovery config record".into()
+                )))?;
+
+            Ok(Some(SelfRecoveryConfigView {
+                did: config.did,
+                anchors: config
+                    .anchors
+                    .into_iter()
+                    .map(self_recovery_anchor_view)
+                    .collect(),
+                anchor_threshold: config.anchor_threshold,
+                time_lock_secs: config.time_lock,
+                active: config.active,
+                superseded_by_social: config.superseded_by_social,
+                created: config.created.as_micros(),
+            }))
+        }
+        None => Ok(None),
+    }
 }
 
 // =============================================================================
@@ -1108,11 +1708,11 @@ pub struct CreateSelfRecoveryInput {
     pub did: String,
 }
 
-/// Auto-create a self-recovery config for a new DID.
+/// Register a self-recovery configuration scaffold for a new DID.
 ///
-/// Called by `create_did()` — gives every user a recovery fallback from Day 0.
-/// Starts with zero anchors (user enrolls them progressively) and a conservative
-/// 7-day time lock.
+/// Called by `create_did()` after the canonical DID is active. The scaffold
+/// starts with zero anchors; self-recovery remains non-executable until the
+/// cryptographic proof-of-control and successor-DID protocols land (#3874/#3873).
 #[hdk_extern]
 pub fn create_self_recovery(input: CreateSelfRecoveryInput) -> ExternResult<Record> {
     if !input.did.starts_with("did:mycelix:") {
@@ -1122,6 +1722,16 @@ pub fn create_self_recovery(input: CreateSelfRecoveryInput) -> ExternResult<Reco
     }
 
     let agent = agent_info()?.agent_initial_pubkey;
+    let expected_did = format!("did:mycelix:{}", agent);
+    if input.did != expected_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Can only create self-recovery state for the caller's canonical DID".into()
+        )));
+    }
+    // The DID already exists when create_did() reaches this cross-zome call.
+    // Direct callers are likewise prevented from creating recovery state for
+    // historical, deactivated, or nonexistent identities.
+    verify_did_active(&input.did)?;
     let now = sys_time()?;
 
     let config = SelfRecoveryConfig {
@@ -1166,19 +1776,40 @@ pub struct AddVerificationAnchorInput {
 /// - 3+ anchors: 72 hours (minimum)
 #[hdk_extern]
 pub fn add_verification_anchor(input: AddVerificationAnchorInput) -> ExternResult<Record> {
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing recovery-anchor mutation".into()
+        )));
+    }
     let did_hash = string_to_entry_hash(&input.did);
     let links = get_links(
         LinkQuery::try_new(did_hash, LinkTypes::DidToSelfRecoveryConfig)?,
         GetStrategy::default(),
     )?;
 
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
+    // Self-recovery configuration is security state. Duplicate legacy
+    // pointers are ambiguous and must not be resolved by mutable link timestamps.
+    let mut original_hash: Option<ActionHash> = None;
+    for link in links {
+        let target = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+
+        if let Some(existing) = original_hash.as_ref() {
+            if existing != &target {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous self-recovery config state: multiple distinct targets exist".into(),
+                )));
+            }
+        } else {
+            original_hash = Some(target);
+        }
+    }
+
+    let original_hash = original_hash.ok_or(wasm_error!(WasmErrorInner::Guest(
         "No self-recovery config found for this DID".into()
     )))?;
-    let original_hash = ActionHash::try_from(link.target.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
 
-    let record = get(original_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_latest_record(original_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Self-recovery config record not found".into())
     ))?;
 
@@ -1228,12 +1859,23 @@ pub fn get_self_recovery_config(did: String) -> ExternResult<Option<Record>> {
         GetStrategy::default(),
     )?;
 
-    match links.first() {
-        Some(link) => {
-            let hash = ActionHash::try_from(link.target.clone())
-                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-            get(hash, GetOptions::default())
+    let mut config_target: Option<ActionHash> = None;
+    for link in links {
+        let hash = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(existing) = config_target.as_ref() {
+            if existing != &hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous self-recovery configuration: multiple distinct config records exist for this DID".into(),
+                )));
+            }
+        } else {
+            config_target = Some(hash);
         }
+    }
+
+    match config_target {
+        Some(hash) => get_latest_record(hash),
         None => Ok(None),
     }
 }
@@ -1244,17 +1886,34 @@ pub fn get_self_recovery_config(did: String) -> ExternResult<Option<Record>> {
 /// Self-recovery remains available as a fallback.
 #[hdk_extern]
 pub fn mark_self_recovery_superseded(did: String) -> ExternResult<()> {
+    if !verify_did_active(&did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing recovery-state mutation".into()
+        )));
+    }
     let did_hash = string_to_entry_hash(&did);
     let links = get_links(
         LinkQuery::try_new(did_hash, LinkTypes::DidToSelfRecoveryConfig)?,
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
+    let mut config_target: Option<ActionHash> = None;
+    for link in links {
         let hash = ActionHash::try_from(link.target.clone())
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(existing) = config_target.as_ref() {
+            if existing != &hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous self-recovery configuration: multiple distinct config records exist for this DID".into(),
+                )));
+            }
+        } else {
+            config_target = Some(hash);
+        }
+    }
 
-        if let Some(record) = get(hash.clone(), GetOptions::default())? {
+    if let Some(hash) = config_target {
+        if let Some(record) = get_latest_record(hash.clone())? {
             let mut config: SelfRecoveryConfig = record
                 .entry()
                 .to_app_option()
@@ -1262,6 +1921,13 @@ pub fn mark_self_recovery_superseded(did: String) -> ExternResult<()> {
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
                     "Failed to decode config".into()
                 )))?;
+
+            let caller = agent_info()?.agent_initial_pubkey;
+            if config.owner != caller {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Only the DID owner can mark self-recovery as superseded".into()
+                )));
+            }
 
             config.superseded_by_social = true;
             config.updated = sys_time()?;
@@ -1288,67 +1954,16 @@ pub struct InitiateSelfRecoveryInput {
 /// The request enters a time-locked waiting period before it can execute.
 #[hdk_extern]
 pub fn initiate_self_recovery(input: InitiateSelfRecoveryInput) -> ExternResult<Record> {
-    // Fetch self-recovery config
-    let config_record = get_self_recovery_config(input.did.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("No self-recovery config found".into())
-    ))?;
-
-    let config: SelfRecoveryConfig = config_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Failed to decode config".into()
-        )))?;
-
-    if !config.active {
+    let caller = agent_info()?.agent_initial_pubkey;
+    if input.new_agent != caller {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Self-recovery is not active for this DID".into()
+            "Self-recovery must be initiated by the designated replacement agent".into()
         )));
     }
 
-    if config.anchors.is_empty() {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Cannot initiate self-recovery without enrolled verification anchors".into()
-        )));
-    }
-
-    // Verify the initial anchor matches one in the config
-    if !config.anchors.contains(&input.initial_anchor) {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Verification anchor does not match any enrolled anchor".into()
-        )));
-    }
-
-    let now = sys_time()?;
-    let request_id = format!(
-        "self-recovery-{}-{}",
-        input.did.chars().skip(12).take(8).collect::<String>(),
-        now.as_micros()
-    );
-
-    let request = SelfRecoveryRequest {
-        id: request_id,
-        did: input.did.clone(),
-        new_agent: input.new_agent,
-        verified_anchors: vec![input.initial_anchor],
-        status: RecoveryStatus::Pending,
-        created: now,
-        time_lock_expires: None, // Set when anchor threshold met
-        reason: input.reason,
-    };
-
-    let action_hash = create_entry(&EntryTypes::SelfRecoveryRequest(request))?;
-    let did_hash = string_to_entry_hash(&input.did);
-    create_link(
-        did_hash,
-        action_hash.clone(),
-        LinkTypes::DidToSelfRecoveryRequest,
-        LinkTag::new("self_recovery_request"),
-    )?;
-
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Failed to get created self-recovery request".into()
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Self-recovery is disabled until cryptographic anchor proof-of-control is implemented (see #3874)"
+            .into()
     )))
 }
 
@@ -1364,62 +1979,19 @@ pub struct VerifySelfRecoveryAnchorInput {
 /// When the anchor threshold is met, the request transitions to Approved
 /// and the time lock countdown begins.
 #[hdk_extern]
-pub fn verify_self_recovery_anchor(input: VerifySelfRecoveryAnchorInput) -> ExternResult<Record> {
-    let record =
-        get(input.request_action_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-            WasmErrorInner::Guest("Self-recovery request not found".into())
-        ))?;
+pub fn verify_self_recovery_anchor(
+    input: VerifySelfRecoveryAnchorInput,
+) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
 
-    let mut request: SelfRecoveryRequest = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Failed to decode request".into()
-        )))?;
+    // Do not treat an enrolled identifier/hash as proof-of-control. The proof
+    // envelope in #3874 must bind the request, anchor, challenge, and verifier
+    // before this path becomes executable.
+    let _ = (caller, input);
 
-    if request.status != RecoveryStatus::Pending {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Can only verify anchors on pending requests".into()
-        )));
-    }
-
-    // Get the config to check threshold
-    let config_record = get_self_recovery_config(request.did.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Self-recovery config not found".into())
-    ))?;
-    let config: SelfRecoveryConfig = config_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Failed to decode config".into()
-        )))?;
-
-    // Verify anchor matches config
-    if !config.anchors.contains(&input.anchor) {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Anchor does not match any enrolled anchor".into()
-        )));
-    }
-
-    // Don't double-count
-    if !request.verified_anchors.contains(&input.anchor) {
-        request.verified_anchors.push(input.anchor);
-    }
-
-    // Check if threshold met → transition to Approved
-    if request.verified_anchors.len() as u32 >= config.anchor_threshold {
-        request.status = RecoveryStatus::Approved;
-        let now = sys_time()?;
-        let expires =
-            Timestamp::from_micros(now.as_micros() + (config.time_lock as i64 * 1_000_000));
-        request.time_lock_expires = Some(expires);
-    }
-
-    let new_hash = update_entry(input.request_action_hash, &request)?;
-    get(new_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Failed to get updated request".into()
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Self-recovery anchor verification is disabled until cryptographic proof-of-control is implemented (see #3874)"
+            .into()
     )))
 }
 
@@ -1440,13 +2012,20 @@ pub fn execute_self_recovery(request_action_hash: ActionHash) -> ExternResult<Re
             "Failed to decode request".into()
         )))?;
 
-    // Must be Approved (time lock set)
-    if request.status != RecoveryStatus::Approved {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot execute self-recovery in {:?} status (must be Approved)",
-            request.status
-        ))));
+    let caller = agent_info()?.agent_initial_pubkey;
+    if request.new_agent != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the designated replacement agent can execute self-recovery".into()
+        )));
     }
+
+    // Self-recovery execution is deliberately disabled until the proof-of-control
+    // and successor-DID protocols are complete. Do not rely on the integrity
+    // callback alone: the coordinator boundary must also be fail-closed.
+    return Err(wasm_error!(WasmErrorInner::Guest(
+        "Self-recovery execution is disabled until cryptographic proof-of-control (#3874) and successor-DID/controller-transfer protocol (#3873) are implemented"
+            .into()
+    )));
 
     // Check time lock has expired
     let now = sys_time()?;

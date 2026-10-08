@@ -8,6 +8,19 @@
 
 use hdi::prelude::*;
 
+fn validate_timestamp_not_future(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> ValidateCallbackResult {
+    if value > action_timestamp {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 /// Credential Schema definition
 /// Follows W3C Verifiable Credentials Data Model with Mycelix extensions
 #[hdk_entry_helper]
@@ -134,22 +147,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
-            match link_type {
-                LinkTypes::AuthorToSchema => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CategoryToSchema => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SchemaToEndorsement => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SchemaHistory => Ok(ValidateCallbackResult::Valid),
-            }
+            validate_create_schema_link(
+                link_type,
+                &base_address,
+                &target_address,
+                &action,
+            )
         }
         FlatOp::RegisterDeleteLink {
             original_action,
             action,
+            link_type,
             ..
         } => {
             if action.author != original_action.author {
@@ -157,10 +177,49 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the link creator can delete their links".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+            match link_type {
+                LinkTypes::AuthorToSchema
+                | LinkTypes::CategoryToSchema
+                | LinkTypes::SchemaToEndorsement
+                | LinkTypes::SchemaHistory => Ok(ValidateCallbackResult::Invalid(
+                    "Credential schema security indexes cannot be deleted".into(),
+                )),
+            }
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::CredentialSchema),
+                action,
+            } => {
+                let entry = must_get_entry(action.entry_hash.clone())?;
+                let schema: CredentialSchema = entry.try_into().map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Credential schema activity entry could not be decoded: {e}"
+                    )))
+                })?;
+                validate_schema_creation_chain_uniqueness(action, &schema)
+            }
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::SchemaEndorsement),
+                action,
+            } => {
+                let entry = must_get_entry(action.entry_hash.clone())?;
+                let endorsement: SchemaEndorsement = entry.try_into().map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Schema endorsement activity entry could not be decoded: {e}"
+                    )))
+                })?;
+                let expected_endorser = format!("did:mycelix:{}", action.author);
+                if endorsement.endorser != expected_endorser {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Schema endorsement author must equal the committing agent".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
@@ -189,6 +248,200 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+fn validate_create_schema_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    match link_type {
+        LinkTypes::AuthorToSchema => {
+            let base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "AuthorToSchema base must be an EntryHash".into(),
+                ))
+            })?;
+            let target = target_address.clone().into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "AuthorToSchema target must be an ActionHash".into(),
+                ))
+            })?;
+            let record = must_get_valid_record(target)?;
+            let schema: CredentialSchema = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "AuthorToSchema target must contain a CredentialSchema".into(),
+                )))?;
+
+            let expected_author = format!("did:mycelix:{}", action.author);
+            if schema.author != expected_author || *record.action().author() != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AuthorToSchema target must be authored by and identify the committing agent"
+                        .into(),
+                ));
+            }
+
+            if base != string_to_entry_hash(&schema.author) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AuthorToSchema base must match the schema author DID".into(),
+                ));
+            }
+        }
+        LinkTypes::SchemaToEndorsement => {
+            let base = base_address.clone().into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "SchemaToEndorsement base must be an ActionHash".into(),
+                ))
+            })?;
+            let target = target_address.clone().into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "SchemaToEndorsement target must be an ActionHash".into(),
+                ))
+            })?;
+
+            let schema_record = must_get_valid_record(base.clone())?;
+            let schema: CredentialSchema = schema_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SchemaToEndorsement base must contain a CredentialSchema".into(),
+                )))?;
+
+            let endorsement_record = must_get_valid_record(target)?;
+            let endorsement: SchemaEndorsement = endorsement_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SchemaToEndorsement target must contain a SchemaEndorsement".into(),
+                )))?;
+
+            if endorsement.schema_id != schema.id {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SchemaToEndorsement target must reference the base schema ID".into(),
+                ));
+            }
+            if *endorsement_record.action().author() != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SchemaToEndorsement link must be authored by the endorsement author".into(),
+                ));
+            }
+        }
+        LinkTypes::CategoryToSchema | LinkTypes::SchemaHistory => {
+            // These link types have no canonical construction path in the
+            // current coordinator. Do not invent authority semantics until
+            // their wire/base contract is specified.
+            return Ok(ValidateCallbackResult::Invalid(
+                "Unsupported credential schema link type".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_schema_creation_chain_uniqueness(
+    action: &Create,
+    schema: &CredentialSchema,
+) -> ExternResult<ValidateCallbackResult> {
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::CredentialSchema)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_schema: CredentialSchema = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential schema history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior_schema.id == schema.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A credential schema ID may only have one canonical creation; publish later changes through Update".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn latest_schema_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+    schema_id: &str,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::CredentialSchema)?);
+    let mut latest: Option<(u32, ActionHash)> = None;
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type)
+            || !matches!(prior_action, Action::Create(_) | Action::Update(_))
+        {
+            continue;
+        }
+
+        let Some(entry_hash) = prior_action.entry_hash().cloned() else {
+            continue;
+        };
+        let entry = must_get_entry(entry_hash)?;
+        let schema: CredentialSchema = entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential schema history entry could not be decoded: {e}"
+            )))
+        })?;
+        if schema.id != schema_id {
+            continue;
+        }
+
+        let action_hash = hdi::hash::hash_action(prior_action.clone())?;
+        if latest
+            .as_ref()
+            .is_none_or(|(seq, _)| prior_action.action_seq() > *seq)
+        {
+            latest = Some((prior_action.action_seq(), action_hash));
+        }
+    }
+
+    Ok(latest.map(|(_, hash)| hash))
+}
+
+fn validate_schema_update_targets_latest(
+    action: &Update,
+    schema_id: &str,
+) -> ExternResult<ValidateCallbackResult> {
+    match latest_schema_action(
+        action.author.clone(),
+        action.prev_action.clone(),
+        schema_id,
+    )? {
+        Some(latest_hash) if latest_hash == action.original_action_address => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        Some(_) => Ok(ValidateCallbackResult::Invalid(
+            "Credential schema update must target the latest schema state on the author's source chain".into(),
+        )),
+        None => Ok(ValidateCallbackResult::Invalid(
+            "Credential schema update has no prior schema state".into(),
+        )),
+    }
+}
+
 /// Validate schema creation
 fn validate_create_credential_schema(
     action: EntryCreationAction,
@@ -203,6 +456,13 @@ fn validate_create_credential_schema(
         return Ok(ValidateCallbackResult::Invalid(
             "Schema author must be the committing agent (forgery)".to_string(),
         ));
+    }
+
+    if let EntryCreationAction::Create(create) = &action {
+        match validate_schema_creation_chain_uniqueness(create, &schema)? {
+            ValidateCallbackResult::Valid => {}
+            invalid => return Ok(invalid),
+        }
     }
 
     // Validate schema ID format
@@ -226,6 +486,15 @@ fn validate_create_credential_schema(
         ));
     }
 
+    match validate_timestamp_not_future(
+        "Schema created timestamp",
+        schema.created,
+        *action.timestamp(),
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
     // Validate at least one credential type
     if schema.credential_type.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -237,11 +506,42 @@ fn validate_create_credential_schema(
 }
 
 /// Validate schema update
+fn latest_schema_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::CredentialSchema)?);
+
+    let mut latest: Option<(u32, ActionHash)> = None;
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type)
+            || !matches!(prior_action, Action::Create(_) | Action::Update(_))
+        {
+            continue;
+        }
+
+        let action_hash = hdi::hash::hash_action(prior_action.clone())?;
+        let seq = prior_action.action_seq();
+        if latest.as_ref().is_none_or(|(latest_seq, _)| seq > *latest_seq) {
+            latest = Some((seq, action_hash));
+        }
+    }
+
+    Ok(latest.map(|(_, hash)| hash))
+}
+
 fn validate_update_credential_schema(
     action: Update,
     schema: CredentialSchema,
     _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
+    match validate_schema_update_targets_latest(&action, &schema.id)? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
     if !schema.id.starts_with("mycelix:schema:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Schema ID must start with 'mycelix:schema:'".into(),
@@ -252,6 +552,33 @@ fn validate_update_credential_schema(
         return Ok(ValidateCallbackResult::Invalid(
             "Schema must be valid JSON".into(),
         ));
+    }
+
+    match validate_timestamp_not_future(
+        "Schema updated timestamp",
+        schema.updated,
+        action.timestamp,
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
+    // A schema update is valid only when it advances the current schema state
+    // on the author's source chain. This keeps DHT link traversal and stale
+    // coordinator snapshots from selecting the authoritative revision.
+    match latest_schema_action(action.author.clone(), action.prev_action.clone())? {
+        Some(latest_hash) if latest_hash == action.original_action_address => {}
+        Some(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Schema update must target the latest schema action on the author's source chain"
+                    .into(),
+            ));
+        }
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Schema update has no prior schema action on the author's source chain".into(),
+            ));
+        }
     }
 
     // Fetch original to enforce invariants
@@ -311,6 +638,15 @@ fn validate_create_schema_endorsement(
         ));
     }
 
+    match validate_timestamp_not_future(
+        "Schema endorsement timestamp",
+        endorsement.endorsed_at,
+        *action.timestamp(),
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
     // Validate trust level range
     if !(0.0..=1.0).contains(&endorsement.trust_level) {
         return Ok(ValidateCallbackResult::Invalid(
@@ -336,6 +672,22 @@ mod tests {
         Timestamp::from_micros(micros)
     }
 
+    #[test]
+    fn latest_schema_action_selector_prefers_source_chain_sequence() {
+        let first = ActionHash::from_raw_36(vec![1u8; 36]);
+        let second = ActionHash::from_raw_36(vec![2u8; 36]);
+
+        let mut selected = Some((4u32, first.clone()));
+        let candidate = (5u32, second.clone());
+        if selected
+            .as_ref()
+            .is_none_or(|(seq, _)| candidate.0 > *seq)
+        {
+            selected = Some(candidate);
+        }
+        assert_eq!(selected.map(|(_, hash)| hash), Some(second));
+    }
+
     fn valid_schema() -> CredentialSchema {
         CredentialSchema {
             id: "mycelix:schema:education:degree:v1".into(),
@@ -352,6 +704,29 @@ mod tests {
             active: true,
             created: ts(1_700_000_000_000_000),
             updated: ts(1_700_000_000_000_000),
+        }
+    }
+
+    #[test]
+    fn security_timestamps_cannot_be_future_dated() {
+        let action_timestamp = Timestamp::from_micros(1_000);
+        assert_eq!(
+            validate_timestamp_not_future(
+                "Schema created timestamp",
+                Timestamp::from_micros(1_000),
+                action_timestamp,
+            ),
+            ValidateCallbackResult::Valid
+        );
+        match validate_timestamp_not_future(
+            "Schema updated timestamp",
+            Timestamp::from_micros(1_001),
+            action_timestamp,
+        ) {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("signed Holochain action timestamp"));
+            }
+            other => panic!("future schema timestamp must be invalid, got {other:?}"),
         }
     }
 

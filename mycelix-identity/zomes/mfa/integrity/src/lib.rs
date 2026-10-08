@@ -163,7 +163,10 @@ impl EnrolledFactor {
             return 0.0;
         }
 
-        let elapsed_micros = now.as_micros() - self.last_verified.as_micros();
+        let elapsed_micros = now
+            .as_micros()
+            .saturating_sub(self.last_verified.as_micros())
+            .max(0);
         let elapsed_secs = (elapsed_micros / 1_000_000) as u64;
 
         let (grace_period, decay_rate, _) = self.factor_type.decay_config();
@@ -420,15 +423,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
             match link_type {
-                LinkTypes::DidToMfaState => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::AgentToMfaState => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::DidToMfaState => {
+                    validate_did_to_mfa_state_link(&base_address, &target_address, &action)
+                }
+                LinkTypes::AgentToMfaState => {
+                    validate_agent_to_mfa_state_link(&base_address, &target_address, &action)
+                }
                 LinkTypes::DidToEnrollments => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::DidToVerifications => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::MfaStateHistory => Ok(ValidateCallbackResult::Valid),
@@ -444,25 +457,59 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the link creator can delete their links".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+            // All MFA-zome links are index/audit state. Deletion would let
+            // a coordinator hide security history or canonical state from DHT
+            // readers, so the integrity boundary keeps them append-only.
+            Ok(ValidateCallbackResult::Invalid(
+                "MFA links cannot be deleted".into(),
+            ))
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
-            let original = must_get_action(action.original_action_address.clone())?;
-            if *original.action().author() != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the original entry author can update their entries".into(),
-                ));
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::MfaState),
+                action,
+            } => validate_mfa_state_chain_uniqueness(action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterUpdate(update) => match update {
+            OpUpdate::Entry {
+                app_entry,
+                action,
+                ..
+            } => {
+                let original = must_get_action(action.original_action_address.clone())?;
+                if *original.action().author() != action.author {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original entry author can update their entries".into(),
+                    ));
+                }
+
+                match app_entry {
+                    EntryTypes::MfaState(state) => validate_update_mfa_state(action, state),
+                    EntryTypes::FactorEnrollment(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Factor enrollments are append-only".into(),
+                    )),
+                    EntryTypes::FactorVerification(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Factor verifications are append-only".into(),
+                    )),
+                    EntryTypes::EncryptedEntry(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Encrypted entries are append-only (re-encrypt instead)".into(),
+                    )),
+                }
             }
-            Ok(ValidateCallbackResult::Valid)
+            OpUpdate::PrivateEntry { action, .. }
+            | OpUpdate::Agent { action, .. }
+            | OpUpdate::CapClaim { action, .. }
+            | OpUpdate::CapGrant { action, .. } => {
+                let original = must_get_action(action.original_action_address.clone())?;
+                if *original.action().author() != action.author {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original entry author can update their entries".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
         }
         FlatOp::RegisterDelete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
@@ -471,9 +518,241 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the original entry author can delete their entries".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+
+            match original.action().entry_type() {
+                Some(EntryType::App(entry_def))
+                    if entry_def.entry_index() == EntryDefIndex::from(0)
+                        || entry_def.entry_index() == EntryDefIndex::from(1)
+                        || entry_def.entry_index() == EntryDefIndex::from(2)
+                        || entry_def.entry_index() == EntryDefIndex::from(3) =>
+                {
+                    // EntryTypes declaration order: MfaState, FactorEnrollment,
+                    // FactorVerification, EncryptedEntry. All are security state
+                    // or audit history and must remain append-only.
+                    Ok(ValidateCallbackResult::Invalid(
+                        "MFA security and audit entries cannot be deleted".into(),
+                    ))
+                }
+                _ => Ok(ValidateCallbackResult::Valid),
+            }
         }
     }
+}
+
+fn select_latest_action_hash(
+    candidates: impl IntoIterator<Item = (u32, ActionHash)>,
+) -> Option<ActionHash> {
+    candidates
+        .into_iter()
+        .max_by_key(|(seq, _)| *seq)
+        .map(|(_, hash)| hash)
+}
+
+/// Return the latest MFA-state action on the author's source chain.
+fn latest_mfa_state_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::MfaState)?);
+    let mut candidates = Vec::new();
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type) {
+            continue;
+        }
+        if !matches!(prior_action, Action::Create(_) | Action::Update(_)) {
+            continue;
+        }
+        candidates.push((
+            prior_action.action_seq(),
+            hdi::hash::hash_action(prior_action.clone())?,
+        ));
+    }
+
+    Ok(select_latest_action_hash(candidates))
+}
+
+/// Enforce one initial MFA state for an owner's canonical DID.
+fn validate_mfa_state_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current: MfaState = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "MFA state entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::MfaState)?);
+
+    for item in activity {
+        let prior_action = item.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior: MfaState = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "MFA state history entry could not be decoded: {e}"
+            )))
+        })?;
+        if prior.did == current.did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A DID may only have one initial MFA state".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate that an MFA-state update targets the current state on the
+/// author's source chain rather than a stale ancestor.
+fn validate_mfa_state_update_targets_latest(
+    action: &Update,
+) -> ExternResult<ValidateCallbackResult> {
+    match latest_mfa_state_action(action.author.clone(), action.prev_action.clone())? {
+        Some(latest_hash) if latest_hash == action.original_action_address => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        Some(_) => Ok(ValidateCallbackResult::Invalid(
+            "MFA state update must target the latest state on the author's source chain".into(),
+        )),
+        None => Ok(ValidateCallbackResult::Invalid(
+            "MFA state update has no prior canonical state".into(),
+        )),
+    }
+}
+
+fn string_to_entry_hash(value: &str) -> EntryHash {
+    let bytes = holo_hash::blake2b_256(value.as_bytes())
+        .into_iter()
+        .chain([0u8; 4])
+        .collect::<Vec<u8>>();
+    EntryHash::from_raw_36(bytes)
+}
+
+fn action_target(
+    target_address: &AnyLinkableHash,
+    label: &str,
+) -> ExternResult<ActionHash> {
+    target_address.clone().into_action_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} target must be an ActionHash"
+        )))
+    })
+}
+
+fn validate_did_to_mfa_state_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base = base_address.clone().into_entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "DidToMfaState base must be an EntryHash".into(),
+        ))
+    })?;
+    let target = action_target(target_address, "DidToMfaState")?;
+    let record = must_get_valid_record(target)?;
+    let state: MfaState = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "DidToMfaState target must contain an MFA state".into(),
+        )))?;
+
+    let expected_did = format!("did:mycelix:{}", action.author);
+    if state.did != expected_did || state.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DidToMfaState target must be the author's canonical MFA state".into(),
+        ));
+    }
+    if base != string_to_entry_hash(&state.did) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DidToMfaState base does not match the target DID".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_agent_to_mfa_state_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base = base_address.clone().into_agent_pub_key().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "AgentToMfaState base must be an AgentPubKey".into(),
+        ))
+    })?;
+    let target = action_target(target_address, "AgentToMfaState")?;
+    let record = must_get_valid_record(target)?;
+    let state: MfaState = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "AgentToMfaState target must contain an MFA state".into(),
+        )))?;
+
+    if base != action.author || state.owner != action.author || state.owner != base {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToMfaState must bind the author's AgentPubKey to its MFA state".into(),
+        ));
+    }
+
+    let expected_did = format!("did:mycelix:{}", base);
+    if state.did != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToMfaState target DID must match the base agent".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Application timestamps are subordinate to the signed Holochain action clock.
+fn validate_factor_timestamp(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> Result<(), String> {
+    if value > action_timestamp {
+        return Err(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    Ok(())
+}
+
+/// Enforce ordered factor timestamps so a future-dated verification cannot
+/// manufacture freshness or reverse the enrollment chronology.
+fn validate_factor_timestamps(
+    factor: &EnrolledFactor,
+    action_timestamp: Timestamp,
+) -> Result<(), String> {
+    validate_factor_timestamp("Factor enrolled_at", factor.enrolled_at, action_timestamp)?;
+    validate_factor_timestamp(
+        "Factor last_verified",
+        factor.last_verified,
+        action_timestamp,
+    )?;
+    if factor.last_verified < factor.enrolled_at {
+        return Err("Factor last_verified cannot precede enrolled_at".into());
+    }
+    Ok(())
 }
 
 /// Validate MFA state creation
@@ -506,6 +785,26 @@ fn validate_create_mfa_state(
         return Ok(ValidateCallbackResult::Invalid(
             "MFA state DID must correspond to the committing agent (forgery)".to_string(),
         ));
+    }
+
+    if let Err(message) = validate_factor_timestamp(
+        "MFA created timestamp",
+        state.created,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    if let Err(message) = validate_factor_timestamp(
+        "MFA updated timestamp",
+        state.updated,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    for factor in &state.factors {
+        if let Err(message) = validate_factor_timestamps(factor, *action.timestamp()) {
+            return Ok(ValidateCallbackResult::Invalid(message));
+        }
     }
 
     // Validate initial version
@@ -551,11 +850,29 @@ fn validate_update_mfa_state(
         ));
     }
 
+    if let Err(message) = validate_factor_timestamp(
+        "MFA updated timestamp",
+        state.updated,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    for factor in &state.factors {
+        if let Err(message) = validate_factor_timestamps(factor, *action.timestamp()) {
+            return Ok(ValidateCallbackResult::Invalid(message));
+        }
+    }
+
     // Must keep at least one factor
     if state.factors.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Cannot remove all factors".into(),
         ));
+    }
+
+    match validate_mfa_state_update_targets_latest(&action)? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
 
     // Fetch original to enforce invariants
@@ -585,11 +902,14 @@ fn validate_update_mfa_state(
         ));
     }
 
-    // Version must increment
-    if state.version <= original.version {
-        return Ok(ValidateCallbackResult::Invalid(
-            "MFA state version must increase on update".into(),
-        ));
+    // Version is the method-level ordering primitive; every accepted update
+    // must advance exactly one version.
+    if state.version != original.version.saturating_add(1) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "MFA state version must increment exactly by 1 (expected {}, got {})",
+            original.version.saturating_add(1),
+            state.version
+        )));
     }
 
     // Updated timestamp must advance
@@ -635,6 +955,12 @@ fn validate_create_factor_enrollment(
         ));
     }
 
+    if let Err(message) =
+        validate_factor_timestamp("Factor enrollment timestamp", enrollment.timestamp, *action.timestamp())
+    {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+
     // Validate reason provided
     if enrollment.reason.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -666,6 +992,14 @@ fn validate_create_factor_verification(
         return Ok(ValidateCallbackResult::Invalid(
             "DID must start with 'did:mycelix:'".into(),
         ));
+    }
+
+    if let Err(message) = validate_factor_timestamp(
+        "Factor verification timestamp",
+        verification.timestamp,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Validate strength is non-negative.
@@ -739,9 +1073,72 @@ mod tests {
         Timestamp::from_micros(1735689600_000_000)
     }
 
+    #[test]
+    fn future_last_verified_cannot_create_freshness() {
+        let now = now_timestamp();
+        let factor = EnrolledFactor {
+            factor_type: FactorType::PrimaryKeyPair,
+            factor_id: "sha256:test".into(),
+            enrolled_at: now,
+            last_verified: Timestamp::from_micros(now.as_micros() + 1_000_000),
+            metadata: "{}".into(),
+            effective_strength: 1.0,
+            active: true,
+        };
+
+        assert_eq!(
+            factor.current_strength(now),
+            1.0,
+            "future-dated verification must not underflow or produce invalid decay"
+        );
+        assert!(
+            !factor.needs_reverification(now),
+            "future-dated verification must not force a false re-verification"
+        );
+        assert!(
+            validate_factor_timestamps(&factor, now).is_err(),
+            "integrity validation must reject future-dated factor timestamps"
+        );
+    }
+
+    #[test]
+    fn factor_verification_cannot_precede_enrollment() {
+        let now = now_timestamp();
+        let factor = EnrolledFactor {
+            factor_type: FactorType::PrimaryKeyPair,
+            factor_id: "sha256:test-order".into(),
+            enrolled_at: now,
+            last_verified: Timestamp::from_micros(now.as_micros() - 1_000_000),
+            metadata: "{}".into(),
+            effective_strength: 1.0,
+            active: true,
+        };
+
+        assert!(
+            validate_factor_timestamps(&factor, now).is_err(),
+            "verification timestamp must not precede enrollment"
+        );
+    }
+
     // =========================================================================
     // Factor Category Tests
     // =========================================================================
+
+    #[test]
+    fn latest_mfa_state_selector_uses_source_chain_sequence() {
+        let first = ActionHash::from_raw_36(vec![1; 36]);
+        let second = ActionHash::from_raw_36(vec![2; 36]);
+
+        assert_eq!(
+            select_latest_action_hash(vec![(4, first.clone()), (5, second.clone())]),
+            Some(second.clone())
+        );
+        assert_eq!(
+            select_latest_action_hash(vec![(5, second.clone()), (4, first)]),
+            Some(second)
+        );
+        assert_eq!(select_latest_action_hash(Vec::new()), None);
+    }
 
     #[test]
     fn test_factor_type_categories() {

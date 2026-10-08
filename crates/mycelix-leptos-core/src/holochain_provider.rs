@@ -179,18 +179,18 @@ impl HolochainCtx {
 
     /// Call a zome function using the default role.
     ///
-    /// # Panics
-    /// Panics if no `default_role` was configured.
+    /// Returns an error if no `default_role` was configured.
     pub async fn call_zome_default<I: Serialize, O: DeserializeOwned>(
         &self,
         zome: &str,
         fn_name: &str,
         input: &I,
     ) -> Result<O, String> {
-        let role = self
-            .default_role
-            .as_deref()
-            .expect("call_zome_default requires a default_role in HolochainProviderConfig");
+        let Some(role) = self.default_role.as_deref() else {
+            return Err(
+                "call_zome_default requires a default_role in HolochainProviderConfig".into(),
+            );
+        };
         self.call_zome(role, zome, fn_name, input).await
     }
 
@@ -409,6 +409,7 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
 
                 let ws_transport = BrowserWsTransport::new();
                 *transport_for_connect.borrow_mut() = Some(ws_transport.clone());
+                let signer_probe_transport = ws_transport.clone();
                 ws_transport.set_status_handler(move |transport_status| {
                     match transport_status {
                         TransportConnectionStatus::Disconnected => {
@@ -420,7 +421,10 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
                             set_status.set(ConnectionStatus::Connecting);
                         }
                         TransportConnectionStatus::Connected => {
-                            let signer_ready = HostZomeCallSigner::is_available();
+                            // The transport may have either the launcher host signer or
+                            // an explicitly installed Rust-side signer. Readiness must
+                            // reflect the capability that call_zome() will actually use.
+                            let signer_ready = signer_probe_transport.zome_call_signer_available();
                             set_zome_call_signing_ready.set(signer_ready);
                             if signer_ready {
                                 set_last_error.set(None);

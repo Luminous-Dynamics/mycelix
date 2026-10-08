@@ -1,0 +1,143 @@
+name: Identity Cargo Lock Verifier
+
+on:
+  push:
+    branches:
+      - feat/sovereign-identity-live-bootstrap
+    paths:
+      - 'mycelix-identity/Cargo.toml'
+      - 'mycelix-identity/**/Cargo.toml'
+      - '.github/workflows/identity-cargo-lock-verifier.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-identity/Cargo.toml'
+      - 'mycelix-identity/**/Cargo.toml'
+      - '.github/workflows/identity-cargo-lock-verifier.yml'
+
+concurrency:
+  # One branch has one authoritative lock diagnostic at a time. Exact-head
+  # checkout below keeps evidence bound to the run's qualified commit.
+  group: identity-cargo-lock-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Generate and verify Identity Cargo lockfile
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: never
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact qualified head checkout
+        run: |
+          checked_out="$(git rev-parse HEAD)"
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$checked_out" = "$expected"
+          echo "Qualified head: $expected"
+          echo "Checked out:    $checked_out"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Compare conservative and full lockfile regeneration
+        run: |
+          set -euo pipefail
+          cd mycelix-identity
+          cp Cargo.lock Cargo.lock.committed
+
+          cargo update --workspace --dry-run 2>&1 | tee "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-update.txt"
+
+          cargo update --workspace --manifest-path Cargo.toml
+          cp Cargo.lock Cargo.lock.workspace
+          sha256sum Cargo.lock.workspace > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace.sha256"
+          sha256sum Cargo.lock.workspace > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-candidate.sha256"
+          git diff --no-index -- Cargo.lock.committed Cargo.lock.workspace > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace.diff" || true
+
+          # The dry-run is a diagnostic, but the generated candidate is the
+          # authoritative conservative artifact. Fail closed if Cargo reports
+          # a resolution change while the candidate remains byte-identical.
+          if cmp -s Cargo.lock.committed Cargo.lock.workspace &&
+             grep -Eq '^[[:space:]]*(Adding|Updating|Removing|Downgrading)[[:space:]]+[^[:space:]]+[[:space:]]+v[0-9]'                "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-update.txt"; then
+            echo "ERROR: Cargo reported resolver changes but conservative lock candidate is unchanged."
+            exit 1
+          fi
+          cargo metadata --locked --no-deps --manifest-path Cargo.toml >/dev/null
+
+          cp Cargo.lock.committed Cargo.lock
+          cargo generate-lockfile --manifest-path Cargo.toml
+          sha256sum Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-full-candidate.sha256"
+          git diff --no-index -- Cargo.lock.committed Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-full.diff" || true
+
+          for name in apps/leptos tests; do
+            manifest="$name/Cargo.toml"
+            lock="$name/Cargo.lock"
+            if [[ -f "$lock" ]]; then
+              cp "$lock" "$lock.committed"
+            else
+              : > "$lock.committed"
+            fi
+            cp "$lock.committed" "$lock"
+            cargo generate-lockfile --manifest-path "$manifest"
+            slug="$(printf "%s" "$name" | tr "/" "-")"
+            sha256sum "$lock" > "$GITHUB_WORKSPACE/identity-${slug}-cargo-lock-candidate.sha256"
+            git diff --no-index -- "$lock.committed" "$lock" > "$GITHUB_WORKSPACE/identity-${slug}-cargo-lock.diff" || true
+          done
+
+          sha256sum Cargo.lock.committed > "$GITHUB_WORKSPACE/identity-cargo-lock-committed.sha256"
+          if cmp -s Cargo.lock.committed Cargo.lock.workspace; then
+            echo "CONSERVATIVE_LOCK_STATUS unchanged" > "$GITHUB_WORKSPACE/identity-cargo-lock-conservative-status.txt"
+          else
+            echo "CONSERVATIVE_LOCK_STATUS differs" > "$GITHUB_WORKSPACE/identity-cargo-lock-conservative-status.txt"
+          fi
+          if cmp -s Cargo.lock.committed Cargo.lock; then
+            echo "FULL_LOCK_STATUS unchanged" > "$GITHUB_WORKSPACE/identity-cargo-lock-full-status.txt"
+          else
+            echo "FULL_LOCK_STATUS differs" > "$GITHUB_WORKSPACE/identity-cargo-lock-full-status.txt"
+          fi
+
+      - name: Summarize candidate lockfile drift
+        run: |
+          cat identity-cargo-lock-conservative-status.txt
+          cat identity-cargo-lock-full-status.txt
+          cat identity-cargo-lock-committed.sha256
+          cat identity-cargo-lock-workspace.sha256
+          cat identity-cargo-lock-workspace-candidate.sha256
+          cat identity-cargo-lock-full-candidate.sha256
+          echo "--- conservative workspace update ---"
+          sed -n '1,180p' identity-cargo-lock-workspace.diff || true
+          echo "--- full regeneration ---"
+          sed -n '1,180p' identity-cargo-lock-full.diff || true
+          echo "--- dry-run resolver output ---"
+          sed -n '1,180p' identity-cargo-lock-workspace-update.txt
+
+      - name: Upload lockfile diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-cargo-lock-diagnostic-${{ github.event.pull_request.head.sha || github.sha }}
+          if-no-files-found: error
+          path: |
+            mycelix-identity/Cargo.lock.committed
+            mycelix-identity/Cargo.lock.workspace
+            mycelix-identity/Cargo.lock
+            mycelix-identity/apps/leptos/Cargo.lock
+            mycelix-identity/tests/Cargo.lock
+            mycelix-identity/apps/leptos/Cargo.lock.committed
+            mycelix-identity/tests/Cargo.lock.committed
+            identity-apps-leptos-cargo-lock.diff
+            identity-tests-cargo-lock.diff
+            identity-cargo-lock-workspace-update.txt
+            identity-cargo-lock-workspace.diff
+            identity-cargo-lock-full.diff
+            identity-cargo-lock-conservative-status.txt
+            identity-cargo-lock-full-status.txt
+            identity-cargo-lock-committed.sha256
+            identity-cargo-lock-workspace.sha256
+            identity-cargo-lock-workspace-candidate.sha256
+            identity-cargo-lock-full-candidate.sha256

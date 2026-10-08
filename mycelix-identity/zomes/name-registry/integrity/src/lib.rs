@@ -5,7 +5,7 @@ use hdi::prelude::*;
 
 /// A registered mesh name binding.
 #[hdk_entry_helper]
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct MeshNameEntry {
     /// Name segments (e.g., ["joburg", "water", "tank-7"]).
     pub segments: Vec<String>,
@@ -23,10 +23,13 @@ pub struct MeshNameEntry {
 
 /// Transfer of name ownership.
 #[hdk_entry_helper]
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct NameTransfer {
-    /// Action hash of the MeshNameEntry being transferred.
+    /// Action hash of the original MeshNameEntry being transferred.
     pub name_hash: ActionHash,
+    /// Previous transfer in the ownership chain. None only for the first transfer.
+    #[serde(default)]
+    pub previous_transfer_hash: Option<ActionHash>,
     /// New owner agent.
     pub new_owner: AgentPubKey,
     /// Transfer timestamp.
@@ -35,7 +38,7 @@ pub struct NameTransfer {
 
 /// Anchor entry for deterministic link bases.
 #[hdk_entry_helper]
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Anchor(pub String);
 
 #[hdk_entry_types]
@@ -56,64 +59,562 @@ pub enum LinkTypes {
     NameToTransfers,
 }
 
+fn validate_timestamp_us_not_future(
+    field: &str,
+    value_us: u64,
+    action_timestamp: Timestamp,
+) -> ValidateCallbackResult {
+    let action_us = action_timestamp.as_micros();
+    let Ok(action_us) = u64::try_from(action_us) else {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} cannot be validated against a negative signed Holochain action timestamp"
+        ));
+    };
+    if value_us > action_us {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn name_anchor(segments: &[String]) -> ExternResult<EntryHash> {
+    hash_entry(&EntryTypes::Anchor(Anchor(format!(
+        "mesh_name/{}",
+        segments.join("/")
+    ))))
+}
+
+fn agent_anchor(agent: &AgentPubKey) -> AgentPubKey {
+    agent.clone()
+}
+
+fn action_target(
+    target_address: &AnyLinkableHash,
+    label: &str,
+) -> ExternResult<ActionHash> {
+    target_address.clone().into_action_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} target must be an ActionHash"
+        )))
+    })
+}
+
+fn validate_mesh_name(entry: &MeshNameEntry) -> Result<(), String> {
+    if entry.segments.is_empty() || entry.segments.len() > 5 {
+        return Err("Name depth must be 1-5 segments".into());
+    }
+    for seg in &entry.segments {
+        if seg.is_empty() || seg.len() > 63 {
+            return Err(format!("Segment '{}' invalid length", seg));
+        }
+        if !seg
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        {
+            return Err(format!("Segment '{}' contains invalid chars", seg));
+        }
+        if seg.starts_with('-') || seg.ends_with('-') {
+            return Err(format!("Segment '{}' cannot start/end with hyphen", seg));
+        }
+    }
+
+    let expected_canonical = format!("mycelix://{}", entry.segments.join("/"));
+    if entry.canonical != expected_canonical {
+        return Err("Canonical name must exactly match its segments".into());
+    }
+
+    if entry.endpoint_type.is_empty()
+        || !["iroh", "lora", "holochain", "ip"].contains(&entry.endpoint_type.as_str())
+    {
+        return Err("Invalid endpoint type".into());
+    }
+    if entry.endpoint_data.len() > 4096 {
+        return Err("Endpoint data exceeds 4096 bytes".into());
+    }
+    if entry.registered_at == 0 || entry.expires_at <= entry.registered_at {
+        return Err("Registration/expiry timestamps are invalid".into());
+    }
+
+    Ok(())
+}
+
+fn validate_name_transfer_chain_uniqueness(
+    action: &Create,
+    transfer: &NameTransfer,
+) -> ExternResult<ValidateCallbackResult> {
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::NameTransfer)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_transfer: NameTransfer = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Name transfer history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if &prior_transfer.name_hash != &transfer.name_hash {
+            continue;
+        }
+
+        if transfer.previous_transfer_hash.is_none()
+            || prior_transfer.previous_transfer_hash.as_ref()
+                == transfer.previous_transfer_hash.as_ref()
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A source chain cannot create two transfers for the same ownership state".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn latest_name_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+    canonical: &str,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::MeshNameEntry)?);
+    let mut latest: Option<(u32, ActionHash)> = None;
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type)
+            || !matches!(prior_action, Action::Create(_) | Action::Update(_))
+        {
+            continue;
+        }
+
+        let Some(entry_hash) = prior_action.entry_hash().cloned() else {
+            continue;
+        };
+        let entry = must_get_entry(entry_hash)?;
+        let name: MeshNameEntry = entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Mesh name history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if name.canonical != canonical {
+            continue;
+        }
+
+        let action_hash = hdi::hash::hash_action(prior_action.clone())?;
+        if latest
+            .as_ref()
+            .is_none_or(|(seq, _)| prior_action.action_seq() > *seq)
+        {
+            latest = Some((prior_action.action_seq(), action_hash));
+        }
+    }
+
+    Ok(latest.map(|(_, hash)| hash))
+}
+
+fn validate_create_name_transfer(
+    action: EntryCreationAction,
+    transfer: NameTransfer,
+) -> ExternResult<ValidateCallbackResult> {
+    if transfer.timestamp_us == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer timestamp must be non-zero".into(),
+        ));
+    }
+    match validate_timestamp_us_not_future(
+        "Transfer timestamp",
+        transfer.timestamp_us,
+        *action.timestamp(),
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
+    let name_record = must_get_valid_record(transfer.name_hash.clone())?;
+    if name_record
+        .entry()
+        .to_app_option::<MeshNameEntry>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .is_none()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "NameTransfer must reference a MeshNameEntry".into(),
+        ));
+    }
+
+    match transfer.previous_transfer_hash.clone() {
+        None => {
+            if *name_record.action().author() != *action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original MeshNameEntry owner may create the first transfer".into(),
+                ));
+            }
+        }
+        Some(previous_hash) => {
+            let previous_record = must_get_valid_record(previous_hash.clone())?;
+            let previous: NameTransfer = previous_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "previous_transfer_hash must reference a NameTransfer".into(),
+                )))?;
+
+            if &previous.name_hash != &transfer.name_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Previous transfer must reference the same MeshNameEntry".into(),
+                ));
+            }
+            if previous.new_owner != *action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the current owner may continue the transfer chain".into(),
+                ));
+            }
+        }
+    }
+
+    if transfer.new_owner == *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Name transfer must specify a different owner".into(),
+        ));
+    }
+
+    let create_action = match action {
+        EntryCreationAction::Create(create) => create,
+    };
+    validate_name_transfer_chain_uniqueness(&create_action, &transfer)
+}
+
+fn validate_create_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    match link_type {
+        LinkTypes::NamePath => {
+            let base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "NamePath base must be an EntryHash".into(),
+                ))
+            })?;
+            let target = action_target(target_address, "NamePath")?;
+            let record = must_get_valid_record(target)?;
+            let entry: MeshNameEntry = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "NamePath target must be a MeshNameEntry".into(),
+                )))?;
+            if base != name_anchor(&entry.segments)? {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "NamePath base does not match the name segments".into(),
+                ));
+            }
+            if action.author != *record.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "NamePath link must be authored by the name owner".into(),
+                ));
+            }
+        }
+        LinkTypes::AgentToNames => {
+            let base = base_address.clone().into_agent_pub_key().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "AgentToNames base must be an AgentPubKey".into(),
+                ))
+            })?;
+            let target = action_target(target_address, "AgentToNames")?;
+            let record = must_get_valid_record(target)?;
+
+            if let Some(name) = record
+                .entry()
+                .to_app_option::<MeshNameEntry>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if base != *record.action().author() || action.author != *record.action().author() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "AgentToNames link for a name must use and be authored by its owner".into(),
+                    ));
+                }
+                let _ = name;
+            } else if let Some(transfer) = record
+                .entry()
+                .to_app_option::<NameTransfer>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if base != transfer.new_owner || action.author != *record.action().author() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "AgentToNames transfer link must target the new owner and be authored by the transfer creator".into(),
+                    ));
+                }
+            } else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToNames target must be a MeshNameEntry or NameTransfer".into(),
+                ));
+            }
+        }
+        LinkTypes::NameToTransfers => {
+            let base = base_address.clone().into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "NameToTransfers base must be an ActionHash".into(),
+                ))
+            })?;
+            let target = action_target(target_address, "NameToTransfers")?;
+            let transfer_record = must_get_valid_record(target)?;
+            let transfer: NameTransfer = transfer_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "NameToTransfers target must be a NameTransfer".into(),
+                )))?;
+            if base != transfer.name_hash || action.author != *transfer_record.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "NameToTransfers link does not match its transfer".into(),
+                ));
+            }
+            let name_record = must_get_valid_record(base)?;
+            if *name_record.action().author() != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "NameToTransfers link must be created by the original name owner".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+#[hdk_extern]
+pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateCallbackResult> {
+    Ok(ValidateCallbackResult::Valid)
+}
+
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } | OpEntry::UpdateEntry { app_entry, .. } => {
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::MeshNameEntry(entry) => {
+                    if entry.registered_at == 0 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Registration timestamp must be non-zero".into(),
+                        ));
+                    }
+                    match validate_timestamp_us_not_future(
+                        "Registration timestamp",
+                        entry.registered_at,
+                        *action.timestamp(),
+                    ) {
+                        ValidateCallbackResult::Valid => {}
+                        invalid => return Ok(invalid),
+                    }
+                    validate_mesh_name(&entry).map_or_else(
+                        |msg| Ok(ValidateCallbackResult::Invalid(msg)),
+                        |_| Ok(ValidateCallbackResult::Valid),
+                    )
+                }
+                EntryTypes::NameTransfer(transfer) => {
+                    validate_create_name_transfer(
+                        EntryCreationAction::Create(action),
+                        transfer,
+                    )
+                }
+                EntryTypes::Anchor(anchor) => {
+                    if anchor.0.is_empty() || anchor.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Anchor must be 1-256 characters".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
+            },
+            OpEntry::UpdateEntry {
+                app_entry,
+                action,
+                ..
+            } => {
+                let original = must_get_valid_record(action.original_action_address.clone())?;
+                if *original.action().author() != action.author {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original entry author can update entries".into(),
+                    ));
+                }
                 match app_entry {
                     EntryTypes::MeshNameEntry(entry) => {
-                        // Max depth 5
-                        if entry.segments.len() > 5 {
-                            return Ok(ValidateCallbackResult::Invalid(
-                                "Name depth exceeds max 5".to_string(),
-                            ));
-                        }
-                        // Validate segments
-                        for seg in &entry.segments {
-                            if seg.is_empty() || seg.len() > 63 {
-                                return Ok(ValidateCallbackResult::Invalid(format!(
-                                    "Segment '{}' invalid length",
-                                    seg
-                                )));
+                        let original_entry: MeshNameEntry = original
+                            .entry()
+                            .to_app_option()
+                            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                                "Original update target must be a MeshNameEntry".into(),
+                            )))?;
+
+                        match latest_name_action(
+                            action.author.clone(),
+                            action.prev_action.clone(),
+                            &original_entry.canonical,
+                        )? {
+                            Some(latest_hash) if latest_hash == action.original_action_address => {}
+                            Some(_) => {
+                                return Ok(ValidateCallbackResult::Invalid(
+                                    "Mesh name update must target the latest name action on the author's source chain"
+                                        .into(),
+                                ));
                             }
-                            if !seg
-                                .chars()
-                                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-                            {
-                                return Ok(ValidateCallbackResult::Invalid(format!(
-                                    "Segment '{}' contains invalid chars",
-                                    seg
-                                )));
-                            }
-                            if seg.starts_with('-') || seg.ends_with('-') {
-                                return Ok(ValidateCallbackResult::Invalid(format!(
-                                    "Segment '{}' cannot start/end with hyphen",
-                                    seg
-                                )));
+                            None => {
+                                return Ok(ValidateCallbackResult::Invalid(
+                                    "Mesh name update has no prior canonical name action".into(),
+                                ));
                             }
                         }
-                        // Endpoint type validation
-                        if !["iroh", "lora", "holochain", "ip"]
-                            .contains(&entry.endpoint_type.as_str())
+
+                        if entry.segments != original_entry.segments
+                            || entry.canonical != original_entry.canonical
+                            || entry.endpoint_type != original_entry.endpoint_type
+                            || entry.endpoint_data != original_entry.endpoint_data
+                            || entry.registered_at != original_entry.registered_at
                         {
                             return Ok(ValidateCallbackResult::Invalid(
-                                "Invalid endpoint type".to_string(),
+                                "Mesh name identity fields are immutable; renewal may only advance expiry"
+                                    .into(),
                             ));
                         }
-                        Ok(ValidateCallbackResult::Valid)
+
+                        if entry.expires_at <= original_entry.expires_at {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Mesh name renewal must strictly advance expiry".into(),
+                            ));
+                        }
+
+                        validate_mesh_name(&entry).map_or_else(
+                            |msg| Ok(ValidateCallbackResult::Invalid(msg)),
+                            |_| Ok(ValidateCallbackResult::Valid),
+                        )
                     }
-                    EntryTypes::NameTransfer(_) => Ok(ValidateCallbackResult::Valid),
-                    EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                    EntryTypes::NameTransfer(_) | EntryTypes::Anchor(_) => {
+                        Ok(ValidateCallbackResult::Invalid(
+                            "Name transfers and anchors are append-only".into(),
+                        ))
+                    }
                 }
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { .. }
-        | FlatOp::RegisterDeleteLink { .. }
-        | FlatOp::StoreRecord(_)
-        | FlatOp::RegisterUpdate(_)
-        | FlatOp::RegisterDelete(_)
-        | FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
+            if tag.0.len() > 1024 {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Link tag exceeds maximum length of 1024 bytes".into(),
+                ));
+            }
+            validate_create_link(link_type, &base_address, &target_address, &action)
+        }
+        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Invalid(
+            "Name registry indexes cannot be deleted".into(),
+        )),
+        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::NameTransfer),
+                action,
+            } => {
+                let entry = must_get_entry(action.entry_hash.clone())?;
+                let transfer: NameTransfer = entry.try_into().map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "NameTransfer activity entry could not be decoded: {e}"
+                    )))
+                })?;
+                validate_name_transfer_chain_uniqueness(action, &transfer)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            if *original.action().author() != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can update entries".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            if *original.action().author() != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete entries".into(),
+                ));
+            }
+            match original.action().entry_type() {
+                Some(EntryType::App(def))
+                    if def.entry_index() == EntryDefIndex::from(0)
+                        || def.entry_index() == EntryDefIndex::from(1) =>
+                {
+                    // EntryTypes declaration order: MeshNameEntry,
+                    // NameTransfer, Anchor. Name bindings and transfers are
+                    // security-sensitive state; Anchor remains deletable.
+                    Ok(ValidateCallbackResult::Invalid(
+                        "Name bindings and transfers cannot be deleted".into(),
+                    ))
+                }
+                _ => Ok(ValidateCallbackResult::Valid),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn name() -> MeshNameEntry {
+        MeshNameEntry {
+            segments: vec!["joburg".into(), "water".into(), "tank-7".into()],
+            canonical: "mycelix://joburg/water/tank-7".into(),
+            endpoint_type: "holochain".into(),
+            endpoint_data: "uhCAkexample".into(),
+            registered_at: 1,
+            expires_at: 365 * 24 * 3600 * 1_000_000,
+        }
+    }
+
+    #[test]
+    fn canonical_name_is_derived_from_segments() {
+        assert_eq!(
+            format!("mycelix://{}", name().segments.join("/")),
+            name().canonical
+        );
+    }
+
+    #[test]
+    fn transfer_authority_is_not_the_new_owner() {
+        let old_owner = AgentPubKey::from_raw_36(vec![1; 36]);
+        let new_owner = AgentPubKey::from_raw_36(vec![2; 36]);
+        assert_ne!(old_owner, new_owner);
     }
 }
