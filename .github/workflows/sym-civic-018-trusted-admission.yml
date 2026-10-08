@@ -113,7 +113,7 @@ jobs:
           print("parent:", parent)
           PY
 
-          gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.workflow_run.pull_requests[0].number }}" > /tmp/pr.json
+          gh api "repos/$GITHUB_REPOSITORY/pulls/4322" > /tmp/pr.json
 
           python3 - "${manifest}" /tmp/pr.json <<'PY'
           import json
@@ -179,9 +179,61 @@ jobs:
               print(f"{path}={actual[path]}")
           PY
 
+          QUALIFYING_JOB_ID="$(python3 - <<'PY'
+          import json
+          data = json.load(open("/tmp/trigger-jobs.json", encoding="utf-8"))
+          matches = [
+              job for job in data.get("jobs", [])
+              if job.get("run_id") == 37714865009
+              and job.get("name") == "CBOR encoding boundary"
+              and job.get("status") == "completed"
+              and job.get("conclusion") == "success"
+          ]
+          assert len(matches) == 1
+          print(matches[0]["id"])
+          PY
+          )"
+          test "$QUALIFYING_JOB_ID" = "113108933070"
+
+          gh api -H 'Accept: application/vnd.github+json' "/repos/$GITHUB_REPOSITORY/actions/jobs/$QUALIFYING_JOB_ID/logs" > /tmp/candidate-job.log
+
+          TRIGGER_WORKFLOW_SHA="$(python3 -c 'import json; print(json.load(open("/tmp/trigger.json", encoding="utf-8"))["workflow_sha"])')"
+          gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/sym-civic-018-cbor-encoding.yml?ref=$TRIGGER_WORKFLOW_SHA" > /tmp/trigger-workflow.json
+
+          python3 scripts/qualification/sym_civic_018_candidate_execution_receipt_v1.py \
+            --candidate-root . \
+            --manifest mycelix-workspace/docs/civic-resilience/sym_civic_018_trusted_admission_v1.json \
+            --run-json /tmp/trigger.json \
+            --jobs-json /tmp/trigger-jobs.json \
+            --pr-json /tmp/pr.json \
+            --trigger-workflow-json /tmp/trigger-workflow.json \
+            --job-log /tmp/candidate-job.log \
+            --output /tmp/sym-civic-018-qualification-receipt.json
+
+          python3 scripts/qualification/sym_civic_018_candidate_execution_receipt_v1.py \
+            --candidate-root . \
+            --manifest mycelix-workspace/docs/civic-resilience/sym_civic_018_trusted_admission_v1.json \
+            --run-json /tmp/trigger.json \
+            --jobs-json /tmp/trigger-jobs.json \
+            --pr-json /tmp/pr.json \
+            --trigger-workflow-json /tmp/trigger-workflow.json \
+            --job-log /tmp/candidate-job.log \
+            --receipt /tmp/sym-civic-018-qualification-receipt.json \
+            --verify-only
+
+          printf 'candidate qualification receipt=%s\\n' "$(sha256sum /tmp/sym-civic-018-qualification-receipt.json | awk '{print $1}')"
+          echo "candidate execution receipt: PASS"
           test "$(git rev-parse "${{ github.workflow_sha }}:.github/workflows/sym-civic-018-trusted-admission.yml")" != ""
           printf 'trusted workflow sha=%s\n' "${{ github.workflow_sha }}"
           printf 'trusted workflow file blob=%s\n' "$(git rev-parse "${{ github.workflow_sha }}:.github/workflows/sym-civic-018-trusted-admission.yml")"
           printf 'target head=%s\n' "${TARGET_SHA}"
           printf 'target parent=%s\n' "${parent}"
           echo "SYM-CIVIC-018 TRUSTED_ADMISSION=PASS"
+
+      - name: Upload candidate execution receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sym-civic-018-qualification-receipt-37714865009
+          path: /tmp/sym-civic-018-qualification-receipt.json
+          if-no-files-found: error
+          retention-days: 90
