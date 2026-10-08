@@ -16,6 +16,7 @@ IDENTITY_FIELDS = (
     "policy_blob_sha",
     "basis_id",
     "revision",
+    "claim_scope_anchor",
 )
 RELATIONS = (
     "requires",
@@ -96,6 +97,16 @@ def validate_structure(graph: dict, policy: dict) -> tuple[bool, str]:
         or nodes["claim"].get("type") != "Claim"
     ):
         return False, "claim-root"
+
+    claim = nodes["claim"]
+    claim_scope_anchor = claim.get("claim_scope_anchor")
+    expected_scope_anchor = digest({"id": claim["id"], "type": claim["type"]})
+    if claim_scope_anchor != expected_scope_anchor:
+        return False, "claim-scope-root"
+    for node in nodes.values():
+        if node.get("type") in {"AttemptCensus", "Attempt", "CensoringClassification"}:
+            if node.get("claim_scope_anchor") != claim_scope_anchor:
+                return False, "claim-scope-mismatch"
 
     edges = graph.get("edges")
     if not isinstance(edges, list):
