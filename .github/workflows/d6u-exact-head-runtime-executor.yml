@@ -246,6 +246,118 @@ jobs:
           CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
         run: cargo +1.96.1 fetch --locked --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml"
 
+      - name: Prepare pinned Rust compiler container
+        id: compiler_image
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          D6U_RUST_BUILD_IMAGE: rust@sha256:d8f0d5c09580253ecdd6d6894ff112b2b760683ff2a74585e5189f2578728ce4
+          EXPECTED_RUST_COMMIT: ${{ steps.rust_identity.outputs.rust_verbose_commit }}
+        run: |
+          set -euo pipefail
+          docker_config="$RUNNER_TEMP/d6u-docker-config"
+          test ! -e "$docker_config"
+          mkdir -m 700 "$docker_config"
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              DOCKER_HOST|DOCKER_CONTEXT|DOCKER_TLS_VERIFY|DOCKER_CERT_PATH|DOCKER_CUSTOM_HEADERS|DOCKER_API_VERSION|DOCKER_DEFAULT_PLATFORM|BUILDKIT_HOST|CONTAINER_HOST)
+                echo "forbidden ambient Docker override: $name" >&2
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+          docker --context default pull --platform linux/amd64 "$D6U_RUST_BUILD_IMAGE"
+          observed="$(docker --context default image inspect "$D6U_RUST_BUILD_IMAGE" --format '{{index .RepoDigests 0}}')"
+          test "$observed" = "$D6U_RUST_BUILD_IMAGE"
+          test "$EXPECTED_RUST_COMMIT" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit 64 \
+            --ulimit nofile=1024:1024 \
+            --ulimit core=0 \
+            --memory 2g \
+            --tmpfs /tmp:rw,nosuid,nodev,size=1g \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env EXPECTED_RUST_COMMIT="$EXPECTED_RUST_COMMIT" \
+            "$D6U_RUST_BUILD_IMAGE" \
+            sh -eu -c '
+              test "$(rustc --version | awk "{print \$2}")" = "1.96.1";
+              test "$(rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "$EXPECTED_RUST_COMMIT";
+              test "$(cargo --version | awk "{print \$2}")" = "1.96.1";
+              test ! -e /var/run/docker.sock;
+              test ! -w /etc;
+            '
+          mkdir -m 700 "$RUNNER_TEMP/d6u-container-target"
+          mkdir -m 700 "$RUNNER_TEMP/d6u-container-output"
+          echo "image=$D6U_RUST_BUILD_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "target=$RUNNER_TEMP/d6u-container-target" >> "$GITHUB_OUTPUT"
+
+      - name: Adversarial build-script probe inside pinned compiler container
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          D6U_RUST_BUILD_IMAGE: ${{ steps.compiler_image.outputs.image }}
+        run: |
+          set -euo pipefail
+          probe_root="$RUNNER_TEMP/d6u-container-output/probe"
+          rm -rf "$probe_root"
+          mkdir -p "$probe_root/src" "$probe_root/target"
+          cat > "$probe_root/Cargo.toml" <<'EOF'
+          [package]
+          name = "d6u-host-boundary-probe"
+          version = "0.1.0"
+          edition = "2024"
+          build = "build.rs"
+          EOF
+          cat > "$probe_root/build.rs" <<'EOF'
+          use std::env;
+          use std::fs::OpenOptions;
+          use std::net::{SocketAddr, TcpStream};
+          use std::os::unix::net::UnixStream;
+          use std::path::Path;
+          use std::process::Command;
+          use std::time::Duration;
+
+          fn main() {
+              assert!(UnixStream::connect("/var/run/docker.sock").is_err());
+              assert!("1.1.1.1:443".parse::<SocketAddr>().ok()
+                  .and_then(|addr| TcpStream::connect_timeout(&addr, Duration::from_millis(500)).ok()).is_none());
+              assert!(!Command::new("sudo").args(["-n", "true"]).status().map(|s| s.success()).unwrap_or(false));
+              let workspace = env::var("GITHUB_WORKSPACE").expect("workspace env must exist");
+              assert!(OpenOptions::new().create(true).write(true)
+                  .open(Path::new(&workspace).join("d6u-host-boundary-write-probe")).is_err());
+              for name in ["GITHUB_TOKEN", "GH_TOKEN", "ACTIONS_RUNTIME_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN"] {
+                  assert!(env::var_os(name).is_none(), "secret-bearing environment leaked: {name}");
+              }
+          }
+          EOF
+          printf '%s\n' 'fn main() {}' > "$probe_root/src/main.rs"
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit 64 \
+            --ulimit nofile=1024:1024 \
+            --ulimit core=0 \
+            --memory 2g \
+            --tmpfs /tmp:rw,nosuid,nodev,size=1g \
+            --mount type=bind,src="$probe_root",dst=/probe,rw \
+            --mount type=bind,src="${{ github.workspace }}",dst=/workspace,readonly \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env CARGO_HOME=/tmp/cargo-home \
+            --env CARGO_TARGET_DIR=/probe/target \
+            --env CARGO_NET_OFFLINE=true \
+            --env GITHUB_WORKSPACE=/workspace \
+            "$D6U_RUST_BUILD_IMAGE" \
+            cargo check --manifest-path /probe/Cargo.toml --offline
       - name: Capture runtime source integrity
         id: runtime_source
         working-directory: d6u-runtime-harness
@@ -271,24 +383,45 @@ jobs:
           printf '%s\n' "$source_sha" | grep -Eq '^[0-9a-f]{64}$'
           echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Clippy D6U runtime boundary
-        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
+      - name: Clippy D6U runtime boundary inside pinned compiler container
         env:
-          GIT_CONFIG_NOSYSTEM: 1
-          GIT_CONFIG_GLOBAL: /dev/null
-          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
-          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          D6U_RUST_BUILD_IMAGE: ${{ steps.compiler_image.outputs.image }}
         run: |
           set -euo pipefail
-          env_file="$GITHUB_ENV"
-          path_file="$GITHUB_PATH"
-          test ! -s "$env_file"
-          test ! -s "$path_file"
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY cargo +1.96.1 clippy --locked --offline --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- -D warnings
-          test ! -s "$env_file"
-          test ! -s "$path_file"
+          test ! -s "$GITHUB_ENV"
+          test ! -s "$GITHUB_PATH"
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit 128 \
+            --ulimit nofile=2048:2048 \
+            --ulimit core=0 \
+            --memory 8g \
+            --tmpfs /tmp:rw,nosuid,nodev,size=2g \
+            --mount type=bind,src="${{ github.workspace }}",dst=/workspace,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-cargo-home",dst=/cargo-home,rw \
+            --mount type=bind,src="${{ runner.temp }}/d6u-container-target",dst=/target,rw \
+            --workdir /workspace/d6u-runtime-harness \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env CARGO_HOME=/cargo-home \
+            --env CARGO_TARGET_DIR=/target \
+            --env CARGO_NET_OFFLINE=true \
+            --env GIT_CONFIG_NOSYSTEM=1 \
+            --env GIT_CONFIG_GLOBAL=/dev/null \
+            --env GIT_TERMINAL_PROMPT=0 \
+            --env GITHUB_WORKSPACE=/workspace \
+            "$D6U_RUST_BUILD_IMAGE" \
+            cargo clippy --locked --offline --test d6u_authority_boundary --manifest-path /workspace/d6u-runtime-harness/Cargo.toml -- -D warnings
+          test ! -s "$GITHUB_ENV"
+          test ! -s "$GITHUB_PATH"
 
-      - name: Assert pre-runtime inputs after clippy
+      - name: Assert pre-runtime inputs after clippy      - name: Assert pre-runtime inputs after clippy
         if: success()
         working-directory: d6u-runtime-harness
         env:
@@ -329,36 +462,62 @@ jobs:
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
-      - name: Build immutable D6U runtime test binary
+      - name: Build immutable D6U runtime test binary inside pinned compiler container
         id: runtime_binary
-        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
         env:
-          GIT_CONFIG_NOSYSTEM: 1
-          GIT_CONFIG_GLOBAL: /dev/null
-          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
-          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          D6U_RUST_BUILD_IMAGE: ${{ steps.compiler_image.outputs.image }}
         run: |
           set -euo pipefail
-          json_path="$(mktemp "$RUNNER_TEMP/d6u-runtime-artifacts.XXXXXX")"
-          binary_path="$RUNNER_TEMP/d6u-runtime-test-binary"
-          trap 'rm -f "$json_path"' EXIT
+          json_path="${{ runner.temp }}/d6u-container-output/d6u-runtime-artifacts.json"
+          binary_path="${{ runner.temp }}/d6u-runtime-test-binary"
+          rm -f "$json_path" "$binary_path"
+          : > "$json_path"
+          chmod 660 "$json_path"
           test ! -s "$GITHUB_ENV"
           test ! -s "$GITHUB_PATH"
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
-            cargo +1.96.1 test --locked --offline --no-run --message-format=json-render-diagnostics --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" > "$json_path"
-          test ! -s "$GITHUB_ENV"
-          test ! -s "$GITHUB_PATH"
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit 512 \
+            --ulimit nofile=4096:4096 \
+            --ulimit core=0 \
+            --memory 8g \
+            --memory-swap 8g \
+            --tmpfs /tmp:rw,nosuid,nodev,size=2g \
+            --tmpfs /run:rw,nosuid,nodev,size=256m \
+            --mount type=bind,src="${{ github.workspace }}",dst=/workspace,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-cargo-home",dst=/cargo-home,rw \
+            --mount type=bind,src="${{ runner.temp }}/d6u-container-target",dst=/target,rw \
+            --mount type=bind,src="${{ runner.temp }}/d6u-container-output",dst=/output,rw \
+            --workdir /workspace/d6u-runtime-harness \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env CARGO_HOME=/cargo-home \
+            --env CARGO_TARGET_DIR=/target \
+            --env CARGO_NET_OFFLINE=true \
+            --env GIT_CONFIG_NOSYSTEM=1 \
+            --env GIT_CONFIG_GLOBAL=/dev/null \
+            --env GIT_TERMINAL_PROMPT=0 \
+            --env GITHUB_WORKSPACE=/workspace \
+            "$D6U_RUST_BUILD_IMAGE" \
+            cargo test --locked --offline --no-run --message-format=json-render-diagnostics --test d6u_authority_boundary --manifest-path /workspace/d6u-runtime-harness/Cargo.toml \
+            > /output/d6u-runtime-artifacts.json
+
+          test -s "$json_path"
           mapfile -t executables < <(
-            jq -r --arg manifest "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" \
-              'select(.reason == "compiler-artifact" and .manifest_path == $manifest and .target.name == "d6u_authority_boundary" and (.target.kind | index("test")) != null and .executable != null) | .executable' \
-              "$json_path"
+            jq -r '. | select(.reason == "compiler-artifact" and .target.name == "d6u_authority_boundary" and (.target.kind | index("test")) != null and .executable != null) | .executable' "$json_path"
           )
           test "${#executables[@]}" -eq 1
           source_binary="${executables[0]}"
           test -x "$source_binary"
           case "$source_binary" in
-            "${{ github.workspace }}/d6u-runtime-harness/target/"*) ;;
-            *) echo "test executable escaped the D6U target directory" >&2; exit 1 ;;
+            /target/*) ;;
+            *) echo "test executable escaped isolated container target" >&2; exit 1 ;;
           esac
           source_sha="$(sha256sum "$source_binary" | cut -d' ' -f1)"
           cp --reflink=auto "$source_binary" "$binary_path"
@@ -367,7 +526,7 @@ jobs:
           printf '%s\n' "$source_sha" | grep -Eq '^[0-9a-f]{64}$'
           echo "binary_sha=$source_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Assert runtime inputs after test binary build
+      - name: Assert runtime inputs after test binary build      - name: Assert runtime inputs after test binary build
         if: success()
         working-directory: d6u-runtime-harness
         env:
