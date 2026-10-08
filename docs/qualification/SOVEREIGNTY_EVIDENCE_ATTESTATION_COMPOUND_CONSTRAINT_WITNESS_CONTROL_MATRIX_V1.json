@@ -1,0 +1,15 @@
+{
+ "schema":"mycelix.evidence-attestation-compound-constraint-witness-control-matrix.v1",
+ "controls":[
+  {"id":"parent-clause-deletion","kind":"negative","marker":"PARENT CLAUSE DELETION PASS"},
+  {"id":"duplicate-witness-reuse","kind":"negative","marker":"DUPLICATE WITNESS REUSE PASS"},
+  {"id":"greedy-dead-end","kind":"negative","marker":"GREEDY DEAD END PASS"},
+  {"id":"clause-order-permutation","kind":"positive","marker":"CLAUSE ORDER PERMUTATION PASS"},
+  {"id":"semantic-equivalent-conjunction","kind":"positive","marker":"SEMANTIC EQUIVALENT CONJUNCTION PASS"},
+  {"id":"semantic-non-equivalent-normalization","kind":"negative","marker":"SEMANTIC NON EQUIVALENT NORMALIZATION PASS"},
+  {"id":"cross-type-substitution","kind":"negative","marker":"CROSS TYPE SUBSTITUTION PASS"},
+  {"id":"unsupported-extension-inside-compound","kind":"negative","marker":"UNSUPPORTED EXTENSION INSIDE COMPOUND PASS"},
+  {"id":"disjunct-expansion","kind":"negative","marker":"DISJUNCT EXPANSION PASS"},
+  {"id":"additional-restrictive-clause","kind":"positive","marker":"ADDITIONAL RESTRICTIVE CLAUSE PASS"}
+ ]
+}
