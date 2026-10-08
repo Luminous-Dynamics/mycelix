@@ -20,6 +20,7 @@ use constitutional_effect_ledger::{
     NATIVE_REPLAY_BINDING_SCHEMA_VERSION,
 };
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -48,11 +49,23 @@ impl SqliteActionFenceStore {
         let path = path.as_ref().to_path_buf();
         let mut conn = open_connection(&path)?;
         ensure_schema(&mut conn)?;
+        validate_persisted_state(&conn)?;
         Ok(Self { path })
     }
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Re-scan durable state and fail closed on cross-record inconsistency.
+    ///
+    /// This is intentionally separate from the hot-path local transition checks:
+    /// operators can run it after restart, before promotion, and during periodic
+    /// storage qualification without silently trusting cached projections.
+    pub fn audit_integrity(&self) -> Result<(), String> {
+        let conn = open_connection(&self.path)?;
+        ensure_schema(&mut conn)?;
+        validate_persisted_state(&conn)
     }
 
     fn with_transaction<F, T>(&self, f: F) -> Result<T, ActionFenceMutationError>
@@ -754,6 +767,163 @@ fn validate_no_explicit_managed_indexes(conn: &Connection) -> Result<(), String>
             "managed effect-fence tables contain an unexpected explicit index".into(),
         );
     }
+    Ok(())
+}
+
+fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
+    let integrity: String = conn
+        .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if integrity != "ok" {
+        return Err(format!("SQLite integrity_check failed: {integrity}"));
+    }
+
+    let mut attempts = HashMap::new();
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT attempt_identity, schema_version, operation_id, native_replay_identity,
+                    action_digest, action_key_digest, effecting_target_identity,
+                    provider_reference_seed_digest, provider_reference_descriptor_digest,
+                    provider_environment, provider_audience, adapter_identity,
+                    ownership_token_digest, terminal_evidence_digest, state,
+                    not_entered_marker, record_digest
+             FROM {ATTEMPT_TABLE}
+             ORDER BY attempt_identity"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], map_attempt_row)
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        let record = row.map_err(|e| e.to_string())?;
+        attempts.insert(record.attempt_identity.clone(), record);
+    }
+
+    let mut fences = HashMap::new();
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT action_key_digest, owner_attempt_identity, owner_token_digest, state
+             FROM {FENCE_TABLE}
+             ORDER BY action_key_digest"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], map_fence_row)
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        let fence = row.map_err(|e| e.to_string())?;
+        fences.insert(fence.action_key_digest.clone(), fence);
+    }
+
+    let mut replays = HashMap::new();
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT native_replay_identity, operation_id, action_key_digest
+             FROM {REPLAY_TABLE}
+             ORDER BY native_replay_identity"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], map_replay_row)
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        let replay = row.map_err(|e| e.to_string())?;
+        replays.insert(replay.native_replay_identity.clone(), replay);
+    }
+
+    for record in attempts.values() {
+        let replay = replays.get(&record.native_replay_identity).ok_or_else(|| {
+            format!(
+                "attempt {} has no native replay binding",
+                record.attempt_identity
+            )
+        })?;
+        if replay.operation_id != record.operation_id
+            || replay.action_key_digest != record.action_key_digest
+        {
+            return Err(format!(
+                "attempt {} conflicts with native replay binding",
+                record.attempt_identity
+            ));
+        }
+
+        match record.state {
+            AttemptRecordState::Executed => {
+                let fence = fences.get(&record.action_key_digest).ok_or_else(|| {
+                    format!(
+                        "executed attempt {} is missing its closed action fence",
+                        record.attempt_identity
+                    )
+                })?;
+                if fence.state != ActionFenceState::Closed
+                    || fence.owner_attempt_identity != record.attempt_identity
+                    || fence.owner_token_digest != record.ownership_token_digest
+                {
+                    return Err(format!(
+                        "executed attempt {} has an invalid closed fence",
+                        record.attempt_identity
+                    ));
+                }
+            }
+            AttemptRecordState::Failed | AttemptRecordState::NotEntered => {
+                if fences.contains_key(&record.action_key_digest) {
+                    return Err(format!(
+                        "terminal non-executed attempt {} still owns an action fence",
+                        record.attempt_identity
+                    ));
+                }
+            }
+            _ => {
+                let fence = fences.get(&record.action_key_digest).ok_or_else(|| {
+                    format!(
+                        "live attempt {} is missing its occupied action fence",
+                        record.attempt_identity
+                    )
+                })?;
+                if fence.state != ActionFenceState::Occupied
+                    || fence.owner_attempt_identity != record.attempt_identity
+                    || fence.owner_token_digest != record.ownership_token_digest
+                {
+                    return Err(format!(
+                        "live attempt {} does not own its occupied action fence",
+                        record.attempt_identity
+                    ));
+                }
+            }
+        }
+    }
+
+    for fence in fences.values() {
+        let attempt = attempts.get(&fence.owner_attempt_identity).ok_or_else(|| {
+            format!(
+                "fence {} references missing attempt {}",
+                fence.action_key_digest, fence.owner_attempt_identity
+            )
+        })?;
+        if attempt.action_key_digest != fence.action_key_digest
+            || attempt.ownership_token_digest != fence.owner_token_digest
+        {
+            return Err(format!(
+                "fence {} disagrees with owner attempt {}",
+                fence.action_key_digest, fence.owner_attempt_identity
+            ));
+        }
+        if fence.state == ActionFenceState::Occupied && !attempt.state.occupies_action_fence() {
+            return Err(format!(
+                "occupied fence {} belongs to non-live attempt {}",
+                fence.action_key_digest, fence.owner_attempt_identity
+            ));
+        }
+        if fence.state == ActionFenceState::Closed
+            && attempt.state != AttemptRecordState::Executed
+        {
+            return Err(format!(
+                "closed fence {} does not belong to an executed attempt",
+                fence.action_key_digest
+            ));
+        }
+    }
+
     Ok(())
 }
 
@@ -1604,6 +1774,72 @@ mod tests {
             restored.not_entered_marker.as_deref(),
             Some("not-entered-proof")
         );
+    }
+
+    #[test]
+    fn corrupted_persisted_digest_fails_closed_on_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tamper.db");
+        let mut store = SqliteActionFenceStore::open(&path).unwrap();
+        let action = key("tamper-action");
+        let owner = attempt("attempt-1");
+        store
+            .atomically_admit(
+                &action,
+                &owner,
+                record(
+                    "attempt-1",
+                    "operation-1",
+                    "native-1",
+                    &action,
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        drop(store);
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE effect_attempts SET record_digest = 'corrupted' WHERE attempt_identity = ?1",
+            params![owner.digest()],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert!(SqliteActionFenceStore::open(&path).is_err());
+    }
+
+    #[test]
+    fn fence_owner_corruption_fails_closed_on_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fence-tamper.db");
+        let mut store = SqliteActionFenceStore::open(&path).unwrap();
+        let action = key("fence-tamper-action");
+        let owner = attempt("attempt-1");
+        store
+            .atomically_admit(
+                &action,
+                &owner,
+                record(
+                    "attempt-1",
+                    "operation-1",
+                    "native-1",
+                    &action,
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        drop(store);
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE effect_action_fences SET owner_attempt_identity = ?1 WHERE action_key_digest = ?2",
+            params![attempt("attempt-2").digest(), action.digest()],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert!(SqliteActionFenceStore::open(&path).is_err());
     }
 
     #[test]
