@@ -123,7 +123,7 @@ pub enum LinkTypes {
 
 /// Validate audit entry - entries are append-only
 fn validate_create_audit_entry(
-    action: TypedAction<CreateData>,
+    action: TypedAction<EntryCreationData>,
     entry: AuditEntry,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate required fields
