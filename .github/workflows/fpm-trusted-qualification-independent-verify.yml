@@ -218,12 +218,33 @@ jobs:
       - name: Normalize downloaded evidence
         run: |
           set -euo pipefail
-          receipt_file="$(find snapshot/download/receipt -type f -name 'qualification-receipt.json' -print -quit)"
-          index_file="$(find snapshot/download/index -type f -name 'artifact-binding-index.json' -print -quit)"
-          test -n "$receipt_file"
-          test -n "$index_file"
-          cp "$receipt_file" snapshot/qualification-receipt.json
-          cp "$index_file" snapshot/artifact-binding-index.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          def normalize(root: Path, expected_name: str, output: Path) -> None:
+              members = sorted(path.relative_to(root).as_posix() for path in root.rglob("*"))
+              if members != [expected_name]:
+                  raise SystemExit(
+                      f"evidence archive extracted member set is not exact: "
+                      f"expected={[expected_name]!r} actual={members!r}"
+                  )
+              source = root / expected_name
+              if not source.is_file() or source.is_symlink():
+                  raise SystemExit(f"evidence member is not a regular file: {source}")
+              shutil.copyfile(source, output)
+
+          normalize(
+              Path("snapshot/download/receipt"),
+              "qualification-receipt.json",
+              Path("snapshot/qualification-receipt.json"),
+          )
+          normalize(
+              Path("snapshot/download/index"),
+              "artifact-binding-index.json",
+              Path("snapshot/artifact-binding-index.json"),
+          )
+          PY
 
       - name: Extract evidence targets with strict JSON parser
         id: target
