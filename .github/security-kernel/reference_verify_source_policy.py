@@ -581,17 +581,25 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 shell syntax audit must require exactly one trusted run block")
     if exact_count(l, "name: Security Kernel Qualification — Trusted Dispatcher") != 1:
         fail("S0 name mismatch")
-    if top_level_keys_after(l, "on:") != ("pull_request_target",):
+    if top_level_keys_after(l, "on:") != ("pull_request_target", "schedule"):
         fail("S0 trigger topology mismatch")
     if exact_count(l, "types: [opened, synchronize, reopened, ready_for_review]") != 1:
-        fail("S0 trigger types mismatch")
+        fail("S0 pull_request_target trigger types mismatch")
+    if exact_count(l, '    - cron: "*/5 * * * *"') != 1:
+        fail("S0 scheduled fallback cron mismatch")
     require_permissions(l, 2)
     if exact_count(l, "cache-mode: none") != 1:
         fail("S0 must declare exactly one cache-mode: none gate")
     if exact_count(l, 'test "$GITHUB_REF_PROTECTED" = "true"') != 1:
         fail("S0 must contain exactly one protected-ref runtime guard")
-    if exact_count(l, 'test "$GITHUB_EVENT_NAME" = "pull_request_target"') != 1:
-        fail("S0 must contain exactly one pull_request_target runtime guard")
+    if exact_count(l, 'pull_request_target)') != 1:
+        fail("S0 trusted trigger branch missing")
+    if exact_count(l, 'schedule)') != 1:
+        fail("S0 scheduled trigger branch missing")
+    if exact_count(l, 'invocation_source="trusted-dispatch"') != 1:
+        fail("S0 trusted invocation source missing")
+    if exact_count(l, 'invocation_source="scheduled-fallback"') != 1:
+        fail("S0 scheduled invocation source missing")
     if job_keys(l) != ("resolve", "qualify"):
         fail("S0 job topology mismatch")
     if step_names(l) != ("Verify trusted dispatcher context and exact PR identity",):
@@ -632,10 +640,16 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_permissions(l, 1)
     if exact_count(l, "cache-mode: none") != 1:
         fail("S1 must declare exactly one cache-mode: none gate")
+    if exact_count(l, "      invocation_source:") != 1:
+        fail("S1 invocation_source input missing")
     if exact_count(l, 'test "$GITHUB_REF_PROTECTED" = "true"') != 1:
         fail("S1 must contain exactly one protected-ref runtime guard")
-    if exact_count(l, 'test "$GITHUB_EVENT_NAME" = "pull_request_target"') != 1:
-        fail("S1 must contain exactly one pull_request_target runtime guard")
+    if exact_count(l, 'case "$INVOCATION_SOURCE" in') != 1:
+        fail("S1 invocation-source branch missing")
+    if exact_count(l, 'trusted-dispatch)') != 1:
+        fail("S1 trusted-dispatch branch missing")
+    if exact_count(l, 'scheduled-fallback)') != 1:
+        fail("S1 scheduled-fallback branch missing")
     if job_keys(l) != ("qualify",):
         fail("S1 job topology mismatch")
     if tuple(step_names(l)) != S1_STEPS:
@@ -818,6 +832,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 negative-control transcript capture must declare a 64 KiB host-storage ceiling")
     if 'git config --global http.followRedirects false' not in joined:
         fail("S1 hostile Git transport must disable HTTP redirects")
+    if 'qualification_invocation_source=$INVOCATION_SOURCE' not in joined:
+        fail("S1 receipt invocation-source binding missing")
     if "capture_negative_controls_output() {" not in joined:
         fail("S1 negative-control transcript bounded capture function missing")
     if "} 2>&1 | capture_negative_controls_output" not in joined:
@@ -943,6 +959,12 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     ):
         if required not in joined:
             fail(f"S2 artifact transport/decompression control missing: {required!r}")
+    if '"schema": "security-kernel-execution-binding-v4"' not in joined:
+        fail("S2 execution binding must use trigger-aware v4 schema")
+    if '"trigger_event": trigger_event' not in joined:
+        fail("S2 execution binding trigger witness missing")
+    if 'qualification_invocation_source' not in joined:
+        fail("S2 receipt invocation witness missing")
     require_no_fail_open_controls(l, "S2")
     require_no_yaml_reuse_syntax(l, S2)
     require_explicit_bash_for_run_steps(l, S2)
@@ -959,7 +981,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
 
 def verify_execution(raw: bytes) -> None:
     text = raw.decode("utf-8")
-    if 'SCHEMA = "security-kernel-execution-binding-v3"' not in text:
+    if 'SCHEMA = "security-kernel-execution-binding-v4"' not in text:
         fail("execution oracle schema missing")
     if "urllib" in text or "requests" in text:
         fail("execution oracle unexpectedly contains network imports")
@@ -1132,6 +1154,21 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 Python heredoc indentation drift",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(b'    - cron: "*/5 * * * *"\n', b'', 1),
+            s1_sha,
+        ),
+        "scheduled fallback cron removed",
+    )
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(b'invocation_source="scheduled-fallback"', b'invocation_source="unbound"', 1),
+            s1_sha,
+        ),
+        "scheduled invocation source binding weakened",
     )
 
     expect_rejection(
