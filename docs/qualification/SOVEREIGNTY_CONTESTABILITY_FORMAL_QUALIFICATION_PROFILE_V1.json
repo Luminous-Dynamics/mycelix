@@ -6,8 +6,8 @@
   "subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v6-contestability-subject",
-    "head_sha": "42e0e4944554cae6b1acf2b3db69f5e9b19991e7",
-    "tree_sha": "eab0224b2388d985f7ecfffaeeff0d54e260c160",
+    "head_sha": "1e127739e1ca7efdd89c4aaf774679d47c479c99",
+    "tree_sha": "9db2883fd5f19eb8efe722fa05f1072c1250eee5",
     "tree_binding": "verified-exact-tree; independently resolved from the exact subject commit"
   },
   "models": {
@@ -30,8 +30,9 @@
     },
     "negative_tla": {
       "path": "mycelix-governance/specs/EffectiveContestabilityV1NegativeControls.tla",
-      "git_blob_sha": "2911968a6999d9d33309635efc699a50ab000176",
+      "git_blob_sha": "7045e9fa8892ee2025cc9897592999af37f3daee",
       "controls": {
+        "switch-stale-exit": "EffectiveExitIsIndependent",
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
@@ -78,8 +79,9 @@
     },
     "reference": {
       "path": "mycelix-governance/tools/formal/effective_contestability_reference_explorer.py",
-      "git_blob_sha": "cf83c959fec2adda10c357aeaf659ade29a7eccd",
+      "git_blob_sha": "8a001799df7b20e5350786b6a7d954d4187d04d3",
       "controls": {
+        "switch-stale-exit": "EffectiveExitIsIndependent",
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
@@ -95,7 +97,7 @@
     "pins_path": "mycelix-governance/tools/formal/effective_contestability_pins.json",
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json",
     "tree_binding_required": true,
-    "crosswalk_git_blob_sha": "4ac631bec551c9db87ad479c15a5daaadff0eaa6",
+    "crosswalk_git_blob_sha": "1401636be146f788f52d0cce400777dbcea7260e",
     "fixture_paths": {
       "tla": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla",
       "cfg": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.cfg",
