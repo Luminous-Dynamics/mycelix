@@ -87,6 +87,7 @@ function claimLocalProjection(graph, policy) {
 
   const root = policy.claim_local_projection.root;
   const allowed = new Set(policy.claim_local_projection.relation_allowlist);
+  const directions = policy.claim_local_projection.relation_directions;
   const included = new Set([root]);
 
   let changed = true;
@@ -94,11 +95,13 @@ function claimLocalProjection(graph, policy) {
     changed = false;
     for (const edge of normalized.edges) {
       if (!allowed.has(edge[2])) continue;
+      const relationDirections = new Set(directions[edge[2]] ?? []);
       const [left, right] = edge;
-      if (included.has(left) && !included.has(right)) {
+      if (relationDirections.has("outgoing") && included.has(left) && !included.has(right)) {
         included.add(right);
         changed = true;
-      } else if (included.has(right) && !included.has(left)) {
+      }
+      if (relationDirections.has("incoming") && included.has(right) && !included.has(left)) {
         included.add(left);
         changed = true;
       }
