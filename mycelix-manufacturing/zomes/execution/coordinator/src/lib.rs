@@ -435,7 +435,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[test]
     fn test_measurement_input_serde_with_criterion() {
         let input = CreateMeasurementInput {
             measurement_id: "M-1".into(),
@@ -476,6 +475,8 @@ mod tests {
     fn test_execution_input_serde() {
         let input = CreateExecutionInput {
             execution_id: "EXEC-TEST".into(),
+            qualification_attestation_hash: None,
+            process_recipe_hash: None,
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: None,
             routing_hash: None,
