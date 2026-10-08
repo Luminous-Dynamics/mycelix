@@ -272,13 +272,15 @@ def main() -> None:
         )
         try:
             (fresh / "main-ref.json").write_bytes(
-                cjson({"ref": "refs/heads/main", "object": {"sha": "a" * 40}}) + b"\n"
+                cjson({"ref": "refs/heads/main", "object": {"sha": BASE}}) + b"\n"
             )
             result = run(fresh)
             assert result.returncode == 0, result.stderr + result.stdout
             verified = json.loads(result.stdout)
             assert verified["historical_qualification_valid"] is True
-            assert verified["current_promotion_eligible"] is False
+            assert verified["current_promotion_eligible"] is False, (
+                "stale trusted-policy revision must not make a current open PR eligible"
+            )
         finally:
             shutil.rmtree(fresh)
 
