@@ -116,8 +116,15 @@ struct CapabilityContractProjection {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 enum MachineStateResolutionProjection {
-    Resolved { status: MachineStatus },
-    Ambiguous { statuses: Vec<MachineStatus> },
+    NotFound,
+    Resolved {
+        status: MachineStatus,
+        head_action: ActionHash,
+    },
+    Ambiguous {
+        statuses: Vec<MachineStatus>,
+        head_actions: Vec<ActionHash>,
+    },
     Deleted,
 }
 
@@ -214,6 +221,7 @@ pub fn select_live_capability(
                     machine_hash: None,
                     capability_contract_hash: contract_hash,
                     machine_status: None,
+                    machine_state_head: None,
                     eligible: false,
                     mismatch: None,
                     rejection: Some(CapabilityPlanRejection::ContractLookupFailed),
@@ -263,6 +271,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     machine_status: None,
+                    machine_state_head: None,
                     eligible: false,
                     mismatch: None,
                     rejection: Some(CapabilityPlanRejection::MachineLookupFailed),
@@ -292,6 +301,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     machine_status: Some(status),
+                    machine_state_head: None,
                     eligible: false,
                     mismatch: None,
                     rejection: Some(CapabilityPlanRejection::MachineUnavailable),
@@ -303,6 +313,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     machine_status: None,
+                    machine_state_head: None,
                     eligible: false,
                     mismatch: None,
                     rejection: Some(CapabilityPlanRejection::MachineNotFound),
@@ -314,6 +325,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     machine_status: None,
+                    machine_state_head: None,
                     eligible: false,
                     mismatch: None,
                     rejection: Some(CapabilityPlanRejection::MachineStateAmbiguous),
@@ -325,6 +337,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     machine_status: None,
+                    machine_state_head: None,
                     eligible: false,
                     mismatch: None,
                     rejection: Some(CapabilityPlanRejection::MachineDeleted),
@@ -376,7 +389,7 @@ pub fn select_live_capability(
     for decision in selection.decisions {
         if let Some((_, machine_hash, contract_hash, status, head_action)) = candidate_meta
             .iter()
-            .find(|(id, _, _, _)| *id == decision.machine_id)
+            .find(|(id, _, _, _, _)| *id == decision.machine_id)
         {
             decisions.push(CapabilityPlanDecision {
                 machine_hash: Some(machine_hash.clone()),
