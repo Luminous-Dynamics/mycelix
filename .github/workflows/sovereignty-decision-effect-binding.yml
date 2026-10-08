@@ -8,6 +8,7 @@ on:
       - 'mycelix-governance/specs/EvidenceAttestationDecisionEffectBindingV1.tla'
       - 'mycelix-governance/specs/EvidenceAttestationDecisionEffectBindingV1NegativeControls.tla'
       - 'mycelix-governance/specs/EvidenceAttestationDecisionEffectBindingV1.cfg'
+      - 'mycelix-governance/specs/EvidenceAttestationDecisionEffectBindingV1Negative-decision-identity.cfg'
       - 'mycelix-governance/specs/EvidenceAttestationDecisionEffectBindingV1Negative-authority-epoch.cfg'
       - 'mycelix-governance/specs/EvidenceAttestationDecisionEffectBindingV1Negative-request-commitment.cfg'
       - 'mycelix-governance/specs/EvidenceAttestationDecisionEffectBindingV1Negative-target.cfg'
