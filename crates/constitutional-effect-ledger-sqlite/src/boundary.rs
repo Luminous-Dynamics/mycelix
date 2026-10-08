@@ -1261,6 +1261,27 @@ mod tests {
         }
     }
 
+    struct ExpiredFinalEntry;
+
+    impl FinalProviderEntryVerifier for ExpiredFinalEntry {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            context: &ProviderActionContextV1,
+            now_unix_ms: u64,
+        ) -> Result<FinalProviderEntryProofV1, String> {
+            FinalProviderEntryProofV1::new(
+                attempt,
+                context,
+                now_unix_ms.saturating_sub(60_000),
+                now_unix_ms.saturating_sub(1),
+                "authorization-snapshot-v1",
+                "status-snapshot-v1",
+                "expired-entry-verifier-v1",
+            )
+        }
+    }
+
     struct RejectFinalEntry;
 
     impl FinalProviderEntryVerifier for RejectFinalEntry {
@@ -1603,6 +1624,70 @@ mod tests {
         let attempt = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
         assert_eq!(attempt.state, AttemptRecordState::NotEntered);
         assert!(attempt.not_entered_marker.is_some());
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
+        assert!(boundary
+            .store
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn expired_final_entry_proof_cannot_reach_provider() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("final-gate-expired.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-final-gate-expired");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-final-gate-expired",
+                    "operation-final-gate-expired",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        struct MustNotInvoke;
+        impl ProviderAdapter for MustNotInvoke {
+            fn invoke(
+                &mut self,
+                _permit: &ProviderEntryPermitV1,
+            ) -> Result<ProviderObservation, String> {
+                panic!("expired final-entry proof must prevent provider invocation");
+            }
+
+            fn reconcile(
+                &mut self,
+                _context: &ProviderActionContextV1,
+            ) -> Result<ProviderObservation, String> {
+                unreachable!()
+            }
+        }
+
+        let result = boundary
+            .dispatch(
+                &action_key,
+                &owner,
+                "owner-attempt-final-gate-expired",
+                &mut MustNotInvoke,
+                &Verifier,
+                &ExpiredFinalEntry,
+            )
+            .unwrap();
+
+        assert!(matches!(
+            result,
+            BoundaryOutcome::FinalEntryRejectedNotEntered { reason }
+                if reason.contains("stale or not bound")
+        ));
+        assert_eq!(
+            boundary.store.durably_read_attempt(&owner).unwrap().unwrap().state,
+            AttemptRecordState::NotEntered
+        );
         assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
         assert!(boundary
             .store
