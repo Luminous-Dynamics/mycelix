@@ -32,12 +32,13 @@ sig ProviderFailure {
 
 fun grantDerivedAuthority[gs: set Grant]: Agent -> Power {
   { a: Agent, p: Power |
-    a.root = Off and
-    some g: gs |
-      g.grantee = a and
-      g.power = p and
-      g.active = On and
-      g.revoked = Off
+    (a.root = On and p in a.authority) or
+    (a.root = Off and
+      some g: gs |
+        g.grantee = a and
+        g.power = p and
+        g.active = On and
+        g.revoked = Off)
   }
 }
 
