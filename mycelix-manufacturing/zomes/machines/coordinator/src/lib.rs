@@ -68,6 +68,7 @@ pub struct CreateMachineTemporalAttestationInput {
     pub evidence_kind: MachineTemporalEvidenceKind,
     pub attested_at: Timestamp,
     pub source_reference: String,
+    pub source_commitment: Vec<u8>,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetMachinesByTypeInput {
@@ -420,9 +421,13 @@ pub fn create_machine_temporal_attestation(
             "current agent is not the designated time authority".into(),
         )));
     }
-    if !temporal_profile_contains(&profile, input.attested_at) || input.source_reference.is_empty() {
+    if !temporal_profile_contains(&profile, input.attested_at)
+        || input.source_reference.is_empty()
+        || input.source_commitment.is_empty()
+        || input.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+    {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "temporal attestation is outside profile validity or lacks source evidence".into(),
+            "temporal attestation is outside profile validity or lacks bounded source evidence".into(),
         )));
     }
     let attestation_payload = MachineTemporalAttestationPayload {
@@ -433,6 +438,7 @@ pub fn create_machine_temporal_attestation(
         evidence_kind: input.evidence_kind.clone(),
         attested_at: input.attested_at,
         source_reference: input.source_reference.clone(),
+        source_commitment: input.source_commitment.clone(),
     };
     let attestation_signature = sign(profile.authority_agent.clone(), attestation_payload)?;
     let attestation = MachineTemporalAttestationEntry {
@@ -442,6 +448,7 @@ pub fn create_machine_temporal_attestation(
         evidence_kind: input.evidence_kind,
         attested_at: input.attested_at,
         source_reference: input.source_reference,
+        source_commitment: input.source_commitment,
         authority_signature: attestation_signature,
     };
     let hash = create_entry(EntryTypes::MachineTemporalAttestation(attestation))?;
@@ -531,6 +538,7 @@ pub fn resolve_machine_temporal_attestations(
             evidence_kind: attestation.evidence_kind,
             attested_at: attestation.attested_at,
             source_reference: attestation.source_reference,
+            source_commitment: attestation.source_commitment,
         });
     }
 
