@@ -756,6 +756,32 @@ fn find_latest_execution_attempt(timelock_id: &str) -> ExternResult<Option<Recor
     get_latest_record(action_hash)
 }
 
+fn find_latest_action_key_attempt(action_key_digest: &str) -> ExternResult<Option<Record>> {
+    if action_key_digest.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Action key digest is required".into()
+        )));
+    }
+
+    let anchor = format!("action-key:{}", action_key_digest);
+    let anchor_entry_hash = anchor_hash(&anchor)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor_entry_hash, LinkTypes::ActionKeyToExecutionAttempt)?,
+        GetStrategy::default(),
+    )?;
+
+    let Some(link) = links.into_iter().max_by_key(|link| link.timestamp) else {
+        return Ok(None);
+    };
+
+    let action_hash = ActionHash::try_from(link.target)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Invalid ActionKey execution-attempt link target".into(),
+        )))?;
+
+    get_latest_record(action_hash)
+}
+
 /// Commit the durable pre-dispatch reservation. This function must not call
 /// execute_actions: its successful return is the source-chain commit boundary
 /// that establishes DISPATCH_PENDING before any protected effect entry.
@@ -801,6 +827,33 @@ pub fn prepare_timelock_execution(
         &timelock.proposal_id,
         action_key.digest(),
     )?;
+
+    if let Some(existing_for_action) = find_latest_action_key_attempt(action_key.digest())? {
+        let existing_attempt: ExecutionAttempt = existing_for_action
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Invalid ActionKey-indexed execution attempt".into()
+            )))?;
+
+        if existing_attempt.timelock_id != input.timelock_id {
+            match existing_attempt.status {
+                ExecutionAttemptStatus::DispatchPending
+                | ExecutionAttemptStatus::Invoked
+                | ExecutionAttemptStatus::InvocationClaimed
+                | ExecutionAttemptStatus::Indeterminate
+                | ExecutionAttemptStatus::Succeeded => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "Refusing execution: ActionKey is already occupied by timelock '{}' in state {:?}.",
+                        existing_attempt.timelock_id,
+                        existing_attempt.status
+                    ))));
+                }
+                ExecutionAttemptStatus::Failed | ExecutionAttemptStatus::NotEntered => {}
+            }
+        }
+    }
     let native_replay_identity = derive_native_replay_identity(
         EXECUTION_AUTHORITY_NAMESPACE,
         &signature.id,
@@ -864,6 +917,18 @@ pub fn prepare_timelock_execution(
         anchor_hash(&anchor)?,
         action_hash.clone(),
         LinkTypes::TimelockToExecutionAttempt,
+        (),
+    )?;
+
+    // Defense-in-depth DHT index for same-action discovery. This does not claim
+    // global linearizable fencing; that property remains the DurableActionFenceStore
+    // deployment requirement.
+    let action_anchor = attempt.action_key_anchor();
+    create_entry(&EntryTypes::Anchor(Anchor(action_anchor.clone())))?;
+    create_link(
+        anchor_hash(&action_anchor)?,
+        action_hash.clone(),
+        LinkTypes::ActionKeyToExecutionAttempt,
         (),
     )?;
 
