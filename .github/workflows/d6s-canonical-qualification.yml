@@ -279,7 +279,6 @@ jobs:
             echo "commit=${QUALIFIED_SHA}"
             echo "workflow=${GITHUB_WORKFLOW}"
             echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
-            test "${GITHUB_WORKFLOW_SHA}" ~ 2>/dev/null || true
             echo "workflow_file_commit_sha=${GITHUB_WORKFLOW_SHA}"
             echo "workflow_file_blob_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
             echo "run_id=${GITHUB_RUN_ID}"
