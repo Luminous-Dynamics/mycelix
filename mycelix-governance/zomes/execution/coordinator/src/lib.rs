@@ -511,7 +511,7 @@ impl GovernanceAction {
 }
 
 /// Parse and validate actions without executing them.
-fn validate_actions(actions_json: &str) -> ExternResult<()> {
+fn validate_actions(actions_json: &str) -> ExternResult<usize> {
     let actions: Vec<GovernanceAction> = match serde_json::from_str(actions_json) {
         Ok(actions) => actions,
         Err(_) => match serde_json::from_str::<GovernanceAction>(actions_json) {
@@ -525,6 +525,17 @@ fn validate_actions(actions_json: &str) -> ExternResult<()> {
         },
     };
 
+    if actions.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Governance action payload must contain at least one action".into()
+        )));
+    }
+    if actions.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Governance action payload exceeds the 256-action limit".into()
+        )));
+    }
+
     for (index, action) in actions.iter().enumerate() {
         if let Err(error) = action.validate() {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -534,7 +545,7 @@ fn validate_actions(actions_json: &str) -> ExternResult<()> {
         }
     }
 
-    Ok(())
+    Ok(actions.len())
 }
 
 /// Record an immutable host-side resolution attestation.
@@ -620,6 +631,15 @@ pub fn record_prepared_execution_resolution(
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Prepared execution proposal scope mismatch".into()
         )));
+    }
+
+    let prepared_action_count = validate_actions(&timelock.actions)?;
+    if input.attempt_identities.len() != prepared_action_count {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution resolution must bind exactly one attempt/proof tuple per prepared action: expected {}, got {}",
+            prepared_action_count,
+            input.attempt_identities.len()
+        ))));
     }
 
     check_execution_resolution_bindings(
@@ -1650,6 +1670,18 @@ pub fn get_pending_timelocks(_: ()) -> ExternResult<Vec<Record>> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_validate_actions_reports_exact_action_count_and_rejects_empty_batches() {
+        let single = r#"{"type":"EmitEvent","event":"hello"}"#;
+        assert_eq!(validate_actions(single).unwrap(), 1);
+
+        let batch = r#"[{"type":"EmitEvent","event":"a"},{"type":"EmitEvent","event":"b"}]"#;
+        assert_eq!(validate_actions(batch).unwrap(), 2);
+
+        assert!(validate_actions("[]").is_err());
+    }
+
+
     use super::*;
 
     // =========================================================================
