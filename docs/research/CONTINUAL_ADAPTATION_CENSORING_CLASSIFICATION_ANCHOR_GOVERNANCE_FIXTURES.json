@@ -290,7 +290,8 @@
           "sha256:680fa5d99d1f6c5ba47575cb9ef52bdde9bf5563d481e868c12adc044aef5b76"
         ]
       ],
-      "derive_root_hash": true
+      "derive_root_hash": true,
+      "previous_manifest_source": "current"
     },
     {
       "case_id": "CAG-023",
