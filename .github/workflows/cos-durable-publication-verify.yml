@@ -354,7 +354,7 @@ jobs:
           receipt=strict(receipt_path.read_text())
           assert receipt['attestation']['bundle_sha256'] == bundle_sha256
           assert set(durable_manifest) == {
-              'schema','repository','repository_id','release_tag','release_id',
+              'schema','repository','repository_id','release_tag',
               'asset_name','expected_main_sha','qualification_claim_id',
               'qualification_manifest_sha256','predicate_type','publication_profile',
               'claim_ceiling', 'trust_root_manifest_blob_sha1', 'trust_root_manifest_sha256',
@@ -365,12 +365,13 @@ jobs:
           assert durable_manifest['repository'] == os.environ['GITHUB_REPOSITORY']
           assert durable_manifest['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
           assert durable_manifest['release_tag'] == os.environ['RELEASE_TAG']
-          assert durable_manifest['release_id'] == release['id']
+          assert durable_manifest['release_tag'] == f"cos-qualification-{durable_manifest['qualification_claim_id']}"
           assert durable_manifest['asset_name'] == os.environ['ASSET_NAME']
           assert durable_manifest['expected_main_sha'] == os.environ['EXPECTED_MAIN_SHA']
           assert durable_manifest['qualification_claim_id'] == os.environ['EXPECTED_CLAIM_ID']
           assert durable_manifest['qualification_manifest_sha256'] == os.environ['EXPECTED_MANIFEST_SHA256']
           assert durable_manifest['predicate_type'] == os.environ['EXPECTED_PREDICATE_TYPE']
+          # GitHub's numeric release ID is publication-instance metadata, not durable evidence; keep it only in the external observation.
           assert durable_manifest['publication_profile'] == 'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1'
           assert durable_manifest['claim_ceiling'] == 'ReferenceModelOnly'
           assert durable_manifest['trust_root_manifest_sha256'] == receipt['trust_root']['manifest_sha256']
