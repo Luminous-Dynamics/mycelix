@@ -91,7 +91,7 @@ def snapshot(root: Path) -> None:
             "libc_version": "ldd (Ubuntu GLIBC 2.39-0ubuntu8.6) 2.39",
             "commands": [
                 {"name": name, "path": ("/opt/fpm-rust/bin/" + name if name in {"cargo", "rustc", "rustfmt"} else "/usr/bin/" + name), "sha256": "c" * 64}
-                for name in SYSTEM_CLOSURE_COMMANDS
+                for name in sorted(SYSTEM_CLOSURE_COMMANDS)
             ],
             "libraries": [
                 {"path": "/lib/x86_64-linux-gnu/libc.so.6", "sha256": "d" * 64},
