@@ -3,9 +3,10 @@ EXTENDS Naturals, FiniteSets
 
 CONSTANTS Root, A, B, C,
           P1, P2,
-          G1, G2, G3,
+          G1, G2, G3, G4,
           E1,
-          ProviderX
+          ProviderX,
+          GrantPower
 
 Agents == {Root, A, B, C}
 Powers == {P1, P2}
@@ -24,11 +25,7 @@ grantee ==
    G3 |-> C,
    G4 |-> C]
 
-grantPower ==
-  [G1 |-> P1,
-   G2 |-> P1,
-   G3 |-> P1,
-   G4 |-> P2]
+grantPower == GrantPower
 
 ancestor ==
   [G1 |-> {},
@@ -117,8 +114,8 @@ DelegationNonAmplification ==
 
 TransitiveDelegationBounded ==
   \A g \in activeGrants :
-    Cardinality(ancestor[g]) >= 2 =>
-      authority[grantee[g]] \subseteq authority[issuer[g]]
+    \A a \in ancestor[g] :
+      grantPower[g] = grantPower[a]
 
 RevocationPropagates ==
   \A g \in revokedGrants :
