@@ -662,7 +662,8 @@ jobs:
               "vendor_config_observed_bytes","vendor_config_observed_inodes","vendor_config_digest",
               "vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","vendor_resource_measurement","vendor_digest",
               "sandbox_negative_controls","sandbox_negative_controls_log_sha256","dependency_substrate_postflight",
-              "git_fetch_image","sandbox_image","sandbox_network","sandbox_rootfs","sandbox_user",
+              "git_fetch_image","egress_broker_path","egress_broker_blob_sha","egress_broker_image","egress_broker_proxy",
+              "egress_broker_upstream","egress_network_mode","egress_direct_external","sandbox_image","sandbox_network","sandbox_rootfs","sandbox_user",
               "sandbox_capabilities","sandbox_no_new_privileges","source_event","trusted_dispatcher_workflow",
               "trusted_workflow_ref","trusted_workflow_sha","trusted_workflow_name","trusted_repository_id",
               "trusted_workflow_repository","trusted_workflow_file_path","trusted_ref_protected","cache_mode",
@@ -686,6 +687,13 @@ jobs:
               "source_tmpfs_size": "1024m",
               "source_tmpfs_nr_inodes": "300000",
               "source_volume_spec": "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000",
+              "egress_broker_path": os.environ["EGRESS_BROKER_PATH"],
+              "egress_broker_blob_sha": os.environ["EGRESS_BROKER_BLOB_SHA"],
+              "egress_broker_image": os.environ["EGRESS_BROKER_IMAGE"],
+              "egress_broker_proxy": "egress-broker:3128",
+              "egress_broker_upstream": "github.com:443",
+              "egress_network_mode": "internal-fetch-plus-dedicated-external-broker",
+              "egress_direct_external": "blocked",
               "trusted_workflow_sha": workflow_sha,
               "registered_s1_workflow_blob_sha": s1_at_run["sha"],
               "called_workflow_ref": f"{repo}/{os.environ['INDEPENDENT_WORKFLOW_PATH']}@refs/heads/main",
@@ -901,6 +909,7 @@ jobs:
                   "retention": os.environ["RETENTION_REFERENCE_VERIFIER_PATH"],
                    "execution": os.environ["EXECUTION_REFERENCE_VERIFIER_PATH"],
                   "policy": os.environ["SOURCE_POLICY_VERIFIER_PATH"],
+                  "egress_broker": os.environ["EGRESS_BROKER_PATH"],
               }
               snapshot = {"schema": "security-kernel-source-policy-reference-v1", "files": {}}
               for name, file_path in expected.items():
@@ -933,7 +942,7 @@ jobs:
               assert result["schema"] == "security-kernel-source-policy-reference-v1"
               assert result["policy_result"] == "verified"
               assert result["workflow_file_count"] == 3
-              assert result["reference_file_count"] == 3
+              assert result["reference_file_count"] == 4
               assert result["action_pins_verified"] == 3
               assert result["exact_job_topologies_verified"] == 3
               assert result["exact_trigger_topologies_verified"] == 3
