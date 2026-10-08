@@ -63,6 +63,11 @@ on:
       - "docs/research/verify_censoring_classification_anchor_observer_gossip.py"
       - "docs/research/verify_censoring_classification_anchor_observer_gossip.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVER_GOSSIP_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_audit_bundle.py"
+      - "docs/research/verify_censoring_classification_anchor_audit_bundle.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -127,6 +132,11 @@ on:
       - "docs/research/verify_censoring_classification_anchor_observer_gossip.py"
       - "docs/research/verify_censoring_classification_anchor_observer_gossip.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVER_GOSSIP_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_audit_bundle.py"
+      - "docs/research/verify_censoring_classification_anchor_audit_bundle.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   workflow_dispatch:
 
@@ -359,6 +369,21 @@ jobs:
             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_REGISTRY.json \
             observer-gossip-node.json
           diff -u observer-gossip-python.json observer-gossip-node.json
+
+      - name: Run replayable audit bundle campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_censoring_classification_anchor_audit_bundle.py \
+            "$GITHUB_WORKSPACE" \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_CAMPAIGN.json \
+            audit-bundle-python.json
+          node docs/research/verify_censoring_classification_anchor_audit_bundle.mjs \
+            "$GITHUB_WORKSPACE" \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_CAMPAIGN.json
+          diff -u audit-bundle-python.json audit-bundle-node.json
 
       - name: Emit exact-head receipt
         shell: bash
