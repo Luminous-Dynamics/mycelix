@@ -91,6 +91,9 @@ jobs:
           grep -Fq 'terminal verification proof is not bound to the exact attempt' "$boundary"
           grep -Fq 'VerificationPurpose::InitialInvocation' "$boundary"
           grep -Fq 'VerificationPurpose::Reconciliation' "$boundary"
+          grep -Fq 'provider_idempotency_key: &str' "$boundary"
+          grep -Fq 'terminal-evidence-v3:' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
+          grep -Fq 'mismatched_provider_idempotency_proof_holds_the_fence' "$boundary"
 
           if grep -R -Fq 'InvocationClaimed' mycelix-governance/crates/constitutional-effect-ledger crates/constitutional-effect-ledger-sqlite; then
             echo 'Found a state variant outside the exact v2 model.'
