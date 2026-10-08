@@ -20,8 +20,22 @@ pub struct CreateMaterialLotInput {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct CreateInspectionCriterionInput {
+    pub requirement_id: String,
+    pub revision: String,
+    pub characteristic: String,
+    pub unit: String,
+    pub lower_bound: Option<f64>,
+    pub upper_bound: Option<f64>,
+    pub measurement_method: Option<String>,
+    pub required_instrument_class: Option<String>,
+    pub specification_reference: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CreateMeasurementInput {
     pub measurement_id: String,
+    pub criterion_hash: Option<ActionHash>,
     pub kind: String,
     pub value: f64,
     pub unit: String,
@@ -107,9 +121,37 @@ pub fn record_material_lot(input: CreateMaterialLotInput) -> ExternResult<Action
 }
 
 #[hdk_extern]
+pub fn record_inspection_criterion(
+    input: CreateInspectionCriterionInput,
+) -> ExternResult<ActionHash> {
+    let hash = create_entry(EntryTypes::InspectionCriterion(
+        InspectionCriterionEntry {
+            requirement_id: input.requirement_id,
+            revision: input.revision,
+            characteristic: input.characteristic,
+            unit: input.unit,
+            lower_bound: input.lower_bound,
+            upper_bound: input.upper_bound,
+            measurement_method: input.measurement_method,
+            required_instrument_class: input.required_instrument_class,
+            specification_reference: input.specification_reference,
+            created_at: sys_time()?,
+        },
+    ))?;
+
+    link_from(
+        "all_inspection_criteria",
+        LinkTypes::AllInspectionCriteria,
+        hash.clone(),
+    )?;
+    Ok(hash)
+}
+
+#[hdk_extern]
 pub fn record_measurement(input: CreateMeasurementInput) -> ExternResult<ActionHash> {
     let hash = create_entry(EntryTypes::Measurement(MeasurementEntry {
         measurement_id: input.measurement_id,
+        criterion_hash: input.criterion_hash,
         kind: input.kind,
         value: input.value,
         unit: input.unit,
@@ -284,6 +326,44 @@ pub fn list_executions(_: ()) -> ExternResult<Vec<Link>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[test]
+    fn test_measurement_input_serde_with_criterion() {
+        let input = CreateMeasurementInput {
+            measurement_id: "M-1".into(),
+            criterion_hash: Some(ActionHash::from_raw_36(vec![7; 36])),
+            kind: "length".into(),
+            value: 12.5,
+            unit: "mm".into(),
+            lower_bound: Some(10.0),
+            upper_bound: Some(15.0),
+            instrument_hash: None,
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        let back: CreateMeasurementInput = serde_json::from_str(&json).unwrap();
+        assert!(back.criterion_hash.is_some());
+        assert_eq!(back.value, 12.5);
+    }
+
+    #[test]
+    fn test_inspection_criterion_input_serde() {
+        let input = CreateInspectionCriterionInput {
+            requirement_id: "INSPECT-001".into(),
+            revision: "A".into(),
+            characteristic: "length".into(),
+            unit: "mm".into(),
+            lower_bound: Some(10.0),
+            upper_bound: Some(15.0),
+            measurement_method: Some("CMM".into()),
+            required_instrument_class: Some("dimensional".into()),
+            specification_reference: Some("spec-sha256:abc".into()),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        let back: CreateInspectionCriterionInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.requirement_id, "INSPECT-001");
+        assert_eq!(back.revision, "A");
+    }
 
     #[test]
     fn test_execution_input_serde() {
