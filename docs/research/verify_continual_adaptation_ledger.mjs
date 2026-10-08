@@ -50,6 +50,14 @@ function edgeSchemaValid(edge, nodes, policy) {
   );
 }
 
+function edgeSchemaValid(edge, nodes, policy) {
+  const constraints = (policy.edge_schema_constraints ?? []).filter(rule => rule.relation === edge[2]);
+  return constraints.some(rule =>
+    rule.source_types.includes(nodes.get(edge[0])?.type) &&
+    rule.target_types.includes(nodes.get(edge[1])?.type)
+  );
+}
+
 function containsNonAscii(value) {
   if (typeof value === "string") return [...value].some(ch => ch.codePointAt(0) > 0x7F);
   if (Array.isArray(value)) return value.some(containsNonAscii);
@@ -69,6 +77,7 @@ function semanticNormalize(graph, policy) {
     if (!Array.isArray(edge) || edge.length !== 3 || !nodes.has(edge[0]) || !nodes.has(edge[1])) {
       return null;
     }
+    if (!edgeSchemaValid(edge, nodes, policy)) return null;
     if (!edgeSchemaValid(edge, nodes, policy)) return null;
     const key = edge.join("|");
     if (policy.graph_canonicalization.reject_duplicate_edges && seenEdges.has(key)) return null;
@@ -138,6 +147,7 @@ function validateGraphStructure(graph, policy) {
     if (!Array.isArray(edge) || edge.length !== 3 || !nodes.has(edge[0]) || !nodes.has(edge[1])) {
       return false;
     }
+    if (!edgeSchemaValid(edge, nodes, policy)) return false;
     if (!edgeSchemaValid(edge, nodes, policy)) return false;
     const key = edge.join("|");
     if (policy.graph_canonicalization.reject_duplicate_edges && seenEdges.has(key)) {
