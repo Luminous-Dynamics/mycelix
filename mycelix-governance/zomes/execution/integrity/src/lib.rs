@@ -617,6 +617,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::TimelockById => Ok(ValidateCallbackResult::Valid),
             LinkTypes::VetoToOverrideVotes => Ok(ValidateCallbackResult::Valid),
             LinkTypes::VetoToOverrideResult => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::ExecutionToResolution => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::ExecutionById => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterDeleteLink {
             link_type,
@@ -650,7 +652,7 @@ fn validate_create_timelock(
 
 /// Validate timelock update
 fn validate_update_timelock(
-    _action: Update,
+    action: Update,
     timelock: Timelock,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -663,6 +665,12 @@ fn validate_update_timelock(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original timelock not found".into()
         )))?;
+
+    if action.author != *original_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the timelock creator can update the timelock".into(),
+        ));
+    }
 
     match check_update_timelock(&original_timelock, &timelock) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
@@ -1027,6 +1035,72 @@ mod tests {
             voted_at: ts(2_000_000),
         };
         assert!(check_create_override_vote(&vote).is_err());
+    }
+
+    #[test]
+    fn test_timelock_material_is_immutable() {
+        let original = make_timelock();
+
+        let mut changed_actions = original.clone();
+        changed_actions.actions = r#"[{"type":"different"}]"#.into();
+        assert_eq!(
+            check_update_timelock(&original, &changed_actions).unwrap_err(),
+            "Cannot change timelock actions after creation"
+        );
+
+        let mut changed_expiry = original.clone();
+        changed_expiry.expires = ts(3_000_000);
+        assert_eq!(
+            check_update_timelock(&original, &changed_expiry).unwrap_err(),
+            "Cannot change timelock expiry"
+        );
+    }
+
+    #[test]
+    fn test_ready_must_pass_through_prepared_before_terminal() {
+        let mut ready = make_timelock();
+        ready.status = TimelockStatus::Ready;
+
+        let mut prepared = ready.clone();
+        prepared.status = TimelockStatus::Prepared;
+        assert!(check_update_timelock(&ready, &prepared).is_ok());
+
+        let mut executed = ready.clone();
+        executed.status = TimelockStatus::Executed;
+        assert!(check_update_timelock(&ready, &executed).is_err());
+    }
+
+    #[test]
+    fn test_prepared_execution_cannot_contain_terminal_payload() {
+        let mut execution = make_execution();
+        execution.status = ExecutionStatus::Prepared;
+        execution.result = Some(r#"{"ok":true}"#.into());
+
+        assert_eq!(
+            check_create_execution(&execution).unwrap_err(),
+            "Prepared execution cannot contain terminal result/error"
+        );
+    }
+
+    #[test]
+    fn test_execution_resolution_bindings_must_align() {
+        let valid = ExecutionResolution {
+            id: "resolution-1".into(),
+            execution_id: "ex-1".into(),
+            timelock_id: "tl-1".into(),
+            proposal_id: "prop-1".into(),
+            executor: "did:key:z6Mk".into(),
+            attempt_identities: vec!["attempt-1".into()],
+            action_key_digests: vec!["action-key-1".into()],
+            terminal_evidence_digests: vec!["evidence-1".into()],
+            outcome: ExecutionResolutionOutcome::Executed,
+            resolved_at: ts(4_000_000),
+        };
+        assert!(check_create_execution_resolution(&valid).is_ok());
+
+        let mut bad = valid.clone();
+        bad.terminal_evidence_digests.clear();
+        assert!(check_create_execution_resolution(&bad).is_err());
     }
 
     // ---- Veto override result tests ----
