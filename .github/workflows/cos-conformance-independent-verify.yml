@@ -330,6 +330,7 @@ jobs:
           GOVERNANCE_ADMIN_TOKEN: ${{ secrets.GOVERNANCE_ADMIN_TOKEN }}
           TRUSTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_sha }}
           TRUSTED_WORKFLOW_FILE_BLOB_SHA: ${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}
+          EXPECTED_LIVE_MAIN_SHA: ${{ needs.prepare.outputs.live_main_sha }}
         run: |
           set -euo pipefail
           mkdir -p evidence/governance
@@ -530,6 +531,17 @@ jobs:
               assert branch_before.get(key) == branch_after.get(key), (
                   f"branch governance drift during observation: {key}"
               )
+          branch_commit_before = branch_before.get("commit")
+          branch_commit_after = branch_after.get("commit")
+          assert isinstance(branch_commit_before, dict) and isinstance(branch_commit_after, dict), (
+              "main branch commit identity is not enumerated in both reads"
+          )
+          assert branch_commit_before.get("sha") == branch_commit_after.get("sha"), (
+              "main branch commit changed during governance observation"
+          )
+          assert isinstance(branch_commit_before.get("sha"), str) and re.fullmatch(
+              r"[0-9a-f]{40}", branch_commit_before.get("sha")
+          ), "main branch commit SHA is invalid"
 
           rulesets_before = load("evidence/governance/rulesets-index-payload.json")
           rulesets_after = load("evidence/governance/rulesets-index-after-payload.json")
@@ -662,6 +674,9 @@ jobs:
           repository = json.loads(repository_raw)
           repo_id = repository.get("id")
           default_branch = repository.get("default_branch")
+          live_main_sha = branch.get("commit", {}).get("sha")
+          assert isinstance(live_main_sha, str) and re.fullmatch(r"[0-9a-f]{40}", live_main_sha)
+          assert live_main_sha == os.environ["EXPECTED_LIVE_MAIN_SHA"]
           assert repo_id == 1176351975
           assert repository.get("full_name") == repo
           assert isinstance(default_branch, str) and default_branch
@@ -677,6 +692,7 @@ jobs:
               "observer_workflow_file_blob_sha": os.environ["TRUSTED_WORKFLOW_FILE_BLOB_SHA"],
               "observer_run_id": int(os.environ["GITHUB_RUN_ID"]),
               "default_branch": default_branch,
+              "live_main_sha": live_main_sha,
               "repository_payload_base64": base64.b64encode(repository_raw).decode(),
               "repository_payload_sha256": hashlib.sha256(repository_raw).hexdigest(),
               "rulesets_index_payload_base64": base64.b64encode(rulesets_index_raw).decode(),
@@ -1268,6 +1284,8 @@ jobs:
 
           assert observation["repository"] == os.environ["GITHUB_REPOSITORY"]
           assert observation["target_ref"] == "refs/heads/main"
+          assert re.fullmatch(r"[0-9a-f]{40}", observation["live_main_sha"])
+          assert observation["live_main_sha"] == "${{ needs.prepare.outputs.live_main_sha }}"
           assert re.fullmatch(r"[0-9a-f]{40}", observation["observer_workflow_sha"])
           assert observation["observer_workflow_sha"] == os.environ["EXPECTED_WORKFLOW_SHA"]
           assert re.fullmatch(r"[0-9a-f]{40}", observation["observer_workflow_file_blob_sha"])
