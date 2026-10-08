@@ -467,7 +467,7 @@ pub fn resolve_machine_temporal_attestations(
     subject_hash: ActionHash,
 ) -> ExternResult<MachineTemporalEvidenceResolution> {
     let links = get_links(
-        GetLinksInputBuilder::try_new(subject_hash, LinkTypes::SubjectToTemporalAttestations)?.build(),
+        GetLinksInputBuilder::try_new(subject_hash.clone(), LinkTypes::SubjectToTemporalAttestations)?.build(),
     )?;
     let mut times = Vec::with_capacity(links.len());
     for link in links {
