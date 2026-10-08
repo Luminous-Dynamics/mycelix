@@ -25,7 +25,7 @@ function keyFor(reg,w,kid,v){const k=reg.witnesses?.[w]?.keys?.[kid];if(!k)retur
 function verifyHead(a,w,reg,entries){
   const fields=['schema','domain','algorithm','observer_id','key_id','registry_id','registry_version','vds_id','manifest_version','tree_size','root_hash','signature'].sort();
   if(!a||typeof a!=='object'||Object.keys(a).sort().join('|')!==fields.join('|'))return[null,'head-schema'];
-  if(a.observer_id!==w)return[null,'head-observer-binding'];
+  if(a.schema!=='mycelix.continual-adaptation.censoring-classification-anchor-witness-vds-tree-head.v1')return[null,'head-schema'];\n  if(a.domain!=='mycelix.continual-adaptation.censoring-classification-anchor-witness-vds-tree-head.v1')return[null,'head-domain'];\n  if(a.algorithm!=='Ed25519')return[null,'head-algorithm'];\n  if(a.observer_id!==w)return[null,'head-observer-binding'];
   if(a.registry_id!==WREG||a.registry_version!==2)return[null,'head-registry-binding'];
   if(a.vds_id!==VDS_ID||a.tree_size!==7)return[null,'head-vds-binding'];
   let root;try{root=hh(a.root_hash)}catch{return[null,'head-root-encoding'];}
@@ -59,7 +59,7 @@ function verifyReceipt(r,ts,f){
   if(!c||typeof c!=='object'||Object.keys(c).sort().join('|')!==req.join('|'))return[null,'receipt-claims-schema'];
   if(c.registry_id!==ts.registry_id||c.registry_version!==ts.registry_version)return[null,'receipt-registry-binding'];
   if(c.ts_id!==TS_ID||c.vds_id!==VDS_ID)return[null,'receipt-vds-binding'];
-  if(c.tree_size!==f.tree_size||c.root_hash!==f.root_hash)return[null,'receipt-head-binding'];
+  if(c.tree_size!==f.tree_size||c.root_hash!==f.root_hash)return[null,'receipt-head-binding'];\n  if(ts.algorithm!=='Ed25519'||ts.keys[r.key_id].status!=='active')return[null,'receipt-key-lifecycle'];
   let sig;try{sig=b64(r.signature,64)}catch{return[null,'signature-encoding'];}
   if(!verify(b64(ts.keys[r.key_id].public_key,32),sig,Buffer.from(canon({schema:r.schema,domain:r.domain,algorithm:r.algorithm,ts_id:r.ts_id,key_id:r.key_id,claims:c}),'utf8')))return[null,'signature-invalid'];
   const i=c.leaf_index;if(!Number.isInteger(i)||i<0||i>=c.tree_size)return[null,'leaf-index'];
