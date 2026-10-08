@@ -822,6 +822,24 @@ The verifier should preserve shared ancestry rather than silently collapsing it 
 Do not introduce a universal effective-sample-size or confidence scalar into the core. Statistical aggregation remains claim- and method-specific.
 
 
+## Raw-input parser integrity
+
+Semantic graph validation begins only after raw evidence bytes have passed the declared parsing/canonicalization boundary.
+
+The research fixture layer therefore includes:
+
+- CONTINUAL_ADAPTATION_RAW_INPUT_FIXTURES.json;
+- verify_continual_adaptation_raw.py;
+- verify_continual_adaptation_raw.mjs.
+
+The corpus covers duplicate top-level and nested object keys, escaped-key collisions, malformed JSON, invalid escapes, non-finite numeric tokens, and negative zero.
+
+Both reference implementations reject malformed or duplicate-key raw inputs before semantic graph construction. This directly addresses the JSON/I-JSON requirement that duplicate object member names not be accepted for canonicalization, and the verified RFC 8785 erratum concerning -0. citeturn693055search0turn693055search2
+
+Local differential rehearsal: 9 raw-input cases / 0 failures in Python and 0 failures in Node.
+
+This is still research/development evidence only. It does not establish equivalence with every JSON parser implementation.
+
 ## Executable ledger reference
 
 The first dependency-light executable reference is intentionally outside the production qualification authority:
@@ -959,9 +977,9 @@ Mycelix:
 - #4579 — freshness and target-regime drift after transport validation;
 - #4598 — intervention-semantic consistency across regimes;
 - #4599 — measurement invariance across regimes;
-- #4617 — canonical claim-local evidence ledger and join theorem;
+- #4617 — canonical claim-local evidence ledger, executable fixtures, and differential reference verification;
 - #4618 — evidence dependence and shared-ancestry accounting;
-- #4617 — executable claim-local ledger fixtures and differential reference verification;
+- #4634 — raw receipt parsing and parser-equivalence attacks;
 
 Symthaea:
 
