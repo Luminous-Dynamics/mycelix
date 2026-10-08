@@ -330,30 +330,14 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         )));
     }
 
-    if input.attempt_identities.is_empty()
-        || input.attempt_identities.len() != input.action_key_digests.len()
-        || input.attempt_identities.len() != input.terminal_evidence_digests.len()
-        || input.attempt_identities.len()
-            != input.authorization_admission_proof_digests.len()
-        || input.attempt_identities.len()
-            != input.final_provider_entry_proof_digests.len()
-        || input.attempt_identities.iter().any(|v| v.is_empty())
-        || input.action_key_digests.iter().any(|v| v.is_empty())
-        || input.terminal_evidence_digests.iter().any(|v| v.is_empty())
-        || input
-            .authorization_admission_proof_digests
-            .iter()
-            .any(|v| v.is_empty())
-        || input
-            .final_provider_entry_proof_digests
-            .iter()
-            .any(|v| v.is_empty())
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Execution resolution evidence vectors must have equal non-empty lengths"
-                .into()
-        )));
-    }
+    check_execution_resolution_bindings(
+        &input.attempt_identities,
+        &input.action_key_digests,
+        &input.terminal_evidence_digests,
+        &input.authorization_admission_proof_digests,
+        &input.final_provider_entry_proof_digests,
+    )
+    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
     // Find the timelock via O(1) link-based lookup
     let current_record = find_timelock_by_id(&input.timelock_id)?;
