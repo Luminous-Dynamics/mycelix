@@ -7,7 +7,7 @@ import re
 import subprocess
 from pathlib import Path
 
-IDS=["uncovered-field","unknown-field","value-substitution","source-substitution","implicit-default","schema-profile","required-omission"]
+IDS=["uncovered-field","unbacked-field","unknown-field","value-substitution","source-substitution","implicit-default","schema-profile","required-omission"]
 
 def run(cmd):
     return subprocess.run(cmd,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
