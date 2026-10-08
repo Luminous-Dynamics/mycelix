@@ -45,6 +45,11 @@ on:
 permissions:
   contents: read
 
+# Non-authoritative research regression: superseded revisions must not occupy runner capacity.
+concurrency:
+  group: continual-adaptation-censoring-classification-provenance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   regression:
     name: Classification provenance research regression (non-authoritative)
