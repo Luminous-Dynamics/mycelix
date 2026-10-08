@@ -820,6 +820,11 @@ pub trait DurableActionFenceStore {
         &self,
         native_replay_identity: &str,
     ) -> Result<Option<NativeReplayBindingV1>, String>;
+
+    fn durably_read_provider_entry_claim(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<ProviderEntryClaimV1>, String>;
 }
 
 /// Durable binding for one native replay identity.
@@ -920,7 +925,7 @@ impl ProviderEntryClaimV1 {
 
     fn compute_digest(&self) -> String {
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"MYCELIX-CONSTITUTIONAL-PROVIDER-ENTRY-CLAIM V1 ");
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-PROVIDER-ENTRY-CLAIM\0V1\0");
         hasher.update(&self.schema_version.to_be_bytes());
         push_str(&mut hasher, &self.attempt_identity);
         push_str(&mut hasher, &self.action_key_digest);
