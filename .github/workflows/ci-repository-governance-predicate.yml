@@ -107,8 +107,21 @@ jobs:
               parse_constant=reject_constant,
           )
           required = policy["required_controls"]
+          assert policy["claim_scope"] == "trusted_verifier_control_plane"
+          assert policy["acceptable_control_planes"] == ["github_repository_ruleset", "github_branch_protection"]
+          assert policy["result_states"] == ["VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"]
+          required = policy["required_controls"]
           assert required["bypass_actors_must_be_enumerated"] is True
           assert required["bypass_set_must_be_minimized"] is True
+          fail_closed = policy["fail_closed"]
+          for key in (
+              "verified_requires_all_required_controls",
+              "verified_requires_authoritative_admin_observation",
+              "mismatch_must_not_be_upgraded_by_missing_fields",
+              "unverified_must_not_be_treated_as_verified",
+              "contradiction_dominates_secondary_observation_unavailability",
+          ):
+              assert fail_closed[key] is True
           contract = policy["observation_contract"]
           assert contract["live_control_plane_required"] is True
           assert contract["raw_payloads_required"] is True
@@ -246,6 +259,8 @@ jobs:
           assert 'head == "**" and tail' in scanned_text
           assert "object_pairs_hook=_reject_duplicate_json_keys" in scanned_text
           assert "parse_constant=_reject_nonstandard_json_constant" in scanned_text
+          assert "policy claim scope drift" in scanned_text
+          assert "fail-closed contract drift" in scanned_text
           assert "policy = _strict_json_loads(" in scanned_text
           assert "observation = _strict_json_loads(" in scanned_text
           assert "EXPECTED_LIVE_MAIN_SHA" in scanned_text

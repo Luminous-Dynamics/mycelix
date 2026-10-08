@@ -94,6 +94,21 @@ def validate_bound_raw_payload(observation: Any, name: str) -> Any:
 
 def validate_policy(policy: Any) -> None:
     require(isinstance(policy, dict), "policy must be an object")
+    require(policy.get("claim_scope") == "trusted_verifier_control_plane",
+            "policy claim scope drift")
+    require(
+        policy.get("acceptable_control_planes") == [
+            "github_repository_ruleset",
+            "github_branch_protection",
+        ],
+        "acceptable control planes drift",
+    )
+    require(
+        policy.get("result_states") == [
+            "VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"
+        ],
+        "result state contract drift",
+    )
     require(policy.get("schema") == POLICY_SCHEMA, "policy schema drift")
     require(policy.get("version") == 1, "policy version drift")
     require(policy.get("repository") == REPOSITORY, "policy repository drift")
@@ -205,10 +220,14 @@ def validate_policy(policy: Any) -> None:
 
     fail_closed = policy.get("fail_closed")
     require(isinstance(fail_closed, dict), "fail_closed missing")
-    require(
-        fail_closed.get("contradiction_dominates_secondary_observation_unavailability") is True,
-        "contradiction precedence drift",
-    )
+    for key in (
+        "verified_requires_all_required_controls",
+        "verified_requires_authoritative_admin_observation",
+        "mismatch_must_not_be_upgraded_by_missing_fields",
+        "unverified_must_not_be_treated_as_verified",
+        "contradiction_dominates_secondary_observation_unavailability",
+    ):
+        require(fail_closed.get(key) is True, f"fail-closed contract drift: {key}")
 
 
 def validate_observation_shape(observation: Any) -> None:
@@ -1178,6 +1197,14 @@ def fixture_policy() -> dict[str, Any]:
         "schema": POLICY_SCHEMA,
         "version": 1,
         "repository": REPOSITORY,
+        "claim_scope": "trusted_verifier_control_plane",
+        "acceptable_control_planes": [
+            "github_repository_ruleset",
+            "github_branch_protection",
+        ],
+        "result_states": [
+            "VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"
+        ],
         "repository_id": REPOSITORY_ID,
         "organization_id": ORGANIZATION_ID,
         "target_ref": TARGET_REF,
@@ -1207,6 +1234,10 @@ def fixture_policy() -> dict[str, Any]:
             "effective_rule_definition_must_match_observed_ruleset": True,
         },
         "fail_closed": {
+            "verified_requires_all_required_controls": True,
+            "verified_requires_authoritative_admin_observation": True,
+            "mismatch_must_not_be_upgraded_by_missing_fields": True,
+            "unverified_must_not_be_treated_as_verified": True,
             "contradiction_dominates_secondary_observation_unavailability": True,
         },
         "required_controls": {
