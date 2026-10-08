@@ -365,9 +365,13 @@ pub fn create_machine_time_authority_profile(
 ) -> ExternResult<ActionHash> {
     let machine_record = get(input.machine_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Machine not found".into())))?;
-    if !matches!(machine_record.action(), Action::Create(_)) {
+    let machine: Option<MachineEntry> = machine_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if !matches!(machine_record.action(), Action::Create(_)) || machine.is_none() {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "time authority profile must target the machine root".into(),
+            "time authority profile must target a machine root entry".into(),
         )));
     }
     if machine_record.action().author() != agent_info()?.agent_initial_pubkey {
@@ -520,16 +524,20 @@ pub fn resolve_machine_temporal_attestations(
         )?
         .build(),
     )?;
-    if links.len() > MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
-        return Ok(MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
-            limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
-        });
-    }
-    let mut evidence = Vec::with_capacity(links.len());
+    let mut seen_attestations = std::collections::HashSet::new();
+    let mut evidence = Vec::with_capacity(links.len().min(MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS));
     for link in links {
         let Some(hash) = link.target.into_action_hash() else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
+        if !seen_attestations.insert(hash.clone()) {
+            continue;
+        }
+        if seen_attestations.len() > MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
+            return Ok(MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
+                limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
+            });
+        }
         let Some(Details::Record(record_details)) = get_details(hash.clone(), GetOptions::default())? else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
