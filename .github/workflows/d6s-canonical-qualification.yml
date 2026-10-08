@@ -100,7 +100,14 @@ jobs:
       # corpus and independent CANON verifiers below.
 
       - name: Generate reference-test dependency lock
-        run: env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+        id: generate_lock
+        run: |
+          set -euo pipefail
+          env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
+            cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+          lock_sha="$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
+          printf '%s\n' "$lock_sha" | grep -Eq '^[0-9a-f]{64}$'
+          echo "lock_sha=$lock_sha" >> "$GITHUB_OUTPUT"
 
       - name: Assert resolved reference-test dependency graph
         run: env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
@@ -108,23 +115,70 @@ jobs:
       # D6S qualification is scoped to the D6S reference contracts. The
       # broader COS workspace contains unrelated suites whose baseline state
       # must not gate this specific reference qualification.
+      - name: Fetch locked dependency sources
+        run: >-
+          env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY
+          cargo fetch --manifest-path mycelix-manufacturing/Cargo.toml --locked
+
+      - name: Capture dependency graph identity
+        id: capture_graph
+        working-directory: mycelix-manufacturing
+        env:
+          EXPECTED_LOCK_SHA: ${{ steps.generate_lock.outputs.lock_sha }}
+        run: |
+          set -euo pipefail
+          test "$(sha256sum Cargo.lock | cut -d' ' -f1)" = "$EXPECTED_LOCK_SHA"
+          metadata_path="$(mktemp "$RUNNER_TEMP/d6s-cargo-metadata-generated.XXXXXX")"
+          trap 'rm -f "$metadata_path"' EXIT
+          env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
+            cargo metadata --manifest-path Cargo.toml --locked --format-version 1 > "$metadata_path"
+          metadata_sha="$(sha256sum "$metadata_path" | cut -d' ' -f1)"
+          printf '%s\n' "$metadata_sha" | grep -Eq '^[0-9a-f]{64}$'
+          echo "lock_sha=$EXPECTED_LOCK_SHA" >> "$GITHUB_OUTPUT"
+          echo "metadata_sha=$metadata_sha" >> "$GITHUB_OUTPUT"
+
       - name: Run D6S canonical integration suites
         run: >-
+          env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY
           env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY
           cargo test
           --manifest-path mycelix-manufacturing/Cargo.toml
           --locked
           --offline
+          --offline
           -p cos_conformance
           --test d6s_canon_1_golden_vectors
           --test d6s_canon_2_authority_boundary
 
+      - name: Assert tracked source tree remained unchanged
+        if: success()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Assert generated dependency state remained unchanged
+        if: success()
+        working-directory: mycelix-manufacturing
+        env:
+          EXPECTED_LOCK_SHA: ${{ steps.capture_graph.outputs.lock_sha }}
+          EXPECTED_METADATA_SHA: ${{ steps.capture_graph.outputs.metadata_sha }}
+        run: |
+          set -euo pipefail
+          test "$(sha256sum Cargo.lock | cut -d' ' -f1)" = "$EXPECTED_LOCK_SHA"
+          metadata_path="$(mktemp "$RUNNER_TEMP/d6s-cargo-metadata-after-test.XXXXXX")"
+          trap 'rm -f "$metadata_path"' EXIT
+          env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
+            cargo metadata --manifest-path Cargo.toml --locked --format-version 1 > "$metadata_path"
+          test "$(sha256sum "$metadata_path" | cut -d' ' -f1)" = "$EXPECTED_METADATA_SHA"
+
       - name: Run independent D6S-CANON-1 verifier
-        run: python3 scripts/integral/verify_d6s_canon_1.py
-
+        run: >-
+          env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY
+          python3 scripts/integral/verify_d6s_canon_1.py
       - name: Run D6S-CANON-2 authority-boundary fixture verifier
-        run: python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
-
+        run: >-
+          env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY
+          python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
       - name: Emit qualification record
         run: |
           {
