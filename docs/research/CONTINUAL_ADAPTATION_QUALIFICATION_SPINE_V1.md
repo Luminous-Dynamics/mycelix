@@ -866,6 +866,25 @@ Both implement the restricted fixture dialect, independently compute the graph d
 
 Local differential rehearsal: 10 cases / 0 failures in each implementation. The hosted workflow is non-authoritative and must not be treated as an independent verifier merely because it succeeds.
 
+## Policy identity binding
+
+The declarative join policy is itself claim-relevant evidence.
+
+Therefore:
+
+    verifier identity
+    !=
+    policy identity
+
+The research fixture and generated-property corpus bind the exact Git blob identity of the policy. Reference verifiers recompute that blob identity from the raw policy file bytes and compare it against the externally supplied expected identity and the corpus binding.
+
+The regression workflow derives the expected policy blob identity from the checked-out exact commit with git hash-object rather than accepting a version string or branch name.
+
+A deliberate policy-byte substitution (for example, appending a newline to an otherwise valid policy) must fail closed because the raw policy blob identity changes.
+
+This protects research reproducibility, but does not make the candidate-owned policy independently trusted. The authoritative qualification layer must independently control and pin the policy, consistent with QUAL-001/#866 and the FPM trusted-policy work.
+
+
 ## Semantic graph identity and claim-local projection
 
 JSON canonicalization alone does not define semantic identity for an unordered evidence graph because array order remains significant in JSON.
@@ -1016,6 +1035,7 @@ Mycelix:
 - #4646 — semantic graph canonicalization and order-invariant evidence identity;
 - #4647 — claim-local projection and explicit provenance-edge closure;
 - #4648 — deterministic property/metamorphic mutation campaign;
+- #4652 — exact policy identity binding to executable verifier and campaign;
 
 Symthaea:
 
