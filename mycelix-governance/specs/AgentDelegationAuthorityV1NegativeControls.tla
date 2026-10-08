@@ -10,9 +10,12 @@ BadUndelegatedChild ==
   /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
 
 BadGrandchildExceedsAncestor ==
-  /\ activeGrants' = activeGrants \cup {G3}
+  /\ activeGrants' = {G1, G2, G3, G4}
   /\ revokedGrants' = revokedGrants
-  /\ authority' = [authority EXCEPT ![C] = @ \cup {P2}]
+  /\ authority' = [authority EXCEPT
+       ![A] = {P1},
+       ![B] = {P1},
+       ![C] = {P1, P2}]
   /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
 
 BadRevokedDescendant ==
