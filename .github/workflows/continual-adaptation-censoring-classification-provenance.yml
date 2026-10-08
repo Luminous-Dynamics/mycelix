@@ -148,8 +148,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ANCHOR_ROOT_SHA256="sha256:680fa5d99d1f6c5ba47575cb9ef52bdde9bf5563d481e868c12adc044aef5b76"
-          ANCHOR_OBSERVED_SHA256="sha256:cb7e6250fd388812613ec3d967f3af306b8cbf6373abff697f694ec54c5a2078"
+          ANCHOR_ROOT_SHA256="sha256:d70d03373580c0714a84d03b2fd3c8a443cad3f9928a71af42b9b35a89d85331"
+          ANCHOR_OBSERVED_SHA256="sha256:10406333afe0bfdeead43b5d85ef21f56fd0e9d099fd4ee4c4cc7cb77019932f"
           python3 docs/research/verify_censoring_classification_anchor_governance.py             "$ANCHOR_ROOT_SHA256" "$ANCHOR_OBSERVED_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVED_STATE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST_V1.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_FIXTURES.json             anchor-governance-python.json
           node docs/research/verify_censoring_classification_anchor_governance.mjs             "$ANCHOR_ROOT_SHA256" "$ANCHOR_OBSERVED_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVED_STATE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST_V1.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_FIXTURES.json             anchor-governance-node.json
           diff -u anchor-governance-python.json anchor-governance-node.json
