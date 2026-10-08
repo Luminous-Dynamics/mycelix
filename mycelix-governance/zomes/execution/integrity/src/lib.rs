@@ -143,6 +143,8 @@ pub enum ExecutionAttemptStatus {
 pub struct ExecutionAttempt {
     /// Stable attempt identifier.
     pub id: String,
+    /// Operational identity of this execution operation.
+    pub operation_id: String,
     /// Timelock that authorized the exact material action.
     pub timelock_id: String,
     /// Proposal for contextual provenance.
@@ -153,8 +155,14 @@ pub struct ExecutionAttempt {
     pub action_key_digest: String,
     /// Boundary-scoped attempt identity.
     pub attempt_identity: String,
-    /// Native replay identity for the one-time authorization lineage.
+    /// Native replay identity derived from the accepted native authorization namespace + ID.
     pub native_replay_identity: String,
+    /// Historical provider execution environment.
+    pub provider_environment: String,
+    /// Historical provider audience.
+    pub provider_audience: String,
+    /// Exact adapter identity used for effect entry.
+    pub adapter_identity: String,
     /// Execution authority DID.
     pub executor: String,
     /// Current durable lifecycle state.
@@ -418,6 +426,9 @@ pub fn check_create_execution_attempt(attempt: &ExecutionAttempt) -> Result<(), 
     if attempt.id.trim().is_empty() {
         return Err("Execution attempt ID is required".into());
     }
+    if attempt.operation_id.trim().is_empty() {
+        return Err("Execution attempt operation_id is required".into());
+    }
     if attempt.timelock_id.trim().is_empty() {
         return Err("Execution attempt timelock_id is required".into());
     }
@@ -436,6 +447,15 @@ pub fn check_create_execution_attempt(attempt: &ExecutionAttempt) -> Result<(), 
     if attempt.native_replay_identity.trim().is_empty() {
         return Err("Execution attempt native_replay_identity is required".into());
     }
+    if attempt.provider_environment.trim().is_empty() {
+        return Err("Execution attempt provider_environment is required".into());
+    }
+    if attempt.provider_audience.trim().is_empty() {
+        return Err("Execution attempt provider_audience is required".into());
+    }
+    if attempt.adapter_identity.trim().is_empty() {
+        return Err("Execution attempt adapter_identity is required".into());
+    }
     if !attempt.executor.starts_with("did:") {
         return Err("Execution attempt executor must be a valid DID".into());
     }
@@ -453,12 +473,16 @@ pub fn check_update_execution_attempt(
     updated: &ExecutionAttempt,
 ) -> Result<(), String> {
     if updated.id != original.id
+        || updated.operation_id != original.operation_id
         || updated.timelock_id != original.timelock_id
         || updated.proposal_id != original.proposal_id
         || updated.action_digest != original.action_digest
         || updated.action_key_digest != original.action_key_digest
         || updated.attempt_identity != original.attempt_identity
         || updated.native_replay_identity != original.native_replay_identity
+        || updated.provider_environment != original.provider_environment
+        || updated.provider_audience != original.provider_audience
+        || updated.adapter_identity != original.adapter_identity
         || updated.executor != original.executor
         || updated.prepared_at != original.prepared_at
     {
@@ -1067,12 +1091,16 @@ mod tests {
         let now = Timestamp::from_micros(1);
         let base = ExecutionAttempt {
             id: "execution-attempt-1".into(),
+            operation_id: "operation-1".into(),
             timelock_id: "timelock-1".into(),
             proposal_id: "proposal-1".into(),
             action_digest: "constitutional-material-action-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             action_key_digest: "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             attempt_identity: "constitutional-attempt-identity-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             native_replay_identity: "native-replay-1".into(),
+            provider_environment: "holochain-local-source-chain".into(),
+            provider_audience: "mycelix-governance-execution".into(),
+            adapter_identity: "governance-execution-coordinator-v1".into(),
             executor: "did:mycelix:executor".into(),
             status: ExecutionAttemptStatus::Invoked,
             prepared_at: now,
