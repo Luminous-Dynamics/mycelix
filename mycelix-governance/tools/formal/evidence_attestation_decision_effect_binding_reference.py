@@ -76,28 +76,31 @@ CANONICAL = Admission(
 )
 
 NEGATIVE_CASES = {
-    "authority-epoch": EffectContext(2, "req-1", "target-1", 7, "adapter-v1", "inv-1", 3),
-    "request-commitment": EffectContext(1, "req-2", "target-1", 7, "adapter-v1", "inv-1", 3),
-    "target": EffectContext(1, "req-1", "target-2", 7, "adapter-v1", "inv-1", 3),
-    "policy-epoch": EffectContext(1, "req-1", "target-1", 8, "adapter-v1", "inv-1", 3),
-    "adapter-profile": EffectContext(1, "req-1", "target-1", 7, "adapter-v2", "inv-1", 3),
-    "invocation-identity": EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-2", 3),
-    "capability-expiry": EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-1", 13),
-    "decision-horizon": EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-1", 11),
+    "decision-identity": (EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-1", 3), "decision-2"),
+    "authority-epoch": (EffectContext(2, "req-1", "target-1", 7, "adapter-v1", "inv-1", 3), "decision-1"),
+    "request-commitment": (EffectContext(1, "req-2", "target-1", 7, "adapter-v1", "inv-1", 3), "decision-1"),
+    "target": (EffectContext(1, "req-1", "target-2", 7, "adapter-v1", "inv-1", 3), "decision-1"),
+    "policy-epoch": (EffectContext(1, "req-1", "target-1", 8, "adapter-v1", "inv-1", 3), "decision-1"),
+    "adapter-profile": (EffectContext(1, "req-1", "target-1", 7, "adapter-v2", "inv-1", 3), "decision-1"),
+    "invocation-identity": (EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-2", 3), "decision-1"),
+    "capability-expiry": (EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-1", 13), "decision-1"),
+    "decision-horizon": (EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-1", 11), "decision-1"),
 }
 
 
-def make_negative(name: str, context: EffectContext) -> Admission:
-    return Admission(DECISION, context, True, "decision-1")
+def make_negative(name: str, context: EffectContext, recorded_id: str = "decision-1") -> Admission:
+    return Admission(DECISION, context, True, recorded_id)
 
 
 assert authority_failures(CANONICAL) == []
 
-for name, context in NEGATIVE_CASES.items():
-    negative = make_negative(name, context)
+for name, case in NEGATIVE_CASES.items():
+    context, recorded_id = case
+    negative = make_negative(name, context, recorded_id)
     failures = authority_failures(negative)
     assert failures == [(
         {
+            "decision-identity": "DecisionIdentityBound",
             "authority-epoch": "AuthorityEpochBound",
             "request-commitment": "RequestCommitmentBound",
             "target": "TargetBound",
