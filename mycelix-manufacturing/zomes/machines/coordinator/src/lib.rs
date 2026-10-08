@@ -474,12 +474,13 @@ pub fn resolve_machine_temporal_attestations(
         let Some(hash) = link.target.into_action_hash() else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
-        let Some(record) = get(hash, GetOptions::default())? else {
+        let Some(Details::Record(record_details)) = get_details(hash, GetOptions::default())? else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
-        if record.validation_status != ValidationStatus::Valid {
+        if record_details.validation_status != ValidationStatus::Valid {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         }
+        let record = record_details.record;
         let Some(attestation): Option<MachineTemporalAttestationEntry> = record
             .entry().to_app_option()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
