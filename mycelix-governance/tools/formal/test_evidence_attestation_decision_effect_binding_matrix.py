@@ -14,7 +14,7 @@ a=p.parse_args()
 m=json.loads(a.matrix.read_text())
 assert m["schema"]=="mycelix.evidence-attestation-decision-effect-binding-control-matrix.v1"
 ids=[c["id"] for c in m["controls"]]
-expected=["authority-epoch","request-commitment","target","policy-epoch","adapter-profile","invocation-identity","capability-expiry","decision-horizon"]
+expected=["decision-identity","authority-epoch","request-commitment","target","policy-epoch","adapter-profile","invocation-identity","capability-expiry","decision-horizon"]
 assert ids==expected
 t=a.tla.read_text(); n=a.negative_tla.read_text(); al=a.alloy.read_text(); ref=a.reference.read_text()
 for c in m["controls"]:
@@ -24,5 +24,5 @@ for c in m["controls"]:
     assert c["alloy_assertion"] in al
     assert c["alloy_mutant_fact"] in al
     assert c["reference_marker"] in ref
-print("DECISION-EFFECT BINDING MATRIX PASS: eight independently represented staleness/binding controls")
+print("DECISION-EFFECT BINDING MATRIX PASS: nine independently represented identity/staleness/binding controls")
 print("NON-AUTHORITATIVE: static alignment only")
