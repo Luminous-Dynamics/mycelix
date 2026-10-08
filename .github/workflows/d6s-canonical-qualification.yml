@@ -25,6 +25,7 @@ jobs:
     timeout-minutes: 20
     env:
       QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      PULL_REQUEST_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || 0 }}
       CARGO_HOME: ${{ runner.temp }}/d6s-cargo-home
       RUSTUP_HOME: ${{ runner.temp }}/d6s-rustup-home
     steps:
@@ -291,6 +292,26 @@ jobs:
         run: |
           {
             echo "D6S CANONICAL REFERENCE GATE"
+            echo "record_schema=d6s-canonical-reference/v2"
+            case "$GITHUB_EVENT_NAME" in
+              pull_request)
+                echo "provenance_mode=pull_request_head"
+                ;;
+              workflow_dispatch)
+                echo "provenance_mode=manual_dispatch"
+                ;;
+              *)
+                echo "unsupported D6S record event: $GITHUB_EVENT_NAME" >&2
+                exit 1
+                ;;
+            esac
+            echo "pull_request_number=${PULL_REQUEST_NUMBER}"
+            echo "qualified_subject_sha=${QUALIFIED_SHA}"
+            if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+              echo "qualified_subject_ref=refs/heads/${GITHUB_HEAD_REF}"
+            else
+              echo "qualified_subject_ref=${GITHUB_REF}"
+            fi
             echo "status=reference-gate-passed"
             echo "commit=${QUALIFIED_SHA}"
             echo "workflow=${GITHUB_WORKFLOW}"
@@ -330,8 +351,23 @@ jobs:
             echo "claim_ceiling=ReferenceModelOnly"
           } | tee d6s-canonical-reference-qualification.txt
 
+      - name: Assert canonical qualification record schema
+        run: |
+          set -euo pipefail
+          test "$(grep -Fxc 'record_schema=d6s-canonical-reference/v2' d6s-canonical-reference-qualification.txt)" -eq 1
+          test "$(grep -Fxc "qualified_subject_sha=${QUALIFIED_SHA}" d6s-canonical-reference-qualification.txt)" -eq 1
+          test "$(grep -Fxc "pull_request_number=${PULL_REQUEST_NUMBER}" d6s-canonical-reference-qualification.txt)" -eq 1
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            test "$(grep -Fxc 'provenance_mode=pull_request_head' d6s-canonical-reference-qualification.txt)" -eq 1
+            test "$(grep -Fxc "qualified_subject_ref=refs/heads/${GITHUB_HEAD_REF}" d6s-canonical-reference-qualification.txt)" -eq 1
+            test "$PULL_REQUEST_NUMBER" -gt 0
+          else
+            test "$(grep -Fxc 'provenance_mode=manual_dispatch' d6s-canonical-reference-qualification.txt)" -eq 1
+            test "$PULL_REQUEST_NUMBER" -eq 0
+          fi
+
       - name: Upload qualification record
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
+        with
           name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
           path: d6s-canonical-reference-qualification.txt
