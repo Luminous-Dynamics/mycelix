@@ -112,6 +112,7 @@ jobs:
           test "$CALLED_WORKFLOW_REPOSITORY" = "$BASE_REPOSITORY"
           test "$CALLED_WORKFLOW_FILE_PATH" = ".github/workflows/security-kernel-independent-qualification.yml"
           printf "%s" "$CALLED_WORKFLOW_SHA" | grep -Eq "^[0-9a-f]{40}$"
+          test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"
           printf "%s" "$TRUSTED_WORKFLOW_BLOB_SHA" | grep -Eq "^[0-9a-f]{40}$"
           printf "%s" "$CANDIDATE_PR" | grep -Eq "^[0-9]+$"
           printf "%s" "$CANDIDATE_SHA" | grep -Eq "^[0-9a-f]{40}$"
