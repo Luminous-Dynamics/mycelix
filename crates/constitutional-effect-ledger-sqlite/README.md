@@ -176,3 +176,17 @@ pinned adapter-authorizer must permit that identity.
 This is a deployment binding, not executable-code attestation. A deployment
 that needs code-measurement guarantees must supply an adapter authorizer that
 verifies its own platform-specific measurement or registry evidence.
+
+
+## Idempotency protocol semantics
+
+The provider idempotency key is an internal, deterministic server-side identity,
+not a client-controlled HTTP header. It is derived from the immutable native
+replay identity, action-key digest, provider environment/audience, and adapter
+identity, then frozen in durable attempt state.
+
+Accordingly, the same native replay identity cannot retain the same downstream
+key when the material action or provider scope changes. There is no independent
+expiry policy for this internal key: the durable attempt/fence lifecycle is the
+retention boundary, and any provider-facing retention policy must be explicitly
+qualified by that provider adapter.
