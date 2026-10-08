@@ -142,7 +142,7 @@ fn validate_create_snooze_reminder(
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::ScheduledEmail(scheduled) => {
                     validate_create_scheduled_email(action, scheduled)
@@ -176,7 +176,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     // coordinator-side (P0 author-binding gap). Re-derive ownership via
                     // must_get_action against the original action's real author.
                     let original_action = must_get_action(original_action_hash)?;
-                    if original_action.action().author() != &action.author {
+                    if original_action.action().author() != &action.author() {
                         return Ok(ValidateCallbackResult::Invalid(
                             "Only the original owner can update a scheduled email".to_string(),
                         ));
@@ -187,7 +187,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     // Same gap as ScheduledEmail -- dismiss_reminder accepts an arbitrary
                     // caller-supplied hash with zero ownership check.
                     let original_action = must_get_action(original_action_hash)?;
-                    if original_action.action().author() != &action.author {
+                    if original_action.action().author() != &action.author() {
                         return Ok(ValidateCallbackResult::Invalid(
                             "Only the original owner can update a snooze reminder".to_string(),
                         ));
@@ -197,11 +197,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
