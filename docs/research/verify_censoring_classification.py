@@ -507,7 +507,7 @@ def main() -> int:
         "cases": rows,
         "failures": failures,
         "policy_blob_sha": actual_sha,
-        "schema": "mycelix.continual-adaptation.censoring-classification-provenance-report.v1",
+        "schema": "mycelix.continual-adaptation.censoring-classification-provenance-report.v2",
         "status": "research-evidence-only",
     }
     Path(report_path).write_text(
