@@ -20,30 +20,26 @@ Capability4 == [resource |-> R2, action |-> Read,  audience |-> AudienceB, expir
 
 HybridCapability == [resource |-> R1, action |-> Write, audience |-> AudienceB, expiry |-> T1]
 
-ClaimCapabilities ==
-  [Claim1 |-> {Capability1},
-   Claim2 |-> {Capability2},
-   Claim3 |-> {Capability3},
-   Claim4 |-> {Capability4}]
+ClaimCapabilities(c) ==
+  IF c = Claim1 THEN {Capability1}
+  ELSE IF c = Claim2 THEN {Capability2}
+  ELSE IF c = Claim3 THEN {Capability3}
+  ELSE IF c = Claim4 THEN {Capability4}
+  ELSE {}
 
 CapabilityUniverse ==
   { [resource |-> r, action |-> a, audience |-> u, expiry |-> t] :
       r \in Resources, a \in Actions, u \in Audiences, t \in Times }
 
-ClaimAuthorized ==
-  [Claim1 |-> TRUE, Claim2 |-> TRUE, Claim3 |-> TRUE, Claim4 |-> TRUE]
+ClaimAuthorized(c) == c \in Claims
 
-ClaimGrantBacked ==
-  [Claim1 |-> TRUE, Claim2 |-> TRUE, Claim3 |-> TRUE, Claim4 |-> TRUE]
+ClaimGrantBacked(c) == c \in Claims
 
-ClaimSignerTrusted ==
-  [Claim1 |-> TRUE, Claim2 |-> TRUE, Claim3 |-> TRUE, Claim4 |-> TRUE]
+ClaimSignerTrusted(c) == c \in Claims
 
-ClaimSubject ==
-  [Claim1 |-> "Alice", Claim2 |-> "Alice", Claim3 |-> "Alice", Claim4 |-> "Alice"]
+ClaimSubject(c) == "Alice"
 
-ClaimTarget ==
-  [Claim1 |-> "Alice", Claim2 |-> "Alice", Claim3 |-> "Alice", Claim4 |-> "Alice"]
+ClaimTarget(c) == "Alice"
 
 ExpectedAuthority(input) ==
   UNION {ClaimCapabilities[c] : c \in input}
