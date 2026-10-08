@@ -130,6 +130,7 @@ pub struct TerminalEvidenceV1 {
     provider_environment: String,
     provider_audience: String,
     adapter_identity: String,
+    provider_idempotency_key: String,
     outcome: TerminalOutcomeV1,
     evidence_commitment: String,
     verifier_identity: String,
@@ -141,11 +142,18 @@ impl TerminalEvidenceV1 {
         action_key: &ActionKeyV1,
         attempt: &AttemptRecordV1,
         outcome: TerminalOutcomeV1,
+        provider_idempotency_key: impl Into<String>,
         evidence_commitment: impl Into<String>,
         verifier_identity: impl Into<String>,
     ) -> Result<Self, String> {
+        let provider_idempotency_key = provider_idempotency_key.into();
         let evidence_commitment = evidence_commitment.into();
         let verifier_identity = verifier_identity.into();
+        require_opaque(
+            "provider_idempotency_key",
+            &provider_idempotency_key,
+            MAX_REF_LEN,
+        )?;
         require_tagged_hash("action_key_digest", action_key.digest(), crate::ACTION_KEY_PREFIX)?;
         require_tagged_hash("attempt_identity", &attempt.attempt_identity, crate::ATTEMPT_IDENTITY_PREFIX)?;
         attempt.validate()?;
@@ -166,6 +174,7 @@ impl TerminalEvidenceV1 {
         push_str(&mut hasher, &attempt.provider_environment);
         push_str(&mut hasher, &attempt.provider_audience);
         push_str(&mut hasher, &attempt.adapter_identity);
+        push_str(&mut hasher, &provider_idempotency_key);
         hasher.update(&[terminal_outcome_tag(outcome)]);
         push_str(&mut hasher, &evidence_commitment);
         push_str(&mut hasher, &verifier_identity);
@@ -179,10 +188,11 @@ impl TerminalEvidenceV1 {
             provider_environment: attempt.provider_environment.clone(),
             provider_audience: attempt.provider_audience.clone(),
             adapter_identity: attempt.adapter_identity.clone(),
+            provider_idempotency_key,
             outcome,
             evidence_commitment,
             verifier_identity,
-            digest: tagged("constitutional-terminal-evidence-v2:", hasher.finalize()),
+            digest: tagged("constitutional-terminal-evidence-v3:", hasher.finalize()),
         })
     }
 
@@ -203,6 +213,7 @@ impl TerminalEvidenceV1 {
     pub fn provider_environment(&self) -> &str { &self.provider_environment }
     pub fn provider_audience(&self) -> &str { &self.provider_audience }
     pub fn adapter_identity(&self) -> &str { &self.adapter_identity }
+    pub fn provider_idempotency_key(&self) -> &str { &self.provider_idempotency_key }
 
 
     pub fn evidence_commitment(&self) -> &str {
