@@ -573,6 +573,7 @@ def main() -> int:
         })
 
     assert len(cases) == 168
+    assert len({case["case_id"] for case in cases}) == len(cases)
 
     corpus = {
         "schema": "mycelix.continual-adaptation.censoring-classification-provenance-generated-properties.v2",
