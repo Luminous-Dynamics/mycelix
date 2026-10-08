@@ -22,7 +22,7 @@ pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
 pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-time-authority-profile-v2";
 pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
-    "mycelix-manufacturing-machine-temporal-attestation-v3";
+    "mycelix-manufacturing-machine-temporal-attestation-v4";
 /// Hard upper bound used to keep temporal uncertainty arithmetic bounded.
 pub const MAX_MACHINE_TEMPORAL_ACCURACY_MICROS: i64 = 86_400_000_000;
 /// Maximum encoded size for the opaque external evidence commitment.
@@ -43,6 +43,7 @@ pub struct MachineTemporalEvidenceObservation {
     pub attested_at: Timestamp,
     pub accuracy_micros: i64,
     pub source_reference: String,
+    pub source_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
     pub source_commitment: Vec<u8>,
 }
 
@@ -89,6 +90,18 @@ pub enum MachineTemporalEvidenceKind {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MachineTemporalCommitmentAlgorithm {
+    Sha256,
+    Sha384,
+    Sha512,
+    Sha3_256,
+    Sha3_384,
+    Sha3_512,
+    Blake3_256,
+    ProfileDefined(String),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineTimeAuthorityProfilePayload {
     pub schema_id: String,
     pub machine_hash: ActionHash,
@@ -111,6 +124,7 @@ pub struct MachineTemporalAttestationPayload {
     pub attested_at: Timestamp,
     pub accuracy_micros: i64,
     pub source_reference: String,
+    pub source_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
     pub source_commitment: Vec<u8>,
 }
 
@@ -206,11 +220,26 @@ pub struct MachineTemporalAttestationEntry {
     pub attested_at: Timestamp,
     pub accuracy_micros: i64,
     pub source_reference: String,
+    pub source_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
     pub source_commitment: Vec<u8>,
     pub authority_signature: Signature,
 }
 
 impl MachineTemporalAttestationEntry {
+    fn source_commitment_algorithm_is_empty(&self) -> bool {
+        matches!(
+            &self.source_commitment_algorithm,
+            MachineTemporalCommitmentAlgorithm::ProfileDefined(value) if value.trim().is_empty()
+        )
+    }
+
+    fn source_commitment_algorithm_text_len(&self) -> usize {
+        match &self.source_commitment_algorithm {
+            MachineTemporalCommitmentAlgorithm::ProfileDefined(value) => value.len(),
+            _ => 0,
+        }
+    }
+
     pub fn signed_payload(&self) -> MachineTemporalAttestationPayload {
         MachineTemporalAttestationPayload {
             schema_id: MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID.to_string(),
@@ -221,6 +250,7 @@ impl MachineTemporalAttestationEntry {
             attested_at: self.attested_at,
             accuracy_micros: self.accuracy_micros,
             source_reference: self.source_reference.clone(),
+            source_commitment_algorithm: self.source_commitment_algorithm.clone(),
             source_commitment: self.source_commitment.clone(),
         }
     }
@@ -486,6 +516,8 @@ fn validate_create_temporal_attestation(
 ) -> ExternResult<ValidateCallbackResult> {
     if attestation.source_reference.trim().is_empty()
         || attestation.source_reference.len() > MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES
+        || attestation.source_commitment_algorithm_is_empty()
+        || attestation.source_commitment_algorithm_text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
         || attestation.source_commitment.is_empty()
         || attestation.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || attestation.accuracy_micros < 0
@@ -1271,6 +1303,7 @@ mod content_restriction_tests {
             attested_at: Timestamp::from_micros(time),
             accuracy_micros: 5,
             source_reference: format!("tsa://example/{attestation_byte}"),
+            source_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
             source_commitment: vec![attestation_byte; 32],
         }
     }
@@ -1310,11 +1343,31 @@ mod content_restriction_tests {
             attested_at: Timestamp::from_micros(100),
             accuracy_micros: 5,
             source_reference: "tsa://example/1".into(),
+            source_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
             source_commitment: vec![7; 32],
             authority_signature: Signature(vec![0; 64]),
         };
         let before = attestation.signed_payload();
         attestation.source_commitment[0] ^= 1;
+        assert_ne!(attestation.signed_payload(), before);
+    }
+
+    #[test]
+    fn temporal_attestation_signed_payload_binds_commitment_algorithm() {
+        let mut attestation = MachineTemporalAttestationEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            profile_hash: ActionHash::from_raw_36(vec![2; 36]),
+            subject_hash: ActionHash::from_raw_36(vec![3; 36]),
+            evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
+            attested_at: Timestamp::from_micros(100),
+            accuracy_micros: 5,
+            source_reference: "tsa://example/1".into(),
+            source_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_commitment: vec![7; 32],
+            authority_signature: Signature(vec![0; 64]),
+        };
+        let before = attestation.signed_payload();
+        attestation.source_commitment_algorithm = MachineTemporalCommitmentAlgorithm::Sha512;
         assert_ne!(attestation.signed_payload(), before);
     }
 
