@@ -1262,6 +1262,23 @@ mod content_restriction_tests {
     }
 
     #[test]
+    fn temporal_profile_signed_payload_binds_accuracy_bound() {
+        let mut profile = MachineTimeAuthorityProfileEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            profile_id: "profile-1".into(),
+            source_profile: "rfc3161".into(),
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(1_000),
+            max_accuracy_micros: 5,
+            registrant_signature: Signature(vec![0; 64]),
+        };
+        let before = profile.signed_payload();
+        profile.max_accuracy_micros += 1;
+        assert_ne!(profile.signed_payload(), before);
+    }
+
+    #[test]
     fn temporal_attestation_signed_payload_binds_source_commitment() {
         let mut attestation = MachineTemporalAttestationEntry {
             machine_hash: ActionHash::from_raw_36(vec![1; 36]),
