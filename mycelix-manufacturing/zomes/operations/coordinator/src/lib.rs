@@ -37,6 +37,16 @@ pub struct CreateRoutingInput {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+struct InspectionCriterionProjection {
+    requirement_id: String,
+    revision: String,
+    characteristic: String,
+    unit: String,
+    lower_bound: Option<f64>,
+    upper_bound: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RoutingStepInput {
     pub sequence: u32,
     pub capability_requirement_hash: Option<ActionHash>,
@@ -144,12 +154,12 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
         }
     }
 
-    let mut all_inspection_criteria = std::collections::HashSet::new();
     for step in &input.steps {
+        let mut step_criteria = std::collections::HashSet::new();
         for criterion_hash in &step.required_inspection_criterion_hashes {
-            if !all_inspection_criteria.insert(criterion_hash.clone()) {
+            if !step_criteria.insert(criterion_hash.clone()) {
                 return Err(wasm_error!(WasmErrorInner::Guest(
-                    "routing cannot require the same inspection criterion more than once".to_string()
+                    "routing step cannot require the same inspection criterion more than once".to_string()
                 )));
             }
 
@@ -162,14 +172,15 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
             )?;
             match response {
                 ZomeCallResponse::Ok(data) => {
-                    let criterion: Option<Record> = data.decode().map_err(|e| {
-                        wasm_error!(WasmErrorInner::Guest(format!(
-                            "failed to decode inspection criterion: {e}"
-                        )))
-                    })?;
+                    let criterion: Option<InspectionCriterionProjection> =
+                        data.decode().map_err(|e| {
+                            wasm_error!(WasmErrorInner::Guest(format!(
+                                "failed to decode inspection criterion: {e}"
+                            )))
+                        })?;
                     if criterion.is_none() {
                         return Err(wasm_error!(WasmErrorInner::Guest(
-                            "routing inspection criterion not found".to_string()
+                            "routing inspection criterion not found or is not an inspection criterion".to_string()
                         )));
                     }
                 }
