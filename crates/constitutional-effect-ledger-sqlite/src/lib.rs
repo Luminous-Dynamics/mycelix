@@ -557,6 +557,7 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
             let mut updated = current.clone();
             updated.state = AttemptRecordState::NotEntered;
             updated.not_entered_marker = Some(marker);
+            updated.entry_admission_proof_digest = None;
             updated.validate().map_err(storage_error)?;
             update_attempt_tx(tx, &current, &updated)?;
 
@@ -1183,6 +1184,26 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
     for row in rows {
         let claim = row.map_err(|e| e.to_string())?;
         claims.insert(claim.attempt_identity.clone(), claim);
+    }
+
+    for record in attempts.values() {
+        if let Some(proof_digest) = record.entry_admission_proof_digest.as_deref() {
+            if proof_digest.trim().is_empty() {
+                return Err(format!(
+                    "attempt {} has an empty entry admission proof digest",
+                    record.attempt_identity
+                ));
+            }
+            if record.state == AttemptRecordState::NotEntered
+                || record.state == AttemptRecordState::Consumed
+                || record.state == AttemptRecordState::Reserved
+            {
+                return Err(format!(
+                    "attempt {} retains an entry admission proof before provider entry",
+                    record.attempt_identity
+                ));
+            }
+        }
     }
 
     for claim in claims.values() {
