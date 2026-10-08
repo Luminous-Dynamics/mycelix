@@ -170,6 +170,162 @@ pub enum MachineStatus {
     Offline,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum CapabilityQualification {
+    Declared,
+    Observed,
+    Verified,
+    Qualified,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CapabilityRequirement {
+    pub process_family: String,
+    pub material_class: String,
+    pub envelope_x_mm: Option<u32>,
+    pub envelope_y_mm: Option<u32>,
+    pub envelope_z_mm: Option<u32>,
+    /// Maximum permissible tolerance in micrometres. Smaller is stricter.
+    pub tolerance_um: Option<u32>,
+    pub required_protocols: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CapabilityProfile {
+    pub process_family: String,
+    pub material_classes: Vec<String>,
+    pub envelope_x_mm: Option<u32>,
+    pub envelope_y_mm: Option<u32>,
+    pub envelope_z_mm: Option<u32>,
+    /// Smallest reliably qualified tolerance in micrometres.
+    pub tolerance_um: Option<u32>,
+    pub supported_protocols: Vec<String>,
+    pub qualification: CapabilityQualification,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum CapabilityMismatch {
+    Unqualified,
+    ProcessFamily,
+    MaterialClass,
+    EnvelopeX,
+    EnvelopeY,
+    EnvelopeZ,
+    Tolerance,
+    Protocol,
+}
+
+pub fn evaluate_capability(
+    requirement: &CapabilityRequirement,
+    profile: &CapabilityProfile,
+) -> Result<(), CapabilityMismatch> {
+    if !matches!(profile.qualification, CapabilityQualification::Qualified) {
+        return Err(CapabilityMismatch::Unqualified);
+    }
+
+    if requirement.process_family != profile.process_family {
+        return Err(CapabilityMismatch::ProcessFamily);
+    }
+
+    if !profile
+        .material_classes
+        .iter()
+        .any(|material| material == &requirement.material_class)
+    {
+        return Err(CapabilityMismatch::MaterialClass);
+    }
+
+    if let Some(required) = requirement.envelope_x_mm {
+        if profile.envelope_x_mm.is_none_or(|available| available < required) {
+            return Err(CapabilityMismatch::EnvelopeX);
+        }
+    }
+
+    if let Some(required) = requirement.envelope_y_mm {
+        if profile.envelope_y_mm.is_none_or(|available| available < required) {
+            return Err(CapabilityMismatch::EnvelopeY);
+        }
+    }
+
+    if let Some(required) = requirement.envelope_z_mm {
+        if profile.envelope_z_mm.is_none_or(|available| available < required) {
+            return Err(CapabilityMismatch::EnvelopeZ);
+        }
+    }
+
+    if let Some(required) = requirement.tolerance_um {
+        if profile.tolerance_um.is_none_or(|available| available > required) {
+            return Err(CapabilityMismatch::Tolerance);
+        }
+    }
+
+    for protocol in &requirement.required_protocols {
+        if !profile.supported_protocols.iter().any(|p| p == protocol) {
+            return Err(CapabilityMismatch::Protocol);
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CapabilityCandidate {
+    pub machine_id: String,
+    pub profile: CapabilityProfile,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CapabilityDecision {
+    pub machine_id: String,
+    pub eligible: bool,
+    pub mismatch: Option<CapabilityMismatch>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CapabilitySelection {
+    pub selected_machine_id: Option<String>,
+    pub decisions: Vec<CapabilityDecision>,
+}
+
+/// Deterministically assess candidates in stable machine-id order and select
+/// the lexicographically first eligible machine. Network order and time do
+/// not participate in the decision.
+pub fn select_capable_machine(
+    requirement: &CapabilityRequirement,
+    mut candidates: Vec<CapabilityCandidate>,
+) -> CapabilitySelection {
+    candidates.sort_by(|a, b| a.machine_id.cmp(&b.machine_id));
+
+    let mut selected_machine_id = None;
+    let mut decisions = Vec::with_capacity(candidates.len());
+
+    for candidate in candidates {
+        match evaluate_capability(requirement, &candidate.profile) {
+            Ok(()) => {
+                let eligible = selected_machine_id.is_none();
+                if eligible {
+                    selected_machine_id = Some(candidate.machine_id.clone());
+                }
+                decisions.push(CapabilityDecision {
+                    machine_id: candidate.machine_id,
+                    eligible: true,
+                    mismatch: None,
+                });
+            }
+            Err(mismatch) => decisions.push(CapabilityDecision {
+                machine_id: candidate.machine_id,
+                eligible: false,
+                mismatch: Some(mismatch),
+            }),
+        }
+    }
+
+    CapabilitySelection {
+        selected_machine_id,
+        decisions,
+    }
+}
+
 impl MachineStatus {
     pub fn can_transition_to(&self, target: &MachineStatus) -> bool {
         match self {
@@ -299,6 +455,131 @@ pub fn validate_machine(machine: &Machine) -> Result<(), String> {
 // ============================================================================
 // Tests
 // ============================================================================
+
+#[cfg(test)]
+mod capability_tests {
+    use super::*;
+
+    fn qualified_cnc() -> CapabilityProfile {
+        CapabilityProfile {
+            process_family: "milling".into(),
+            material_classes: vec!["aluminum".into(), "plastic".into()],
+            envelope_x_mm: Some(500),
+            envelope_y_mm: Some(300),
+            envelope_z_mm: Some(250),
+            tolerance_um: Some(25),
+            supported_protocols: vec!["opcua".into(), "mtconnect".into()],
+            qualification: CapabilityQualification::Qualified,
+        }
+    }
+
+    fn aluminum_requirement() -> CapabilityRequirement {
+        CapabilityRequirement {
+            process_family: "milling".into(),
+            material_class: "aluminum".into(),
+            envelope_x_mm: Some(400),
+            envelope_y_mm: Some(200),
+            envelope_z_mm: Some(100),
+            tolerance_um: Some(50),
+            required_protocols: vec!["opcua".into()],
+        }
+    }
+
+    #[test]
+    fn accepts_matching_qualified_capability() {
+        assert!(evaluate_capability(&aluminum_requirement(), &qualified_cnc()).is_ok());
+    }
+
+    #[test]
+    fn rejects_unqualified_profile_before_other_matches() {
+        let mut profile = qualified_cnc();
+        profile.qualification = CapabilityQualification::Verified;
+        assert_eq!(
+            evaluate_capability(&aluminum_requirement(), &profile),
+            Err(CapabilityMismatch::Unqualified)
+        );
+    }
+
+    #[test]
+    fn rejects_process_family_mismatch() {
+        let mut requirement = aluminum_requirement();
+        requirement.process_family = "turning".into();
+        assert_eq!(
+            evaluate_capability(&requirement, &qualified_cnc()),
+            Err(CapabilityMismatch::ProcessFamily)
+        );
+    }
+
+    #[test]
+    fn rejects_tight_tolerance_machine() {
+        let mut profile = qualified_cnc();
+        profile.tolerance_um = Some(75);
+        let requirement = aluminum_requirement();
+        assert_eq!(
+            evaluate_capability(&requirement, &profile),
+            Err(CapabilityMismatch::Tolerance)
+        );
+    }
+
+    #[test]
+    fn rejects_missing_protocol() {
+        let mut requirement = aluminum_requirement();
+        requirement.required_protocols = vec!["opcua".into(), "profinet".into()];
+        assert_eq!(
+            evaluate_capability(&requirement, &qualified_cnc()),
+            Err(CapabilityMismatch::Protocol)
+        );
+    }
+
+    #[test]
+    fn selects_lexicographically_first_eligible_machine() {
+        let selection = select_capable_machine(
+            &aluminum_requirement(),
+            vec![
+                CapabilityCandidate {
+                    machine_id: "CNC-02".into(),
+                    profile: qualified_cnc(),
+                },
+                CapabilityCandidate {
+                    machine_id: "CNC-01".into(),
+                    profile: qualified_cnc(),
+                },
+            ],
+        );
+
+        assert_eq!(selection.selected_machine_id.as_deref(), Some("CNC-01"));
+        assert_eq!(selection.decisions.len(), 2);
+        assert!(selection.decisions.iter().all(|decision| decision.eligible));
+    }
+
+    #[test]
+    fn selection_retains_rejection_reason() {
+        let mut bad = qualified_cnc();
+        bad.tolerance_um = Some(100);
+
+        let selection = select_capable_machine(
+            &aluminum_requirement(),
+            vec![
+                CapabilityCandidate {
+                    machine_id: "CNC-BAD".into(),
+                    profile: bad,
+                },
+                CapabilityCandidate {
+                    machine_id: "CNC-GOOD".into(),
+                    profile: qualified_cnc(),
+                },
+            ],
+        );
+
+        assert_eq!(selection.selected_machine_id.as_deref(), Some("CNC-GOOD"));
+        assert_eq!(
+            selection.decisions[0].mismatch,
+            Some(CapabilityMismatch::Tolerance)
+        );
+        assert!(!selection.decisions[0].eligible);
+        assert!(selection.decisions[1].eligible);
+    }
+}
 
 #[cfg(test)]
 mod tests {

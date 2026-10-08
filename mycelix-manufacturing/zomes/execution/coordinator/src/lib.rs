@@ -255,6 +255,26 @@ pub fn get_execution(hash: ActionHash) -> ExternResult<Option<Record>> {
     get(hash, GetOptions::default())
 }
 
+/// Get a capability contract by action hash.
+#[hdk_extern]
+pub fn get_capability_contract(hash: ActionHash) -> ExternResult<Option<Record>> {
+    get(hash, GetOptions::default())
+}
+
+/// List all capability contracts from the immutable execution registry.
+#[hdk_extern]
+pub fn list_capability_contracts(_: ()) -> ExternResult<Vec<Link>> {
+    let path = Path::from("all_capability_contracts")
+        .typed(LinkTypes::AllCapabilityContracts)?;
+    get_links(
+        GetLinksInputBuilder::try_new(
+            path.path_entry_hash()?,
+            LinkTypes::AllCapabilityContracts,
+        )?
+        .build(),
+    )
+}
+
 #[hdk_extern]
 pub fn list_executions(_: ()) -> ExternResult<Vec<Link>> {
     let path = Path::from("all_executions").typed(LinkTypes::AllExecutions)?;

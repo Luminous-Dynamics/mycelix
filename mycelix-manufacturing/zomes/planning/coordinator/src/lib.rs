@@ -10,7 +10,11 @@
 
 use hdk::prelude::*;
 use planning_integrity::*;
-use manufacturing_common::{MaterialShortage, MrpResult, PlannedOrder};
+use manufacturing_common::{
+    select_capable_machine, CapabilityCandidate, CapabilityMismatch, CapabilityProfile,
+    CapabilityQualification, CapabilityRequirement, MaterialShortage, MachineStatus, MrpResult,
+    PlannedOrder,
+};
 use std::collections::HashMap;
 
 /// Minimal projection of WorkOrderEntry for BOM linkage.
@@ -58,6 +62,339 @@ pub struct InventoryLevel {
 // ============================================================================
 // Extern functions
 // ============================================================================
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CapabilityPlanInput {
+    pub requirement: CapabilityRequirement,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum CapabilityPlanRejection {
+    ContractNotFound,
+    ContractMalformed,
+    ContractLookupFailed,
+    MachineNotFound,
+    MachineMalformed,
+    MachineLookupFailed,
+    MachineUnavailable,
+    MultipleContractsForMachine,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CapabilityPlanDecision {
+    pub machine_hash: Option<ActionHash>,
+    pub capability_contract_hash: ActionHash,
+    pub machine_status: Option<MachineStatus>,
+    pub eligible: bool,
+    pub mismatch: Option<CapabilityMismatch>,
+    pub rejection: Option<CapabilityPlanRejection>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CapabilityPlanSelection {
+    pub selected_machine_hash: Option<ActionHash>,
+    pub selected_capability_contract_hash: Option<ActionHash>,
+    pub decisions: Vec<CapabilityPlanDecision>,
+}
+
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct CapabilityContractProjection {
+    machine_hash: ActionHash,
+    process_family: String,
+    material_classes: Vec<String>,
+    envelope_x_mm: Option<u32>,
+    envelope_y_mm: Option<u32>,
+    envelope_z_mm: Option<u32>,
+    tolerance_um: Option<u32>,
+    supported_protocols: Vec<String>,
+    qualification: CapabilityQualification,
+}
+
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct MachineProjection {
+    status: MachineStatus,
+}
+
+fn capability_profile(contract: &CapabilityContractProjection) -> CapabilityProfile {
+    CapabilityProfile {
+        process_family: contract.process_family.clone(),
+        material_classes: contract.material_classes.clone(),
+        envelope_x_mm: contract.envelope_x_mm,
+        envelope_y_mm: contract.envelope_y_mm,
+        envelope_z_mm: contract.envelope_z_mm,
+        tolerance_um: contract.tolerance_um,
+        supported_protocols: contract.supported_protocols.clone(),
+        qualification: contract.qualification.clone(),
+    }
+}
+
+/// Resolve a manufacturing capability requirement against live capability contracts
+/// and current machine status.
+///
+/// This is intentionally a resolver, not an execution authorization mechanism:
+/// capability qualification is consumed exactly as recorded, machine availability
+/// is evaluated separately, lookup failures remain distinct from missing records,
+/// and ambiguous multiple contracts for one machine fail closed.
+#[hdk_extern]
+pub fn select_live_capability(
+    input: CapabilityPlanInput,
+) -> ExternResult<CapabilityPlanSelection> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::from("execution"),
+        FunctionName::from("list_capability_contracts"),
+        None,
+        ExternIO::encode(())?,
+    )?;
+
+    let links = match response {
+        ZomeCallResponse::Ok(data) => data.decode::<Vec<Link>>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "failed to decode capability contract links: {e}"
+            )))
+        })?,
+        other => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "failed to list capability contracts: {other:?}"
+            )))
+        }
+    };
+
+    let mut raw: Vec<(
+        String,
+        ActionHash,
+        ActionHash,
+        CapabilityProfile,
+        MachineStatus,
+    )> = Vec::new();
+    let mut rejected: Vec<CapabilityPlanDecision> = Vec::new();
+
+    for link in links {
+        let Some(contract_hash) = link.target.clone().into_action_hash() else {
+            continue;
+        };
+
+        let contract_response = call(
+            CallTargetCell::Local,
+            ZomeName::from("execution"),
+            FunctionName::from("get_capability_contract"),
+            None,
+            ExternIO::encode(contract_hash.clone())?,
+        )?;
+
+        let contract_record = match contract_response {
+            ZomeCallResponse::Ok(data) => match data.decode::<Option<Record>>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "failed to decode capability contract: {e}"
+                )))
+            })? {
+                Some(record) => record,
+                None => {
+                    rejected.push(CapabilityPlanDecision {
+                        machine_hash: None,
+                        capability_contract_hash: contract_hash,
+                        machine_status: None,
+                        eligible: false,
+                        mismatch: None,
+                        rejection: Some(CapabilityPlanRejection::ContractNotFound),
+                    });
+                    continue;
+                }
+            },
+            _ => {
+                rejected.push(CapabilityPlanDecision {
+                    machine_hash: None,
+                    capability_contract_hash: contract_hash,
+                    machine_status: None,
+                    eligible: false,
+                    mismatch: None,
+                    rejection: Some(CapabilityPlanRejection::ContractLookupFailed),
+                });
+                continue;
+            }
+        };
+
+        let contract: CapabilityContractProjection =
+            match contract_record.entry().to_app_option().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(e.to_string()))
+            })? {
+                Some(contract) => contract,
+                None => {
+                    rejected.push(CapabilityPlanDecision {
+                        machine_hash: None,
+                        capability_contract_hash: contract_hash,
+                        machine_status: None,
+                        eligible: false,
+                        mismatch: None,
+                        rejection: Some(CapabilityPlanRejection::ContractMalformed),
+                    });
+                    continue;
+                }
+            };
+
+        let machine_hash = contract.machine_hash.clone();
+        let machine_response = call(
+            CallTargetCell::Local,
+            ZomeName::from("machines"),
+            FunctionName::from("get_machine"),
+            None,
+            ExternIO::encode(machine_hash.clone())?,
+        )?;
+
+        let machine_record = match machine_response {
+            ZomeCallResponse::Ok(data) => match data.decode::<Option<Record>>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "failed to decode machine: {e}"
+                )))
+            })? {
+                Some(record) => record,
+                None => {
+                    rejected.push(CapabilityPlanDecision {
+                        machine_hash: Some(machine_hash),
+                        capability_contract_hash: contract_hash,
+                        machine_status: None,
+                        eligible: false,
+                        mismatch: None,
+                        rejection: Some(CapabilityPlanRejection::MachineNotFound),
+                    });
+                    continue;
+                }
+            },
+            _ => {
+                rejected.push(CapabilityPlanDecision {
+                    machine_hash: Some(machine_hash),
+                    capability_contract_hash: contract_hash,
+                    machine_status: None,
+                    eligible: false,
+                    mismatch: None,
+                    rejection: Some(CapabilityPlanRejection::MachineLookupFailed),
+                });
+                continue;
+            }
+        };
+
+        let machine: MachineProjection = match machine_record.entry().to_app_option().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(e.to_string()))
+        })? {
+            Some(machine) => machine,
+            None => {
+                rejected.push(CapabilityPlanDecision {
+                    machine_hash: Some(machine_hash),
+                    capability_contract_hash: contract_hash,
+                    machine_status: None,
+                    eligible: false,
+                    mismatch: None,
+                    rejection: Some(CapabilityPlanRejection::MachineMalformed),
+                });
+                continue;
+            }
+        };
+
+        if machine.status != MachineStatus::Available {
+            rejected.push(CapabilityPlanDecision {
+                machine_hash: Some(machine_hash),
+                capability_contract_hash: contract_hash,
+                machine_status: Some(machine.status),
+                eligible: false,
+                mismatch: None,
+                rejection: Some(CapabilityPlanRejection::MachineUnavailable),
+            });
+            continue;
+        }
+
+        let profile = capability_profile(&contract);
+        raw.push((
+            machine_hash.to_string(),
+            machine_hash,
+            contract_hash,
+            profile,
+            MachineStatus::Available,
+        ));
+    }
+
+    raw.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then_with(|| a.2.to_string().cmp(&b.2.to_string()))
+    });
+
+    let mut machine_contract_counts = std::collections::HashMap::new();
+    for (machine_id, _, _, _, _) in &raw {
+        *machine_contract_counts.entry(machine_id.clone()).or_insert(0usize) += 1;
+    }
+
+    let mut candidates = Vec::new();
+    let mut candidate_meta = Vec::new();
+
+    for (machine_id, machine_hash, contract_hash, profile, status) in raw {
+        if machine_contract_counts.get(&machine_id).copied().unwrap_or(0) != 1 {
+            rejected.push(CapabilityPlanDecision {
+                machine_hash: Some(machine_hash),
+                capability_contract_hash: contract_hash,
+                machine_status: Some(status),
+                eligible: false,
+                mismatch: None,
+                rejection: Some(CapabilityPlanRejection::MultipleContractsForMachine),
+            });
+            continue;
+        }
+
+        candidates.push(CapabilityCandidate {
+            machine_id: machine_id.clone(),
+            profile,
+        });
+        candidate_meta.push((machine_id, machine_hash, contract_hash, status));
+    }
+
+    let selection = select_capable_machine(&input.requirement, candidates);
+
+    let mut decisions = rejected;
+    for decision in selection.decisions {
+        if let Some((_, machine_hash, contract_hash, status)) = candidate_meta
+            .iter()
+            .find(|(id, _, _, _)| *id == decision.machine_id)
+        {
+            decisions.push(CapabilityPlanDecision {
+                machine_hash: Some(machine_hash.clone()),
+                capability_contract_hash: contract_hash.clone(),
+                machine_status: Some(status.clone()),
+                eligible: decision.eligible,
+                mismatch: decision.mismatch,
+                rejection: None,
+            });
+        }
+    }
+
+    decisions.sort_by(|a, b| {
+        a.machine_hash
+            .as_ref()
+            .map(ToString::to_string)
+            .cmp(&b.machine_hash.as_ref().map(ToString::to_string))
+            .then_with(|| {
+                a.capability_contract_hash
+                    .to_string()
+                    .cmp(&b.capability_contract_hash.to_string())
+            })
+    });
+
+    let selected_machine_hash = selection.selected_machine_id.and_then(|id| {
+        candidate_meta
+            .iter()
+            .find(|(machine_id, _, _, _)| *machine_id == id)
+            .map(|(_, hash, _, _)| hash.clone())
+    });
+    let selected_capability_contract_hash = selected_machine_hash.as_ref().and_then(|hash| {
+        candidate_meta
+            .iter()
+            .find(|(_, machine_hash, _, _)| machine_hash == hash)
+            .map(|(_, _, contract_hash, _)| contract_hash.clone())
+    });
+
+    Ok(CapabilityPlanSelection {
+        selected_machine_hash,
+        selected_capability_contract_hash,
+        decisions,
+    })
+}
 
 /// Run an MRP planning cycle for the given work orders.
 ///
