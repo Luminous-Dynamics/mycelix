@@ -313,6 +313,10 @@ jobs:
           assert "EXPECTED_MAIN_HEAD_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}" in scanned
           assert 'test "${live_main_sha}" = "${EXPECTED_MAIN_HEAD_SHA}"' in scanned
           assert "TRUST_ROOT_CURRENT_MAIN_HEAD_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}" in scanned
+          predicate_validation_start = scanned.index("      - name: Validate predicate identity")
+          predicate_validation_end = scanned.index("\n\n      - name: Publish isolated signing input", predicate_validation_start)
+          predicate_validation = scanned[predicate_validation_start:predicate_validation_end]
+          assert "          import re" in predicate_validation
           assert "expected_receipt_keys" in scanned
           assert "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1" in scanned
           assert "def validate_receipt(receipt):" in scanned
@@ -980,6 +984,7 @@ jobs:
           import hashlib
           import json
           import os
+          import re
           from pathlib import Path
 
           def reject_duplicate_keys(pairs):
