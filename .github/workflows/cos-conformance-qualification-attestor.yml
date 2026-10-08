@@ -310,6 +310,9 @@ jobs:
           assert 'root["components"]["qualification_attestor_workflow"]["commit"]' not in scanned
           assert '"main_snapshot_sha": os.environ["TRUST_ROOT_MAIN_SNAPSHOT_SHA"]' in scanned
           assert "TRUST_ROOT_MAIN_SNAPSHOT_SHA" in scanned
+          assert "EXPECTED_MAIN_HEAD_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}" in scanned
+          assert 'test "${live_main_sha}" = "${EXPECTED_MAIN_HEAD_SHA}"' in scanned
+          assert "TRUST_ROOT_CURRENT_MAIN_HEAD_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}" in scanned
           assert "Revalidate trust-root at signing time" in scanned
           assert "git/ref/heads/main" in scanned
           assert "trust root rotated after validation" in scanned
@@ -1158,11 +1161,28 @@ jobs:
         env:
           EXPECTED_ROOT_BLOB_SHA: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
           EXPECTED_ROOT_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          EXPECTED_MAIN_HEAD_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           live_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
-          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}          root_path=".github/cos/qualification-trust-root-v2.json"
+          api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".sha")"
+          test "${api_blob_sha}" = "${EXPECTED_ROOT_BLOB_SHA}" || {
+            echo "trust root rotated during attestation publication: expected ${EXPECTED_ROOT_BLOB_SHA}, got ${api_blob_sha}" >&2
+            exit 1
+          }
+          gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".content" |
+            tr -d "\n" | base64 --decode > live-qualification-trust-root-v2-post-signing.json
+          live_sha256="$(sha256sum live-qualification-trust-root-v2-post-signing.json | awk '{print $1}')"
+          test "${live_sha256}" = "${EXPECTED_ROOT_SHA256}" || {
+            echo "trust root content changed during attestation publication: expected ${EXPECTED_ROOT_SHA256}, got ${live_sha256}" >&2
+            exit 1
+          }
+          test "${live_main_sha}" = "${EXPECTED_MAIN_HEAD_SHA}" || {
+            echo "main head changed during attestation publication: expected ${EXPECTED_MAIN_HEAD_SHA}, got ${live_main_sha}" >&2
+            exit 1
+          }
           root_path=".github/cos/qualification-trust-root-v2.json"
           api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".sha")"
           test "${api_blob_sha}" = "${EXPECTED_ROOT_BLOB_SHA}" || {
@@ -1329,6 +1349,7 @@ jobs:
           TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
           TRUST_ROOT_MANIFEST_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
           TRUST_ROOT_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+          TRUST_ROOT_CURRENT_MAIN_HEAD_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}
         run: |
           test -s attestor-evidence/attestation-bundle-verification.json
           set -euo pipefail
