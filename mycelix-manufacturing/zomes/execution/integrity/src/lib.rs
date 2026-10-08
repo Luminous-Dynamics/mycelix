@@ -244,6 +244,7 @@ pub enum LinkTypes {
     WorkOrderToExecutions,
     MachineToExecutions,
     MachineToCapabilities,
+    CapabilityContractToQualificationAttestations,
     ExecutionToInputs,
     ExecutionToOutputs,
     ExecutionToMeasurements,

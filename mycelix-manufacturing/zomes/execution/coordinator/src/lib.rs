@@ -209,6 +209,12 @@ pub fn record_qualification_attestation(
         LinkTypes::AllQualificationAttestations,
         hash.clone(),
     )?;
+    create_link(
+        input.capability_contract_hash,
+        hash.clone(),
+        LinkTypes::CapabilityContractToQualificationAttestations,
+        (),
+    )?;
     Ok(hash)
 }
 
@@ -346,6 +352,26 @@ pub fn record_execution(input: CreateExecutionInput) -> ExternResult<ActionHash>
     }
 
     Ok(hash)
+}
+
+/// Get a qualification attestation by action hash.
+#[hdk_extern]
+pub fn get_qualification_attestation(hash: ActionHash) -> ExternResult<Option<Record>> {
+    get(hash, GetOptions::default())
+}
+
+/// List qualification attestations bound to a specific capability contract.
+#[hdk_extern]
+pub fn list_qualification_attestations_for_contract(
+    capability_contract_hash: ActionHash,
+) -> ExternResult<Vec<Link>> {
+    get_links(
+        GetLinksInputBuilder::try_new(
+            capability_contract_hash,
+            LinkTypes::CapabilityContractToQualificationAttestations,
+        )?
+        .build(),
+    )
 }
 
 #[hdk_extern]
