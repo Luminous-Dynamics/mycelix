@@ -37,6 +37,7 @@ It checks:
 - active/revoked state;
 - manifest freshness/expiry;
 - representation invariance;
+- observed-state monotonicity and same-version non-equivocation;
 - rollback and fast-forward rejection;
 - manifest/authority substitution;
 - mixed-snapshot rejection;
@@ -53,13 +54,13 @@ This distinction prevents a recomputed root from being mistaken for independent 
 
 ## Corpus discipline
 
-The existing classification corpus remains exactly 52 fixed rows / 168 generated rows. Anchor governance uses a separate 21-case campaign so it does not inflate the classification count.
+The existing classification corpus remains exactly 52 fixed rows / 168 generated rows. Anchor governance uses a separate 24-case campaign so it does not inflate the classification count.
 
 The fixed classification IDs are now required to be unique. This closes a composition defect where policy-liveness lookup by case ID could silently select the wrong duplicate row.
 
 ## Important ceiling
 
-The current root digest is supplied by the workflow invocation. Because this workflow remains in the same repository branch, a hostile PR can rewrite the workflow and change that pin. Therefore this is a repository-level trust-separation theorem, not yet independent hosted authority.
+The current root and observed-state digests are supplied by the workflow invocation. Because this workflow remains in the same repository branch, a hostile PR can rewrite the workflow and change that pin. Therefore this is a repository-level trust-separation theorem, not yet independent hosted authority.
 
 The next ceiling remains a protected default-branch S0/S1/S2 mechanism, as described by #1146: trusted discovery, unprivileged exact-subject execution, and trusted receipt verification.
 
