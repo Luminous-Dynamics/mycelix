@@ -696,7 +696,7 @@ fn validate_actions(actions_json: &str) -> ExternResult<()> {
 /// effects and does not independently authenticate the evidence; that remains
 /// the responsibility of the configured host-side outcome verifier.
 #[derive(Serialize, Deserialize, Debug)]
-pub struct CompletePreparedExecutionInput {
+pub struct RecordPreparedExecutionResolutionInput {
     pub execution_id: String,
     pub timelock_id: String,
     pub executor_did: String,
@@ -707,11 +707,11 @@ pub struct CompletePreparedExecutionInput {
 }
 
 #[hdk_extern]
-pub fn complete_prepared_execution(
-    input: CompletePreparedExecutionInput,
+pub fn record_prepared_execution_resolution(
+    input: RecordPreparedExecutionResolutionInput,
 ) -> ExternResult<Record> {
     if input.execution_id.is_empty()
-        || input.execution_id.len() > 256
+        || input.execution_id.len() > 240
         || input.timelock_id.is_empty()
         || input.timelock_id.len() > 256
     {
@@ -771,11 +771,50 @@ pub fn complete_prepared_execution(
         )));
     }
 
-    let resolution_id = format!(
-        "resolution:{}:{}",
-        input.execution_id,
-        sys_time()?.as_micros()
-    );
+    // Resolution is source-chain scoped to the single executor identity.
+    // Re-submit of the same resolution returns the existing record; a different
+    // resolution for the same execution is rejected.
+    let existing_links = get_links(
+        LinkQuery::try_new(
+            execution_record.action_address().clone(),
+            LinkTypes::ExecutionToResolution,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    for link in existing_links {
+        if let Ok(action_hash) = ActionHash::try_from(link.target.clone()) {
+            if let Some(record) = get(action_hash, GetOptions::default())? {
+                if let Some(existing) = record
+                    .entry()
+                    .to_app_option::<ExecutionResolution>()
+                    .ok()
+                    .flatten()
+                {
+                    let same = existing.execution_id == input.execution_id
+                        && existing.timelock_id == input.timelock_id
+                        && existing.proposal_id == execution.proposal_id
+                        && existing.executor == input.executor_did
+                        && existing.attempt_identities == input.attempt_identities
+                        && existing.action_key_digests == input.action_key_digests
+                        && existing.terminal_evidence_digests
+                            == input.terminal_evidence_digests
+                        && existing.outcome == input.outcome;
+
+                    if same {
+                        return Ok(record);
+                    }
+
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "Execution '{}' already has a conflicting resolution",
+                        input.execution_id
+                    ))));
+                }
+            }
+        }
+    }
+
+    let resolution_id = format!("resolution:{}", input.execution_id);
     let resolution = ExecutionResolution {
         id: resolution_id,
         execution_id: input.execution_id,
