@@ -30,6 +30,8 @@ AllowSubsumption == ChildAllow \subseteq ParentAllow
 DenyPreservation == ParentDeny \subseteq ChildDeny
 EffectiveSubset == Effective(ChildAllow,ChildDeny,ChildConflictRule) \subseteq Effective(ParentAllow,ParentDeny,"deny-overrides")
 PolicyAttenuation == AllowSubsumption /\ DenyPreservation /\ EffectiveSubset
+NaiveSubsumption == PolicyAttenuation
+AdmittedSubsumption == ChildSupported /\ PolicyAttenuation
 SyntaxSemanticSeparation == (Control = "normalization-equivalence") => (~SyntaxEqual /\ SemanticEquivalent)
 NormalizationNonEquivalentRejected == (Control = "non-equivalent-normalization") => ~SemanticEquivalent
 UnsupportedExtensionFailClosed == (Control = "unknown-extension-treated-as-subsumed" \/ Control = "unsupported-compound-extension") => ~ChildSupported
@@ -41,8 +43,8 @@ ContextWeakeningRejected == Control # "context-weakening" \/ ~AllowSubsumption
 NormalizationEquivalenceAccepted == Control # "normalization-equivalence" \/ (SemanticEquivalent /\ ~SyntaxEqual)
 DenyDeletionRejected == Control # "deny-set-deletion" \/ ~DenyPreservation
 ConflictRuleSubstitutionRejected == Control # "conflict-rule-substitution" \/ ~PolicyAttenuation
-UnknownExtensionRejected == Control # "unknown-extension-treated-as-subsumed" \/ ~ChildSupported
-CompoundExtensionRejected == Control # "unsupported-compound-extension" \/ ~ChildSupported
+UnknownExtensionRejected == Control # "unknown-extension-treated-as-subsumed" \/ ~NaiveSubsumption
+CompoundExtensionRejected == Control # "unsupported-compound-extension" \/ ~NaiveSubsumption
 SetOrderReflexive == \A A \in SUBSET Requests : A \subseteq A
 SetOrderTransitive ==
   \A A \in SUBSET Requests :
