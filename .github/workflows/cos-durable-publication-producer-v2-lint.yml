@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/cos-durable-publication-producer-v2.yml
       - .github/workflows/cos-durable-publication-producer-v2-lint.yml
+      - .github/workflows/cos-durable-publication-verify.yml
 
 permissions:
   contents: read
@@ -39,7 +40,7 @@ jobs:
       - name: Lint V2 producer
         run: |
           set -euo pipefail
-          ./actionlint -oneline .github/workflows/cos-durable-publication-producer-v2.yml
+          ./actionlint -oneline .github/workflows/cos-durable-publication-producer-v2.yml .github/workflows/cos-durable-publication-verify.yml
 
       - name: Verify privilege and evidence invariants
         run: |
