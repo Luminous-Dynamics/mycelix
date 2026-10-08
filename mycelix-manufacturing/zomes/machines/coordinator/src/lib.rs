@@ -87,13 +87,16 @@ fn resolve_machine_state_from_action(
 
         if !record_details.deletes.is_empty() {
             saw_deleted = true;
-            continue;
         }
 
         if !record_details.updates.is_empty() {
             for update in record_details.updates {
                 pending.push(update.as_hash().clone());
             }
+            continue;
+        }
+
+        if !record_details.deletes.is_empty() {
             continue;
         }
 
