@@ -17,6 +17,19 @@ BadNominalPromotion(s, p) ==
                   jurisdictionBeforeSwitch>>
   /\ clock' = NextTime
 
+
+BadMissingNominal(s, p) ==
+  /\ Advanceable
+  /\ NominalAlternative(s, p)
+  /\ p \notin nominalExit[s]
+  /\ effectiveExit' = [effectiveExit EXCEPT ![s] = @ \cup {p}]
+  /\ UNCHANGED <<currentProvider, viableProviders, nominalExit, portable,
+                  obligationsPreserved, historyPreserved, authority, jurisdiction,
+                  switchingCost, reviewRequired, providerFailed, failureObserved,
+                  failureAuthority, switchObserved, authorityBeforeSwitch,
+                  jurisdictionBeforeSwitch>>
+  /\ clock' = NextTime
+
 BadSharedRoot(s, p) ==
   /\ Advanceable
   /\ NominalAlternative(s, p)
@@ -123,8 +136,11 @@ BadSwitchReview(s) ==
 
 NegativeNext ==
   \/ Next
-  \/ IF Control = "nominal-effective" THEN
+  \/ IF Control = "nonportable-effective" THEN
        \E s \in Subjects, p \in Providers : BadNominalPromotion(s, p)
+     ELSE FALSE
+  \/ IF Control = "missing-nominal" THEN
+       \E s \in Subjects, p \in Providers : BadMissingNominal(s, p)
      ELSE FALSE
   \/ IF Control = "shared-root" THEN
        \E s \in Subjects, p \in Providers : BadSharedRoot(s, p)
