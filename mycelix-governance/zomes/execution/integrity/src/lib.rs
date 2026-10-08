@@ -90,6 +90,10 @@ pub const OVERRIDE_THRESHOLD_FLOOR: f64 = 0.60;
 /// Aligned with Constitution Art. III, Sec. 5.4.
 pub const VETO_YEARLY_LIMIT: u32 = 3;
 
+/// Maximum number of action/evidence tuples carried by one execution resolution.
+/// The limit applies jointly to all parallel vectors and bounds DHT entry size.
+pub const MAX_EXECUTION_RESOLUTION_BINDINGS: usize = 256;
+
 /// Rolling year window for veto limit enforcement (microseconds).
 /// 12 months ≈ 365.25 days.
 pub const ROLLING_YEAR_US: i64 = 365 * 24 * 3600 * 1_000_000 + 6 * 3600 * 1_000_000;
@@ -491,6 +495,12 @@ pub fn check_execution_resolution_bindings(
         || terminal_evidence_digests.is_empty()
     {
         return Err("Resolution requires attempt and terminal evidence bindings".into());
+    }
+    if attempt_identities.len() > MAX_EXECUTION_RESOLUTION_BINDINGS {
+        return Err(format!(
+            "Resolution exceeds maximum binding count of {}",
+            MAX_EXECUTION_RESOLUTION_BINDINGS
+        ));
     }
     if attempt_identities.len() != action_key_digests.len()
         || attempt_identities.len() != terminal_evidence_digests.len()
@@ -1219,6 +1229,35 @@ mod tests {
         let mut missing_final_entry = valid.clone();
         missing_final_entry.final_provider_entry_proof_digests.clear();
         assert!(check_create_execution_resolution(&missing_final_entry).is_err());
+
+        let mut too_many = valid.clone();
+        too_many.attempt_identities = vec![
+            format!("{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}", "a".repeat(64));
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        too_many.action_key_digests = vec![
+            format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "b".repeat(64));
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        too_many.terminal_evidence_digests = vec![
+            format!("{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}", "c".repeat(64));
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        too_many.authorization_admission_proof_digests = vec![
+            format!(
+                "{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}",
+                "d".repeat(64)
+            );
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        too_many.final_provider_entry_proof_digests = vec![
+            format!(
+                "{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}",
+                "e".repeat(64)
+            );
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        assert!(check_create_execution_resolution(&too_many).is_err());
 
         let mut misaligned = valid.clone();
         misaligned
