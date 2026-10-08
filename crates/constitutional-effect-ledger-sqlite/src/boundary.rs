@@ -2110,6 +2110,29 @@ mod tests {
     }
 
     #[test]
+    fn pinned_provider_registry_rejects_duplicate_identities() {
+        let registry = PinnedProviderAdapterRegistry::new(vec![
+            default_test_provider(),
+            default_test_provider(),
+        ]);
+        assert!(matches!(
+            registry,
+            Err(message) if message.contains("registered more than once")
+        ));
+    }
+
+    #[test]
+    fn pinned_provider_registry_exposes_only_registered_identity() {
+        let registry = PinnedProviderAdapterRegistry::new(vec![default_test_provider()]).unwrap();
+        assert!(registry.contains("provider-adapter-v1"));
+        assert!(!registry.contains("wrong-provider-adapter-v1"));
+        assert_eq!(
+            registry.identities().collect::<Vec<_>>(),
+            vec!["provider-adapter-v1"],
+        );
+    }
+
+    #[test]
     fn provider_idempotency_key_excludes_operation_identifier() {
         let action_key = action();
         let attempt_identity_a = identity("attempt-idempotency-a");
