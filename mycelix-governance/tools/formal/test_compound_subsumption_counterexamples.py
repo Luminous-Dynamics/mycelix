@@ -177,8 +177,17 @@ def replay_and_assert(name: str, raw: dict[str, Any], result: dict[str, Any]) ->
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--evidence-dir", type=Path, required=True)
+    parser.add_argument("--matrix", type=Path, default=HERE.parents[2] / "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json")
     args = parser.parse_args()
     args.evidence_dir.mkdir(parents=True, exist_ok=True)
+    matrix = json.loads(args.matrix.read_text(encoding="utf-8"))
+    check(matrix.get("schema") == "mycelix.compound-subsumption-counterexample-control-matrix.v1", "unexpected control matrix schema")
+    check(matrix.get("finite_universe", {}).get("request_count") == UNIVERSE_SIZE, "matrix finite-universe count mismatch")
+    frozen = {row["id"]: row for row in matrix.get("controls", [])}
+    check(len(frozen) == len(matrix.get("controls", [])), "duplicate matrix control IDs")
+    built_controls = controls()
+    check(set(frozen) == {name for name, _, _ in built_controls}, "matrix and executable control IDs differ")
+    check(all(frozen[name]["expected_status"] == expected for name, _, expected in built_controls), "matrix expected statuses differ from executable controls")
     receipt: dict[str, Any] = {
         "schema": "mycelix.compound-subsumption-counterexample-controls.v1",
         "status": "RUNNING",
@@ -191,8 +200,9 @@ def main() -> int:
         receipt["source_head"] = head
         source_path = HERE / "compound_subsumption_counterexamples.py"
         receipt["oracle_source_sha256"] = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        receipt["control_matrix_sha256"] = hashlib.sha256(args.matrix.read_bytes()).hexdigest()
         named_results = {}
-        for name, raw, expected_status in controls():
+        for name, raw, expected_status in built_controls:
             result = oracle.evaluate_scenario(raw)
             check(result["status"] == expected_status,
                   f"{name}: expected {expected_status}, got {result['status']}")
@@ -207,8 +217,10 @@ def main() -> int:
                    "input_sha256": result["input_sha256"], "result_sha256": result["result_sha256"]}
             if "counterexample" in result:
                 row["counterexample"] = result["counterexample"]
+            row["marker"] = frozen[name]["marker"]
             receipt["controls"].append(row)
             named_results[name] = result
+            print(frozen[name]["marker"])
 
         forward = named_results["clause-order-forward"]
         reverse = named_results["clause-order-reverse"]
