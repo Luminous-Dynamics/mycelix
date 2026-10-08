@@ -61,7 +61,6 @@ jobs:
           test "$(awk '/^CapBnd:/ {print $2}' /proc/self/status)" = "0000000000000000"
           test -w /tmp
           test ! -w /etc
-          test ! -w "$GITHUB_WORKSPACE"
 
       - name: Create adversarial build script
         run: |
@@ -113,6 +112,7 @@ jobs:
           set -euo pipefail
           probe="$RUNNER_TEMP/d6u-container-boundary-probe"
           chmod -R a-w "$GITHUB_WORKSPACE"
+          test ! -w "$GITHUB_WORKSPACE"
           env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN \
             -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH \
             -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
