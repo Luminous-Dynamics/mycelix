@@ -72,6 +72,16 @@ fn tagged(prefix: &str, hash: blake3::Hash) -> String {
     format!("{prefix}{}", hash.to_hex())
 }
 
+fn reconciliation_token(owner_token: &str, attempt_identity: &str, action_key_digest: &str) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"MYCELIX-CONSTITUTIONAL-RECONCILIATION-TOKEN\0V1\0");
+    push_str(&mut hasher, owner_token);
+    push_str(&mut hasher, attempt_identity);
+    push_str(&mut hasher, action_key_digest);
+    tagged("constitutional-reconciliation-token-v1:", hasher.finalize())
+}
+
+
 fn attempt_state_tag(state: AttemptRecordState) -> u8 {
     match state {
         AttemptRecordState::Consumed => 1,
@@ -297,6 +307,7 @@ pub struct AttemptRecordV1 {
     pub provider_audience: String,
     pub adapter_identity: String,
     pub ownership_token_digest: String,
+    pub reconciliation_token_digest: Option<String>,
     pub terminal_evidence_digest: Option<String>,
     pub state: AttemptRecordState,
     pub not_entered_marker: Option<String>,
@@ -373,6 +384,7 @@ impl AttemptRecordV1 {
             provider_audience,
             adapter_identity,
             ownership_token_digest,
+            reconciliation_token_digest: None,
             terminal_evidence_digest: None,
             state,
             not_entered_marker: None,
@@ -463,6 +475,16 @@ impl AttemptRecordV1 {
                 "terminal_evidence_digest is only valid for terminal outcomes".into(),
             );
         }
+        if let Some(token) = &self.reconciliation_token_digest {
+            require_opaque("reconciliation_token_digest", token, MAX_REF_LEN)?;
+        }
+        if self.state == AttemptRecordState::Indeterminate && self.reconciliation_token_digest.is_none() {
+            return Err("Indeterminate requires reconciliation_token_digest".into());
+        }
+        if self.state != AttemptRecordState::Indeterminate && self.reconciliation_token_digest.is_some() {
+            return Err("reconciliation_token_digest is only valid for Indeterminate".into());
+        }
+
         if let Some(evidence) = &self.terminal_evidence_digest {
             require_opaque("terminal_evidence_digest", evidence, MAX_REF_LEN)?;
         }
@@ -506,6 +528,10 @@ impl AttemptRecordV1 {
         push_str(&mut hasher, &self.provider_audience);
         push_str(&mut hasher, &self.adapter_identity);
         push_str(&mut hasher, &self.ownership_token_digest);
+        push_str(
+            &mut hasher,
+            self.reconciliation_token_digest.as_deref().unwrap_or(""),
+        );
         push_str(
             &mut hasher,
             self.terminal_evidence_digest.as_deref().unwrap_or(""),
