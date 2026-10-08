@@ -119,8 +119,8 @@ jobs:
           grep -Fq 'FinalProviderEntryVerifier' "$boundary"
           grep -Fq 'BoundaryTrustRoot' "$boundary"
           grep -Fq 'PinnedBoundaryTrustRoot' "$boundary"
-          grep -Fq 'pub fn dispatch<P: ProviderAdapter>(' "$boundary"
-          grep -Fq 'pub fn reconcile<P: ProviderAdapter>(' "$boundary"
+          grep -Fq 'pub fn dispatch(' "$boundary"
+          grep -Fq 'pub fn reconcile(' "$boundary"
           if grep -Fq 'verifier: &V' "$boundary"; then
             echo 'Per-call terminal verifier injection is not qualified.'
             exit 1
@@ -157,7 +157,7 @@ jobs:
           grep -Fq 'duplicate_admission_remains_idempotent_with_new_proof_timestamp' "$boundary"
           grep -Fq 'authorization_admission_proof_digest' "$boundary"
           grep -Fq 'authorization_admission_proof_digest' "$source"
-          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 6' "$source"
+          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 7' "$source"
           grep -Fq 'entry_admission_proof_survives_restart' "$source"
           grep -Fq 'persisted_entry_proof_without_claim_fails_closed_on_restart' "$source"
           grep -Fq 'DISPATCH_PENDING attempt with entry proof is missing its provider entry claim' "$source"
@@ -170,6 +170,14 @@ jobs:
           grep -Fq 'terminal-evidence-v3:' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'mismatched_provider_idempotency_proof_holds_the_fence' "$boundary"
           grep -Fq 'provider_idempotency_key: &str' "$boundary"
+
+          grep -Fq 'pub fn reconcile_resolution_binding' "$source"
+          grep -Fq 'resolution_binding_reconciles_against_durable_attempt_and_admission_receipt' "$source"
+          grep -Fq 'FINAL_PROVIDER_ENTRY_PROOF_DIGEST_PREFIX' "$source"
+          grep -Fq 'TERMINAL_EVIDENCE_DIGEST_PREFIX' "$source"
+          grep -Fq 'resolution final-entry-proof digest does not match durable attempt' "$source"
+          grep -Fq 'resolution terminal-evidence digest does not match durable attempt' "$source"
+          grep -Fq 'durable admission receipt does not match resolution attempt scope' "$source"
 
           if grep -R -Fq 'InvocationClaimed' mycelix-governance/crates/constitutional-effect-ledger crates/constitutional-effect-ledger-sqlite; then
             echo 'Found a state variant outside the exact v2 model.'
