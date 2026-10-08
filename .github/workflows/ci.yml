@@ -4,9 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+# Pull requests intentionally run regardless of target branch so stacked
+# security-hardening PRs receive hosted qualification evidence at their exact
+# reviewed head instead of silently remaining source-reviewed-only.
 
 env:
+  # PR jobs must test the reviewed source head, not GitHub's synthetic merge ref.
+  QUALIFICATION_CHECKOUT_REPOSITORY: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+  QUALIFICATION_CHECKOUT_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -27,6 +32,9 @@ jobs:
       prism: ${{ steps.filter.outputs.prism }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -68,9 +76,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
+      - name: Assert exact qualification head
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ env.QUALIFICATION_CHECKOUT_REF }}"
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "exact-head checkout mismatch: expected=$expected actual=$actual" >&2
+            exit 1
+          }
       - name: Check formatting
         run: |
           # Each check runs in a subshell `(cd "$dir" && ...)` rather than
@@ -102,6 +123,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -120,6 +143,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -138,6 +163,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -156,6 +183,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -189,6 +218,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: cachix/install-nix-action@v27
         with:
@@ -234,6 +265,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -252,6 +285,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -270,6 +305,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -288,6 +325,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -306,6 +345,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -326,6 +367,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -350,6 +393,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
           submodules: recursive
       - name: Install system dependencies (winit/vello GUI deps for prism-shell, webkit for prism-tauri)
         run: |

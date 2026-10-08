@@ -13,6 +13,7 @@ hdk = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 proposals_integrity = { path = "../integrity" }
+constitutional-effect-ledger = { workspace = true }
 governance-utils = { workspace = true }
 mycelix-bridge-common = { workspace = true }
 mycelix-bridge-proc = { workspace = true }

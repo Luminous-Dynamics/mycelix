@@ -308,6 +308,8 @@ pub enum EntryTypes {
 
 #[hdk_link_types]
 pub enum LinkTypes {
+    /// Deterministic committee ID anchor → committee record
+    CommitteeById,
     /// Committee to its members
     CommitteeToMember,
     /// Committee to signatures it has produced
@@ -362,7 +364,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::SigningCommittee(committee) => {
-                    validate_update_committee(action, committee)
+                    validate_update_committee(action, committee, original_action_hash)
                 }
                 EntryTypes::CommitteeMember(member) => {
                     validate_update_member(action, member, original_action_hash)
@@ -391,16 +393,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterCreateLink {
             link_type,
             base_address: _,
-            target_address: _,
+            target_address,
             tag: _,
-            action: _,
+            action,
         } => match link_type {
+            LinkTypes::CommitteeById => {
+                validate_index_target(action, target_address, IndexTargetKind::Committee)
+            }
             LinkTypes::CommitteeToMember => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CommitteeToSignature => Ok(ValidateCallbackResult::Valid),
             LinkTypes::SignatureToShare => Ok(ValidateCallbackResult::Valid),
             LinkTypes::AgentToCommittee => Ok(ValidateCallbackResult::Valid),
             LinkTypes::EpochToCommittee => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ProposalToSignature => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::ProposalToSignature => {
+                validate_index_target(action, target_address, IndexTargetKind::Signature)
+            }
             LinkTypes::CommitteeToViolation => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ParticipantToViolation => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CommitteeToAttestor => Ok(ValidateCallbackResult::Valid),
@@ -413,6 +420,65 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+#[derive(Clone, Copy)]
+enum IndexTargetKind {
+    Committee,
+    Signature,
+}
+
+fn validate_index_target(
+    action: CreateLink,
+    target_address: AnyLinkableHash,
+    expected: IndexTargetKind,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_action_hash = target_address.into_action_hash().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Indexed target must be an action hash".into())
+    ))?;
+
+    let target_record = must_get_valid_record(target_action_hash)?;
+
+    if action.author() != target_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Indexed target link must be authored by the target record's author".into(),
+        ));
+    }
+
+    match expected {
+        IndexTargetKind::Committee => {
+            let committee = target_record
+                .entry()
+                .to_app_option::<SigningCommittee>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Committee index target has no SigningCommittee entry".into()
+                )))?;
+
+            if committee.id.trim().is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Committee index target has an empty committee ID".into(),
+                ));
+            }
+        }
+        IndexTargetKind::Signature => {
+            let signature = target_record
+                .entry()
+                .to_app_option::<ThresholdSignature>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Proposal signature index target has no ThresholdSignature entry".into()
+                )))?;
+
+            if signature.id.trim().is_empty() || signature.committee_id.trim().is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Proposal signature index target has incomplete identity fields".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate committee creation
@@ -461,36 +527,100 @@ fn validate_create_committee(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Pure validation for committee update -- testable without HDI
-pub fn check_committee_update_validity(committee: &SigningCommittee) -> Result<(), String> {
-    if committee.phase == DkgPhase::Disbanded && committee.active {
-        return Err("Cannot reactivate disbanded committee".into());
+/// Pure validation for committee updates.
+///
+/// Cryptographic committee material, scope, threshold, and epoch define the
+/// authorization domain and therefore cannot be rewritten after creation. The
+/// only mutable fields are the lifecycle phase and active bit, and phase changes
+/// must move monotonically through the DKG state machine.
+pub fn check_committee_update_validity(
+    original: &SigningCommittee,
+    updated: &SigningCommittee,
+) -> Result<(), String> {
+    // Committee identity and policy material is immutable from creation onward.
+    if updated.id != original.id
+        || updated.name != original.name
+        || updated.threshold != original.threshold
+        || updated.member_count != original.member_count
+        || updated.scope != original.scope
+        || updated.created_at != original.created_at
+        || updated.epoch != original.epoch
+        || updated.min_phi != original.min_phi
+        || updated.signature_algorithm != original.signature_algorithm
+        || updated.pq_required != original.pq_required
+    {
+        return Err(
+            "Committee identity/policy material is immutable after creation".into(),
+        );
     }
 
-    if committee.phase == DkgPhase::Complete {
-        let pk_bytes = match committee.public_key {
-            Some(ref bytes) => bytes,
-            None => {
-                return Err("Complete committee must have a public key".into());
-            }
-        };
+    fn phase_rank(phase: &DkgPhase) -> u8 {
+        match phase {
+            DkgPhase::Registration => 0,
+            DkgPhase::CommitmentCollection => 1,
+            DkgPhase::Dealing => 2,
+            DkgPhase::Verification => 3,
+            DkgPhase::Complete => 4,
+            DkgPhase::Disbanded => 5,
+        }
+    }
 
-        if feldman_dkg::Commitment::from_bytes(pk_bytes).is_err() {
+    if phase_rank(&updated.phase) < phase_rank(&original.phase) {
+        return Err(format!(
+            "Committee DKG phase cannot regress: {:?} -> {:?}",
+            original.phase, updated.phase
+        ));
+    }
+
+    // DKG material may converge before completion, but once Complete has been
+    // reached it becomes part of the authorization root and can never change.
+    if matches!(original.phase, DkgPhase::Complete | DkgPhase::Disbanded)
+        && (updated.public_key != original.public_key
+            || updated.commitments != original.commitments)
+    {
+        return Err(
+            "Completed committee cryptographic material is immutable".into(),
+        );
+    }
+
+    if updated.phase == DkgPhase::Disbanded && updated.active {
+        return Err("Disbanded committee cannot remain active".into());
+    }
+
+    if updated.active && matches!(updated.phase, DkgPhase::Disbanded) {
+        return Err("Disbanded committee cannot be active".into());
+    }
+
+    if !updated.active && !matches!(updated.phase, DkgPhase::Disbanded) {
+        return Err("Inactive committee must be Disbanded".into());
+    }
+
+    if updated.phase == DkgPhase::Complete {
+        let public_key = updated
+            .public_key
+            .as_ref()
+            .ok_or_else(|| "Complete committee must have a public key".to_string())?;
+
+        if feldman_dkg::Commitment::from_bytes(public_key).is_err() {
             return Err("Public key is not a valid secp256k1 point".into());
         }
 
-        if (committee.commitments.len() as u32) < committee.threshold {
+        if (updated.commitments.len() as u32) < updated.threshold {
             return Err(format!(
                 "Need at least {} commitment sets, got {}",
-                committee.threshold,
-                committee.commitments.len()
+                updated.threshold,
+                updated.commitments.len()
             ));
         }
 
-        for (i, cs_bytes) in committee.commitments.iter().enumerate() {
-            if feldman_dkg::CommitmentSet::from_bytes(cs_bytes).is_err() {
-                return Err(format!("Invalid commitment set at index {}", i));
+        for (index, commitment_bytes) in updated.commitments.iter().enumerate() {
+            if feldman_dkg::CommitmentSet::from_bytes(commitment_bytes).is_err() {
+                return Err(format!("Invalid commitment set at index {}", index));
             }
+        }
+
+        if !updated.active {
+            return Err("Complete committee must be active until explicitly disbanded".into());
         }
     }
 
@@ -499,10 +629,26 @@ pub fn check_committee_update_validity(committee: &SigningCommittee) -> Result<(
 
 /// Validate committee update
 fn validate_update_committee(
-    _action: Update,
+    action: Update,
     committee: SigningCommittee,
+    original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    if let Err(reason) = check_committee_update_validity(&committee) {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_committee: SigningCommittee = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original signing committee not found".into()
+        )))?;
+
+    if action.author() != original_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original committee author may update the committee".into(),
+        ));
+    }
+
+    if let Err(reason) = check_committee_update_validity(&original_committee, &committee) {
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -618,6 +764,17 @@ fn validate_update_member(
 
 /// Pure validation for threshold signature -- testable without HDI
 pub fn check_signature_validity(sig: &ThresholdSignature) -> Result<(), String> {
+    // The verified field is verifier-produced evidence, not caller-supplied authority.
+    // There is currently no coordinator path on this branch that can mint a
+    // cryptographically verified signature artifact, so accepting verified=true
+    // at creation time would make the flag a self-attestation bypass.
+    if sig.verified {
+        return Err(
+            "verified=true cannot be asserted on ThresholdSignature creation; cryptographic verifier evidence is required"
+                .into(),
+        );
+    }
+
     if sig.signer_count == 0 {
         return Err("Signature must have at least one signer".into());
     }
@@ -938,6 +1095,15 @@ mod tests {
     // --- VSS Commitment Tests ---
 
     #[test]
+    fn test_verified_flag_cannot_be_self_attested() {
+        let mut sig = make_test_signature(ThresholdSignatureAlgorithm::Ecdsa);
+        sig.verified = true;
+        let error = check_signature_validity(&sig).unwrap_err();
+        assert!(error.contains("cannot be asserted"));
+        assert!(error.contains("cryptographic verifier"));
+    }
+
+    #[test]
     fn test_valid_vss_commitment_accepted() {
         let mut member = make_test_member();
         member.vss_commitment = Some(make_valid_commitment_set_bytes(3));
@@ -970,7 +1136,7 @@ mod tests {
         let pk = make_valid_public_key();
         let cs = make_valid_commitment_set_bytes(2);
         let committee = make_test_committee_complete(Some(pk), vec![cs.clone(), cs]);
-        assert!(check_committee_update_validity(&committee).is_ok());
+        assert!(check_committee_update_validity(&committee, &committee).is_ok());
     }
 
     #[test]
@@ -980,7 +1146,7 @@ mod tests {
             Some(vec![0xFF; 33]),
             vec![make_valid_commitment_set_bytes(2)],
         );
-        let result = check_committee_update_validity(&committee);
+        let result = check_committee_update_validity(&committee, &committee);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not a valid secp256k1 point"));
     }
@@ -989,7 +1155,7 @@ mod tests {
     fn test_complete_committee_missing_public_key() {
         let committee =
             make_test_committee_complete(None, vec![make_valid_commitment_set_bytes(2)]);
-        let result = check_committee_update_validity(&committee);
+        let result = check_committee_update_validity(&committee, &committee);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("must have a public key"));
     }
@@ -1000,7 +1166,7 @@ mod tests {
         // threshold=2 but only 1 commitment set
         let committee =
             make_test_committee_complete(Some(pk), vec![make_valid_commitment_set_bytes(2)]);
-        let result = check_committee_update_validity(&committee);
+        let result = check_committee_update_validity(&committee, &committee);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Need at least 2"));
     }
@@ -1359,7 +1525,7 @@ mod tests {
             pq_required: false,
         };
         assert!(
-            check_committee_update_validity(&committee).is_ok(),
+            check_committee_update_validity(&committee, &committee).is_ok(),
             "Completed committee with real DKG data should pass validation"
         );
 
@@ -1380,7 +1546,7 @@ mod tests {
             ..committee.clone()
         };
         assert!(
-            check_committee_update_validity(&bad_committee).is_err(),
+            check_committee_update_validity(&committee, &bad_committee).is_err(),
             "Committee with threshold > commitments should fail"
         );
 
@@ -1390,7 +1556,7 @@ mod tests {
             ..committee.clone()
         };
         assert!(
-            check_committee_update_validity(&bad_pk_committee).is_err(),
+            check_committee_update_validity(&committee, &bad_pk_committee).is_err(),
             "Committee with corrupt public key should fail"
         );
 
@@ -1402,7 +1568,7 @@ mod tests {
             ..committee
         };
         assert!(
-            check_committee_update_validity(&bad_cs_committee).is_err(),
+            check_committee_update_validity(&committee, &bad_cs_committee).is_err(),
             "Committee with corrupt commitment set should fail"
         );
     }
@@ -1429,14 +1595,14 @@ mod tests {
             signature_algorithm: ThresholdSignatureAlgorithm::default(),
             pq_required: false,
         };
-        assert!(check_committee_update_validity(&committee).is_ok());
+        assert!(check_committee_update_validity(&committee, &committee).is_ok());
 
         // None min_phi is valid (no consciousness gate)
         let no_phi = SigningCommittee {
             min_phi: None,
             ..committee.clone()
         };
-        assert!(check_committee_update_validity(&no_phi).is_ok());
+        assert!(check_committee_update_validity(&committee, &no_phi).is_err());
     }
 
     #[test]

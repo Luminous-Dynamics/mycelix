@@ -9,6 +9,9 @@ description = "Governance execution coordinator zome"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+blake3 = "=1.8.5"
+constitutional-effect-ledger = { workspace = true }
+k256 = { workspace = true }
 mycelix-bridge-common = { workspace = true }
 hdk = { workspace = true }
 serde = { workspace = true }

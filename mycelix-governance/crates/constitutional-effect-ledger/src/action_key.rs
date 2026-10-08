@@ -19,6 +19,19 @@ pub const ACTION_KEY_SCHEMA_VERSION: u16 = 1;
 pub const ACTION_KEY_PREFIX: &str = "constitutional-action-key-v1:";
 pub const ATTEMPT_IDENTITY_SCHEMA_VERSION: u16 = 1;
 pub const ATTEMPT_IDENTITY_PREFIX: &str = "constitutional-attempt-identity-v1:";
+pub const MATERIAL_ACTION_DIGEST_PREFIX: &str = "constitutional-material-action-v1:";
+pub const EXECUTION_AUTHORIZATION_SCHEMA_VERSION: u16 = 2;
+pub const NATIVE_REPLAY_IDENTITY_SCHEMA_VERSION: u16 = 1;
+pub const NATIVE_REPLAY_IDENTITY_PREFIX: &str =
+    "constitutional-native-replay-identity-v1:";
+
+const MATERIAL_ACTION_DIGEST_DOMAIN: &[u8] =
+    b"MYCELIX-CONSTITUTIONAL-MATERIAL-ACTION\0V1\0";
+const NATIVE_REPLAY_IDENTITY_DOMAIN: &[u8] =
+    b"MYCELIX-CONSTITUTIONAL-NATIVE-REPLAY-IDENTITY\0V1\0";
+
+const EXECUTION_AUTHORIZATION_DOMAIN: &[u8] =
+    b"MYCELIX-GOVERNANCE-EXECUTION-AUTHORIZATION\0V2\0";
 
 const MAX_REF_LEN: usize = 512;
 const ACTION_KEY_DOMAIN: &[u8] =
@@ -41,6 +54,59 @@ fn push_str(hasher: &mut Hasher, value: &str) {
 
 fn tagged(prefix: &str, hash: blake3::Hash) -> String {
     format!("{prefix}{}", hash.to_hex())
+}
+
+/// Derive the native replay identity from the relying-party-pinned authority
+/// namespace and native authorization identifier only.
+///
+/// Operation IDs, provider ids, wire/profile labels, attempts, wrappers, retries,
+/// and caller-chosen nonces are deliberately excluded.
+pub fn derive_native_replay_identity(
+    authority_namespace: &str,
+    native_authorization_identifier: &str,
+) -> Result<String, String> {
+    require_opaque("authority_namespace", authority_namespace)?;
+    require_opaque(
+        "native_authorization_identifier",
+        native_authorization_identifier,
+    )?;
+
+    let mut h = Hasher::new();
+    h.update(NATIVE_REPLAY_IDENTITY_DOMAIN);
+    h.update(&NATIVE_REPLAY_IDENTITY_SCHEMA_VERSION.to_be_bytes());
+    push_str(&mut h, authority_namespace);
+    push_str(&mut h, native_authorization_identifier);
+    Ok(tagged(NATIVE_REPLAY_IDENTITY_PREFIX, h.finalize()))
+}
+
+/// Derive the canonical material action digest from the exact frozen action bytes.
+///
+/// The byte representation supplied here is already the executor's canonical material
+/// representation. The helper intentionally has no operation, attempt, provider, or
+/// caller-selected retry input.
+pub fn material_action_digest(action_bytes: &[u8]) -> String {
+    let mut h = Hasher::new();
+    h.update(MATERIAL_ACTION_DIGEST_DOMAIN);
+    h.update(&(action_bytes.len() as u64).to_be_bytes());
+    h.update(action_bytes);
+    tagged(MATERIAL_ACTION_DIGEST_PREFIX, h.finalize())
+}
+
+/// Derive the authorization message that a native threshold-signing path must bind to.
+///
+/// This is not the native replay identity. It is the exact message hash used to
+/// cryptographically verify that the accepted proposal authorization covers the
+/// executor-derived ActionKey.
+pub fn execution_authorization_digest(
+    proposal_id: &str,
+    action_key_digest: &str,
+) -> Vec<u8> {
+    let mut h = Hasher::new();
+    h.update(EXECUTION_AUTHORIZATION_DOMAIN);
+    h.update(&EXECUTION_AUTHORIZATION_SCHEMA_VERSION.to_be_bytes());
+    push_str(&mut h, proposal_id);
+    push_str(&mut h, action_key_digest);
+    h.finalize().as_bytes().to_vec()
 }
 
 /// Shared collision namespace for one material action at one effecting target.
@@ -185,6 +251,50 @@ mod tests {
 
     fn attempt(boundary: &str, instance: &str, attempt: &str) -> AttemptIdentityV1 {
         AttemptIdentityV1::new(boundary, instance, attempt).unwrap()
+    }
+
+    #[test]
+    fn native_replay_identity_uses_only_authority_namespace_and_native_id() {
+        let a = derive_native_replay_identity("threshold-signing", "signature-1").unwrap();
+        let b = derive_native_replay_identity("threshold-signing", "signature-1").unwrap();
+        let c = derive_native_replay_identity("threshold-signing", "signature-2").unwrap();
+        let d = derive_native_replay_identity("other-authority", "signature-1").unwrap();
+
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        assert_ne!(a, d);
+        assert!(a.starts_with(NATIVE_REPLAY_IDENTITY_PREFIX));
+    }
+
+    #[test]
+    fn material_action_digest_is_deterministic_and_domain_separated() {
+        let a = material_action_digest(br#"[{"type":"EmitEvent","event":"x"}]"#);
+        let b = material_action_digest(br#"[{"type":"EmitEvent","event":"x"}]"#);
+        let c = material_action_digest(br#"[{"type":"EmitEvent","event":"y"}]"#);
+
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        assert!(a.starts_with(MATERIAL_ACTION_DIGEST_PREFIX));
+    }
+
+    #[test]
+    fn execution_authorization_digest_binds_exact_proposal_and_action_key() {
+        let a = execution_authorization_digest(
+            "proposal-1",
+            "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+        let b = execution_authorization_digest(
+            "proposal-2",
+            "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+        let c = execution_authorization_digest(
+            "proposal-1",
+            "constitutional-action-key-v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        );
+
+        assert_eq!(a.len(), 32);
+        assert_ne!(a, b);
+        assert_ne!(a, c);
     }
 
     #[test]

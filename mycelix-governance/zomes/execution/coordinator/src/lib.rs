@@ -10,11 +10,55 @@ use execution_integrity::*;
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
+use constitutional_effect_ledger::{
+    execution_authorization_digest, material_action_digest, ActionKeyV1, AttemptIdentityV1,
+};
+use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
+
+/// Exact proposal mirror used by the execution admission boundary.
+///
+/// SYNC-MIRROR: field order must match proposals/integrity/src/lib.rs::Proposal.
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+struct ProposalExecutionMirror {
+    id: String,
+    title: String,
+    description: String,
+    proposal_type: ProposalExecutionTypeMirror,
+    author: String,
+    status: ProposalExecutionStatusMirror,
+    actions: String,
+    discussion_url: Option<String>,
+    voting_starts: Timestamp,
+    voting_ends: Timestamp,
+    created: Timestamp,
+    updated: Timestamp,
+    version: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum ProposalExecutionTypeMirror {
+    Standard,
+    Emergency,
+    Constitutional,
+    Parameter,
+    Funding,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+enum ProposalExecutionStatusMirror {
+    Draft,
+    Active,
+    Ended,
+    Approved,
+    Signed,
+    Rejected,
+    Executed,
+    Cancelled,
+    Failed,
+}
 
 /// Mirror type for ThresholdSignature from threshold-signing integrity zome.
 /// Avoids linking the integrity crate (which causes duplicate HDI symbols in WASM).
-///
-/// Uses `SerializedBytes` for Holochain entry deserialization via `to_app_option()`.
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 struct ThresholdSignature {
     pub id: String,
@@ -22,23 +66,87 @@ struct ThresholdSignature {
     pub signed_content_hash: Vec<u8>,
     pub signed_content_description: String,
     pub signature: Vec<u8>,
+    #[serde(default)]
+    pub pq_signature: Option<Vec<u8>>,
+    #[serde(default)]
+    pub signature_algorithm: ThresholdSignatureAlgorithmMirror,
     pub signer_count: u32,
     pub signers: Vec<u32>,
     pub verified: bool,
     pub signed_at: Timestamp,
 }
 
-/// Mirror type for SigningCommittee — extracts only the scope field.
-/// Avoids full dependency on threshold-signing integrity crate (which
-/// causes duplicate HDI symbols in WASM).
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
-struct CommitteeScopeMirror {
-    #[serde(default)]
-    pub scope: serde_json::Value,
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+enum ThresholdSignatureAlgorithmMirror {
+    Ecdsa,
+    MlDsa65,
+    HybridEcdsaMlDsa65,
 }
 
-/// Extract the scope variant name from a CommitteeScopeMirror.
-/// Handles both simple variants ("All") and tagged variants ({"Custom": [...]}).
+impl Default for ThresholdSignatureAlgorithmMirror {
+    fn default() -> Self {
+        Self::Ecdsa
+    }
+}
+
+/// Mirror type for the SigningCommittee fields needed for independent verification.
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+struct CommitteeVerificationMirror {
+    #[serde(default)]
+    pub scope: serde_json::Value,
+    #[serde(default)]
+    pub public_key: Option<Vec<u8>>,
+    #[serde(default)]
+    pub threshold: u32,
+    #[serde(default)]
+    pub member_count: u32,
+    #[serde(default)]
+    pub active: bool,
+    #[serde(default)]
+    pub signature_algorithm: ThresholdSignatureAlgorithmMirror,
+}
+
+fn verify_ecdsa_threshold_signature(
+    signature: &ThresholdSignature,
+    committee: &CommitteeVerificationMirror,
+) -> Result<(), String> {
+    if signature.signed_content_hash.len() != 32 {
+        return Err(format!(
+            "ECDSA authorization requires a 32-byte signed-content hash, got {}",
+            signature.signed_content_hash.len()
+        ));
+    }
+
+    let public_key = committee
+        .public_key
+        .as_deref()
+        .ok_or_else(|| "committee has no public key".to_owned())?;
+    if public_key.len() != 33 {
+        return Err(format!(
+            "committee secp256k1 public key must be 33-byte compressed SEC1, got {}",
+            public_key.len()
+        ));
+    }
+
+    let verifying_key = VerifyingKey::from_sec1_bytes(public_key)
+        .map_err(|e| format!("invalid committee secp256k1 public key: {e}"))?;
+
+    if signature.signature.len() != 64 {
+        return Err(format!(
+            "ECDSA authorization signature must be exactly 64 raw r||s bytes, got {}",
+            signature.signature.len()
+        ));
+    }
+
+    let signature_value = Signature::from_slice(&signature.signature)
+        .map_err(|e| format!("invalid ECDSA authorization signature encoding: {e}"))?;
+
+    verifying_key
+        .verify_prehash(&signature.signed_content_hash, &signature_value)
+        .map_err(|e| format!("ECDSA authorization verification failed: {e}"))
+}
+
+/// Extract the scope variant name from a committee scope value.
 fn extract_scope_name(scope: &serde_json::Value) -> &str {
     match scope {
         serde_json::Value::String(s) => s.as_str(),
@@ -46,7 +154,6 @@ fn extract_scope_name(scope: &serde_json::Value) -> &str {
         _ => "All",
     }
 }
-
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
@@ -63,9 +170,31 @@ fn find_timelock_by_id(timelock_id: &str) -> ExternResult<Record> {
             LinkQuery::try_new(entry_hash, LinkTypes::TimelockById)?,
             GetStrategy::default(),
         ) {
-            if let Some(link) = links.into_iter().max_by_key(|l| l.timestamp) {
+            if links.len() > 1 {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Ambiguous timelock ID '{}': {} records are linked to the deterministic ID index.",
+                    timelock_id,
+                    links.len()
+                ))));
+            }
+
+            if let Some(link) = links.into_iter().next() {
                 if let Ok(ah) = ActionHash::try_from(link.target) {
                     if let Some(record) = get_latest_record(ah)? {
+                        let timelock = record
+                            .entry()
+                            .to_app_option::<Timelock>()
+                            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                                "TimelockById target has no Timelock entry".into()
+                            )))?;
+
+                        if timelock.id != timelock_id {
+                            return Err(wasm_error!(WasmErrorInner::Guest(
+                                "TimelockById target has a mismatched timelock ID".into()
+                            )));
+                        }
+
                         return Ok(record);
                     }
                 }
@@ -82,8 +211,8 @@ fn find_timelock_by_id(timelock_id: &str) -> ExternResult<Record> {
 
     let records = query(filter)?;
 
-    // Take the LAST match — update_entry appends newer versions later in the chain
-    let mut found: Option<Record> = None;
+    // The fallback is only safe when the timelock ID is unique.
+    let mut matches = Vec::new();
     for record in records {
         if let Some(tl) = record
             .entry()
@@ -91,12 +220,20 @@ fn find_timelock_by_id(timelock_id: &str) -> ExternResult<Record> {
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         {
             if tl.id == timelock_id {
-                found = Some(record);
+                matches.push(record);
             }
         }
     }
 
-    found.ok_or(wasm_error!(WasmErrorInner::Guest(
+    if matches.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Ambiguous timelock ID '{}': fallback source-chain scan found {} timelocks.",
+            timelock_id,
+            matches.len()
+        ))));
+    }
+
+    matches.into_iter().next().ok_or(wasm_error!(WasmErrorInner::Guest(
         "Timelock not found".into()
     )))
 }
@@ -133,6 +270,11 @@ pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
             "Duration cannot exceed 8,760 hours (1 year)".into()
         )));
     }
+
+    let _proposal = require_admissible_proposal(
+        &input.proposal_id,
+        &input.actions,
+    )?;
 
     let now = sys_time()?;
     let timelock_id = format!("timelock:{}:{}", input.proposal_id, now.as_micros());
@@ -258,6 +400,20 @@ pub fn mark_timelock_ready(input: MarkTimelockReadyInput) -> ExternResult<Record
         ))));
     }
 
+    let _proposal = require_admissible_proposal(
+        &current_timelock.proposal_id,
+        &current_timelock.actions,
+    )?;
+
+    // READY is an authorization-admission state, not a cosmetic label. Require
+    // threshold evidence over the exact material action that this timelock contains.
+    let ready_action_key = execution_action_key(&current_timelock.actions)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+    let _signature = require_verified_threshold_signature(
+        &current_timelock.proposal_id,
+        ready_action_key.digest(),
+    )?;
+
     let ready_timelock = Timelock {
         status: TimelockStatus::Ready,
         ..current_timelock
@@ -279,34 +435,371 @@ pub struct MarkTimelockReadyInput {
     pub timelock_id: String,
 }
 
-/// Execute a ready timelock
+/// Fixed execution-boundary namespace for the current governance effect runner.
+///
+/// These are deployment constants, not caller-selected inputs. The material action
+/// digest is derived from the exact action JSON frozen in the timelock.
+const EXECUTION_RELYING_PARTY: &str = "did:mycelix:governance";
+const EXECUTION_EFFECTING_TARGET: &str = "mycelix-governance-execution";
+const EXECUTION_ATTEMPT_BOUNDARY: &str = "governance-execution";
+
+fn execution_action_key(actions_json: &str) -> Result<ActionKeyV1, String> {
+    ActionKeyV1::new(
+        EXECUTION_RELYING_PARTY,
+        EXECUTION_EFFECTING_TARGET,
+        material_action_digest(actions_json.as_bytes()),
+    )
+}
+
+fn execution_attempt_identity(
+    executor_did: &str,
+    timelock_id: &str,
+) -> Result<AttemptIdentityV1, String> {
+    AttemptIdentityV1::new(
+        EXECUTION_ATTEMPT_BOUNDARY,
+        executor_did,
+        timelock_id,
+    )
+}
+
+fn execution_attempt_anchor(timelock_id: &str) -> String {
+    format!("execution-attempt:{}", timelock_id)
+}
+
+fn execution_outcome_evidence(
+    attempt: &ExecutionAttempt,
+    result: &ActionExecutionResult,
+) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"MYCELIX-EXECUTION-OUTCOME-EVIDENCE\0V1\0");
+    for value in [
+        attempt.action_digest.as_str(),
+        attempt.action_key_digest.as_str(),
+        attempt.attempt_identity.as_str(),
+        attempt.native_replay_identity.as_str(),
+        result.result.as_deref().unwrap_or(""),
+        result.error.as_deref().unwrap_or(""),
+    ] {
+        hasher.update(&(value.len() as u64).to_be_bytes());
+        hasher.update(value.as_bytes());
+    }
+    format!(
+        "constitutional-execution-outcome-v1:{}",
+        hasher.finalize().to_hex()
+    )
+}
+
+fn caller_did() -> ExternResult<String> {
+    let agent = agent_info()?;
+    Ok(format!("did:mycelix:{}", agent.agent_initial_pubkey))
+}
+
+fn ensure_execution_authorized(
+    caller: &str,
+    timelock_record: &Record,
+) -> ExternResult<()> {
+    let expected = format!("did:mycelix:{}", timelock_record.action().author());
+    if caller != expected {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Execution must be performed by the timelock authoring agent".into(),
+        )));
+    }
+    Ok(())
+}
+
+fn require_admissible_proposal(
+    proposal_id: &str,
+    actions: &str,
+) -> ExternResult<ProposalExecutionMirror> {
+    let extern_io = governance_utils::call_local(
+        "proposals",
+        "get_proposal",
+        proposal_id.to_owned(),
+    )
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Refusing execution: proposal lookup failed: {e}"
+    ))))?;
+
+    let record: Option<Record> = extern_io.decode().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: proposal response could not be decoded: {e}"
+        )))
+    })?;
+
+    let record = record.ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+        "Refusing execution: proposal '{}' was not found.",
+        proposal_id
+    ))))?;
+
+    let proposal: ProposalExecutionMirror = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: proposal entry could not be decoded: {e}"
+        ))))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: proposal record has no entry.".into()
+        )))?;
+
+    if proposal.id != proposal_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: proposal lookup returned a mismatched proposal ID.".into()
+        )));
+    }
+
+    if !matches!(
+        proposal.status,
+        ProposalExecutionStatusMirror::Approved | ProposalExecutionStatusMirror::Signed
+    ) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: proposal '{}' is not Approved or Signed; current status is {:?}.",
+            proposal_id, proposal.status
+        ))));
+    }
+
+    if proposal.actions != actions {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: timelock actions do not exactly match the approved proposal action bytes."
+                .into()
+        )));
+    }
+
+    Ok(proposal)
+}
+
+fn require_verified_threshold_signature(
+    proposal_id: &str,
+    action_key_digest: &str,
+) -> ExternResult<ThresholdSignature> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::from("threshold_signing"),
+        FunctionName::from("get_proposal_signature"),
+        None,
+        ExternIO::encode(proposal_id.to_owned())
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?,
+    )?;
+
+    let extern_io = match response {
+        ZomeCallResponse::Ok(io) => io,
+        ZomeCallResponse::NetworkError(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: threshold-signing verifier network error: {}", e
+            ))));
+        }
+        other => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: threshold-signing verifier returned {:?}", other
+            ))));
+        }
+    };
+
+    let signature_record: Option<Record> = extern_io.decode().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: could not decode threshold signature response: {}", e
+        )))
+    })?;
+    let signature_record = signature_record.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Refusing execution: no threshold signature is available.".into()
+    )))?;
+
+    let signature: ThresholdSignature = signature_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: threshold signature record is empty.".into()
+        )))?;
+
+    let (proposal_kind, signed_id) = signature
+        .signed_content_description
+        .split_once(':')
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: threshold signature is not structurally proposal-bound.".into()
+        )))?;
+
+    if signed_id != proposal_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: threshold signature '{}' targets '{}' rather than '{}'.",
+            signature.id, signed_id, proposal_id
+        ))));
+    }
+
+    if !matches!(proposal_kind, "proposal" | "constitutional" | "treasury" | "protocol") {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: unsupported signed proposal kind '{}'.", proposal_kind
+        ))));
+    }
+
+    let expected_authorization_digest =
+        execution_authorization_digest(proposal_id, action_key_digest);
+
+    if signature.signed_content_hash.as_slice() != expected_authorization_digest {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: threshold signature '{}' is not bound to the exact proposal/timelock/action authorization tuple.",
+            signature.id
+        ))));
+    }
+
+    let committee_response = call(
+        CallTargetCell::Local,
+        ZomeName::from("threshold_signing"),
+        FunctionName::from("get_committee"),
+        None,
+        ExternIO::encode(signature.committee_id.clone())
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?,
+    )?;
+
+    let committee_io = match committee_response {
+        ZomeCallResponse::Ok(io) => io,
+        ZomeCallResponse::NetworkError(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: signing committee verifier network error: {}", e
+            ))));
+        }
+        other => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: signing committee verifier returned {:?}", other
+            ))));
+        }
+    };
+
+    let committee_record: Option<Record> = committee_io.decode().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: could not decode signing committee response: {}", e
+        )))
+    })?;
+    let committee_record = committee_record.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Refusing execution: signing committee is unavailable.".into()
+    )))?;
+
+    let committee = committee_record
+        .entry()
+        .to_app_option::<CommitteeVerificationMirror>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: signing committee verification fields are unavailable.".into()
+        )))?;
+
+    if !committee.active {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: signing committee is inactive.".into()
+        )));
+    }
+
+    if committee.signature_algorithm != signature.signature_algorithm {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: signature algorithm does not match committee.".into()
+        )));
+    }
+
+    if committee.threshold == 0 || committee.member_count == 0 || committee.threshold > committee.member_count {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Refusing execution: signing committee threshold/member configuration is invalid.".into()
+        )));
+    }
+
+    if signature.signer_count < committee.threshold {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Refusing execution: {} signers do not satisfy threshold {}.",
+            signature.signer_count, committee.threshold
+        ))));
+    }
+
+    let mut unique_signers = std::collections::BTreeSet::new();
+    for signer in &signature.signers {
+        if *signer == 0 || *signer > committee.member_count {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: signer {} is outside committee range.", signer
+            ))));
+        }
+        if !unique_signers.insert(*signer) {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Refusing execution: duplicate signer {} in threshold signature.", signer
+            ))));
+        }
+    }
+
+    match signature.signature_algorithm {
+        ThresholdSignatureAlgorithmMirror::Ecdsa => {
+            verify_ecdsa_threshold_signature(&signature, &committee)
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Refusing execution: {e}"))))?;
+        }
+        ThresholdSignatureAlgorithmMirror::MlDsa65
+        | ThresholdSignatureAlgorithmMirror::HybridEcdsaMlDsa65 => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Refusing execution: PQ/hybrid threshold authorization verifier is not wired.".into()
+            )));
+        }
+    }
+
+    // The verified field is informational; trust is established by the committee
+    // configuration, exact proposal binding, and cryptographic verification above.
+    Ok(signature)
+}
+
+fn find_latest_execution_attempt(timelock_id: &str) -> ExternResult<Option<Record>> {
+    let anchor = execution_attempt_anchor(timelock_id);
+    let anchor_entry_hash = anchor_hash(&anchor)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor_entry_hash, LinkTypes::TimelockToExecutionAttempt)?,
+        GetStrategy::default(),
+    )?;
+    let Some(link) = links.into_iter().max_by_key(|link| link.timestamp) else {
+        return Ok(None);
+    };
+
+    let action_hash = ActionHash::try_from(link.target)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Invalid execution-attempt link target".into(),
+        )))?;
+    get_latest_record(action_hash)
+}
+
+fn find_latest_action_key_attempt(action_key_digest: &str) -> ExternResult<Option<Record>> {
+    if action_key_digest.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Action key digest is required".into()
+        )));
+    }
+
+    let anchor = format!("action-key:{}", action_key_digest);
+    let anchor_entry_hash = anchor_hash(&anchor)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor_entry_hash, LinkTypes::ActionKeyToExecutionAttempt)?,
+        GetStrategy::default(),
+    )?;
+
+    let Some(link) = links.into_iter().max_by_key(|link| link.timestamp) else {
+        return Ok(None);
+    };
+
+    let action_hash = ActionHash::try_from(link.target)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Invalid ActionKey execution-attempt link target".into(),
+        )))?;
+
+    get_latest_record(action_hash)
+}
+
+/// Commit the durable pre-dispatch reservation. This function must not call
+/// execute_actions: its successful return is the source-chain commit boundary
+/// that establishes DISPATCH_PENDING before any protected effect entry.
 #[hdk_extern]
-pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
-    // Input validation
+pub fn prepare_timelock_execution(
+    input: PrepareTimelockExecutionInput,
+) -> ExternResult<Record> {
     if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Timelock ID must be 1-256 characters".into()
         )));
     }
-    if input.executor_did.is_empty() || input.executor_did.len() > 256 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Executor DID must be 1-256 characters".into()
-        )));
-    }
 
-    // Verify the executor DID matches the calling agent
-    let agent = agent_info()?;
-    let expected_did = format!("did:mycelix:{}", agent.agent_initial_pubkey);
-    if input.executor_did != expected_did {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Executor DID must match the calling agent".into()
-        )));
-    }
+    let caller = caller_did()?;
+    let timelock_record = find_timelock_by_id(&input.timelock_id)?;
+    ensure_execution_authorized(&caller, &timelock_record)?;
 
-    // Find the timelock via O(1) link-based lookup
-    let current_record = find_timelock_by_id(&input.timelock_id)?;
-
-    let current_timelock: Timelock = current_record
+    let timelock: Timelock = timelock_record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
@@ -314,241 +807,502 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
             "Invalid timelock entry".into()
         )))?;
 
-    // Verify timelock is ready
     let now = sys_time()?;
-    if now < current_timelock.expires {
+    if now < timelock.expires {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Timelock has not expired yet".into()
         )));
     }
-
-    // Timelock must be in Ready status (transitioned via mark_timelock_ready after
-    // signature verification). Fall back to accepting Pending if threshold-signing
-    // zome is not installed (graceful degradation).
-    match current_timelock.status {
-        TimelockStatus::Ready => {
-            // Normal path — timelock was marked ready after signature verification
-        }
-        TimelockStatus::Pending => {
-            // Check if threshold-signing zome is installed
-            let sig_check = call(
-                CallTargetCell::Local,
-                ZomeName::from("threshold_signing"),
-                FunctionName::from("get_proposal_signature"),
-                None,
-                ExternIO::encode(current_timelock.proposal_id.clone())
-                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?,
-            );
-
-            match sig_check {
-                Ok(ZomeCallResponse::Ok(extern_io)) => {
-                    // Threshold-signing zome is installed — decode and validate
-                    let maybe_record: Option<Record> = extern_io.decode().map_err(|e| {
-                        wasm_error!(WasmErrorInner::Guest(format!(
-                            "Failed to decode threshold signature response: {}",
-                            e
-                        )))
-                    })?;
-
-                    match maybe_record {
-                        None => {
-                            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                                "No verified threshold signature found for proposal '{}'. \
-                                     Call mark_timelock_ready after obtaining a signature.",
-                                current_timelock.proposal_id
-                            ))));
-                        }
-                        Some(sig_record) => {
-                            // Decode the ThresholdSignature entry for validation
-                            let sig: ThresholdSignature = sig_record
-                                .entry()
-                                .to_app_option()
-                                .map_err(|e| {
-                                    wasm_error!(WasmErrorInner::Guest(format!(
-                                        "Failed to decode ThresholdSignature entry: {}",
-                                        e
-                                    )))
-                                })?
-                                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                                    "Threshold signature record has no entry".into()
-                                )))?;
-
-                            // Defense-in-depth: verify signature is marked verified
-                            if !sig.verified {
-                                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                                    "Threshold signature '{}' for proposal '{}' is not verified",
-                                    sig.id, current_timelock.proposal_id
-                                ))));
-                            }
-
-                            // Defense-in-depth: verify signature description references this proposal
-                            if !sig
-                                .signed_content_description
-                                .contains(&current_timelock.proposal_id)
-                            {
-                                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                                    "Threshold signature '{}' content description does not reference proposal '{}' (was: '{}')",
-                                    sig.id,
-                                    current_timelock.proposal_id,
-                                    sig.signed_content_description
-                                ))));
-                            }
-
-                            // Defense-in-depth: verify committee scope covers this proposal type.
-                            // Fetch the committee to check its scope against the proposal.
-                            if let Ok(ZomeCallResponse::Ok(committee_io)) = call(
-                                CallTargetCell::Local,
-                                ZomeName::from("threshold_signing"),
-                                FunctionName::from("get_committee"),
-                                None,
-                                ExternIO::encode(sig.committee_id.clone()).map_err(|e| {
-                                    wasm_error!(WasmErrorInner::Guest(e.to_string()))
-                                })?,
-                            ) {
-                                if let Ok(Some(committee_record)) =
-                                    committee_io.decode::<Option<Record>>()
-                                {
-                                    // Decode scope from committee via mirror struct
-                                    if let Ok(Some(committee_mirror)) = committee_record
-                                        .entry()
-                                        .to_app_option::<CommitteeScopeMirror>(
-                                    ) {
-                                        // Infer proposal type from signed_content_description
-                                        // Format: "proposal:MIP-001" or "constitutional:CA-001" etc.
-                                        let proposal_type = sig
-                                            .signed_content_description
-                                            .split(':')
-                                            .next()
-                                            .unwrap_or("unknown");
-
-                                        let scope_name =
-                                            extract_scope_name(&committee_mirror.scope);
-
-                                        let scope_allows = match scope_name {
-                                            "All" => true,
-                                            "Constitutional" => proposal_type == "constitutional",
-                                            "Treasury" => proposal_type == "treasury",
-                                            "Protocol" => proposal_type == "protocol",
-                                            _ => true, // Custom or unknown — permissive
-                                        };
-
-                                        if !scope_allows {
-                                            return Err(wasm_error!(WasmErrorInner::Guest(
-                                                format!(
-                                                    "Committee '{}' scope '{}' does not authorize signing '{}' proposals",
-                                                    sig.committee_id, scope_name, proposal_type
-                                                )
-                                            )));
-                                        }
-                                    }
-                                }
-                            }
-                            // If committee fetch fails, proceed (signature itself is already verified)
-
-                            // Emit audit signal with signature details
-                            let _ = emit_signal(serde_json::json!({
-                                "type": "ThresholdSignatureVerified",
-                                "proposal_id": current_timelock.proposal_id,
-                                "signature_id": sig.id,
-                                "committee_id": sig.committee_id,
-                                "signer_count": sig.signer_count,
-                                "signers": sig.signers,
-                            }));
-                        }
-                    }
-                }
-                Ok(ZomeCallResponse::NetworkError(e)) => {
-                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                        "Network error checking threshold signature: {}",
-                        e
-                    ))));
-                }
-                _ => {
-                    // Threshold-signing zome not installed — graceful degradation
-                    let _ = emit_signal(serde_json::json!({
-                        "type": "GovernanceWarning",
-                        "warning": "threshold_signing_unavailable",
-                        "message": format!(
-                            "Threshold-signing zome not installed. Executing proposal '{}' without signature verification.",
-                            current_timelock.proposal_id
-                        ),
-                    }));
-                }
-            }
-        }
-        other => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Timelock must be in Ready or Pending status, current: {:?}",
-                other
-            ))));
-        }
+    if timelock.status != TimelockStatus::Ready {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Timelock must be Ready before execution preparation, current: {:?}",
+            timelock.status
+        ))));
     }
 
-    // Execute the actions via cross-zome dispatch
-    let execution_result = execute_actions(&current_timelock.actions)?;
+    let action_key = execution_action_key(&timelock.actions)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
 
-    let execution_id = format!("execution:{}:{}", input.timelock_id, now.as_micros());
+    let signature = require_verified_threshold_signature(
+        &timelock.proposal_id,
+        action_key.digest(),
+    )?;
 
-    let execution = Execution {
-        id: execution_id,
+    if let Some(existing_for_action) = find_latest_action_key_attempt(action_key.digest())? {
+        let existing_attempt: ExecutionAttempt = existing_for_action
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Invalid ActionKey-indexed execution attempt".into()
+            )))?;
+
+        if existing_attempt.timelock_id != input.timelock_id {
+            match existing_attempt.status {
+                ExecutionAttemptStatus::DispatchPending
+                | ExecutionAttemptStatus::Invoked
+                | ExecutionAttemptStatus::InvocationClaimed
+                | ExecutionAttemptStatus::Indeterminate
+                | ExecutionAttemptStatus::Succeeded => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "Refusing execution: ActionKey is already occupied by timelock '{}' in state {:?}.",
+                        existing_attempt.timelock_id,
+                        existing_attempt.status
+                    ))));
+                }
+                ExecutionAttemptStatus::Failed | ExecutionAttemptStatus::NotEntered => {}
+            }
+        }
+    }
+    let native_replay_identity = derive_native_replay_identity(
+        EXECUTION_AUTHORITY_NAMESPACE,
+        &signature.id,
+    )
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+    let attempt_identity = execution_attempt_identity(&caller, &input.timelock_id)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+
+    if let Some(existing) = find_latest_execution_attempt(&input.timelock_id)? {
+        let existing_attempt: ExecutionAttempt = existing
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Invalid existing execution attempt".into()
+            )))?;
+
+        if existing_attempt.action_key_digest != action_key.digest()
+            || existing_attempt.action_digest != action_key.material_action_digest()
+            || existing_attempt.attempt_identity != attempt_identity.digest()
+            || existing_attempt.operation_id != input.timelock_id
+            || existing_attempt.native_replay_identity != native_replay_identity
+            || existing_attempt.provider_environment != EXECUTION_PROVIDER_ENVIRONMENT
+            || existing_attempt.provider_audience != EXECUTION_PROVIDER_AUDIENCE
+            || existing_attempt.adapter_identity != EXECUTION_ADAPTER_IDENTITY
+            || existing_attempt.executor != caller
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Existing execution attempt is bound to different execution identity".into()
+            )));
+        }
+
+        return Ok(existing);
+    }
+
+    let attempt = ExecutionAttempt {
+        id: format!("execution-attempt:{}", input.timelock_id),
+        operation_id: input.timelock_id.clone(),
         timelock_id: input.timelock_id.clone(),
-        proposal_id: current_timelock.proposal_id.clone(),
-        executor: input.executor_did,
-        status: if execution_result.success {
-            ExecutionStatus::Success
-        } else {
-            ExecutionStatus::Failed
-        },
+        proposal_id: timelock.proposal_id.clone(),
+        action_digest: action_key.material_action_digest().to_owned(),
+        action_key_digest: action_key.digest().to_owned(),
+        attempt_identity: attempt_identity.digest().to_owned(),
+        native_replay_identity,
+        provider_environment: EXECUTION_PROVIDER_ENVIRONMENT.into(),
+        provider_audience: EXECUTION_PROVIDER_AUDIENCE.into(),
+        adapter_identity: EXECUTION_ADAPTER_IDENTITY.into(),
+        executor: caller,
+        status: ExecutionAttemptStatus::DispatchPending,
+        prepared_at: now,
+        updated_at: now,
+        outcome_evidence_commitment: None,
+        not_entered_marker: None,
+    };
+
+    let action_hash = create_entry(&EntryTypes::ExecutionAttempt(attempt))?;
+
+    let anchor = execution_attempt_anchor(&input.timelock_id);
+    create_entry(&EntryTypes::Anchor(Anchor(anchor.clone())))?;
+    create_link(
+        anchor_hash(&anchor)?,
+        action_hash.clone(),
+        LinkTypes::TimelockToExecutionAttempt,
+        (),
+    )?;
+
+    // Defense-in-depth DHT index for same-action discovery. This does not claim
+    // global linearizable fencing; that property remains the DurableActionFenceStore
+    // deployment requirement.
+    let action_anchor = attempt.action_key_anchor();
+    create_entry(&EntryTypes::Anchor(Anchor(action_anchor.clone())))?;
+    create_link(
+        anchor_hash(&action_anchor)?,
+        action_hash.clone(),
+        LinkTypes::ActionKeyToExecutionAttempt,
+        (),
+    )?;
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Execution attempt could not be read after reservation".into()
+    )))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PrepareTimelockExecutionInput {
+    pub timelock_id: String,
+}
+
+/// Commit INVOKED before crossing the protected effect boundary.
+/// No effecting call is made here.
+#[hdk_extern]
+pub fn mark_execution_invoked(
+    input: MarkExecutionInvokedInput,
+) -> ExternResult<Record> {
+    if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Timelock ID must be 1-256 characters".into()
+        )));
+    }
+
+    let caller = caller_did()?;
+    let current_record = find_latest_execution_attempt(&input.timelock_id)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No prepared execution attempt exists".into()
+        )))?;
+
+    let current: ExecutionAttempt = current_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid execution attempt entry".into()
+        )))?;
+
+    if current.executor != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the execution-attempt owner may mark invocation".into()
+        )));
+    }
+    if current.status != ExecutionAttemptStatus::DispatchPending {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution attempt must be DispatchPending, current: {:?}",
+            current.status
+        ))));
+    }
+
+    let updated = ExecutionAttempt {
+        status: ExecutionAttemptStatus::Invoked,
+        updated_at: sys_time()?,
+        ..current
+    };
+
+    let action_hash = update_entry(
+        current_record.action_address().clone(),
+        &EntryTypes::ExecutionAttempt(updated),
+    )?;
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Execution attempt invocation marker could not be read after commit".into()
+    )))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MarkExecutionInvokedInput {
+    pub timelock_id: String,
+}
+
+/// Commit a single-use invocation claim after INVOKED is durable.
+///
+/// This is intentionally a separate source-chain transaction from the actual
+/// provider call. A second concurrent claimant cannot also move the same
+/// attempt out of Invoked once one claim has committed.
+#[hdk_extern]
+pub fn claim_execution_invocation(
+    input: ClaimExecutionInvocationInput,
+) -> ExternResult<Record> {
+    if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Timelock ID must be 1-256 characters".into()
+        )));
+    }
+
+    let caller = caller_did()?;
+    let current_record = find_latest_execution_attempt(&input.timelock_id)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No execution attempt exists for invocation claim".into()
+        )))?;
+
+    let current: ExecutionAttempt = current_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid execution attempt entry".into()
+        )))?;
+
+    if current.executor != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the execution-attempt owner may claim invocation".into()
+        )));
+    }
+    if current.status != ExecutionAttemptStatus::Invoked {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution attempt must be Invoked before claiming provider entry, current: {:?}",
+            current.status
+        ))));
+    }
+
+    let timelock_record = find_timelock_by_id(&input.timelock_id)?;
+    let timelock: Timelock = timelock_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid timelock entry during invocation claim".into()
+        )))?;
+
+    let action_key = execution_action_key(&timelock.actions)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+
+    if current.action_key_digest != action_key.digest()
+        || current.action_digest != action_key.material_action_digest()
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invocation claim action identity does not match the durable attempt".into()
+        )));
+    }
+
+    let updated = ExecutionAttempt {
+        status: ExecutionAttemptStatus::InvocationClaimed,
+        updated_at: sys_time()?,
+        ..current
+    };
+
+    let action_hash = update_entry(
+        current_record.action_address().clone(),
+        &EntryTypes::ExecutionAttempt(updated),
+    )?;
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Invocation claim could not be read after commit".into()
+    )))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ClaimExecutionInvocationInput {
+    pub timelock_id: String,
+}
+
+/// Invoke an execution attempt whose invocation claim is already durable.
+///
+/// IMPORTANT: after execute_actions returns, this function performs no fallible
+/// host writes and makes no status transition. That is deliberate. If an external
+/// effect succeeds but a later local commit fails, the durable InvocationClaimed
+/// state remains occupied and a retry cannot re-enter the provider. Outcome
+/// recording happens in record_execution_observation, which is itself effect-free.
+#[hdk_extern]
+pub fn invoke_execution(input: InvokeExecutionInput) -> ExternResult<InvokeExecutionResult> {
+    if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Timelock ID must be 1-256 characters".into()
+        )));
+    }
+
+    let caller = caller_did()?;
+    let current_record = find_latest_execution_attempt(&input.timelock_id)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No execution attempt exists".into()
+        )))?;
+
+    let current_attempt: ExecutionAttempt = current_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid execution attempt entry".into()
+        )))?;
+
+    if current_attempt.executor != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the execution-attempt owner may invoke".into()
+        )));
+    }
+    if current_attempt.status != ExecutionAttemptStatus::InvocationClaimed {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution attempt must have a committed InvocationClaimed state before effect entry, current: {:?}",
+            current_attempt.status
+        ))));
+    }
+
+    let timelock_record = find_timelock_by_id(&input.timelock_id)?;
+    let timelock: Timelock = timelock_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid timelock entry during invocation".into()
+        )))?;
+
+    if timelock.status != TimelockStatus::Ready {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Timelock is no longer Ready; refusing invocation".into()
+        )));
+    }
+
+    let action_key = execution_action_key(&timelock.actions)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+    if current_attempt.action_key_digest != action_key.digest()
+        || current_attempt.action_digest != action_key.material_action_digest()
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Current timelock material action no longer matches the committed execution attempt"
+                .into()
+        )));
+    }
+
+    let execution_result = execute_actions(&timelock.actions)?;
+    let observation_evidence_commitment =
+        execution_outcome_evidence(&current_attempt, &execution_result);
+
+    Ok(InvokeExecutionResult {
+        attempt_identity: current_attempt.attempt_identity,
+        action_key_digest: current_attempt.action_key_digest,
+        native_replay_identity: current_attempt.native_replay_identity,
+        success: execution_result.success,
         result: execution_result.result,
         error: execution_result.error,
+        observation_evidence_commitment,
+    })
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InvokeExecutionInput {
+    pub timelock_id: String,
+}
+
+/// Ephemeral result returned directly from the effecting invocation call.
+///
+/// This is not a durable receipt and must never be treated as terminal proof by
+/// itself. A separate effect-free recorder persists it as Indeterminate until
+/// authoritative provider evidence can classify the outcome.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InvokeExecutionResult {
+    pub attempt_identity: String,
+    pub action_key_digest: String,
+    pub native_replay_identity: String,
+    pub success: bool,
+    pub result: Option<String>,
+    pub error: Option<String>,
+    pub observation_evidence_commitment: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RecordExecutionObservationInput {
+    pub timelock_id: String,
+    pub attempt_identity: String,
+    pub action_key_digest: String,
+    pub native_replay_identity: String,
+    pub success: bool,
+    pub result: Option<String>,
+    pub error: Option<String>,
+    pub observation_evidence_commitment: String,
+}
+
+/// Persist an effect observation without crossing the effect boundary.
+///
+/// Re-running this function is safe: after a successful commit the attempt is
+/// Indeterminate and a second observation is refused. No provider call occurs
+/// here, so an ambiguous recorder commit cannot cause a duplicate external effect.
+#[hdk_extern]
+pub fn record_execution_observation(
+    input: RecordExecutionObservationInput,
+) -> ExternResult<Record> {
+    if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Timelock ID must be 1-256 characters".into()
+        )));
+    }
+
+    let caller = caller_did()?;
+    let current_record = find_latest_execution_attempt(&input.timelock_id)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No execution attempt exists for observation".into()
+        )))?;
+
+    let current_attempt: ExecutionAttempt = current_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid execution attempt entry".into()
+        )))?;
+
+    if current_attempt.executor != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the execution-attempt owner may record its observation".into()
+        )));
+    }
+    if current_attempt.status != ExecutionAttemptStatus::InvocationClaimed {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution attempt observation must follow InvocationClaimed, current: {:?}",
+            current_attempt.status
+        ))));
+    }
+    if input.attempt_identity != current_attempt.attempt_identity
+        || input.action_key_digest != current_attempt.action_key_digest
+        || input.native_replay_identity != current_attempt.native_replay_identity
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Observation identity does not match the committed execution attempt".into()
+        )));
+    }
+
+    let observation_evidence = execution_outcome_evidence(
+        &current_attempt,
+        &ActionExecutionResult {
+            success: input.success,
+            result: input.result.clone(),
+            error: input.error.clone(),
+        },
+    );
+    if observation_evidence != input.observation_evidence_commitment {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Observation evidence commitment does not match the claimed invocation result".into()
+        )));
+    }
+
+    let now = sys_time()?;
+    let execution = Execution {
+        id: format!("execution-observation:{}:{}", input.timelock_id, now.as_micros()),
+        timelock_id: input.timelock_id.clone(),
+        proposal_id: current_attempt.proposal_id.clone(),
+        executor: caller,
+        status: ExecutionStatus::Indeterminate,
+        result: input.result,
+        error: input.error,
         executed_at: now,
     };
 
-    let action_hash = create_entry(&EntryTypes::Execution(execution))?;
+    let execution_hash = create_entry(&EntryTypes::Execution(execution))?;
 
-    // Update timelock status
-    let updated_timelock = Timelock {
-        id: current_timelock.id.clone(),
-        proposal_id: current_timelock.proposal_id.clone(),
-        actions: current_timelock.actions.clone(),
-        started: current_timelock.started,
-        expires: current_timelock.expires,
-        status: if execution_result.success {
-            TimelockStatus::Executed
-        } else {
-            TimelockStatus::Failed
-        },
-        cancellation_reason: None,
+    let updated_attempt = ExecutionAttempt {
+        status: ExecutionAttemptStatus::Indeterminate,
+        updated_at: now,
+        outcome_evidence_commitment: Some(input.observation_evidence_commitment),
+        ..current_attempt
     };
 
     update_entry(
         current_record.action_address().clone(),
-        &EntryTypes::Timelock(updated_timelock),
+        &EntryTypes::ExecutionAttempt(updated_attempt),
     )?;
 
-    // Clean up pending_timelocks link (timelock is no longer pending)
-    if let Ok(pending_links) = get_links(
-        LinkQuery::try_new(
-            anchor_hash("pending_timelocks")?,
-            LinkTypes::PendingTimelocks,
-        )?,
-        GetStrategy::default(),
-    ) {
-        for link in pending_links {
-            if let Ok(target_hash) = ActionHash::try_from(link.target.clone()) {
-                if let Ok(Some(record)) = get(target_hash, GetOptions::default()) {
-                    if let Some(tl) = record.entry().to_app_option::<Timelock>().ok().flatten() {
-                        if tl.id == current_timelock.id {
-                            let _ = delete_link(link.create_link_hash, GetOptions::default());
-                        }
-                    }
-                }
-            }
-        }
-    }
+    get(execution_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Execution observation could not be read after commit".into()
+    )))
+}
 
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not find execution".into()
+/// Execute a ready timelock
+/// Legacy one-call execution API.
+///
+/// It is intentionally disabled because Holochain source-chain writes are not
+/// durable until the zome call commits. A function that writes and then invokes
+/// an effect in the same transaction cannot establish durable-before-entry.
+#[hdk_extern]
+pub fn execute_timelock(_input: ExecuteTimelockInput) -> ExternResult<Record> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "execute_timelock is disabled: use prepare_timelock_execution -> mark_execution_invoked -> invoke_execution."
+            .into(),
     )))
 }
 
@@ -622,21 +1376,14 @@ impl GovernanceAction {
     fn execute(&self) -> ExternResult<String> {
         match self {
             GovernanceAction::TransferCredits { from, to, amount } => {
-                // SECURITY: Fail-closed — credit transfers MUST execute or fail explicitly.
-                // Returning Ok without actual transfer creates phantom transactions.
-                let transfer_input = serde_json::json!({"from": from, "to": to, "amount": amount});
-                governance_utils::call_local(
-                    "governance_bridge",
-                    "transfer_credits",
-                    transfer_input,
-                ).map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-                    "TransferCredits failed: governance bridge unavailable — {} -> {} ({} credits): {:?}",
-                    from, to, amount, e
-                ))))?;
-                Ok(format!(
-                    "TransferCredits: {} -> {} ({} credits) [executed]",
+                // FAIL-CLOSED: the current governance_bridge transfer_credits endpoint
+                // records an event only; it is not the authoritative money-movement owner.
+                // Refuse provider entry rather than converting an acknowledgment into an
+                // EXECUTED financial effect.
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "TransferCredits refused: no authoritative fund-movement effect owner is wired for {} -> {} ({} credits).",
                     from, to, amount
-                ))
+                ))))
             }
             GovernanceAction::UpdateParameter { parameter, value } => {
                 // SECURITY: Fail-closed — parameter updates MUST persist or fail explicitly.
@@ -1667,6 +2414,73 @@ pub fn get_pending_timelocks(_: ()) -> ExternResult<Vec<Record>> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn exact_threshold_signature_proposal_binding_rejects_decoy_suffixes() {
+        assert_ne!(
+            "constitutional:proposal-1:decoy".split_once(':').map(|(_, id)| id),
+            Some("proposal-1")
+        );
+    }
+
+    #[test]
+    fn only_approved_or_signed_proposal_states_are_admissible() {
+        assert!(matches!(
+            ProposalExecutionStatusMirror::Approved,
+            ProposalExecutionStatusMirror::Approved | ProposalExecutionStatusMirror::Signed
+        ));
+        assert!(!matches!(
+            ProposalExecutionStatusMirror::Active,
+            ProposalExecutionStatusMirror::Approved | ProposalExecutionStatusMirror::Signed
+        ));
+    }
+
+    #[test]
+    fn execution_authorization_digest_binds_exact_tuple() {
+        let action = "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let a = execution_authorization_digest("proposal-1", action);
+        let b = execution_authorization_digest("proposal-2", action);
+        let c = execution_authorization_digest(
+            "proposal-1",
+            "constitutional-action-key-v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        );
+        assert_ne!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn execution_action_key_is_stable_for_exact_material_action() {
+        let a = execution_action_key(r#"[{"type":"EmitEvent","event":"x"}]"#).unwrap();
+        let b = execution_action_key(r#"[{"type":"EmitEvent","event":"x"}]"#).unwrap();
+        assert_eq!(a.digest(), b.digest());
+    }
+
+    #[test]
+    fn execution_action_key_changes_when_material_action_changes() {
+        let a = execution_action_key(r#"[{"type":"EmitEvent","event":"x"}]"#).unwrap();
+        let b = execution_action_key(r#"[{"type":"EmitEvent","event":"y"}]"#).unwrap();
+        assert_ne!(a.digest(), b.digest());
+    }
+
+    #[test]
+    fn invocation_claim_requires_same_material_action_identity() {
+        let key_a = execution_action_key(r#"[{"type":"EmitEvent","event":"x"}]"#).unwrap();
+        let key_b = execution_action_key(r#"[{"type":"EmitEvent","event":"y"}]"#).unwrap();
+        assert_ne!(key_a.digest(), key_b.digest());
+        assert_ne!(key_a.material_action_digest(), key_b.material_action_digest());
+    }
+
+    #[test]
+    fn execution_attempt_identity_is_separate_from_same_action_key() {
+        let key_a = execution_action_key(r#"[{"type":"EmitEvent","event":"x"}]"#).unwrap();
+        let key_b = execution_action_key(r#"[{"type":"EmitEvent","event":"x"}]"#).unwrap();
+        let attempt_a = execution_attempt_identity("did:mycelix:a", "timelock-a").unwrap();
+        let attempt_b = execution_attempt_identity("did:mycelix:b", "timelock-b").unwrap();
+
+        assert_eq!(key_a.digest(), key_b.digest());
+        assert_ne!(attempt_a.digest(), attempt_b.digest());
+    }
+
+    
     use super::*;
 
     // =========================================================================
@@ -1993,4 +2807,5 @@ mod tests {
         assert!(decoded.verified);
         assert!(decoded.signed_content_description.contains("MIP-001"));
     }
+
 }

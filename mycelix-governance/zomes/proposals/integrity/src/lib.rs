@@ -299,12 +299,40 @@ pub fn check_create_proposal(proposal: &Proposal) -> Result<(), String> {
     Ok(())
 }
 
+fn proposal_update_requires_author(original: &Proposal, updated: &Proposal) -> bool {
+    let semantic_change = original.title != updated.title
+        || original.description != updated.description
+        || original.proposal_type != updated.proposal_type
+        || original.actions != updated.actions
+        || original.discussion_url != updated.discussion_url;
+
+    if semantic_change {
+        return true;
+    }
+
+    matches!(
+        (&original.status, &updated.status),
+        (ProposalStatus::Draft, ProposalStatus::Active)
+            | (ProposalStatus::Draft, ProposalStatus::Cancelled)
+            | (ProposalStatus::Active, ProposalStatus::Cancelled)
+    )
+}
+
 pub fn check_update_proposal(original: &Proposal, updated: &Proposal) -> Result<(), String> {
     if updated.id != original.id {
         return Err("Cannot change proposal ID".into());
     }
     if updated.author != original.author {
         return Err("Cannot change proposal author".into());
+    }
+    if updated.created != original.created {
+        return Err("Cannot change proposal creation time".into());
+    }
+    if updated.voting_starts != original.voting_starts {
+        return Err("Cannot change proposal voting start after creation".into());
+    }
+    if updated.voting_ends != original.voting_ends {
+        return Err("Cannot change proposal voting end after creation".into());
     }
     if updated.status != original.status {
         let valid = matches!(
@@ -332,9 +360,10 @@ pub fn check_update_proposal(original: &Proposal, updated: &Proposal) -> Result<
         && (updated.title != original.title
             || updated.description != original.description
             || updated.actions != original.actions
-            || updated.proposal_type != original.proposal_type)
+            || updated.proposal_type != original.proposal_type
+            || updated.discussion_url != original.discussion_url)
     {
-        return Err("Cannot modify proposal content after leaving Draft status".into());
+        return Err("Cannot modify proposal semantic content after leaving Draft status".into());
     }
     if updated.version != original.version + 1 {
         return Err("Version must be incremented by 1".into());
@@ -430,9 +459,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterCreateLink {
             link_type,
             base_address: _,
-            target_address: _,
+            target_address,
             tag: _,
-            action: _,
+            action,
         } => match link_type {
             LinkTypes::AuthorToProposal => Ok(ValidateCallbackResult::Valid),
             LinkTypes::TypeToProposal => Ok(ValidateCallbackResult::Valid),
@@ -443,7 +472,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::ContributorToContribution => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ContributionToReply => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ProposalToDiscussionReflection => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ProposalById => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::ProposalById => {
+                validate_proposal_index_target(action, target_address)
+            },
         },
         FlatOp::RegisterDeleteLink {
             link_type,
@@ -469,6 +500,38 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+fn validate_proposal_index_target(
+    action: CreateLink,
+    target_address: AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_action_hash = target_address.into_action_hash().ok_or(wasm_error!(
+        WasmErrorInner::Guest("ProposalById target must be an action hash".into())
+    ))?;
+
+    let target_record = must_get_valid_record(target_action_hash)?;
+    if action.author() != target_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ProposalById target must be authored by the link author".into(),
+        ));
+    }
+
+    let proposal = target_record
+        .entry()
+        .to_app_option::<Proposal>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "ProposalById target has no Proposal entry".into()
+        )))?;
+
+    if proposal.id.trim().is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ProposalById target has an empty proposal ID".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate proposal creation
 fn validate_create_proposal(
     action: Create,
@@ -492,7 +555,7 @@ fn validate_create_proposal(
 
 /// Validate proposal update
 fn validate_update_proposal(
-    _action: Update,
+    action: Update,
     proposal: Proposal,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -504,6 +567,15 @@ fn validate_update_proposal(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original proposal not found".into()
         )))?;
+
+    if proposal_update_requires_author(&original_proposal, &proposal)
+        && action.author() != original_record.action().author()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Semantic proposal edits and author-controlled status transitions require the original proposal author"
+                .into(),
+        ));
+    }
 
     match check_update_proposal(&original_proposal, &proposal) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
@@ -623,6 +695,63 @@ mod tests {
             updated: ts(1000000),
             version: 1,
         }
+    }
+
+    #[test]
+    fn test_status_only_governance_updates_do_not_require_proposal_author() {
+        let mut original = make_proposal();
+        original.status = ProposalStatus::Ended;
+        let mut approved = original.clone();
+        approved.status = ProposalStatus::Approved;
+        approved.version += 1;
+        assert!(!proposal_update_requires_author(&original, &approved));
+    }
+
+    #[test]
+    fn test_author_controlled_status_updates_require_proposal_author() {
+        let original = make_proposal();
+        let mut active = original.clone();
+        active.status = ProposalStatus::Active;
+        active.version += 1;
+        assert!(proposal_update_requires_author(&original, &active));
+    }
+
+    #[test]
+    fn test_draft_semantic_edits_require_proposal_author() {
+        let original = make_proposal();
+        let mut edited = original.clone();
+        edited.title = "changed".into();
+        edited.version += 1;
+        assert!(proposal_update_requires_author(&original, &edited));
+    }
+
+    #[test]
+    fn test_proposal_temporal_fields_are_immutable_after_creation() {
+        let original = make_proposal();
+        let mut changed_start = original.clone();
+        changed_start.voting_starts = ts(4_000_000);
+        changed_start.version += 1;
+        assert!(check_update_proposal(&original, &changed_start).is_err());
+
+        let mut changed_end = original.clone();
+        changed_end.voting_ends = ts(5_000_000);
+        changed_end.version += 1;
+        assert!(check_update_proposal(&original, &changed_end).is_err());
+
+        let mut changed_created = original.clone();
+        changed_created.created = ts(9_000_000);
+        changed_created.version += 1;
+        assert!(check_update_proposal(&original, &changed_created).is_err());
+    }
+
+    #[test]
+    fn test_proposal_discussion_url_is_immutable_after_draft() {
+        let mut original = make_proposal();
+        original.status = ProposalStatus::Active;
+        let mut changed = original.clone();
+        changed.discussion_url = Some("https://example.invalid/changed".into());
+        changed.version += 1;
+        assert!(check_update_proposal(&original, &changed).is_err());
     }
 
     #[test]
