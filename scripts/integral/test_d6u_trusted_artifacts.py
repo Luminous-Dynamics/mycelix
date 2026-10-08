@@ -109,7 +109,19 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["trigger_workflow"]["path"] == ".github/workflows/d6s-canonical-qualification.yml"
     assert policy["trigger_workflow"]["blob_sha"] == "e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4"
     assert policy["trigger_workflow"]["blob_sha"] == required[".github/workflows/d6s-canonical-qualification.yml"]
-    d6s_workflow_path = Path(__file__).parents[2] / ".github/workflows/d6s-canonical-qualification.yml"
+    trusted_source = policy["trusted_source_root"]
+    assert trusted_source == {
+        "ref": "refs/heads/main",
+        "commit_sha": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+        "purpose": "Immutable source root for policy-pinned D6S workflow definition.",
+    }
+    trusted_root_path = Path(
+        os.environ.get(
+            "D6U_TRUSTED_SOURCE_ROOT",
+            str(Path(__file__).parents[2]),
+        )
+    )
+    d6s_workflow_path = trusted_root_path / ".github/workflows/d6s-canonical-qualification.yml"
     assert d6s_workflow_path.is_file()
     assert _git_blob_sha1(d6s_workflow_path.read_bytes()) == policy["trigger_workflow"]["blob_sha"]
 
