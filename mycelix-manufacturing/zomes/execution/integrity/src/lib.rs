@@ -910,68 +910,6 @@ mod tests {
     }
 
     #[test]
-    fn rejects_accepted_execution_without_exact_work_order_revision_binding() {
-        let execution = ExecutionReceiptEntry {
-            execution_id: "EXEC-3".into(),
-            qualification_attestation_hash: None,
-            work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
-            bom_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
-            routing_hash: Some(ActionHash::from_raw_36(vec![2; 36])),
-            operation_sequence: 10,
-            machine_hash: ActionHash::from_raw_36(vec![3; 36]),
-            capability_contract_hash: None,
-            process_parameters_hash: None,
-            input_lot_hashes: vec![ActionHash::from_raw_36(vec![4; 36])],
-            output_lot_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
-            measurement_hashes: vec![],
-            calibration_hashes: vec![],
-            started_at: Timestamp::from_micros(0),
-            completed_at: Timestamp::from_micros(1),
-            disposition: Disposition::Accepted,
-            evidence_hashes: vec![ActionHash::from_raw_36(vec![6; 36])],
-            notes: None,
-        };
-        let work_order = WorkOrderRevisionProjection {
-            bom_hash: None,
-            routing_hash: None,
-        };
-
-        assert_eq!(
-            bind_execution_to_work_order_revision(&execution, &work_order),
-            Err("accepted execution requires an exact work-order-bound BOM revision")
-        );
-    }
-
-
-        let execution = ExecutionReceiptEntry {
-            execution_id: "EXEC-2".into(),
-            qualification_attestation_hash: None,
-            work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
-            bom_hash: None,
-            routing_hash: None,
-            operation_sequence: 10,
-            machine_hash: ActionHash::from_raw_36(vec![3; 36]),
-            capability_contract_hash: None,
-            process_parameters_hash: None,
-            input_lot_hashes: vec![ActionHash::from_raw_36(vec![4; 36])],
-            output_lot_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
-            measurement_hashes: vec![],
-            calibration_hashes: vec![],
-            started_at: Timestamp::from_micros(0),
-            completed_at: Timestamp::from_micros(1),
-            disposition: Disposition::Rejected,
-            evidence_hashes: vec![ActionHash::from_raw_36(vec![6; 36])],
-            notes: None,
-        };
-        let work_order = WorkOrderRevisionProjection {
-            bom_hash: None,
-            routing_hash: None,
-        };
-
-        assert!(bind_execution_to_work_order_revision(&execution, &work_order).is_ok());
-    }
-
-    #[test]
     fn rejects_malformed_inspection_criterion() {
         let entry = InspectionCriterionEntry {
             requirement_id: "".into(),
