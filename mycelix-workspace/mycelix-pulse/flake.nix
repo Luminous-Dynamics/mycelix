@@ -9,7 +9,8 @@
 
     # Holochain development tools
     holochain-flake = {
-      url = "github:holochain/holochain";
+      # Pin to the released 0.7.0 tag; do not silently track Holochain main.
+      url = "github:holochain/holochain?ref=holochain-0.7.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
