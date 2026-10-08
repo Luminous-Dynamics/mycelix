@@ -1471,6 +1471,10 @@ mod tests {
     }
 
     impl ProviderAdapter for FakeProvider {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
         fn invoke(&mut self, permit: &ProviderEntryPermitV1) -> Result<ProviderObservation, String> {
             assert!(permit
                 .provider_idempotency_key()
@@ -1641,6 +1645,7 @@ mod tests {
     }
 
     struct TestTrustRoot {
+        provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_identity: String,
         final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -1650,6 +1655,16 @@ mod tests {
     }
 
     impl BoundaryTrustRoot for TestTrustRoot {
+        fn authorize_provider_adapter(
+            &self,
+            provider: &dyn ProviderAdapter,
+            attempt: &AttemptRecordV1,
+            action_key: &ActionKeyV1,
+        ) -> Result<(), String> {
+            self.provider_adapter_authorizer
+                .verify(provider, attempt, action_key)
+        }
+
         fn outcome_verifier(&self) -> &dyn OutcomeVerifier {
             self.outcome_verifier.as_ref()
         }
@@ -1684,6 +1699,9 @@ mod tests {
         final_entry_identity: &str,
     ) -> Box<dyn BoundaryTrustRoot> {
         Box::new(TestTrustRoot {
+            provider_adapter_authorizer: Box::new(
+                PinnedProviderAdapterAuthorizer::new(["provider-adapter-v1"]).unwrap(),
+            ),
             outcome_verifier: outcome,
             outcome_identity: outcome_identity.to_owned(),
             final_entry_verifier: final_entry,
@@ -1748,6 +1766,28 @@ mod tests {
         AttemptIdentityV1::new("governance", "host-1", id).unwrap()
     }
 
+    struct WrongAdapter;
+
+    impl ProviderAdapter for WrongAdapter {
+        fn adapter_identity(&self) -> &str {
+            "wrong-provider-adapter-v1"
+        }
+
+        fn invoke(
+            &mut self,
+            _permit: &ProviderEntryPermitV1,
+        ) -> Result<ProviderObservation, String> {
+            panic!("wrong provider adapter must be rejected before provider entry");
+        }
+
+        fn reconcile(
+            &mut self,
+            _context: &ProviderActionContextV1,
+        ) -> Result<ProviderObservation, String> {
+            panic!("wrong provider adapter must be rejected before reconciliation");
+        }
+    }
+
     fn attempt_record(id: &str, op: &str, state: AttemptRecordState) -> AttemptRecordV1 {
         let action = action();
         AttemptRecordV1::new(
@@ -1797,6 +1837,47 @@ mod tests {
     }
 
     #[test]
+    fn provider_adapter_must_match_pinned_attempt_identity() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("adapter-identity.db")).unwrap();
+        let mut boundary = test_host(store);
+        let action_key = action();
+        let owner = identity("attempt-adapter-identity");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-adapter-identity",
+                    "operation-adapter-identity",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        let result = boundary.dispatch(
+            &action_key,
+            &owner,
+            "owner-attempt-adapter-identity",
+            &mut WrongAdapter,
+        );
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("provider adapter identity does not match the attempt")
+        ));
+
+        let attempt = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
+        assert_eq!(attempt.state, AttemptRecordState::Consumed);
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_some());
+        assert!(boundary
+            .store
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
     fn provider_is_not_called_before_confirmed_dispatch_pending() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("dispatch.db")).unwrap();
@@ -1840,6 +1921,10 @@ mod tests {
     fn invocation_error_holds_fence_as_indeterminate() {
         struct ErrorProvider;
         impl ProviderAdapter for ErrorProvider {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(&mut self, _permit: &ProviderEntryPermitV1) -> Result<ProviderObservation, String> {
                 Err("timeout after send".into())
             }
@@ -2037,6 +2122,10 @@ mod tests {
 
         struct MustNotInvoke;
         impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
@@ -2094,6 +2183,10 @@ mod tests {
 
         struct MustNotInvoke;
         impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
@@ -2156,6 +2249,10 @@ mod tests {
 
         struct MustNotInvoke;
         impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
@@ -2220,6 +2317,10 @@ mod tests {
 
         struct MustNotInvoke;
         impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
@@ -2468,6 +2569,10 @@ mod tests {
 
         struct MustNotRun;
         impl ProviderAdapter for MustNotRun {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
