@@ -50,13 +50,13 @@ jobs:
       - name: Checkout exact candidate head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: \${{ github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
 
       - name: Assert exact candidate head
         env:
-          EXPECTED_SHA: \${{ github.sha }}
+          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
@@ -119,7 +119,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: sovereignty-contestability-candidate-\${{ github.sha }}
-          path: \${{ runner.temp }}/contestability-evidence
+          name: sovereignty-contestability-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/contestability-evidence
           if-no-files-found: warn
           retention-days: 30
