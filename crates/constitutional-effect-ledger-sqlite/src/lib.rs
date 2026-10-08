@@ -2351,6 +2351,66 @@ mod tests {
     }
 
     #[test]
+    fn provider_entry_claim_survives_restart_and_tamper_is_fail_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("claim-restart.db");
+        let action = key("claim-restart-action");
+        let owner = attempt("attempt-claim-restart");
+
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            store
+                .atomically_admit(
+                    &action,
+                    &owner,
+                    record(
+                        "attempt-claim-restart",
+                        "operation-claim-restart",
+                        "native-claim-restart",
+                        &action,
+                        AttemptRecordState::Consumed,
+                    ),
+                )
+                .unwrap();
+            store
+                .atomically_mark_dispatch_pending(
+                    &action,
+                    &owner,
+                    "owner-token-claim-restart",
+                )
+                .unwrap();
+            store
+                .atomically_claim_provider_entry(
+                    &action,
+                    &owner,
+                    "owner-token-claim-restart",
+                    "constitutional-provider-entry-claim-token-v1:restart",
+                )
+                .unwrap();
+        }
+
+        {
+            let reopened = SqliteActionFenceStore::open(&path).unwrap();
+            assert!(reopened
+                .durably_read_provider_entry_claim(&owner)
+                .unwrap()
+                .is_some());
+        }
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE effect_provider_entry_claims
+             SET record_digest = 'corrupted'
+             WHERE attempt_identity = ?1",
+            params![owner.digest()],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert!(SqliteActionFenceStore::open(&path).is_err());
+    }
+
+    #[test]
     fn second_boundary_cannot_claim_an_already_claimed_provider_entry() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("claim-collision.db");
