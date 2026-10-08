@@ -47,7 +47,7 @@ jobs:
       - name: Read and freeze durable-publication environment policy
         run: |
           set -euo pipefail
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/environments/cos-durable-publication" > environment-policy-api.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/environments/cos-durable-publication" > environment-policy-api.json
           python - <<'PY'
           import hashlib,json
           from pathlib import Path
@@ -82,8 +82,8 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s\n' "${RUN_ID}" | grep -Eq '^[0-9]+$'
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > attestor-run.json
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" > attestor-artifacts.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > attestor-run.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" > attestor-artifacts.json
           python - <<'PY'
           import json,os
           from pathlib import Path
@@ -158,14 +158,14 @@ jobs:
           print(json.loads(Path('signing-input-request.json').read_text())['artifact_id'])
           PY
           )"
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" > signing-input-artifact.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" > signing-input-artifact.json
           verifier_id="$(python - <<'PY'
           import json
           from pathlib import Path
           print(json.loads(Path('signing-input-request.json').read_text())['verifier_run_id'])
           PY
           )"
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${verifier_id}" > verifier-run.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/runs/${verifier_id}" > verifier-run.json
           EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
           import json,os
           from pathlib import Path
@@ -290,8 +290,8 @@ jobs:
           print(json.loads(Path('source-facts.json').read_text())['attestor_workflow_sha'])
           PY
           )"
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root-api.json
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=${signer_sha}" > signer-workflow-api.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root-api.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=${signer_sha}" > signer-workflow-api.json
           python - <<'PY'
           import base64,hashlib,json,subprocess
           from pathlib import Path
@@ -421,7 +421,7 @@ jobs:
           COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
         run: |
           set -euo pipefail
-          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/branches/main/protection" > main-branch-protection.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/branches/main/protection" > main-branch-protection.json
           python - <<'PY'
           import hashlib,json
           from pathlib import Path
@@ -463,7 +463,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${COS_RELEASE_ADMIN_TOKEN}"
-          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/immutable-releases" > immutable-release-capability.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/immutable-releases" > immutable-release-capability.json
           python - <<'PY'
           import json
           from pathlib import Path
@@ -496,7 +496,7 @@ jobs:
       - name: Revalidate protected environment policy
         run: |
           set -euo pipefail
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/environments/cos-durable-publication" > environment-policy-live.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/environments/cos-durable-publication" > environment-policy-live.json
           python - <<'PY'
           import hashlib,json
           from pathlib import Path
