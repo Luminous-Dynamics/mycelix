@@ -76,12 +76,13 @@ pub fn create_capability_requirement(
         },
     ))?;
 
-    let path = Path::from("all_capability_requirements");
+    let path = Path::from("all_capability_requirements")
+        .typed(LinkTypes::AllCapabilityRequirements)?;
     path.ensure()?;
     create_link(
         path.path_entry_hash()?,
         hash.clone(),
-        LinkTypes::AllOperations,
+        LinkTypes::AllCapabilityRequirements,
         (),
     )?;
     Ok(hash)
@@ -177,6 +178,26 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
     )?;
 
     Ok(action_hash)
+}
+
+/// Get a typed capability requirement by action hash.
+#[hdk_extern]
+pub fn get_capability_requirement(hash: ActionHash) -> ExternResult<Option<Record>> {
+    get(hash, GetOptions::default())
+}
+
+/// List all typed capability requirements.
+#[hdk_extern]
+pub fn list_capability_requirements(_: ()) -> ExternResult<Vec<Link>> {
+    let path = Path::from("all_capability_requirements")
+        .typed(LinkTypes::AllCapabilityRequirements)?;
+    get_links(
+        GetLinksInputBuilder::try_new(
+            path.path_entry_hash()?,
+            LinkTypes::AllCapabilityRequirements,
+        )?
+        .build(),
+    )
 }
 
 /// Get a routing by action hash.
