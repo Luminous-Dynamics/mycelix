@@ -47,7 +47,7 @@ impl SqliteActionFenceStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, String> {
         let path = path.as_ref().to_path_buf();
         let conn = open_connection(&path)?;
-        ensure_schema(&conn)?;
+        ensure_schema(&mut conn)?;
         Ok(Self { path })
     }
 
@@ -97,7 +97,6 @@ impl SqliteActionFenceStore {
                 next_state,
                 AttemptRecordState::DispatchPending
                     | AttemptRecordState::Invoked
-                    | AttemptRecordState::InvocationClaimed
                     | AttemptRecordState::Indeterminate
             ) && (current.provider_reference_seed_digest.is_none()
                 || current.provider_reference_descriptor_digest.is_none())
@@ -142,9 +141,7 @@ impl SqliteActionFenceStore {
             }
             if !matches!(
                 current.state,
-                AttemptRecordState::Invoked
-                    | AttemptRecordState::InvocationClaimed
-                    | AttemptRecordState::Indeterminate
+                AttemptRecordState::Invoked | AttemptRecordState::Indeterminate
             ) {
                 return Err(ActionFenceMutationError::InvalidTransition);
             }
@@ -532,7 +529,7 @@ fn open_connection(path: &Path) -> Result<Connection, String> {
     Ok(conn)
 }
 
-fn ensure_schema(conn: &Connection) -> Result<(), String> {
+fn ensure_schema(conn: &mut Connection) -> Result<(), String> {
     let meta_exists = table_exists(conn, META_TABLE)?;
     let managed_exists = [ATTEMPT_TABLE, FENCE_TABLE, REPLAY_TABLE]
         .into_iter()
@@ -560,8 +557,7 @@ fn ensure_schema(conn: &Connection) -> Result<(), String> {
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| e.to_string())?;
 
-        let mut conn_mut = conn;
-        let tx = conn_mut
+        let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
         tx.execute_batch(SCHEMA_SQL).map_err(|e| e.to_string())?;
@@ -812,14 +808,14 @@ CREATE TABLE effect_attempts (
     adapter_identity TEXT NOT NULL,
     ownership_token_digest TEXT NOT NULL,
     terminal_evidence_digest TEXT,
-    state INTEGER NOT NULL CHECK(state IN (1,2,3,4,5,6,7,8,9)),
+    state INTEGER NOT NULL CHECK(state IN (1,2,3,4,5,6,7,8)),
     not_entered_marker TEXT,
     record_digest TEXT NOT NULL,
-    CHECK((state IN (6,7)) OR terminal_evidence_digest IS NULL),
-    CHECK((state = 9) OR not_entered_marker IS NULL),
-    CHECK((state != 9) OR not_entered_marker IS NOT NULL),
+    CHECK((state IN (5,6)) OR terminal_evidence_digest IS NULL),
+    CHECK((state = 8) OR not_entered_marker IS NULL),
+    CHECK((state != 8) OR not_entered_marker IS NOT NULL),
     CHECK(
-        state NOT IN (3,4,5,6,7,8)
+        state NOT IN (3,4,5,6,7)
         OR (provider_reference_seed_digest IS NOT NULL
             AND provider_reference_descriptor_digest IS NOT NULL)
     )

@@ -218,11 +218,10 @@ impl AttemptRecordState {
             2 => Some(Self::Reserved),
             3 => Some(Self::DispatchPending),
             4 => Some(Self::Invoked),
-            5 => Some(Self::InvocationClaimed),
-            6 => Some(Self::Executed),
-            7 => Some(Self::Failed),
-            8 => Some(Self::Indeterminate),
-            9 => Some(Self::NotEntered),
+            5 => Some(Self::Executed),
+            6 => Some(Self::Failed),
+            7 => Some(Self::Indeterminate),
+            8 => Some(Self::NotEntered),
             _ => None,
         }
     }
@@ -234,7 +233,6 @@ impl AttemptRecordState {
                 | Self::Reserved
                 | Self::DispatchPending
                 | Self::Invoked
-                | Self::InvocationClaimed
                 | Self::Indeterminate
         )
     }
@@ -250,9 +248,7 @@ impl AttemptRecordState {
                 | (Self::Reserved, Self::DispatchPending)
                 | (Self::DispatchPending, Self::Invoked)
                 | (Self::DispatchPending, Self::Indeterminate)
-                | (Self::Invoked, Self::InvocationClaimed)
                 | (Self::Invoked, Self::Indeterminate)
-                | (Self::InvocationClaimed, Self::Indeterminate)
         )
     }
 
@@ -419,7 +415,6 @@ impl AttemptRecordV1 {
             self.state,
             AttemptRecordState::DispatchPending
                 | AttemptRecordState::Invoked
-                | AttemptRecordState::InvocationClaimed
                 | AttemptRecordState::Executed
                 | AttemptRecordState::Failed
                 | AttemptRecordState::Indeterminate
@@ -1103,9 +1098,7 @@ impl AtomicActionFenceModelV1 {
         }
         if !matches!(
             current.state,
-            AttemptRecordState::Invoked
-                | AttemptRecordState::InvocationClaimed
-                | AttemptRecordState::Indeterminate
+            AttemptRecordState::Invoked | AttemptRecordState::Indeterminate
         ) {
             return Err(if current.state.is_terminal() {
                 ActionFenceMutationError::AlreadyClosed
