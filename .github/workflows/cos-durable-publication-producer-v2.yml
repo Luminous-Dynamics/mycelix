@@ -351,6 +351,12 @@ jobs:
       contents: read
     timeout-minutes: 20
     steps:
+      - name: Require protected publisher ref
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          printf 'publisher_ref=%s\n' "${GITHUB_REF}" >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Checkout publisher
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
