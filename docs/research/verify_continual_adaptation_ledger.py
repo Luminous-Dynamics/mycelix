@@ -80,6 +80,44 @@ def semantic_digest(graph: dict, policy: dict) -> str:
     return "invalid" if normalized is None else digest(normalized)
 
 
+def claim_local_projection(graph: dict, policy: dict) -> dict | None:
+    normalized = semantic_normalize(graph, policy)
+    if normalized is None:
+        return None
+
+    root = policy["claim_local_projection"]["root"]
+    allowed = set(policy["claim_local_projection"]["relation_allowlist"])
+    included = {root}
+
+    changed = True
+    while changed:
+        changed = False
+        for edge in normalized["edges"]:
+            if edge[2] not in allowed:
+                continue
+            left, right = edge[0], edge[1]
+            if left in included and right not in included:
+                included.add(right)
+                changed = True
+            elif right in included and left not in included:
+                included.add(left)
+                changed = True
+
+    return {
+        "nodes": [copy.deepcopy(n) for n in normalized["nodes"] if n["id"] in included],
+        "edges": [
+            copy.deepcopy(e)
+            for e in normalized["edges"]
+            if e[0] in included and e[1] in included and e[2] in allowed
+        ],
+    }
+
+
+def claim_local_digest(graph: dict, policy: dict) -> str:
+    projection = claim_local_projection(graph, policy)
+    return "invalid" if projection is None else digest(projection)
+
+
 def validate_graph_structure(graph: dict, policy: dict) -> bool:
     nodes = node_index(graph)
     if nodes is None:
@@ -188,7 +226,11 @@ def verify(graph: dict, policy: dict) -> str:
     dependence = policy["derived_dependence"]
     if any(
         node.get("type") == dependence["node_type"]
-        and node.get(dependence["derived_from_field"]) == dependence["source_node"]
+        and (
+            node.get("id"),
+            dependence["source_node"],
+            dependence["edge_relation"],
+        ) in edges
         for node in graph["nodes"]
     ):
         return dependence["verdict"]
@@ -212,11 +254,13 @@ def main() -> int:
         graph = apply_mutations(corpus["base_graph"], case["mutation"])
         serialized = digest(graph)
         semantic = semantic_digest(graph, policy)
+        claim_local = claim_local_digest(graph, policy)
         verdict = verify(graph, policy)
 
         for field, actual in (
             ("expected_graph_digest_sha256", serialized),
             ("expected_semantic_graph_digest_sha256", semantic),
+            ("expected_claim_local_graph_digest_sha256", claim_local),
             ("expected_verdict", verdict),
         ):
             expected = case[field]
