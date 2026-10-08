@@ -447,28 +447,33 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => validate_update_entry(app_entry, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address,
-            target_address,
-            tag,
-            action,
-        } => validate_create_link(link_type, base_address, target_address, tag, action),
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action,
-            base_address,
-            target_address,
-            tag,
-            action,
-        } => validate_delete_link(
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            // In 0.7, link base/target/tag live on the typed action data.
+            // Clone them before passing the action into the validator.
+            let base_address = action.base_address.clone();
+            let target_address = action.target_address.clone();
+            let tag = action.tag.clone();
+            validate_create_link(link_type, base_address, target_address, tag, action)
+        }
+        FlatOp::Link(OpLink::DeleteLink {
             link_type,
             original_action,
-            base_address,
-            target_address,
-            tag,
             action,
-        ),
+        }) => {
+            // DeleteLink carries only the base and the create-link hash; target/tag
+            // are recovered from the exact original CreateLink action.
+            let base_address = action.base_address.clone();
+            let target_address = original_action.target_address.clone();
+            let tag = original_action.tag.clone();
+            validate_delete_link(
+                link_type,
+                original_action,
+                base_address,
+                target_address,
+                tag,
+                action,
+            )
+        },
         FlatOp::CreateRecord(store_record) => match store_record {
             OpRecord::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
             OpRecord::UpdateEntry {
