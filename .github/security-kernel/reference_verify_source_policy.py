@@ -750,6 +750,18 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
     joined = "\n".join(l)
+    resolve_source_output_refs = set(re.findall(r"steps\\.resolve_source\\.outputs\\.([A-Za-z0-9_-]+)", joined))
+    allowed_resolve_source_outputs = {
+        "source_volume_name", "source_volume_spec", "source_copy_bytes", "source_copy_files",
+        "source_copy_inodes", "candidate_tree", "source_tree_entry_count", "source_file_count",
+        "source_total_path_bytes", "source_total_bytes", "source_max_blob_bytes", "fetch_image",
+        "source_staging_digest", "executed_source_digest", "source_digest",
+    }
+    if not resolve_source_output_refs <= allowed_resolve_source_outputs:
+        fail(f"S1 resolve_source output reference is not emitted by the acquisition step: {sorted(resolve_source_output_refs - allowed_resolve_source_outputs)!r}")
+    for required_output in allowed_resolve_source_outputs:
+        if not re.search(rf"\\b{re.escape(required_output)}=", joined):
+            fail(f"S1 resolve_source output field missing from the workflow: {required_output}")
     if 'test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"' not in joined:
         fail("S1 must bind called workflow commit to caller workflow commit")
     if "CANDIDATE_ROOT" in joined or "candidate_root" in joined or "security-kernel-candidate-root" in joined:
@@ -1641,6 +1653,17 @@ def main() -> None:
             "synthetic dynamic-sink regression",
         ),
         "dynamic GITHUB_OUTPUT sink without statically visible key",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"${{ steps.resolve_source.outputs.source_volume_name }}",
+                b"${{ steps.resolve_source.outputs.candidate_volume_name }}",
+            ),
+            s1_sha,
+        ),
+        "unknown resolve_source output reference",
     )
 
     expect_rejection(
