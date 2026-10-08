@@ -148,8 +148,31 @@ pub struct Execution {
 /// Status of an execution
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ExecutionStatus {
+    Prepared,
     Success,
     PartialSuccess,
+    Failed,
+}
+
+/// Immutable host-side terminal resolution attestation.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ExecutionResolution {
+    pub id: String,
+    pub execution_id: String,
+    pub timelock_id: String,
+    pub proposal_id: String,
+    pub executor: String,
+    pub attempt_identities: Vec<String>,
+    pub action_key_digests: Vec<String>,
+    pub terminal_evidence_digests: Vec<String>,
+    pub outcome: ExecutionResolutionOutcome,
+    pub resolved_at: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ExecutionResolutionOutcome {
+    Executed,
     Failed,
 }
 
@@ -286,6 +309,7 @@ pub enum EntryTypes {
     FundAllocation(FundAllocation),
     VetoOverrideVote(VetoOverrideVote),
     VetoOverrideResult(VetoOverrideResult),
+    ExecutionResolution(ExecutionResolution),
 }
 
 #[hdk_link_types]
@@ -306,6 +330,10 @@ pub enum LinkTypes {
     VetoToOverrideVotes,
     /// Veto to override result
     VetoToOverrideResult,
+    /// Execution to terminal resolution attestation
+    ExecutionToResolution,
+    /// O(1) lookup: execution ID anchor → execution record
+    ExecutionById,
 }
 
 // ---------------------------------------------------------------------------
@@ -330,8 +358,20 @@ pub fn check_create_timelock(timelock: &Timelock) -> Result<(), String> {
 /// Check that a timelock update is valid: immutable proposal_id, and only
 /// whitelisted status transitions are allowed.
 pub fn check_update_timelock(original: &Timelock, updated: &Timelock) -> Result<(), String> {
+    if updated.id != original.id {
+        return Err("Cannot change timelock ID".into());
+    }
     if updated.proposal_id != original.proposal_id {
         return Err("Cannot change timelock proposal ID".into());
+    }
+    if updated.actions != original.actions {
+        return Err("Cannot change timelock actions after creation".into());
+    }
+    if updated.started != original.started {
+        return Err("Cannot change timelock start time".into());
+    }
+    if updated.expires != original.expires {
+        return Err("Cannot change timelock expiry".into());
     }
     match (&original.status, &updated.status) {
         (TimelockStatus::Pending, TimelockStatus::Ready)
@@ -357,10 +397,52 @@ pub fn check_create_execution(execution: &Execution) -> Result<(), String> {
     if !execution.executor.starts_with("did:") {
         return Err("Executor must be a valid DID".into());
     }
+    if execution.id.is_empty() || execution.timelock_id.is_empty() || execution.proposal_id.is_empty() {
+        return Err("Execution identifiers are required".into());
+    }
+    if execution.status == ExecutionStatus::Prepared
+        && (execution.result.is_some() || execution.error.is_some())
+    {
+        return Err("Prepared execution cannot contain terminal result/error".into());
+    }
     if let Some(ref result) = execution.result {
         if serde_json::from_str::<serde_json::Value>(result).is_err() {
             return Err("Result must be valid JSON".into());
         }
+    }
+    Ok(())
+}
+
+/// Check that a host-side execution resolution is structurally complete.
+pub fn check_create_execution_resolution(
+    resolution: &ExecutionResolution,
+) -> Result<(), String> {
+    if !resolution.executor.starts_with("did:") {
+        return Err("Resolution executor must be a valid DID".into());
+    }
+    if resolution.id.is_empty()
+        || resolution.execution_id.is_empty()
+        || resolution.timelock_id.is_empty()
+        || resolution.proposal_id.is_empty()
+    {
+        return Err("Resolution identifiers are required".into());
+    }
+    if resolution.attempt_identities.is_empty()
+        || resolution.action_key_digests.is_empty()
+        || resolution.terminal_evidence_digests.is_empty()
+    {
+        return Err("Resolution requires attempt and terminal evidence bindings".into());
+    }
+    if resolution.attempt_identities.len() != resolution.action_key_digests.len()
+        || resolution.attempt_identities.len() != resolution.terminal_evidence_digests.len()
+    {
+        return Err("Resolution binding vectors must have equal lengths".into());
+    }
+    if resolution.attempt_identities.iter().any(|v| v.is_empty())
+        || resolution.action_key_digests.iter().any(|v| v.is_empty())
+        || resolution.terminal_evidence_digests.iter().any(|v| v.is_empty())
+    {
+        return Err("Resolution bindings must be non-empty".into());
     }
     Ok(())
 }
@@ -473,6 +555,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Timelock(timelock) => validate_create_timelock(action, timelock),
                 EntryTypes::Execution(execution) => validate_create_execution(action, execution),
+                EntryTypes::ExecutionResolution(resolution) => {
+                    validate_create_execution_resolution(action, resolution)
+                },
                 EntryTypes::GuardianVeto(veto) => validate_create_veto(action, veto),
                 EntryTypes::FundAllocation(alloc) => validate_create_fund_allocation(action, alloc),
                 EntryTypes::VetoOverrideVote(vote) => validate_create_override_vote(action, vote),
@@ -496,6 +581,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "Execution records cannot be modified".into(),
                     ))
                 }
+                EntryTypes::ExecutionResolution(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Execution resolutions cannot be modified".into(),
+                )),
                 EntryTypes::GuardianVeto(_) => {
                     // Vetoes cannot be updated
                     Ok(ValidateCallbackResult::Invalid(
