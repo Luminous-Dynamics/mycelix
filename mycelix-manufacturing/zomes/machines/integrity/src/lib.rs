@@ -1606,9 +1606,38 @@ mod content_restriction_tests {
     }
 
     #[test]
-    fn temporal_evidence_resolution_bounds_observation_work() {
+    fn temporal_evidence_resolution_deduplicates_identical_attestation_hashes() {
+        let a = temporal_observation(1, 7, 100);
+        assert_eq!(
+            resolve_temporal_evidence(vec![a.clone(), a.clone()]),
+            MachineTemporalEvidenceResolution::UniqueObserved {
+                time: Timestamp::from_micros(100),
+                evidence: vec![a],
+            }
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_divergent_duplicate_hashes() {
+        let a = temporal_observation(1, 7, 100);
+        let mut divergent = a.clone();
+        divergent.source_reference = "tsa://different-reference".into();
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, divergent]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_bounds_distinct_observation_work() {
         let evidence = (0..=MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS)
-            .map(|index| temporal_observation((index % 250) as u8, 7, 100))
+            .map(|index| {
+                let mut observation = temporal_observation((index % 250) as u8, 7, 100);
+                let mut raw = vec![0u8; 36];
+                raw[..4].copy_from_slice(&(index as u32).to_le_bytes());
+                observation.attestation_hash = ActionHash::from_raw_36(raw);
+                observation
+            })
             .collect::<Vec<_>>();
         assert_eq!(
             resolve_temporal_evidence(evidence),
