@@ -48,6 +48,16 @@ def mutate(policy: dict, spec: dict) -> dict:
             if r["node"] == spec["node"] and r["field"] == spec["field"]
         )
         target["value"] = spec["value"]
+    elif operation == "replace_relation_rules":
+        out["edge_schema_constraints"] = [
+            r for r in out["edge_schema_constraints"]
+            if r["relation"] != spec["relation"]
+        ]
+        out["edge_schema_constraints"].append({
+            "relation": spec["relation"],
+            "source_types": spec["source_types"],
+            "target_types": spec["target_types"],
+        })
     else:
         raise ValueError(f"unknown mutation: {operation}")
 
@@ -123,8 +133,8 @@ def main() -> int:
                     "mutation": source["mutation"],
                     "expected_verdict": spec["expected_verdict"],
                     "expected_graph_digest_sha256": source["expected_graph_digest_sha256"],
-                    "expected_semantic_graph_digest_sha256": source["expected_semantic_graph_digest_sha256"],
-                    "expected_claim_local_graph_digest_sha256": source["expected_claim_local_graph_digest_sha256"],
+                    "expected_semantic_graph_digest_sha256": spec.get("expected_semantic_graph_digest_sha256", source["expected_semantic_graph_digest_sha256"]),
+                    "expected_claim_local_graph_digest_sha256": spec.get("expected_claim_local_graph_digest_sha256", source["expected_claim_local_graph_digest_sha256"]),
                 }],
             }
             corpus_path = tmp_dir / f"{spec['case_id']}.corpus.json"
