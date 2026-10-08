@@ -81,6 +81,8 @@ def run_cli(root: Path, env_extra: dict[str, str]) -> subprocess.CompletedProces
         "--workflow", ".github/workflows/sovereignty-formal-qualification.yml",
         "--crosswalk", "docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json",
         "--reference-explorer", "docs/qualification/fixtures/formal/sovereignty_reference_explorer.py",
+        "--runtime-metadata", str(root / "runtime.json"),
+        "--alloy-runner-class", str(root / "fake-runner-class/SovereigntyAlloyQualificationRunner.class"),
     ]
     return subprocess.run(cmd, cwd=root, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
@@ -114,6 +116,22 @@ def prepare_workspace(tmp: Path) -> tuple[str, str]:
     fake_alloy = b"candidate-selftest-alloy-tool\n"
     (tmp / "fake-tla.jar").write_bytes(fake_tla)
     (tmp / "fake-alloy.jar").write_bytes(fake_alloy)
+    (tmp / "runtime.json").write_text(
+        json.dumps({
+            "schema": "mycelix.sovereignty-formal-runtime.v1",
+            "nixpkgs_rev": pins["nixpkgs_rev"],
+            "jdk_package": "jdk17_headless",
+            "java_major": 17,
+            "java_version": 'openjdk version "17.0.99" 2099-01-01',
+            "javac_version": "javac 17.0.99",
+        }) + "\n",
+        encoding="utf-8",
+    )
+    fake_class_dir = tmp / "fake-runner-class"
+    fake_class_dir.mkdir()
+    (fake_class_dir / "SovereigntyAlloyQualificationRunner.class").write_bytes(
+        b"candidate-selftest-alloy-runner-class\n"
+    )
     tla_sha = hashlib.sha256(fake_tla).hexdigest()
     alloy_sha = hashlib.sha256(fake_alloy).hexdigest()
 
@@ -198,6 +216,7 @@ if "SovereigntyAlloyQualificationRunner" in args:
             "check": check,
             "expects": expects,
             "actual": actual,
+            "solution_sha256": "0" * 64,
             "command": command,
         }))
     raise SystemExit(0)
