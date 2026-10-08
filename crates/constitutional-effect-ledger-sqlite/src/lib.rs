@@ -1200,6 +1200,16 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
     }
 
     for record in attempts.values() {
+        if record
+            .authorization_admission_proof_digest
+            .as_deref()
+            .is_none_or(str::is_empty)
+        {
+            return Err(format!(
+                "attempt {} is missing its authorization admission proof digest",
+                record.attempt_identity
+            ));
+        }
         if let Some(proof_digest) = record.entry_admission_proof_digest.as_deref() {
             if proof_digest.trim().is_empty() {
                 return Err(format!(
@@ -1477,6 +1487,7 @@ CREATE TABLE effect_attempts (
     state INTEGER NOT NULL CHECK(state IN (1,2,3,4,5,6,7,8)),
     not_entered_marker TEXT,
     record_digest TEXT NOT NULL,
+    CHECK(authorization_admission_proof_digest IS NOT NULL),
     CHECK((state IN (5,6)) OR terminal_evidence_digest IS NULL),
     CHECK((state = 7) OR reconciliation_token_digest IS NULL),
     CHECK((state != 7) OR reconciliation_token_digest IS NOT NULL),
