@@ -203,6 +203,9 @@ pred SharedRootEffectiveAlternative {
 run NominalExitWithoutEffective
   for 4 but 4 int, 4 Subject, 4 Provider
 
+run EffectiveExitWithoutNominalWitness
+  for 4 but 4 int, 4 Subject, 4 Provider
+
 run EffectiveIndependentAlternative
   for 4 but 4 int, 4 Subject, 4 Provider
 
