@@ -70,7 +70,7 @@ pub struct CreateExecutionInput {
     pub started_at: Timestamp,
     pub completed_at: Timestamp,
     pub disposition: Disposition,
-    pub evidence_references: Vec<String>,
+    pub evidence_hashes: Vec<ActionHash>,
     pub notes: Option<String>,
 }
 
@@ -179,7 +179,7 @@ pub fn record_execution(input: CreateExecutionInput) -> ExternResult<ActionHash>
         started_at: input.started_at,
         completed_at: input.completed_at,
         disposition: input.disposition,
-        evidence_references: input.evidence_references,
+        evidence_hashes: input.evidence_hashes,
         notes: input.notes,
     }))?;
 
@@ -256,7 +256,7 @@ mod tests {
             started_at: Timestamp::from_micros(0),
             completed_at: Timestamp::from_micros(10),
             disposition: Disposition::Accepted,
-            evidence_references: vec!["evidence-1".into()],
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
             notes: None,
         };
         let json = serde_json::to_string(&input).unwrap();
