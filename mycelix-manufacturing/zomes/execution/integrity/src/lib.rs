@@ -913,7 +913,13 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                             "execution measurement references an inspection criterion not required by the routing step".into(),
                         ));
                     }
-                    measured_criteria.insert(criterion_hash);
+                    if matches!(e.disposition, Disposition::Accepted)
+                        && !measured_criteria.insert(criterion_hash)
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "accepted execution contains multiple measurements for the same routing-required inspection criterion".into(),
+                        ));
+                    }
                 }
 
                 if matches!(e.disposition, Disposition::Accepted)
