@@ -210,6 +210,19 @@ def main() -> None:
             expect_failure(root, file_name, label, fn)
 
         expect_failure(
+            root, "verifier-control.json", "control.reference-verifier-blob",
+            lambda x: x.__setitem__("reference_verifier_blob_sha", "a" * 40),
+        )
+        expect_failure(
+            root, "verifier-control.json", "control.collector-blob",
+            lambda x: x.__setitem__("artifact_collector_blob_sha", "b" * 40),
+        )
+        expect_failure(
+            root, "verifier-control.json", "control.extra-field",
+            lambda x: x.__setitem__("unexpected", True),
+        )
+
+        expect_failure(
             root, "artifacts.json", "artifact-set-extra",
             lambda x: x["artifacts"].append(copy.deepcopy(x["artifacts"][0])),
         )
