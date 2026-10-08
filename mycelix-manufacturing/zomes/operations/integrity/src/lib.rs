@@ -124,6 +124,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "design_id is required".into(),
                     ));
                 }
+                if routing.revision.is_empty() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "routing revision is required".into(),
+                    ));
+                }
                 if routing.steps.is_empty() {
                     return Ok(ValidateCallbackResult::Invalid(
                         "routing must have at least one step".into(),
@@ -135,6 +140,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         return Ok(ValidateCallbackResult::Invalid(
                             "routing steps must be in ascending sequence order".into(),
                         ));
+                    }
+                }
+                for step in &routing.steps {
+                    if let Some(requirement_hash) = step.capability_requirement_hash.clone() {
+                        let record = must_get_valid_record(requirement_hash)?;
+                        let requirement: Option<CapabilityRequirementEntry> = record
+                            .entry()
+                            .to_app_option()
+                            .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                        if requirement.is_none() {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "routing capability requirement reference is not a capability requirement record".into(),
+                            ));
+                        }
                     }
                 }
                 Ok(ValidateCallbackResult::Valid)
