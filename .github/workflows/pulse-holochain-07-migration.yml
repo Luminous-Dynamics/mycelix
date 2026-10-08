@@ -8,7 +8,7 @@ on:
       - "mycelix-workspace/mycelix-pulse/docs/HOLOCHAIN_0_7_MIGRATION.md"
       - ".github/workflows/pulse-holochain-07-migration.yml"
   push:
-    branches: [main]
+    branches: ["**"]
     paths:
       - "mycelix-workspace/mycelix-pulse/holochain/**"
       - "mycelix-workspace/mycelix-pulse/tests/**"
