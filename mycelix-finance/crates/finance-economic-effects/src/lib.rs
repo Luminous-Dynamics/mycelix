@@ -821,6 +821,36 @@ mod tests {
     }
 
     #[test]
+    fn economic_identity_namespace_prevents_cross_class_key_collision() {
+        let transfer = EconomicIdentityV1 {
+            namespace: EconomicIdentityNamespaceV1::Transfer,
+            key: "same-key".into(),
+        };
+        let fee = EconomicIdentityV1 {
+            namespace: EconomicIdentityNamespaceV1::Fee,
+            key: "same-key".into(),
+        };
+
+        let mut effect = base_transfer();
+        effect.identity.economic_identity = transfer.clone();
+
+        assert!(effect
+            .validate(EffectValidationContext {
+                seen_effect_identities: &[],
+                seen_economic_identities: &[fee],
+            })
+            .is_ok());
+
+        assert_eq!(
+            effect.validate(EffectValidationContext {
+                seen_effect_identities: &[],
+                seen_economic_identities: &[transfer],
+            }),
+            Err(EconomicEffectError::EconomicReplay)
+        );
+    }
+
+    #[test]
     fn namespace_must_match_mutation_class() {
         let mut effect = base_transfer();
         effect.identity.economic_identity.namespace = EconomicIdentityNamespaceV1::Fee;
