@@ -93,7 +93,11 @@ jobs:
           nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#jdk17_headless" --command bash -euo pipefail -c '
             java_version="$(java -version 2>&1 | head -n 1)"
             javac_version="$(javac -version 2>&1 | head -n 1)"
-            printf "{\\"schema\\":\\"mycelix.effective-contestability-formal-runtime.v1\\",\\"nixpkgs_rev\\":\\"%s\\",\\"jdk_package\\":\\"jdk17_headless\\",\\"java_major\\":17,\\"java_version\\":\\"%s\\",\\"javac_version\\":\\"%s\\"}\\n" "$NIXPKGS_REV" "$java_version" "$javac_version" > "$RUNNER_TEMP/contestability-evidence/runtime.json"
+            java_json="${java_version//\\/\\\\}"
+            java_json="${java_json//\"/\\\"}"
+            javac_json="${javac_version//\\/\\\\}"
+            javac_json="${javac_json//\"/\\\"}"
+            printf "{\\"schema\\":\\"mycelix.effective-contestability-formal-runtime.v1\\",\\"nixpkgs_rev\\":\\"%s\\",\\"jdk_package\\":\\"jdk17_headless\\",\\"java_major\\":17,\\"java_version\\":\\"%s\\",\\"javac_version\\":\\"%s\\"}\\n" "$NIXPKGS_REV" "$java_json" "$javac_json" > "$RUNNER_TEMP/contestability-evidence/runtime.json"
             javac -cp "$RUNNER_TEMP/contestability-tools/alloy.jar" -d "$RUNNER_TEMP/contestability-java" docs/qualification/fixtures/effective-contestability/EffectiveContestabilityAlloyRunner.java
           '
 
