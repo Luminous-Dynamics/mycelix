@@ -323,13 +323,13 @@ impl EffectBoundaryHostV1 {
             TerminalOutcomeV1::Executed => self.store.atomically_close_executed(
                 action_key,
                 attempt_identity,
-                owner_token_digest,
+                terminal_token,
                 &evidence,
             ),
             TerminalOutcomeV1::Failed => self.store.atomically_release_after_failed(
                 action_key,
                 attempt_identity,
-                owner_token_digest,
+                terminal_token,
                 &evidence,
             ),
         }
