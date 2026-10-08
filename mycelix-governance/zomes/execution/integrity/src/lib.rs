@@ -183,6 +183,10 @@ pub struct ExecutionResolution {
     pub timelock_id: String,
     pub proposal_id: String,
     pub executor: String,
+    /// Exact source-chain action hash of the Prepared Execution record being resolved.
+    /// None is legacy-only; new receipts must set it.
+    #[serde(default)]
+    pub prepared_execution_action_hash: Option<ActionHash>,
     /// Exact source-chain action hash of the Prepared timelock record used to
     /// authorize this resolution. None is legacy-only; new receipts must set it.
     #[serde(default)]
@@ -477,8 +481,10 @@ pub fn check_create_execution_resolution(
     {
         return Err("Resolution identifiers are required".into());
     }
-    if resolution.prepared_timelock_action_hash.is_none() {
-        return Err("Resolution must bind the exact prepared timelock action hash".into());
+    if resolution.prepared_execution_action_hash.is_none()
+        || resolution.prepared_timelock_action_hash.is_none()
+    {
+        return Err("Resolution must bind exact prepared execution and timelock action hashes".into());
     }
     check_execution_resolution_bindings(
         &resolution.attempt_identities,
@@ -487,6 +493,29 @@ pub fn check_create_execution_resolution(
         &resolution.authorization_admission_proof_digests,
         &resolution.final_provider_entry_proof_digests,
     )?;
+    Ok(())
+}
+
+/// Validate that the action-addressed execution is the exact Prepared
+/// execution named by a resolution.
+pub fn check_resolution_prepared_execution_scope(
+    resolution: &ExecutionResolution,
+    prepared_execution: &Execution,
+) -> Result<(), String> {
+    if resolution.prepared_execution_action_hash.is_none() {
+        return Err("Resolution must bind the exact prepared execution action hash".into());
+    }
+    if prepared_execution.status != ExecutionStatus::Prepared
+        || prepared_execution.id != resolution.execution_id
+        || prepared_execution.timelock_id != resolution.timelock_id
+        || prepared_execution.proposal_id != resolution.proposal_id
+        || prepared_execution.executor != resolution.executor
+    {
+        return Err(
+            "Resolution prepared-execution action does not match execution/timelock/proposal/executor scope"
+                .into(),
+        );
+    }
     Ok(())
 }
 
@@ -813,6 +842,30 @@ fn validate_create_execution_resolution(
     if let Err(reason) = check_create_execution_resolution(&action, &resolution) {
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
+    let Some(execution_hash) = resolution.prepared_execution_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution must bind the exact prepared execution action hash".into(),
+        ));
+    };
+    let execution_record = must_get_valid_record(execution_hash)?;
+    let prepared_execution: Execution = execution_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Prepared execution action hash does not reference an Execution entry".into()
+        )))?;
+    if execution_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution and prepared execution must share the executor source-chain author".into(),
+        ));
+    }
+    if let Err(reason) =
+        check_resolution_prepared_execution_scope(&resolution, &prepared_execution)
+    {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+
     let Some(prepared_hash) = resolution.prepared_timelock_action_hash.clone() else {
         return Ok(ValidateCallbackResult::Invalid(
             "Resolution must bind the exact prepared timelock action hash".into(),
@@ -820,6 +873,11 @@ fn validate_create_execution_resolution(
     };
 
     let prepared_record = must_get_valid_record(prepared_hash)?;
+    if prepared_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution and prepared timelock must share the executor source-chain author".into(),
+        ));
+    }
     let prepared_timelock: Timelock = prepared_record
         .entry()
         .to_app_option()
@@ -1244,6 +1302,7 @@ mod tests {
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
             executor: "did:key:z6Mk".into(),
+            prepared_execution_action_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
             prepared_timelock_action_hash: Some(ActionHash::from_raw_36(vec![0; 36])),
             attempt_identities: vec![format!(
                 "{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}",
@@ -1320,6 +1379,21 @@ mod tests {
             MAX_EXECUTION_RESOLUTION_BINDINGS + 1
         ];
         assert!(check_create_execution_resolution(&too_many).is_err());
+
+        let mut prepared_execution = make_execution();
+        assert!(check_resolution_prepared_execution_scope(&valid, &prepared_execution).is_ok());
+
+        let mut wrong_execution_status = prepared_execution.clone();
+        wrong_execution_status.status = ExecutionStatus::Failed;
+        assert!(check_resolution_prepared_execution_scope(&valid, &wrong_execution_status).is_err());
+
+        let mut wrong_execution_executor = prepared_execution.clone();
+        wrong_execution_executor.executor = "did:key:other".into();
+        assert!(check_resolution_prepared_execution_scope(&valid, &wrong_execution_executor).is_err());
+
+        let mut missing_execution_root = valid.clone();
+        missing_execution_root.prepared_execution_action_hash = None;
+        assert!(check_create_execution_resolution(&missing_execution_root).is_err());
 
         let mut prepared_timelock = make_timelock();
         prepared_timelock.status = TimelockStatus::Prepared;
