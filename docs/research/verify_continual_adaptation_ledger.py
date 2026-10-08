@@ -80,6 +80,26 @@ def semantic_digest(graph: dict, policy: dict) -> str:
     return "invalid" if normalized is None else digest(normalized)
 
 
+def validate_graph_structure(graph: dict, policy: dict) -> bool:
+    nodes = node_index(graph)
+    if nodes is None:
+        return False
+    seen_edges: set[tuple[str, str, str]] = set()
+    for edge in graph["edges"]:
+        if (
+            not isinstance(edge, list)
+            or len(edge) != 3
+            or edge[0] not in nodes
+            or edge[1] not in nodes
+        ):
+            return False
+        key = tuple(edge)
+        if policy["graph_canonicalization"]["reject_duplicate_edges"] and key in seen_edges:
+            return False
+        seen_edges.add(key)
+    return True
+
+
 def edge_set(graph: dict) -> set[tuple[str, str, str]]:
     return {tuple(edge) for edge in graph["edges"]}
 
@@ -118,6 +138,8 @@ def apply_mutations(base: dict, mutations: list[list[object]]) -> dict:
 
 
 def verify(graph: dict, policy: dict) -> str:
+    if not validate_graph_structure(graph, policy):
+        return "unresolved"
     nodes = node_index(graph)
     if nodes is None:
         return "unresolved"
