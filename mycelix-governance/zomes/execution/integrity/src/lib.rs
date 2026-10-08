@@ -1058,12 +1058,16 @@ mod tests {
         let now = Timestamp::from_micros(1);
         let base = ExecutionAttempt {
             id: "execution-attempt-bypass-1".into(),
+            operation_id: "operation-bypass-1".into(),
             timelock_id: "timelock-bypass-1".into(),
             proposal_id: "proposal-bypass-1".into(),
             action_digest: "constitutional-material-action-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             action_key_digest: "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             attempt_identity: "constitutional-attempt-identity-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             native_replay_identity: "native-replay-bypass-1".into(),
+            provider_environment: "holochain-local-source-chain".into(),
+            provider_audience: "mycelix-governance-execution".into(),
+            adapter_identity: "governance-execution-coordinator-v1".into(),
             executor: "did:mycelix:executor".into(),
             status: ExecutionAttemptStatus::Invoked,
             prepared_at: now,
@@ -1123,12 +1127,16 @@ mod tests {
         let now = Timestamp::from_micros(1);
         let attempt = ExecutionAttempt {
             id: "execution-attempt-1".into(),
+            operation_id: "operation-1".into(),
             timelock_id: "timelock-1".into(),
             proposal_id: "proposal-1".into(),
             action_digest: "constitutional-material-action-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             action_key_digest: "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             attempt_identity: "constitutional-attempt-identity-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             native_replay_identity: "native-replay-1".into(),
+            provider_environment: "holochain-local-source-chain".into(),
+            provider_audience: "mycelix-governance-execution".into(),
+            adapter_identity: "governance-execution-coordinator-v1".into(),
             executor: "did:mycelix:executor".into(),
             status: ExecutionAttemptStatus::Invoked,
             prepared_at: now,
