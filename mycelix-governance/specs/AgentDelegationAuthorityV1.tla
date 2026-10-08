@@ -15,7 +15,8 @@ Evidence == {E1}
 issuer ==
   [G1 |-> Root,
    G2 |-> A,
-   G3 |-> B]
+   G3 |-> B,
+   G4 |-> Root]
 
 grantee ==
   [G1 |-> A,
@@ -32,7 +33,8 @@ grantPower ==
 ancestor ==
   [G1 |-> {},
    G2 |-> {G1},
-   G3 |-> {G1, G2}]
+   G3 |-> {G1, G2},
+   G4 |-> {}]
 
 RootPowers == {P1, P2}
 
