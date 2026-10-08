@@ -9,12 +9,14 @@ abstract sig Node {
   dependsOn: set Node
 }
 
+sig DependencyNode extends Node {}
+
 sig Provider extends Node {
-  controlRoot: one Node,
-  identityRoot: one Node,
-  evidenceRoot: one Node,
-  evaluatorRoot: one Node,
-  economicRoot: one Node
+  controlRoot: one DependencyNode,
+  identityRoot: one DependencyNode,
+  evidenceRoot: one DependencyNode,
+  evaluatorRoot: one DependencyNode,
+  economicRoot: one DependencyNode
 }
 
 sig Subject {
@@ -26,7 +28,7 @@ sig Subject {
 
 fact ProviderRootsAreDependencies {
   all p: Provider |
-    p.dependsOn = p.controlRoot + p.identityRoot + p.evidenceRoot + p.evaluatorRoot + p.economicRoot
+    p.controlRoot + p.identityRoot + p.evidenceRoot + p.evaluatorRoot + p.economicRoot in p.dependsOn
 }
 
 fact EffectiveAlternativeHasDisjointCriticalClosure {
@@ -61,11 +63,18 @@ pred EffectiveIndependentWitness {
 }
 
 pred SharedCriticalAncestorNominalWitness {
-  some s: Subject, p: Provider, n: Node |
+  some s: Subject, p: Provider, n: DependencyNode |
     p != s.current and
     p in s.nominal and
+    p.controlRoot != s.current.controlRoot and
+    p.identityRoot != s.current.identityRoot and
+    p.evidenceRoot != s.current.evidenceRoot and
+    p.evaluatorRoot != s.current.evaluatorRoot and
+    p.economicRoot != s.current.economicRoot and
     n in p.*dependsOn and
     n in s.current.*dependsOn and
+    n not in p.dependsOn and
+    n not in s.current.dependsOn and
     n.critical = On
 }
 
