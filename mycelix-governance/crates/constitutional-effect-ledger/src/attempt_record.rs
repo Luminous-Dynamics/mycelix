@@ -697,7 +697,7 @@ pub trait DurableActionFenceStore {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
-    ) -> Result<(), ActionFenceMutationError>;
+    ) -> Result<String, ActionFenceMutationError>;
 
     fn atomically_release_after_failed(
         &mut self,
@@ -1890,6 +1890,54 @@ mod tests {
             Err(ActionFenceMutationError::NotOccupied)
         );
         assert!(model.fence(key().digest()).is_some());
+    }
+
+    #[test]
+    fn indeterminate_rotates_terminal_resolution_token() {
+        let mut model = AtomicActionFenceModelV1::new();
+        let action = key();
+        let owner = attempt("attempt-resolution");
+        model
+            .admit(
+                &action,
+                &owner,
+                record(
+                    "attempt-resolution",
+                    "operation-resolution",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        model
+            .mark_dispatch_pending(&action, &owner, "owner-token-attempt-resolution")
+            .unwrap();
+        model
+            .mark_invoked(&action, &owner, "owner-token-attempt-resolution")
+            .unwrap();
+
+        let resolution_token = model
+            .mark_indeterminate(&action, &owner, "owner-token-attempt-resolution")
+            .unwrap();
+
+        assert_ne!(resolution_token, "owner-token-attempt-resolution");
+        assert_eq!(
+            model.close_executed(
+                &action,
+                &owner,
+                "owner-token-attempt-resolution",
+                &terminal_evidence(TerminalOutcomeV1::Executed, "attempt-resolution"),
+            ),
+            Err(ActionFenceMutationError::OwnershipTokenMismatch)
+        );
+
+        model
+            .close_executed(
+                &action,
+                &owner,
+                &resolution_token,
+                &terminal_evidence(TerminalOutcomeV1::Executed, "attempt-resolution"),
+            )
+            .unwrap();
     }
 
     #[test]
