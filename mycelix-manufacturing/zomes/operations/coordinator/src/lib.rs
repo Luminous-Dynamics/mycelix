@@ -40,6 +40,7 @@ pub struct CreateRoutingInput {
 pub struct RoutingStepInput {
     pub sequence: u32,
     pub capability_requirement_hash: Option<ActionHash>,
+    pub required_inspection_criterion_hashes: Vec<ActionHash>,
     pub operation_name: String,
     pub machine_type: String,
     pub setup_time_min: u32,
@@ -149,6 +150,7 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
         .map(|s| RoutingStepEntry {
             sequence: s.sequence,
             capability_requirement_hash: s.capability_requirement_hash,
+            required_inspection_criterion_hashes: s.required_inspection_criterion_hashes,
             operation_name: s.operation_name,
             machine_type: s.machine_type,
             setup_time_min: s.setup_time_min,
@@ -274,6 +276,7 @@ mod tests {
             RoutingStepInput {
                 sequence: 10,
                 capability_requirement_hash: None,
+                required_inspection_criterion_hashes: vec![],
                 operation_name: "Cut".to_string(),
                 machine_type: "Saw".to_string(),
                 setup_time_min: 5,
@@ -283,6 +286,7 @@ mod tests {
             RoutingStepInput {
                 sequence: 20,
                 capability_requirement_hash: None,
+                required_inspection_criterion_hashes: vec![],
                 operation_name: "Mill".to_string(),
                 machine_type: "CNC".to_string(),
                 setup_time_min: 15,
@@ -304,6 +308,7 @@ mod tests {
             steps: vec![RoutingStepInput {
                 sequence: 10,
                 capability_requirement_hash: None,
+                required_inspection_criterion_hashes: vec![],
                 operation_name: "Cut".to_string(),
                 machine_type: "Saw".to_string(),
                 setup_time_min: 5,
