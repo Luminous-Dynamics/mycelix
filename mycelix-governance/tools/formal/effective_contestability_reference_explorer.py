@@ -49,8 +49,10 @@ def check_invariants(state: State) -> list[str]:
     for s in SUBJECTS:
         i = idx(s)
         for p in state.effective[i]:
-            if not independent(s, p, state):
+            if p not in state.nominal[i]:
                 failures.append("EffectiveExitIsIndependent")
+            if p == state.current[i]:
+                failures.append("EffectiveExitContextIsFresh")
             if not state.portable[i]:
                 failures.append("EffectiveExitRequiresPortability")
             for pos, name in enumerate(("control", "identity", "evidence", "evaluator", "economic")):
@@ -188,7 +190,7 @@ def main() -> int:
     print("CANONICAL PASS: no invariant violation through depth 4")
 
     controls = {
-        "switch-stale-exit": "EffectiveExitIsIndependent",
+        "switch-stale-exit": "EffectiveExitContextIsFresh",
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
