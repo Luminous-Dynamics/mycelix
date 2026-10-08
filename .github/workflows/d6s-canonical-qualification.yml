@@ -124,14 +124,14 @@ jobs:
         run: |
           set -euo pipefail
           rm -f "$CARGO_HOME/config" "$CARGO_HOME/config.toml"
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN             cargo +1.96.0 generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE             cargo +1.96.0 generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
           test -s mycelix-manufacturing/Cargo.lock
 
       - name: Re-generate reference-test dependency lock and require byte stability
         run: |
           set -euo pipefail
           cp mycelix-manufacturing/Cargo.lock "$RUNNER_TEMP/d6s-cargo-lock.first"
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN             cargo +1.96.0 generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE             cargo +1.96.0 generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
           cmp -s mycelix-manufacturing/Cargo.lock "$RUNNER_TEMP/d6s-cargo-lock.first"
 
       - name: Assert resolved reference-test dependency graph
@@ -155,12 +155,54 @@ jobs:
               else:
                   assert source == registry, (pkg["name"], source)
           PY
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN             cargo +1.96.0 metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > "$RUNNER_TEMP/d6s-cargo-metadata.json"
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE             cargo +1.96.0 metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > "$RUNNER_TEMP/d6s-cargo-metadata.json"
 
+      - name: Probe build-script GitHub boundary
+        run: |
+          set -euo pipefail
+          probe="$RUNNER_TEMP/d6s-build-script-probe"
+          rm -rf "$probe"
+          mkdir -p "$probe/src"
+          cat > "$probe/Cargo.toml" <<'TOML'
+          [package]
+          name = "d6s-build-script-probe"
+          version = "0.0.0"
+          edition = "2024"
+          build = "build.rs"
+          TOML
+          cat > "$probe/build.rs" <<'RS'
+          use std::{env, fs, net::TcpStream, path::Path};
+          fn main() {
+              for key in [
+                  "GITHUB_TOKEN", "GH_TOKEN", "ACTIONS_RUNTIME_TOKEN",
+                  "ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+                  "GITHUB_ENV", "GITHUB_OUTPUT", "GITHUB_PATH",
+                  "GITHUB_STEP_SUMMARY", "GITHUB_STATE",
+              ] {
+                  assert!(env::var_os(key).is_none(), "build script inherited {key}");
+              }
+              assert!(!Path::new("/var/run/docker.sock").exists());
+              let marker = env::temp_dir().join("d6s-build-script-probe.txt");
+              fs::write(&marker, "build-script-ran\n").expect("tmpfs write should work");
+              assert!(TcpStream::connect_timeout(&"1.1.1.1:443".parse().unwrap(), std::time::Duration::from_millis(250)).is_err());
+          }
+          RS
+          printf 'fn main() {}\n' > "$probe/src/main.rs"
+          before_env="$RUNNER_TEMP/d6s-github-env-before"
+          before_output="$RUNNER_TEMP/d6s-github-output-before"
+          before_path="$RUNNER_TEMP/d6s-github-path-before"
+          : > "$before_env"; : > "$before_output"; : > "$before_path"
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE \
+            CARGO_HOME="$CARGO_HOME" RUSTUP_HOME="$RUSTUP_HOME" \
+            cargo +1.96.0 check --manifest-path "$probe/Cargo.toml" --offline
+          cmp -s "$before_env" "$RUNNER_TEMP/d6s-github-env-before"
+          cmp -s "$before_output" "$RUNNER_TEMP/d6s-github-output-before"
+          cmp -s "$before_path" "$RUNNER_TEMP/d6s-github-path-before"
+          rm -rf "$probe"
       - name: Fetch locked dependency sources once, then go offline
         run: |
           set -euo pipefail
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN             cargo +1.96.0 fetch --locked --manifest-path mycelix-manufacturing/Cargo.toml
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE             cargo +1.96.0 fetch --locked --manifest-path mycelix-manufacturing/Cargo.toml
           test ! -s "$GITHUB_ENV"
           test ! -s "$GITHUB_PATH"
 
