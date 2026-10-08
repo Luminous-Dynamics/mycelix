@@ -25,7 +25,6 @@ pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-temporal-attestation-v1";
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum MachineTemporalEvidenceResolution {
     NoEvidence,
     Unique(Timestamp),
@@ -42,6 +41,7 @@ pub fn resolve_temporal_times(mut times: Vec<Timestamp>) -> MachineTemporalEvide
         _ => MachineTemporalEvidenceResolution::Conflicting(times),
     }
 }
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum MachineTemporalEvidenceKind {
     TransitionApproval,
     MachineActionExistence,
@@ -1078,6 +1078,18 @@ mod content_restriction_tests {
         ));
     }
     #[test]
+    #[test]
+    fn temporal_evidence_kind_serde_round_trips() {
+        for kind in [
+            MachineTemporalEvidenceKind::TransitionApproval,
+            MachineTemporalEvidenceKind::MachineActionExistence,
+        ] {
+            let encoded = serde_json::to_string(&kind).unwrap();
+            let decoded: MachineTemporalEvidenceKind = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(decoded, kind);
+        }
+    }
+
     fn temporal_evidence_conflicts_fail_closed() {
         assert_eq!(resolve_temporal_times(vec![]), MachineTemporalEvidenceResolution::NoEvidence);
         assert_eq!(resolve_temporal_times(vec![Timestamp::from_micros(100), Timestamp::from_micros(100)]), MachineTemporalEvidenceResolution::Unique(Timestamp::from_micros(100)));
