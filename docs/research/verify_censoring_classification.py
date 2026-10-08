@@ -339,6 +339,21 @@ def verify(
 
     nodes = node_index(graph)
     assert nodes is not None
+
+    # Object identity is anchored outside the mutable graph. The anchor binds
+    # the logical object identifier to the exact semantic commitment.
+    object_anchors = history_anchors.get("__object_identity__", {})
+    if isinstance(object_anchors, dict):
+        for node_id, anchor in object_anchors.items():
+            node = nodes.get(node_id)
+            if node is None:
+                continue
+            if node.get("commitment") is None:
+                return "unresolved"
+            identity = digest({"id": node_id, "commitment": node["commitment"]})
+            if identity != anchor:
+                return "unqualified"
+
     claim_nodes = claim_local_nodes(graph, policy)
 
     if policy["classification"].get("supersession_must_be_claim_local", True):
