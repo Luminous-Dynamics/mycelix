@@ -82,6 +82,16 @@ jobs:
           grep -Fq 'ProviderEntryClaimV1' "$source"
           grep -Fq 'atomically_claim_provider_entry' "$source"
           grep -Fq 'ProviderEntryPermitV1' "$boundary"
+          grep -Fq 'ProviderActionContextV1' "$boundary"
+          grep -Fq 'fn reconcile(&mut self, context: &ProviderActionContextV1)' "$boundary"
+          if grep -Fq 'fn reconcile(&mut self, attempt: &AttemptRecordV1)' "$boundary"; then
+            echo 'ProviderAdapter must not receive raw AttemptRecordV1.'
+            exit 1
+          fi
+          if grep -Fq 'permit.attempt()' "$boundary"; then
+            echo 'ProviderEntryPermit must not expose raw AttemptRecordV1.'
+            exit 1
+          fi
           grep -Fq 'constitutional-provider-idempotency-v1:' "$boundary"
           grep -Fq 'atomically_recover_provider_entry_claim' "$source"
           grep -Fq 'durably_read_provider_entry_claim' "$source"
