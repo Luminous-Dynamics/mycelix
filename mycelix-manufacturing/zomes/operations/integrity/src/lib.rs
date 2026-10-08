@@ -7,6 +7,7 @@
 
 use hdi::prelude::*;
 use manufacturing_common::CapabilityRequirement;
+use std::collections::HashSet;
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
