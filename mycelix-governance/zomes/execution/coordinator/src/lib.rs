@@ -622,6 +622,15 @@ pub fn record_prepared_execution_resolution(
         )));
     }
 
+    check_execution_resolution_bindings(
+        &input.attempt_identities,
+        &input.action_key_digests,
+        &input.terminal_evidence_digests,
+        &input.authorization_admission_proof_digests,
+        &input.final_provider_entry_proof_digests,
+    )
+    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
+
     // Resolution is source-chain scoped to the single executor identity.
     // Re-submit of the same resolution returns the existing record; a different
     // resolution for the same execution is rejected.
