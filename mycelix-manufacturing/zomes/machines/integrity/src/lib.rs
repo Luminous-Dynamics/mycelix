@@ -22,7 +22,7 @@ pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
 pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-time-authority-profile-v1";
 pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
-    "mycelix-manufacturing-machine-temporal-attestation-v1";
+    "mycelix-manufacturing-machine-temporal-attestation-v2";
 /// Maximum encoded size for the opaque external evidence commitment.
 pub const MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES: usize = 128;
 
@@ -97,6 +97,7 @@ pub struct MachineTemporalAttestationPayload {
     pub evidence_kind: MachineTemporalEvidenceKind,
     pub attested_at: Timestamp,
     pub source_reference: String,
+    pub source_commitment: Vec<u8>,
 }
 
 fn default_lease_schema_version() -> u8 {
