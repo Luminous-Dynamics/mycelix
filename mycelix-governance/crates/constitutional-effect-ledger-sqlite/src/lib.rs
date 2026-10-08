@@ -1,5 +1,7 @@
 #![deny(unsafe_code)]
 
+pub mod boundary;
+
 //! SQLite-backed durable implementation of the constitutional same-action fence.
 //!
 //! This crate is host-side infrastructure. It is deliberately not a Holochain
