@@ -137,20 +137,10 @@ export class ExecutionClient extends ZomeClient {
   async recordPreparedExecutionResolution(
     input: RecordPreparedExecutionResolutionInput
   ): Promise<HolochainRecord> {
-    const bindingCount = input.attemptIdentities.length;
-    const vectors = [
-      input.actionKeyDigests,
-      input.terminalEvidenceDigests,
-      input.authorizationAdmissionProofDigests,
-      input.finalProviderEntryProofDigests,
-    ];
-    if (
-      bindingCount < 1 ||
-      bindingCount > 256 ||
-      vectors.some(vector => vector.length !== bindingCount)
-    ) {
+    const bindingCount = input.bindings.length;
+    if (bindingCount < 1 || bindingCount > 256) {
       throw new Error(
-        'Execution resolution requires 1–256 aligned attempt/action/evidence proof tuples'
+        'Execution resolution requires 1–256 typed attempt/action/evidence proof bindings'
       );
     }
 
@@ -158,11 +148,13 @@ export class ExecutionClient extends ZomeClient {
       execution_id: input.executionId,
       timelock_id: input.timelockId,
       executor_did: input.executorDid,
-      attempt_identities: input.attemptIdentities,
-      action_key_digests: input.actionKeyDigests,
-      terminal_evidence_digests: input.terminalEvidenceDigests,
-      authorization_admission_proof_digests: input.authorizationAdmissionProofDigests,
-      final_provider_entry_proof_digests: input.finalProviderEntryProofDigests,
+      bindings: input.bindings.map(binding => ({
+        attempt_identity: binding.attemptIdentity,
+        action_key_digest: binding.actionKeyDigest,
+        terminal_evidence_digest: binding.terminalEvidenceDigest,
+        authorization_admission_proof_digest: binding.authorizationAdmissionProofDigest,
+        final_provider_entry_proof_digest: binding.finalProviderEntryProofDigest,
+      })),
       outcome: input.outcome,
     });
   }
