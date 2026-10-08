@@ -107,6 +107,8 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["trigger_workflow"]["workflow_id"] == 371215723
     assert policy["trigger_workflow"]["name"] == "D6S Canonical Qualification"
     assert policy["trigger_workflow"]["path"] == ".github/workflows/d6s-canonical-qualification.yml"
+    assert policy["trigger_workflow"]["blob_sha"] == "e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4"
+    assert policy["trigger_workflow"]["blob_sha"] == required[".github/workflows/d6s-canonical-qualification.yml"]
 
     assert policy["attestation_integrity_revision"] == policy["policy_version"]
 
