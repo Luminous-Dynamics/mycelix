@@ -158,6 +158,10 @@ def validate_policy(policy: Any) -> None:
         observation_contract.get("live_main_tip_must_be_rechecked") is True,
         "live main freshness contract drift",
     )
+    require(
+        observation_contract.get("authoritative_admin_observation_requires_verified_admin_status") is True,
+        "authoritative admin observation contract drift",
+    )
 
     fail_closed = policy.get("fail_closed")
     require(isinstance(fail_closed, dict), "fail_closed missing")
@@ -1083,7 +1087,7 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             "reason": reason,
             "mismatches": mismatches,
             "claim_ceiling": "RepositoryGovernanceObservationOnly",
-            "authoritative_admin_observation": True,
+            "authoritative_admin_observation": admin_visibility == "verified",
             "grants_trusted_verifier_root": False,
         }
 
@@ -1768,6 +1772,17 @@ def self_test(policy: dict[str, Any]) -> None:
         pass
     else:
         raise AssertionError("live main observation must bind to branch API commit")
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["rules"] = [
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["authoritative_admin_observation"] is False
+    assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy))
     x["branch"]["protected"] = False
