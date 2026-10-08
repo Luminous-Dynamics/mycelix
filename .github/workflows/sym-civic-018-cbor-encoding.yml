@@ -1,9 +1,6 @@
-name: SYM-CIVIC-018 CBOR Encoding v1
+name: SYM-CIVIC-018 CBOR Encoding v4 — GREEN-parent FP/depth successor
 
 on:
-  push:
-    branches:
-      - 'staging/sym-civic-018-cbor-encoding-work'
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -14,11 +11,17 @@ on:
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   qualify:
     name: CBOR encoding boundary
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     env:
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
@@ -28,11 +31,49 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Hosted event identity
+        shell: bash
+        env:
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
+          EVENT_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_BASE_REPOSITORY_ID: ${{ github.event.pull_request.base.repo.id }}
+          EVENT_BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name }}
+          EVENT_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "pull_request"
+          test "$GITHUB_REPOSITORY" = "Luminous-Dynamics/mycelix"
+          test "$EVENT_REPOSITORY_ID" = "1176351975"
+          test "$EVENT_HEAD_REPOSITORY_ID" = "1176351975"
+          test "$EVENT_HEAD_REPOSITORY" = "Luminous-Dynamics/mycelix"
+          test "$EVENT_BASE_REPOSITORY_ID" = "1176351975"
+          test "$EVENT_BASE_REPOSITORY" = "Luminous-Dynamics/mycelix"
+          test -n "$EVENT_HEAD_SHA"
+          test "$EVENT_HEAD_SHA" = "$(git rev-parse HEAD)"
+          test "$EVENT_BASE_SHA" = "1196889eb2a849ddc359d8d05edf063aa9537699"
+          printf 'hosted event identity: PASS\nhead=%s\nbase=%s\nrepository_id=%s\n' "$EVENT_HEAD_SHA" "$EVENT_BASE_SHA" "$EVENT_REPOSITORY_ID"
+
+      - name: Parent qualification gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          QUALIFIED_PARENT='1196889eb2a849ddc359d8d05edf063aa9537699'
+          QUALIFIED_PARENT_RUN_ID='37467707466'
+          QUALIFIED_PARENT_JOB_ID='112282815715'
+          QUALIFIED_REPOSITORY_ID='1176351975'
+          QUALIFIED_WORKFLOW_ID='375144995'
+          run_json="$(gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFIED_PARENT_RUN_ID}")"
+          jobs_json="$(gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFIED_PARENT_RUN_ID}/jobs?per_page=100")"
+          python3 -c 'import json,sys; r=json.loads(sys.argv[1]); j=json.loads(sys.argv[2]); p=sys.argv[3]; rid=int(sys.argv[4]); jid=int(sys.argv[5]); repo_id=int(sys.argv[6]); wid=int(sys.argv[7]); ok=(r.get("id")==rid and r.get("head_sha")==p and r.get("path")==".github/workflows/sym-civic-018-cbor-encoding.yml" and r.get("workflow_id")==wid and r.get("event")=="pull_request" and r.get("head_repository",{}).get("id")==repo_id and r.get("status")=="completed" and r.get("conclusion")=="success"); ok or sys.exit("authoritative GREEN parent run identity/conclusion mismatch; child qualification remains fenced"); m=[x for x in j.get("jobs",[]) if x.get("id")==jid and x.get("run_id")==rid and x.get("name")=="CBOR encoding boundary" and x.get("status")=="completed" and x.get("conclusion")=="success"]; len(m)==1 or sys.exit("authoritative GREEN parent job identity/conclusion mismatch; child qualification remains fenced"); print("parent qualification gate: PASS"); print("qualified parent run:",r.get("id")); print("qualified parent job:",m[0].get("id"))' "$run_json" "$jobs_json" "$QUALIFIED_PARENT" "$QUALIFIED_PARENT_RUN_ID" "$QUALIFIED_PARENT_JOB_ID" "$QUALIFIED_REPOSITORY_ID" "$QUALIFIED_WORKFLOW_ID"
       - name: Exact head geometry
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_PARENT='c0ff69b37b2ba768894b55178370ce0bff7adeb0'
+          EXPECTED_PARENT='1196889eb2a849ddc359d8d05edf063aa9537699'
           test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
           test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
           test "$(git rev-list --parents -n 1 HEAD | awk '{print NF-1}')" = "1"
@@ -43,7 +84,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_PARENT='c0ff69b37b2ba768894b55178370ce0bff7adeb0'
+          EXPECTED_PARENT='1196889eb2a849ddc359d8d05edf063aa9537699'
           expected="$(printf '%s\n' \
             'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_CBOR_ENCODING_V1.md' \
             'mycelix-workspace/docs/civic-resilience/sym_civic_018_cbor_encoding_v1.json' \
@@ -60,7 +101,7 @@ jobs:
           python3 - <<'PY'
           import ast
           from pathlib import Path
-          allowed = {"__future__", "hashlib", "json", "pathlib"}
+          allowed = {"__future__", "hashlib", "json", "pathlib", "math", "struct"}
           path = Path("scripts/qualification/sym_civic_018_cbor_encoding_v1.py")
           text = path.read_text(encoding="utf-8")
           text.encode("utf-8").decode("utf-8")
@@ -78,8 +119,27 @@ jobs:
       - name: Qualifier syntax
         run: python3 -c 'from pathlib import Path; compile(Path("scripts/qualification/sym_civic_018_cbor_encoding_v1.py").read_text(encoding="utf-8"), "sym_civic_018_cbor_encoding_v1.py", "exec")'
 
+      - name: Optimized execution must fail closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          for mode in -O -OO; do
+            if python3 "$mode" scripts/qualification/sym_civic_018_cbor_encoding_v1.py >/tmp/sym-civic-018-opt.out 2>&1; then
+              cat /tmp/sym-civic-018-opt.out
+              echo "optimized Python mode unexpectedly succeeded: $mode" >&2
+              exit 1
+            fi
+          done
+          echo "optimization fail-closed: PASS"
+
       - name: Execute exact CBOR encoding corpus
         run: python3 scripts/qualification/sym_civic_018_cbor_encoding_v1.py
+
+      - name: Report immutable qualification capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'HEAD=%s\nPARENT=%s\n' "$(git rev-parse HEAD)" "1196889eb2a849ddc359d8d05edf063aa9537699"
 
       - name: Immutable checkout
         run: test -z "$(git status --short)"
