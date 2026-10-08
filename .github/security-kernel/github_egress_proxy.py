@@ -133,14 +133,41 @@ class Server(socketserver.TCPServer):
     request_queue_size = 16
 
 
+def self_test() -> int:
+    valid = b"CONNECT github.com:443 HTTP/1.1\r\nHost: github.com:443\r\n\r\n"
+    validate_request(valid)
+    for invalid in (
+        b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n",
+        b"CONNECT github.com:444 HTTP/1.1\r\nHost: github.com:444\r\n\r\n",
+        b"CONNECT github.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n",
+        b"CONNECT github.com:443 HTTP/1.1\r\nProxy-Authorization: Basic x\r\n\r\n",
+        b"GET https://github.com/ HTTP/1.1\r\nHost: github.com\r\n\r\n",
+    ):
+        try:
+            validate_request(invalid)
+        except ValueError:
+            continue
+        raise AssertionError(f"invalid broker request unexpectedly accepted: {invalid!r}")
+    oversized = b"CONNECT github.com:443 HTTP/1.1\r\n" + b"X-Test: " + b"x" * MAX_HEADER_BYTES + b"\r\n\r\n"
+    try:
+        validate_request(oversized)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("oversized broker request unexpectedly accepted")
+    print("PASS: fixed-destination egress broker parser self-test")
+    return 0
+
+
 def main() -> int:
+    if len(sys.argv) == 2 and sys.argv[1] == "--self-test":
+        return self_test()
     if len(sys.argv) != 1:
-        print("usage: github_egress_proxy.py", file=sys.stderr)
+        print("usage: github_egress_proxy.py [--self-test]", file=sys.stderr)
         return 2
     with Server((LISTEN_HOST, LISTEN_PORT), Broker) as server:
         server.serve_forever(poll_interval=0.5)
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
