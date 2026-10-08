@@ -23,7 +23,7 @@ RETENTION = ".github/security-kernel/reference_verify_evidence_retention_binding
 EXECUTION = ".github/security-kernel/reference_verify_execution_binding.py"
 POLICY = ".github/security-kernel/reference_verify_source_policy.py"
 EGRESS_BROKER = ".github/security-kernel/github_egress_proxy.py"
-EGRESS_BROKER_BLOB_SHA = "b288278af2e2c821eda8acb52c705229b97a0d84"
+EGRESS_BROKER_BLOB_SHA = "65b140b0fbc2df0b457de46ba2b42f349629f543"
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 UPLOAD = "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
@@ -966,7 +966,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 negative-control transcript capture must declare a 64 KiB host-storage ceiling")
     if 'git config --global http.followRedirects false' not in joined:
         fail("S1 hostile Git transport must disable HTTP redirects")
-    if 'EGRESS_BROKER_BLOB_SHA: "b288278af2e2c821eda8acb52c705229b97a0d84"' not in joined:
+    if 'EGRESS_BROKER_BLOB_SHA: "65b140b0fbc2df0b457de46ba2b42f349629f543"' not in joined:
         fail("S1 trusted egress broker blob pin missing")
     for required in (
         'docker network create --driver bridge --internal --ipv6=false',
@@ -979,6 +979,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         'probe("github.com:444").startswith(b"HTTP/1.1 403")',
         'probe("github.com:443").startswith(b"HTTP/1.1 200")',
         'security-kernel final teardown network removal failed',
+        'python3 "$BROKER_SOURCE" --self-test',
     ):
         if required not in joined:
             fail(f"S1 trusted egress broker control missing: {required!r}")
