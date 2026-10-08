@@ -385,6 +385,7 @@ def _selector_state(
     value: str,
     ids_key: str | None = None,
     value_id: int | None = None,
+    allow_emus: bool = False,
 ) -> str:
     if not isinstance(selector, dict):
         return "UNVERIFIED"
