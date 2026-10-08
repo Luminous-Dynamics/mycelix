@@ -186,14 +186,18 @@ TypeOK ==
 
 EffectiveExitIsIndependent ==
   \A s \in Subjects, p \in effectiveExit[s] :
-    /\ p # currentProvider[s]
-    /\ p \in nominalExit[s]
+    p \in nominalExit[s]
+
+EffectiveExitContextIsFresh ==
+  \A s \in Subjects, p \in effectiveExit[s] :
+    p # currentProvider[s]
 
 EffectiveExitRequiresPortability ==
   \A s \in Subjects, p \in effectiveExit[s] : portable[s]
 
 SharedRootsCannotBecomeEffectiveExit ==
   \A s \in Subjects, p \in effectiveExit[s] :
+    /\ p # currentProvider[s]
     /\ controlRoot[p] # controlRoot[currentProvider[s]]
     /\ identityRoot[p] # identityRoot[currentProvider[s]]
     /\ evidenceRoot[p] # evidenceRoot[currentProvider[s]]
