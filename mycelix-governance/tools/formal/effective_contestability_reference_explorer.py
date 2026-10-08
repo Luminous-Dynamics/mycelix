@@ -62,8 +62,11 @@ def check_invariants(state: State) -> list[str]:
     for i in range(len(SUBJECTS)):
         if state.switched[i] and (not state.obligations[i] or not state.history[i]):
             failures.append("MigrationPreservesObligationsAndHistory")
-        if state.switched[i] and state.jurisdiction[i] != ("J1",):
-            failures.append("ProviderSwitchDoesNotTransferAuthorityOrJurisdiction")
+        if state.switched[i]:
+            if state.authority[i] != ((), ())[i]:
+                failures.append("ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority")
+            if state.jurisdiction[i] != ("J1",):
+                failures.append("ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:jurisdiction")
         if state.switching_cost[i] >= REVIEW_THRESHOLD and not state.review_required[i]:
             failures.append("HighSwitchingCostTriggersReview")
     return sorted(set(failures))
@@ -94,14 +97,46 @@ def successors(state: State) -> list[State]:
     for s in SUBJECTS:
         i = idx(s)
         other = "P2" if state.current[i] == "P1" else "P1"
+
         if other not in state.nominal[i]:
             nominal = list(state.nominal)
             row = list(nominal[i]); row.append(other); nominal[i] = tuple(sorted(set(row)))
             out.append(replace(state, nominal=tuple(nominal)))
+
         if other in state.nominal[i] and independent(s, other, state) and other not in state.effective[i]:
             effective = list(state.effective)
             row = list(effective[i]); row.append(other); effective[i] = tuple(sorted(set(row)))
             out.append(replace(state, effective=tuple(effective)))
+
+        if other in state.effective[i] and not state.switched[i]:
+            switched = list(state.switched); switched[i] = True
+            current = list(state.current); current[i] = other
+            out.append(replace(
+                state,
+                current=tuple(current),
+                switched=tuple(switched),
+            ))
+
+        if state.current[i] not in state.failed and not state.failure_observed:
+            authority = state.authority
+            failure_authority = authority
+            out.append(replace(
+                state,
+                failed=tuple(sorted(set(state.failed + (state.current[i],)))),
+                failure_observed=True,
+                failure_authority=failure_authority,
+            ))
+
+        if state.switching_cost[i] < 4:
+            costs = list(state.switching_cost); costs[i] += 1
+            reviews = list(state.review_required)
+            if costs[i] >= REVIEW_THRESHOLD:
+                reviews[i] = True
+            out.append(replace(
+                state,
+                switching_cost=tuple(costs),
+                review_required=tuple(reviews),
+            ))
     return out
 
 def main() -> int:
