@@ -30,7 +30,6 @@ public final class AgentDelegationAuthorityAlloyRunner {
         try {
             Module world = CompUtil.parseEverything_fromFile(A4Reporter.NOP, null, args[0]);
             A4Options options = new A4Options();
-            options.solver = A4Options.SatSolver.SAT4J;
             int index = 0;
             for (Command command : world.getAllCommands()) {
                 index++;
