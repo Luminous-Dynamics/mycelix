@@ -214,6 +214,9 @@ def assert_evidence_archive_contract() -> None:
     assert "source.is_file()" in block
     assert "source.is_symlink()" in block
     assert "skip-decompress: true" in workflow
+    assert "Validate and materialize raw evidence members" in workflow
+    assert "verify_raw_artifact_archive" in workflow
+    assert "snapshot/raw/receipt.zip" in workflow
     assert "find snapshot/download" not in workflow
     assert "-print -quit" not in workflow
 
