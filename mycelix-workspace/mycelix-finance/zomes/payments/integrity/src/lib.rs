@@ -879,6 +879,15 @@ fn validate_create_payment_channel(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn payment_channel_balances_conserved(
+    old_a: u64,
+    old_b: u64,
+    new_a: u64,
+    new_b: u64,
+) -> bool {
+    old_a.checked_add(old_b) == new_a.checked_add(new_b)
+}
+
 fn validate_update_payment_channel(
     action: Update,
     channel: PaymentChannel,
@@ -919,17 +928,12 @@ fn validate_update_payment_channel(
             "PaymentChannel timestamps/closure cannot move backwards".into(),
         ));
     }
-    let old_total = o.balance_a.checked_add(o.balance_b).ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest(
-            "PaymentChannel predecessor balance sum overflow".into()
-        ))
-    })?;
-    let new_total = channel.balance_a.checked_add(channel.balance_b).ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest(
-            "PaymentChannel updated balance sum overflow".into()
-        ))
-    })?;
-    if old_total != new_total {
+    if !payment_channel_balances_conserved(
+        o.balance_a,
+        o.balance_b,
+        channel.balance_a,
+        channel.balance_b,
+    ) {
         return Ok(ValidateCallbackResult::Invalid(
             "PaymentChannel balance conservation invariant violated".into(),
         ));
@@ -1379,6 +1383,23 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    // ---- 9a. PaymentChannel conservation ----
+
+    #[test]
+    fn test_payment_channel_balance_conservation_accepts() {
+        assert!(payment_channel_balances_conserved(500, 500, 700, 300));
+    }
+
+    #[test]
+    fn test_payment_channel_balance_conservation_rejects_inflation() {
+        assert!(!payment_channel_balances_conserved(500, 500, 700, 301));
+    }
+
+    #[test]
+    fn test_payment_channel_balance_conservation_rejects_overflow() {
+        assert!(!payment_channel_balances_conserved(u64::MAX, 1, u64::MAX, 1));
     }
 
     // ---- 10. PaymentChannel with invalid party DID (must fail) ----
