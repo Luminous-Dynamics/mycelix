@@ -443,28 +443,6 @@ const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 /// into one conservation-preserving `transfer_sap`, make raw credit non-public, and
 /// route all issuance through authorized mints (`mint_sap_from_governance` already
 /// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
-fn ensure_sap_balance_entry(member_did: &str) -> ExternResult<()> {
-    if find_sap_balance_record(member_did)?.is_some() {
-        return Ok(());
-    }
-    let now = sys_time()?;
-    let balance = SapBalance {
-        member_did: member_did.to_string(),
-        balance: 0,
-        last_demurrage_at: now,
-        exemption: None,
-        justified_by: None,
-    };
-    let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
-    create_link(
-        anchor_hash(&format!("sap:{}", member_did))?,
-        action_hash,
-        LinkTypes::DidToSapBalance,
-        (),
-    )?;
-    Ok(())
-}
-
 #[hdk_extern]
 pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
     // Opportunistically drain any pending compost deliveries
@@ -707,8 +685,7 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
     }
     // Debit the sender (enforces caller==from, demurrage, sufficient balance).
     if find_sap_balance_record(&input.to_did)?.is_none() {
-        ensure_sap_balance_entry(&input.to_did)?;
-    }
+        }
     let debit_record = debit_sap(DebitSapInput {
         member_did: input.from_did.clone(),
         amount: input.amount,
