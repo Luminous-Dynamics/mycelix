@@ -65,6 +65,23 @@ function semanticDigest(graph, policy) {
   return normalized === null ? "invalid" : digest(normalized);
 }
 
+function validateGraphStructure(graph, policy) {
+  const nodes = nodeIndex(graph);
+  if (!nodes) return false;
+  const seenEdges = new Set();
+  for (const edge of graph.edges) {
+    if (!Array.isArray(edge) || edge.length !== 3 || !nodes.has(edge[0]) || !nodes.has(edge[1])) {
+      return false;
+    }
+    const key = edge.join("|");
+    if (policy.graph_canonicalization.reject_duplicate_edges && seenEdges.has(key)) {
+      return false;
+    }
+    seenEdges.add(key);
+  }
+  return true;
+}
+
 function edgeSet(graph) {
   return new Set(graph.edges.map(edge => edge.join("|")));
 }
@@ -104,6 +121,7 @@ function applyMutations(base, mutations) {
 }
 
 function verify(graph, policy) {
+  if (!validateGraphStructure(graph, policy)) return "unresolved";
   const nodes = nodeIndex(graph);
   if (!nodes) return "unresolved";
   const edges = edgeSet(graph);
