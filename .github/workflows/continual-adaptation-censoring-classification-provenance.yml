@@ -19,6 +19,14 @@ on:
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_V1.md"
       - "docs/research/verify_censoring_classification_anchor_governance.py"
       - "docs/research/verify_censoring_classification_anchor_governance.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_REGISTRY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_TRUST_ROOT.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_BASELINE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_FORWARD.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_witness.py"
+      - "docs/research/verify_censoring_classification_anchor_witness.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -39,6 +47,14 @@ on:
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_V1.md"
       - "docs/research/verify_censoring_classification_anchor_governance.py"
       - "docs/research/verify_censoring_classification_anchor_governance.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_REGISTRY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_TRUST_ROOT.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_BASELINE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_FORWARD.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_witness.py"
+      - "docs/research/verify_censoring_classification_anchor_witness.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   workflow_dispatch:
 
@@ -153,6 +169,15 @@ jobs:
           python3 docs/research/verify_censoring_classification_anchor_governance.py             "$ANCHOR_ROOT_SHA256" "$ANCHOR_OBSERVED_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVED_STATE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST_V1.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_FIXTURES.json             anchor-governance-python.json
           node docs/research/verify_censoring_classification_anchor_governance.mjs             "$ANCHOR_ROOT_SHA256" "$ANCHOR_OBSERVED_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVED_STATE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST_V1.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_FIXTURES.json             anchor-governance-node.json
           diff -u anchor-governance-python.json anchor-governance-node.json
+
+      - name: Run witness non-equivocation campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          WITNESS_ROOT_SHA256="sha256:46bbd3215736596eef8f8c0423590c1098f05a6fdd016b2ba10a6e232fc71d61"
+          python3 docs/research/verify_censoring_classification_anchor_witness.py             "$WITNESS_ROOT_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_REGISTRY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_BASELINE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_FORWARD.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CAMPAIGN.json             witness-python.json
+          node docs/research/verify_censoring_classification_anchor_witness.mjs             "$WITNESS_ROOT_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_REGISTRY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_BASELINE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_FORWARD.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CAMPAIGN.json             witness-node.json
+          diff -u witness-python.json witness-node.json
 
       - name: Emit exact-head receipt
         shell: bash
