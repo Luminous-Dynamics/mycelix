@@ -401,17 +401,43 @@ jobs:
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
-      - name: Prepare isolated runtime container image
+      - name: Isolate Docker client state
         run: |
           set -euo pipefail
-          docker pull --platform linux/amd64 ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
-          docker image inspect ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
+          docker_config="$RUNNER_TEMP/d6u-docker-config"
+          test ! -e "$docker_config"
+          mkdir -m 700 "$docker_config"
+
+      - name: Reject ambient Docker overrides
+        run: |
+          set -euo pipefail
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              DOCKER_HOST|DOCKER_CONTEXT|DOCKER_TLS_VERIFY|DOCKER_CERT_PATH|DOCKER_CUSTOM_HEADERS|DOCKER_API_VERSION|\
+              DOCKER_DEFAULT_PLATFORM|BUILDKIT_HOST|CONTAINER_HOST)
+                echo "forbidden ambient Docker override: $name" >&2
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+
+      - name: Prepare isolated runtime container image
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+        run: |
+          set -euo pipefail
+          docker --context default pull --platform linux/amd64 ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+          docker --context default image inspect ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
             --format '{{index .RepoDigests 0}}' \
             | grep -Fx 'ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b'
       - name: Verify runtime container isolation controls
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
         run: |
           set -euo pipefail
-          docker run --rm --pull=never --init \
+          docker --context default run --rm --pull=never --init \
             --platform linux/amd64 \
             --network none \
             --read-only \
@@ -429,6 +455,7 @@ jobs:
 
       - name: Test D6U runtime boundary
         env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
           TEST_BINARY_SHA: ${{ steps.runtime_binary.outputs.binary_sha }}
         run: |
           set -euo pipefail
@@ -436,7 +463,7 @@ jobs:
           mkdir -m 700 "$output_dir"
           test ! -e "$output_dir/d6u-runtime-test.log"
           test "$TEST_BINARY_SHA" = "$(sha256sum "${{ runner.temp }}/d6u-runtime-test-binary" | cut -d' ' -f1)"
-          docker run --rm --pull=never --init \
+          docker --context default run --rm --pull=never --init \
             --platform linux/amd64 \
             --network none \
             --read-only \
