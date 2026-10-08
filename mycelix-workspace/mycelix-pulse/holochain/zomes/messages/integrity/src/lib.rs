@@ -1512,21 +1512,25 @@ mod tests {
             AppEntryBytes::try_from(SerializedBytes::try_from(bundle.clone()).unwrap()).unwrap(),
         );
         let entry_hash = EntryHash::from_raw_36(vec![9; 36]);
-        let action = Action::Create(Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![8; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
+        let action = Action {
+            header: ActionHeader {
+                author,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 0,
+                prev_action: Some(ActionHash::from_raw_36(vec![8; 36])),
+            },
+            data: ActionData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
                 EntryDefIndex(0),
                 ZomeIndex(0),
                 EntryVisibility::Public,
             )),
-            entry_hash,
-            weight: Default::default(),
-        });
+                entry_hash: entry_hash,
+                weight: Default::default(),
+            }),
+        };
         let signed_action = SignedActionHashed::new_unchecked(action, Signature([0; 64]));
-        Record::new(signed_action, Some(entry))
+        Record::new(signed_action, RecordEntry::Present(entry))
     }
 
     /// Builds a `Record` wrapping an `EncryptedEmail` entry, authored by `author`,
@@ -1536,21 +1540,25 @@ mod tests {
             AppEntryBytes::try_from(SerializedBytes::try_from(email.clone()).unwrap()).unwrap(),
         );
         let entry_hash = EntryHash::from_raw_36(vec![19; 36]);
-        let action = Action::Create(Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![18; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
+        let action = Action {
+            header: ActionHeader {
+                author,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 0,
+                prev_action: Some(ActionHash::from_raw_36(vec![18; 36])),
+            },
+            data: ActionData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
                 EntryDefIndex(0),
                 ZomeIndex(0),
                 EntryVisibility::Public,
             )),
-            entry_hash,
-            weight: Default::default(),
-        });
+                entry_hash: entry_hash,
+                weight: Default::default(),
+            }),
+        };
         let signed_action = SignedActionHashed::new_unchecked(action, Signature([0; 64]));
-        Record::new(signed_action, Some(entry))
+        Record::new(signed_action, RecordEntry::Present(entry))
     }
 
     fn test_attachment(email_hash: ActionHash) -> EncryptedAttachment {
