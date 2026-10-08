@@ -84,7 +84,36 @@ jobs:
           dispatcher=content(".github/workflows/security-kernel-trusted-dispatch.yml",workflow_sha); s1=content(".github/workflows/security-kernel-independent-qualification.yml",workflow_sha)
           assert re.fullmatch(r"[0-9a-f]{40}",workflow_sha); assert dispatcher["path"]==".github/workflows/security-kernel-trusted-dispatch.yml"; assert s1["path"]==".github/workflows/security-kernel-independent-qualification.yml"
           assert re.fullmatch(r"[0-9a-f]{40}",dispatcher["sha"]) and re.fullmatch(r"[0-9a-f]{40}",s1["sha"])
-          text=base64.b64decode(dispatcher["content"]).decode("utf-8"); assert len(re.findall(r"^ {8}run:\s*\|\s*$",text,re.MULTILINE))==1
+          def assert_bash_run_blocks_compile(workflow_text):
+              lines=workflow_text.splitlines()
+              blocks=0
+              i=0
+              while i<len(lines):
+                  if re.fullmatch(r" {8}run:\s*\|",lines[i]):
+                      content_indent=10
+                      i+=1
+                      script_lines=[]
+                      while i<len(lines):
+                          line=lines[i]
+                          if line.strip() and len(line)-len(line.lstrip(" "))<content_indent:
+                              break
+                          if line.strip():
+                              assert len(line)>=content_indent, f"run block indentation underflow at line {i+1}"
+                              script_lines.append(line[content_indent:])
+                          else:
+                              script_lines.append("")
+                          i+=1
+                      script="\n".join(script_lines).rstrip()+"\n"
+                      import subprocess
+                      checked=subprocess.run(["bash","-n"],input=script,text=True,capture_output=True)
+                      assert checked.returncode==0, checked.stderr
+                      blocks+=1
+                      continue
+                  i+=1
+              assert blocks==1, f"expected exactly one S0 bash run block, found {blocks}"
+
+          dispatcher_text=base64.b64decode(dispatcher["content"]).decode("utf-8")
+          assert_bash_run_blocks_compile(dispatcher_text)
           registered=re.findall(r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*$',text); delegated=re.findall(r'(?m)^\s*trusted_workflow_blob_sha:\s*"([0-9a-f]{40})"\s*$',text); assert len(registered)==1 and len(delegated)==1 and registered[0]==s1["sha"] and delegated[0]==s1["sha"]
           trust_paths={".github/workflows/security-kernel-trusted-dispatch.yml",".github/workflows/security-kernel-independent-qualification.yml",".github/workflows/security-kernel-trusted-result-verifier.yml",".github/security-kernel/reference_verify_source_policy.py",".github/security-kernel/reference_verify_execution_binding.py",".github/security-kernel/reference_verify_evidence_retention_binding.py"}
           if event=="pull_request_target":
