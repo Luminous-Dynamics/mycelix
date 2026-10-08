@@ -630,6 +630,8 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 trusted invocation source missing")
     if exact_count(l, 'invocation_source="scheduled-fallback"') != 1:
         fail("S0 scheduled invocation source missing")
+    if exact_count(l, 'item.get("previous_filename") in trust_paths') != 1:
+        fail("S0 scheduled trust-surface discovery must include rename provenance via previous_filename")
     if exact_count(l, 'dispatch_decision="qualified"; eligible_count="event"') != 1:
         fail("S0 immediate dispatch decision initialization missing")
     if exact_count(l, 'dispatch_decision="suppressed"; eligible_count="0"') != 1:
