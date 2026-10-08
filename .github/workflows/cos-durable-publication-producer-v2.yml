@@ -577,7 +577,7 @@ jobs:
           Path('durable-source/durable-publication-manifest-v1.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
           PY
           (cd durable-source && sha256sum qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json environment-policy-v1.json effective-main-rules-v1.json main-branch-policy-v1.json durable-publication-manifest-v1.json) > durable-source/SHA256SUMS
-          build_asset(){ tar -C durable-source --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - durable-publication-manifest-v1.json qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json environment-policy-v1.json effective-main-rules-v1.json main-branch-policy-v1.json SHA256SUMS | gzip -n > "$1"; }
+          build_asset(){ tar -C durable-source --format=ustar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - durable-publication-manifest-v1.json qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json environment-policy-v1.json effective-main-rules-v1.json main-branch-policy-v1.json SHA256SUMS | gzip -n > "$1"; }
           build_asset asset-a.tar.gz
           build_asset asset-b.tar.gz
           test "$(sha256sum asset-a.tar.gz | awk '{print $1}')" = "$(sha256sum asset-b.tar.gz | awk '{print $1}')"
