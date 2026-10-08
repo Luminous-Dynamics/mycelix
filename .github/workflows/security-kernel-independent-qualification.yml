@@ -587,6 +587,14 @@ jobs:
             --env GITHUB_TOKEN= --env GH_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= --env ACTIONS_ID_TOKEN_REQUEST_URL= --env ACTIONS_RUNTIME_TOKEN= \
             "$SANDBOX_IMAGE" /bin/bash -euo pipefail -s <<'CONTAINER_SCRIPT'
               set -euo pipefail
+              for config_path in \
+                /cargo-home/config.toml /cargo-home/config /cargo-home/credentials.toml \
+                /source/.cargo/config.toml /source/.cargo/config \
+                /source/crates/.cargo/config.toml /source/crates/.cargo/config \
+                /source/crates/mycelix-bridge-common/.cargo/config.toml /source/crates/mycelix-bridge-common/.cargo/config
+              do
+                test ! -e "$config_path"
+              done
               /usr/local/cargo/bin/cargo vendor --locked --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml /vendor > /vendor-config/config.toml
               python3 - "$VENDOR_MAX_BYTES" "$VENDOR_MAX_FILES" "$VENDOR_MAX_INODES" "$VENDOR_CONFIG_MAX_BYTES" "$VENDOR_CONFIG_MAX_INODES" /vendor /vendor-config /vendor-metrics <<'PY'
               import hashlib, pathlib, stat, sys
