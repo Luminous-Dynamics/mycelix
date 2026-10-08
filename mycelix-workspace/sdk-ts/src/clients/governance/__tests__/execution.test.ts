@@ -206,6 +206,59 @@ describe('ExecutionClient', () => {
     });
   });
 
+  describe('recordPreparedExecutionResolution', () => {
+    const input = {
+      executionId: 'execution-1',
+      timelockId: 'timelock-1',
+      executorDid: 'did:mycelix:executor',
+      attemptIdentities: ['constitutional-attempt-identity-v1:' + 'a'.repeat(64)],
+      actionKeyDigests: ['constitutional-action-key-v1:' + 'b'.repeat(64)],
+      terminalEvidenceDigests: ['constitutional-terminal-evidence-v3:' + 'c'.repeat(64)],
+      authorizationAdmissionProofDigests: [
+        'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
+      ],
+      finalProviderEntryProofDigests: [
+        'constitutional-final-provider-entry-proof-v1:' + 'e'.repeat(64),
+      ],
+      outcome: 'Executed' as const,
+    };
+
+    it('should submit all canonical proof-root vectors', async () => {
+      const record = mockRecord({ id: 'resolution:execution-1' });
+      (mockAppClient.callZome as ReturnType<typeof vi.fn>).mockResolvedValueOnce(record);
+
+      const result = await client.recordPreparedExecutionResolution(input);
+
+      expect(result).toBe(record);
+      expect(mockAppClient.callZome).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fn_name: 'record_prepared_execution_resolution',
+          payload: {
+            execution_id: 'execution-1',
+            timelock_id: 'timelock-1',
+            executor_did: 'did:mycelix:executor',
+            attempt_identities: input.attemptIdentities,
+            action_key_digests: input.actionKeyDigests,
+            terminal_evidence_digests: input.terminalEvidenceDigests,
+            authorization_admission_proof_digests: input.authorizationAdmissionProofDigests,
+            final_provider_entry_proof_digests: input.finalProviderEntryProofDigests,
+            outcome: 'Executed',
+          },
+        })
+      );
+    });
+
+    it('should reject misaligned vectors before calling the zome', async () => {
+      await expect(
+        client.recordPreparedExecutionResolution({
+          ...input,
+          finalProviderEntryProofDigests: [],
+        })
+      ).rejects.toThrow('aligned attempt/action/evidence proof tuples');
+      expect(mockAppClient.callZome).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getPendingTimelocks', () => {
     it('should return array of pending timelocks', async () => {
       (mockAppClient.callZome as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
