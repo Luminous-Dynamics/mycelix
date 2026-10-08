@@ -1408,6 +1408,30 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_first_open_initializes_one_valid_store() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = Arc::new(dir.path().join("first-open.db"));
+        let barrier = Arc::new(Barrier::new(3));
+
+        let mut handles = Vec::new();
+        for _ in 0..2 {
+            let path = Arc::clone(&path);
+            let barrier = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                barrier.wait();
+                SqliteActionFenceStore::open(&*path).map(|store| store.audit_integrity())
+            }));
+        }
+
+        barrier.wait();
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        assert!(results.iter().all(|result| matches!(result, Ok(Ok(())))));
+    }
+
+    #[test]
     fn same_action_conflicts_across_independent_connections() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("fence.db");
@@ -1637,10 +1661,14 @@ mod tests {
         let mut reopened = SqliteActionFenceStore::open(&path).unwrap();
         let closed_fence = reopened.durably_read_fence(&action).unwrap().unwrap();
         assert_eq!(closed_fence.state, ActionFenceState::Closed);
-        assert_eq!(
-            closed_fence.record_digest(),
-            closed_fence.record_digest()
-        );
+        let expected_closed = ActionFenceRecordV1 {
+            schema_version: ACTION_FENCE_SCHEMA_VERSION,
+            action_key_digest: action.digest().to_owned(),
+            owner_attempt_identity: owner.digest().to_owned(),
+            owner_token_digest: "owner-token-attempt-1".to_owned(),
+            state: ActionFenceState::Closed,
+        };
+        assert_eq!(closed_fence.record_digest(), expected_closed.record_digest());
         assert_eq!(
             reopened
                 .atomically_admit(
