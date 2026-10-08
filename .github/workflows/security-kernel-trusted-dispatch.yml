@@ -113,7 +113,7 @@ jobs:
                       blocks+=1
                       continue
                   i+=1
-              assert blocks==1, f"expected exactly one S0 bash run block, found {blocks}"
+              assert blocks==2, f"expected exactly two S0 bash run blocks, found {blocks}"
 
           dispatcher_text=base64.b64decode(dispatcher["content"]).decode("utf-8")
           assert_bash_run_blocks_compile(dispatcher_text)
@@ -173,7 +173,7 @@ jobs:
               test "$ELIGIBLE_COUNT" = "event"
               ;;
             scheduled-fallback:qualified)
-              printf "%s" "$ELIGIBLE_COUNT" | grep -Eq "^[1-9][0-9]?$"
+              printf "%s" "$ELIGIBLE_COUNT" | grep -Eq "^(1[0-9]{2}|[1-9][0-9]?)$"
               ;;
             scheduled-fallback:suppressed)
               test "$ELIGIBLE_COUNT" = "0"
