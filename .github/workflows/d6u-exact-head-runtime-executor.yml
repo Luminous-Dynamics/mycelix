@@ -8,6 +8,7 @@ on:
       - myc-int-demo-d6u-holochain-07-runtime
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -23,6 +24,10 @@ jobs:
       github.event.workflow_run.workflow_id == 371215723 &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
+      github.event.repository.full_name == github.repository &&
+      github.event.repository.id == github.repository_id &&
+      github.event.workflow_run.repository.full_name == github.repository &&
+      github.event.workflow_run.repository.id == github.repository_id &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.head_repository.id == github.repository_id &&
       github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime'
@@ -37,21 +42,325 @@ jobs:
           ref: ${{ env.QUALIFIED_SHA }}
           persist-credentials: false
 
-      - name: Assert trusted D6S workflow identity
-        env:
-          EXPECTED_D6S_WORKFLOW_BLOB: e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4
-        run: |
-          set -euo pipefail
-          actual="$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
-          test "$actual" = "$EXPECTED_D6S_WORKFLOW_BLOB"
-          test "${{ github.event.workflow_run.head_repository.id }}" = "${{ github.repository_id }}"
-          test "${{ github.event.workflow_run.head_repository.full_name }}" = "${{ github.repository }}"
-          test "${{ github.event.workflow_run.head_branch }}" = "myc-int-demo-d6u-holochain-07-runtime"
-          test "${{ github.event.workflow_run.event }}" = "pull_request"
-          test "${{ github.event.workflow_run.conclusion }}" = "success"
-
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
+      - name: Verify exact D6S qualification artifact provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          D6S_RUN_ID: ${{ github.event.workflow_run.id }}
+          D6S_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          D6S_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          D6S_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          D6S_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          EXPECTED_ARTIFACT_NAME: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}-attempt-${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import io
+          import json
+          import os
+          import re
+          import urllib.parse
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+
+          API_HOST = "api.github.com"
+          MAX_JSON_BYTES = 8 * 1024 * 1024
+          MAX_ARCHIVE_BYTES = 2 * 1024 * 1024
+          MAX_MEMBER_BYTES = 256 * 1024
+
+          class StripAuthorizationRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+                  if redirected is not None:
+                      parsed = urllib.parse.urlsplit(newurl)
+                      assert parsed.scheme == "https"
+                      assert parsed.username is None and parsed.password is None
+                      redirected.remove_header("Authorization")
+                  return redirected
+
+          OPENER = urllib.request.build_opener(StripAuthorizationRedirect())
+
+          def api_get(path: str) -> dict:
+              assert path.startswith("/")
+              url = f"https://{API_HOST}/repos/{os.environ['GITHUB_REPOSITORY']}{path}"
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                      "User-Agent": "mycelix-d6u-executor-provenance",
+                  },
+              )
+              with OPENER.open(req, timeout=30) as response:
+                  final = urllib.parse.urlsplit(response.geturl())
+                  assert final.scheme == "https"
+                  assert final.hostname == API_HOST
+                  assert final.username is None and final.password is None
+                  assert final.port in (None, 443)
+                  body = response.read(MAX_JSON_BYTES + 1)
+                  assert len(body) <= MAX_JSON_BYTES
+                  return json.loads(body)
+
+          def artifact_download(url: str) -> bytes:
+              parsed = urllib.parse.urlsplit(url)
+              assert parsed.scheme == "https"
+              assert parsed.hostname == API_HOST
+              assert parsed.username is None and parsed.password is None
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                      "User-Agent": "mycelix-d6u-executor-provenance",
+                  },
+              )
+              with OPENER.open(req, timeout=30) as response:
+                  body = response.read(MAX_ARCHIVE_BYTES + 1)
+                  assert len(body) <= MAX_ARCHIVE_BYTES
+                  return body
+
+          def sha256_bytes(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          def read_record(data: bytes) -> dict[str, str]:
+              assert data.startswith(b"D6S CANONICAL REFERENCE GATE\n")
+              text = data.decode("utf-8")
+              record: dict[str, str] = {}
+              for line in text.splitlines()[1:]:
+                  assert "=" in line, f"malformed record line: {line!r}"
+                  key, value = line.split("=", 1)
+                  assert re.fullmatch(r"[A-Za-z0-9_]+", key), f"invalid record key: {key!r}"
+                  assert key not in record, f"duplicate record key: {key!r}"
+                  record[key] = value
+              return record
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          run_id = int(os.environ["D6S_RUN_ID"])
+          run_attempt = int(os.environ["D6S_RUN_ATTEMPT"])
+          head_sha = os.environ["D6S_HEAD_SHA"]
+          head_branch = os.environ["D6S_HEAD_BRANCH"]
+          head_repository = os.environ["D6S_HEAD_REPOSITORY"]
+          expected_name = os.environ["EXPECTED_ARTIFACT_NAME"]
+          subject_workflow_blob = os.popen("git hash-object .github/workflows/d6s-canonical-qualification.yml").read().strip()
+
+          assert head_repository == repo
+          assert head_branch == "myc-int-demo-d6u-holochain-07-runtime"
+          assert re.fullmatch(r"[0-9a-f]{40}", head_sha)
+          assert run_id > 0 and run_attempt > 0
+          assert re.fullmatch(r"[0-9a-f]{40}", subject_workflow_blob)
+
+          upstream = api_get(f"/actions/runs/{run_id}")
+          assert upstream["id"] == run_id
+          assert upstream["name"] == "D6S Canonical Qualification"
+          assert upstream["path"] == ".github/workflows/d6s-canonical-qualification.yml"
+          assert upstream["workflow_id"] == 371215723
+          assert upstream["event"] == "pull_request"
+          assert upstream["conclusion"] == "success"
+          assert upstream["run_attempt"] == run_attempt
+          assert upstream["repository"]["full_name"] == repo
+          assert int(upstream["repository"]["id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert upstream["head_repository"]["full_name"] == repo
+          assert int(upstream["head_repository"]["id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert upstream["head_branch"] == head_branch
+          assert upstream["head_sha"] == head_sha
+
+          name_query = urllib.parse.quote(expected_name, safe="")
+          artifacts = api_get(
+              f"/actions/runs/{run_id}/artifacts?per_page=100&name={name_query}"
+          ).get("artifacts")
+          assert isinstance(artifacts, list)
+          assert len(artifacts) == 1, f"expected exactly one D6S artifact, observed {len(artifacts)}"
+          artifact = artifacts[0]
+
+          assert artifact["name"] == expected_name
+          assert artifact.get("expired") is False
+          assert int(artifact["size_in_bytes"]) <= MAX_MEMBER_BYTES
+          artifact_run = artifact.get("workflow_run") or {}
+          assert int(artifact_run["id"]) == run_id
+          assert int(artifact_run["repository_id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert int(artifact_run["head_repository_id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert artifact_run["head_branch"] == head_branch
+          assert artifact_run["head_sha"] == head_sha
+
+          digest = artifact.get("digest", "")
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
+          archive = artifact_download(artifact["archive_download_url"])
+          observed_digest = sha256_bytes(archive)
+          assert observed_digest == digest.split(":", 1)[1], (
+              f"artifact digest mismatch: expected={digest!r} observed=sha256:{observed_digest}"
+          )
+
+          with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+              infos = zf.infolist()
+              assert len(infos) == 1
+              info = infos[0]
+              assert info.filename == "d6s-canonical-reference-qualification.txt"
+              assert info.file_size <= MAX_MEMBER_BYTES
+              assert info.compress_type in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED)
+              assert (info.flag_bits & 0x1) == 0, "encrypted artifact members are forbidden"
+              unix_type = (info.external_attr >> 16) & 0o170000
+              assert unix_type != 0o120000, "symlink artifact member is forbidden"
+              data = zf.read(info)
+              assert len(data) == info.file_size
+
+          record = read_record(data)
+          expected_record_fields = {
+              "record_schema",
+              "provenance_mode",
+              "pull_request_number",
+              "qualified_subject_sha",
+              "qualified_subject_ref",
+              "status",
+              "commit",
+              "workflow",
+              "workflow_ref",
+              "workflow_file_commit_sha",
+              "workflow_file_blob_sha",
+              "run_id",
+              "run_attempt",
+              "event",
+              "runner_os",
+              "runner_image",
+              "rust_action_sha",
+              "rust_action_toolchain",
+              "rust_expected_version",
+              "checkout_action_sha",
+              "upload_artifact_action_sha",
+              "rust",
+              "rust_verbose_commit",
+              "cargo",
+              "rustfmt",
+              "python",
+              "cargo_lock_sha256",
+              "canon1_corpus_sha256",
+              "canon1_manifest_sha256",
+              "canon2_fixture_sha256",
+              "canon2_fixture_git_blob_sha",
+              "canon2_manifest_git_blob_sha",
+              "canon1_manifest_git_blob_sha",
+              "canon1_corpus_git_blob_sha",
+              "d6s_authority_ledger_schema",
+              "d6s_runtime_evidence_status",
+              "canon2_runtime_binding_status",
+              "rust_corpus",
+              "canon1_independent_verifier",
+              "canon2_authority_boundary_fixture",
+              "claim_ceiling",
+          }
+          assert set(record) == expected_record_fields, (
+              f"D6S canonical record schema mismatch: "
+              f"expected={sorted(expected_record_fields)!r}, observed={sorted(record)!r}"
+          )
+          required = {
+              "status",
+              "commit",
+              "workflow",
+              "workflow_file_commit_sha",
+              "workflow_file_blob_sha",
+              "record_schema",
+              "provenance_mode",
+              "pull_request_number",
+              "qualified_subject_sha",
+              "qualified_subject_ref",
+              "run_id",
+              "run_attempt",
+              "event",
+              "claim_ceiling",
+          }
+          assert required <= set(record), (
+              f"D6S provenance fields missing: expected={sorted(required)!r}, observed={sorted(record)!r}"
+          )
+          assert record["status"] == "reference-gate-passed"
+          assert record["record_schema"] == "d6s-canonical-reference/v2"
+          assert record["provenance_mode"] == "pull_request_head"
+          assert re.fullmatch(r"[1-9][0-9]*", record["pull_request_number"])
+          pull_request_number = int(record["pull_request_number"])
+          assert record["qualified_subject_sha"] == head_sha
+          assert record["qualified_subject_ref"] == f"refs/heads/{head_branch}"
+          assert record["commit"] == head_sha
+          assert record["workflow_ref"] == (
+              f"{repo}/.github/workflows/d6s-canonical-qualification.yml@refs/pull/"
+              f"{pull_request_number}/merge"
+          )
+
+          associated_prs = upstream.get("pull_requests", [])
+          matches = [
+              pr for pr in associated_prs
+              if int(pr.get("number", -1)) == pull_request_number
+          ]
+          assert len(matches) == 1, (
+              f"expected exactly one upstream PR association for {pull_request_number}, "
+              f"observed {len(matches)}"
+          )
+          # The top-level workflow-run head SHA/branch are the immutable execution facts.
+          # Do not treat nested pull_requests head fields as a historical snapshot:
+          # GitHub can update the PR after the run is created.
+          associated_pr = matches[0]
+          assert int(associated_pr["number"]) == pull_request_number
+          assert record["workflow_ref"].endswith("/merge")
+          assert record["workflow"] == "D6S Canonical Qualification"
+          workflow_commit = record["workflow_file_commit_sha"]
+          assert re.fullmatch(r"[0-9a-f]{40}", workflow_commit)
+          assert workflow_commit == workflow_commit.lower()
+          assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_file_blob_sha"])
+          assert record["workflow_file_blob_sha"] == subject_workflow_blob
+          assert record["run_id"] == str(run_id)
+          assert record["run_attempt"] == str(run_attempt)
+          assert record["event"] == "pull_request"
+          workflow_ref = record.get("workflow_ref", "")
+          assert workflow_ref.startswith(
+              f"{repo}/.github/workflows/d6s-canonical-qualification.yml@refs/pull/"
+          )
+          assert workflow_ref.endswith("/merge")
+          assert record["claim_ceiling"] == "ReferenceModelOnly"
+
+          tree = api_get(
+              f"/git/trees/{urllib.parse.quote(workflow_commit, safe='')}?recursive=1"
+          )
+          assert tree.get("truncated") is False
+          entries = [
+              entry for entry in tree.get("tree", [])
+              if entry.get("path") == ".github/workflows/d6s-canonical-qualification.yml"
+          ]
+          assert len(entries) == 1
+          workflow_entry = entries[0]
+          assert workflow_entry.get("type") == "blob"
+          assert workflow_entry.get("sha") == record["workflow_file_blob_sha"]
+
+          provenance = Path(os.environ["RUNNER_TEMP"]) / "d6s-trigger-workflow-provenance.txt"
+          provenance.write_text(
+              "\n".join(
+                  [
+                      "D6S TRIGGER WORKFLOW PROVENANCE",
+                      f"trigger_run_id={run_id}",
+                      f"trigger_run_attempt={run_attempt}",
+                      f"trigger_head_sha={head_sha}",
+                      f"trigger_workflow_commit_sha={workflow_commit}",
+                      f'trigger_workflow_blob_sha={record["workflow_file_blob_sha"]}',
+                      f"artifact_id={artifact['id']}",
+                      f"artifact_digest=sha256:{observed_digest}",
+                  ]
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8").write(
+              f"trigger_workflow_commit_sha={workflow_commit}\n"
+              f"trigger_workflow_blob_sha={expected_workflow_blob}\n"
+              f"d6s_artifact_id={artifact['id']}\n"
+              f"d6s_artifact_digest_sha256={observed_digest}\n"
+          )
+          print(
+              "verified D6S workflow provenance: "
+              f"run={run_id} attempt={run_attempt} "
+              f'workflow_commit={workflow_commit} workflow_blob={record["workflow_file_blob_sha"]}'
+          )
+          PY
 
       - name: Isolate Rust and Cargo trust roots
         run: |
@@ -197,14 +506,6 @@ jobs:
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
-      - name: Check formatting
-        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
-        env:
-          GIT_CONFIG_NOSYSTEM: 1
-          GIT_CONFIG_GLOBAL: /dev/null
-          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
-          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
-        run: cargo +1.96.1 fmt --all --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- --check
       - name: Generate dependency graph
         working-directory: ${{ runner.temp }}/d6u-cargo-cwd
         env:
@@ -246,6 +547,97 @@ jobs:
           CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
         run: cargo +1.96.1 fetch --locked --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml"
 
+      - name: Prepare pinned Rust compiler container
+        id: compiler_image
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          D6U_COMPILER_IMAGE: rust@sha256:d8f0d5c09580253ecdd6d6894ff112b2b760683ff2a74585e5189f2578728ce4
+          EXPECTED_RUST_COMMIT: ${{ steps.rust_identity.outputs.rust_verbose_commit }}
+          TOOLCHAIN_ROOT: ${{ runner.temp }}/d6u-rustup-home/toolchains/1.96.1-x86_64-unknown-linux-gnu
+        run: |
+          set -euo pipefail
+          docker_config="$RUNNER_TEMP/d6u-docker-config"
+          test ! -e "$docker_config"
+          mkdir -m 700 "$docker_config"
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              DOCKER_HOST|DOCKER_CONTEXT|DOCKER_TLS_VERIFY|DOCKER_CERT_PATH|DOCKER_CUSTOM_HEADERS|DOCKER_API_VERSION|DOCKER_DEFAULT_PLATFORM|BUILDKIT_HOST|CONTAINER_HOST)
+                echo "forbidden ambient Docker override: $name" >&2
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+          for tool in cargo cargo-clippy clippy-driver rustc rustfmt; do
+            test -f "$TOOLCHAIN_ROOT/bin/$tool"
+            test ! -L "$TOOLCHAIN_ROOT/bin/$tool"
+            test -x "$TOOLCHAIN_ROOT/bin/$tool"
+          done
+          toolchain_manifest="$RUNNER_TEMP/d6u-toolchain-manifest.sha256"
+          test -z "$(find "$TOOLCHAIN_ROOT" -type l -print -quit)"
+          (
+            cd "$TOOLCHAIN_ROOT"
+            find . -type f -print0 | sort -z | xargs -0 sha256sum
+          ) > "$toolchain_manifest"
+          test -s "$toolchain_manifest"
+          docker --context default pull --platform linux/amd64 "$D6U_COMPILER_IMAGE"
+          observed="$(docker --context default image inspect "$D6U_COMPILER_IMAGE" --format '{{index .RepoDigests 0}}')"
+          test "$observed" = "$D6U_COMPILER_IMAGE"
+          test "$EXPECTED_RUST_COMMIT" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 --network none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --pids-limit 64 --ulimit nofile=1024:1024 \
+            --ulimit core=0 --memory 2g --tmpfs /tmp:rw,nosuid,nodev,noexec,size=1g \
+            --mount type=bind,src="$TOOLCHAIN_ROOT",dst=/toolchain,readonly \
+            --mount type=bind,src="$toolchain_manifest",dst=/toolchain-manifest,readonly \
+            --env PATH=/toolchain/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            --env EXPECTED_RUST_COMMIT="$EXPECTED_RUST_COMMIT" "$D6U_COMPILER_IMAGE" \
+            sh -eu -c '
+              test "$(rustc --version | awk "{print \$2}")" = "1.96.1";
+              test "$(rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "$EXPECTED_RUST_COMMIT";
+              test "$(cargo --version | awk "{print \$2}")" = "1.96.1";
+              test -x /toolchain/bin/cargo-clippy;
+              test -x /toolchain/bin/clippy-driver;
+              cd /toolchain/bin; sha256sum -c /toolchain-manifest;
+              test ! -e /var/run/docker.sock;
+              test "$(grep -E "^CapEff:" /proc/self/status | awk "{print \$2}")" = "0000000000000000";
+              test "$(grep -E "^CapBnd:" /proc/self/status | awk "{print \$2}")" = "0000000000000000";
+              test "$(grep -E "^NoNewPrivs:" /proc/self/status | awk "{print \$2}")" = "1";
+              test "$(grep -E "^Seccomp:" /proc/self/status | awk "{print \$2}")" = "2";
+            '
+          mkdir -m 700 "$RUNNER_TEMP/d6u-container-target"
+          mkdir -m 700 "$RUNNER_TEMP/d6u-container-output"
+          echo "image=$D6U_COMPILER_IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Check formatting inside pinned compiler container
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          D6U_COMPILER_IMAGE: ${{ steps.compiler_image.outputs.image }}
+        run: |
+          set -euo pipefail
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 --network none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --pids-limit 64 --ulimit nofile=1024:1024 \
+            --ulimit core=0 --memory 2g --tmpfs /tmp:rw,nosuid,nodev,noexec,size=1g \
+            --mount type=bind,src="${{ github.workspace }}",dst=/workspace,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-cargo-home",dst=/cargo-home,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-rustup-home/toolchains/1.96.1-x86_64-unknown-linux-gnu",dst=/toolchain,readonly \
+            --workdir /workspace/d6u-runtime-harness \
+            --user "$(id -u):$(id -g)" \
+            --env PATH=/toolchain/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            --env HOME=/tmp --env TMPDIR=/tmp --env CARGO_HOME=/cargo-home \
+            --env CARGO_NET_OFFLINE=true --env GIT_CONFIG_NOSYSTEM=1 --env GIT_CONFIG_GLOBAL=/dev/null \
+            --env GIT_TERMINAL_PROMPT=0 --env GITHUB_WORKSPACE=/workspace "$D6U_COMPILER_IMAGE" \
+            /toolchain/bin/cargo fmt --all --manifest-path /workspace/d6u-runtime-harness/Cargo.toml -- --check
+      - name: Gate compiler image on critical/high CVEs
+        env:
+          D6U_COMPILER_IMAGE: ${{ steps.compiler_image.outputs.image }}
+        run: |
+          set -euo pipefail
+          command -v docker
+          docker scout version
+          docker scout cves "$D6U_COMPILER_IMAGE" --only-severity critical,high --exit-code
       - name: Capture runtime source integrity
         id: runtime_source
         working-directory: d6u-runtime-harness
@@ -271,22 +663,30 @@ jobs:
           printf '%s\n' "$source_sha" | grep -Eq '^[0-9a-f]{64}$'
           echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Clippy D6U runtime boundary
-        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
+      - name: Clippy D6U runtime boundary inside pinned compiler container
         env:
-          GIT_CONFIG_NOSYSTEM: 1
-          GIT_CONFIG_GLOBAL: /dev/null
-          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
-          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          D6U_COMPILER_IMAGE: ${{ steps.compiler_image.outputs.image }}
         run: |
           set -euo pipefail
-          env_file="$GITHUB_ENV"
-          path_file="$GITHUB_PATH"
-          test ! -s "$env_file"
-          test ! -s "$path_file"
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY cargo +1.96.1 clippy --locked --offline --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- -D warnings
-          test ! -s "$env_file"
-          test ! -s "$path_file"
+          test ! -s "$GITHUB_ENV"
+          test ! -s "$GITHUB_PATH"
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 --network none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --pids-limit 128 --ulimit nofile=2048:2048 \
+            --ulimit core=0 --memory 8g --tmpfs /tmp:rw,nosuid,nodev,noexec,size=2g \
+            --mount type=bind,src="${{ github.workspace }}",dst=/workspace,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-cargo-home",dst=/cargo-home,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-container-target",dst=/target,rw \
+            --mount type=bind,src="${{ runner.temp }}/d6u-rustup-home/toolchains/1.96.1-x86_64-unknown-linux-gnu",dst=/toolchain,readonly \
+            --workdir /workspace/d6u-runtime-harness --user "$(id -u):$(id -g)" \
+            --env PATH=/toolchain/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            --env HOME=/tmp --env TMPDIR=/tmp --env CARGO_HOME=/cargo-home --env CARGO_TARGET_DIR=/target \
+            --env CARGO_NET_OFFLINE=true --env GIT_CONFIG_NOSYSTEM=1 --env GIT_CONFIG_GLOBAL=/dev/null \
+            --env GIT_TERMINAL_PROMPT=0 --env GITHUB_WORKSPACE=/workspace "$D6U_COMPILER_IMAGE" \
+            /toolchain/bin/cargo clippy --locked --offline --test d6u_authority_boundary --manifest-path /workspace/d6u-runtime-harness/Cargo.toml -- -D warnings
+          test ! -s "$GITHUB_ENV"
+          test ! -s "$GITHUB_PATH"
 
       - name: Assert pre-runtime inputs after clippy
         if: success()
@@ -329,36 +729,45 @@ jobs:
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
-      - name: Build immutable D6U runtime test binary
+      - name: Build immutable D6U runtime test binary inside pinned compiler container
         id: runtime_binary
-        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
         env:
-          GIT_CONFIG_NOSYSTEM: 1
-          GIT_CONFIG_GLOBAL: /dev/null
-          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
-          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          D6U_COMPILER_IMAGE: ${{ steps.compiler_image.outputs.image }}
         run: |
           set -euo pipefail
-          json_path="$(mktemp "$RUNNER_TEMP/d6u-runtime-artifacts.XXXXXX")"
-          binary_path="$RUNNER_TEMP/d6u-runtime-test-binary"
-          trap 'rm -f "$json_path"' EXIT
+          json_path="${{ runner.temp }}/d6u-container-output/d6u-runtime-artifacts.json"
+          binary_path="${{ runner.temp }}/d6u-runtime-test-binary"
+          rm -f "$json_path" "$binary_path"
           test ! -s "$GITHUB_ENV"
           test ! -s "$GITHUB_PATH"
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
-            cargo +1.96.1 test --locked --offline --no-run --message-format=json-render-diagnostics --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" > "$json_path"
-          test ! -s "$GITHUB_ENV"
-          test ! -s "$GITHUB_PATH"
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 --network none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --pids-limit 512 --ulimit nofile=4096:4096 \
+            --ulimit core=0 --memory 8g --memory-swap 8g \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=2g --tmpfs /run:rw,nosuid,nodev,size=256m \
+            --mount type=bind,src="${{ github.workspace }}",dst=/workspace,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-cargo-home",dst=/cargo-home,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-container-target",dst=/target,rw \
+            --mount type=bind,src="${{ runner.temp }}/d6u-container-output",dst=/output,rw \
+            --mount type=bind,src="${{ runner.temp }}/d6u-rustup-home/toolchains/1.96.1-x86_64-unknown-linux-gnu",dst=/toolchain,readonly \
+            --workdir /workspace/d6u-runtime-harness --user "$(id -u):$(id -g)" \
+            --env PATH=/toolchain/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            --env HOME=/tmp --env TMPDIR=/tmp --env CARGO_HOME=/cargo-home --env CARGO_TARGET_DIR=/target \
+            --env CARGO_NET_OFFLINE=true --env GIT_CONFIG_NOSYSTEM=1 --env GIT_CONFIG_GLOBAL=/dev/null \
+            --env GIT_TERMINAL_PROMPT=0 --env GITHUB_WORKSPACE=/workspace "$D6U_COMPILER_IMAGE" \
+            /toolchain/bin/cargo test --locked --offline --no-run --message-format=json-render-diagnostics \
+            --test d6u_authority_boundary --manifest-path /workspace/d6u-runtime-harness/Cargo.toml > /output/d6u-runtime-artifacts.json
+          test -s "$json_path"
           mapfile -t executables < <(
-            jq -r --arg manifest "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" \
-              'select(.reason == "compiler-artifact" and .manifest_path == $manifest and .target.name == "d6u_authority_boundary" and (.target.kind | index("test")) != null and .executable != null) | .executable' \
-              "$json_path"
+            jq -r '. | select(.reason == "compiler-artifact" and .target.name == "d6u_authority_boundary" and (.target.kind | index("test")) != null and .executable != null) | .executable' "$json_path"
           )
           test "${#executables[@]}" -eq 1
           source_binary="${executables[0]}"
           test -x "$source_binary"
           case "$source_binary" in
-            "${{ github.workspace }}/d6u-runtime-harness/target/"*) ;;
-            *) echo "test executable escaped the D6U target directory" >&2; exit 1 ;;
+            /target/*) ;;
+            *) echo "test executable escaped isolated compiler target" >&2; exit 1 ;;
           esac
           source_sha="$(sha256sum "$source_binary" | cut -d' ' -f1)"
           cp --reflink=auto "$source_binary" "$binary_path"
