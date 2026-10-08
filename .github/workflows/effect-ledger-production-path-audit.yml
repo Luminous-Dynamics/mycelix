@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout exact source head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
           ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
@@ -36,8 +36,8 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -Eq 'uses: actions/checkout@v[0-9]+' '.github/workflows/effect-ledger-production-path-audit.yml'
-          ! grep -Eq 'uses: dtolnay/rust-toolchain@stable' '.github/workflows/effect-ledger-production-path-audit.yml'
-          grep -Fq 'uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' '.github/workflows/effect-ledger-production-path-audit.yml'
+          ! grep -Eq 'uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067' '.github/workflows/effect-ledger-production-path-audit.yml'
+          grep -Fq 'uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262' '.github/workflows/effect-ledger-production-path-audit.yml'
           grep -Fq 'uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067' '.github/workflows/effect-ledger-production-path-audit.yml'
 
       - name: Assert exact qualification head
