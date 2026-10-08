@@ -336,7 +336,7 @@
       "reason": "derived copy shares ancestry",
       "expected_graph_digest_sha256": "sha256:603a32fcdbec8378565242f21590bac2f86eb1dc9959ee5cd72b3de62aef5338",
       "expected_semantic_graph_digest_sha256": "sha256:da84a078f2f8032659f31f8ed1407659d0661813a83f6dd21d5a7f29f4f1b279",
-      "expected_claim_local_graph_digest_sha256": "sha256:da84a078f2f8032659f31f8ed1407659d0661813a83f6dd21d5a7f29f4f1b279"
+      "expected_claim_local_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
     },
     {
       "case_id": "ACV-010",
@@ -541,6 +541,6 @@
   ],
   "policy_binding": {
     "path": "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json",
-    "git_blob_sha": "ea15b5b4466821c71f457a833c3347ec3c02d8b5"
+    "git_blob_sha": "5e742d7c04f3144192011a4ea5b969247d9d531f"
   }
 }
