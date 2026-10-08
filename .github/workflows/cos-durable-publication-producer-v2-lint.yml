@@ -54,9 +54,9 @@ jobs:
           assert 'COS_RELEASE_ADMIN_TOKEN:' not in prepare
           assert 'environment: cos-durable-publication' in publish
           assert 'publisher_ref=refs/heads/main' in publish
-          assert publisher_gate < first_secret
           first_secret=publish.index('COS_RELEASE_ADMIN_TOKEN:')
           publisher_gate=publish.index('Require protected publisher ref')
+          assert publisher_gate < first_secret
           assert 'test "${GITHUB_REF}" = "refs/heads/main"' in publish
           assert 'COS_RELEASE_ADMIN_TOKEN:' in publish
           assert 'gh release create' in publish
