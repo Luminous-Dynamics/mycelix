@@ -21,14 +21,16 @@ class State:
     portable: tuple[bool, bool] = (True, True)
     obligations: tuple[bool, bool] = (True, True)
     history: tuple[bool, bool] = (True, True)
-    authority: tuple[tuple[str, ...], tuple[str, ...]] = ((), ())
+    authority: tuple[tuple[str, ...], tuple[str, ...]] = (("PowerA",), ("PowerB",))
     jurisdiction: tuple[tuple[str, ...], tuple[str, ...]] = (("J1",), ("J1",))
     switching_cost: tuple[int, int] = (0, 0)
     review_required: tuple[bool, bool] = (False, False)
     failed: tuple[str, ...] = ()
     failure_observed: bool = False
-    failure_authority: tuple[tuple[str, ...], tuple[str, ...]] = ((), ())
+    failure_authority: tuple[tuple[str, ...], tuple[str, ...]] = (("PowerA",), ("PowerB",))
     switched: tuple[bool, bool] = (False, False)
+    authority_before_switch: tuple[tuple[str, ...], tuple[str, ...]] = (("PowerA",), ("PowerB",))
+    jurisdiction_before_switch: tuple[tuple[str, ...], tuple[str, ...]] = (("J1",), ("J1",))
 
 def idx(s: str) -> int:
     return SUBJECTS.index(s)
@@ -62,9 +64,9 @@ def check_invariants(state: State) -> list[str]:
         if state.switched[i] and (not state.obligations[i] or not state.history[i]):
             failures.append("MigrationPreservesObligationsAndHistory")
         if state.switched[i]:
-            if state.authority[i] != ((), ())[i]:
+            if state.authority[i] != state.authority_before_switch[i]:
                 failures.append("ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority")
-            if state.jurisdiction[i] != ("J1",):
+            if state.jurisdiction[i] != state.jurisdiction_before_switch[i]:
                 failures.append("ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:jurisdiction")
         if state.switching_cost[i] >= REVIEW_THRESHOLD and not state.review_required[i]:
             failures.append("HighSwitchingCostTriggersReview")
@@ -80,13 +82,18 @@ def mutate(state: State, kind: str) -> State:
         ROOTS["P2"] = ("C1", "I2", "E2", "V2", "M2")
         return replace(state, nominal=(("P2",), ()), effective=(("P2",), ()))
     if kind == "failure-authority":
-        return replace(state, authority=(("PowerA",), ()), failure_observed=True,
-                       failed=("P1",), failure_authority=((), ()))
+        return replace(state, authority=((), ("PowerB",)), failure_observed=True,
+                       failed=("P1",), failure_authority=state.authority)
     if kind == "switch-obligation":
         return replace(state, current=("P2", "P1"), switched=(True, False), obligations=(False, True))
+    if kind == "switch-authority":
+        return replace(state, current=("P2", "P1"), switched=(True, False),
+                       authority=((), ("PowerB",)),
+                       authority_before_switch=state.authority)
     if kind == "switch-jurisdiction":
         return replace(state, current=("P2", "P1"), switched=(True, False),
-                       jurisdiction=(("J1", "J2"), ("J1",)))
+                       jurisdiction=(("J1", "J2"), ("J1",)),
+                       jurisdiction_before_switch=state.jurisdiction)
     if kind == "switch-review":
         return replace(state, switching_cost=(REVIEW_THRESHOLD, 0), review_required=(False, False))
     raise ValueError(kind)
@@ -110,10 +117,16 @@ def successors(state: State) -> list[State]:
         if other in state.effective[i] and not state.switched[i]:
             switched = list(state.switched); switched[i] = True
             current = list(state.current); current[i] = other
+            authority_before = list(state.authority_before_switch)
+            authority_before[i] = state.authority[i]
+            jurisdiction_before = list(state.jurisdiction_before_switch)
+            jurisdiction_before[i] = state.jurisdiction[i]
             out.append(replace(
                 state,
                 current=tuple(current),
                 switched=tuple(switched),
+                authority_before_switch=tuple(authority_before),
+                jurisdiction_before_switch=tuple(jurisdiction_before),
             ))
 
         if state.current[i] not in state.failed and not state.failure_observed:
@@ -161,7 +174,8 @@ def main() -> int:
         "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
         "switch-obligation": "MigrationPreservesObligationsAndHistory",
-        "switch-jurisdiction": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction",
+        "switch-authority": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority",
+        "switch-jurisdiction": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:jurisdiction",
         "switch-review": "HighSwitchingCostTriggersReview",
     }
     for name, target in controls.items():
