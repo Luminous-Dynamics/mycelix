@@ -1,0 +1,16 @@
+{
+  "schema": "mycelix.evidence-attestation-claim-authorization-control-matrix.v1",
+  "control": {
+    "id": "unauthorized-claim",
+    "boundary": "trusted subject-bound signer cannot change authority through an unauthorized claim",
+    "tla_invariant": "UnauthorizedClaimCannotChangeAuthority",
+    "tla_control": "unauthorized-claim",
+    "alloy_witness": "UnauthorizedClaimGrantBackedDeltaWitness",
+    "alloy_assertion": "UnauthorizedClaimCannotMintAuthority",
+    "alloy_mutant_fact": "UnauthorizedClaimNoAuthorityDelta",
+    "reference_markers": [
+      "ISOLATION PASS: unauthorized claim leaves steady-state grant provenance valid",
+      "NEGATIVE PASS: unauthorized claim authority delta detected"
+    ]
+  }
+}
