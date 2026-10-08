@@ -110,7 +110,11 @@ def snapshot(root: Path) -> None:
     control = {"repository": REPO, "repository_id": REPO_ID, "path": IW_PATH,
                "ref": "refs/heads/main",
                "workflow_ref": f"{REPO}/{IW_PATH}@refs/heads/main",
-               "workflow_sha": IVERIFY, "workflow_blob_sha": IVERIFY_BLOB}
+               "workflow_sha": IVERIFY, "workflow_blob_sha": IVERIFY_BLOB,
+               "reference_verifier_path": "scripts/integral/verify_fpm_trusted_qualification.py",
+               "reference_verifier_blob_sha": "8" * 40,
+               "artifact_collector_path": "scripts/integral/collect_fpm_trusted_artifacts.py",
+               "artifact_collector_blob_sha": "9" * 40}
     files = {
         "qualification-receipt.json": receipt, "artifact-binding-index.json": index,
         "artifacts.json": artifacts, "trusted-run.json": trusted,
@@ -221,6 +225,19 @@ def main() -> None:
         ]
         for file_name, label, fn in external:
             expect_failure(root, file_name, label, fn)
+
+        expect_failure(
+            root, "verifier-control.json", "control.reference-verifier-blob",
+            lambda x: x.__setitem__("reference_verifier_blob_sha", "a" * 40),
+        )
+        expect_failure(
+            root, "verifier-control.json", "control.collector-blob",
+            lambda x: x.__setitem__("artifact_collector_blob_sha", "b" * 40),
+        )
+        expect_failure(
+            root, "verifier-control.json", "control.extra-field",
+            lambda x: x.__setitem__("unexpected", True),
+        )
 
         expect_failure(
             root, "artifacts.json", "artifact-set-extra",
