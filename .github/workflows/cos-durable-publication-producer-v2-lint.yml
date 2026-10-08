@@ -67,6 +67,10 @@ jobs:
           assert 'verifier_run_attempt' in text
           assert 'attestor_run_attempt' in text
           assert 'publication_handoff_sha256' in text
+          assert "receipt['attestor']['run_attempt']" in text
+          assert "receipt['attestor']['run_id']" in text
+          assert "receipt['trust_root']['main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']" in text
+          assert 'trust_root_main_snapshot_sha' in text
           assert 'cancel-in-progress: false' in text
           assert 'concurrency:' in text
           assert 'Reconcile candidate trust root and signer workflow' in text
