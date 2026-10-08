@@ -54,8 +54,9 @@ BadSwitchObligation(s, p) ==
   /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
   /\ authorityBeforeSwitch' = [authorityBeforeSwitch EXCEPT ![s] = @]
   /\ jurisdictionBeforeSwitch' = [jurisdictionBeforeSwitch EXCEPT ![s] = @]
+  /\ effectiveExit' = [effectiveExit EXCEPT ![s] = {}]
   /\ obligationsPreserved' = [obligationsPreserved EXCEPT ![s] = FALSE]
-  /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
+  /\ UNCHANGED <<viableProviders, nominalExit, portable,
                   historyPreserved, authority, jurisdiction, switchingCost,
                   reviewRequired, providerFailed, failureObserved, failureAuthority>>
   /\ clock' = NextTime
@@ -71,7 +72,8 @@ BadSwitchAuthority(s, p) ==
   /\ authority' = [authority EXCEPT ![s] = @ \ {PowerA}]
   /\ authorityBeforeSwitch' = [authorityBeforeSwitch EXCEPT ![s] = @]
   /\ jurisdictionBeforeSwitch' = [jurisdictionBeforeSwitch EXCEPT ![s] = @]
-  /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
+  /\ effectiveExit' = [effectiveExit EXCEPT ![s] = {}]
+  /\ UNCHANGED <<viableProviders, nominalExit, portable,
                   obligationsPreserved, historyPreserved, jurisdiction, switchingCost,
                   reviewRequired, providerFailed, failureObserved, failureAuthority>>
   /\ clock' = NextTime
@@ -86,9 +88,9 @@ BadSwitchJurisdiction(s, p) ==
   /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
   /\ authorityBeforeSwitch' = [authorityBeforeSwitch EXCEPT ![s] = @]
   /\ jurisdictionBeforeSwitch' = [jurisdictionBeforeSwitch EXCEPT ![s] = @]
+  /\ effectiveExit' = [effectiveExit EXCEPT ![s] = {}]
   /\ jurisdiction' = [jurisdiction EXCEPT ![s] = @ \cup {J2}]
-  /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
-                  obligationsPreserved, historyPreserved, authority,
+  /\ UNCHANGED <<viableProviders, nominalExit, portable, authority,
                   switchingCost, reviewRequired, providerFailed, failureObserved,
                   failureAuthority>>
   /\ clock' = NextTime
