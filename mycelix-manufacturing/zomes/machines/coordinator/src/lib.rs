@@ -34,6 +34,15 @@ pub struct GetMachinesByTypeInput {
     pub machine_type: MachineType,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MachineStateResolution {
+    Resolved { status: MachineStatus },
+    Ambiguous { statuses: Vec<MachineStatus> },
+    Deleted,
+}
+
+
+
 // ============================================================================
 // Extern functions
 // ============================================================================
@@ -110,6 +119,64 @@ pub fn register_machine(input: RegisterMachineInput) -> ExternResult<ActionHash>
 #[hdk_extern]
 pub fn get_machine(hash: ActionHash) -> ExternResult<Option<Record>> {
     get(hash, GetOptions::default())
+}
+
+/// Resolve the current machine status from the machine's original action
+/// and its valid updates.
+///
+/// `get_machine` intentionally remains an action-addressed point-in-time read.
+/// This function is the planning-facing current-state resolver. It does not
+/// choose between conflicting state updates by timestamp, arrival order, or hash.
+/// When multiple valid updates imply different statuses, state is ambiguous.
+#[hdk_extern]
+pub fn get_current_machine_state(machine_hash: ActionHash) -> ExternResult<MachineStateResolution> {
+    let details = get_details(machine_hash.clone(), GetOptions::default())?;
+    let Some(Details::Record(record_details)) = details else {
+        return Ok(MachineStateResolution::Deleted);
+    };
+
+    if !record_details.deletes.is_empty() {
+        return Ok(MachineStateResolution::Deleted);
+    }
+
+    let original: MachineEntry = record_details
+        .record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Machine record has no entry".into(),
+        )))?;
+
+    let mut statuses = vec![original.status.clone()];
+
+    for update in &record_details.updates {
+        let update_record = get(update.as_hash().clone(), GetOptions::default())?.ok_or(
+            wasm_error!(WasmErrorInner::Guest(
+                "Machine update metadata references a missing record".into(),
+            )),
+        )?;
+
+        let updated: MachineEntry = update_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Machine update record has no entry".into(),
+            )))?;
+
+        if !statuses.contains(&updated.status) {
+            statuses.push(updated.status);
+        }
+
+        if statuses.len() > 1 {
+            return Ok(MachineStateResolution::Ambiguous { statuses });
+        }
+    }
+
+    Ok(MachineStateResolution::Resolved {
+        status: statuses.remove(0),
+    })
 }
 
 /// Update machine status (e.g., Available -> Running).
@@ -247,6 +314,23 @@ mod tests {
             machine_type_tag(&MachineType::Custom("Waterjet".to_string())),
             "custom_Waterjet"
         );
+    }
+
+    #[test]
+    fn test_machine_state_resolution_serde() {
+        let resolved = MachineStateResolution::Resolved {
+            status: MachineStatus::Available,
+        };
+        let json = serde_json::to_string(&resolved).unwrap();
+        let back: MachineStateResolution = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, resolved);
+
+        let ambiguous = MachineStateResolution::Ambiguous {
+            statuses: vec![MachineStatus::Available, MachineStatus::Running],
+        };
+        let json = serde_json::to_string(&ambiguous).unwrap();
+        let back: MachineStateResolution = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, ambiguous);
     }
 
     #[test]
