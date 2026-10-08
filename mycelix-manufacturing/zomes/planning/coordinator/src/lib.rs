@@ -296,12 +296,12 @@ pub fn select_live_capability(
                 ));
                 continue;
             }
-            MachineStateResolutionProjection::Resolved { status, .. } => {
+            MachineStateResolutionProjection::Resolved { status, head_action } => {
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     machine_status: Some(status),
-                    machine_state_head: None,
+                    machine_state_head: Some(head_action),
                     eligible: false,
                     mismatch: None,
                     rejection: Some(CapabilityPlanRejection::MachineUnavailable),
@@ -317,6 +317,18 @@ pub fn select_live_capability(
                     eligible: false,
                     mismatch: None,
                     rejection: Some(CapabilityPlanRejection::MachineNotFound),
+                });
+                continue;
+            }
+            MachineStateResolutionProjection::InvalidRecord => {
+                rejected.push(CapabilityPlanDecision {
+                    machine_hash: Some(machine_hash),
+                    capability_contract_hash: contract_hash,
+                    machine_status: None,
+                    machine_state_head: None,
+                    eligible: false,
+                    mismatch: None,
+                    rejection: Some(CapabilityPlanRejection::MachineInvalidRecord),
                 });
                 continue;
             }
