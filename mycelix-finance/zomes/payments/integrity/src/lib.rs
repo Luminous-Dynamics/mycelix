@@ -565,10 +565,11 @@ fn validate_update_sap_balance(
             "SAP credit cause is not a SapBalance entry".into()
         )))?;
 
-        let (cause_predecessor_hash, cause_author) = match cause_record.action() {
+        let (cause_predecessor_hash, cause_author, cause_timestamp) = match cause_record.action() {
             Action::Update(update) => (
                 update.original_action_address.clone(),
                 update.author.clone(),
+                update.timestamp,
             ),
             _ => {
                 return Ok(ValidateCallbackResult::Invalid(
@@ -593,19 +594,38 @@ fn validate_update_sap_balance(
                 "SAP debit predecessor is not a SapBalance entry".into()
             )))?;
 
-        if cause_predecessor.member_did == bal.member_did
-            || cause_balance.member_did == bal.member_did
-            || cause_balance.member_did == cause_predecessor.member_did
-        {
+        if cause_predecessor.member_did != cause_balance.member_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP debit cause must update the same balance owner".into()
+            ));
+        }
+        if cause_predecessor.member_did == bal.member_did {
             return Ok(ValidateCallbackResult::Invalid(
                 "SAP credit cause must debit a different balance owner".into()
             ));
         }
 
-        let debited = cause_predecessor.balance
+        let from = cause_balance.last_demurrage_at.as_micros();
+        let to = cause_timestamp.as_micros();
+        let elapsed = if to > from {
+            ((to - from) / 1_000_000) as u64
+        } else {
+            0
+        };
+        let cause_now_secs = (to / 1_000_000).max(0) as u64;
+        let cause_deduction = compute_demurrage_with_exemption(
+            cause_predecessor.balance,
+            cause_predecessor.exemption.as_ref(),
+            cause_now_secs,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            elapsed,
+        );
+        let cause_effective_balance = cause_predecessor.balance.saturating_sub(cause_deduction);
+        let debited = cause_effective_balance
             .checked_sub(cause_balance.balance)
             .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-                "SAP credit cause is not a balance decrease".into()
+                "SAP credit cause is not a balance decrease after deterministic demurrage".into()
             )))?;
         if debited < credited_amount {
             return Ok(ValidateCallbackResult::Invalid(format!(
