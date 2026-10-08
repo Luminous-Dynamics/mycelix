@@ -12,6 +12,8 @@ pub mod seam_profile;
 pub mod seam_scenario;
 pub mod canonical_derivation_receipt;
 pub mod d6s_raw_json;
+pub mod contestable_finality;
+pub mod observer_lifecycle;
 pub mod evidence_claim_graph;
 pub mod finality_eligibility_composition;
 
