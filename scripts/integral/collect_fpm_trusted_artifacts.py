@@ -155,6 +155,26 @@ def enumerate_artifacts(
     return items, metadata
 
 
+def enumerate_consistent_artifacts(
+    get_page: callable,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    artifacts, metadata = enumerate_artifacts(get_page)
+    second_artifacts, second_metadata = enumerate_artifacts(get_page)
+    if second_metadata["total_count_reported"] != metadata["total_count_reported"]:
+        fail("artifact total_count changed between complete enumeration passes")
+    if second_metadata["page_counts"] != metadata["page_counts"]:
+        fail("artifact page counts changed between complete enumeration passes")
+    if second_metadata["artifact_identity_sha256"] != metadata["artifact_identity_sha256"]:
+        fail("artifact identity sequence changed between complete enumeration passes")
+    if second_artifacts != artifacts:
+        fail("artifact payload changed between complete enumeration passes")
+    metadata["repeat_enumeration_verified"] = True
+    metadata["repeat_total_count_reported"] = second_metadata["total_count_reported"]
+    metadata["repeat_page_counts"] = second_metadata["page_counts"]
+    metadata["repeat_artifact_identity_sha256"] = second_metadata["artifact_identity_sha256"]
+    return artifacts, metadata
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", default=None)
@@ -177,18 +197,7 @@ def main() -> None:
         def get_page(page: int) -> tuple[int, list[dict[str, Any]]]:
             return page_items(load_live_page(args.repository, args.run_id, page), page)
 
-    artifacts, metadata = enumerate_artifacts(get_page)
-    second_artifacts, second_metadata = enumerate_artifacts(get_page)
-    if second_metadata["total_count_reported"] != metadata["total_count_reported"]:
-        fail("artifact total_count changed between complete enumeration passes")
-    if second_metadata["page_counts"] != metadata["page_counts"]:
-        fail("artifact page counts changed between complete enumeration passes")
-    if second_metadata["artifact_identity_sha256"] != metadata["artifact_identity_sha256"]:
-        fail("artifact identity sequence changed between complete enumeration passes")
-    metadata["repeat_enumeration_verified"] = True
-    metadata["repeat_total_count_reported"] = second_metadata["total_count_reported"]
-    metadata["repeat_page_counts"] = second_metadata["page_counts"]
-    metadata["repeat_artifact_identity_sha256"] = second_metadata["artifact_identity_sha256"]
+    artifacts, metadata = enumerate_consistent_artifacts(get_page)
     args.artifacts_out.parent.mkdir(parents=True, exist_ok=True)
     args.enumeration_out.parent.mkdir(parents=True, exist_ok=True)
     args.artifacts_out.write_bytes(canonical({"artifacts": artifacts}) + b"\n")
