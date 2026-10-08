@@ -61,6 +61,7 @@ pub enum EntryTypes {
 #[hdk_link_types]
 pub enum LinkTypes {
     AllOperations,
+    AllCapabilityRequirements,
     DesignToRouting,
     RoutingToOperations,
 }
