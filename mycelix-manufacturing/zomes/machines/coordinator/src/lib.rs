@@ -372,6 +372,16 @@ pub fn create_machine_time_authority_profile(
             "time authority profile has invalid identity or validity fields".into(),
         )));
     }
+    let profile_payload = MachineTimeAuthorityProfilePayload {
+        schema_id: MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID.to_string(),
+        machine_hash: input.machine_hash.clone(),
+        authority_agent: input.authority_agent.clone(),
+        profile_id: input.profile_id.clone(),
+        source_profile: input.source_profile.clone(),
+        valid_from: input.valid_from,
+        valid_until: input.valid_until,
+    };
+    let profile_signature = sign(machine_record.action().author().clone(), profile_payload)?;
     let profile = MachineTimeAuthorityProfileEntry {
         machine_hash: input.machine_hash.clone(),
         authority_agent: input.authority_agent,
@@ -379,12 +389,7 @@ pub fn create_machine_time_authority_profile(
         source_profile: input.source_profile,
         valid_from: input.valid_from,
         valid_until: input.valid_until,
-        registrant_signature: Signature(vec![]),
-    };
-    let signature = sign(machine_record.action().author().clone(), profile.signed_payload())?;
-    let profile = MachineTimeAuthorityProfileEntry {
-        registrant_signature: signature,
-        ..profile
+        registrant_signature: profile_signature,
     };
     let hash = create_entry(EntryTypes::MachineTimeAuthorityProfile(profile))?;
     create_link(input.machine_hash.clone(), hash.clone(), LinkTypes::MachineToTimeAuthorityProfiles, ())?;
@@ -420,19 +425,24 @@ pub fn create_machine_temporal_attestation(
             "temporal attestation is outside profile validity or lacks source evidence".into(),
         )));
     }
-    let attestation = MachineTemporalAttestationEntry {
+    let attestation_payload = MachineTemporalAttestationPayload {
+        schema_id: MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID.to_string(),
         machine_hash: input.machine_hash.clone(),
         profile_hash: input.profile_hash.clone(),
+        subject_hash: input.subject_hash.clone(),
+        evidence_kind: input.evidence_kind.clone(),
+        attested_at: input.attested_at,
+        source_reference: input.source_reference.clone(),
+    };
+    let attestation_signature = sign(profile.authority_agent.clone(), attestation_payload)?;
+    let attestation = MachineTemporalAttestationEntry {
+        machine_hash: input.machine_hash.clone(),
+        profile_hash: input.profile_hash,
         subject_hash: input.subject_hash,
         evidence_kind: input.evidence_kind,
         attested_at: input.attested_at,
         source_reference: input.source_reference,
-        authority_signature: Signature(vec![]),
-    };
-    let signature = sign(profile.authority_agent.clone(), attestation.signed_payload())?;
-    let attestation = MachineTemporalAttestationEntry {
-        authority_signature: signature,
-        ..attestation
+        authority_signature: attestation_signature,
     };
     let hash = create_entry(EntryTypes::MachineTemporalAttestation(attestation))?;
     create_link(input.machine_hash.clone(), hash.clone(), LinkTypes::MachineToTemporalAttestations, ())?;
