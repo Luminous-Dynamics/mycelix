@@ -2957,6 +2957,14 @@ mod tests {
     }
 
     #[test]
+    fn authorization_proof_sql_timestamp_domain_is_fail_closed() {
+        assert!(read_nonnegative_unix_ms(-1, 12).is_err());
+        assert_eq!(read_nonnegative_unix_ms(0, 12).unwrap(), 0);
+        assert_eq!(unix_ms_to_sql_i64(i64::MAX as u64).unwrap(), i64::MAX);
+        assert!(unix_ms_to_sql_i64(i64::MAX as u64 + 1).is_err());
+    }
+
+    #[test]
     fn authorization_admission_receipt_survives_restart() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("authorization-receipt-restart.db");
