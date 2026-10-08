@@ -36,6 +36,11 @@ MAX_ARTIFACT_ARCHIVE_MEMBERS = 8
 MAX_ARTIFACT_MEMBER_BYTES = 2 * 1024 * 1024
 ALLOWED_ARTIFACT_COMPRESSION = frozenset({zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED})
 CRATES_IO_REGISTRY_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
+SANDBOX_SYSTEM_CLOSURE_PROFILE = "fpm-ubuntu24.04-amd64-rust-1.96.1-v1"
+SANDBOX_SYSTEM_CLOSURE_COMMANDS = (
+    "bash", "env", "grep", "tr", "timeout", "cargo", "rustc", "rustfmt",
+    "cc", "ld", "as", "ldd", "realpath", "sha256sum", "sed", "uname", "cat",
+)
 LOCK_ROOT_PACKAGE = "fpm-wasm-artifact-identity"
 
 RECEIPT_KEYS = frozenset(
@@ -71,6 +76,7 @@ RECEIPT_KEYS = frozenset(
         "candidate_execution_profile",
         "sandbox_image_digest",
         "sandbox_probe",
+        "sandbox_system_closure",
         "dependency_cache_sha256",
         "dependency_source_policy",
         "steps",
@@ -515,6 +521,69 @@ def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: st
     verify_sandbox_invocations(policy_text)
     return policy_text
 
+def verify_sandbox_system_closure(closure: Any) -> None:
+    if not isinstance(closure, dict):
+        fail("sandbox_system_closure must be an object")
+    expected_keys = {"profile", "image_digest", "architecture", "os_release_sha256", "libc_version", "commands", "libraries"}
+    if set(closure) != expected_keys:
+        fail("sandbox_system_closure schema mismatch")
+    if closure["profile"] != SANDBOX_SYSTEM_CLOSURE_PROFILE:
+        fail("unexpected sandbox system closure profile")
+    if closure["image_digest"] != "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b":
+        fail("sandbox system closure image digest mismatch")
+    if closure["architecture"] != "linux/amd64":
+        fail("sandbox system closure architecture mismatch")
+    if not isinstance(closure["os_release_sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", closure["os_release_sha256"]):
+        fail("sandbox system closure os-release digest is malformed")
+    if not isinstance(closure["libc_version"], str) or not closure["libc_version"] or "\n" in closure["libc_version"] or "\t" in closure["libc_version"]:
+        fail("sandbox system closure libc version is malformed")
+
+    commands = closure["commands"]
+    expected_command_names = sorted(SANDBOX_SYSTEM_CLOSURE_COMMANDS)
+    if not isinstance(commands, list) or [item.get("name") for item in commands if isinstance(item, dict)] != expected_command_names:
+        fail("sandbox system closure command set/order mismatch")
+    seen_paths: set[str] = set()
+    for item in commands:
+        if not isinstance(item, dict) or set(item) != {"name", "path", "sha256"}:
+            fail("sandbox system closure command entry schema mismatch")
+        name, path, digest = item["name"], item["path"], item["sha256"]
+        if not isinstance(name, str) or name not in SANDBOX_SYSTEM_CLOSURE_COMMANDS:
+            fail("sandbox system closure command name is invalid")
+        if not isinstance(path, str) or not path.startswith("/") or "\n" in path or "\t" in path:
+            fail("sandbox system closure command path is invalid")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            fail(f"sandbox system closure command digest is malformed: {name}")
+        if path in seen_paths:
+            fail(f"sandbox system closure reuses executable path: {path}")
+        seen_paths.add(path)
+        if name in {"cargo", "rustc", "rustfmt"}:
+            if not path.startswith("/opt/fpm-rust/"):
+                fail(f"sandbox Rust tool path escaped immutable toolchain: {name}")
+        elif not path.startswith(("/usr/", "/bin/", "/sbin/")):
+            fail(f"sandbox system command escaped immutable image roots: {name}")
+
+    libraries = closure["libraries"]
+    if not isinstance(libraries, list) or not libraries or len(libraries) > 256:
+        fail("sandbox system closure library set is invalid")
+    library_paths: set[str] = set()
+    for item in libraries:
+        if not isinstance(item, dict) or set(item) != {"path", "sha256"}:
+            fail("sandbox system closure library entry schema mismatch")
+        path, digest = item["path"], item["sha256"]
+        if not isinstance(path, str) or not path.startswith("/") or "\n" in path or "\t" in path:
+            fail("sandbox system closure library path is invalid")
+        if not path.startswith(("/lib/", "/lib64/", "/usr/lib/", "/usr/lib64/", "/opt/fpm-rust/")):
+            fail(f"sandbox system closure library escaped immutable roots: {path}")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            fail(f"sandbox system closure library digest is malformed: {path}")
+        if path in library_paths:
+            fail(f"sandbox system closure duplicates library path: {path}")
+        library_paths.add(path)
+    if not any(path.endswith("/libc.so.6") for path in library_paths):
+        fail("sandbox system closure does not record glibc libc.so.6")
+    if not any("/ld-linux-" in path and path.endswith(".so.2") for path in library_paths):
+        fail("sandbox system closure does not record the amd64 dynamic loader")
+
 def verify_receipt(
     receipt: dict[str, Any],
     expected_trusted_run_id: int,
@@ -692,6 +761,7 @@ def verify_receipt(
         fail("unexpected sandbox image digest")
     if receipt["sandbox_probe"] != "passed":
         fail("sandbox boundary probe did not pass")
+    verify_sandbox_system_closure(receipt["sandbox_system_closure"])
     require_sha256(receipt["dependency_cache_sha256"], "dependency_cache_sha256")
     if receipt["dependency_source_policy"] != "crates-io-registry-only-v1":
         fail("unexpected dependency source policy")
