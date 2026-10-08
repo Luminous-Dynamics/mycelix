@@ -175,9 +175,11 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           required={
+              "durable-publication-manifest-v1.json",
               "qualification-manifest-v1.json",
               "qualification-attestation-predicate-v3.json",
               "attestor-run-receipt.json",
+              "qualification-attestation-bundle.json",
               "attestation-bundle-publication-verification.json",
               "SHA256SUMS",
           }
@@ -284,6 +286,24 @@ jobs:
               out.write(f'attestor_workflow_content_sha256={content_sha256}\n')
           PY
 
+      - name: Verify archived signed qualification attestation
+        env:
+          EXPECTED_PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
+          SIGNER_DIGEST: ${{ steps.reconcile.outputs.attestor_workflow_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation verify durable-extracted/qualification-manifest-v1.json \
+            --repo "${GITHUB_REPOSITORY}" \
+            --bundle durable-extracted/qualification-attestation-bundle.json \
+            --predicate-type "${EXPECTED_PREDICATE_TYPE}" \
+            --signer-workflow "${SIGNER_WORKFLOW}" \
+            --signer-digest "${SIGNER_DIGEST}" \
+            --deny-self-hosted-runners \
+            --format json > archived-attestation-verification.json
+          test -s archived-attestation-verification.json
+
       - name: Validate durable subject semantics
         env:
           EXPECTED_CLAIM_ID: ${{ inputs.expected_claim_id }}
@@ -292,6 +312,10 @@ jobs:
           EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
           EXPECTED_PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1
           EXPECTED_ATTESTOR_WORKFLOW_SHA: ${{ steps.reconcile.outputs.attestor_workflow_sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+          EXPECTED_ATTESTOR_WORKFLOW_BLOB_SHA1: ${{ steps.reconcile.outputs.attestor_workflow_git_blob_sha1 }}
+          EXPECTED_ATTESTOR_WORKFLOW_CONTENT_SHA256: ${{ steps.reconcile.outputs.attestor_workflow_content_sha256 }}
         run: |
           set -euo pipefail
           EXPECTED_CLAIM_ID="${EXPECTED_CLAIM_ID}" EXPECTED_MANIFEST_SHA256="${EXPECTED_MANIFEST_SHA256}" EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" EXPECTED_REPOSITORY_ID="${EXPECTED_REPOSITORY_ID}" EXPECTED_PREDICATE_TYPE="${EXPECTED_PREDICATE_TYPE}" EXPECTED_ATTESTOR_WORKFLOW_SHA="${EXPECTED_ATTESTOR_WORKFLOW_SHA}" python - <<'PY'
@@ -316,6 +340,12 @@ jobs:
               return result
 
           root=Path('durable-extracted')
+          durable_manifest_path=root/'durable-publication-manifest-v1.json'
+          bundle_path=root/'qualification-attestation-bundle.json'
+          durable_manifest=strict(durable_manifest_path.read_text())
+          bundle_raw=bundle_path.read_bytes()
+          bundle_sha256=hashlib.sha256(bundle_raw).hexdigest()
+          release=json.loads(Path('release.json').read_text())
           manifest_path=root/'qualification-manifest-v1.json'
           predicate_path=root/'qualification-attestation-predicate-v3.json'
           receipt_path=root/'attestor-run-receipt.json'
@@ -325,6 +355,44 @@ jobs:
           predicate=strict(predicate_path.read_text())
           receipt=strict(receipt_path.read_text())
           publication=strict(publication_path.read_text())
+          assert set(durable_manifest) == {
+              'schema','repository','repository_id','release_tag','release_id',
+              'asset_name','expected_main_sha','qualification_claim_id',
+              'qualification_manifest_sha256','predicate_type','publication_profile',
+              'attestor_workflow_path','attestor_workflow_sha',
+              'signed_attestation_bundle_sha256','files'
+          }
+          assert durable_manifest['schema'] == 'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1'
+          assert durable_manifest['repository'] == os.environ['GITHUB_REPOSITORY']
+          assert durable_manifest['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert durable_manifest['release_tag'] == os.environ['RELEASE_TAG']
+          assert durable_manifest['release_id'] == release['id']
+          assert durable_manifest['asset_name'] == os.environ['ASSET_NAME']
+          assert durable_manifest['expected_main_sha'] == os.environ['EXPECTED_MAIN_SHA']
+          assert durable_manifest['qualification_claim_id'] == os.environ['EXPECTED_CLAIM_ID']
+          assert durable_manifest['qualification_manifest_sha256'] == os.environ['EXPECTED_MANIFEST_SHA256']
+          assert durable_manifest['predicate_type'] == os.environ['EXPECTED_PREDICATE_TYPE']
+          assert durable_manifest['publication_profile'] == 'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1'
+          assert durable_manifest['attestor_workflow_path'] == receipt['attestor']['workflow_ref']
+          assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
+          assert durable_manifest['signed_attestation_bundle_sha256'] == bundle_sha256
+          assert durable_manifest['files'] == {
+              'qualification-manifest-v1.json': hashlib.sha256((root/'qualification-manifest-v1.json').read_bytes()).hexdigest(),
+              'qualification-attestation-predicate-v3.json': hashlib.sha256((root/'qualification-attestation-predicate-v3.json').read_bytes()).hexdigest(),
+              'attestor-run-receipt.json': hashlib.sha256((root/'attestor-run-receipt.json').read_bytes()).hexdigest(),
+              'qualification-attestation-bundle.json': bundle_sha256,
+              'attestation-bundle-publication-verification.json': hashlib.sha256((root/'attestation-bundle-publication-verification.json').read_bytes()).hexdigest(),
+          }
+          assert set(durable_manifest['files']) == {
+              'qualification-manifest-v1.json','qualification-attestation-predicate-v3.json',
+              'attestor-run-receipt.json','qualification-attestation-bundle.json',
+              'attestation-bundle-publication-verification.json'
+          }
+          assert durable_manifest['attestor_workflow_path'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
+          assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
+          assert os.environ['EXPECTED_ATTESTOR_WORKFLOW_BLOB_SHA1'] == receipt['trust_root'].get('attestor_workflow_git_blob_sha1', os.environ['EXPECTED_ATTESTOR_WORKFLOW_BLOB_SHA1'])
+          assert os.environ['EXPECTED_ATTESTOR_WORKFLOW_CONTENT_SHA256']
+          assert isinstance(json.loads(Path('archived-attestation-verification.json').read_text()), list)
 
           assert hashlib.sha256(manifest_raw).hexdigest() == os.environ['EXPECTED_MANIFEST_SHA256']
           assert predicate['schema'] == 'MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3'
@@ -379,6 +447,8 @@ jobs:
               'asset_digest':asset['digest'],
               'expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],
               'qualification_claim_id':os.environ['EXPECTED_CLAIM_ID'],
+              'signed_attestation_bundle_sha256':hashlib.sha256(Path('durable-extracted/qualification-attestation-bundle.json').read_bytes()).hexdigest(),
+              'durable_publication_manifest_sha256':hashlib.sha256(Path('durable-extracted/durable-publication-manifest-v1.json').read_bytes()).hexdigest(),
               'attestor_workflow_sha':os.environ['ATTESTOR_WORKFLOW_SHA'],
               'attestor_workflow_git_blob_sha1':os.environ['ATTESTOR_WORKFLOW_BLOB_SHA1'],
               'attestor_workflow_content_sha256':os.environ['ATTESTOR_WORKFLOW_CONTENT_SHA256'],
@@ -388,7 +458,7 @@ jobs:
           assert set(observation) == {
               'schema','repository','repository_id','release_tag','release_id',
               'immutable','asset_name','asset_digest','expected_main_sha',
-              'qualification_claim_id','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256','qualification_manifest_sha256','state'
+              'qualification_claim_id','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256','signed_attestation_bundle_sha256','durable_publication_manifest_sha256','qualification_manifest_sha256','state'
           }
           Path('durable-publication-verification.json').write_text(json.dumps(observation,indent=2,sort_keys=True)+'\n')
           PY
@@ -398,6 +468,7 @@ jobs:
         with:
           name: cos-durable-publication-verification-${{ inputs.expected_claim_id }}
           path: |
+            archived-attestation-verification.json
             attestor-signer-root-reconciliation.json
             attestor-signer-workflow-sha.txt
             expected-trust-root.json
