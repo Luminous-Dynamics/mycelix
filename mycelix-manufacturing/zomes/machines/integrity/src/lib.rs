@@ -10,7 +10,18 @@ use manufacturing_common::{MachineStatus, MachineType};
 
 /// Maximum controller lease duration for the initial deterministic authority model.
 pub const MAX_MACHINE_CONTROLLER_LEASE_MICROS: i64 = 86_400_000_000;
+/// Domain-separated payload signed by the machine registrant for a controller lease.
+pub const MACHINE_CONTROLLER_LEASE_SCHEMA_ID: &str =
+    "mycelix-manufacturing-machine-controller-lease-v1";
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineControllerLeasePayload {
+    pub schema_id: String,
+    pub machine_hash: ActionHash,
+    pub controller_agent: AgentPubKey,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+}
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -34,6 +45,23 @@ pub struct MachineControllerAuthorityEntry {
     pub controller_agent: AgentPubKey,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
+    /// Cryptographic proof that the machine registrant authored the exact lease fields.
+    /// `None` is migration compatibility only; unsigned legacy authorities cannot be
+    /// used for new control-field updates.
+    #[serde(default)]
+    pub issuer_signature: Option<Signature>,
+}
+
+impl MachineControllerAuthorityEntry {
+    pub fn signed_payload(&self) -> MachineControllerLeasePayload {
+        MachineControllerLeasePayload {
+            schema_id: MACHINE_CONTROLLER_LEASE_SCHEMA_ID.to_string(),
+            machine_hash: self.machine_hash.clone(),
+            controller_agent: self.controller_agent.clone(),
+            valid_from: self.valid_from,
+            valid_until: self.valid_until,
+        }
+    }
 }
 
 #[hdk_entry_helper]
@@ -119,6 +147,11 @@ fn validate_create_authority(
             "machine controller authority exceeds the maximum 24-hour lease duration".into(),
         ));
     }
+    let Some(signature) = authority.issuer_signature.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine controller authority requires a registrant signature".into(),
+        ));
+    };
 
     let machine_record = must_get_valid_record(authority.machine_hash.clone())?;
     let machine: Option<MachineEntry> = machine_record
@@ -138,6 +171,16 @@ fn validate_create_authority(
     if machine_record.action().author() != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "only the machine registrant may issue controller authority".into(),
+        ));
+    }
+    let signature_valid = verify_signature(
+        action.author().clone(),
+        signature,
+        authority.signed_payload(),
+    )?;
+    if !signature_valid {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine controller authority issuer signature does not match the lease payload".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -168,6 +211,11 @@ fn validate_create_status_log(
     if authority.machine_hash != log.machine_hash {
         return Ok(ValidateCallbackResult::Invalid(
             "machine status authority is bound to a different machine".into(),
+        ));
+    }
+    if authority.issuer_signature.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "unsigned legacy controller authority cannot authorize new machine status".into(),
         ));
     }
     if action.author() != authority.controller_agent {
@@ -381,6 +429,11 @@ fn validate_update_entry(
                         "machine status authority is bound to a different machine".into(),
                     ));
                 }
+                if authority.issuer_signature.is_none() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "unsigned legacy controller authority cannot authorize new machine updates".into(),
+                    ));
+                }
                 if action.author() != authority.controller_agent {
                     return Ok(ValidateCallbackResult::Invalid(
                         "machine update author is not an authorized controller".into(),
@@ -440,6 +493,7 @@ mod content_restriction_tests {
             valid_until: Timestamp::from_micros(
                 start.as_micros() + MAX_MACHINE_CONTROLLER_LEASE_MICROS,
             ),
+            issuer_signature: None,
         };
         assert!(authority_duration_is_bounded(&within));
 
@@ -459,6 +513,7 @@ mod content_restriction_tests {
             controller_agent: AgentPubKey::from_raw_32(vec![2; 32]),
             valid_from: Timestamp::from_micros(100),
             valid_until: Timestamp::from_micros(200),
+            issuer_signature: None,
         };
 
         assert!(authority_valid_at(&authority, Timestamp::from_micros(100)));

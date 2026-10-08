@@ -181,14 +181,20 @@ pub fn grant_machine_controller(
         )));
     }
 
-    let hash = create_entry(EntryTypes::MachineControllerAuthority(
-        MachineControllerAuthorityEntry {
-            machine_hash: input.machine_hash.clone(),
-            controller_agent: input.controller_agent,
-            valid_from: input.valid_from,
-            valid_until: input.valid_until,
-        },
-    ))?;
+    let issuer = machine_record.action().author().clone();
+    let authority = MachineControllerAuthorityEntry {
+        machine_hash: input.machine_hash.clone(),
+        controller_agent: input.controller_agent,
+        valid_from: input.valid_from,
+        valid_until: input.valid_until,
+        issuer_signature: None,
+    };
+    let issuer_signature = sign(issuer, authority.signed_payload())?;
+    let authority = MachineControllerAuthorityEntry {
+        issuer_signature: Some(issuer_signature),
+        ..authority
+    };
+    let hash = create_entry(EntryTypes::MachineControllerAuthority(authority))?;
 
     create_link(
         input.machine_hash.clone(),
@@ -315,6 +321,11 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
     if authority.controller_agent != agent_info()?.agent_initial_pubkey {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Current agent is not the authorized machine controller".into(),
+        )));
+    }
+    if authority.issuer_signature.is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Unsigned legacy controller authority cannot authorize new machine status".into(),
         )));
     }
     if now < authority.valid_from || now > authority.valid_until {
