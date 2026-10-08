@@ -198,10 +198,13 @@ jobs:
           assert receipt['schema']=='MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3' and receipt['repository']==os.environ['GITHUB_REPOSITORY'] and receipt['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
           assert receipt['qualification_manifest_sha256']==manifest_sha and receipt['predicate_sha256']==predicate_sha and receipt['attestation']['bundle_sha256']==bundle_sha
           assert receipt['qualification_topology']['head_sha']==os.environ['EXPECTED_MAIN_SHA'] and receipt['trust_root']['status']=='candidate_not_authoritative_until_protected_adoption'
+          assert receipt['trust_root']['main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']
           separator=bytes([0])
           canonical=hashlib.sha256(b'MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4'+separator+str(int(os.environ['EXPECTED_REPOSITORY_ID'])).encode('ascii')+separator+predicate['schema'].encode('utf-8')+separator+predicate['predicate_type'].encode('utf-8')+separator+predicate['publication']['profile'].encode('utf-8')+separator+predicate['claim_ceiling'].encode('utf-8')+separator+manifest_sha.encode('ascii')+separator+receipt['trust_root']['manifest_sha256'].encode('ascii')).hexdigest()
           assert canonical==predicate['qualification_claim_id']==receipt['qualification_claim_id']
           assert canonical==hashlib.sha256(b'MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4'+separator+str(int(os.environ['EXPECTED_REPOSITORY_ID'])).encode('ascii')+separator+predicate['schema'].encode('utf-8')+separator+predicate['predicate_type'].encode('utf-8')+separator+predicate['publication']['profile'].encode('utf-8')+separator+predicate['claim_ceiling'].encode('utf-8')+separator+manifest_sha.encode('ascii')+separator+receipt['trust_root']['manifest_sha256'].encode('ascii')).hexdigest()
+          assert receipt['attestor']['run_id']==json.loads(Path('attestor-source.json').read_text())['run_id']
+          assert receipt['attestor']['run_attempt']==json.loads(Path('attestor-source.json').read_text())['run_attempt']
           facts={
               'claim_id':canonical,
               'expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],
@@ -211,8 +214,8 @@ jobs:
               'predicate_type':predicate['predicate_type'],
               'publication_profile':predicate['publication']['profile'],
               'claim_ceiling':predicate['claim_ceiling'],
-              'attestor_run_id':json.loads(Path('attestor-source.json').read_text())['run_id'],
-              'attestor_run_attempt':json.loads(Path('attestor-source.json').read_text())['run_attempt'],
+              'attestor_run_id':receipt['attestor']['run_id'],
+              'attestor_run_attempt':receipt['attestor']['run_attempt'],
               'verifier_run_id':json.loads(Path('signing-input-source.json').read_text())['workflow_run_id'],
               'verifier_run_attempt':json.loads(Path('signing-input-source.json').read_text())['workflow_run_attempt'],
               'attestor_artifact_id':json.loads(Path('attestor-source.json').read_text())['artifact_id'],
@@ -223,6 +226,7 @@ jobs:
               'attestor_workflow_ref':receipt['attestor']['workflow_ref'],
               'trust_root_manifest_sha256':receipt['trust_root']['manifest_sha256'],
               'trust_root_manifest_blob_sha1':receipt['trust_root']['manifest_blob_sha1'],
+              'trust_root_main_snapshot_sha':receipt['trust_root']['main_snapshot_sha'],
           }
           handoff_basis=json.dumps(facts,sort_keys=True,separators=(',',':')).encode('utf-8')
           facts['publication_handoff_sha256']=hashlib.sha256(handoff_basis).hexdigest()
@@ -388,7 +392,7 @@ jobs:
           assert facts['expected_main_sha']==os.environ['EXPECTED_MAIN_SHA']
           assert receipt['qualification_claim_id']==facts['claim_id']
           assert receipt['qualification_topology']['head_sha']==os.environ['EXPECTED_MAIN_SHA']
-          handoff_basis={k:facts[k] for k in ('claim_id','expected_main_sha','manifest_sha256','predicate_sha256','bundle_sha256','predicate_type','publication_profile','claim_ceiling','attestor_run_id','attestor_run_attempt','verifier_run_id','verifier_run_attempt','attestor_artifact_id','attestor_artifact_digest','signing_input_artifact_id','signing_input_artifact_digest','attestor_workflow_sha','attestor_workflow_ref','trust_root_manifest_sha256','trust_root_manifest_blob_sha1')}
+          handoff_basis={k:facts[k] for k in ('claim_id','expected_main_sha','manifest_sha256','predicate_sha256','bundle_sha256','predicate_type','publication_profile','claim_ceiling','attestor_run_id','attestor_run_attempt','verifier_run_id','verifier_run_attempt','attestor_artifact_id','attestor_artifact_digest','signing_input_artifact_id','signing_input_artifact_digest','attestor_workflow_sha','attestor_workflow_ref','trust_root_manifest_sha256','trust_root_manifest_blob_sha1','trust_root_main_snapshot_sha')}
           expected_handoff=hashlib.sha256(json.dumps(handoff_basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()
           assert expected_handoff==facts['publication_handoff_sha256']
           assert hashlib.sha256(Path('handoff/durable-source/qualification-attestation-bundle.json').read_bytes()).hexdigest()==receipt['attestation']['bundle_sha256']
@@ -439,7 +443,7 @@ jobs:
           release_id=int(os.environ['RELEASE_ID'])
           files={name:hashlib.sha256((Path('durable-source')/name).read_bytes()).hexdigest() for name in ('qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json')}
           manifest={
-              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),'release_tag':os.environ['RELEASE_TAG'],'release_id':release_id,'asset_name':'cos-durable-'+os.environ['CLAIM_ID']+'.tar.gz','expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'predicate_type':facts['predicate_type'],'publication_profile':facts['publication_profile'],'claim_ceiling':facts['claim_ceiling'],'trust_root_manifest_blob_sha1':facts['trust_root_manifest_blob_sha1'],'trust_root_manifest_sha256':facts['trust_root_manifest_sha256'],'attestor_workflow_path':facts['attestor_workflow_ref'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'files':files}
+              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),'release_tag':os.environ['RELEASE_TAG'],'release_id':release_id,'asset_name':'cos-durable-'+os.environ['CLAIM_ID']+'.tar.gz','expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'predicate_type':facts['predicate_type'],'publication_profile':facts['publication_profile'],'claim_ceiling':facts['claim_ceiling'],'trust_root_manifest_blob_sha1':facts['trust_root_manifest_blob_sha1'],'trust_root_manifest_sha256':facts['trust_root_manifest_sha256'],'trust_root_main_snapshot_sha':facts['trust_root_main_snapshot_sha'],'attestor_workflow_path':facts['attestor_workflow_ref'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'files':files}
           Path('durable-source/durable-publication-manifest-v1.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
           PY
           (cd durable-source && sha256sum qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json durable-publication-manifest-v1.json) > durable-source/SHA256SUMS
@@ -463,6 +467,7 @@ jobs:
           b=hashlib.sha256((root/'qualification-attestation-bundle.json').read_bytes()).hexdigest()
           assert m['qualification_claim_id']==r['qualification_claim_id'] and m['claim_ceiling']=='ReferenceModelOnly'
           assert m['publication_handoff_sha256']==json.loads(Path('handoff/source-facts.json').read_text())['publication_handoff_sha256']
+          assert m['trust_root_main_snapshot_sha']==m['expected_main_sha']
           assert m['signed_attestation_bundle_sha256']==b and r['attestation']['bundle_sha256']==b
           assert m['qualification_manifest_sha256']==hashlib.sha256((root/'qualification-manifest-v1.json').read_bytes()).hexdigest()
           assert m['predicate_type']==p['predicate_type']
@@ -534,7 +539,7 @@ jobs:
           facts=json.loads(Path('handoff/source-facts.json').read_text())
           release=json.loads(Path('published-release.json').read_text())
           asset_name='cos-durable-'+facts['claim_id']+'.tar.gz'
-          observation={'schema':'MYCELIX-COS-DURABLE-PUBLICATION-VERIFICATION-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':1176351975,'release_tag':release['tagName'],'release_id':release['id'],'immutable':release['isImmutable'],'asset_name':asset_name,'asset_digest':'sha256:'+hashlib.sha256(Path(asset_name).read_bytes()).hexdigest(),'expected_main_sha':facts['expected_main_sha'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'state':'DurableAndVerifiable'}
+          observation={'schema':'MYCELIX-COS-DURABLE-PUBLICATION-VERIFICATION-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':1176351975,'release_tag':release['tagName'],'release_id':release['id'],'immutable':release['isImmutable'],'asset_name':asset_name,'asset_digest':'sha256:'+hashlib.sha256(Path(asset_name).read_bytes()).hexdigest(),'expected_main_sha':facts['expected_main_sha'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'trust_root_main_snapshot_sha':facts['trust_root_main_snapshot_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'state':'DurableAndVerifiable'}
           Path('durable-publication-verification.json').write_text(json.dumps(observation,indent=2,sort_keys=True)+'\n')
           PY
 
