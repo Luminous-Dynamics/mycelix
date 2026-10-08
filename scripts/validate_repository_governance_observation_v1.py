@@ -469,6 +469,11 @@ def _ruleset_target_state(entry: Any, default_branch: str) -> str:
     source_type = entry.get("source_type")
     if source_type not in {"Repository", "Organization", "Enterprise"}:
         return "UNVERIFIED"
+    if source_type == "Enterprise":
+        # The repository observation currently has no authoritative enterprise
+        # identity to bind the ruleset source against. Never qualify an
+        # enterprise-sourced rule merely because its source string is present.
+        return "UNVERIFIED"
 
     source = entry.get("source")
     if not isinstance(source, str) or not source:
@@ -1792,7 +1797,8 @@ def self_test(policy: dict[str, Any]) -> None:
     }
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
-    assert result["governance_state"] == "VERIFIED"
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["source_type"] = "Enterprise"
