@@ -181,6 +181,29 @@ def replay_and_assert(name: str, raw: dict[str, Any], result: dict[str, Any]) ->
                               f"{name}: alleged structural false negative hides an expansion at {request}")
         check(result["counterexample"]["request"] is None,
               f"{name}: structural false negative was mislabeled as a request expansion")
+    if status == "POLICY_ATTENUATION_VIOLATION":
+        request = result["counterexample"]["request"]
+        check(result["effective_denotational_containment"],
+              f"{name}: this control must not be an effective-authority expansion")
+        if name == "deny-removal-no-effective-expansion":
+            parent, child = raw["parent_policy"], raw["child_policy"]
+            check(not independent_policy_matches(parent, request)
+                  and not independent_policy_matches(child, request),
+                  "deny-removal control unexpectedly changed effective authorization")
+            check(any(independent_compound_matches(expr, request) for expr in parent["deny"]),
+                  "parent deny did not match the minimized policy-boundary witness")
+            check(not any(independent_compound_matches(expr, request) for expr in child["deny"]),
+                  "child deny unexpectedly retained the deleted restriction")
+        if name == "allow-expansion-masked-by-deny":
+            parent, child = raw["parent_policy"], raw["child_policy"]
+            check(not independent_policy_matches(parent, request)
+                  and not independent_policy_matches(child, request),
+                  "masked allow-expansion control unexpectedly changed effective authorization")
+            check(not independent_compound_matches(parent["allow"], request)
+                  and independent_compound_matches(child["allow"], request),
+                  "allow denotation expansion was not independently replayed")
+            check(any(independent_compound_matches(expr, request) for expr in child["deny"]),
+                  "child deny did not mask the newly added allow")
     if name == "deny-deletion-expansion":
         check(result["counterexample"]["cause"] == "effective-deny-removed",
               "deny deletion was not diagnosed as effective deny removal")
