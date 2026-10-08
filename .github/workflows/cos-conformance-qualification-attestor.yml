@@ -309,6 +309,8 @@ jobs:
           assert "Validate attestor run receipt" in scanned
           assert "Seal attestor evidence" in scanned
           assert "TRUST_ROOT_REF: ${{ github.sha }}" in scanned
+          assert "cos-conformance-independent-evidence-${EXPECTED_HEAD_SHA}-attempt-${VERIFIER_RUN_ATTEMPT}" in scanned
+          assert "VERIFIER_RUN_ATTEMPT" in scanned
           assert "linear_history_required_for_protected_main" in scanned
           assert "two_party_review_required_for_root_changes" in scanned
           assert 'root_manifest="${TRUST_ROOT_MANIFEST_PATH}"' in scanned
@@ -545,7 +547,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          expected_name="cos-conformance-independent-evidence-${EXPECTED_HEAD_SHA}"
+          expected_name="cos-conformance-independent-evidence-${EXPECTED_HEAD_SHA}-attempt-${VERIFIER_RUN_ATTEMPT}"
           : > artifacts.jsonl
           for page in 1 2 3 4 5 6 7 8 9 10; do
             page_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${VERIFIER_RUN_ID}/artifacts?per_page=100&page=${page}")"
