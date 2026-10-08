@@ -25,15 +25,22 @@ def token(state: int, prefix: str) -> tuple[int, str]:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print(
             "usage: generate_continual_adaptation_ledger.py "
-            "FIXED_FIXTURES.json OUTPUT.json",
+            "EXPECTED_POLICY_BLOB_SHA FIXED_FIXTURES.json OUTPUT.json",
             file=sys.stderr,
         )
         return 2
 
-    fixed = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    expected_policy_blob_sha = sys.argv[1]
+    fixed = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+    output_path = Path(sys.argv[3])
+
+    binding = fixed.get("policy_binding", {})
+    if binding.get("git_blob_sha") != expected_policy_blob_sha:
+        print("policy binding mismatch", file=sys.stderr)
+        return 1
     base = fixed["base_graph"]
     state = SEED
     cases: list[dict] = []
@@ -156,11 +163,12 @@ def main() -> int:
             "mutation_count": len(cases),
             "base_fixture_schema": fixed.get("schema"),
         },
+        "policy_binding": fixed["policy_binding"],
         "base_graph": base,
         "cases": cases,
     }
 
-    Path(sys.argv[2]).write_text(
+    output_path.write_text(
         json.dumps(corpus, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
