@@ -101,10 +101,11 @@ impl SqliteActionFenceStore {
 
     /// Reconcile a DHT resolution tuple against the durable host ledger.
     ///
-    /// expected_action_digest and expected_effecting_target_identity must be
-    /// derived by the caller from the exact prepared action under the configured
-    /// native action profile. This method checks those values against the
-    /// durable attempt and confirms that its admission, final-entry, and
+    /// expected_action_key must be derived by the caller from the exact prepared
+    /// action under the configured native action profile. The typed action key
+    /// binds the material action digest and effecting target together. This
+    /// method checks those values against the durable attempt and confirms that
+    /// its admission, final-entry, and
     /// terminal commitments are the same values recorded by the host boundary.
     ///
     /// It does not reconstruct final-entry or terminal-evidence preimages: only
