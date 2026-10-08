@@ -106,6 +106,8 @@ pub const STRATEGIC_OVERRIDE_SUNSET_US: i64 = 36 * 30 * 24 * 3600 * 1_000_000_i6
 /// Threat categories that constitute valid constitutional justification
 /// for Charter Guardian Authority vetoes (post-sunset period).
 /// Non-charter vetoes are rejected after the sunset.
+pub const EXECUTION_ATTEMPT_IDENTITY_PREFIX: &str =
+    "constitutional-attempt-identity-v1:";
 pub const EXECUTION_ACTION_KEY_PREFIX: &str =
     "constitutional-action-key-v1:";
 pub const EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX: &str =
