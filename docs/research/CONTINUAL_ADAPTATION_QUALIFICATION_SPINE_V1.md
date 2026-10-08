@@ -917,6 +917,41 @@ Claim-relevant provenance is represented by explicit typed edges. Hidden fields 
 The first implementation is exercised by the fixed adversarial corpus plus a deterministic 256-case generated property campaign.
 
 
+## Directed projection and typed relation endpoints
+
+Claim-local provenance closure is relation-direction-aware, not unrestricted bidirectional graph walking.
+
+For the current profile:
+
+    qualifies      incoming to Claim
+    requires       outgoing
+    applies_to     outgoing
+    generated_by   outgoing
+    uses           outgoing
+    derived_from   outgoing
+
+Every relation also declares allowed source/target semantic types.
+
+This prevents a shared-subject or shared-evaluator graph from accidentally importing another claim's evidence, while also rejecting semantically reversed edges such as Subject -> Claim with applies_to.
+
+The distinction is important:
+
+    traversable relation
+    !=
+    semantically valid relation
+
+The profile therefore validates endpoint types before semantic normalization and before claim-local traversal.
+
+The shared-claim scope corpus explicitly tests:
+- Claim A / Claim B sharing a Subject;
+- Claim A / Claim B sharing an Evaluator;
+- Claim B gaining new qualifying evidence;
+- unrelated claim growth;
+- node/edge representation reordering.
+
+Claim A's projection must remain unchanged under those unrelated Claim B changes.
+
+
 ## Freshness and target-regime drift
 
 Transport evidence is historical evidence about the exact validated subject, target regime, evaluator, observation process, and applicability profile.
@@ -1029,13 +1064,17 @@ Mycelix:
 - #4598 — intervention-semantic consistency across regimes;
 - #4599 — measurement invariance across regimes;
 - #4617 — canonical claim-local evidence ledger, executable fixtures, and differential reference verification;
+- #4655 — directed projection and shared-claim scope regression;
 - #4618 — evidence dependence and shared-ancestry accounting;
 - #4634 — raw-input parser integrity;
 - #4634 — raw receipt parsing and parser-equivalence attacks;
 - #4646 — semantic graph canonicalization and order-invariant evidence identity;
 - #4647 — claim-local projection and explicit provenance-edge closure;
 - #4648 — deterministic property/metamorphic mutation campaign;
+- #4652 — exact policy identity binding;
 - #4652 — exact policy identity binding to executable verifier and campaign;
+- #4655 — relation-direction-aware claim-local projection;
+- #4658 — typed relation endpoint constraints;
 
 Symthaea:
 
