@@ -2575,6 +2575,124 @@ mod tests {
     }
 
     #[test]
+    fn entry_admission_proof_survives_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("entry-proof-restart.db");
+        let action = key("entry-proof-restart");
+        let owner = attempt("attempt-entry-proof-restart");
+
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            store
+                .atomically_admit(
+                    &action,
+                    &owner,
+                    record(
+                        "attempt-entry-proof-restart",
+                        "operation-entry-proof-restart",
+                        "native-entry-proof-restart",
+                        &action,
+                        AttemptRecordState::Consumed,
+                    ),
+                )
+                .unwrap();
+            store
+                .atomically_mark_dispatch_pending(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-restart",
+                )
+                .unwrap();
+            store
+                .atomically_claim_provider_entry(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-restart",
+                    "constitutional-provider-entry-claim-token-v1:entry-proof-restart",
+                )
+                .unwrap();
+            store
+                .atomically_record_provider_entry_proof(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-restart",
+                    "constitutional-final-provider-entry-proof-v1:test-proof",
+                )
+                .unwrap();
+        }
+
+        let reopened = SqliteActionFenceStore::open(&path).unwrap();
+        let attempt = reopened.durably_read_attempt(&owner).unwrap().unwrap();
+        assert_eq!(
+            attempt.entry_admission_proof_digest(),
+            Some("constitutional-final-provider-entry-proof-v1:test-proof")
+        );
+        assert!(reopened
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn persisted_entry_proof_without_claim_fails_closed_on_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("entry-proof-orphan.db");
+        let action = key("entry-proof-orphan");
+        let owner = attempt("attempt-entry-proof-orphan");
+
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            store
+                .atomically_admit(
+                    &action,
+                    &owner,
+                    record(
+                        "attempt-entry-proof-orphan",
+                        "operation-entry-proof-orphan",
+                        "native-entry-proof-orphan",
+                        &action,
+                        AttemptRecordState::Consumed,
+                    ),
+                )
+                .unwrap();
+            store
+                .atomically_mark_dispatch_pending(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-orphan",
+                )
+                .unwrap();
+            store
+                .atomically_claim_provider_entry(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-orphan",
+                    "constitutional-provider-entry-claim-token-v1:entry-proof-orphan",
+                )
+                .unwrap();
+            store
+                .atomically_record_provider_entry_proof(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-orphan",
+                    "constitutional-final-provider-entry-proof-v1:orphan",
+                )
+                .unwrap();
+        }
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "DELETE FROM effect_provider_entry_claims WHERE attempt_identity = ?1",
+            params![owner.digest()],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert!(SqliteActionFenceStore::open(&path).is_err());
+    }
+
+    #[test]
+    fn second_boundary_cannot_claim_an_already_claimed_provider_entry() {    #[test]
     fn second_boundary_cannot_claim_an_already_claimed_provider_entry() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("claim-collision.db");
