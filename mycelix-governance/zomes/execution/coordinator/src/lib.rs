@@ -349,9 +349,8 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         )));
     }
 
-    // Timelock must be in Ready status (transitioned via mark_timelock_ready after
-    // signature verification). Fall back to accepting Pending if threshold-signing
-    // zome is not installed (graceful degradation).
+    // Timelock must be Ready, or Pending only when its signing authority can be
+    // revalidated here. Missing authorization infrastructure is a hard stop.
     match current_timelock.status {
         TimelockStatus::Ready => {
             // Normal path — timelock was marked ready after signature verification
