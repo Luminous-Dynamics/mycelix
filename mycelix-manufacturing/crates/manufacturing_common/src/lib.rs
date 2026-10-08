@@ -9,6 +9,9 @@
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// Stable schema identity for routing-owned manufacturing process recipes.
+pub const PROCESS_RECIPE_SCHEMA_ID: &str = "mycelix-manufacturing-process-recipe-v1";
+
 // ============================================================================
 // Work Orders
 // ============================================================================
