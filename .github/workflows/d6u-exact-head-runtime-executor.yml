@@ -325,6 +325,14 @@ jobs:
             --env CARGO_NET_OFFLINE=true --env GIT_CONFIG_NOSYSTEM=1 --env GIT_CONFIG_GLOBAL=/dev/null \
             --env GIT_TERMINAL_PROMPT=0 --env GITHUB_WORKSPACE=/workspace "$D6U_COMPILER_IMAGE" \
             /toolchain/bin/cargo fmt --all --manifest-path /workspace/d6u-runtime-harness/Cargo.toml -- --check
+      - name: Gate compiler image on critical/high CVEs
+        env:
+          D6U_COMPILER_IMAGE: ${{ steps.compiler_image.outputs.image }}
+        run: |
+          set -euo pipefail
+          command -v docker
+          docker scout version
+          docker scout cves "$D6U_COMPILER_IMAGE" --only-severity critical,high --exit-code
       - name: Capture runtime source integrity
         id: runtime_source
         working-directory: d6u-runtime-harness
