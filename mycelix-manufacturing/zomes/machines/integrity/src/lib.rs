@@ -435,6 +435,11 @@ fn validate_create_status_log(
             "schema-v2 controller status requires a transition approval".into(),
         ));
     }
+    if !authority.requires_transition_approval && log.transition_approval_hash.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "legacy controller status cannot carry a transition approval".into(),
+        ));
+    }
     if action.author() != authority.controller_agent {
         return Ok(ValidateCallbackResult::Invalid(
             "machine status action author is not an authorized controller".into(),
@@ -667,6 +672,13 @@ fn validate_update_entry(
                 if authority.issuer_signature.is_none() {
                     return Ok(ValidateCallbackResult::Invalid(
                         "unsigned legacy controller authority cannot authorize new machine updates".into(),
+                    ));
+                }
+                if !authority.requires_transition_approval
+                    && m.last_status_transition_approval_hash.is_some()
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "legacy controller update cannot carry a transition approval".into(),
                     ));
                 }
                 if authority.requires_transition_approval {
