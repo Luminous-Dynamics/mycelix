@@ -20,7 +20,7 @@
     "independent_verifier_workflow": {
       "path": ".github/workflows/cos-conformance-independent-verify.yml",
       "git_blob_sha1": "3c329ef659df75123947a53194fbc979da3f2463",
-      "content_sha256": "32ba8a6265c54a5adb6231d6c59004d8815ab6538a3a9146aebede2414d491ab"
+      "content_sha256": "44b2089f17b40dd064a1821f917133a1c669f856dacf58547c0112c8a5c74a8a"
     },
     "qualification_attestor_workflow": {
       "path": ".github/workflows/cos-conformance-qualification-attestor.yml",
