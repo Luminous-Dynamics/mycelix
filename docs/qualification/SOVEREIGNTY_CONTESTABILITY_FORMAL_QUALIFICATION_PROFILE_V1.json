@@ -95,7 +95,7 @@
     "pins_path": "mycelix-governance/tools/formal/effective_contestability_pins.json",
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json",
     "tree_binding_required": true,
-    "crosswalk_git_blob_sha": "11321fe69128550ea97efdc7f3519ef5155bad2d",
+    "crosswalk_git_blob_sha": "73fd5dd9d4e3f2e673c21c4da8d5d7ea710b656d",
     "fixture_paths": {
       "tla": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla",
       "cfg": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.cfg",
