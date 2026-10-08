@@ -1240,6 +1240,40 @@ mod tests {
         }
     }
 
+    struct AllowFinalEntry;
+
+    impl FinalProviderEntryVerifier for AllowFinalEntry {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            context: &ProviderActionContextV1,
+            now_unix_ms: u64,
+        ) -> Result<FinalProviderEntryProofV1, String> {
+            FinalProviderEntryProofV1::new(
+                attempt,
+                context,
+                now_unix_ms,
+                now_unix_ms.saturating_add(60_000),
+                "authorization-snapshot-v1",
+                "status-snapshot-v1",
+                "final-entry-verifier-v1",
+            )
+        }
+    }
+
+    struct RejectFinalEntry;
+
+    impl FinalProviderEntryVerifier for RejectFinalEntry {
+        fn verify(
+            &self,
+            _attempt: &AttemptRecordV1,
+            _context: &ProviderActionContextV1,
+            _now_unix_ms: u64,
+        ) -> Result<FinalProviderEntryProofV1, String> {
+            Err("authorization/status is stale".into())
+        }
+    }
+
     struct Verifier;
 
     impl OutcomeVerifier for Verifier {
@@ -1402,6 +1436,7 @@ mod tests {
                     "owner-attempt-1",
                     &mut provider,
                     &Verifier,
+                    &AllowFinalEntry,
                 )
                 .unwrap(),
             BoundaryOutcome::ExecutedConfirmed
@@ -1437,7 +1472,7 @@ mod tests {
         let mut provider = ErrorProvider;
         assert!(matches!(
             boundary
-                .dispatch(&action, &owner, "owner-attempt-ambiguous", &mut provider, &Verifier)
+                .dispatch(&action, &owner, "owner-attempt-ambiguous", &mut provider, &Verifier, &AllowFinalEntry)
                 .unwrap(),
             BoundaryOutcome::IndeterminateHeld { .. }
         ));
@@ -1514,6 +1549,69 @@ mod tests {
     }
 
     #[test]
+    fn final_entry_gate_rejection_cannot_reach_provider() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("final-gate-rejected.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-final-gate-rejected");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-final-gate-rejected",
+                    "operation-final-gate-rejected",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        struct MustNotInvoke;
+        impl ProviderAdapter for MustNotInvoke {
+            fn invoke(
+                &mut self,
+                _permit: &ProviderEntryPermitV1,
+            ) -> Result<ProviderObservation, String> {
+                panic!("final-entry rejection must prevent provider invocation");
+            }
+
+            fn reconcile(
+                &mut self,
+                _context: &ProviderActionContextV1,
+            ) -> Result<ProviderObservation, String> {
+                unreachable!()
+            }
+        }
+
+        let result = boundary
+            .dispatch(
+                &action_key,
+                &owner,
+                "owner-attempt-final-gate-rejected",
+                &mut MustNotInvoke,
+                &Verifier,
+                &RejectFinalEntry,
+            )
+            .unwrap();
+
+        assert!(matches!(
+            result,
+            BoundaryOutcome::FinalEntryRejectedNotEntered { reason }
+                if reason.contains("authorization/status is stale")
+        ));
+        let attempt = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
+        assert_eq!(attempt.state, AttemptRecordState::NotEntered);
+        assert!(attempt.not_entered_marker.is_some());
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
+        assert!(boundary
+            .store
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
     fn mismatched_provider_idempotency_proof_holds_the_fence() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("mismatch-idempotency.db")).unwrap();
@@ -1544,6 +1642,7 @@ mod tests {
             "owner-attempt-mismatch-idempotency",
             &mut provider,
             &MismatchedIdempotencyVerifier,
+            &AllowFinalEntry,
         );
         assert!(matches!(
             result,
@@ -1594,6 +1693,7 @@ mod tests {
             "owner-attempt-mismatch",
             &mut provider,
             &MismatchedVerifier,
+            &AllowFinalEntry,
         );
         assert!(matches!(
             result,
