@@ -49,13 +49,22 @@ if head.returncode or tree.returncode: raise RuntimeError("exact head/tree resol
 runtime=json.loads(a.runtime.read_text())
 assert runtime["schema"]=="mycelix.evidence-attestation-capability-formal-runtime.v1"
 
+negative_cfgs=[
+    a.negative_cfg_dir/("EvidenceAttestationDecisionEffectBindingV1Negative-"+c["id"]+".cfg")
+    for c in controls
+]
+for pth in negative_cfgs:
+    if not pth.is_file():
+        raise RuntimeError("negative CFG missing: "+str(pth))
+
+input_paths=[a.matrix,a.tla,a.canonical_cfg,a.negative_tla,a.alloy,a.reference,a.runtime]+negative_cfgs
 receipt={
 "receipt_schema":"mycelix.evidence-attestation-decision-effect-binding-formal-receipt.v1",
 "result":"ExecutedFail",
 "repository":{"head":head.stdout.strip(),"tree":tree.stdout.strip()},
 "control_matrix_sha256":fsha(a.matrix),
 "runtime":runtime,
-"inputs":{str(p):fsha(p) for p in [a.matrix,a.tla,a.canonical_cfg,a.negative_tla,a.alloy,a.reference,a.runtime]},
+"inputs":{str(pth):fsha(pth) for pth in input_paths},
 "controls":[c["id"] for c in controls],
 }
 
