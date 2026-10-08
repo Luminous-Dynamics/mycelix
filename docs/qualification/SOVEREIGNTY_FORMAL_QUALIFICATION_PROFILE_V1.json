@@ -122,6 +122,10 @@
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_FORMAL_CROSSWALK_V1.json",
     "crosswalk_git_blob_sha": "c626ce80130a18ed0fa9862a5f234e8bc4420247"
   },
+  "runtime": {
+    "jdk_package": "jdk17_headless",
+    "java_major": 17
+  },
   "tools": {
     "nixpkgs_rev": "a50bf0c1b07873c1a53892292017041a8f0a1288",
     "tla2tools": {
@@ -151,7 +155,10 @@
       "detached reference-explorer blob equals frozen formal-subject reference-explorer blob",
       "explicit Alloy integer bitwidth is recorded and checked",
       "every reference negative control emits its profiled counterexample marker",
-      "non-vacuous capability-without-authority Alloy witness is SAT"
+      "non-vacuous capability-without-authority Alloy witness is SAT",
+      "exact Java/JDK runtime metadata is bound to the pinned Nixpkgs revision",
+      "compiled Alloy runner class bytes are captured in the qualification receipt",
+      "each negative control changes only its intended canonical outcome"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
