@@ -11,6 +11,18 @@ use std::collections::HashSet;
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
+pub struct ProcessRecipeEntry {
+    pub recipe_id: String,
+    pub revision: String,
+    pub process_family: String,
+    pub payload_hash: String,
+    pub parameter_schema: String,
+    pub external_reference: Option<String>,
+    pub created_at: Timestamp,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct CapabilityRequirementEntry {
     pub requirement_id: String,
     pub revision: String,
@@ -41,6 +53,9 @@ pub struct RoutingEntry {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, SerializedBytes)]
 pub struct RoutingStepEntry {
     pub sequence: u32,
+    /// Exact immutable process recipe selected for this routing step.
+    #[serde(default)]
+    pub process_recipe_hash: Option<ActionHash>,
     /// Optional migration-era typed capability requirement.
     #[serde(default)]
     pub capability_requirement_hash: Option<ActionHash>,
@@ -58,6 +73,7 @@ pub struct RoutingStepEntry {
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     CapabilityRequirement(CapabilityRequirementEntry),
+    ProcessRecipe(ProcessRecipeEntry),
     Operation(OperationEntry),
     Routing(RoutingEntry),
 }
@@ -66,6 +82,7 @@ pub enum EntryTypes {
 pub enum LinkTypes {
     AllOperations,
     AllCapabilityRequirements,
+    AllProcessRecipes,
     DesignToRouting,
     RoutingToInspectionCriteria,
     RoutingToOperations,
@@ -81,6 +98,19 @@ pub enum LinkTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::ProcessRecipe(recipe) => {
+                if recipe.recipe_id.is_empty()
+                    || recipe.revision.is_empty()
+                    || recipe.process_family.is_empty()
+                    || recipe.payload_hash.is_empty()
+                    || recipe.parameter_schema.is_empty()
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "process recipe requires identity, process_family, payload_hash and parameter_schema".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
             EntryTypes::CapabilityRequirement(requirement) => {
                 if requirement.requirement_id.is_empty() || requirement.revision.is_empty() {
                     return Ok(ValidateCallbackResult::Invalid(
