@@ -125,6 +125,13 @@ impl EconomicEffectV1 {
         if context.seen_effect_identities.iter().any(|identity| identity == &self.identity) {
             return Err(EconomicEffectError::EffectReplay);
         }
+        if context
+            .seen_cause_action_references
+            .iter()
+            .any(|reference| reference == &self.identity.cause_action_reference)
+        {
+            return Err(EconomicEffectError::CauseReplay);
+        }
 
         let debit_total = checked_total(&self.debits)?;
         let credit_total = checked_total(&self.credits)?;
@@ -236,6 +243,7 @@ impl EconomicEffectV1 {
 #[derive(Clone, Copy, Debug)]
 pub struct EffectValidationContext<'a> {
     pub seen_effect_identities: &'a [EconomicEffectIdentityV1],
+    pub seen_cause_action_references: &'a [String],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -454,7 +462,10 @@ mod tests {
     }
 
     fn validate(effect: &EconomicEffectV1) -> Result<ValidatedEconomicEffect<'_>, EconomicEffectError> {
-        effect.validate(EffectValidationContext { seen_effect_identities: &[] })
+        effect.validate(EffectValidationContext {
+            seen_effect_identities: &[],
+            seen_cause_action_references: &[],
+        })
     }
 
     #[test]
@@ -543,10 +554,32 @@ mod tests {
         let effect = base_transfer();
         assert_eq!(
             effect.validate(EffectValidationContext {
-                seen_effect_identities: &[effect.identity.clone()]
+                seen_effect_identities: &[effect.identity.clone()],
+                seen_cause_action_references: &[],
             }),
             Err(EconomicEffectError::EffectReplay)
         );
+    }
+
+    #[test]
+    fn same_cause_cannot_authorize_two_distinct_mutation_classes() {
+        let transfer = base_transfer();
+        let mut fee = base_transfer();
+        fee.identity.mutation_class = MutationClass::Fee;
+        fee.credits = vec![allocation("treasury", AllocationRole::Treasury, 100)];
+
+        let seen_cause = vec!["cause-1".to_string()];
+        assert_eq!(
+            fee.validate(EffectValidationContext {
+                seen_effect_identities: &[],
+                seen_cause_action_references: &seen_cause,
+            }),
+            Err(EconomicEffectError::CauseReplay)
+        );
+        assert!(transfer.validate(EffectValidationContext {
+            seen_effect_identities: &[],
+            seen_cause_action_references: &[],
+        }).is_ok());
     }
 
     #[test]
