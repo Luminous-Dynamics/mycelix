@@ -195,7 +195,7 @@ function hasSupersedesCycle(graph) {
   for (const id of next.keys()) if (visit(id)) return true;
   return false;
 }
-function verify(graph, policy, actualPolicySha, anchors) {
+function verify(graph, policy, actualPolicySha, historyAnchors, objectIdentityAnchors) {
   const [ok, reason] = validateStructure(graph, policy);
   if (!ok) {
     return new Set([
@@ -205,7 +205,7 @@ function verify(graph, policy, actualPolicySha, anchors) {
   }
 
   const nodes = nodeIndex(graph);
-  const objectAnchors = anchors.__object_identity__ || {};
+  const objectAnchors = objectIdentityAnchors || {};
   for (const [nodeId, anchor] of Object.entries(objectAnchors)) {
     const node = nodes.get(nodeId);
     if (!node) continue;
@@ -236,7 +236,7 @@ function verify(graph, policy, actualPolicySha, anchors) {
   }
 
   if (policy.classification.history_is_immutable && policy.classification.base_revision_anchor_required) {
-    for (const [cid, anchor] of Object.entries(anchors)) {
+    for (const [cid, anchor] of Object.entries(historyAnchors)) {
       const node = nodes.get(cid);
       if (!node) return "unresolved";
       if (node.type !== "CensoringClassification") return "unresolved";
@@ -307,7 +307,7 @@ const failures = [];
 const rows = [];
 for (const c of fixture.cases) {
   const graph = applyMutations(fixture.base_graph, c.mutation);
-  const verdict = verify(graph, policy, actualSha, fixture.history_anchors);
+  const verdict = verify(graph, policy, actualSha, fixture.history_anchors, fixture.object_identity_anchors);
   const normalized = semanticNormalize(graph);
   const local = claimLocalNodes(graph, policy);
   const projection = {
