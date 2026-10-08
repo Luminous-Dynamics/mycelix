@@ -1053,13 +1053,17 @@ impl AtomicActionFenceModelV1 {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
-    ) -> Result<(), ActionFenceMutationError> {
+    ) -> Result<String, ActionFenceMutationError> {
         self.transition_state(
             action_key,
             attempt_identity,
             owner_token_digest,
             AttemptRecordState::Indeterminate,
-        )
+        )?;
+        self.attempts
+            .get(attempt_identity.digest())
+            .and_then(|attempt| attempt.reconciliation_token_digest.clone())
+            .ok_or(ActionFenceMutationError::InvalidTransition)
     }
 
     fn transition_state(
@@ -1125,6 +1129,15 @@ impl AtomicActionFenceModelV1 {
             .get_mut(attempt_identity.digest())
             .ok_or(ActionFenceMutationError::NotOwner)?;
         attempt.state = next_state;
+        if next_state == AttemptRecordState::Indeterminate {
+            attempt.reconciliation_token_digest = Some(reconciliation_token(
+                owner_token_digest,
+                attempt_identity.digest(),
+                action_key.digest(),
+            ));
+        } else {
+            attempt.reconciliation_token_digest = None;
+        }
 
         Ok(())
     }
@@ -1142,7 +1155,11 @@ impl AtomicActionFenceModelV1 {
             .get(attempt_identity.digest())
             .ok_or(ActionFenceMutationError::NotOwner)?;
 
-        if current.ownership_token_digest != owner_token_digest {
+        if current.state == AttemptRecordState::Indeterminate {
+            if current.reconciliation_token_digest.as_deref() != Some(owner_token_digest) {
+                return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+            }
+        } else if current.ownership_token_digest != owner_token_digest {
             return Err(ActionFenceMutationError::OwnershipTokenMismatch);
         }
         if current.action_key_digest != action_key.digest() {
@@ -1185,7 +1202,12 @@ impl AtomicActionFenceModelV1 {
         if fence.owner_attempt_identity != attempt_identity.digest() {
             return Err(ActionFenceMutationError::NotOwner);
         }
-        if fence.owner_token_digest != owner_token_digest {
+        let expected_fence_token = if current.state == AttemptRecordState::Indeterminate {
+            current.ownership_token_digest.as_str()
+        } else {
+            owner_token_digest
+        };
+        if fence.owner_token_digest != expected_fence_token {
             return Err(ActionFenceMutationError::OwnershipTokenMismatch);
         }
         if fence.state.is_closed() {
@@ -1197,6 +1219,7 @@ impl AtomicActionFenceModelV1 {
             .get_mut(attempt_identity.digest())
             .ok_or(ActionFenceMutationError::NotOwner)?;
         attempt.terminal_evidence_digest = Some(terminal_evidence.digest().to_owned());
+        attempt.reconciliation_token_digest = None;
         attempt.state = next_state;
 
         if next_state == AttemptRecordState::Executed {
