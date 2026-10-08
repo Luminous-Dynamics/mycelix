@@ -542,6 +542,65 @@ Make room for:
 
 For non-branchable physical systems, use a sequential experimental/observational design appropriate to the physical setting rather than relabeling it as a rewinded counterfactual.
 
+## Transportability and target-regime boundary
+
+Internal validity does not establish applicability beyond the evaluated regime.
+
+Keep separate:
+
+    source-domain validity
+    in-domain generalization
+    cross-regime generalization
+    transported effect
+    operational admissibility
+
+Every extension claim binds a target-regime identity, including as applicable:
+
+- population/process/environment identity;
+- observation policy;
+- action/update opportunity structure;
+- support/covariate envelope;
+- temporal regime;
+- hardware/provider/runtime differences;
+- protocol/measurement differences;
+- explicit exclusions.
+
+A target validation corpus is distinct evidence. It must remain outside candidate generation, selection, tuning, evaluator adaptation, threshold optimization, and model-choice feedback for the source campaign.
+
+For causal adaptation claims, record whether effect heterogeneity may arise from baseline state, environment, sensor/process regime, architecture family, resource constraints, observation policy, operator/context, or temporal regime.
+
+Declare the bridge assumptions needed for any transfer claim. Unknown or violated support/positivity, treatment-semantic compatibility, observation compatibility, or relevant effect-modifier coverage narrows or blocks the transported claim.
+
+### Transport controls
+
+Include fixtures for:
+
+1. covariate shift with stable mechanism;
+2. mechanism shift with stable predictive metrics;
+3. observation-regime shift;
+4. changed update-opportunity frequency;
+5. causal-effect reversal in the target regime;
+6. target histories outside source support;
+7. hidden effect modifiers;
+8. target-specific censoring/missingness;
+9. stable OOD prediction metric with changed intervention effect;
+10. operationally distinct conditions hidden behind superficially similar benchmarks.
+
+A transport result must distinguish predictive/OOD performance from transportability of the intervention or update effect.
+
+Use explicit claim states such as:
+
+    SourceQualified
+    InDomainHoldoutValidated
+    CrossRegimeValidated
+    TransportSupported
+    UnsupportedTarget
+
+A failed target validation is immutable evidence against the corresponding transfer hypothesis. Target feedback may motivate a new development campaign, but must not silently mutate the source qualification artifact.
+
+Do not create a universal generalization or transportability scalar.
+
+
 ## Resource normalization
 
 Adaptation mechanisms must not win only through unconstrained resources.
@@ -603,6 +662,7 @@ Mycelix:
 - #4566 — interference/carryover/shared-environment contamination;
 - #4569 — evaluator identity/state integrity and assessor-adaptation controls;
 - #4571 — experiment-attempt completeness and immutable negative evidence;
+- #4577 — source-to-target transportability and target-regime validation;
 - #4570 — action-dependent observation and policy-induced distribution shift.
 
 Symthaea:
