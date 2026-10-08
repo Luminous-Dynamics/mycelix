@@ -1927,6 +1927,86 @@ mod tests {
     }
 
     #[test]
+    fn durable_adapter_matches_reference_model_for_terminal_trace() {
+        use constitutional_effect_ledger::AtomicActionFenceModelV1;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("model-differential.db");
+        let mut store = SqliteActionFenceStore::open(&path).unwrap();
+        let mut model = AtomicActionFenceModelV1::new();
+        let action = key("differential-action");
+        let owner = attempt("attempt-1");
+        let row = record(
+            "attempt-1",
+            "operation-1",
+            "native-1",
+            &action,
+            AttemptRecordState::Consumed,
+        );
+
+        assert_eq!(
+            model.admit(&action, &owner, row.clone()).unwrap(),
+            store.atomically_admit(&action, &owner, row).unwrap()
+        );
+        assert_eq!(
+            model.attempt(owner.digest()).unwrap().record_digest(),
+            store.durably_read_attempt(&owner).unwrap().unwrap().record_digest()
+        );
+        assert_eq!(
+            model.fence(action.digest()).unwrap().record_digest(),
+            store.durably_read_fence(&action).unwrap().unwrap().record_digest()
+        );
+
+        model
+            .mark_dispatch_pending(&action, &owner, "owner-token-attempt-1")
+            .unwrap();
+        store
+            .atomically_mark_dispatch_pending(&action, &owner, "owner-token-attempt-1")
+            .unwrap();
+
+        model
+            .mark_invoked(&action, &owner, "owner-token-attempt-1")
+            .unwrap();
+        store
+            .atomically_mark_invoked(&action, &owner, "owner-token-attempt-1")
+            .unwrap();
+
+        model
+            .mark_indeterminate(&action, &owner, "owner-token-attempt-1")
+            .unwrap();
+        store
+            .atomically_mark_indeterminate(&action, &owner, "owner-token-attempt-1")
+            .unwrap();
+
+        let proof = evidence(&action, &owner, TerminalOutcomeV1::Executed);
+        model
+            .close_executed(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                &proof,
+            )
+            .unwrap();
+        store
+            .atomically_close_executed(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                &proof,
+            )
+            .unwrap();
+
+        assert_eq!(
+            model.attempt(owner.digest()).unwrap().record_digest(),
+            store.durably_read_attempt(&owner).unwrap().unwrap().record_digest()
+        );
+        assert_eq!(
+            model.fence(action.digest()).unwrap().record_digest(),
+            store.durably_read_fence(&action).unwrap().unwrap().record_digest()
+        );
+    }
+
+    #[test]
     fn corrupted_persisted_digest_fails_closed_on_restart() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tamper.db");
