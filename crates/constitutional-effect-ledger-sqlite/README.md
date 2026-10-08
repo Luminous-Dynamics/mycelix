@@ -223,3 +223,28 @@ orphan receipts and attempts whose admission receipt is missing.
 This is an evidence-preservation mechanism, not a second authorization system.
 The deployment's admission authorizer remains responsible for producing the
 proof in the first place.
+
+
+## Reconciling Holochain resolution bindings
+
+`SqliteActionFenceStore::reconcile_resolution_binding` checks one typed
+resolution binding against the current durable host attempt. It requires the
+attempt identity and action key to use canonical digest namespaces, checks the
+caller-supplied action digest and effecting target against the stored attempt,
+matches the admission, final-entry, and terminal evidence digests to the stored
+attempt fields, validates the full persisted admission receipt, and checks that
+the durable terminal state agrees with the claimed outcome.
+
+The caller must derive `expected_action_digest` and
+`expected_effecting_target_identity` from the exact immutable prepared action
+using the deployment's configured action profile. Guessing these values from
+the resolution itself would defeat the correspondence check.
+
+This is a **host-side reconciliation primitive**, not production execution
+wiring. It does not itself prove that a final-entry or terminal-evidence
+preimage is authentic: the SQLite attempt currently retains those accepted
+digests, not their full proof preimages. It can prove that the DHT-referenced
+digests match the durable host record and that the full admission receipt is
+present and scope-consistent. Full final-entry/terminal receipt reconstruction
+or independently verifiable evidence storage remains a separate promotion
+requirement.
