@@ -1,0 +1,17 @@
+{"schema":"mycelix.continual-adaptation.censoring-classification-anchor-witness-vds-campaign.v1","status":"research-fixture-only","case_count":15,"cases":[
+{"case_id":"VDS-C01","attack":"reconstruct-size-4-head","first_head":"size_4","expected_verdict":"qualified"},
+{"case_id":"VDS-C02","attack":"reconstruct-size-7-head","first_head":"size_7","expected_verdict":"qualified"},
+{"case_id":"VDS-C03","attack":"valid-4-to-7-consistency","first_head":"size_4","second_head":"size_7","proof":"fixture","expected_verdict":"qualified"},
+{"case_id":"VDS-C04","attack":"same-size-fork","first_head":"size_4","second_head":"fork_size_4","expected_verdict":"unresolved"},
+{"case_id":"VDS-C05","attack":"rollback","first_head":"size_7","second_head":"size_4","proof":"fixture","expected_verdict":"unresolved"},
+{"case_id":"VDS-C06","attack":"tampered-consistency-proof","first_head":"size_4","second_head":"size_7","proof_mutation":"replace-first","expected_verdict":"unresolved"},
+{"case_id":"VDS-C07","attack":"wrong-first-root","first_head":"size_4","second_head":"size_7","first_root_override":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","proof":"fixture","expected_verdict":"unresolved"},
+{"case_id":"VDS-C08","attack":"wrong-second-root","first_head":"size_4","second_head":"size_7","second_root_override":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","proof":"fixture","expected_verdict":"unresolved"},
+{"case_id":"VDS-C09","attack":"empty-proof","first_head":"size_4","second_head":"size_7","proof_mutation":"empty","expected_verdict":"unresolved"},
+{"case_id":"VDS-C10","attack":"proof-extension","first_head":"size_4","second_head":"size_7","proof_mutation":"append-extra","expected_verdict":"unresolved"},
+{"case_id":"VDS-C11","attack":"reordered-history","first_head":"size_4","second_head":"size_7","first_root_override":"sha256:40abb80eb81e575acc02e6dee7d2dca1729c0d7d7d27f64ced8fe1ee06c68519","proof":"fixture","expected_verdict":"unresolved"},
+{"case_id":"VDS-C12","attack":"mutated-tail","first_head":"size_4","second_head":"mutated_size_7","proof":"fixture","expected_verdict":"unresolved"},
+{"case_id":"VDS-C13","attack":"proof-truncation","first_head":"size_4","second_head":"size_7","proof_mutation":"truncate","expected_verdict":"unresolved"},
+{"case_id":"VDS-C14","attack":"observer-fork-at-same-prefix","first_head":"fork_size_4","second_head":"size_7","proof":"fixture","expected_verdict":"unresolved"},
+{"case_id":"VDS-C15","attack":"same-size-identical-head","first_head":"size_4","second_head":"size_4","expected_verdict":"qualified"}
+]}
