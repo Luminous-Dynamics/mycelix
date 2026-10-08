@@ -428,7 +428,8 @@ describe('ExecutionClient', () => {
   describe('getStatusDescription', () => {
     it('should return description for each status', () => {
       expect(client.getStatusDescription('Pending')).toContain('delay');
-      expect(client.getStatusDescription('Ready')).toContain('ready');
+      expect(client.getStatusDescription('Ready')).toContain('preparation');
+      expect(client.getStatusDescription('Prepared')).toContain('prepared');
       expect(client.getStatusDescription('Executed')).toContain('executed');
       expect(client.getStatusDescription('Cancelled')).toContain('cancelled');
       expect(client.getStatusDescription('Failed')).toContain('failed');
