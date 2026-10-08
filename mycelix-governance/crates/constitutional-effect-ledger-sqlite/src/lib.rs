@@ -63,7 +63,7 @@ impl SqliteActionFenceStore {
     /// operators can run it after restart, before promotion, and during periodic
     /// storage qualification without silently trusting cached projections.
     pub fn audit_integrity(&self) -> Result<(), String> {
-        let conn = open_connection(&self.path)?;
+        let mut conn = open_connection(&self.path)?;
         ensure_schema(&mut conn)?;
         validate_persisted_state(&conn)
     }
@@ -195,7 +195,12 @@ impl SqliteActionFenceStore {
                             action_key.digest(),
                             ActionFenceState::Occupied.storage_tag(),
                             attempt_identity.digest(),
-                            owner_token_digest
+                            owner_token_digest,
+                            {
+                                let mut updated_fence = fence.clone();
+                                updated_fence.state = ActionFenceState::Closed;
+                                updated_fence.record_digest()
+                            }
                         ],
                     )
                     .map_err(storage_error)?;
@@ -300,12 +305,13 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
 
         tx.execute(
             "INSERT INTO effect_native_replay_bindings
-             (native_replay_identity, operation_id, action_key_digest)
-             VALUES (?1, ?2, ?3)",
+             (native_replay_identity, operation_id, action_key_digest, record_digest)
+             VALUES (?1, ?2, ?3, ?4)",
             params![
                 replay.native_replay_identity,
                 replay.operation_id,
-                replay.action_key_digest
+                replay.action_key_digest,
+                replay.digest()
             ],
         )
         .map_err(|e| e.to_string())?;
@@ -323,13 +329,14 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
 
         tx.execute(
             "INSERT INTO effect_action_fences
-             (action_key_digest, owner_attempt_identity, owner_token_digest, state)
-             VALUES (?1, ?2, ?3, ?4)",
+             (action_key_digest, owner_attempt_identity, owner_token_digest, state, record_digest)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
             params![
                 fence.action_key_digest,
                 fence.owner_attempt_identity,
                 fence.owner_token_digest,
-                fence.state.storage_tag()
+                fence.state.storage_tag(),
+                fence.record_digest()
             ],
         )
         .map_err(|e| e.to_string())?;
@@ -543,55 +550,79 @@ fn open_connection(path: &Path) -> Result<Connection, String> {
 }
 
 fn ensure_schema(conn: &mut Connection) -> Result<(), String> {
-    let meta_exists = table_exists(conn, META_TABLE)?;
-    let managed_exists = [ATTEMPT_TABLE, FENCE_TABLE, REPLAY_TABLE]
-        .into_iter()
-        .map(|table| table_exists(conn, table))
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .any(|exists| exists);
-
-    if !meta_exists {
-        let user_table_exists: bool = conn
-            .query_row(
+    let meta_exists = {
+        let mut stmt = conn
+            .prepare(
                 "SELECT EXISTS(
                     SELECT 1 FROM sqlite_master
-                    WHERE type = 'table'
-                      AND name NOT LIKE 'sqlite_%'
+                    WHERE type = 'table' AND name = ?1
                 )",
-                [],
-                |row| row.get(0),
             )
             .map_err(|e| e.to_string())?;
-        if managed_exists || user_table_exists {
-            return Err(
-                "unversioned or foreign SQLite state cannot be adopted as an effect fence store"
-                    .into(),
-            );
-        }
+        stmt.query_row(params![META_TABLE], |row| row.get::<_, bool>(0))
+            .map_err(|e| e.to_string())?
+    };
 
+    if !meta_exists {
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| e.to_string())?;
 
+        // Bootstrap under the same write lock used by every durable mutation.
+        // The metadata check is repeated inside the transaction so two boundary
+        // instances opening an empty database cannot both create the schema.
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
-        tx.execute_batch(SCHEMA_SQL).map_err(|e| e.to_string())?;
-        tx.execute_batch(&format!(
-            "PRAGMA user_version = {};",
-            SQLITE_FENCE_STORE_SCHEMA_VERSION
-        ))
-        .map_err(|e| e.to_string())?;
-        tx.execute(
-            "INSERT INTO effect_fence_store_meta
-             (singleton, schema_version, profile)
-             VALUES (1, ?1, ?2)",
-            params![
-                SQLITE_FENCE_STORE_SCHEMA_VERSION,
-                SQLITE_FENCE_STORE_PROFILE
-            ],
-        )
-        .map_err(|e| e.to_string())?;
+
+        let tx_meta_exists: bool = tx
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM sqlite_master
+                    WHERE type = 'table' AND name = ?1
+                )",
+                params![META_TABLE],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+
+        if !tx_meta_exists {
+            let user_table_exists: bool = tx
+                .query_row(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM sqlite_master
+                        WHERE type = 'table'
+                          AND name NOT LIKE 'sqlite_%'
+                    )",
+                    [],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+
+            if user_table_exists {
+                return Err(
+                    "unversioned or foreign SQLite state cannot be adopted as an effect fence store"
+                        .into(),
+                );
+            }
+
+            tx.execute_batch(SCHEMA_SQL).map_err(|e| e.to_string())?;
+            tx.execute_batch(&format!(
+                "PRAGMA user_version = {};",
+                SQLITE_FENCE_STORE_SCHEMA_VERSION
+            ))
+            .map_err(|e| e.to_string())?;
+            tx.execute(
+                "INSERT INTO effect_fence_store_meta
+                 (singleton, schema_version, profile)
+                 VALUES (1, ?1, ?2)",
+                params![
+                    SQLITE_FENCE_STORE_SCHEMA_VERSION,
+                    SQLITE_FENCE_STORE_PROFILE
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+
         tx.commit().map_err(|e| e.to_string())?;
     }
 
@@ -604,6 +635,7 @@ fn ensure_schema(conn: &mut Connection) -> Result<(), String> {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|e| e.to_string())?;
+
     if version != SQLITE_FENCE_STORE_SCHEMA_VERSION
         || profile != SQLITE_FENCE_STORE_PROFILE
     {
@@ -627,18 +659,6 @@ fn ensure_schema(conn: &mut Connection) -> Result<(), String> {
     validate_no_explicit_managed_indexes(conn)?;
     validate_foreign_keys(conn)?;
     Ok(())
-}
-
-fn table_exists(conn: &Connection, name: &str) -> Result<bool, String> {
-    conn.query_row(
-        "SELECT EXISTS(
-            SELECT 1 FROM sqlite_master
-            WHERE type = 'table' AND name = ?1
-        )",
-        params![name],
-        |row| row.get(0),
-    )
-    .map_err(|e| e.to_string())
 }
 
 fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
@@ -680,6 +700,7 @@ fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
                 ("owner_attempt_identity", "TEXT", 1, 0),
                 ("owner_token_digest", "TEXT", 1, 0),
                 ("state", "INTEGER", 1, 0),
+                ("record_digest", "TEXT", 1, 0),
             ],
         ),
         (
@@ -688,6 +709,7 @@ fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
                 ("native_replay_identity", "TEXT", 1, 1),
                 ("operation_id", "TEXT", 1, 0),
                 ("action_key_digest", "TEXT", 1, 0),
+                ("record_digest", "TEXT", 1, 0),
             ],
         ),
     ];
@@ -802,7 +824,7 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
     let mut fences = HashMap::new();
     let mut stmt = conn
         .prepare(&format!(
-            "SELECT action_key_digest, owner_attempt_identity, owner_token_digest, state
+            "SELECT action_key_digest, owner_attempt_identity, owner_token_digest, state, record_digest
              FROM {FENCE_TABLE}
              ORDER BY action_key_digest"
         ))
@@ -818,7 +840,7 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
     let mut replays = HashMap::new();
     let mut stmt = conn
         .prepare(&format!(
-            "SELECT native_replay_identity, operation_id, action_key_digest
+            "SELECT native_replay_identity, operation_id, action_key_digest, record_digest
              FROM {REPLAY_TABLE}
              ORDER BY native_replay_identity"
         ))
@@ -999,6 +1021,7 @@ CREATE TABLE effect_action_fences (
     owner_attempt_identity TEXT NOT NULL UNIQUE,
     owner_token_digest TEXT NOT NULL,
     state INTEGER NOT NULL CHECK(state IN (1,2)),
+    record_digest TEXT NOT NULL,
     FOREIGN KEY(owner_attempt_identity)
         REFERENCES effect_attempts(attempt_identity)
 );
@@ -1006,7 +1029,8 @@ CREATE TABLE effect_action_fences (
 CREATE TABLE effect_native_replay_bindings (
     native_replay_identity TEXT PRIMARY KEY NOT NULL,
     operation_id TEXT NOT NULL,
-    action_key_digest TEXT NOT NULL
+    action_key_digest TEXT NOT NULL,
+    record_digest TEXT NOT NULL
 );
 "#;
 
@@ -1173,7 +1197,7 @@ fn load_fence_tx(
 ) -> Result<Option<ActionFenceRecordV1>, rusqlite::Error> {
     tx.query_row(
         &format!(
-            "SELECT action_key_digest, owner_attempt_identity, owner_token_digest, state
+            "SELECT action_key_digest, owner_attempt_identity, owner_token_digest, state, record_digest
              FROM {FENCE_TABLE}
              WHERE action_key_digest = ?1"
         ),
@@ -1212,9 +1236,15 @@ fn map_fence_row(row: &rusqlite::Row<'_>) -> Result<ActionFenceRecordV1, rusqlit
         owner_token_digest: row.get(2)?,
         state,
     };
+    let stored_digest: String = row.get(4)?;
     record.validate().map_err(|e| {
         rusqlite::Error::InvalidParameterName(format!("invalid persisted fence: {e}"))
     })?;
+    if record.record_digest() != stored_digest {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "persisted fence record digest mismatch".to_owned(),
+        ));
+    }
     Ok(record)
 }
 
@@ -1224,7 +1254,7 @@ fn load_replay_tx(
 ) -> Result<Option<NativeReplayBindingV1>, String> {
     tx.query_row(
         &format!(
-            "SELECT native_replay_identity, operation_id, action_key_digest
+            "SELECT native_replay_identity, operation_id, action_key_digest, record_digest
              FROM {REPLAY_TABLE}
              WHERE native_replay_identity = ?1"
         ),
@@ -1263,9 +1293,15 @@ fn map_replay_row(
         operation_id: row.get(1)?,
         action_key_digest: row.get(2)?,
     };
+    let stored_digest: String = row.get(3)?;
     record.validate().map_err(|e| {
         rusqlite::Error::InvalidParameterName(format!("invalid persisted replay binding: {e}"))
     })?;
+    if record.digest() != stored_digest {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "persisted replay binding digest mismatch".to_owned(),
+        ));
+    }
     Ok(record)
 }
 
@@ -1774,6 +1810,76 @@ mod tests {
             restored.not_entered_marker.as_deref(),
             Some("not-entered-proof")
         );
+    }
+
+    #[test]
+    fn corrupted_fence_digest_fails_closed_on_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fence-digest-tamper.db");
+        let mut store = SqliteActionFenceStore::open(&path).unwrap();
+        let action = key("fence-digest-action");
+        let owner = attempt("attempt-1");
+        store
+            .atomically_admit(
+                &action,
+                &owner,
+                record(
+                    "attempt-1",
+                    "operation-1",
+                    "native-1",
+                    &action,
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        drop(store);
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE effect_action_fences
+             SET record_digest = 'corrupted'
+             WHERE action_key_digest = ?1",
+            params![action.digest()],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert!(SqliteActionFenceStore::open(&path).is_err());
+    }
+
+    #[test]
+    fn corrupted_replay_digest_fails_closed_on_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("replay-digest-tamper.db");
+        let mut store = SqliteActionFenceStore::open(&path).unwrap();
+        let action = key("replay-digest-action");
+        let owner = attempt("attempt-1");
+        store
+            .atomically_admit(
+                &action,
+                &owner,
+                record(
+                    "attempt-1",
+                    "operation-1",
+                    "native-1",
+                    &action,
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        drop(store);
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE effect_native_replay_bindings
+             SET record_digest = 'corrupted'
+             WHERE native_replay_identity = ?1",
+            params!["native-1"],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert!(SqliteActionFenceStore::open(&path).is_err());
     }
 
     #[test]
