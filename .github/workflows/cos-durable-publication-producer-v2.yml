@@ -273,7 +273,6 @@ jobs:
           }
           env_policy=json.loads(Path('environment-policy-v1.json').read_text())
           facts['environment_policy_sha256']=env_policy['sha256']
-          facts['environment_policy']=env_policy
           handoff_basis=json.dumps(facts,sort_keys=True,separators=(',',':')).encode('utf-8')
           facts['publication_handoff_sha256']=hashlib.sha256(handoff_basis).hexdigest()
           Path('source-facts.json').write_text(json.dumps(facts,indent=2,sort_keys=True)+'\n')
@@ -383,6 +382,7 @@ jobs:
             source-attestation-verification.json
             expected-trust-root.json
             reconciled-attestor-workflow.yml
+            environment-policy-v1.json
           if-no-files-found: error
           retention-days: 7
 
@@ -439,6 +439,8 @@ jobs:
           import hashlib,json,os
           from pathlib import Path
           facts=json.loads(Path('handoff/source-facts.json').read_text())
+          policy=json.loads(Path('handoff/environment-policy-v1.json').read_text())
+          assert policy['sha256']==facts['environment_policy_sha256']
           receipt=json.loads(Path('handoff/durable-source/attestor-run-receipt.json').read_text())
           assert facts['claim_id']==os.environ['EXPECTED_CLAIM_ID']
           assert facts['expected_main_sha']==os.environ['EXPECTED_MAIN_SHA']
