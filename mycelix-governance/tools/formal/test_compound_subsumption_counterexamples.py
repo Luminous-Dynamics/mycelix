@@ -41,6 +41,7 @@ NARROW = atom("narrow", ["alice"], ["business"], ["trusted"], 3)
 CHILD_NARROW = atom("child-narrow", ["alice"], ["business"], ["trusted"], 2)
 CHILD_BROAD = atom("child-broad", TARGETS, PURPOSES, CONTEXTS, 2)
 ALLOW_ALL = compound("any", atom("allow-all", TARGETS, PURPOSES, CONTEXTS, 3))
+ALLOW_ALICE = compound("any", atom("allow-alice", ["alice"], PURPOSES, CONTEXTS, 3))
 DENY_BOB = compound("all", atom("deny-bob", ["bob"], PURPOSES, CONTEXTS, 3))
 
 
@@ -81,6 +82,16 @@ def controls() -> list[tuple[str, dict[str, Any], str]]:
         parent_policy={"allow": ALLOW_ALL, "deny": [DENY_BOB], "conflict_rule": "deny-overrides"},
         child_policy={"allow": ALLOW_ALL, "deny": [DENY_BOB], "conflict_rule": "allow-overrides"},
     )
+    deny_removed_without_expansion = scenario(
+        "effective-policy",
+        parent_policy={"allow": ALLOW_ALICE, "deny": [DENY_BOB], "conflict_rule": "deny-overrides"},
+        child_policy={"allow": ALLOW_ALICE, "deny": [], "conflict_rule": "deny-overrides"},
+    )
+    allow_expansion_masked_by_deny = scenario(
+        "effective-policy",
+        parent_policy={"allow": ALLOW_ALICE, "deny": [], "conflict_rule": "deny-overrides"},
+        child_policy={"allow": ALLOW_ALL, "deny": [DENY_BOB], "conflict_rule": "deny-overrides"},
+    )
     unsupported_deny = scenario(
         "effective-policy",
         parent_policy={"allow": ALLOW_ALL, "deny": [], "conflict_rule": "deny-overrides"},
@@ -98,6 +109,8 @@ def controls() -> list[tuple[str, dict[str, Any], str]]:
         ("unsupported-extension", unsupported, "UNSUPPORTED_OR_UNDECIDABLE"),
         ("deny-deletion-expansion", deny_deleted, "AUTHORITY_EXPANSION"),
         ("deny-addition-restriction", deny_added, "EFFECTIVE_POLICY_CONTAINMENT_PASS"),
+        ("deny-removal-no-effective-expansion", deny_removed_without_expansion, "POLICY_ATTENUATION_VIOLATION"),
+        ("allow-expansion-masked-by-deny", allow_expansion_masked_by_deny, "POLICY_ATTENUATION_VIOLATION"),
         ("conflict-rule-substitution", conflict_changed, "AUTHORITY_EXPANSION"),
         ("unsupported-extension-in-deny", unsupported_deny, "UNSUPPORTED_OR_UNDECIDABLE"),
     ]
@@ -172,6 +185,15 @@ def replay_and_assert(name: str, raw: dict[str, Any], result: dict[str, Any]) ->
         check(result["counterexample"]["cause"] == "effective-deny-removed",
               "deny deletion was not diagnosed as effective deny removal")
         check(result["allow_denotations_equal"], "deny deletion changed the allow denotation unexpectedly")
+    if name == "deny-removal-no-effective-expansion":
+        check(result["effective_denotational_containment"], "fixture unexpectedly expanded effective authorization")
+        check(not result["deny_preservation"], "deleted parent deny was incorrectly treated as preserved")
+        check(result["status"] == "POLICY_ATTENUATION_VIOLATION", "deleted deny escaped attenuation gate")
+    if name == "allow-expansion-masked-by-deny":
+        check(result["effective_denotational_containment"], "deny did not mask the allow expansion as intended")
+        check(not result["allow_denotational_containment"], "expanded allow denotation was not detected")
+        check(result["counterexample"]["cause"] == "allow-expansion-masked-by-deny",
+              "masked allow expansion was misclassified")
 
 
 def main() -> int:
@@ -239,6 +261,7 @@ def main() -> int:
             "controls": len(receipt["controls"]),
             "true_authority_expansions": 3,
             "structural_false_negatives": 1,
+            "policy_attenuation_violations_without_effective_expansion": 2,
             "unsupported_fail_closed": 2,
             "clause_order_invariant": True,
             "independent_replay": "PASS",
