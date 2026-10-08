@@ -11,6 +11,7 @@ on:
       - hardening/effect-ledger-final-entry-gate-v1
       - hardening/effect-ledger-pinned-trust-root-v1
       - hardening/effect-ledger-provider-binding-v1
+      - hardening/effect-ledger-admission-proof-v1
   pull_request:
   workflow_dispatch:
 
@@ -161,5 +162,15 @@ jobs:
             echo "NOT QUALIFIED: mutable durable-store escape hatch remains exposed."
             exit 1
           fi
+
+          grep -Fq 'AdmissionAuthorizer' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs' || {
+            echo "NOT QUALIFIED: initial effect admission has no pinned authorization authorizer."
+            exit 1
+          }
+
+          grep -Fq 'AuthorizationAdmissionProofV1' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs' || {
+            echo "NOT QUALIFIED: durable admission is not carrying an exact authorization proof."
+            exit 1
+          }
 
           echo "PASS: coordinator is prepare-only; provider effects are outside the WASM execution path."
