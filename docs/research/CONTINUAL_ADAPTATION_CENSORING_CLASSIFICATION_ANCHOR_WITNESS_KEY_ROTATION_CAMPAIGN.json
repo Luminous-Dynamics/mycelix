@@ -1,0 +1,17 @@
+{"schema":"mycelix.continual-adaptation.censoring-classification-anchor-witness-key-rotation-campaign.v1","status":"research-fixture-only","case_count":15,"cases":[
+{"case_id":"ROT-C01","attack":"valid-dual-sided-governed-rotation","expected_verdict":"qualified"},
+{"case_id":"ROT-C02","attack":"missing-predecessor-approval","remove_predecessor":true,"expected_verdict":"unresolved"},
+{"case_id":"ROT-C03","attack":"predecessor-domain-substitution","target":"predecessor_approval","mutate_domain":"mycelix.attacker.domain.v1","expected_verdict":"unresolved"},
+{"case_id":"ROT-C04","attack":"missing-successor-proof-of-possession","remove_successor":true,"expected_verdict":"unresolved"},
+{"case_id":"ROT-C05","attack":"successor-algorithm-substitution","target":"successor_proof_of_possession","mutate_algorithm":"Ed448","expected_verdict":"unresolved"},
+{"case_id":"ROT-C06","attack":"below-threshold-governance","remove_governance":1,"expected_verdict":"unresolved"},
+{"case_id":"ROT-C07","attack":"wrong-governance-signature","governance_index":1,"governance_replace":{"witness_id":"w03","key_id":"w03-k1","domain":"mycelix.continual-adaptation.censoring-classification-anchor-witness-key-rotation.governance-approval.v1","algorithm":"Ed25519","signature":"2DZXn0aC44weR_1sszkz8hSFORsCr6c7uZYqTihLbFAROMNoYYhwulYYEYvMVX8xdyJieTTbOU8HtSGNaAYiBw"},"expected_verdict":"unresolved"},
+{"case_id":"ROT-C08","attack":"target-witness-governance-injection","governance_index":2,"governance_replace":{"witness_id":"w01","key_id":"w01-k1","domain":"mycelix.continual-adaptation.censoring-classification-anchor-witness-key-rotation.governance-approval.v1","algorithm":"Ed25519","signature":"mRtD-x35QI8ZmL1oQPlpc2LEC3KjmVlhgs_BHJoRboLMDDd5N6TGcKFKXKvCiMkNmLeJuJySr2GwJ57TlJsbBQ"},"expected_verdict":"unresolved"},
+{"case_id":"ROT-C09","attack":"successor-key-substitution","successor_key_mismatch":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","expected_verdict":"unresolved"},
+{"case_id":"ROT-C10","attack":"activation-rollback","activation_version":3,"expected_verdict":"unresolved"},
+{"case_id":"ROT-C11","attack":"predecessor-overlap","predecessor_until":4,"expected_verdict":"unresolved"},
+{"case_id":"ROT-C12","attack":"successor-overlap","successor_from":3,"expected_verdict":"unresolved"},
+{"case_id":"ROT-C13","attack":"proposed-registry-substitution","proposal_digest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","expected_verdict":"unresolved"},
+{"case_id":"ROT-C14","attack":"successor-registry-substitution","proposal_mutation":["valid_from_version",3],"expected_verdict":"unresolved"},
+{"case_id":"ROT-C15","attack":"predecessor-algorithm-substitution","target":"predecessor_approval","mutate_algorithm":"Ed448","expected_verdict":"unresolved"}
+]}
