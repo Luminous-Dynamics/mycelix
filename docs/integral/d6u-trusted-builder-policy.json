@@ -174,7 +174,8 @@
   "trigger_workflow": {
     "name": "D6S Canonical Qualification",
     "path": ".github/workflows/d6s-canonical-qualification.yml",
-    "workflow_id": 371215723
+    "workflow_id": 371215723,
+    "blob_sha": "e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4"
   },
   "executor_workflow": {
     "name": "D6U Exact-Head Runtime Executor",
