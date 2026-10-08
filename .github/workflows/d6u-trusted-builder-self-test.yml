@@ -41,9 +41,26 @@ jobs:
           observed="$(git rev-parse HEAD)"
           test "$observed" = "$EXPECTED_TEST_HEAD"
 
+      - name: Checkout pinned trusted D6S source root
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: 445a84abdaa64f3d05e2d5c51115e4d060b78ec7
+          path: _trusted-main
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert pinned trusted D6S source root
+        env:
+          EXPECTED_TRUSTED_ROOT: 445a84abdaa64f3d05e2d5c51115e4d060b78ec7
+        run: |
+          observed="$(git -C _trusted-main rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_TRUSTED_ROOT"
+
       - name: Compile trusted verifier
         run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/verify_d6u_trusted_attestation_retention.py scripts/integral/test_d6u_trusted_artifacts.py
 
       - name: Run trusted verifier self-tests
         working-directory: scripts/integral
+        env:
+          D6U_TRUSTED_SOURCE_ROOT: ${{ github.workspace }}/_trusted-main
         run: python3 test_d6u_trusted_artifacts.py
