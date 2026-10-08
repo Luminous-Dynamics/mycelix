@@ -632,7 +632,7 @@ mod tests {
             Err(EconomicEffectError::WrongLegStructure)
         );
 
-        effect.mutation_class = MutationClass::Fee;
+        effect.identity.mutation_class = MutationClass::Fee;
         effect.credits = vec![allocation("treasury", AllocationRole::Treasury, 100)];
         effect.debits[0].amount = 50;
         assert_eq!(
@@ -720,12 +720,14 @@ mod tests {
             fee.validate(EffectValidationContext {
                 seen_effect_identities: &[],
                 seen_cause_action_references: &seen_cause,
+                seen_economic_identities: &[],
             }),
             Err(EconomicEffectError::CauseReplay)
         );
         assert!(transfer.validate(EffectValidationContext {
             seen_effect_identities: &[],
             seen_cause_action_references: &[],
+            seen_economic_identities: &[],
         }).is_ok());
     }
 
@@ -923,7 +925,6 @@ mod tests {
                 effect_identity: base_transfer().identity.clone(),
             },
             EconomicEffectObservation {
-                predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: base_transfer().identity.clone(),
             },
@@ -946,10 +947,10 @@ mod tests {
                     economic_identity: "transfer-b".into(),
                     predecessor_action_reference: "prev-1".into(),
                     cause_action_reference: "cause-b".into(),
-                asset: "SAP".into(),
-                mutation_class: MutationClass::Transfer,
-                source_owner: "alice".into(),
-            },
+                    asset: "SAP".into(),
+                    mutation_class: MutationClass::Transfer,
+                    source_owner: "alice".into(),
+                },
             },
         ];
         assert_eq!(
