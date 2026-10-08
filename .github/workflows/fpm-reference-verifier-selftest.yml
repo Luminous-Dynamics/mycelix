@@ -8,6 +8,7 @@ on:
       - "scripts/integral/test_verify_fpm_trusted_qualification.py"
       - ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
       - ".github/workflows/fpm-reference-verifier-selftest.yml"
+      - ".github/workflows/fpm-wasm-artifact-identity.yml"
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -35,6 +36,21 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Assert candidate workflow remains a non-authoritative beacon
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path(".github/workflows/fpm-wasm-artifact-identity.yml").read_text(encoding="utf-8")
+          assert "permissions: {}" in text
+          assert "pull_request_target" not in text
+          assert "actions/checkout@" not in text
+          assert "cargo " not in text
+          assert "FPM candidate execution request accepted" in text
+          assert "types: [opened, synchronize, reopened, ready_for_review]" in text
+          PY
 
       - name: Python syntax check
         run: |
