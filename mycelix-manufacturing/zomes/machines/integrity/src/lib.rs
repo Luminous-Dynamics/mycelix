@@ -18,13 +18,26 @@ pub struct MachineEntry {
     pub max_throughput_per_hour: u32,
     pub status: MachineStatus,
     pub current_work_order: Option<ActionHash>,
+    #[serde(default)]
+    pub last_status_authority_hash: Option<ActionHash>,
     pub registered_at: Timestamp,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct MachineControllerAuthorityEntry {
+    pub machine_hash: ActionHash,
+    pub controller_agent: AgentPubKey,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
 }
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct MachineStatusLog {
     pub machine_hash: ActionHash,
+    pub machine_update_hash: ActionHash,
+    pub authority_hash: ActionHash,
     pub previous_status: MachineStatus,
     pub new_status: MachineStatus,
     pub work_order_hash: Option<ActionHash>,
@@ -36,6 +49,7 @@ pub struct MachineStatusLog {
 pub enum EntryTypes {
     Machine(MachineEntry),
     StatusLog(MachineStatusLog),
+    MachineControllerAuthority(MachineControllerAuthorityEntry),
 }
 
 #[hdk_link_types]
@@ -43,6 +57,9 @@ pub enum LinkTypes {
     AllMachines,
     TypeToMachines,
     MachineToStatusLog,
+    MachineUpdateToStatusLog,
+    MachineToAuthorities,
+    AllMachineControllerAuthorities,
     LocationToMachines,
 }
 
@@ -59,19 +76,149 @@ pub enum LinkTypes {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => {
-            validate_create_entry(app_entry)
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => {
+            match app_entry {
+                EntryTypes::MachineControllerAuthority(authority) => {
+                    validate_create_authority(action, authority)
+                }
+                EntryTypes::StatusLog(log) => validate_create_status_log(action, log),
+                other => validate_create_entry(other),
+            }
         }
         FlatOp::StoreEntry(OpEntry::UpdateEntry {
             app_entry,
             original_action_hash,
+            action,
             ..
-        }) => validate_update_entry(original_action_hash, app_entry),
+        }) => validate_update_entry(original_action_hash, action, app_entry),
         FlatOp::RegisterUpdate(OpUpdate::Entry {
             app_entry, action, ..
-        }) => validate_update_entry(action.original_action_address, app_entry),
+        }) => validate_update_entry(action.original_action_address, action, app_entry),
+        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine registry records are immutable".into(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_create_authority(
+    action: TypedAction<CreateData>,
+    authority: MachineControllerAuthorityEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if authority.valid_until < authority.valid_from {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine controller authority validity window is inverted".into(),
+        ));
+    }
+
+    let machine_record = must_get_valid_record(authority.machine_hash.clone())?;
+    let machine: Option<MachineEntry> = machine_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if machine.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine controller authority references a non-machine record".into(),
+        ));
+    }
+    if !matches!(machine_record.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine controller authority must bind to the machine's root creation action".into(),
+        ));
+    }
+    if machine_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "only the machine registrant may issue controller authority".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_status_log(
+    action: TypedAction<CreateData>,
+    log: MachineStatusLog,
+) -> ExternResult<ValidateCallbackResult> {
+    if !log.previous_status.can_transition_to(&log.new_status) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid machine transition: {:?} -> {:?}",
+            log.previous_status, log.new_status
+        )));
+    }
+
+    let authority_record = must_get_valid_record(log.authority_hash.clone())?;
+    let authority: Option<MachineControllerAuthorityEntry> = authority_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let Some(authority) = authority else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status authority reference is not an authority record".into(),
+        ));
+    };
+
+    if authority.machine_hash != log.machine_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status authority is bound to a different machine".into(),
+        ));
+    }
+    if action.author() != authority.controller_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status action author is not an authorized controller".into(),
+        ));
+    }
+    if !authority_valid_at(&authority, action.timestamp()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status action falls outside controller authority validity".into(),
+        ));
+    }
+    if log.changed_at != action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status changed_at must equal the action timestamp".into(),
+        ));
+    }
+
+    let update_record = must_get_valid_record(log.machine_update_hash.clone())?;
+    if !matches!(update_record.action(), Action::Update(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log must reference a machine update action".into(),
+        ));
+    }
+    let updated_machine: Option<MachineEntry> = update_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let Some(updated_machine) = updated_machine else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log update reference is not a machine record".into(),
+        ));
+    };
+
+    let update_root = resolve_machine_root_action_hash(log.machine_update_hash.clone())?;
+    if update_root != log.machine_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log update belongs to a different machine".into(),
+        ));
+    }
+    if update_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log and machine update have different authors".into(),
+        ));
+    }
+    if update_record.action().timestamp() > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log cannot predate its referenced machine update".into(),
+        ));
+    }
+    if updated_machine.status != log.new_status
+        || updated_machine.current_work_order != log.work_order_hash
+        || updated_machine.last_status_authority_hash != Some(log.authority_hash.clone())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log does not match its referenced machine update".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
@@ -103,11 +250,65 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
             }
             Ok(ValidateCallbackResult::Valid)
         }
+        EntryTypes::MachineControllerAuthority(_) => unreachable!(),
     }
+}
+
+fn resolve_machine_root_action_hash(
+    start: ActionHash,
+) -> ExternResult<ActionHash> {
+    let mut current = start;
+    for _ in 0..4096 {
+        let record = must_get_valid_record(current.clone())?;
+        match record.action() {
+            Action::Create(_) => {
+                let root_record = must_get_valid_record(current.clone())?;
+                let root_machine: Option<MachineEntry> = root_record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+                if root_machine.is_none() {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "machine update lineage terminates at a non-machine root".into(),
+                    )));
+                }
+                return Ok(current);
+            }
+            Action::Update(update) => {
+                current = update.original_action_address.clone();
+            }
+            _ => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "machine update lineage terminated at a non-entry action".into(),
+                )));
+            }
+        }
+    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "machine update lineage exceeds safety bound".into(),
+    )))
+}
+
+fn machine_control_fields_changed(
+    original: &MachineEntry,
+    updated: &MachineEntry,
+) -> bool {
+    original.status != updated.status
+        || original.current_work_order != updated.current_work_order
+        || original.last_status_authority_hash != updated.last_status_authority_hash
+}
+
+fn authority_valid_at(
+    authority: &MachineControllerAuthorityEntry,
+    timestamp: Timestamp,
+) -> bool {
+    authority.valid_from <= timestamp && timestamp <= authority.valid_until
 }
 
 fn validate_update_entry(
     original_action_hash: ActionHash,
+    action: TypedAction<UpdateData>,
     entry: EntryTypes,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
@@ -129,21 +330,62 @@ fn validate_update_entry(
                 || m.registered_at != original.registered_at
             {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Only status/current_work_order can change on a machine update".into(),
+                    "Only status/current_work_order/last_status_authority_hash can change on a machine update".into(),
                 ));
             }
 
-            if !original.status.can_transition_to(&m.status) {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid machine transition: {:?} -> {:?}",
-                    original.status, m.status
-                )));
+            if machine_control_fields_changed(&original, &m) {
+                let Some(authority_hash) = m.last_status_authority_hash.clone() else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "machine control-field changes require controller authority".into(),
+                    ));
+                };
+                let authority_record = must_get_valid_record(authority_hash)?;
+                let authority: Option<MachineControllerAuthorityEntry> = authority_record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+                let Some(authority) = authority else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "machine status authority reference is not an authority record".into(),
+                    ));
+                };
+
+                let machine_root = resolve_machine_root_action_hash(
+                    original_action_hash.clone(),
+                )?;
+                if authority.machine_hash != machine_root {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "machine status authority is bound to a different machine".into(),
+                    ));
+                }
+                if action.author() != authority.controller_agent {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "machine update author is not an authorized controller".into(),
+                    ));
+                }
+                if !authority_valid_at(&authority, action.timestamp()) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "machine update falls outside controller authority validity".into(),
+                    ));
+                }
+                if m.status != original.status
+                    && !original.status.can_transition_to(&m.status)
+                {
+                    return Ok(ValidateCallbackResult::Invalid(format!(
+                        "Invalid machine transition: {:?} -> {:?}",
+                        original.status, m.status
+                    )));
+                }
             }
 
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::StatusLog(_) => Ok(ValidateCallbackResult::Invalid(
             "Status log records are immutable".into(),
+        )),
+        EntryTypes::MachineControllerAuthority(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine controller authorities are immutable".into(),
         )),
     }
 }
@@ -161,8 +403,43 @@ mod content_restriction_tests {
             max_throughput_per_hour: 10,
             status: MachineStatus::Available,
             current_work_order: None,
+            last_status_authority_hash: None,
             registered_at: Timestamp::from_micros(0),
         }
+    }
+
+    #[test]
+    fn authority_validity_is_inclusive() {
+        let authority = MachineControllerAuthorityEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            controller_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            valid_from: Timestamp::from_micros(100),
+            valid_until: Timestamp::from_micros(200),
+        };
+
+        assert!(authority_valid_at(&authority, Timestamp::from_micros(100)));
+        assert!(authority_valid_at(&authority, Timestamp::from_micros(200)));
+        assert!(!authority_valid_at(&authority, Timestamp::from_micros(99)));
+        assert!(!authority_valid_at(&authority, Timestamp::from_micros(201)));
+    }
+
+    #[test]
+    fn control_field_change_requires_authority() {
+        let original = valid_machine();
+        let mut updated = original.clone();
+
+        updated.current_work_order = Some(ActionHash::from_raw_36(vec![7; 36]));
+        assert!(machine_control_fields_changed(&original, &updated));
+
+        updated = original.clone();
+        updated.last_status_authority_hash = Some(ActionHash::from_raw_36(vec![8; 36]));
+        assert!(machine_control_fields_changed(&original, &updated));
+
+        updated = original.clone();
+        updated.status = MachineStatus::Running;
+        assert!(machine_control_fields_changed(&original, &updated));
+
+        assert!(!machine_control_fields_changed(&original, &original));
     }
 
     #[test]
@@ -191,6 +468,8 @@ mod content_restriction_tests {
     fn status_log_rejects_invalid_transition() {
         let log = MachineStatusLog {
             machine_hash: ActionHash::from_raw_36(vec![0u8; 36]),
+            machine_update_hash: ActionHash::from_raw_36(vec![8u8; 36]),
+            authority_hash: ActionHash::from_raw_36(vec![9u8; 36]),
             previous_status: MachineStatus::Offline,
             new_status: MachineStatus::Running,
             work_order_hash: None,
