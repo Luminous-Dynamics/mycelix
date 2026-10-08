@@ -96,6 +96,17 @@
       ],
       "value": false,
       "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CPL-009",
+      "source_case_id": "CCP-041",
+      "policy_path": [
+        "classification",
+        "claim_scope_binding_required"
+      ],
+      "value": false,
+      "preserve_history_anchor": true,
+      "expected_verdict": "qualified"
     }
   ]
 }
