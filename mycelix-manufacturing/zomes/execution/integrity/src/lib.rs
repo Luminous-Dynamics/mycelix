@@ -22,7 +22,9 @@ pub enum Disposition {
     Quarantined,
 }
 
-use manufacturing_common::CapabilityQualification;
+use manufacturing_common::{
+    evaluate_capability, CapabilityProfile, CapabilityQualification, CapabilityRequirement,
+};
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
 struct WorkOrderRevisionProjection {
@@ -36,6 +38,14 @@ struct WorkOrderRevisionProjection {
 struct RoutingStepProjection {
     #[serde(default)]
     sequence: u32,
+    #[serde(default)]
+    capability_requirement_hash: Option<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct CapabilityRequirementProjection {
+    #[serde(default)]
+    requirement: CapabilityRequirement,
 }
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
@@ -292,11 +302,33 @@ fn measurement_matches_criterion(
     Ok(())
 }
 
+fn routing_step_for_sequence(
+    routing: &RoutingRevisionProjection,
+    sequence: u32,
+) -> Option<&RoutingStepProjection> {
+    routing.steps.iter().find(|step| step.sequence == sequence)
+}
+
+fn capability_profile_from_contract(
+    contract: &CapabilityContractEntry,
+) -> CapabilityProfile {
+    CapabilityProfile {
+        process_family: contract.process_family.clone(),
+        material_classes: contract.material_classes.clone(),
+        envelope_x_mm: contract.envelope_x_mm,
+        envelope_y_mm: contract.envelope_y_mm,
+        envelope_z_mm: contract.envelope_z_mm,
+        tolerance_um: contract.tolerance_um,
+        supported_protocols: contract.supported_protocols.clone(),
+        qualification: contract.qualification.clone(),
+    }
+}
+
 fn routing_contains_sequence(
     routing: &RoutingRevisionProjection,
     sequence: u32,
 ) -> bool {
-    routing.steps.iter().any(|step| step.sequence == sequence)
+    routing_step_for_sequence(routing, sequence).is_some()
 }
 
 fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
@@ -717,10 +749,48 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                         "execution routing reference is not a routing record".into(),
                     ));
                 };
-                if !routing_contains_sequence(&routing, e.operation_sequence) {
+                let Some(step) = routing_step_for_sequence(&routing, e.operation_sequence) else {
                     return Ok(ValidateCallbackResult::Invalid(
                         "execution operation sequence is not present in the bound routing revision".into(),
                     ));
+                };
+
+                if matches!(e.disposition, Disposition::Accepted) {
+                    let Some(requirement_hash) = step.capability_requirement_hash.clone() else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "accepted execution requires a typed capability requirement on the routing step".into(),
+                        ));
+                    };
+
+                    let requirement_record = must_get_valid_record(requirement_hash)?;
+                    let requirement: CapabilityRequirementProjection = requirement_record
+                        .entry()
+                        .to_app_option()
+                        .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "routing capability requirement record has no entry".into(),
+                        )))?;
+
+                    let Some(contract_hash) = e.capability_contract_hash.clone() else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "accepted execution requires a capability contract".into(),
+                        ));
+                    };
+                    let contract_record = must_get_valid_record(contract_hash)?;
+                    let contract: CapabilityContractEntry = contract_record
+                        .entry()
+                        .to_app_option()
+                        .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "execution capability contract record has no entry".into(),
+                        )))?;
+
+                    let profile = capability_profile_from_contract(&contract);
+                    if let Err(mismatch) = evaluate_capability(&requirement.requirement, &profile) {
+                        return Ok(ValidateCallbackResult::Invalid(format!(
+                            "execution capability contract does not satisfy routing-owned requirement: {mismatch:?}"
+                        )));
+                    }
                 }
             }
 
@@ -846,6 +916,39 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rejects_capability_contract_that_fails_routing_requirement() {
+        let requirement = CapabilityRequirement {
+            process_family: "milling".into(),
+            material_class: "aluminum".into(),
+            envelope_x_mm: Some(400),
+            envelope_y_mm: Some(200),
+            envelope_z_mm: Some(100),
+            tolerance_um: Some(10),
+            required_protocols: vec!["opcua".into()],
+        };
+        let mut contract = CapabilityContractEntry {
+            contract_id: "CAP-1".into(),
+            machine_hash: ActionHash::from_raw_36(vec![3; 36]),
+            process_family: "milling".into(),
+            material_classes: vec!["aluminum".into()],
+            envelope_x_mm: Some(500),
+            envelope_y_mm: Some(300),
+            envelope_z_mm: Some(200),
+            tolerance_um: Some(25),
+            supported_protocols: vec!["opcua".into()],
+            qualification: CapabilityQualification::Qualified,
+            qualification_evidence_hashes: vec![],
+            created_at: Timestamp::from_micros(0),
+        };
+        let profile = capability_profile_from_contract(&contract);
+        assert!(evaluate_capability(&requirement, &profile).is_err());
+
+        contract.tolerance_um = Some(5);
+        let profile = capability_profile_from_contract(&contract);
+        assert!(evaluate_capability(&requirement, &profile).is_ok());
+    }
 
     #[test]
     fn rejects_execution_using_different_work_order_bom_revision() {
