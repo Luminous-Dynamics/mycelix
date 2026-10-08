@@ -236,10 +236,17 @@ jobs:
                   result[key] = value
               return result
 
+          def reject_nonstandard_constant(value):
+              raise SystemExit(f"non-standard JSON constant is forbidden: {value}")
+
           raw = Path("snapshot/qualification-receipt.json").read_bytes()
           if not raw.endswith(b"\n") or raw[:-1].endswith(b"\n"):
               raise SystemExit("receipt must have exactly one trailing LF")
-          receipt = json.loads(raw[:-1].decode("utf-8"), object_pairs_hook=reject_duplicates)
+          receipt = json.loads(
+              raw[:-1].decode("utf-8"),
+              object_pairs_hook=reject_duplicates,
+              parse_constant=reject_nonstandard_constant,
+          )
           canonical = json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
           if canonical != raw[:-1]:
               raise SystemExit("receipt is not canonical JSON")
