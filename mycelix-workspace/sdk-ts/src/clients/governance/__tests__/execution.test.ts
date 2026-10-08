@@ -415,6 +415,7 @@ describe('ExecutionClient', () => {
       expect(client.getStatusDescription('Executed')).toContain('executed');
       expect(client.getStatusDescription('Cancelled')).toContain('cancelled');
       expect(client.getStatusDescription('Failed')).toContain('failed');
+      expect(client.getStatusDescription('Vetoed')).toContain('veto');
     });
   });
 
