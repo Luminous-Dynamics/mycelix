@@ -246,7 +246,10 @@ def check_case(base: dict, policy: dict, case: dict) -> dict:
     elif prop == "ordered_array_sensitivity":
         ok = actual["verdict"] == "qualified" and actual["semantic_digest"] != base_semantic and actual["claim_local_digest"] != base_claim
     elif prop == "provenance_dependence":
-        ok = actual["verdict"] == "qualified-with-dependence" and actual["claim_local_digest"] != base_claim
+        ok = (
+            actual["verdict"] == "qualified-with-dependence"
+            and actual["semantic_digest"] != base_semantic
+        )
     elif prop == "result_conflict":
         ok = actual["verdict"] == "unresolved" and actual["claim_local_digest"] != base_claim
     else:
