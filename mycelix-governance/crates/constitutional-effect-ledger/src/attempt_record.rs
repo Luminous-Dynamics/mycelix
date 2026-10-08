@@ -2253,6 +2253,45 @@ mod tests {
     }
 
     #[test]
+    fn provider_idempotency_key_is_bound_to_action_payload_and_scope() {
+        let key_a = key();
+        let key_b = ActionKeyV1::new(
+            key_a.relying_party_identity(),
+            key_a.effecting_target_identity(),
+            "different-material-action-digest",
+        )
+        .unwrap();
+
+        let a = derive_provider_idempotency_key(
+            "native-replay-same",
+            key_a.digest(),
+            "stripe-live-account-1",
+            "payments-audience-1",
+            "payments-adapter-v1",
+        )
+        .unwrap();
+        let b = derive_provider_idempotency_key(
+            "native-replay-same",
+            key_b.digest(),
+            "stripe-live-account-1",
+            "payments-audience-1",
+            "payments-adapter-v1",
+        )
+        .unwrap();
+        assert_ne!(a, b);
+
+        let c = derive_provider_idempotency_key(
+            "native-replay-same",
+            key_a.digest(),
+            "different-provider-environment",
+            "payments-audience-1",
+            "payments-adapter-v1",
+        )
+        .unwrap();
+        assert_ne!(a, c);
+    }
+
+    #[test]
     fn persisted_provider_idempotency_key_is_versioned_and_fail_closed() {
         let action = key();
         let record = record(
