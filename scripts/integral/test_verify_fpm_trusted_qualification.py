@@ -10,7 +10,9 @@ import json
 import shutil
 import subprocess
 import sys
+import stat
 import tempfile
+import zipfile
 from pathlib import Path
 
 SCRIPT = Path(__file__).with_name("verify_fpm_trusted_qualification.py")
@@ -30,7 +32,7 @@ MANIFEST_SHA = "c94b53f61ed8a9bfb6249b1b339550dddd074d6c"
 SUBJECT, TREE, BASE = "1" * 40, "2" * 40, "3" * 40
 POLICY, POLICY_BLOB = "4" * 40, "5" * 40
 IVERIFY, IVERIFY_BLOB = "6" * 40, "7" * 40
-LOCK_SHA, ARTIFACT_SHA = "8" * 64, "9" * 64
+LOCK_SHA = "8" * 64
 CANDIDATE_RUN, TRUSTED_RUN = 1001, 2002
 RECEIPT_ARTIFACT, INDEX_ARTIFACT = 3003, 4004
 PR = 123
@@ -47,6 +49,15 @@ def write(path: Path, obj: object) -> None:
 def run(root: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run([sys.executable, str(SCRIPT), str(root)],
                           text=True, capture_output=True, check=False)
+
+
+def write_artifact_zip(path: Path, member_name: str, data: bytes, duplicate: bool = False) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(member_name, data)
+        if duplicate:
+            archive.writestr(member_name, data)
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def snapshot(root: Path) -> None:
@@ -78,12 +89,18 @@ def snapshot(root: Path) -> None:
         "procedure_trust": "trusted_default_branch_snapshot",
         "promotion_authority": "pending_repository_governance_evidence",
     }
+    receipt_bytes = cjson(receipt) + b"\n"
+    receipt_archive_digest = write_artifact_zip(
+        root / "raw/receipt.zip",
+        "qualification-receipt.json",
+        receipt_bytes,
+    )
     receipt_digest = hashlib.sha256(cjson(receipt)).hexdigest()
     index = {
         "schema": "mycelix.fpm.trusted-qualification-artifact-index.v1",
         "receipt_sha256": receipt_digest,
         "artifact": {
-            "id": RECEIPT_ARTIFACT, "sha256_hex": ARTIFACT_SHA,
+            "id": RECEIPT_ARTIFACT, "sha256_hex": receipt_archive_digest,
             "url": f"https://github.com/{REPO}/actions/runs/{TRUSTED_RUN}/artifacts/{RECEIPT_ARTIFACT}",
             "retention_days": 90, "immutable_after_upload": True,
             "deletion_by_repository_writer_possible": True,
@@ -92,12 +109,18 @@ def snapshot(root: Path) -> None:
         "trusted_policy_sha": POLICY, "trusted_policy_blob_sha": POLICY_BLOB,
         "trusted_workflow_run_id": TRUSTED_RUN,
     }
+    index_bytes = cjson(index) + b"\n"
+    index_archive_digest = write_artifact_zip(
+        root / "raw/index.zip",
+        "artifact-binding-index.json",
+        index_bytes,
+    )
     artifacts = {"artifacts": [
         {"id": RECEIPT_ARTIFACT, "name": f"fpm-trusted-qualification-{SUBJECT}",
-         "expired": False, "created_at": "2026-10-07T20:00:00Z", "expires_at": "2027-01-05T20:00:00Z", "size_in_bytes": 1, "digest": f"sha256:{ARTIFACT_SHA}",
+         "expired": False, "created_at": "2026-10-07T20:00:00Z", "expires_at": "2027-01-05T20:00:00Z", "size_in_bytes": (root / "raw/receipt.zip").stat().st_size, "digest": f"sha256:{receipt_archive_digest}",
          "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID}},
         {"id": INDEX_ARTIFACT, "name": f"fpm-trusted-qualification-index-{SUBJECT}",
-         "expired": False, "created_at": "2026-10-07T20:00:01Z", "expires_at": "2027-01-05T20:00:01Z", "size_in_bytes": 1, "digest": f"sha256:{ARTIFACT_SHA}",
+         "expired": False, "created_at": "2026-10-07T20:00:01Z", "expires_at": "2027-01-05T20:00:01Z", "size_in_bytes": (root / "raw/index.zip").stat().st_size, "digest": f"sha256:{index_archive_digest}",
          "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID}},
     ]}
     trusted = {"id": TRUSTED_RUN, "name": TW_NAME, "path": TW_PATH, "event": "workflow_run",
@@ -161,7 +184,10 @@ def snapshot(root: Path) -> None:
 def mutated_case(base: Path, target: str, mutator) -> Path:
     td = Path(tempfile.mkdtemp(prefix="fpm-ref-negative-"))
     for src in base.iterdir():
-        (td / src.name).write_bytes(src.read_bytes())
+        if src.is_dir():
+            shutil.copytree(src, td / src.name)
+        else:
+            (td / src.name).write_bytes(src.read_bytes())
     value = json.loads((td / target).read_text(encoding="utf-8"))
     mutator(value)
     write(td / target, value)
@@ -177,18 +203,21 @@ def expect_failure(base: Path, target: str, label: str, mutator) -> None:
         shutil.rmtree(root)
 
 
-def assert_evidence_normalization_contract() -> None:
+def assert_evidence_archive_contract() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-    marker = "      - name: Normalize downloaded evidence\n"
+    marker = "      - name: Normalize downloaded raw evidence archives\n"
     next_marker = "      - name: Extract evidence targets with strict JSON parser\n"
     assert marker in workflow and next_marker in workflow
     block = workflow.split(marker, 1)[1].split(next_marker, 1)[0]
-    assert "root.rglob(\"*\")" in block
+    assert "root.iterdir()" in block
     assert "members != [expected_name]" in block
     assert "source.is_file()" in block
     assert "source.is_symlink()" in block
-    assert "find snapshot/download" not in block
-    assert "-print -quit" not in block
+    assert "skip-decompress: true" in workflow
+    assert "find snapshot/download" not in workflow
+    assert "-print -quit" not in workflow
+
+
 
 
 def assert_artifact_collector_http_contract() -> None:
@@ -210,13 +239,87 @@ def assert_workflow_target_extractor_dependencies() -> None:
 
 def main() -> None:
     assert_artifact_collector_http_contract()
-    assert_evidence_normalization_contract()
+    assert_evidence_archive_contract()
     assert_workflow_target_extractor_dependencies()
     with tempfile.TemporaryDirectory(prefix="fpm-ref-corpus-") as td:
         root = Path(td)
         snapshot(root)
         baseline = run(root)
         assert baseline.returncode == 0, baseline.stderr + baseline.stdout
+
+        import importlib.util
+
+        verifier_spec = importlib.util.spec_from_file_location("fpm_reference_verifier", SCRIPT)
+        assert verifier_spec and verifier_spec.loader
+        verifier = importlib.util.module_from_spec(verifier_spec)
+        verifier_spec.loader.exec_module(verifier)
+
+        with tempfile.TemporaryDirectory(prefix="fpm-zip-corpus-") as zip_td:
+            zroot = Path(zip_td)
+            good_data = b'{"qualification":"ok"}\n'
+            good_zip = zroot / "good.zip"
+            good_digest = write_artifact_zip(good_zip, "qualification-receipt.json", good_data)
+            extracted = zroot / "qualification-receipt.json"
+            extracted.write_bytes(good_data)
+            verified_archive = verifier.verify_raw_artifact_archive(
+                good_zip, "qualification-receipt.json", f"sha256:{good_digest}", extracted, "receipt"
+            )
+            assert verified_archive["member_sha256"] == hashlib.sha256(good_data).hexdigest()
+            assert verified_archive["member_set_sha256"] == hashlib.sha256(
+                b'["qualification-receipt.json"]'
+            ).hexdigest()
+
+            bad_cases = [
+                ("duplicate-member", lambda p: write_artifact_zip(p, "qualification-receipt.json", good_data, duplicate=True)),
+            ]
+
+            unexpected = zroot / "unexpected.zip"
+            with zipfile.ZipFile(unexpected, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("qualification-receipt.json", good_data)
+                archive.writestr("unexpected.json", b"{}")
+            bad_cases.append(("unexpected-member", lambda p: None))
+
+            traversal = zroot / "traversal.zip"
+            traversal.parent.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(traversal, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("../qualification-receipt.json", good_data)
+            bad_cases.append(("traversal-member", lambda p: None))
+
+            symlink = zroot / "symlink.zip"
+            info = zipfile.ZipInfo("qualification-receipt.json")
+            info.external_attr = (stat.S_IFLNK | 0o777) << 16
+            with zipfile.ZipFile(symlink, "w") as archive:
+                archive.writestr(info, good_data)
+            bad_cases.append(("symlink-member", lambda p: None))
+
+            for label, make_case in bad_cases:
+                if label == "duplicate-member":
+                    archive_path = zroot / "duplicate.zip"
+                    digest = make_case(archive_path)  # type: ignore[misc]
+                elif label == "unexpected-member":
+                    archive_path = unexpected
+                    digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+                else:
+                    archive_path = traversal if label == "traversal-member" else symlink
+                    digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+                try:
+                    verifier.verify_raw_artifact_archive(
+                        archive_path, "qualification-receipt.json", f"sha256:{digest}", extracted, "receipt"
+                    )
+                except SystemExit:
+                    pass
+                else:
+                    raise AssertionError(f"raw archive mutation was accepted: {label}")
+
+            extracted.write_bytes(b"tampered\n")
+            try:
+                verifier.verify_raw_artifact_archive(
+                    good_zip, "qualification-receipt.json", f"sha256:{good_digest}", extracted, "receipt"
+                )
+            except SystemExit:
+                pass
+            else:
+                raise AssertionError("materialized evidence mismatch was accepted")
 
         receipt = [
             ("receipt.repository_id", lambda x: x.__setitem__("repository_id", REPO_ID + 1)),
