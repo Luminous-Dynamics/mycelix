@@ -202,6 +202,10 @@ def validate_policy(policy: Any) -> None:
         "GitHub unsupported fnmatch syntax contract drift",
     )
     require(
+        observation_contract.get("github_unsupported_extglob_syntax_must_fail_closed") is True,
+        "GitHub unsupported extglob syntax contract drift",
+    )
+    require(
         observation_contract.get("raw_json_must_reject_duplicate_keys_and_nonstandard_constants") is True,
         "strict raw JSON contract drift",
     )
@@ -369,8 +373,13 @@ def _github_fnmatch_pattern_supported(pattern: str) -> bool:
         return False
     if "\\" in pattern:
         return False
-    return re.search(r"\[\^", pattern) is None
-
+    if re.search(r"\[\^", pattern):
+        return False
+    # GitHub does not support Ruby File::FNM_EXTGLOB syntax. Refuse the
+    # extglob operators instead of inheriting a different glob dialect.
+    if re.search(r"(^|/)[!?+*@]\(", pattern):
+        return False
+    return True
 
 def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
     """Match GitHub ruleset ref patterns with pathname-aware fnmatch semantics."""
@@ -1224,6 +1233,7 @@ def fixture_policy() -> dict[str, Any]:
             "github_ref_pattern_pathname_semantics_must_be_bound": True,
             "github_unsupported_ref_pattern_syntax_must_fail_closed": True,
             "github_unsupported_fnmatch_syntax_must_fail_closed": True,
+            "github_unsupported_extglob_syntax_must_fail_closed": True,
             "raw_json_must_reject_duplicate_keys_and_nonstandard_constants": True,
             "github_special_targeting_token_semantics_must_be_bound": True,
             "unobserved_repository_selector_properties_must_fail_closed": True,
@@ -1638,6 +1648,19 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
 
+    for unsupported_ref_pattern in (
+        "refs/heads/@(main|develop)",
+        "refs/heads/+(main|develop)",
+        "refs/heads/?(main|develop)",
+        "refs/heads/!(develop)",
+    ):
+        x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+        x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = [unsupported_ref_pattern]
+        _refresh_bound_fixture_payloads(x)
+        result = evaluate(policy, x)
+        assert result["governance_state"] == "UNVERIFIED"
+        assert result["grants_trusted_verifier_root"] is False
+
     x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/**"]
     _refresh_bound_fixture_payloads(x)
@@ -1956,6 +1979,10 @@ def self_test(policy: dict[str, Any]) -> None:
     for unsupported_repository_pattern in (
         "m" + chr(92) + "ycelix",
         "[^m]ycelix",
+        "@(mycelix|other)",
+        "+(mycelix|other)",
+        "?(mycelix|other)",
+        "!(other)",
     ):
         x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
         x["rulesets"]["entries"][0]["source_type"] = "Organization"

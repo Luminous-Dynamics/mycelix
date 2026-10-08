@@ -57,7 +57,8 @@
     "authoritative_admin_observation_requires_verified_admin_status": true,
     "enterprise_ruleset_source_identity_must_be_observed": true,
     "effective_rule_provenance_must_be_bound": true,
-    "effective_rule_definition_must_match_observed_ruleset": true
+    "effective_rule_definition_must_match_observed_ruleset": true,
+    "github_unsupported_extglob_syntax_must_fail_closed": true
   },
   "result_states": [
     "VERIFIED",
