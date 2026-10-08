@@ -44,7 +44,7 @@ function normalize(graph, policy) {
     seen.add(key);
   }
   const out = structuredClone(graph);
-  if (policy.graph_canonicalization.node_collection === "unordered-by-id") out.nodes.sort((a,b) => a.id.localeCompare(b.id));
+  if (policy.graph_canonicalization.node_collection === "unordered-by-id") out.nodes.sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   if (policy.graph_canonicalization.edge_collection === "unordered-by-tuple") out.edges.sort((a,b) => canonical(a).localeCompare(canonical(b)));
   return out;
 }
@@ -196,7 +196,7 @@ const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
 const corpus = JSON.parse(fs.readFileSync(corpusPath, "utf8"));
 const report = corpus.cases.map(c => checkCase(corpus.base_graph, policy, c));
 const sortedReport = report
-  .sort((a,b) => a.case_id.localeCompare(b.case_id))
+  .sort((a,b) => a.case_id < b.case_id ? -1 : a.case_id > b.case_id ? 1 : 0)
   .map(row => Object.fromEntries(Object.entries(row).sort(([a],[b]) => a.localeCompare(b))));
 fs.writeFileSync(reportPath, JSON.stringify(sortedReport) + "\n");
 const failures = report.filter(r => r.status !== "pass");
