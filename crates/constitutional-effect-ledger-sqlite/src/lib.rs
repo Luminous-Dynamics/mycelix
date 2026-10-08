@@ -1302,8 +1302,8 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
                 row.get(9)?,
                 row.get(10)?,
                 row.get(11)?,
-                row.get::<_, i64>(12)? as u64,
-                row.get::<_, i64>(13)? as u64,
+                read_nonnegative_unix_ms(row.get(12)?, 12)?,
+                read_nonnegative_unix_ms(row.get(13)?, 13)?,
                 row.get(14)?,
                 row.get(15)?,
             )
