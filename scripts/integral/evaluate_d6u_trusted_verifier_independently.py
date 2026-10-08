@@ -164,7 +164,7 @@ def valid_record() -> dict[str, str]:
 
 
 def git_blob_sha1(content: bytes) -> str:
-    header = f"blob {len(content)}\\0".encode("utf-8")
+    header = f"blob {len(content)}\0".encode("utf-8")
     return hashlib.sha1(header + content).hexdigest()
 
 
