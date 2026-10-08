@@ -28,9 +28,57 @@ pub enum VerificationPurpose {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedTerminalOutcomeV1 {
-    pub outcome: TerminalOutcomeV1,
-    pub evidence_commitment: String,
-    pub verifier_identity: String,
+    outcome: TerminalOutcomeV1,
+    evidence_commitment: String,
+    verifier_identity: String,
+    attempt_identity: String,
+    operation_id: String,
+    native_replay_identity: String,
+    action_key_digest: String,
+    purpose: VerificationPurpose,
+}
+
+impl VerifiedTerminalOutcomeV1 {
+    /// Construct a terminal verification proof that is mechanically bound to
+    /// the exact attempt and verification purpose supplied to the verifier.
+    ///
+    /// The boundary still re-checks these bindings before applying the proof.
+    pub fn new(
+        attempt: &AttemptRecordV1,
+        purpose: VerificationPurpose,
+        outcome: TerminalOutcomeV1,
+        evidence_commitment: impl Into<String>,
+        verifier_identity: impl Into<String>,
+    ) -> Result<Self, String> {
+        let evidence_commitment = evidence_commitment.into();
+        let verifier_identity = verifier_identity.into();
+        if evidence_commitment.trim().is_empty() || verifier_identity.trim().is_empty() {
+            return Err("verification proof commitments must be non-empty".into());
+        }
+        Ok(Self {
+            outcome,
+            evidence_commitment,
+            verifier_identity,
+            attempt_identity: attempt.attempt_identity.clone(),
+            operation_id: attempt.operation_id.clone(),
+            native_replay_identity: attempt.native_replay_identity.clone(),
+            action_key_digest: attempt.action_key_digest.clone(),
+            purpose,
+        })
+    }
+
+    fn matches(
+        &self,
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+        purpose: VerificationPurpose,
+    ) -> bool {
+        self.attempt_identity == attempt.attempt_identity
+            && self.operation_id == attempt.operation_id
+            && self.native_replay_identity == attempt.native_replay_identity
+            && self.action_key_digest == action_key.digest()
+            && self.purpose == purpose
+    }
 }
 
 /// Implementations must not cross into the protected provider until the
@@ -272,6 +320,7 @@ impl EffectBoundaryHostV1 {
                         attempt_identity,
                         owner_token_digest,
                         &invoked,
+                        VerificationPurpose::InitialInvocation,
                         verified,
                     ),
                     Err(error) => self.mark_indeterminate(
@@ -291,8 +340,16 @@ impl EffectBoundaryHostV1 {
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
         attempt: &AttemptRecordV1,
+        purpose: VerificationPurpose,
         verified: VerifiedTerminalOutcomeV1,
     ) -> Result<BoundaryOutcome, BoundaryError> {
+        if !verified.matches(attempt, action_key, purpose) {
+            return Err(BoundaryError::Semantic(
+                "terminal verification proof is not bound to the exact attempt, action, or purpose"
+                    .into(),
+            ));
+        }
+
         let evidence = TerminalEvidenceV1::from_attempt(
             action_key,
             attempt,
@@ -461,6 +518,7 @@ impl EffectBoundaryHostV1 {
                         attempt_identity,
                         owner_token_digest,
                         &indeterminate,
+                        VerificationPurpose::Reconciliation,
                         verified,
                     ),
                     Err(error) => Ok(BoundaryOutcome::IndeterminateHeld {
@@ -582,20 +640,22 @@ mod tests {
             _purpose: VerificationPurpose,
         ) -> Result<VerifiedTerminalOutcomeV1, String> {
             match observation {
-                ProviderObservation::Executed { evidence_commitment } => Ok(
-                    VerifiedTerminalOutcomeV1 {
-                        outcome: TerminalOutcomeV1::Executed,
-                        evidence_commitment: evidence_commitment.clone(),
-                        verifier_identity: "verified-provider-v1".into(),
-                    },
-                ),
-                ProviderObservation::Failed { evidence_commitment } => Ok(
-                    VerifiedTerminalOutcomeV1 {
-                        outcome: TerminalOutcomeV1::Failed,
-                        evidence_commitment: evidence_commitment.clone(),
-                        verifier_identity: "verified-provider-v1".into(),
-                    },
-                ),
+                ProviderObservation::Executed { evidence_commitment } =>
+                    VerifiedTerminalOutcomeV1::new(
+                        _attempt,
+                        _purpose,
+                        TerminalOutcomeV1::Executed,
+                        evidence_commitment.clone(),
+                        "verified-provider-v1",
+                    ),
+                ProviderObservation::Failed { evidence_commitment } =>
+                    VerifiedTerminalOutcomeV1::new(
+                        _attempt,
+                        _purpose,
+                        TerminalOutcomeV1::Failed,
+                        evidence_commitment.clone(),
+                        "verified-provider-v1",
+                    ),
                 ProviderObservation::Indeterminate { .. } => {
                     Err("indeterminate observation is not terminal".into())
                 }
@@ -729,6 +789,93 @@ mod tests {
                 .state,
             AttemptRecordState::Indeterminate
         );
+    }
+
+    struct MismatchedVerifier;
+
+    impl OutcomeVerifier for MismatchedVerifier {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            _observation: &ProviderObservation,
+            _purpose: VerificationPurpose,
+        ) -> Result<VerifiedTerminalOutcomeV1, String> {
+            let wrong_identity = AttemptIdentityV1::new(
+                "governance",
+                "host-1",
+                "different-attempt",
+            )?;
+            let wrong_attempt = AttemptRecordV1::new(
+                &wrong_identity,
+                &attempt.operation_id,
+                &attempt.native_replay_identity,
+                &attempt.action_digest,
+                &action(),
+                attempt.provider_reference_seed_digest.clone(),
+                attempt.provider_reference_descriptor_digest.clone(),
+                attempt.provider_environment.clone(),
+                attempt.provider_audience.clone(),
+                attempt.adapter_identity.clone(),
+                attempt.ownership_token_digest.clone(),
+                AttemptRecordState::Executed,
+            )?;
+            VerifiedTerminalOutcomeV1::new(
+                &wrong_attempt,
+                VerificationPurpose::Reconciliation,
+                TerminalOutcomeV1::Executed,
+                "mismatched-proof",
+                "malbound-verifier",
+            )
+        }
+    }
+
+    #[test]
+    fn mismatched_terminal_verification_proof_holds_the_fence() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("mismatch.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-mismatch");
+        let record = attempt_record("attempt-mismatch", "operation-mismatch", AttemptRecordState::Consumed);
+
+        assert_eq!(
+            boundary.admit(&action_key, &owner, record).unwrap(),
+            BoundaryOutcome::Admitted(AtomicAdmissionDecision::Admitted)
+        );
+
+        let mut provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
+
+        let result = boundary.dispatch(
+            &action_key,
+            &owner,
+            "owner-attempt-mismatch",
+            &mut provider,
+            &MismatchedVerifier,
+        );
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("not bound to the exact attempt")
+        ));
+
+        let attempt = boundary
+            .store
+            .durably_read_attempt(&owner)
+            .unwrap()
+            .unwrap();
+        assert_eq!(attempt.state, AttemptRecordState::Invoked);
+
+        let fence = boundary.store.durably_read_fence(&action_key).unwrap();
+        assert!(fence.is_some());
+        assert_eq!(attempt.reconciliation_token_digest.is_none(), true);
     }
 
     #[test]
