@@ -96,27 +96,34 @@ pub enum LinkTypes {
 /// so updates are now rejected outright, closing the wide-open
 /// RegisterUpdate/RegisterDelete bug that previously routed both through
 /// the unconditional `_ => Valid` catch-all.
+fn validate_process_recipe(
+    recipe: ProcessRecipeEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if recipe.schema_id != PROCESS_RECIPE_SCHEMA_ID {
+        return Ok(ValidateCallbackResult::Invalid(
+            "process recipe schema_id is invalid".into(),
+        ));
+    }
+    if recipe.recipe_id.is_empty()
+        || recipe.revision.is_empty()
+        || recipe.process_family.is_empty()
+        || recipe.payload_hash.is_empty()
+        || recipe.parameter_schema.is_empty()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "process recipe requires identity, process_family, payload_hash and parameter_schema"
+                .into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::ProcessRecipe(recipe) => {
-                if recipe.schema_id != PROCESS_RECIPE_SCHEMA_ID {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "process recipe schema_id is invalid".into(),
-                    ));
-                }
-                if recipe.recipe_id.is_empty()
-                    || recipe.revision.is_empty()
-                    || recipe.process_family.is_empty()
-                    || recipe.payload_hash.is_empty()
-                    || recipe.parameter_schema.is_empty()
-                {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "process recipe requires identity, process_family, payload_hash and parameter_schema".into(),
-                    ));
-                }
-                Ok(ValidateCallbackResult::Valid)
+                validate_process_recipe(recipe)
             }
             EntryTypes::CapabilityRequirement(requirement) => {
                 if requirement.requirement_id.is_empty() || requirement.revision.is_empty() {
@@ -241,11 +248,6 @@ mod recipe_tests {
     }
 
     fn validate_create_for_test(recipe: ProcessRecipeEntry) -> ValidateCallbackResult {
-        if recipe.schema_id != PROCESS_RECIPE_SCHEMA_ID {
-            return ValidateCallbackResult::Invalid(
-                "process recipe schema_id is invalid".into(),
-            );
-        }
-        ValidateCallbackResult::Valid
+        validate_process_recipe(recipe).unwrap()
     }
 }
