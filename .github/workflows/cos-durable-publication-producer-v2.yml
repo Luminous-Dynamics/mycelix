@@ -622,14 +622,16 @@ jobs:
           assert m['signed_attestation_bundle_sha256']==b and r['attestation']['bundle_sha256']==b
           assert m['qualification_manifest_sha256']==hashlib.sha256((root/'qualification-manifest-v1.json').read_bytes()).hexdigest()
           assert m['predicate_type']==p['predicate_type']
+          policy_digests={}
           for filename in ('environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json'):
               data=strict(root/filename)
               reported=data.pop('sha256')
               canonical=json.dumps(data,sort_keys=True,separators=(',',':')).encode('utf-8')
               assert reported==hashlib.sha256(canonical).hexdigest()
-          assert m['environment_policy_sha256']==hashlib.sha256((root/'environment-policy-v1.json').read_bytes()).hexdigest()
-          assert m['effective_main_rules_sha256']==hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest()
-          assert m['main_branch_policy_sha256']==hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest()
+              policy_digests[filename]=reported
+          assert m['environment_policy_sha256']==policy_digests['environment-policy-v1.json']
+          assert m['effective_main_rules_sha256']==policy_digests['effective-main-rules-v1.json']
+          assert m['main_branch_policy_sha256']==policy_digests['main-branch-policy-v1.json']
           handoff_basis=m['publication_handoff_basis']
           assert hashlib.sha256(json.dumps(handoff_basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()==m['publication_handoff_sha256']
           assert handoff_basis['schema']=='MYCELIX-COS-DURABLE-PUBLICATION-HANDOFF-BASIS-V1'
