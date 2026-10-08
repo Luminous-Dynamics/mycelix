@@ -99,7 +99,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 60
+    assert policy["policy_version"] == 61
     assert policy["repository_identity"] == {
         "full_name": "Luminous-Dynamics/mycelix",
         "repository_id": 1176351975,
@@ -1075,6 +1075,7 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
         "trigger_workflow": {
             "name": "D6S Canonical Qualification",
             "path": ".github/workflows/d6s-canonical-qualification.yml",
+            "workflow_id": 371215723,
         },
         "required_source_blobs": {
             ".github/workflows/d6s-canonical-qualification.yml": "f" * 40,
@@ -1093,6 +1094,7 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
         "repository": {"id": 9002, "full_name": "Luminous-Dynamics/mycelix"},
         "name": "D6S Canonical Qualification",
         "path": ".github/workflows/d6s-canonical-qualification.yml",
+        "workflow_id": 371215723,
         "event": "pull_request",
         "conclusion": "success",
         "head_repository": {"id": 9002, "full_name": "Luminous-Dynamics/mycelix"},
@@ -1112,6 +1114,14 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
     assert_rejected(
         lambda: verify_trigger_run_record(record, bad_trigger, policy, "Luminous-Dynamics/mycelix"),
         "tampered trigger SHA was accepted",
+    )
+
+    bad_workflow_id = {**trigger, "workflow_id": 999}
+    assert_rejected(
+        lambda: verify_trigger_run_record(
+            record, bad_workflow_id, policy, "Luminous-Dynamics/mycelix"
+        ),
+        "tampered trigger workflow ID was accepted",
     )
 
     bad_blob = {**record, "trigger_workflow_blob_sha": "e" * 40}
@@ -2941,7 +2951,7 @@ def test_trusted_builder_documentation_is_current() -> None:
     documentation = (root / "docs/integral/d6u-trusted-builder.md").read_text(
         encoding="utf-8"
     )
-    assert "Current trusted policy revision: v60." in documentation
+    assert "Current trusted policy revision: v61." in documentation
     assert "seventy-two deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
