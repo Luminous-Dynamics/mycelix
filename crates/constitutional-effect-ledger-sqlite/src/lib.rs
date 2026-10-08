@@ -3065,6 +3065,174 @@ mod tests {
     }
 
     #[test]
+    fn resolution_binding_reconciles_against_durable_attempt_and_admission_receipt() {
+        use crate::boundary::{FinalProviderEntryProofV1, ProviderActionContextV1};
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("resolution-binding-reconciliation.db");
+        let mut store = SqliteActionFenceStore::open(&path).unwrap();
+        let action = key("resolution-binding-action");
+        let owner = attempt("resolution-binding-attempt");
+        let operation = "resolution-binding-operation";
+        let native_replay = "resolution-binding-native-replay";
+        let owner_token = format!("owner-token-{}", owner.attempt_id());
+        let claim_token =
+            "constitutional-provider-entry-claim-token-v1:resolution-binding-test";
+
+        let consumed = record(
+            owner.attempt_id(),
+            operation,
+            native_replay,
+            &action,
+            AttemptRecordState::Consumed,
+        );
+        let admission = AuthorizationAdmissionProofV1::new(
+            &consumed,
+            &action,
+            100,
+            10_000,
+            "authorization-snapshot-v1",
+            "policy-snapshot-v1",
+            "status-snapshot-v1",
+            "admission-verifier-v1",
+        )
+        .unwrap();
+
+        store
+            .atomically_admit(&action, &owner, consumed, admission.clone(), 101)
+            .unwrap();
+        store
+            .atomically_mark_dispatch_pending(&action, &owner, &owner_token)
+            .unwrap();
+
+        let pending = store.durably_read_attempt(&owner).unwrap().unwrap();
+        let context = ProviderActionContextV1::from_attempt(&pending, &action).unwrap();
+        let final_entry = FinalProviderEntryProofV1::new(
+            &pending,
+            &context,
+            120,
+            9_000,
+            "authorization-snapshot-v1",
+            "status-snapshot-v1",
+            "final-entry-verifier-v1",
+        )
+        .unwrap();
+
+        store
+            .atomically_claim_provider_entry(&action, &owner, &owner_token, claim_token)
+            .unwrap();
+        store
+            .atomically_record_provider_entry_proof(
+                &action,
+                &owner,
+                &owner_token,
+                final_entry.digest().to_owned(),
+            )
+            .unwrap();
+        store
+            .atomically_mark_invoked(&action, &owner, &owner_token, claim_token)
+            .unwrap();
+
+        let invoked = store.durably_read_attempt(&owner).unwrap().unwrap();
+        let terminal = TerminalEvidenceV1::from_attempt(
+            &action,
+            &invoked,
+            TerminalOutcomeV1::Executed,
+            invoked.provider_idempotency_key().to_owned(),
+            "provider-outcome-commitment-v1",
+            "terminal-verifier-v1",
+        )
+        .unwrap();
+        store
+            .atomically_close_executed(&action, &owner, &owner_token, &terminal)
+            .unwrap();
+
+        let binding = DurableResolutionBindingV1 {
+            attempt_identity: owner.digest().to_owned(),
+            action_key_digest: action.digest().to_owned(),
+            terminal_evidence_digest: terminal.digest().to_owned(),
+            authorization_admission_proof_digest: admission.digest().to_owned(),
+            final_provider_entry_proof_digest: final_entry.digest().to_owned(),
+        };
+
+        let reconciled = store
+            .reconcile_resolution_binding(
+                &binding,
+                action.material_action_digest(),
+                action.effecting_target_identity(),
+                DurableResolutionOutcomeV1::Executed,
+            )
+            .unwrap();
+        assert_eq!(reconciled.state, AttemptRecordState::Executed);
+
+        let mut wrong_terminal = binding.clone();
+        wrong_terminal.terminal_evidence_digest =
+            format!("{}{}", "constitutional-terminal-evidence-v3:", "0".repeat(64));
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &wrong_terminal,
+                    action.material_action_digest(),
+                    action.effecting_target_identity(),
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("terminal-evidence digest")
+        );
+
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &binding,
+                    "different-prepared-action-digest",
+                    action.effecting_target_identity(),
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("action digest")
+        );
+
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &binding,
+                    action.material_action_digest(),
+                    "different-prepared-effect-target",
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("effecting target")
+        );
+
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &binding,
+                    action.material_action_digest(),
+                    action.effecting_target_identity(),
+                    DurableResolutionOutcomeV1::Failed,
+                )
+                .unwrap_err()
+                .contains("does not match durable attempt state")
+        );
+
+        drop(store);
+        let reopened = SqliteActionFenceStore::open(&path).unwrap();
+        assert_eq!(
+            reopened
+                .reconcile_resolution_binding(
+                    &binding,
+                    action.material_action_digest(),
+                    action.effecting_target_identity(),
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap()
+                .state,
+            AttemptRecordState::Executed
+        );
+    }
+
+    #[test]
     fn authorization_admission_receipt_survives_restart() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("authorization-receipt-restart.db");
