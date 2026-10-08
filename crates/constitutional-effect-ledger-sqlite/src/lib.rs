@@ -838,6 +838,28 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
 
 }
 
+fn read_nonnegative_unix_ms(value: i64, column: usize) -> Result<u64, rusqlite::Error> {
+    u64::try_from(value).map_err(|_| {
+        rusqlite::Error::FromSqlConversionFailure(
+            column,
+            rusqlite::types::Type::Integer,
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "negative authorization admission proof timestamp",
+            )),
+        )
+    })
+}
+
+fn unix_ms_to_sql_i64(value: u64) -> Result<i64, rusqlite::Error> {
+    i64::try_from(value).map_err(|_| {
+        rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "authorization admission proof timestamp exceeds SQLite INTEGER range",
+        )))
+    })
+}
+
 fn storage_error(error: impl ToString) -> ActionFenceMutationError {
     ActionFenceMutationError::StorageFailure(error.to_string())
 }
@@ -1738,8 +1760,8 @@ fn insert_authorization_admission_proof_tx(
             proof.authorization_snapshot_digest(),
             proof.policy_snapshot_digest(),
             proof.status_snapshot_digest(),
-            proof.checked_at_unix_ms() as i64,
-            proof.valid_until_unix_ms() as i64,
+            unix_ms_to_sql_i64(proof.checked_at_unix_ms())?,
+            unix_ms_to_sql_i64(proof.valid_until_unix_ms())?,
             proof.verifier_identity(),
             proof.digest(),
         ],
@@ -1766,7 +1788,8 @@ fn load_authorization_admission_proof_tx(
                 row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,
                 row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?,
                 row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?,
-                row.get::<_, i64>(12)? as u64, row.get::<_, i64>(13)? as u64,
+                read_nonnegative_unix_ms(row.get(12)?, 12)?,
+                read_nonnegative_unix_ms(row.get(13)?, 13)?,
                 row.get(14)?, row.get(15)?,
             )
             .map_err(|e| rusqlite::Error::InvalidParameterName(e))
@@ -3348,6 +3371,48 @@ mod tests {
         drop(conn);
         assert!(SqliteActionFenceStore::open(&path).is_err());
     }
+    #[test]
+    fn negative_authorization_admission_timestamp_fails_closed_on_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("authorization-receipt-negative-time.db");
+        let action = key("authorization-receipt-negative-time");
+        let owner = attempt("attempt-authorization-receipt-negative-time");
+        let record = record(
+            "attempt-authorization-receipt-negative-time",
+            "operation-authorization-receipt-negative-time",
+            "native-authorization-receipt-negative-time",
+            &action,
+            AttemptRecordState::Consumed,
+        );
+        let proof = AuthorizationAdmissionProofV1::new(
+            &record,
+            &action,
+            100,
+            200,
+            "authorization-snapshot-v1",
+            "policy-snapshot-v1",
+            "status-snapshot-v1",
+            "test-admission-verifier-v1",
+        )
+        .unwrap();
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            store.atomically_admit(&action, &owner, record, proof, 100).unwrap();
+        }
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            &format!(
+                "UPDATE {AUTHORIZATION_PROOF_TABLE}
+                 SET checked_at_unix_ms = -1
+                 WHERE attempt_identity = ?1"
+            ),
+            params![owner.digest()],
+        )
+        .unwrap();
+        drop(conn);
+        assert!(SqliteActionFenceStore::open(&path).is_err());
+    }
+
     #[test]
     fn authorization_admission_receipt_tamper_fails_closed() {
         let dir = tempfile::tempdir().unwrap();
