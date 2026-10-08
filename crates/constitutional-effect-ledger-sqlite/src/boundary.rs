@@ -1940,23 +1940,30 @@ mod tests {
         })
     }
 
+    fn test_registry(provider: Box<dyn ProviderAdapter>) -> PinnedProviderAdapterRegistry {
+        PinnedProviderAdapterRegistry::new([provider]).unwrap()
+    }
+
     fn test_host(store: SqliteActionFenceStore) -> EffectBoundaryHostV1 {
-        EffectBoundaryHostV1::new(
-            store,
-            test_root(),
-            PinnedProviderAdapterRegistry::new([default_test_provider()]).unwrap(),
-        )
-        .unwrap()
+        EffectBoundaryHostV1::new(store, test_root(), test_registry(default_test_provider()))
+            .unwrap()
     }
 
     fn test_host_with_provider(
         store: SqliteActionFenceStore,
         provider: Box<dyn ProviderAdapter>,
     ) -> EffectBoundaryHostV1 {
+        EffectBoundaryHostV1::new(store, test_root(), test_registry(provider)).unwrap()
+    }
+
+    fn test_host_with_admission(
+        store: SqliteActionFenceStore,
+        admission: Box<dyn AdmissionAuthorizer>,
+    ) -> EffectBoundaryHostV1 {
         EffectBoundaryHostV1::new(
             store,
-            test_root(),
-            PinnedProviderAdapterRegistry::new([provider]).unwrap(),
+            test_root_with_admission(admission),
+            test_registry(default_test_provider()),
         )
         .unwrap()
     }
@@ -1975,7 +1982,7 @@ mod tests {
                 Box::new(AllowFinalEntry),
                 "final-entry-verifier-v1",
             ),
-            PinnedProviderAdapterRegistry::new([provider]).unwrap(),
+            test_registry(provider),
         )
         .unwrap()
     }
@@ -1994,7 +2001,7 @@ mod tests {
                 final_entry,
                 final_entry_identity,
             ),
-            PinnedProviderAdapterRegistry::new([provider]).unwrap(),
+            test_registry(provider),
         )
         .unwrap()
     }
@@ -2052,9 +2059,34 @@ mod tests {
         .unwrap()
     }
 
+    fn attempt_record_with_adapter(
+        id: &str,
+        op: &str,
+        adapter_identity: &str,
+        state: AttemptRecordState,
+    ) -> AttemptRecordV1 {
+        let action = action();
+        AttemptRecordV1::new(
+            &identity(id),
+            op,
+            format!("native-{op}"),
+            action.material_action_digest(),
+            &action,
+            Some("provider-seed".into()),
+            Some("provider-descriptor".into()),
+            "provider-env",
+            "provider-audience",
+            adapter_identity,
+            format!("owner-{id}"),
+            state,
+        )
+        .unwrap()
+    }
+
     fn attempt_record(id: &str, op: &str, state: AttemptRecordState) -> AttemptRecordV1 {
         attempt_record_with_adapter(id, op, "provider-adapter-v1", state)
     }
+
     #[test]
     fn provider_idempotency_key_excludes_operation_identifier() {
         let action_key = action();
