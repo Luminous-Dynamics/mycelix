@@ -6,14 +6,14 @@
   "subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v6-contestability-subject",
-    "head_sha": "8b4b5f19b44ca7427ef70182b94c9c251d400a66",
-    "tree_sha": null,
-    "tree_binding": "required-exact-tree; qualification must fail closed until resolved"
+    "head_sha": "925b4a2608b0f41c649b97d4be29917f6a345473",
+    "tree_sha": "b8ca595caa65ec7965cb6f694f1a063134cb9f1a",
+    "tree_binding": "verified-exact-tree; independently resolved from the exact subject commit"
   },
   "models": {
     "tla": {
       "path": "mycelix-governance/specs/EffectiveContestabilityV1.tla",
-      "git_blob_sha": "0392dafe64a6d4ff000ee682340f2e6774b22955",
+      "git_blob_sha": "2ce2438a0ffdc82b905b98c3eb7503ee53595f86",
       "config_path": "mycelix-governance/specs/EffectiveContestabilityV1.cfg",
       "config_git_blob_sha": "deafbd5e4719e7439d63d7b505e539aba17fcb5d",
       "invariants": [
@@ -30,14 +30,15 @@
     },
     "negative_tla": {
       "path": "mycelix-governance/specs/EffectiveContestabilityV1NegativeControls.tla",
-      "git_blob_sha": "37ea5de70631a096a4f2362c6348011a8f6a252c",
+      "git_blob_sha": "ceae5af0ba4f1e10430e139692eeea0a2f91fce9",
       "controls": {
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
         "switch-obligation": "MigrationPreservesObligationsAndHistory",
         "switch-jurisdiction": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction",
-        "switch-review": "HighSwitchingCostTriggersReview"
+        "switch-review": "HighSwitchingCostTriggersReview",
+        "switch-authority": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction"
       }
     },
     "alloy": {
@@ -77,14 +78,15 @@
     },
     "reference": {
       "path": "mycelix-governance/tools/formal/effective_contestability_reference_explorer.py",
-      "git_blob_sha": "0fd0288e228128135eeb08eb3abc8bf6154639a4",
+      "git_blob_sha": "9c053422b1aaeb274847a629839b93315de54cc3",
       "controls": {
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
         "switch-obligation": "MigrationPreservesObligationsAndHistory",
         "switch-jurisdiction": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction",
-        "switch-review": "HighSwitchingCostTriggersReview"
+        "switch-review": "HighSwitchingCostTriggersReview",
+        "switch-authority": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority"
       }
     }
   },
