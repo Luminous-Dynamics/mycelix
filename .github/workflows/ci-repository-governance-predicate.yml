@@ -77,7 +77,22 @@ jobs:
           import json
           from pathlib import Path
 
-          policy = json.loads(Path("docs/ci/repository_governance_policy_v1.json").read_text())
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON object key: {key!r}")
+                  result[key] = value
+              return result
+
+          def reject_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value!r}")
+
+          policy = json.loads(
+              Path("docs/ci/repository_governance_policy_v1.json").read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_constant,
+          )
           required = policy["required_controls"]
           assert required["bypass_actors_must_be_enumerated"] is True
           assert required["bypass_set_must_be_minimized"] is True
@@ -216,6 +231,8 @@ jobs:
           assert 'head == "**" and tail' in scanned_text
           assert "object_pairs_hook=_reject_duplicate_json_keys" in scanned_text
           assert "parse_constant=_reject_nonstandard_json_constant" in scanned_text
+          assert "policy = _strict_json_loads(" in scanned_text
+          assert "observation = _strict_json_loads(" in scanned_text
           assert "EXPECTED_LIVE_MAIN_SHA" in scanned_text
           assert "rulesets-payload-after.json" in scanned_text
           assert "rulesets-after/${ruleset_id}.json" in scanned_text

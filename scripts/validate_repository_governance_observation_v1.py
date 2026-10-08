@@ -65,6 +65,17 @@ def _reject_nonstandard_json_constant(value: str) -> None:
     raise EvidenceError(f"non-standard JSON constant: {value!r}")
 
 
+def _strict_json_loads(text: str, label: str) -> Any:
+    try:
+        return json.loads(
+            text,
+            object_pairs_hook=_reject_duplicate_json_keys,
+            parse_constant=_reject_nonstandard_json_constant,
+        )
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise EvidenceError(f"{label} is not valid strict JSON") from exc
+
+
 def validate_bound_raw_payload(observation: Any, name: str) -> Any:
     raw_field = f"{name}_payload_base64"
     digest_field = f"{name}_payload_sha256"
@@ -73,11 +84,7 @@ def validate_bound_raw_payload(observation: Any, name: str) -> Any:
     require(isinstance(encoded, str) and encoded != "", f"{raw_field} missing")
     try:
         raw = base64.b64decode(encoded, validate=True)
-        parsed = json.loads(
-            raw.decode("utf-8"),
-            object_pairs_hook=_reject_duplicate_json_keys,
-            parse_constant=_reject_nonstandard_json_constant,
-        )
+        parsed = _strict_json_loads(raw.decode("utf-8"), raw_field)
     except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise EvidenceError(f"{raw_field} is not valid UTF-8 JSON") from exc
     actual_digest = hashlib.sha256(raw).hexdigest()
@@ -1831,6 +1838,17 @@ def self_test(policy: dict[str, Any]) -> None:
     else:
         raise AssertionError("rehashed raw branch substitution must be rejected at normalization binding")
 
+    for malformed in (
+        '{"name":"main","name":"attacker"}',
+        '{"value":NaN}',
+    ):
+        try:
+            _strict_json_loads(malformed, "self-test")
+        except EvidenceError:
+            pass
+        else:
+            raise AssertionError("top-level strict JSON parser must reject ambiguous JSON")
+
     x = copy.deepcopy(fixture_observation(policy))
     x["admin_observation"]["source"] = "github_token"
     try:
@@ -2137,7 +2155,9 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
+        policy = _strict_json_loads(
+            Path(args.policy).read_text(encoding="utf-8"), args.policy
+        )
         if args.self_test:
             self_test(policy)
             print(json.dumps({
@@ -2150,7 +2170,9 @@ def main() -> int:
             return 0
 
         require(args.observation is not None, "--observation is required unless --self-test")
-        observation = json.loads(Path(args.observation).read_text(encoding="utf-8"))
+        observation = _strict_json_loads(
+            Path(args.observation).read_text(encoding="utf-8"), args.observation
+        )
         result = evaluate(policy, observation)
         print(json.dumps(result, sort_keys=True))
         return 0 if result["valid"] else 2
