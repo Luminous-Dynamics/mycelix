@@ -12,6 +12,7 @@ REQUIRED_KEYS = {
     "tla_invariant",
     "tla_control",
     "alloy_witness",
+    "alloy_mutant_fact",
     "reference_marker",
 }
 
@@ -51,6 +52,8 @@ def main() -> int:
             raise SystemExit(f"AUTHORITY_MATRIX_FAIL: missing TLA control: {c['tla_control']}")
         if c["alloy_witness"] not in alloy:
             raise SystemExit(f"AUTHORITY_MATRIX_FAIL: missing Alloy witness: {c['alloy_witness']}")
+        if f"fact {c['alloy_mutant_fact']} " not in alloy:
+            raise SystemExit(f"AUTHORITY_MATRIX_FAIL: missing Alloy mutant fact: {c['alloy_mutant_fact']}")
         for marker in c["reference_marker"].split(" -> "):
             if marker not in reference:
                 raise SystemExit(f"AUTHORITY_MATRIX_FAIL: missing reference marker: {marker}")
