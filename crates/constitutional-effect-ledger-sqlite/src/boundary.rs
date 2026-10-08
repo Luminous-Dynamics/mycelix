@@ -722,28 +722,6 @@ impl EffectBoundaryHostV1 {
         ) {
             Ok(proof) => proof,
             Err(error) => {
-                let marker =
-                    "final provider-entry proof was stale or scope-mismatched".to_owned();
-                match self.store.atomically_release_provider_entry_claim_not_entered(
-                    action_key,
-                    attempt_identity,
-                    owner_token_digest,
-                    &claim_token,
-                    marker.clone(),
-                ) {
-                    Ok(()) => return Ok(BoundaryOutcome::FinalEntryRejectedNotEntered {
-                        reason: marker,
-                    }),
-                    Err(release_error) => {
-                        return Ok(BoundaryOutcome::IndeterminateHeld {
-                            reason: format!(
-                                "final-entry gate rejected dispatch and claim release was not confirmed: {release_error:?}"
-                            ),
-                        });
-                    }
-                }
-            }
-            Err(error) => {
                 let marker = format!("final provider-entry gate rejected: {error}");
                 match self.store.atomically_release_provider_entry_claim_not_entered(
                     action_key,
