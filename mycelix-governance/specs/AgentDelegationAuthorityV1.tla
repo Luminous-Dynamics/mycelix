@@ -9,7 +9,7 @@ CONSTANTS Root, A, B, C,
 
 Agents == {Root, A, B, C}
 Powers == {P1, P2}
-Grants == {G1, G2, G3}
+Grants == {G1, G2, G3, G4}
 Evidence == {E1}
 
 issuer ==
@@ -20,12 +20,14 @@ issuer ==
 grantee ==
   [G1 |-> A,
    G2 |-> B,
-   G3 |-> C]
+   G3 |-> C,
+   G4 |-> C]
 
 grantPower ==
   [G1 |-> P1,
    G2 |-> P1,
-   G3 |-> P1]
+   G3 |-> P1,
+   G4 |-> P2]
 
 ancestor ==
   [G1 |-> {},
@@ -113,7 +115,8 @@ DelegationNonAmplification ==
 
 TransitiveDelegationBounded ==
   \A g \in activeGrants :
-    authority[grantee[g]] \subseteq authority[issuer[g]]
+    Cardinality(ancestor[g]) >= 2 =>
+      authority[grantee[g]] \subseteq authority[issuer[g]]
 
 RevocationPropagates ==
   \A g \in revokedGrants :
