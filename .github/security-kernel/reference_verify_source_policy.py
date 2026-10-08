@@ -1283,6 +1283,19 @@ def main() -> None:
 
     expect_rejection(
         lambda: verify_s0(
+            re.sub(
+                br'(?m)^    name: "Dispatch decision: ',
+                b'    name: Dispatch decision: ',
+                raw["s0"],
+                count=1,
+            ),
+            s1_sha,
+        ),
+        "S0 decision witness job name quotes removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
             raw["s0"].replace(
                 b"  group: security-kernel-trusted-dispatch-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}",
                 b"  group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}",
