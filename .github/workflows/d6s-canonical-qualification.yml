@@ -3,7 +3,7 @@ name: D6S Canonical Qualification
 on:
   push:
     branches:
-      - myc-int-demo-d6t-canonical-encoding
+      - myc-int-demo-d6u-holochain-07-runtime
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: d6s-canon-reference-${{ github.event.pull_request.number || github.ref }}
+  group: d6s-canon-reference-${{ github.workflow_ref }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -22,10 +22,15 @@ jobs:
 
   d6s-canon-reference:
     name: D6S canonical reference qualification
+    if: >-
+      github.ref == 'refs/heads/myc-int-demo-d6u-holochain-07-runtime' ||
+      github.event.pull_request.head.ref == 'myc-int-demo-d6u-holochain-07-runtime'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_HOME: ${{ runner.temp }}/d6s-cargo-home
+      RUSTUP_HOME: ${{ runner.temp }}/d6s-rustup-home
     steps:
       - name: Checkout exact qualification subject
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -36,11 +41,39 @@ jobs:
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
+      - name: Reject ambient build overrides
+        run: |
+          set -euo pipefail
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              RUSTC|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|RUSTDOC|RUSTDOC_WRAPPER|RUSTFLAGS|RUSTDOCFLAGS|              RUSTC_BOOTSTRAP|CARGO_HTTP_*|CARGO_NET_GIT_*|CARGO_PROFILE_*|              CARGO_BUILD_RUSTC|CARGO_BUILD_RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTDOCFLAGS|              CARGO_ENCODED_RUSTDOCFLAGS|CARGO_BUILD_TARGET|CARGO_NET_OFFLINE|CARGO_TARGET_DIR|              CARGO_TARGET_*_RUNNER|CARGO_TARGET_*_LINKER|CARGO_TARGET_*_RUSTFLAGS|CARGO_TARGET_*_RUSTDOCFLAGS|              CARGO_REGISTRY_TOKEN|CARGO_REGISTRIES_*_TOKEN|CARGO_REGISTRIES_*_INDEX|              GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|GIT_CONFIG_NOSYSTEM|GIT_SSH_COMMAND|GIT_PROXY_COMMAND|              RUSTUP_TOOLCHAIN|RUSTUP_DIST_SERVER|RUSTUP_UPDATE_ROOT)
+                echo "forbidden ambient build environment: $name"
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
         with:
           toolchain: 1.96.0
           components: rustfmt
+
+      - name: Assert isolated Cargo configuration
+        run: |
+          set -euo pipefail
+          test ! -e "$CARGO_HOME/config"
+          test ! -e "$CARGO_HOME/config.toml"
+          test ! -e /etc/cargo/config
+          test ! -e /etc/cargo/config.toml
+          probe="$GITHUB_WORKSPACE/mycelix-manufacturing"
+          while [ "$probe" != "/" ]; do
+            test ! -e "$probe/.cargo/config"
+            test ! -e "$probe/.cargo/config.toml"
+            probe="$(dirname "$probe")"
+          done
 
       - name: Assert Rust toolchain identity
         run: |
@@ -53,20 +86,164 @@ jobs:
       # subject; semantic/reference qualification is provided by the locked
       # corpus and independent CANON verifiers below.
 
+      - name: Reject untrusted Cargo dependency sources
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-manufacturing')
+          paths = [root / 'Cargo.toml']
+          workspace = tomllib.loads(paths[0].read_text(encoding='utf-8')).get('workspace', {})
+          for member in workspace.get('members', []):
+              if isinstance(member, str):
+                  paths.append(root / member / 'Cargo.toml')
+          seen = set()
+          def walk(node, where):
+              if isinstance(node, dict):
+                  if 'git' in node:
+                      raise SystemExit(f'git dependency source is forbidden: {where}')
+                  if 'registry' in node:
+                      raise SystemExit(f'non-default registry dependency source is forbidden: {where}')
+                  for key, child in node.items():
+                      walk(child, where + '.' + str(key))
+              elif isinstance(node, list):
+                  for index, child in enumerate(node):
+                      walk(child, where + '[' + str(index) + ']')
+          for path in paths:
+              if path in seen:
+                  continue
+              seen.add(path)
+              assert path.is_file(), path
+              walk(tomllib.loads(path.read_text(encoding='utf-8')), str(path))
+          assert not Path('/etc/cargo/config').exists()
+          assert not Path('/etc/cargo/config.toml').exists()
+          PY
       - name: Generate reference-test dependency lock
-        run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+        run: |
+          set -euo pipefail
+          rm -f "$CARGO_HOME/config" "$CARGO_HOME/config.toml"
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE             cargo +1.96.0 generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+          test -s mycelix-manufacturing/Cargo.lock
+
+      - name: Re-generate reference-test dependency lock and require byte stability
+        run: |
+          set -euo pipefail
+          cp mycelix-manufacturing/Cargo.lock "$RUNNER_TEMP/d6s-cargo-lock.first"
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE             cargo +1.96.0 generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+          cmp -s mycelix-manufacturing/Cargo.lock "$RUNNER_TEMP/d6s-cargo-lock.first"
 
       - name: Assert resolved reference-test dependency graph
-        run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
 
+          lock = tomllib.loads(pathlib.Path("mycelix-manufacturing/Cargo.lock").read_text(encoding="utf-8"))
+          packages = lock.get("package", [])
+          allowed_local = {"cos_conformance", "manufacturing_common"}
+          registry = "registry+https://github.com/rust-lang/crates.io-index"
+          assert lock.get("version") == 4, lock.get("version")
+          names = {pkg["name"] for pkg in packages}
+          assert allowed_local <= names
+          for pkg in packages:
+              source = pkg.get("source")
+              if source is None:
+                  assert pkg["name"] in allowed_local, pkg
+              else:
+                  assert source == registry, (pkg["name"], source)
+          PY
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE             cargo +1.96.0 metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > "$RUNNER_TEMP/d6s-cargo-metadata.json"
+
+      - name: Probe build-script GitHub boundary
+        run: |
+          set -euo pipefail
+          probe="$RUNNER_TEMP/d6s-build-script-probe"
+          rm -rf "$probe"
+          mkdir -p "$probe/src"
+          cat > "$probe/Cargo.toml" <<'TOML'
+          [package]
+          name = "d6s-build-script-probe"
+          version = "0.0.0"
+          edition = "2024"
+          build = "build.rs"
+          TOML
+          cat > "$probe/build.rs" <<'RS'
+          use std::{env, fs, net::TcpStream, path::Path};
+          fn main() {
+              for key in [
+                  "GITHUB_TOKEN", "GH_TOKEN", "ACTIONS_RUNTIME_TOKEN",
+                  "ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+                  "GITHUB_ENV", "GITHUB_OUTPUT", "GITHUB_PATH",
+                  "GITHUB_STEP_SUMMARY", "GITHUB_STATE",
+              ] {
+                  assert!(env::var_os(key).is_none(), "build script inherited {key}");
+              }
+              assert!(!Path::new("/var/run/docker.sock").exists());
+              let marker = env::temp_dir().join("d6s-build-script-probe.txt");
+              fs::write(&marker, "build-script-ran\n").expect("tmpfs write should work");
+              assert!(TcpStream::connect_timeout(&"1.1.1.1:443".parse().unwrap(), std::time::Duration::from_millis(250)).is_err());
+          }
+          RS
+          printf 'fn main() {}\n' > "$probe/src/main.rs"
+          before_env="$RUNNER_TEMP/d6s-github-env-before"
+          before_output="$RUNNER_TEMP/d6s-github-output-before"
+          before_path="$RUNNER_TEMP/d6s-github-path-before"
+          : > "$before_env"; : > "$before_output"; : > "$before_path"
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE \
+            CARGO_HOME="$CARGO_HOME" RUSTUP_HOME="$RUSTUP_HOME" \
+            cargo +1.96.0 check --manifest-path "$probe/Cargo.toml" --offline
+          cmp -s "$before_env" "$RUNNER_TEMP/d6s-github-env-before"
+          cmp -s "$before_output" "$RUNNER_TEMP/d6s-github-output-before"
+          cmp -s "$before_path" "$RUNNER_TEMP/d6s-github-path-before"
+          rm -rf "$probe"
+      - name: Fetch locked dependency sources once, then go offline
+        run: |
+          set -euo pipefail
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_OUTPUT -u GITHUB_PATH -u GITHUB_STEP_SUMMARY -u GITHUB_STATE             cargo +1.96.0 fetch --locked --manifest-path mycelix-manufacturing/Cargo.toml
+          test ! -s "$GITHUB_ENV"
+          test ! -s "$GITHUB_PATH"
+
+      - name: Assert canonical Cargo test-target identity
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > "$RUNNER_TEMP/d6s-cargo-targets.json"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metadata = json.loads(Path(os.environ["RUNNER_TEMP"], "d6s-cargo-targets.json").read_text(encoding="utf-8"))
+          package = next((p for p in metadata["packages"] if p["name"] == "cos_conformance"), None)
+          assert package is not None, "cos_conformance package missing from Cargo metadata"
+          targets = {target["name"]: target["kind"] for target in package["targets"]}
+          required = {
+              "d6s_canon_1_golden_vectors": ["test"],
+              "d6s_canon_2_authority_boundary": ["test"],
+          }
+          observed = {name: targets.get(name) for name in required}
+          assert observed == required, (
+              "D6S Cargo test-target identity mismatch: "
+              f"expected={required!r} observed={targets!r}"
+          )
+          PY
       # D6S qualification is scoped to the D6S reference contracts. The
       # broader COS workspace contains unrelated suites whose baseline state
       # must not gate this specific reference qualification.
-      - name: Run D6S canonical integration suites
+      - name: Run D6S canonical integration suites offline
         run: >-
-          cargo test
-          --manifest-path mycelix-manufacturing/Cargo.toml
+          env
+          -u GITHUB_TOKEN
+          -u GH_TOKEN
+          -u ACTIONS_RUNTIME_TOKEN
+          -u ACTIONS_ID_TOKEN_REQUEST_URL
+          -u ACTIONS_ID_TOKEN_REQUEST_TOKEN
+          cargo +1.96.0 test
           --locked
+          --offline
+          --manifest-path mycelix-manufacturing/Cargo.toml
           -p cos_conformance
           --test d6s_canon_1_golden_vectors
           --test d6s_canon_2_authority_boundary
@@ -85,7 +262,8 @@ jobs:
             echo "commit=${QUALIFIED_SHA}"
             echo "workflow=${GITHUB_WORKFLOW}"
             echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
-            echo "workflow_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+            echo "workflow_file_commit_sha=${GITHUB_WORKFLOW_SHA}"
+            echo "workflow_file_blob_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
             echo "run_id=${GITHUB_RUN_ID}"
             echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "event=${GITHUB_EVENT_NAME}"
