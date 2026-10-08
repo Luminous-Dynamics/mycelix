@@ -23,7 +23,7 @@ grantee ==
   [G1 |-> A,
    G2 |-> B,
    G3 |-> C,
-   G4 |-> C]
+   G4 |-> B]
 
 grantPower == GrantPower
 
@@ -115,7 +115,7 @@ DelegationNonAmplification ==
 TransitiveDelegationBounded ==
   \A g \in activeGrants :
     \A a \in ancestor[g] :
-      grantPower[g] = grantPower[a]
+      grantPower[g] \in authority[issuer[a]]
 
 RevocationPropagates ==
   \A g \in revokedGrants :
