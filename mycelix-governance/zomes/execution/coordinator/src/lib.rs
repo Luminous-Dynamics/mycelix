@@ -1664,10 +1664,16 @@ fn find_executed_resolution_for_prepared_execution(
     timelock_record: &Record,
     timelock: &Timelock,
 ) -> ExternResult<Option<ExecutionResolution>> {
+    // Use the stable timelock-ID index rather than TimelockToExecution from the
+    // latest timelock ActionHash. The timelock is updated Ready -> Prepared,
+    // so the source ActionHash at which the execution link was created is not
+    // the latest timelock ActionHash.
+    let execution_by_timelock_anchor =
+        format!("execution_by_timelock:{}", timelock.id);
     let execution_links = get_links(
         LinkQuery::try_new(
-            timelock_record.action_address().clone(),
-            LinkTypes::TimelockToExecution,
+            anchor_hash(&execution_by_timelock_anchor)?,
+            LinkTypes::ExecutionByTimelock,
         )?,
         GetStrategy::default(),
     )?;
