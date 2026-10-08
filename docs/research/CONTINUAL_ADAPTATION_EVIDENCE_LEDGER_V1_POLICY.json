@@ -1,61 +1,199 @@
 {
-  "schema":"mycelix.continual-adaptation.evidence-ledger-policy.v1",
-  "status":"research-policy-only",
-  "canonicalization":{
-    "profile":"RFC8785-JCS-subset",
-    "hash":"SHA-256",
-    "numeric_policy":"reject"
+  "schema": "mycelix.continual-adaptation.evidence-ledger-policy.v1",
+  "status": "research-policy-only",
+  "canonicalization": {
+    "profile": "RFC8785-JCS-subset",
+    "hash": "SHA-256",
+    "numeric_policy": "reject"
   },
-  "required_nodes":[
-    {"id":"claim","type":"Claim"},
-    {"id":"subject","type":"Subject"},
-    {"id":"campaign","type":"CampaignPlan"},
-    {"id":"attempts","type":"AttemptCensus"},
-    {"id":"evaluator","type":"EvaluationEvaluator"},
-    {"id":"reference","type":"Reference"},
-    {"id":"intervention","type":"Intervention"},
-    {"id":"observation","type":"ObservationPolicy"},
-    {"id":"measurement","type":"Measurement"},
-    {"id":"result","type":"Result"},
-    {"id":"transport","type":"TransportAssessment"},
-    {"id":"freshness","type":"FreshnessAssessment"}
+  "required_nodes": [
+    {
+      "id": "claim",
+      "type": "Claim"
+    },
+    {
+      "id": "subject",
+      "type": "Subject"
+    },
+    {
+      "id": "campaign",
+      "type": "CampaignPlan"
+    },
+    {
+      "id": "attempts",
+      "type": "AttemptCensus"
+    },
+    {
+      "id": "evaluator",
+      "type": "EvaluationEvaluator"
+    },
+    {
+      "id": "reference",
+      "type": "Reference"
+    },
+    {
+      "id": "intervention",
+      "type": "Intervention"
+    },
+    {
+      "id": "observation",
+      "type": "ObservationPolicy"
+    },
+    {
+      "id": "measurement",
+      "type": "Measurement"
+    },
+    {
+      "id": "result",
+      "type": "Result"
+    },
+    {
+      "id": "transport",
+      "type": "TransportAssessment"
+    },
+    {
+      "id": "freshness",
+      "type": "FreshnessAssessment"
+    }
   ],
-  "required_edges":[
-    ["result","claim","qualifies"],
-    ["result","evaluator","generated_by"],
-    ["evaluator","reference","uses"],
-    ["evaluator","attempts","uses"],
-    ["attempts","campaign","derived_from"],
-    ["campaign","subject","applies_to"],
-    ["campaign","intervention","uses"],
-    ["campaign","observation","uses"],
-    ["campaign","measurement","uses"],
-    ["claim","transport","requires"],
-    ["claim","freshness","requires"],
-    ["claim","subject","applies_to"]
+  "required_edges": [
+    [
+      "result",
+      "claim",
+      "qualifies"
+    ],
+    [
+      "result",
+      "evaluator",
+      "generated_by"
+    ],
+    [
+      "evaluator",
+      "reference",
+      "uses"
+    ],
+    [
+      "evaluator",
+      "attempts",
+      "uses"
+    ],
+    [
+      "attempts",
+      "campaign",
+      "derived_from"
+    ],
+    [
+      "campaign",
+      "subject",
+      "applies_to"
+    ],
+    [
+      "campaign",
+      "intervention",
+      "uses"
+    ],
+    [
+      "campaign",
+      "observation",
+      "uses"
+    ],
+    [
+      "campaign",
+      "measurement",
+      "uses"
+    ],
+    [
+      "claim",
+      "transport",
+      "requires"
+    ],
+    [
+      "claim",
+      "freshness",
+      "requires"
+    ],
+    [
+      "claim",
+      "subject",
+      "applies_to"
+    ]
   ],
-  "equality_constraints":[
-    {"left":["claim","subject"],"right":["subject","commitment"],"failure_verdict":"unqualified","reason":"claim subject must equal subject commitment"},
-    {"left":["claim","target"],"right":["transport","target"],"failure_verdict":"unqualified","reason":"claim target must equal transport target"}
+  "equality_constraints": [
+    {
+      "left": [
+        "claim",
+        "subject"
+      ],
+      "right": [
+        "subject",
+        "commitment"
+      ],
+      "failure_verdict": "unqualified",
+      "reason": "claim subject must equal subject commitment"
+    },
+    {
+      "left": [
+        "claim",
+        "target"
+      ],
+      "right": [
+        "transport",
+        "target"
+      ],
+      "failure_verdict": "unqualified",
+      "reason": "claim target must equal transport target"
+    }
   ],
-  "fixed_fields":[
-    {"node":"evaluator","field":"commitment","value":"E1","failure_verdict":"unqualified","reason":"evaluator commitment mismatch"},
-    {"node":"evaluator","field":"state","value":"fresh","failure_verdict":"unqualified","reason":"evaluator state mismatch"},
-    {"node":"intervention","field":"semantic_id","value":"U1","failure_verdict":"unqualified","reason":"intervention semantic mismatch"},
-    {"node":"measurement","field":"semantic_id","value":"M1","failure_verdict":"unqualified","reason":"measurement semantic mismatch"}
+  "fixed_fields": [
+    {
+      "node": "evaluator",
+      "field": "commitment",
+      "value": "E1",
+      "failure_verdict": "unqualified",
+      "reason": "evaluator commitment mismatch"
+    },
+    {
+      "node": "evaluator",
+      "field": "state",
+      "value": "fresh",
+      "failure_verdict": "unqualified",
+      "reason": "evaluator state mismatch"
+    },
+    {
+      "node": "intervention",
+      "field": "semantic_id",
+      "value": "U1",
+      "failure_verdict": "unqualified",
+      "reason": "intervention semantic mismatch"
+    },
+    {
+      "node": "measurement",
+      "field": "semantic_id",
+      "value": "M1",
+      "failure_verdict": "unqualified",
+      "reason": "measurement semantic mismatch"
+    }
   ],
-  "result_conflict":{
-    "node_type":"Result",
-    "qualifies_edge_to":"claim",
-    "max_qualifying_results":1,
-    "overflow_verdict":"unresolved",
-    "reason":"multiple qualifying results require reconciliation"
+  "result_conflict": {
+    "node_type": "Result",
+    "qualifies_edge_to": "claim",
+    "max_qualifying_results": 1,
+    "overflow_verdict": "unresolved",
+    "reason": "multiple qualifying results require reconciliation"
   },
-  "derived_dependence":{
-    "node_type":"Result",
-    "derived_from_field":"derived_from",
-    "source_node":"result",
-    "verdict":"qualified-with-dependence",
-    "reason":"derived result shares ancestry"
+  "derived_dependence": {
+    "node_type": "Result",
+    "derived_from_field": "derived_from",
+    "source_node": "result",
+    "verdict": "qualified-with-dependence",
+    "reason": "derived result shares ancestry"
+  },
+  "graph_canonicalization": {
+    "node_collection": "unordered-by-id",
+    "edge_collection": "unordered-by-tuple",
+    "reject_duplicate_node_ids": true,
+    "reject_duplicate_edges": true,
+    "reject_dangling_edges": true,
+    "semantic_array_order": "preserve"
   }
 }
