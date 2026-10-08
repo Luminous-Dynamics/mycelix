@@ -312,14 +312,6 @@ def main() -> None:
     collector = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(collector)
 
-    calls = 0
-    def dynamic_page(page):
-        nonlocal_calls = None
-        return (2, [
-            {"id": 1, "name": "artifact-a"},
-            {"id": 2 if calls < 2 else 3, "name": "artifact-b"},
-        ]) if page == 1 else (2, [])
-
     class Counter:
         value = 0
 
