@@ -378,8 +378,9 @@ pub fn check_update_timelock(original: &Timelock, updated: &Timelock) -> Result<
         | (TimelockStatus::Pending, TimelockStatus::Cancelled)
         | (TimelockStatus::Ready, TimelockStatus::Prepared)
         | (TimelockStatus::Ready, TimelockStatus::Cancelled)
-        | (TimelockStatus::Prepared, TimelockStatus::Executed)
-        | (TimelockStatus::Prepared, TimelockStatus::Failed)
+        // Prepared execution cannot be terminalized by an ordinary timelock
+        // update. Terminal outcome acceptance requires a separately qualified
+        // resolution path; cancellation remains available to the creator.
         | (TimelockStatus::Prepared, TimelockStatus::Cancelled)
         // Veto override transitions:
         | (TimelockStatus::Ready, TimelockStatus::Vetoed)      // Guardian veto
