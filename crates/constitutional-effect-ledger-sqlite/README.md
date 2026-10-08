@@ -87,3 +87,18 @@ and the boundary requires it to match before terminal evidence is constructed.
 Terminal evidence uses the idempotency key in its v3 digest domain as well.
 Consequently, changing the downstream idempotency identity changes the
 terminal-evidence commitment rather than leaving it as an unbound adapter detail.
+
+
+## Provider least privilege
+
+The provider adapter no longer receives AttemptRecordV1 directly. It receives a
+ProviderEntryPermitV1 for entry and a ProviderActionContextV1 for reconciliation.
+
+The provider-facing context contains only the frozen material action/provider
+fields needed downstream: action and target digests, operation and native replay
+identity, provider-reference descriptors, provider environment/audience, adapter
+identity, and the provider idempotency key.
+
+Boundary custody material is intentionally absent from that type. In particular,
+provider adapters cannot depend on or receive the owner token, durable lifecycle
+state, reconciliation token, or terminal-evidence state.
