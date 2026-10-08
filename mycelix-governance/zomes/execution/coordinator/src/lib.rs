@@ -53,6 +53,10 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(anchor))
 }
 
+fn execution_by_timelock_anchor(timelock_id: &str) -> String {
+    format!("execution_by_timelock:{timelock_id}")
+}
+
 /// O(1) link-based lookup: find an execution record by its ID.
 fn find_execution_by_id(execution_id: &str) -> ExternResult<Record> {
     let anchor_key = format!("execution:{}", execution_id);
@@ -408,8 +412,7 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
     // Stable timelock-ID index: the Timelock itself is updated from Ready to
     // Prepared after this point, so its ActionHash is not a durable lookup key
     // for the execution chain.
-    let execution_by_timelock_anchor =
-        format!("execution_by_timelock:{}", input.timelock_id);
+    let execution_by_timelock_anchor = execution_by_timelock_anchor(&input.timelock_id);
     create_entry(&EntryTypes::Anchor(Anchor(
         execution_by_timelock_anchor.clone(),
     )))?;
@@ -1668,8 +1671,7 @@ fn find_executed_resolution_for_prepared_execution(
     // latest timelock ActionHash. The timelock is updated Ready -> Prepared,
     // so the source ActionHash at which the execution link was created is not
     // the latest timelock ActionHash.
-    let execution_by_timelock_anchor =
-        format!("execution_by_timelock:{}", timelock.id);
+    let execution_by_timelock_anchor = execution_by_timelock_anchor(timelock.id.as_str());
     let execution_links = get_links(
         LinkQuery::try_new(
             anchor_hash(&execution_by_timelock_anchor)?,
@@ -1828,6 +1830,17 @@ mod tests {
     // =========================================================================
 
     // --- TransferCredits ---
+
+    #[test]
+    fn execution_by_timelock_anchor_is_stable_across_timelock_updates() {
+        let first = execution_by_timelock_anchor("timelock-42");
+        let second = execution_by_timelock_anchor("timelock-42");
+        assert_eq!(first, second);
+        assert_eq!(first, "execution_by_timelock:timelock-42");
+
+        let other = execution_by_timelock_anchor("timelock-43");
+        assert_ne!(first, other);
+    }
 
     #[test]
     fn execution_resolution_for_release_requires_exact_source_anchors() {
