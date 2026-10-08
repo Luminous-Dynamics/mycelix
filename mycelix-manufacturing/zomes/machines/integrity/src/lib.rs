@@ -20,9 +20,11 @@ pub const MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID: &str =
 pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
 
 pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
-    "mycelix-manufacturing-machine-time-authority-profile-v1";
+    "mycelix-manufacturing-machine-time-authority-profile-v2";
 pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
-    "mycelix-manufacturing-machine-temporal-attestation-v2";
+    "mycelix-manufacturing-machine-temporal-attestation-v3";
+/// Hard upper bound used to keep temporal uncertainty arithmetic bounded.
+pub const MAX_MACHINE_TEMPORAL_ACCURACY_MICROS: i64 = 86_400_000_000;
 /// Maximum encoded size for the opaque external evidence commitment.
 pub const MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES: usize = 128;
 
@@ -34,6 +36,7 @@ pub struct MachineTemporalEvidenceObservation {
     pub subject_hash: ActionHash,
     pub evidence_kind: MachineTemporalEvidenceKind,
     pub attested_at: Timestamp,
+    pub accuracy_micros: i64,
     pub source_reference: String,
     pub source_commitment: Vec<u8>,
 }
@@ -61,7 +64,10 @@ pub fn resolve_temporal_evidence(
     match evidence.as_slice() {
         [] => MachineTemporalEvidenceResolution::NoEvidence,
         [first, rest @ ..]
-            if rest.iter().all(|observation| observation.attested_at == first.attested_at) =>
+            if rest.iter().all(|observation| {
+                observation.attested_at == first.attested_at
+                    && observation.accuracy_micros == first.accuracy_micros
+            }) =>
         {
             MachineTemporalEvidenceResolution::Unique {
                 time: first.attested_at,
@@ -86,6 +92,7 @@ pub struct MachineTimeAuthorityProfilePayload {
     pub source_profile: String,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
+    pub max_accuracy_micros: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -96,6 +103,7 @@ pub struct MachineTemporalAttestationPayload {
     pub subject_hash: ActionHash,
     pub evidence_kind: MachineTemporalEvidenceKind,
     pub attested_at: Timestamp,
+    pub accuracy_micros: i64,
     pub source_reference: String,
     pub source_commitment: Vec<u8>,
 }
@@ -161,6 +169,7 @@ pub struct MachineTimeAuthorityProfileEntry {
     pub source_profile: String,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
+    pub max_accuracy_micros: i64,
     pub registrant_signature: Signature,
 }
 
@@ -174,6 +183,7 @@ impl MachineTimeAuthorityProfileEntry {
             source_profile: self.source_profile.clone(),
             valid_from: self.valid_from,
             valid_until: self.valid_until,
+            max_accuracy_micros: self.max_accuracy_micros,
         }
     }
 }
@@ -186,6 +196,7 @@ pub struct MachineTemporalAttestationEntry {
     pub subject_hash: ActionHash,
     pub evidence_kind: MachineTemporalEvidenceKind,
     pub attested_at: Timestamp,
+    pub accuracy_micros: i64,
     pub source_reference: String,
     pub source_commitment: Vec<u8>,
     pub authority_signature: Signature,
@@ -200,6 +211,7 @@ impl MachineTemporalAttestationEntry {
             subject_hash: self.subject_hash.clone(),
             evidence_kind: self.evidence_kind.clone(),
             attested_at: self.attested_at,
+            accuracy_micros: self.accuracy_micros,
             source_reference: self.source_reference.clone(),
             source_commitment: self.source_commitment.clone(),
         }
@@ -419,9 +431,13 @@ fn validate_create_time_authority_profile(
     action: TypedAction<CreateData>,
     profile: MachineTimeAuthorityProfileEntry,
 ) -> ExternResult<ValidateCallbackResult> {
-    if profile.profile_id.is_empty() || profile.source_profile.is_empty() {
+    if profile.profile_id.is_empty()
+        || profile.source_profile.is_empty()
+        || profile.max_accuracy_micros < 0
+        || profile.max_accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "time authority profile requires profile_id and source_profile".into(),
+            "time authority profile has invalid identity or accuracy bounds".into(),
         ));
     }
     if profile.valid_until < profile.valid_from {
@@ -459,6 +475,8 @@ fn validate_create_temporal_attestation(
     if attestation.source_reference.is_empty()
         || attestation.source_commitment.is_empty()
         || attestation.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+        || attestation.accuracy_micros < 0
+        || attestation.accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
     {
         return Ok(ValidateCallbackResult::Invalid(
             "temporal attestation requires bounded source reference and commitment".into(),
@@ -475,7 +493,12 @@ fn validate_create_temporal_attestation(
     };
     if profile.machine_hash != attestation.machine_hash
         || profile.authority_agent != action.author()
-        || !temporal_profile_contains(&profile, attestation.attested_at)
+        || attestation.accuracy_micros > profile.max_accuracy_micros
+        || !temporal_profile_contains_interval(
+            &profile,
+            attestation.attested_at,
+            attestation.accuracy_micros,
+        )
     {
         return Ok(ValidateCallbackResult::Invalid(
             "temporal attestation is outside its exact machine/authority profile".into(),
@@ -497,10 +520,11 @@ fn validate_create_temporal_attestation(
                     "temporal approval evidence subject belongs to a different machine".into(),
                 ));
             }
-            if !temporal_interval_contains(
+            if !temporal_interval_contains_interval(
                 approval.valid_from,
                 approval.valid_until,
                 attestation.attested_at,
+                attestation.accuracy_micros,
             ) {
                 return Ok(ValidateCallbackResult::Invalid(
                     "temporal approval evidence falls outside approval validity".into(),
@@ -927,6 +951,43 @@ fn temporal_interval_contains(
     valid_from <= timestamp && timestamp <= valid_until
 }
 
+fn temporal_interval_bounds(
+    timestamp: Timestamp,
+    accuracy_micros: i64,
+) -> Option<(Timestamp, Timestamp)> {
+    if accuracy_micros < 0 || accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS {
+        return None;
+    }
+    let micros = timestamp.as_micros();
+    let lower = micros.checked_sub(accuracy_micros)?;
+    let upper = micros.checked_add(accuracy_micros)?;
+    Some((Timestamp::from_micros(lower), Timestamp::from_micros(upper)))
+}
+
+fn temporal_interval_contains_interval(
+    valid_from: Timestamp,
+    valid_until: Timestamp,
+    timestamp: Timestamp,
+    accuracy_micros: i64,
+) -> bool {
+    temporal_interval_bounds(timestamp, accuracy_micros)
+        .map(|(lower, upper)| valid_from <= lower && upper <= valid_until)
+        .unwrap_or(false)
+}
+
+fn temporal_profile_contains_interval(
+    profile: &MachineTimeAuthorityProfileEntry,
+    timestamp: Timestamp,
+    accuracy_micros: i64,
+) -> bool {
+    temporal_interval_contains_interval(
+        profile.valid_from,
+        profile.valid_until,
+        timestamp,
+        accuracy_micros,
+    )
+}
+
 fn temporal_profile_contains(
     profile: &MachineTimeAuthorityProfileEntry,
     timestamp: Timestamp,
@@ -1194,6 +1255,7 @@ mod content_restriction_tests {
             subject_hash: ActionHash::from_raw_36(vec![4; 36]),
             evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
             attested_at: Timestamp::from_micros(time),
+            accuracy_micros: 5,
             source_reference: format!("tsa://example/{attestation_byte}"),
             source_commitment: vec![attestation_byte; 32],
         }
@@ -1242,6 +1304,28 @@ mod content_restriction_tests {
             MachineTemporalEvidenceResolution::NoEvidence
         );
     }
+    #[test]
+    fn temporal_uncertainty_must_fit_whole_approval_window() {
+        assert!(temporal_interval_contains_interval(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(150),
+            50,
+        ));
+        assert!(!temporal_interval_contains_interval(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(150),
+            51,
+        ));
+        assert!(!temporal_interval_contains_interval(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(99),
+            0,
+        ));
+    }
+
     #[test]
     fn temporal_approval_evidence_must_overlap_approval_window() {
         assert!(temporal_interval_contains(
