@@ -33,7 +33,7 @@ pub enum MachineTemporalEvidenceResolution {
     InvalidEvidence,
 }
 
-fn resolve_temporal_times(mut times: Vec<Timestamp>) -> MachineTemporalEvidenceResolution {
+pub fn resolve_temporal_times(mut times: Vec<Timestamp>) -> MachineTemporalEvidenceResolution {
     times.sort_by_key(|time| time.as_micros());
     times.dedup();
     match times.as_slice() {
