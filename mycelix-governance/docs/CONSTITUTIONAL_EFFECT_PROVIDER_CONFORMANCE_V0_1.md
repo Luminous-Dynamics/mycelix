@@ -389,6 +389,22 @@ demonstrated and exact-head qualified.
 This separation is intentional: a hardened boundary is a prerequisite for provider
 qualification, not evidence that the providers themselves satisfy the boundary.
 
+## Resolution proof-root semantics
+
+`ExecutionResolution` now carries one authorization-admission proof commitment and
+one final-provider-entry proof commitment for each attempt/action pair, in parallel
+with the terminal evidence commitment.
+
+These values are canonical digest commitments, not Holochain `ActionHash` references.
+The integrity zome therefore validates namespace/shape and vector alignment, while the
+host-side effect boundary remains responsible for dereferencing the commitments against
+its durable admission/evidence receipts.
+
+This separation matters: a well-formed commitment is not proof that the referenced
+host-side evidence actually exists. A future promotion gate should require an independent
+host-side receipt reconciliation step before treating an `ExecutionResolution` as
+fully evidenced.
+
 ## Adapter contract added by D1D0
 
 Every future provider adapter must establish all of the following before it is eligible for live D1C execution wiring:
