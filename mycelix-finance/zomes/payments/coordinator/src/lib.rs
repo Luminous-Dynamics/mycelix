@@ -429,8 +429,8 @@ const MAX_SAP_RETRIES: usize = 3;
 const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 
 /// Credit SAP to a member's balance (used by bridge deposits and community issuance).
-/// The caller must initialize a zero balance before a caused credit; this function
-/// never mints through a non-zero balance creation.
+/// The recipient must already have an explicitly member-initialized zero balance;
+/// this function never creates a non-zero balance root.
 ///
 /// Uses optimistic locking with retry: after updating, re-reads via
 /// `follow_update_chain` to verify our update won. If a concurrent update
@@ -440,28 +440,6 @@ const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 /// Member-to-member transfers use the preceding owner-authorized `SapBalance` debit.
 /// Governance, bridge, and staking credits remain intentionally blocked until their
 /// cross-domain authorization proofs are independently verifiable (AC-154).
-fn ensure_sap_balance_entry(member_did: &str) -> ExternResult<()> {
-    if find_sap_balance_record(member_did)?.is_some() {
-        return Ok(());
-    }
-    let now = sys_time()?;
-    let balance = SapBalance {
-        member_did: member_did.to_string(),
-        balance: 0,
-        last_demurrage_at: now,
-        exemption: None,
-        justified_by: None,
-    };
-    let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
-    create_link(
-        anchor_hash(&format!("sap:{}", member_did))?,
-        action_hash,
-        LinkTypes::DidToSapBalance,
-        (),
-    )?;
-    Ok(())
-}
-
 #[hdk_extern]
 pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
     // Opportunistically drain any pending compost deliveries
@@ -707,7 +685,6 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
     // Debit the sender (enforces caller==from, demurrage, sufficient balance).
     // Initialize the receiver before the debit so the causative debit remains
     // the immediately preceding source-chain action for the credit update.
-    ensure_sap_balance_entry(&input.to_did)?;
     let debit_record = debit_sap(DebitSapInput {
         member_did: input.from_did.clone(),
         amount: input.amount,
