@@ -7,6 +7,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: effect-ledger-production-path-audit
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -57,7 +61,7 @@ jobs:
           start="$(grep -n '^pub fn execute_timelock' "$executor" | head -n1 | cut -d: -f1)"
           test -n "$start"
 
-          end="$(tail -n +"$((start + 1))" "$executor" | grep -n '^/// Input for executing actions\|^struct ActionExecutionResult' | head -n1 | cut -d: -f1 || true)"
+          end="$(tail -n +"$((start + 1))" "$executor" | grep -n '^/// Input for preparing a timelock' | head -n1 | cut -d: -f1 || true)"
           if [ -z "$end" ]; then
             end=$((start + 400))
           else
@@ -66,13 +70,39 @@ jobs:
 
           window="$(sed -n "${start},${end}p" "$executor")"
 
+          grep -Fq 'ExecutionStatus::Prepared' <<<"$window" || {
+            echo "NOT QUALIFIED: execution coordinator does not stop at explicit Prepared state."
+            exit 1
+          }
+
+          grep -Fq 'TimelockStatus::Prepared' <<<"$window" || {
+            echo "NOT QUALIFIED: timelock does not enter explicit Prepared state."
+            exit 1
+          }
+
+          grep -Fq 'validate_actions(&current_timelock.actions)' <<<"$window" || {
+            echo "NOT QUALIFIED: prepared execution does not validate its action payload before handoff."
+            exit 1
+          }
+
           if grep -Fq 'execute_actions(&current_timelock.actions)' <<<"$window"; then
             echo "NOT QUALIFIED: execute_timelock still reaches execute_actions directly."
-            echo "The durable host boundary exists, but the production consequence path is not yet mediated by it."
             exit 1
           fi
 
-          grep -Fq 'EffectBoundaryHostV1' "$executor" || {
-            echo "Production executor has no visible EffectBoundaryHostV1 integration."
+          if grep -Fq 'governance_utils::call_local' <<<"$window"; then
+            echo "NOT QUALIFIED: execute_timelock still performs a direct cross-zome effect."
+            exit 1
+          fi
+
+          grep -Fq 'EntryTypes::ExecutionResolution' "$executor" || {
+            echo "NOT QUALIFIED: host resolution attestation API is missing."
             exit 1
           }
+
+          grep -Fq 'pub fn complete_prepared_execution' "$executor" || {
+            echo "NOT QUALIFIED: prepared execution has no explicit host-resolution handoff."
+            exit 1
+          }
+
+          echo "PASS: coordinator is prepare-only; provider effects are outside the WASM execution path."
