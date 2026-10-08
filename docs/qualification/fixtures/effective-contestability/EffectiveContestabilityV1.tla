@@ -184,7 +184,7 @@ TypeOK ==
   /\ reviewRequired \in [Subjects -> BOOLEAN]
   /\ clock \in 0..MaxSwitchingCost
 
-EffectiveExitIsIndependent ==
+EffectiveExitRequiresNominalExit ==
   \A s \in Subjects, p \in effectiveExit[s] :
     p \in nominalExit[s]
 
@@ -212,10 +212,13 @@ MigrationPreservesObligationsAndHistory ==
     /\ obligationsPreserved[s]
     /\ historyPreserved[s]
 
-ProviderSwitchDoesNotTransferAuthorityOrJurisdiction ==
+ProviderSwitchDoesNotTransferAuthority ==
   \A s \in Subjects, switchObserved[s] =>
-    /\ authority[s] = authorityBeforeSwitch[s]
-    /\ jurisdiction[s] = jurisdictionBeforeSwitch[s]
+    authority[s] = authorityBeforeSwitch[s]
+
+ProviderSwitchDoesNotTransferJurisdiction ==
+  \A s \in Subjects, switchObserved[s] =>
+    jurisdiction[s] = jurisdictionBeforeSwitch[s]
 
 HighSwitchingCostTriggersReview ==
   \A s \in Subjects :
