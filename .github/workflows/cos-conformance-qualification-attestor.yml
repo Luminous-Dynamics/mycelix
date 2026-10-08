@@ -318,10 +318,14 @@ jobs:
           predicate_validation = scanned[predicate_validation_start:predicate_validation_end]
           assert "          import re" in predicate_validation
           assert "expected_receipt_keys" in scanned
-          assert "claim_id_domain = b\"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V1\\\\x00\"" in scanned
+          assert "claim_id_domain = b\"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\\\x00\"" in scanned
           assert "qualification_claim_id" in scanned
-          assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V1" in scanned
+          assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2" in scanned
           assert "expected_claim_id = hashlib.sha256" in scanned
+          assert "TRUST_ROOT_MANIFEST_SHA256" in scanned
+          assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2" in scanned
+          assert "changed_root_claim_id" in scanned
+          assert "changed_root_claim_id != receipt[\"qualification_claim_id\"]" in scanned
           assert "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V2" in scanned
           receipt_step_start = scanned.index("      - name: Write attestor run receipt")
           receipt_step_end = scanned.index("\n\n      - name: Preserve attestor evidence", receipt_step_start)
@@ -919,9 +923,13 @@ jobs:
               )
           manifest = strict_json_loads(manifest_path.read_text())
           manifest_sha = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V1\\x00"
+          trust_root_sha = os.environ["TRUST_ROOT_MANIFEST_SHA256"]
+          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
           qualification_claim_id = hashlib.sha256(
-              claim_id_domain + manifest_sha.encode("ascii")
+              claim_id_domain
+              + manifest_sha.encode("ascii")
+              + b"\\x00"
+              + trust_root_sha.encode("ascii")
           ).hexdigest()
           predicate = {
               "schema": "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V2",
@@ -993,6 +1001,7 @@ jobs:
           EXPECTED_BASE_SHA: ${{ steps.bind.outputs.expected_base_sha }}
           EXPECTED_MANIFEST_SHA: ${{ steps.validate_manifest.outputs.manifest_sha256 }}
           EXPECTED_TRUST_ROOT_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+          EXPECTED_TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
         run: |
           set -euo pipefail
           test -s signing-input/qualification-attestation-predicate-v2.json
@@ -1047,8 +1056,14 @@ jobs:
               parse_constant=reject_nonstandard_constant,
           )
           manifest_sha = hashlib.sha256(Path("signing-input/qualification-manifest-v1.json").read_bytes()).hexdigest()
-          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V1\\x00"
-          expected_claim_id = hashlib.sha256(claim_id_domain + manifest_sha.encode("ascii")).hexdigest()
+          trust_root_sha = os.environ["EXPECTED_TRUST_ROOT_MANIFEST_SHA256"]
+          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+          expected_claim_id = hashlib.sha256(
+              claim_id_domain
+              + manifest_sha.encode("ascii")
+              + b"\\x00"
+              + trust_root_sha.encode("ascii")
+          ).hexdigest()
           expected_predicate_keys = {
               "schema", "predicate_type", "claim_ceiling", "repository",
               "pr_number", "expected_head_sha", "expected_base_sha",
@@ -1410,7 +1425,10 @@ jobs:
                   "base_sha": os.environ["EXPECTED_BASE_SHA"],
               },
               "qualification_claim_id": hashlib.sha256(
-                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V1\\x00" + os.environ["MANIFEST_SHA256"].encode("ascii")
+                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+                  + os.environ["MANIFEST_SHA256"].encode("ascii")
+                  + b"\\x00"
+                  + os.environ["TRUST_ROOT_MANIFEST_SHA256"].encode("ascii")
               ).hexdigest(),
               "qualification_manifest_sha256": os.environ["MANIFEST_SHA256"],
               "predicate_sha256": os.environ["PREDICATE_SHA256"],
@@ -1484,7 +1502,10 @@ jobs:
               assert receipt["repository"] == os.environ["GITHUB_REPOSITORY"]
               assert re.fullmatch(r"[0-9a-f]{64}", receipt["qualification_claim_id"])
               expected_claim_id = hashlib.sha256(
-                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V1\\x00" + os.environ["MANIFEST_SHA256"].encode("ascii")
+                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+                  + os.environ["MANIFEST_SHA256"].encode("ascii")
+                  + b"\\x00"
+                  + os.environ["TRUST_ROOT_MANIFEST_SHA256"].encode("ascii")
               ).hexdigest()
               assert receipt["qualification_claim_id"] == expected_claim_id
 
@@ -1550,9 +1571,21 @@ jobs:
 
           changed_manifest = "0" * 64
           changed_claim_id = hashlib.sha256(
-              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V1\\x00" + changed_manifest.encode("ascii")
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+              + changed_manifest.encode("ascii")
+              + b"\\x00"
+              + receipt["trust_root"]["manifest_sha256"].encode("ascii")
           ).hexdigest()
           assert changed_claim_id != receipt["qualification_claim_id"]
+
+          changed_root = "f" * 64
+          changed_root_claim_id = hashlib.sha256(
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
+              + receipt["qualification_manifest_sha256"].encode("ascii")
+              + b"\\x00"
+              + changed_root.encode("ascii")
+          ).hexdigest()
+          assert changed_root_claim_id != receipt["qualification_claim_id"]
 
           extra = copy.deepcopy(receipt)
           extra["unexpected"] = True
