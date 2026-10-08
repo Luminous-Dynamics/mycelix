@@ -64,8 +64,8 @@ jobs:
 
           grep -Fq 'constitutional-effect-ledger = { path = "../../mycelix-governance/crates/constitutional-effect-ledger" }' "$manifest"
           grep -Fq 'rusqlite = { version = "0.32", features = ["bundled"] }' "$manifest"
-          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 5' "$source"
-          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v5' "$source"
+          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 6' "$source"
+          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v6' "$source"
           grep -Fq 'transaction_with_behavior(TransactionBehavior::Immediate)' "$source"
           grep -Fq 'PRIMARY KEY NOT NULL' "$source"
           grep -Fq 'UNIQUE' "$source"
@@ -84,7 +84,9 @@ jobs:
           grep -Fq 'provider_registry' "$boundary"
           grep -Fq 'provider adapter identity is not registered in the constructor-pinned registry' "$boundary"
           grep -Fq 'fn adapter_identity(&self)' "$boundary"
-          grep -Fq 'provider_adapter_must_match_pinned_attempt_identity' "$boundary"
+          grep -Fq 'provider_adapter_selection_requires_pinned_registry_entry' "$boundary"
+          grep -Fq 'pinned_provider_registry_rejects_duplicate_identities' "$boundary"
+          grep -Fq 'pinned_provider_registry_exposes_only_registered_identity' "$boundary"
           grep -Fq 'ProviderActionContextV1' "$boundary"
           grep -Fq 'fn reconcile(&mut self, context: &ProviderActionContextV1)' "$boundary"
           if grep -Fq 'fn reconcile(&mut self, attempt: &AttemptRecordV1)' "$boundary"; then
