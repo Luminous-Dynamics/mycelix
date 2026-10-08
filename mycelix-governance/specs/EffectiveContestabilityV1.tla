@@ -162,7 +162,7 @@ RequireReview(s) ==
   / switchingCost[s] < MaxSwitchingCost
   / switchingCost' = [switchingCost EXCEPT ![s] = @ + 1]
   / reviewRequired' =
-       [reviewRequired EXCEPT ![s] = IF @ THEN @ ELSE (@ / ((@ + 0) >= ReviewThreshold))]
+       [reviewRequired EXCEPT ![s] = IF switchingCost[s] + 1 >= ReviewThreshold THEN TRUE ELSE @]
   / UNCHANGED <<currentProvider, viableProviders, nominalExit, effectiveExit, portable,
                   obligationsPreserved, historyPreserved, authority, jurisdiction,
                   providerFailed, failureObserved, failureAuthority, switchObserved,
