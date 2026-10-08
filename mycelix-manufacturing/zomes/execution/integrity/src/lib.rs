@@ -48,12 +48,44 @@ fn bind_execution_to_work_order_revision(
     execution: &ExecutionReceiptEntry,
     work_order: &WorkOrderRevisionProjection,
 ) -> Result<(), &'static str> {
-    if execution.bom_hash != work_order.bom_hash {
-        return Err("execution BOM does not match the work-order-bound BOM revision");
+    let accepted = matches!(execution.disposition, Disposition::Accepted);
+
+    if accepted {
+        match (&work_order.bom_hash, &execution.bom_hash) {
+            (Some(work_order_bom), Some(execution_bom)) if work_order_bom == execution_bom => {}
+            (Some(_), Some(_)) => {
+                return Err("execution BOM does not match the work-order-bound BOM revision");
+            }
+            _ => {
+                return Err("accepted execution requires an exact work-order-bound BOM revision");
+            }
+        }
+        match (&work_order.routing_hash, &execution.routing_hash) {
+            (Some(work_order_routing), Some(execution_routing))
+                if work_order_routing == execution_routing => {}
+            (Some(_), Some(_)) => {
+                return Err("execution routing does not match the work-order-bound routing revision");
+            }
+            _ => {
+                return Err(
+                    "accepted execution requires an exact work-order-bound routing revision",
+                );
+            }
+        }
+        return Ok(());
     }
-    if execution.routing_hash != work_order.routing_hash {
-        return Err("execution routing does not match the work-order-bound routing revision");
+
+    if let Some(execution_bom) = &execution.bom_hash {
+        if work_order.bom_hash.as_ref() != Some(execution_bom) {
+            return Err("execution BOM does not match the work-order-bound BOM revision");
+        }
     }
+    if let Some(execution_routing) = &execution.routing_hash {
+        if work_order.routing_hash.as_ref() != Some(execution_routing) {
+            return Err("execution routing does not match the work-order-bound routing revision");
+        }
+    }
+
     Ok(())
 }
 
@@ -848,7 +880,69 @@ mod tests {
     }
 
     #[test]
-    fn accepts_execution_when_work_order_revisions_match() {
+    fn allows_rejected_execution_to_omit_planned_revisions() {
+        let execution = ExecutionReceiptEntry {
+            execution_id: "EXEC-2".into(),
+            qualification_attestation_hash: None,
+            work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
+            bom_hash: None,
+            routing_hash: None,
+            operation_sequence: 10,
+            machine_hash: ActionHash::from_raw_36(vec![3; 36]),
+            capability_contract_hash: None,
+            process_parameters_hash: None,
+            input_lot_hashes: vec![ActionHash::from_raw_36(vec![4; 36])],
+            output_lot_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
+            measurement_hashes: vec![],
+            calibration_hashes: vec![],
+            started_at: Timestamp::from_micros(0),
+            completed_at: Timestamp::from_micros(1),
+            disposition: Disposition::Rejected,
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![6; 36])],
+            notes: None,
+        };
+        let work_order = WorkOrderRevisionProjection {
+            bom_hash: Some(ActionHash::from_raw_36(vec![9; 36])),
+            routing_hash: Some(ActionHash::from_raw_36(vec![8; 36])),
+        };
+
+        assert!(bind_execution_to_work_order_revision(&execution, &work_order).is_ok());
+    }
+
+    #[test]
+    fn rejects_accepted_execution_without_exact_work_order_revision_binding() {
+        let execution = ExecutionReceiptEntry {
+            execution_id: "EXEC-3".into(),
+            qualification_attestation_hash: None,
+            work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
+            bom_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
+            routing_hash: Some(ActionHash::from_raw_36(vec![2; 36])),
+            operation_sequence: 10,
+            machine_hash: ActionHash::from_raw_36(vec![3; 36]),
+            capability_contract_hash: None,
+            process_parameters_hash: None,
+            input_lot_hashes: vec![ActionHash::from_raw_36(vec![4; 36])],
+            output_lot_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
+            measurement_hashes: vec![],
+            calibration_hashes: vec![],
+            started_at: Timestamp::from_micros(0),
+            completed_at: Timestamp::from_micros(1),
+            disposition: Disposition::Accepted,
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![6; 36])],
+            notes: None,
+        };
+        let work_order = WorkOrderRevisionProjection {
+            bom_hash: None,
+            routing_hash: None,
+        };
+
+        assert_eq!(
+            bind_execution_to_work_order_revision(&execution, &work_order),
+            Err("accepted execution requires an exact work-order-bound BOM revision")
+        );
+    }
+
+
         let execution = ExecutionReceiptEntry {
             execution_id: "EXEC-2".into(),
             qualification_attestation_hash: None,
