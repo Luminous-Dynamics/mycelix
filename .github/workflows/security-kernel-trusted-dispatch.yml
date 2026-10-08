@@ -79,9 +79,22 @@ jobs:
           import base64, json, os, re, urllib.parse, urllib.request
           repo=os.environ["BASE_REPOSITORY"]; event=os.environ["EVENT_NAME"]; token=os.environ["TOKEN"]; workflow_sha=os.environ["GITHUB_WORKFLOW_SHA"]; run_id=int(os.environ["RUN_ID"])
           headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {token}","X-GitHub-Api-Version":"2022-11-28"}
+          RATE_LIMIT_MIN_REMAINING=400
           def get(path):
               req=urllib.request.Request("https://api.github.com"+path,headers=headers)
-              with urllib.request.urlopen(req,timeout=20) as response: return json.load(response)
+              with urllib.request.urlopen(req,timeout=20) as response:
+                  remaining=response.headers.get("x-ratelimit-remaining")
+                  if remaining is None:
+                      raise SystemExit("GitHub API response omitted x-ratelimit-remaining; refusing to continue scheduled discovery")
+                  try:
+                      remaining_int=int(remaining)
+                  except ValueError as exc:
+                      raise SystemExit("GitHub API x-ratelimit-remaining was not an integer") from exc
+                  if remaining_int < RATE_LIMIT_MIN_REMAINING:
+                      raise SystemExit(
+                          f"GitHub API rate-limit reserve exhausted: remaining={remaining_int} reserve={RATE_LIMIT_MIN_REMAINING}"
+                      )
+                  return json.load(response)
           def content(path,ref):
               return get("/repos/"+repo+"/contents/"+urllib.parse.quote(path,safe="/")+"?ref="+urllib.parse.quote(ref,safe=""))
           dispatcher=content(".github/workflows/security-kernel-trusted-dispatch.yml",workflow_sha); s1=content(".github/workflows/security-kernel-independent-qualification.yml",workflow_sha)
