@@ -878,6 +878,16 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 vendor-config volume instantiated options mismatch")
     if "cargo vendor --locked --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml /vendor > /vendor-config/config.toml" not in joined:
         fail("S1 cargo vendor must read candidate dependencies directly from bounded source volume")
+    for required in (
+        "for config_path in \\\n",
+        "/cargo-home/config.toml /cargo-home/config",
+        "/source/.cargo/config.toml /source/.cargo/config",
+        "/source/crates/.cargo/config.toml /source/crates/.cargo/config",
+        "/source/crates/mycelix-bridge-common/.cargo/config.toml /source/crates/mycelix-bridge-common/.cargo/config",
+        'test ! -e "$config_path"',
+    ):
+        if required not in joined:
+            fail(f"S1 Cargo configuration closure control missing: {required!r}")
     if "dependency_source_mode=bounded-candidate-volume" not in joined:
         fail("S1 dependency subject must remain inside the bounded candidate volume")
     if "DEPENDENCY_ROOT:" in joined or "/subject/Cargo.toml" in joined:
