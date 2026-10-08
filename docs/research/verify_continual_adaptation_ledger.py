@@ -99,6 +99,7 @@ def claim_local_projection(graph: dict, policy: dict) -> dict | None:
 
     root = policy["claim_local_projection"]["root"]
     allowed = set(policy["claim_local_projection"]["relation_allowlist"])
+    directions = policy["claim_local_projection"]["relation_directions"]
     included = {root}
 
     changed = True
@@ -107,11 +108,12 @@ def claim_local_projection(graph: dict, policy: dict) -> dict | None:
         for edge in normalized["edges"]:
             if edge[2] not in allowed:
                 continue
+            relation_directions = set(directions.get(edge[2], []))
             left, right = edge[0], edge[1]
-            if left in included and right not in included:
+            if "outgoing" in relation_directions and left in included and right not in included:
                 included.add(right)
                 changed = True
-            elif right in included and left not in included:
+            if "incoming" in relation_directions and right in included and left not in included:
                 included.add(left)
                 changed = True
 
