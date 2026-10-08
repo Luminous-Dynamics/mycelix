@@ -166,7 +166,7 @@ def evaluate(c: dict, baseline: dict, forward: dict, root: dict, registry: dict,
     return "qualified"
 
 def main() -> int:
-    if len(sys.argv) != 7:
+    if len(sys.argv) != 8:
         print("usage: verify_anchor_witness.py EXPECTED_ROOT_SHA TRUST_ROOT.json REGISTRY.json BASELINE.json FORWARD.json CAMPAIGN.json REPORT.json", file=sys.stderr)
         return 2
     expected_root, root_path, registry_path, baseline_path, forward_path, campaign_path, report_path = sys.argv[1:]
@@ -191,10 +191,7 @@ def main() -> int:
         rows.append({"case_id":c["case_id"],"expected_verdict":c["expected_verdict"],"actual_verdict":v})
         if v != c["expected_verdict"]:
             failures.append([c["case_id"], c["expected_verdict"], v])
-    Path(report_path).write_text(canonical({"cases":rows,"failures":failures,"schema":"mycelix.continual-adaptation.censoring-classification-anchor-witness-report.v1","status":"research-evidence-only"}) .decode()+"\n" if isinstance(canonical({}), bytes) else "", encoding="utf-8")
-    report_path_obj=Path(report_path)
-    if report_path_obj.exists() and report_path_obj.stat().st_size == 0:
-        report_path_obj.write_text("","utf-8")
+    Path(report_path).write_bytes(canonical({"cases":rows,"failures":failures,"schema":"mycelix.continual-adaptation.censoring-classification-anchor-witness-report.v1","status":"research-evidence-only"}) + b"\n")
     print(f"cases={len(rows)} failures={len(failures)}")
     return 1 if failures else 0
 if __name__ == "__main__": raise SystemExit(main())
