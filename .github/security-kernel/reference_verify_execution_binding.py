@@ -12,7 +12,7 @@ import struct
 import sys
 from pathlib import Path
 
-SCHEMA = "security-kernel-execution-binding-v3"
+SCHEMA = "security-kernel-execution-binding-v4"
 
 V1_KEYS = frozenset(
     {
@@ -53,6 +53,8 @@ V3_KEYS = V2_KEYS | frozenset(
     }
 )
 
+V4_KEYS = V3_KEYS | frozenset({"trigger_event"})
+
 INT_KEYS = frozenset(
     {
         "repository_id",
@@ -89,11 +91,11 @@ def fail(message: str) -> None:
 def validate(binding: object) -> dict:
     if not isinstance(binding, dict):
         fail("binding must be a JSON object")
-    if set(binding) != V3_KEYS:
+    if set(binding) != V4_KEYS:
         fail(
             "closed-world schema mismatch: "
-            f"missing={sorted(V3_KEYS - set(binding))!r} "
-            f"extra={sorted(set(binding) - V3_KEYS)!r}"
+            f"missing={sorted(V4_KEYS - set(binding))!r} "
+            f"extra={sorted(set(binding) - V4_KEYS)!r}"
         )
     if binding["schema"] != SCHEMA:
         fail(f"unexpected schema: {binding['schema']!r}")
@@ -132,6 +134,7 @@ def validate(binding: object) -> dict:
         "s1_workflow_path",
         "artifact_name",
         "verifier_workflow_path",
+        "trigger_event",
     ):
         if not isinstance(binding[key], str) or not binding[key]:
             fail(f"{key} must be a non-empty string")
@@ -190,7 +193,7 @@ def main() -> None:
     binding = validate(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")))
     digest = reference_digest(binding)
     mutations_verified = 0
-    for key in sorted(V3_KEYS - {"schema"}):
+    for key in sorted(V4_KEYS - {"schema"}):
         mutated = dict(binding)
         mutated[key] = mutate(binding[key])
         if reference_digest(mutated) == digest:
