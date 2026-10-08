@@ -68,6 +68,12 @@ on:
       - "docs/research/verify_censoring_classification_anchor_audit_bundle.py"
       - "docs/research/verify_censoring_classification_anchor_audit_bundle.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_TS_REGISTRY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_FIXTURE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_cose_receipt.py"
+      - "docs/research/verify_censoring_classification_anchor_cose_receipt.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -137,6 +143,12 @@ on:
       - "docs/research/verify_censoring_classification_anchor_audit_bundle.py"
       - "docs/research/verify_censoring_classification_anchor_audit_bundle.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_TS_REGISTRY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_FIXTURE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_cose_receipt.py"
+      - "docs/research/verify_censoring_classification_anchor_cose_receipt.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   workflow_dispatch:
 
@@ -384,6 +396,30 @@ jobs:
             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE.json \
             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_CAMPAIGN.json
           diff -u audit-bundle-python.json audit-bundle-node.json
+
+      - name: Run RFC 9942 COSE receipt campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_censoring_classification_anchor_cose_receipt.py \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_TS_REGISTRY.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_FIXTURE.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_CAMPAIGN.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_REGISTRY.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_TRUST_ROOT.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS_TREE_HEAD.json \
+            cose-receipt-python.json
+          node docs/research/verify_censoring_classification_anchor_cose_receipt.mjs \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_TS_REGISTRY.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_FIXTURE.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_CAMPAIGN.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_REGISTRY.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_TRUST_ROOT.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS_TREE_HEAD.json \
+            cose-receipt-node.json
+          diff -u cose-receipt-python.json cose-receipt-node.json
 
       - name: Emit exact-head receipt
         shell: bash
