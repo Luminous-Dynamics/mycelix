@@ -281,6 +281,8 @@ jobs:
           assert "definition_not_present_in_ruleset" in scanned_text
           assert "set(index_ids) == set(full_ids)" in scanned_text
           assert "1176351975" in scanned_text
+          assert "Reject unsupported verifier trigger" in scanned_text
+          assert "unsupported verifier trigger" in scanned_text
           PY
 
       - name: Differential-test GitHub ref matcher
