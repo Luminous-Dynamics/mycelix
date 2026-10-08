@@ -637,6 +637,12 @@ impl PinnedAdmissionAuthorizer {
     }
 }
 
+impl PinnedAdmissionAuthorizer {
+    pub fn verifier_identity(&self) -> &str {
+        &self.verifier_identity
+    }
+}
+
 impl AdmissionAuthorizer for PinnedAdmissionAuthorizer {
     fn verify(
         &self,
@@ -724,6 +730,7 @@ impl ProviderAdapterAuthorizer for PinnedProviderAdapterAuthorizer {
 /// Provider adapters may still vary by invocation, but the concrete adapter must
 /// be authorized by this root before any provider-entry transition is acquired.
 pub trait BoundaryTrustRoot {
+    fn admission_verifier_identity(&self) -> &str;
     fn authorize_admission(
         &self,
         attempt: &AttemptRecordV1,
@@ -751,6 +758,7 @@ pub trait BoundaryTrustRoot {
 /// authorities while keeping their identities explicit.
 pub struct PinnedBoundaryTrustRoot {
     admission_authorizer: Box<dyn AdmissionAuthorizer>,
+    admission_verifier_identity: String,
     provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
     outcome_verifier: Box<dyn OutcomeVerifier>,
     outcome_verifier_identity: String,
@@ -763,6 +771,7 @@ pub struct PinnedBoundaryTrustRoot {
 impl PinnedBoundaryTrustRoot {
     pub fn new(
         admission_authorizer: Box<dyn AdmissionAuthorizer>,
+        admission_verifier_identity: impl Into<String>,
         provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_verifier_identity: impl Into<String>,
@@ -771,15 +780,18 @@ impl PinnedBoundaryTrustRoot {
         recovery_authorizer: Box<dyn RecoveryAuthorizer>,
         claim_recovery_authorizer: Box<dyn ProviderEntryClaimRecoveryAuthorizer>,
     ) -> Result<Self, String> {
+        let admission_verifier_identity = admission_verifier_identity.into();
         let outcome_verifier_identity = outcome_verifier_identity.into();
         let final_entry_verifier_identity = final_entry_verifier_identity.into();
-        if outcome_verifier_identity.trim().is_empty()
+        if admission_verifier_identity.trim().is_empty()
+            || outcome_verifier_identity.trim().is_empty()
             || final_entry_verifier_identity.trim().is_empty()
         {
             return Err("pinned verifier identities must be non-empty".into());
         }
         Ok(Self {
             admission_authorizer,
+            admission_verifier_identity,
             provider_adapter_authorizer,
             outcome_verifier,
             outcome_verifier_identity,
@@ -792,6 +804,10 @@ impl PinnedBoundaryTrustRoot {
 }
 
 impl BoundaryTrustRoot for PinnedBoundaryTrustRoot {
+    fn admission_verifier_identity(&self) -> &str {
+        &self.admission_verifier_identity
+    }
+
     fn authorize_admission(
         &self,
         attempt: &AttemptRecordV1,
@@ -905,6 +921,12 @@ impl EffectBoundaryHostV1 {
             .trust_root
             .authorize_admission(&record, action_key, now_unix_ms)
             .map_err(BoundaryError::Semantic)?;
+        if proof.verifier_identity() != self.trust_root.admission_verifier_identity() {
+            return Err(BoundaryError::Semantic(
+                "authorization admission verifier identity does not match pinned trust root"
+                    .into(),
+            ));
+        }
         if !proof.matches(&record, action_key) || !proof.is_fresh(now_unix_ms) {
             return Err(BoundaryError::Semantic(
                 "authorization admission proof is stale or not bound to exact action"
@@ -1777,6 +1799,10 @@ mod tests {
     }
 
     impl BoundaryTrustRoot for TestTrustRoot {
+        fn admission_verifier_identity(&self) -> &str {
+            "admission-verifier-v1"
+        }
+
         fn authorize_admission(
             &self,
             attempt: &AttemptRecordV1,
