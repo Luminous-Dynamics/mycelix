@@ -53,6 +53,13 @@ def main() -> int:
         print(json.dumps(receipt,sort_keys=True)); return 2
 
     if pins.get("schema")!="mycelix.effective-contestability-formal-tool-pins.v1": fail("pin schema mismatch")
+    expected_paths=profile["verifier"]["fixture_paths"]
+    actual_paths={
+        "tla":a.tla.as_posix(),"cfg":a.cfg.as_posix(),"negative_tla":a.negative_tla.as_posix(),
+        "alloy":a.alloy.as_posix(),"reference":a.reference_explorer.as_posix(),
+        "alloy_runner":a.alloy_runner_java.as_posix(),
+    }
+    if actual_paths != expected_paths: fail("detached fixture paths do not match frozen profile")
     if runtime.get("schema")!="mycelix.effective-contestability-formal-runtime.v1": fail("runtime schema mismatch")
     if runtime.get("nixpkgs_rev")!=pins["nixpkgs_rev"] or runtime.get("jdk_package")!="jdk17_headless" or runtime.get("java_major")!=17: fail("runtime pin mismatch")
     for path,expected in [
@@ -101,8 +108,14 @@ def main() -> int:
         if res.returncode!=0: fail("Alloy runner failed")
         rows=alloy_rows(res.stdout); by={r["label"]:r for r in rows}
         if set(by)!=set(ALLOY_SAT)|set(ALLOY_UNSAT): fail("Alloy label set mismatch")
+        scope=profile["models"]["alloy"]["scope"]
         for r in rows:
             if not re.fullmatch(r"[0-9a-f]{64}",str(r.get("solution_sha256",""))): fail("Alloy solution digest missing")
+            command=r["command"]
+            for name,count in scope.items():
+                token=f"{count} {name}" if name!="int" else f"{count} int"
+                if name!="overall" and token not in command: fail("Alloy exact scope missing: "+token+" -> "+r["label"])
+            if f"for {scope['overall']}" not in command: fail("Alloy overall scope missing: "+r["label"])
         for label in ALLOY_SAT:
             if by[label]["actual"]!="SAT" or by[label]["check"] or by[label]["expects"]!=1: fail("Alloy SAT mismatch: "+label)
         for label in ALLOY_UNSAT:
