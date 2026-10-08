@@ -1549,6 +1549,106 @@ mod tests {
         }
     }
 
+    struct TestTrustRoot {
+        outcome_verifier: Box<dyn OutcomeVerifier>,
+        outcome_identity: String,
+        final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
+        final_entry_identity: String,
+        recovery_authorizer: Box<dyn RecoveryAuthorizer>,
+        claim_recovery_authorizer: Box<dyn ProviderEntryClaimRecoveryAuthorizer>,
+    }
+
+    impl BoundaryTrustRoot for TestTrustRoot {
+        fn outcome_verifier(&self) -> &dyn OutcomeVerifier {
+            self.outcome_verifier.as_ref()
+        }
+
+        fn outcome_verifier_identity(&self) -> &str {
+            &self.outcome_identity
+        }
+
+        fn final_entry_verifier(&self) -> &dyn FinalProviderEntryVerifier {
+            self.final_entry_verifier.as_ref()
+        }
+
+        fn final_entry_verifier_identity(&self) -> &str {
+            &self.final_entry_identity
+        }
+
+        fn recovery_authorizer(&self) -> &dyn RecoveryAuthorizer {
+            self.recovery_authorizer.as_ref()
+        }
+
+        fn provider_entry_claim_recovery_authorizer(
+            &self,
+        ) -> &dyn ProviderEntryClaimRecoveryAuthorizer {
+            self.claim_recovery_authorizer.as_ref()
+        }
+    }
+
+    fn test_root_with(
+        outcome: Box<dyn OutcomeVerifier>,
+        outcome_identity: &str,
+        final_entry: Box<dyn FinalProviderEntryVerifier>,
+        final_entry_identity: &str,
+    ) -> Box<dyn BoundaryTrustRoot> {
+        Box::new(TestTrustRoot {
+            outcome_verifier: outcome,
+            outcome_identity: outcome_identity.to_owned(),
+            final_entry_verifier: final_entry,
+            final_entry_identity: final_entry_identity.to_owned(),
+            recovery_authorizer: Box::new(AllowRecovery),
+            claim_recovery_authorizer: Box::new(AllowClaimRecovery),
+        })
+    }
+
+    fn test_root() -> Box<dyn BoundaryTrustRoot> {
+        test_root_with(
+            Box::new(Verifier),
+            "verified-provider-v1",
+            Box::new(AllowFinalEntry),
+            "final-entry-verifier-v1",
+        )
+    }
+
+    fn test_host(store: SqliteActionFenceStore) -> EffectBoundaryHostV1 {
+        EffectBoundaryHostV1::new(store, test_root()).unwrap()
+    }
+
+    fn test_host_with_outcome(
+        store: SqliteActionFenceStore,
+        outcome: Box<dyn OutcomeVerifier>,
+        outcome_identity: &str,
+    ) -> EffectBoundaryHostV1 {
+        EffectBoundaryHostV1::new(
+            store,
+            test_root_with(
+                outcome,
+                outcome_identity,
+                Box::new(AllowFinalEntry),
+                "final-entry-verifier-v1",
+            ),
+        )
+        .unwrap()
+    }
+
+    fn test_host_with_final(
+        store: SqliteActionFenceStore,
+        final_entry: Box<dyn FinalProviderEntryVerifier>,
+        final_entry_identity: &str,
+    ) -> EffectBoundaryHostV1 {
+        EffectBoundaryHostV1::new(
+            store,
+            test_root_with(
+                Box::new(Verifier),
+                "verified-provider-v1",
+                final_entry,
+                final_entry_identity,
+            ),
+        )
+        .unwrap()
+    }
+
     fn action() -> ActionKeyV1 {
         ActionKeyV1::new("rp-test", "provider-target", "material-action-1").unwrap()
     }
@@ -1609,7 +1709,7 @@ mod tests {
     fn provider_is_not_called_before_confirmed_dispatch_pending() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("dispatch.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action = action();
         let owner = identity("attempt-1");
         boundary
@@ -1638,8 +1738,6 @@ mod tests {
                     &owner,
                     "owner-attempt-1",
                     &mut provider,
-                    &Verifier,
-                    &AllowFinalEntry,
                 )
                 .unwrap(),
             BoundaryOutcome::ExecutedConfirmed
@@ -1661,7 +1759,7 @@ mod tests {
 
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("ambiguous.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action = action();
         let owner = identity("attempt-ambiguous");
         boundary
@@ -1675,7 +1773,7 @@ mod tests {
         let mut provider = ErrorProvider;
         assert!(matches!(
             boundary
-                .dispatch(&action, &owner, "owner-attempt-ambiguous", &mut provider, &Verifier, &AllowFinalEntry)
+                .dispatch(&action, &owner, "owner-attempt-ambiguous", &mut provider)
                 .unwrap(),
             BoundaryOutcome::IndeterminateHeld { .. }
         ));
@@ -1755,7 +1853,7 @@ mod tests {
     fn provider_entry_permit_requires_durable_entry_proof() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("permit-proof.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action_key = action();
         let owner = identity("attempt-permit-proof");
         boundary
@@ -1822,7 +1920,7 @@ mod tests {
     fn final_entry_gate_rejection_cannot_reach_provider() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("final-gate-rejected.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action_key = action();
         let owner = identity("attempt-final-gate-rejected");
         boundary
@@ -1860,8 +1958,6 @@ mod tests {
                 &owner,
                 "owner-attempt-final-gate-rejected",
                 &mut MustNotInvoke,
-                &Verifier,
-                &RejectFinalEntry,
             )
             .unwrap();
 
@@ -1885,7 +1981,7 @@ mod tests {
     fn expired_final_entry_proof_cannot_reach_provider() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("final-gate-expired.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action_key = action();
         let owner = identity("attempt-final-gate-expired");
         boundary
@@ -1923,8 +2019,6 @@ mod tests {
                 &owner,
                 "owner-attempt-final-gate-expired",
                 &mut MustNotInvoke,
-                &Verifier,
-                &ExpiredFinalEntry,
             )
             .unwrap();
 
@@ -1950,7 +2044,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let store =
             SqliteActionFenceStore::open(dir.path().join("final-gate-post-verify.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action_key = action();
         let owner = identity("attempt-final-gate-post-verify");
         boundary
@@ -1988,8 +2082,6 @@ mod tests {
                 &owner,
                 "owner-attempt-final-gate-post-verify",
                 &mut MustNotInvoke,
-                &Verifier,
-                &SlowExpiryFinalEntry,
             )
             .unwrap();
 
@@ -2019,7 +2111,7 @@ mod tests {
     fn mismatched_provider_idempotency_proof_holds_the_fence() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("mismatch-idempotency.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action_key = action();
         let owner = identity("attempt-mismatch-idempotency");
         let record = attempt_record(
@@ -2045,8 +2137,6 @@ mod tests {
             &owner,
             "owner-attempt-mismatch-idempotency",
             &mut provider,
-            &MismatchedIdempotencyVerifier,
-            &AllowFinalEntry,
         );
         assert!(matches!(
             result,
@@ -2071,7 +2161,7 @@ mod tests {
     fn mismatched_terminal_verification_proof_holds_the_fence() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("mismatch.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action_key = action();
         let owner = identity("attempt-mismatch");
         let record = attempt_record("attempt-mismatch", "operation-mismatch", AttemptRecordState::Consumed);
@@ -2096,8 +2186,6 @@ mod tests {
             &owner,
             "owner-attempt-mismatch",
             &mut provider,
-            &MismatchedVerifier,
-            &AllowFinalEntry,
         );
         assert!(matches!(
             result,
@@ -2122,7 +2210,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("claim-race.db");
         let store = SqliteActionFenceStore::open(&path).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action_key = action();
         let owner = identity("attempt-claim-race");
         let record = attempt_record(
@@ -2201,7 +2289,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("claim-recovery.db");
         let store = SqliteActionFenceStore::open(&path).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action_key = action();
         let owner = identity("attempt-claim-recovery");
         let record = attempt_record(
@@ -2243,7 +2331,6 @@ mod tests {
         let result = boundary.recover_provider_entry_claim(
             &action_key,
             &authorization,
-            &AllowClaimRecovery,
         )
         .unwrap();
 
@@ -2262,7 +2349,7 @@ mod tests {
     fn pre_entry_recovery_cannot_release_a_dispatch_pending_attempt() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("recovery.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let mut boundary = test_host(store);
         let action = action();
         let owner = identity("attempt-recovery");
         boundary
