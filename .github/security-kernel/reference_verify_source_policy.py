@@ -223,11 +223,18 @@ def require_no_fail_open_controls(lines_: list[str], description: str) -> None:
     joined = "\n".join(lines_)
     if "continue-on-error:" in joined:
         fail(f"{description}: forbidden fail-open control continue-on-error")
+    current_step = None
     for line in lines_:
+        step_match = re.fullmatch(r"\s{6}- name: (.+)", line)
+        if step_match:
+            current_step = step_match.group(1)
+            continue
         if not re.match(r"^\s{6,8}if:\s*", line):
             continue
         if re.search(r"\balways\(\)|\bfailure\(\)", line):
-            fail(f"{description}: forbidden fail-open status check: {line!r}")
+            normalized = line.strip()
+            if not (description == "S1" and current_step == "Final teardown barrier" and normalized == "if: ${{ always() }}"):
+                fail(f"{description}: forbidden fail-open status check: {line!r}")
         normalized = line.replace(" ", "")
         without_negated_cancelled = normalized.replace("!cancelled()", "")
         if "cancelled()" in without_negated_cancelled:
@@ -779,8 +786,18 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate resolution must revalidate repository ID after commit resolution")
     if 'assert post_repository_obj.get("disabled") is not True' not in joined:
         fail("S1 candidate resolution must reject a repository disabled after commit resolution")
-    if "Final teardown barrier" not in joined or "if: ${{ !cancelled() }}" not in joined:
-        fail("S1 final teardown barrier missing or cancellation semantics weakened")
+    if "Final teardown barrier" not in joined or 'if: ${{ always() }}' not in joined:
+        fail("S1 final teardown barrier must run on cancellation via always()")
+    for required in (
+        '--label "security-kernel.run=$GITHUB_RUN_ID"',
+        '--label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT"',
+        'docker ps -aq --filter "label=security-kernel.run=$GITHUB_RUN_ID" --filter "label=security-kernel.attempt=$GITHUB_RUN_ATTEMPT"',
+        "docker rm -f $owned_containers",
+        "remaining_owned_containers",
+        "final teardown owned container remains",
+    ):
+        if required not in joined:
+            fail(f"S1 cancellation container-ownership cleanup control missing: {required!r}")
     if 'candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"' not in joined:
         fail("S1 final teardown candidate volume identity missing")
     if 'vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"' not in joined:
@@ -842,6 +859,10 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             fail(f"S1 candidate source resource ceiling missing: {required!r}")
     if "source_copy_pipeline_status" in joined or "bounded_source_archive" in joined:
         fail("S1 obsolete host archive/staging pipeline residue detected")
+    if exact_count(l, '--label "security-kernel.run=$GITHUB_RUN_ID"') != 6:
+        fail("S1 every Docker container creation must carry an exact run ownership label")
+    if exact_count(l, '--label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT"') != 6:
+        fail("S1 every Docker container creation must carry an exact attempt ownership label")
     if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
         fail("S1 vendor resource volume create profile mismatch")
     if exact_count(l, VENDOR_VOLUME_RW) != 1:
