@@ -45,6 +45,18 @@ pub struct CreateMeasurementInput {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct CreateQualificationAttestationInput {
+    pub capability_contract_hash: ActionHash,
+    pub outcome: CapabilityQualification,
+    pub evidence_hashes: Vec<ActionHash>,
+    pub method: String,
+    pub authority_reference: String,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    pub external_reference_hash: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CreateCalibrationInput {
     pub asset_hash: ActionHash,
     pub method: String,
@@ -80,6 +92,7 @@ pub struct CreateCapabilityContractInput {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateExecutionInput {
     pub execution_id: String,
+    pub qualification_attestation_hash: Option<ActionHash>,
     pub work_order_hash: ActionHash,
     pub bom_hash: Option<ActionHash>,
     pub routing_hash: Option<ActionHash>,
@@ -166,6 +179,32 @@ pub fn record_measurement(input: CreateMeasurementInput) -> ExternResult<ActionH
 }
 
 #[hdk_extern]
+pub fn record_qualification_attestation(
+    input: CreateQualificationAttestationInput,
+) -> ExternResult<ActionHash> {
+    let hash = create_entry(EntryTypes::QualificationAttestation(
+        QualificationAttestationEntry {
+            capability_contract_hash: input.capability_contract_hash,
+            outcome: input.outcome,
+            evidence_hashes: input.evidence_hashes,
+            method: input.method,
+            authority_reference: input.authority_reference,
+            valid_from: input.valid_from,
+            valid_until: input.valid_until,
+            external_reference_hash: input.external_reference_hash,
+            created_at: sys_time()?,
+        },
+    ))?;
+
+    link_from(
+        "all_qualification_attestations",
+        LinkTypes::AllQualificationAttestations,
+        hash.clone(),
+    )?;
+    Ok(hash)
+}
+
+#[hdk_extern]
 pub fn record_calibration(input: CreateCalibrationInput) -> ExternResult<ActionHash> {
     let hash = create_entry(EntryTypes::Calibration(CalibrationEntry {
         asset_hash: input.asset_hash,
@@ -233,6 +272,7 @@ pub fn record_capability_contract(
 pub fn record_execution(input: CreateExecutionInput) -> ExternResult<ActionHash> {
     let hash = create_entry(EntryTypes::ExecutionReceipt(ExecutionReceiptEntry {
         execution_id: input.execution_id.clone(),
+        qualification_attestation_hash: input.qualification_attestation_hash.clone(),
         work_order_hash: input.work_order_hash.clone(),
         bom_hash: input.bom_hash,
         routing_hash: input.routing_hash,
