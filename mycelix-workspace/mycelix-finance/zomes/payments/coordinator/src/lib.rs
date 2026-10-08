@@ -9,7 +9,7 @@ use finance_wire_types::{
 };
 use hdk::prelude::*;
 use mycelix_finance_shared::{
-    DEFAULT_RATE_LIMIT_PER_MINUTE, anchor_hash, follow_update_chain, links_to_records,
+    DEFAULT_RATE_LIMIT_PER_MINUTE, anchor_hash, follow_update_chain, follow_update_chain_strict, links_to_records,
     rate_limit_anchor_key, validate_did_format, validate_id, verify_caller_is_did,
     verify_citizen_tier, verify_participant_tier, verify_steward_tier,
 };
@@ -1003,21 +1003,30 @@ fn find_sap_balance_record(member_did: &str) -> ExternResult<Option<(Record, Sap
         )?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.last() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        let record = follow_update_chain(hash)?;
-        let bal = record.entry().to_app_option::<SapBalance>().map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "SapBalance deserialization error: {:?}",
-                e
-            )))
-        })?;
-        if let Some(bal) = bal {
-            return Ok(Some((record, bal)));
+    match links.as_slice() {
+        [] => Ok(None),
+        [_] => {
+            let hash = ActionHash::try_from(links[0].target.clone())
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid SAP balance link target".into())))?;
+            let record = follow_update_chain_strict(hash)?;
+            let bal = record.entry().to_app_option::<SapBalance>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "SapBalance deserialization error: {:?}",
+                    e
+                )))
+            })?;
+            if let Some(bal) = bal {
+                Ok(Some((record, bal)))
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(
+                    "SAP balance anchor points to a non-SapBalance entry".into()
+                )))
+            }
         }
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "SAP balance has competing root records; lineage is frozen".into()
+        ))),
     }
-    Ok(None)
 }
 
 fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)> {
