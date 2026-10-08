@@ -200,5 +200,5 @@ jobs:
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
       candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
       invocation_source: ${{ needs.resolve.outputs.invocation_source }}
-      trusted_workflow_blob_sha: "081313338e1aadf57f0637b3b0ab55cb5d965906"
+      trusted_workflow_blob_sha: "874ce85538a12025bce82928acec38bcf99ab541"
 
