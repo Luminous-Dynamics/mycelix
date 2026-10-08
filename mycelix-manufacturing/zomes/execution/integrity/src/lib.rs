@@ -924,6 +924,8 @@ mod tests {
     #[test]
     fn accepted_execution_requires_measurement_and_calibration() {
         let entry = ExecutionReceiptEntry {
+            execution_id: "EXEC-TEST-2".into(),
+            qualification_attestation_hash: None,
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: None,
             routing_hash: None,
