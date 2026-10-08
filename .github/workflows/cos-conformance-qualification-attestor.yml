@@ -318,6 +318,7 @@ jobs:
           assert "DiscoverabilityMismatch" in scanned
           assert "LookupFailed" in scanned
           assert "lookup_status" in scanned
+          assert "LOOKUP_STATUS" in scanned
           assert "EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}" in scanned
           assert "json.load(" not in scanned
           assert "manifest = json.loads(manifest_path.read_text())" not in scanned
@@ -1327,17 +1328,20 @@ jobs:
           raw_path="attestor-evidence/attestation-publication-discovery-raw.json"
           summary_path="attestor-evidence/attestation-publication-discovery.json"
           lookup_status=0
-          if ! gh api --method GET "repos/${GITHUB_REPOSITORY}/attestations/${SUBJECT_DIGEST}" \
+          if gh api --method GET "repos/${GITHUB_REPOSITORY}/attestations/${SUBJECT_DIGEST}" \
             -f "predicate_type=${EXPECTED_PREDICATE_TYPE}" > "${raw_path}"; then
+            lookup_status=0
+          else
             lookup_status=$?
             printf '%s\n' '{"attestations":[]}' > "${raw_path}"
           fi
-          python - <<'PY'
+          LOOKUP_STATUS="${lookup_status}" python - <<'PY'
           import json
           import os
           import re
           from pathlib import Path
           raw_path = Path("attestor-evidence/attestation-publication-discovery-raw.json")
+          lookup_status = int(os.environ["LOOKUP_STATUS"])
           summary_path = Path("attestor-evidence/attestation-publication-discovery.json")
           def reject_duplicate_keys(pairs):
               result = {}
