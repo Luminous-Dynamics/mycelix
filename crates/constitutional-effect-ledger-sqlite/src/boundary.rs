@@ -349,9 +349,11 @@ impl ProviderEntryPermitV1 {
             || attempt.action_key_digest != claim.action_key_digest
             || attempt.ownership_token_digest != claim.owner_token_digest
             || action_key.digest() != claim.action_key_digest
+            || attempt.entry_admission_proof_digest.as_deref()
+                != Some(final_entry_proof.digest())
         {
             return Err(BoundaryError::Semantic(
-                "provider entry claim does not exactly bind the attempt and action".into(),
+                "provider entry claim/proof does not exactly bind the durable attempt".into(),
             ));
         }
 
@@ -769,8 +771,51 @@ impl EffectBoundaryHostV1 {
             }
         }
 
+        if let Err(error) = self.store.atomically_record_provider_entry_proof(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            final_entry_proof.digest().to_owned(),
+        ) {
+            return Ok(BoundaryOutcome::IndeterminateHeld {
+                reason: format!(
+                    "final-entry proof could not be durably recorded; claim remains held: {error:?}"
+                ),
+            });
+        }
+
+        let persisted_pending = self.owned_attempt(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+        )?;
+        let pre_entry_now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
+        if !final_entry_proof.matches(&persisted_pending, &context)
+            || !final_entry_proof.is_fresh(pre_entry_now_unix_ms)
+        {
+            let marker = "final provider-entry proof expired after durable recording".to_owned();
+            match self.store.atomically_release_provider_entry_claim_not_entered(
+                action_key,
+                attempt_identity,
+                owner_token_digest,
+                &claim_token,
+                marker.clone(),
+            ) {
+                Ok(()) => return Ok(BoundaryOutcome::FinalEntryRejectedNotEntered {
+                    reason: marker,
+                }),
+                Err(release_error) => {
+                    return Ok(BoundaryOutcome::IndeterminateHeld {
+                        reason: format!(
+                            "final-entry proof expired after durable recording and claim release was not confirmed: {release_error:?}"
+                        ),
+                    });
+                }
+            }
+        }
+
         let permit = ProviderEntryPermitV1::new(
-            pending,
+            persisted_pending,
             action_key,
             claim,
             final_entry_proof,
