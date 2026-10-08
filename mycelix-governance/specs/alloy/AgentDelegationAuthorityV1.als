@@ -40,9 +40,11 @@ fact GrantCannotExceedIssuerAuthority {
     g.active = On implies g.power in g.issuer.authority
 }
 
-fact TransitiveDelegationCannotExceedIssuerAuthority {
+fact TransitiveDelegationCannotExceedAncestorAuthority {
   all g: Grant |
-    g.active = On implies g.grantee.authority in g.issuer.authority
+    g.active = On implies
+      all a: g.*parent |
+        g.power in a.issuer.authority
 }
 
 fact ChildAuthorityRequiresGrant {
@@ -91,6 +93,14 @@ pred TransitiveBoundedWitness {
     child.power in parent.issuer.authority
 }
 
+pred TransitivePowerExceedsAncestorWitness {
+  some child, ancestor: Grant |
+    child.active = On and
+    ancestor.active = On and
+    ancestor in child.^parent and
+    child.power not in ancestor.issuer.authority
+}
+
 pred RevokedGrantNoActiveDescendant {
   some g: Grant |
     g.revoked = On and
@@ -110,6 +120,9 @@ run ValidDelegationChain
 run TransitiveBoundedWitness
   for 6 but 6 Agent, 6 Power, 6 Grant
 
+run TransitivePowerExceedsAncestorWitness
+  for 6 but 6 Agent, 6 Power, 6 Grant
+
 run RevokedGrantNoActiveDescendant
   for 6 but 6 Agent, 6 Power, 6 Grant
 
@@ -123,7 +136,9 @@ assert ActiveGrantsNeverExceedIssuerAuthority {
 
 assert TransitiveDelegationDoesNotAmplifyAuthority {
   all g: Grant |
-    g.active = On implies g.grantee.authority in g.issuer.authority
+    g.active = On implies
+      all a: g.*parent |
+        g.power in a.issuer.authority
 }
 
 assert RevokedGrantsHaveNoActiveDescendants {
@@ -155,6 +170,9 @@ check ActiveGrantsNeverExceedIssuerAuthority
   for 6 but 6 Agent, 6 Power, 6 Grant expect 0
 
 check TransitiveDelegationDoesNotAmplifyAuthority
+  for 6 but 6 Agent, 6 Power, 6 Grant expect 0
+
+check TransitivePowerExceedsAncestorWitness
   for 6 but 6 Agent, 6 Power, 6 Grant expect 0
 
 check RevokedGrantsHaveNoActiveDescendants
