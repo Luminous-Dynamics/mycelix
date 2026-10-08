@@ -799,21 +799,6 @@ pub trait DurableActionFenceStore {
 
     /// Advance a durable attempt through the non-terminal lifecycle. Each method
     /// MUST be a single conflict-detecting durable transaction.
-    fn atomically_record_provider_entry_proof(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        proof_digest: String,
-    ) -> Result<(), ActionFenceMutationError> {
-        self.record_provider_entry_proof(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            proof_digest,
-        )
-    }
-
     fn atomically_mark_dispatch_pending(
         &mut self,
         action_key: &ActionKeyV1,
@@ -842,26 +827,17 @@ pub trait DurableActionFenceStore {
         claim_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError>;
 
-    /// Atomically release a still-held provider-entry claim as NotEntered.
-    ///
-    /// This is only valid before the provider call. It consumes the claim,
-    /// marks the exact attempt NotEntered, and releases the same-action fence
-    /// in one durable transition.
+    /// Persist the exact final-entry proof digest while the provider-entry claim
+    /// remains held.
     fn atomically_record_provider_entry_proof(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
         proof_digest: String,
-    ) -> Result<(), ActionFenceMutationError> {
-        self.record_provider_entry_proof(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            proof_digest,
-        )
-    }
+    ) -> Result<(), ActionFenceMutationError>;
 
+    /// Atomically release a still-held provider-entry claim as NotEntered.
     fn atomically_release_provider_entry_claim_not_entered(
         &mut self,
         action_key: &ActionKeyV1,
@@ -869,39 +845,11 @@ pub trait DurableActionFenceStore {
         owner_token_digest: &str,
         claim_token_digest: &str,
         marker: String,
-    ) -> Result<(), ActionFenceMutationError>;
-
-    /// Persist the exact final-entry proof digest while the provider-entry claim
-    /// remains held. This is the durable evidence that admission passed the
-    /// last authorization/status gate before provider entry.
-    fn atomically_record_provider_entry_proof(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        proof_digest: String,
     ) -> Result<(), ActionFenceMutationError>;
 
     /// Explicitly abandon a stranded provider-entry claim and atomically move
     /// the attempt to INDETERMINATE. This is a recovery operation, not a lease
     /// timeout: callers must supply externally authenticated recovery authority.
-    fn atomically_release_provider_entry_claim_not_entered(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-        marker: String,
-    ) -> Result<(), ActionFenceMutationError> {
-        self.release_provider_entry_claim_not_entered(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-            marker,
-        )
-    }
-
     fn atomically_recover_provider_entry_claim(
         &mut self,
         action_key: &ActionKeyV1,
@@ -916,51 +864,6 @@ pub trait DurableActionFenceStore {
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
     ) -> Result<String, ActionFenceMutationError>;
-
-    fn atomically_claim_provider_entry(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-    ) -> Result<ProviderEntryClaimV1, ActionFenceMutationError> {
-        self.claim_provider_entry(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-        )
-    }
-
-    fn atomically_mark_invoked(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-    ) -> Result<(), ActionFenceMutationError> {
-        self.mark_invoked_with_claim(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-        )
-    }
-
-    fn atomically_recover_provider_entry_claim(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-    ) -> Result<String, ActionFenceMutationError> {
-        self.recover_provider_entry_claim(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-        )
-    }
 
     fn atomically_release_after_failed(
         &mut self,
