@@ -75,6 +75,7 @@ def main() -> int:
     g1 = Grant("G1", "Root", "A", "P1")
     g2 = Grant("G2", "A", "B", "P1", parent="G1")
     g3 = Grant("G3", "B", "C", "P1", parent="G2")
+    g4 = Grant("G4", "Root", "C", "P2")
 
     initial = State(
         grants=(g1, g2, g3),
@@ -95,9 +96,17 @@ def main() -> int:
     )
     assert "NoAuthorityWithoutCurrentGrant" in invariant_failures(bad_child)
 
-    bad_transitive = replace(
+    valid_with_four = replace(
         valid,
+        grants=(replace(g1, active=True), replace(g2, active=True), replace(g3, active=True), replace(g4, active=True)),
         authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1",)), ("C", ("P1", "P2"))),
+    )
+    assert not invariant_failures(valid_with_four), invariant_failures(valid_with_four)
+
+    bad_transitive = replace(
+        valid_with_four,
+        authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1",)), ("C", ("P1", "P2"))),
+        grants=(replace(g1, active=True), replace(g2, active=True), replace(g3, active=True), replace(g4, active=True)),
     )
     assert "TransitiveDelegationBounded" in invariant_failures(bad_transitive)
 
