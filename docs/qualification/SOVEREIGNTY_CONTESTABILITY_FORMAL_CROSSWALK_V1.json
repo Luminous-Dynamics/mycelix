@@ -2,23 +2,37 @@
   "schema": "mycelix.effective-contestability-formal-crosswalk.v1",
   "status": "candidate-verification",
   "authority": "non-authoritative",
-  "subject_head": "1e127739e1ca7efdd89c4aaf774679d47c479c99",
-  "subject_tree": "9db2883fd5f19eb8efe722fa05f1072c1250eee5",
+  "subject_head": "74c0932d804222533da221668653c76828ef8d2b",
+  "subject_tree": "301eed522e62fc8d014cda3733361580022cf71e",
   "relationship": "semantic-alignment map only; not a refinement proof",
   "mappings": [
+    {
+      "id": "nominal-exit-eligibility",
+      "boundary": "effective exit requires prior nominal exit",
+      "tla": [
+        "NoEffectiveExitWithoutNominalExit"
+      ],
+      "alloy": [
+        "EffectiveExitRequiresNominal",
+        "EffectiveExitWithoutNominalWitness"
+      ],
+      "reference": [
+        "missing-nominal -> NoEffectiveExitWithoutNominalExit"
+      ],
+      "coverage": "aligned"
+    },
     {
       "id": "nominal-vs-effective",
       "boundary": "nominal exit != effective exit",
       "tla": [
-        "EffectiveExitRequiresPortability",
         "NoEffectiveExitWithoutNominalExit"
       ],
       "alloy": [
-        "NominalExitWithoutEffective",
-        "EffectiveExitRequiresNominalAndPortability"
+        "EffectiveExitRequiresNominal",
+        "EffectiveExitWithoutNominalWitness"
       ],
       "reference": [
-        "nominal-effective -> EffectiveExitRequiresPortability"
+        "missing-nominal -> NoEffectiveExitWithoutNominalExit"
       ],
       "coverage": "aligned"
     },
@@ -56,15 +70,18 @@
       "boundary": "portability != obligation/history erasure",
       "tla": [
         "MigrationPreservesObligationsAndHistory",
-        "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction"
+        "ProviderSwitchDoesNotTransferAuthority",
+        "ProviderSwitchDoesNotTransferJurisdiction"
       ],
       "alloy": [
-        "MigrationsPreserveObligationsHistoryAuthorityAndJurisdiction"
+        "MigrationPreservesContinuity",
+        "MigrationPreservesAuthority",
+        "MigrationPreservesJurisdiction"
       ],
       "reference": [
         "switch-obligation -> MigrationPreservesObligationsAndHistory",
-        "switch-authority -> ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority",
-        "switch-jurisdiction -> ProviderSwitchDoesNotTransferAuthorityOrJurisdiction"
+        "switch-authority -> ProviderSwitchDoesNotTransferAuthority",
+        "switch-jurisdiction -> ProviderSwitchDoesNotTransferJurisdiction"
       ],
       "coverage": "aligned"
     },
@@ -86,13 +103,14 @@
       "id": "effective-exit-context-freshness",
       "boundary": "provider switch invalidates stale effective-exit state",
       "tla": [
-        "EffectiveExitIsIndependent"
+        "EffectiveExitContextIsFresh"
       ],
       "alloy": [
-        "EffectiveExitRequiresIndependentRoots"
+        "EffectiveExitExcludesCurrentProvider",
+        "CurrentProviderAlsoEffectiveWitness"
       ],
       "reference": [
-        "switch-stale-exit -> EffectiveExitIsIndependent"
+        "switch-stale-exit -> EffectiveExitContextIsFresh"
       ],
       "coverage": "aligned"
     }
