@@ -42,7 +42,10 @@ def witness_key(reg,w,kid,v):
 def verify_head(att,w,reg,entries):
     fields=['schema','domain','algorithm','observer_id','key_id','registry_id','registry_version','vds_id','manifest_version','tree_size','root_hash','signature']
     if not isinstance(att,dict) or set(att)!=set(fields):return None,'head-schema'
-    if att['observer_id']!=w:return None,'head-observer-binding'
+    if att['schema']!='mycelix.continual-adaptation.censoring-classification-anchor-witness-vds-tree-head.v1':return None,'head-schema'
+ if att['domain']!='mycelix.continual-adaptation.censoring-classification-anchor-witness-vds-tree-head.v1':return None,'head-domain'
+ if att['algorithm']!='Ed25519':return None,'head-algorithm'
+ if att['observer_id']!=w:return None,'head-observer-binding'
     if att['registry_id']!=WREG or att['registry_version']!=2:return None,'head-registry-binding'
     if att['vds_id']!=VDS_ID:return None,'head-vds-binding'
     if att['tree_size']!=7:return None,'head-tree-size'
@@ -81,6 +84,7 @@ def verify_receipt(r,tsreg,fixture):
     if c['registry_id']!=tsreg['registry_id'] or c['registry_version']!=tsreg['registry_version']:return None,'receipt-registry-binding'
     if c['ts_id']!=TS_ID or c['vds_id']!=VDS_ID:return None,'receipt-vds-binding'
     if c['tree_size']!=fixture['tree_size'] or c['root_hash']!=fixture['root_hash']:return None,'receipt-head-binding'
+ if tsreg.get('algorithm')!='Ed25519' or not tsreg['keys'][r['key_id']].get('status')=='active':return None,'receipt-key-lifecycle'
     try:sig=b64(r['signature'],64);pub=b64(tsreg['keys'][r['key_id']]['public_key'],32)
     except Exception:return None,'signature-encoding'
     try:Ed25519PublicKey.from_public_bytes(pub).verify(sig,canon({'schema':r['schema'],'domain':r['domain'],'algorithm':r['algorithm'],'ts_id':r['ts_id'],'key_id':r['key_id'],'claims':c}))
