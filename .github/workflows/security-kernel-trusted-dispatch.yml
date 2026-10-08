@@ -120,7 +120,7 @@ jobs:
           registered=re.findall(r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*$',text); delegated=re.findall(r'(?m)^\s*trusted_workflow_blob_sha:\s*"([0-9a-f]{40})"\s*$',text); assert len(registered)==1 and len(delegated)==1 and registered[0]==s1["sha"] and delegated[0]==s1["sha"]
           trust_paths={".github/workflows/security-kernel-trusted-dispatch.yml",".github/workflows/security-kernel-independent-qualification.yml",".github/workflows/security-kernel-trusted-result-verifier.yml",".github/security-kernel/reference_verify_source_policy.py",".github/security-kernel/reference_verify_execution_binding.py",".github/security-kernel/reference_verify_evidence_retention_binding.py"}
           if event=="pull_request_target":
-              candidate_pr=int(os.environ["PR_NUMBER_EVENT"]); candidate_sha=os.environ["HEAD_SHA_EVENT"]; candidate_repository=os.environ["HEAD_REPOSITORY_EVENT"]; candidate_repository_id=int(os.environ["HEAD_REPOSITORY_ID_EVENT"]); invocation_source="trusted-dispatch"
+              candidate_pr=int(os.environ["PR_NUMBER_EVENT"]); candidate_sha=os.environ["HEAD_SHA_EVENT"]; candidate_repository=os.environ["HEAD_REPOSITORY_EVENT"]; candidate_repository_id=int(os.environ["HEAD_REPOSITORY_ID_EVENT"]); invocation_source="trusted-dispatch"; dispatch_decision="qualified"; eligible_count="event"
           else:
               invocation_source="scheduled-fallback"; prs=[]
               for page in range(1,5):
