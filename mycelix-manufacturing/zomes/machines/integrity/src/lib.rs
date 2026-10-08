@@ -1370,6 +1370,7 @@ mod content_restriction_tests {
             profile_id: "profile-1".into(),
             source_profile: "rfc3161".into(),
             source_authority_commitment: vec![9; 32],
+            source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
             commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
             valid_from: Timestamp::from_micros(0),
             valid_until: Timestamp::from_micros(1_000),
