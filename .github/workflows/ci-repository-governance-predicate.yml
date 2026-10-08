@@ -79,6 +79,8 @@ jobs:
           assert "Differential-test GitHub ref matcher" in text
           assert "File::FNM_PATHNAME" in text
           assert "character class" in text
+          assert "Deterministic Ruby differential corpus" in text
+          assert "25000" in text
           PY
 
       - name: Validate governance policy JSON
@@ -286,6 +288,7 @@ jobs:
           python - <<'PY'
           import importlib.util
           import subprocess
+          import json
           from pathlib import Path
 
           module_path = Path("scripts/validate_repository_governance_observation_v1.py")
@@ -355,6 +358,65 @@ jobs:
           for pattern in unsupported:
               assert module._github_fnmatch_pattern_supported(pattern, pathname=True) is False
               assert module._github_ref_pattern_matches("refs/heads/main", pattern) is False
+
+          # Deterministic generated coverage keeps the reference-model
+          # comparison broad without relying on nondeterministic fixtures.
+          tokens = [
+              "a", "b", "m", "n", "0", "1", "-", "_", "*", "?", "**",
+              "[a]", "[!a]", "[!]", "[a-c]", "[a-]", "[-a]", "[[]", "/",
+          ]
+          values = [
+              "a", "b", "m", "n", "0", "1", "-", "_", ".", "[", "]", "/",
+              "!", "?", "*",
+          ]
+          state = 0x00C0FFEE
+
+          def next_index(size):
+              global state
+              state = (1664525 * state + 1013904223) & 0xffffffff
+              return state % size
+
+          generated = [
+              ("refs/heads/qa**/**", "refs/heads/qafoo"),
+              ("refs/heads/qa**/**", "refs/heads/qafoo/bar"),
+          ]
+          for _ in range(25000):
+              pattern = "".join(
+                  tokens[next_index(len(tokens))]
+                  for _ in range(1 + next_index(8))
+              )
+              value = "".join(
+                  values[next_index(len(values))]
+                  for _ in range(1 + next_index(20))
+              )
+              generated.append((pattern, value))
+
+          generated_input = "".join(
+              json.dumps([pattern, value]) + "\n"
+              for pattern, value in generated
+          )
+          generated_ruby = """
+          require "json"
+          STDIN.each_line do |line|
+            pattern, value = JSON.parse(line)
+            puts(File.fnmatch(pattern, value, File::FNM_PATHNAME) ? "true" : "false")
+          end
+          """.strip()
+          generated_expected = subprocess.run(
+              ["ruby", "-e", generated_ruby],
+              input=generated_input,
+              check=True,
+              capture_output=True,
+              text=True,
+          ).stdout.splitlines()
+          assert len(generated_expected) == len(generated)
+          for (pattern, value), expected_raw in zip(generated, generated_expected):
+              expected = expected_raw == "true"
+              actual = module._github_ref_pattern_matches(value, pattern)
+              assert actual == expected, (
+                  f"Generated GitHub FNM_PATHNAME mismatch: "
+                  f"pattern={pattern!r} value={value!r} expected={expected} actual={actual}"
+              )
 
           print(f"GitHub FNM_PATHNAME parity PASS: {len(corpus)} supported cases")
           print(f"Unsupported-pattern fail-closed PASS: {len(unsupported)} cases")
