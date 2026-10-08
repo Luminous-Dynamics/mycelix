@@ -99,7 +99,6 @@ pub struct CapabilityPlanSelection {
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
 struct CapabilityContractProjection {
-    contract_id: String,
     machine_hash: ActionHash,
     process_family: String,
     material_classes: Vec<String>,
@@ -113,7 +112,6 @@ struct CapabilityContractProjection {
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
 struct MachineProjection {
-    name: String,
     status: MachineStatus,
 }
 
@@ -319,12 +317,16 @@ pub fn select_live_capability(
             .then_with(|| a.2.to_string().cmp(&b.2.to_string()))
     });
 
-    let mut seen_machine = std::collections::HashSet::new();
+    let mut machine_contract_counts = std::collections::HashMap::new();
+    for (machine_id, _, _, _, _) in &raw {
+        *machine_contract_counts.entry(machine_id.clone()).or_insert(0usize) += 1;
+    }
+
     let mut candidates = Vec::new();
     let mut candidate_meta = Vec::new();
 
     for (machine_id, machine_hash, contract_hash, profile, status) in raw {
-        if !seen_machine.insert(machine_id.clone()) {
+        if machine_contract_counts.get(&machine_id).copied().unwrap_or(0) != 1 {
             rejected.push(CapabilityPlanDecision {
                 machine_hash: Some(machine_hash),
                 capability_contract_hash: contract_hash,
