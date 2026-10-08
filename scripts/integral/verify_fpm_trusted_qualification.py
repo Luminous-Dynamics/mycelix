@@ -10,6 +10,7 @@ import json
 import re
 import stat
 import sys
+import tomllib
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,8 @@ MAX_ARTIFACT_ARCHIVE_BYTES = 8 * 1024 * 1024
 MAX_ARTIFACT_ARCHIVE_MEMBERS = 8
 MAX_ARTIFACT_MEMBER_BYTES = 2 * 1024 * 1024
 ALLOWED_ARTIFACT_COMPRESSION = frozenset({zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED})
+CRATES_IO_REGISTRY_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
+LOCK_ROOT_PACKAGE = "fpm-wasm-artifact-identity"
 
 RECEIPT_KEYS = frozenset(
     {
@@ -341,6 +344,48 @@ def validate_artifact_lifetime(item: dict[str, Any], label: str) -> tuple[str, s
     return created, expires
 
 
+def verify_tracked_lock_source_policy(lock_bytes: bytes) -> None:
+    try:
+        lock = tomllib.loads(lock_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        fail(f"tracked Cargo.lock is not valid TOML: {exc}")
+    if not isinstance(lock, dict):
+        fail("tracked Cargo.lock top level is not a table")
+
+    packages = lock.get("package")
+    if not isinstance(packages, list) or not packages:
+        fail("tracked Cargo.lock does not contain package entries")
+
+    if "patch" in lock or "replace" in lock:
+        fail("tracked Cargo.lock contains unsupported patch/replace policy")
+
+    source_free: list[str] = []
+    for package in packages:
+        if not isinstance(package, dict):
+            fail("tracked Cargo.lock package entry is malformed")
+        name = package.get("name")
+        version = package.get("version")
+        source = package.get("source")
+        if not isinstance(name, str) or not name:
+            fail("tracked Cargo.lock package name is malformed")
+        if not isinstance(version, str) or not version:
+            fail(f"tracked Cargo.lock package version is malformed: {name}")
+        if source is None:
+            source_free.append(name)
+            continue
+        if source != CRATES_IO_REGISTRY_SOURCE:
+            fail(f"tracked Cargo.lock package uses unapproved source: {name}")
+        checksum = package.get("checksum")
+        if not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum):
+            fail(f"tracked Cargo.lock registry package lacks canonical checksum: {name}")
+
+    if source_free != [LOCK_ROOT_PACKAGE]:
+        fail(
+            "tracked Cargo.lock source-free package set is not exactly the workspace root: "
+            f"{source_free!r}"
+        )
+
+
 def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: str) -> None:
     if policy_file.get("encoding") != "base64":
         fail("trusted policy file is not represented as base64 content")
@@ -541,6 +586,7 @@ def verify_receipt(
             fail(f"tracked candidate lockfile base64 invalid: {exc}")
         if hashlib.sha256(lock_bytes).hexdigest() != lock_sha:
             fail("tracked candidate lockfile digest mismatch")
+        verify_tracked_lock_source_policy(lock_bytes)
     else:
         if candidate_lock.get("mode") != "generated_for_run":
             fail("unexpected generated lockfile marker")
