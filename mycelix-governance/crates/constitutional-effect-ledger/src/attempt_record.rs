@@ -114,6 +114,12 @@ fn terminal_outcome_tag(outcome: TerminalOutcomeV1) -> u8 {
 pub struct TerminalEvidenceV1 {
     action_key_digest: String,
     attempt_identity: String,
+    operation_id: String,
+    native_replay_identity: String,
+    effecting_target_identity: String,
+    provider_environment: String,
+    provider_audience: String,
+    adapter_identity: String,
     outcome: TerminalOutcomeV1,
     evidence_commitment: String,
     verifier_identity: String,
@@ -121,45 +127,52 @@ pub struct TerminalEvidenceV1 {
 }
 
 impl TerminalEvidenceV1 {
-    pub fn new(
+    pub fn from_attempt(
         action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
+        attempt: &AttemptRecordV1,
         outcome: TerminalOutcomeV1,
         evidence_commitment: impl Into<String>,
         verifier_identity: impl Into<String>,
     ) -> Result<Self, String> {
         let evidence_commitment = evidence_commitment.into();
         let verifier_identity = verifier_identity.into();
-
-        require_tagged_hash(
-            "action_key_digest",
-            action_key.digest(),
-            crate::ACTION_KEY_PREFIX,
-        )?;
-        require_tagged_hash(
-            "attempt_identity",
-            attempt_identity.digest(),
-            crate::ATTEMPT_IDENTITY_PREFIX,
-        )?;
+        require_tagged_hash("action_key_digest", action_key.digest(), crate::ACTION_KEY_PREFIX)?;
+        require_tagged_hash("attempt_identity", &attempt.attempt_identity, crate::ATTEMPT_IDENTITY_PREFIX)?;
+        attempt.validate()?;
+        if attempt.action_key_digest != action_key.digest() {
+            return Err("terminal evidence action key does not match attempt".into());
+        }
         require_opaque("evidence_commitment", &evidence_commitment, MAX_REF_LEN)?;
         require_opaque("verifier_identity", &verifier_identity, MAX_REF_LEN)?;
 
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"MYCELIX-CONSTITUTIONAL-TERMINAL-EVIDENCE\0V1\0");
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-TERMINAL-EVIDENCE\0V2\0");
         hasher.update(&ATTEMPT_RECORD_SCHEMA_VERSION.to_be_bytes());
         push_str(&mut hasher, action_key.digest());
-        push_str(&mut hasher, attempt_identity.digest());
+        push_str(&mut hasher, &attempt.attempt_identity);
+        push_str(&mut hasher, &attempt.operation_id);
+        push_str(&mut hasher, &attempt.native_replay_identity);
+        push_str(&mut hasher, &attempt.effecting_target_identity);
+        push_str(&mut hasher, &attempt.provider_environment);
+        push_str(&mut hasher, &attempt.provider_audience);
+        push_str(&mut hasher, &attempt.adapter_identity);
         hasher.update(&[terminal_outcome_tag(outcome)]);
         push_str(&mut hasher, &evidence_commitment);
         push_str(&mut hasher, &verifier_identity);
 
         Ok(Self {
             action_key_digest: action_key.digest().to_owned(),
-            attempt_identity: attempt_identity.digest().to_owned(),
+            attempt_identity: attempt.attempt_identity.clone(),
+            operation_id: attempt.operation_id.clone(),
+            native_replay_identity: attempt.native_replay_identity.clone(),
+            effecting_target_identity: attempt.effecting_target_identity.clone(),
+            provider_environment: attempt.provider_environment.clone(),
+            provider_audience: attempt.provider_audience.clone(),
+            adapter_identity: attempt.adapter_identity.clone(),
             outcome,
             evidence_commitment,
             verifier_identity,
-            digest: tagged("constitutional-terminal-evidence-v1:", hasher.finalize()),
+            digest: tagged("constitutional-terminal-evidence-v2:", hasher.finalize()),
         })
     }
 
@@ -174,6 +187,13 @@ impl TerminalEvidenceV1 {
     pub fn outcome(&self) -> TerminalOutcomeV1 {
         self.outcome
     }
+    pub fn operation_id(&self) -> &str { &self.operation_id }
+    pub fn native_replay_identity(&self) -> &str { &self.native_replay_identity }
+    pub fn effecting_target_identity(&self) -> &str { &self.effecting_target_identity }
+    pub fn provider_environment(&self) -> &str { &self.provider_environment }
+    pub fn provider_audience(&self) -> &str { &self.provider_audience }
+    pub fn adapter_identity(&self) -> &str { &self.adapter_identity }
+
 
     pub fn evidence_commitment(&self) -> &str {
         &self.evidence_commitment
@@ -1116,6 +1136,12 @@ impl AtomicActionFenceModelV1 {
         if terminal_evidence.outcome() != expected_outcome
             || terminal_evidence.action_key_digest() != action_key.digest()
             || terminal_evidence.attempt_identity() != attempt_identity.digest()
+            || terminal_evidence.operation_id() != current.operation_id
+            || terminal_evidence.native_replay_identity() != current.native_replay_identity
+            || terminal_evidence.effecting_target_identity() != current.effecting_target_identity
+            || terminal_evidence.provider_environment() != current.provider_environment
+            || terminal_evidence.provider_audience() != current.provider_audience
+            || terminal_evidence.adapter_identity() != current.adapter_identity
         {
             return Err(ActionFenceMutationError::TerminalEvidenceMismatch);
         }
