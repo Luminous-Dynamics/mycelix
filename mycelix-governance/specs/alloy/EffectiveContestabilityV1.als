@@ -54,9 +54,13 @@ sig ProviderFailure {
   authorityAfter: set Power
 }
 
-fact EffectiveExitRequiresNominalAndPortability {
+fact EffectiveExitRequiresNominal {
   all s: Subject, p: s.effective |
-    p in s.nominal and
+    p in s.nominal
+}
+
+fact EffectiveExitRequiresPortability {
+  all s: Subject, p: s.effective |
     s.portable = On
 }
 
@@ -140,6 +144,11 @@ pred HighSwitchingCostReviewWitness {
   some s: Subject |
     s.switchingCost >= 2 and
     s.reviewRequired = On
+}
+
+pred EffectiveExitWithoutNominalWitness {
+  some s: Subject, p: s.effective |
+    p not in s.nominal
 }
 
 pred NonPortableEffectiveExitWitness {
