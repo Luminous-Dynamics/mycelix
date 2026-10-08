@@ -446,22 +446,15 @@ jobs:
           claim_id="${{ needs.prepare.outputs.claim_id }}"
           release_tag="cos-qualification-${claim_id}"
           GH_TOKEN="${GITHUB_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName > draft-release.json
-          release_id="$(python - <<'PY'
-          import json
-          from pathlib import Path
-          print(json.loads(Path('draft-release.json').read_text())['id'])
-          PY
-          )"
           cp -a handoff/durable-source durable-source
           asset_name="cos-durable-${claim_id}.tar.gz"
-          CLAIM_ID="${claim_id}" RELEASE_TAG="${release_tag}" RELEASE_ID="${release_id}" EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
+          CLAIM_ID="${claim_id}" RELEASE_TAG="${release_tag}" EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
           import hashlib,json,os
           from pathlib import Path
           facts=json.loads(Path('handoff/source-facts.json').read_text())
-          release_id=int(os.environ['RELEASE_ID'])
           files={name:hashlib.sha256((Path('durable-source')/name).read_bytes()).hexdigest() for name in ('qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json')}
           manifest={
-              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),'release_tag':os.environ['RELEASE_TAG'],'release_id':release_id,'asset_name':'cos-durable-'+os.environ['CLAIM_ID']+'.tar.gz','expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'predicate_type':facts['predicate_type'],'publication_profile':facts['publication_profile'],'claim_ceiling':facts['claim_ceiling'],'trust_root_manifest_blob_sha1':facts['trust_root_manifest_blob_sha1'],'trust_root_manifest_sha256':facts['trust_root_manifest_sha256'],'trust_root_main_snapshot_sha':facts['trust_root_main_snapshot_sha'],'attestor_workflow_path':facts['attestor_workflow_ref'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'files':files}
+              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),'release_tag':os.environ['RELEASE_TAG'],'asset_name':'cos-durable-'+os.environ['CLAIM_ID']+'.tar.gz','expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'predicate_type':facts['predicate_type'],'publication_profile':facts['publication_profile'],'claim_ceiling':facts['claim_ceiling'],'trust_root_manifest_blob_sha1':facts['trust_root_manifest_blob_sha1'],'trust_root_manifest_sha256':facts['trust_root_manifest_sha256'],'trust_root_main_snapshot_sha':facts['trust_root_main_snapshot_sha'],'attestor_workflow_path':facts['attestor_workflow_ref'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'files':files}
           Path('durable-source/durable-publication-manifest-v1.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
           PY
           (cd durable-source && sha256sum qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json durable-publication-manifest-v1.json) > durable-source/SHA256SUMS
@@ -484,6 +477,7 @@ jobs:
           p=json.loads((root/'qualification-attestation-predicate-v3.json').read_text())
           b=hashlib.sha256((root/'qualification-attestation-bundle.json').read_bytes()).hexdigest()
           assert m['qualification_claim_id']==r['qualification_claim_id'] and m['claim_ceiling']=='ReferenceModelOnly'
+          assert m['release_tag']=='cos-qualification-'+m['qualification_claim_id']
           assert m['publication_handoff_sha256']==json.loads(Path('handoff/source-facts.json').read_text())['publication_handoff_sha256']
           assert m['trust_root_main_snapshot_sha']==m['expected_main_sha']
           assert m['signed_attestation_bundle_sha256']==b and r['attestation']['bundle_sha256']==b
