@@ -151,8 +151,12 @@ jobs:
           test -z "$(git ls-files -s -- crates/fpm-wasm-artifact-identity | awk '$1 ~ /^120000$/ {print $4}')"
           root_config_hits="$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)"
           test -z "$root_config_hits"
-          test ! -e .cargo/config
-          test ! -e .cargo/config.toml
+          test ! -L .cargo
+          test ! -L ../.cargo
+          for config_path in .cargo/config .cargo/config.toml ../.cargo/config ../.cargo/config.toml; do
+            test ! -e "$config_path"
+            test ! -L "$config_path"
+          done
           actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
           test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
           grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
@@ -229,6 +233,8 @@ jobs:
           packages = lock.get("package")
           if not isinstance(packages, list) or not packages:
               raise SystemExit("Cargo.lock has no package entries")
+          if "patch" in lock or "replace" in lock:
+              raise SystemExit("Cargo.lock contains unsupported patch/replace policy")
 
           allowed = "registry+https://github.com/rust-lang/crates.io-index"
           source_free = []
@@ -258,7 +264,10 @@ jobs:
           mkdir -p "$HOME"
           chmod 700 "$HOME"
           test ! -e "$HOME/.gitconfig"
+          test ! -e "$CARGO_HOME/config"
           test ! -e "$CARGO_HOME/config.toml"
+          test ! -L "$CARGO_HOME/config"
+          test ! -L "$CARGO_HOME/config.toml"
           test ! -e "$CARGO_HOME/credentials"
           test ! -e "$CARGO_HOME/credentials.toml"
           env -i             PATH="$PATH"             HOME="$HOME"             CARGO_HOME="$CARGO_HOME"             CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse             CARGO_NET_OFFLINE=false             CARGO_NET_GIT_FETCH_WITH_CLI=false             GIT_CONFIG_NOSYSTEM=true             GIT_TERMINAL_PROMPT=0             cargo fetch --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
