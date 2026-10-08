@@ -146,6 +146,7 @@ jobs:
             printf '%s\n' "- Candidate policy blob: \`$candidate_policy_blob\`"
             printf '%s\n' "- Trusted evaluator blob: \`$observed_evaluator_blob\`"
             printf '%s\n' "- Workflow file commit: \`$GITHUB_WORKFLOW_SHA\`"
+            printf '%s\n' "- Workflow ref: $GITHUB_WORKFLOW_REF"
             printf '%s\n' "- Run: \`$GITHUB_RUN_ID\`, attempt \`$GITHUB_RUN_ATTEMPT\`"
             printf '%s\n' "- Claim ceiling: \`ReferenceModelOnly\`"
             printf '%s\n' "- Receipt SHA-256: \`$receipt_sha256\`"
