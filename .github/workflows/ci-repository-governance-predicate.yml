@@ -183,6 +183,9 @@ jobs:
           assert "rulesets-index-after-payload.json" in scanned_text
           assert "effective-rules-payload-after.json" in scanned_text
           assert "repository-payload-after.json" in scanned_text
+          assert "owner_before = repository_before.get(\"owner\")" in scanned_text
+          assert "owner_after = repository_after.get(\"owner\")" in scanned_text
+          assert "repository owner governance drift during observation" in scanned_text
           assert "branch-payload-after.json" in scanned_text
           assert "rulesets-payload-after.json" in scanned_text
           assert "rulesets-after/${ruleset_id}.json" in scanned_text
