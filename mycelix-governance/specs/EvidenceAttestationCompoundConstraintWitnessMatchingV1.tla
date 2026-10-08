@@ -33,9 +33,7 @@ MatchingExists ==
           p1 # p2 => chosen[p1] # chosen[p2]
     /\ \A p \in ParentClauses : chosen[p] \in ChildClauses
 
-GreedyResult ==
-  Control = "greedy-dead-end" => FALSE
-  IF Control = "greedy-dead-end" THEN FALSE ELSE MatchingExists
+GreedyResult == IF Control = "greedy-dead-end" THEN FALSE ELSE MatchingExists
 
 ParentDenotation == {"alice-business-trusted-0","alice-business-trusted-1","bob-business-trusted-0","bob-business-trusted-1"}
 ChildDenotation ==
