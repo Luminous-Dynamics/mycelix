@@ -245,6 +245,15 @@ fn resolve_machine_root_action_hash(
     )))
 }
 
+fn machine_control_fields_changed(
+    original: &MachineEntry,
+    updated: &MachineEntry,
+) -> bool {
+    original.status != updated.status
+        || original.current_work_order != updated.current_work_order
+        || original.last_status_authority_hash != updated.last_status_authority_hash
+}
+
 fn validate_update_entry(
     original_action_hash: ActionHash,
     action: TypedAction<UpdateData>,
@@ -273,10 +282,10 @@ fn validate_update_entry(
                 ));
             }
 
-            if m.status != original.status {
+            if machine_control_fields_changed(&original, &m) {
                 let Some(authority_hash) = m.last_status_authority_hash.clone() else {
                     return Ok(ValidateCallbackResult::Invalid(
-                        "machine status changes require controller authority".into(),
+                        "machine control-field changes require controller authority".into(),
                     ));
                 };
                 let authority_record = must_get_valid_record(authority_hash)?;
@@ -289,6 +298,7 @@ fn validate_update_entry(
                         "machine status authority reference is not an authority record".into(),
                     ));
                 };
+
                 let machine_root = resolve_machine_root_action_hash(
                     original_action_hash.clone(),
                 )?;
@@ -309,12 +319,16 @@ fn validate_update_entry(
                         "machine update falls outside controller authority validity".into(),
                     ));
                 }
-                if !original.status.can_transition_to(&m.status) {
+                if m.status != original.status
+                    && !original.status.can_transition_to(&m.status)
+                {
                     return Ok(ValidateCallbackResult::Invalid(format!(
                         "Invalid machine transition: {:?} -> {:?}",
                         original.status, m.status
                     )));
                 }
+            }
+
             }
 
             Ok(ValidateCallbackResult::Valid)
@@ -344,6 +358,25 @@ mod content_restriction_tests {
             last_status_authority_hash: None,
             registered_at: Timestamp::from_micros(0),
         }
+    }
+
+    #[test]
+    fn control_field_change_requires_authority() {
+        let original = valid_machine();
+        let mut updated = original.clone();
+
+        updated.current_work_order = Some(ActionHash::from_raw_36(vec![7; 36]));
+        assert!(machine_control_fields_changed(&original, &updated));
+
+        updated = original.clone();
+        updated.last_status_authority_hash = Some(ActionHash::from_raw_36(vec![8; 36]));
+        assert!(machine_control_fields_changed(&original, &updated));
+
+        updated = original.clone();
+        updated.status = MachineStatus::Running;
+        assert!(machine_control_fields_changed(&original, &updated));
+
+        assert!(!machine_control_fields_changed(&original, &original));
     }
 
     #[test]
