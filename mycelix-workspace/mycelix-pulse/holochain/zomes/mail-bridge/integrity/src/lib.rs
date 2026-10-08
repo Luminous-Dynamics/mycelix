@@ -1413,7 +1413,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_sender_proof_verifier_compatibility_record(
     record: &SenderProofVerifierCompatibilityRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const MIN_CASES: u64 = 128;
@@ -1457,7 +1457,7 @@ fn validate_sender_proof_verifier_compatibility_record(
 
 fn validate_sender_proof_verifier_rollout_plan_record(
     record: &SenderProofVerifierRolloutPlanRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const MAX_WINDOW_MICROS: i64 = 30 * 24 * 60 * 60 * 1_000_000;
@@ -1512,7 +1512,7 @@ fn rollout_stage_known(stage: &str) -> bool {
 
 fn validate_sender_proof_verifier_rollout_state_record(
     record: &SenderProofVerifierRolloutStateRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     let genesis_shape = record.state_epoch != 1
@@ -1549,7 +1549,7 @@ fn validate_sender_proof_verifier_rollout_state_record(
 
 fn validate_sender_proof_verifier_rollout_checkpoint_record(
     record: &SenderProofVerifierRolloutCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     if record.contract_id != CONTRACT_ID
@@ -1580,7 +1580,7 @@ fn validate_sender_proof_verifier_rollout_checkpoint_record(
 
 fn validate_sender_proof_verifier_rollout_health_record(
     record: &SenderProofVerifierRolloutHealthRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-rollout.health-policy.v1";
@@ -1643,7 +1643,7 @@ fn validate_sender_proof_verifier_rollout_health_record(
 
 fn validate_sender_proof_verifier_rollout_safety_action_record(
     record: &SenderProofVerifierRolloutSafetyActionRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     let expected_epoch = record.triggering_state_epoch.checked_add(1);
@@ -1678,7 +1678,7 @@ fn validate_sender_proof_verifier_rollout_safety_action_record(
 
 fn validate_sender_proof_verifier_telemetry_retention_record(
     record: &SenderProofVerifierTelemetryRetentionRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-rollout.telemetry-retention-policy.v1";
@@ -1721,7 +1721,7 @@ fn validate_sender_proof_verifier_telemetry_retention_record(
 
 fn validate_sender_proof_verifier_rollback_drill_record(
     record: &SenderProofVerifierRollbackDrillRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-rollout.rollback-drill-policy.v1";
@@ -1768,7 +1768,7 @@ fn validate_sender_proof_verifier_rollback_drill_record(
 
 fn validate_sender_proof_verifier_release_attestation_record(
     record: &SenderProofVerifierReleaseAttestationRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const AUTHORITY_SET: &str = "mycelix.proof.verifier-release.authority-set.v1";
@@ -1854,7 +1854,7 @@ fn verifier_authority_role_known(role: &str) -> bool {
 
 fn validate_sender_proof_verifier_custody_ceremony_record(
     record: &SenderProofVerifierCustodyCeremonyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-key-custody.policy.v1";
@@ -1908,7 +1908,7 @@ fn validate_sender_proof_verifier_custody_ceremony_record(
 
 fn validate_sender_proof_verifier_custody_compromise_record(
     record: &SenderProofVerifierCustodyCompromiseRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const NOTICE: &str = "mycelix.proof.verifier-key-custody.compromise-notice.v1";
@@ -1948,7 +1948,7 @@ fn validate_sender_proof_verifier_custody_compromise_record(
 
 fn validate_sender_proof_verifier_custody_recovery_record(
     record: &SenderProofVerifierCustodyRecoveryRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const RECOVERY: &str = "mycelix.proof.verifier-key-custody.recovery.v1";
@@ -1994,7 +1994,7 @@ fn validate_sender_proof_verifier_custody_recovery_record(
 
 fn validate_sender_proof_verifier_custody_rotation_record(
     record: &SenderProofVerifierCustodyRotationRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-key-rotation.policy.v1";
@@ -2065,7 +2065,7 @@ fn validate_sender_proof_verifier_custody_rotation_record(
 
 fn validate_sender_proof_verifier_custody_rotation_checkpoint_record(
     record: &SenderProofVerifierCustodyRotationCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const CHECKPOINT: &str = "mycelix.proof.verifier-key-rotation.checkpoint.v1";
@@ -2105,7 +2105,7 @@ fn validate_sender_proof_verifier_custody_rotation_checkpoint_record(
 
 fn validate_sender_proof_verifier_device_loss_notice_record(
     record: &SenderProofVerifierDeviceLossNoticeRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-loss.notice.v1";
@@ -2143,7 +2143,7 @@ fn validate_sender_proof_verifier_device_loss_notice_record(
 
 fn validate_sender_proof_verifier_device_succession_record(
     record: &SenderProofVerifierDeviceSuccessionRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-device-succession.policy.v1";
@@ -2210,7 +2210,7 @@ fn validate_sender_proof_verifier_device_succession_record(
 
 fn validate_sender_proof_verifier_device_succession_checkpoint_record(
     record: &SenderProofVerifierDeviceSuccessionCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const CHECKPOINT: &str = "mycelix.proof.verifier-device-succession.checkpoint.v1";
@@ -2247,7 +2247,7 @@ fn validate_sender_proof_verifier_device_succession_checkpoint_record(
 
 fn validate_sender_proof_verifier_device_attestation_record(
     record: &SenderProofVerifierDeviceAttestationRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-device-attestation.policy.v1";
@@ -2300,7 +2300,7 @@ fn validate_sender_proof_verifier_device_attestation_record(
 
 fn validate_sender_proof_verifier_device_clone_evidence_record(
     record: &SenderProofVerifierDeviceCloneEvidenceRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-clone-evidence.v1";
@@ -2329,7 +2329,7 @@ fn validate_sender_proof_verifier_device_clone_evidence_record(
 
 fn validate_sender_proof_verifier_device_decommission_record(
     record: &SenderProofVerifierDeviceDecommissionRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-decommission.record.v1";
@@ -2362,7 +2362,7 @@ fn validate_sender_proof_verifier_device_decommission_record(
 
 fn validate_sender_proof_verifier_device_attestation_checkpoint_record(
     record: &SenderProofVerifierDeviceAttestationCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-attestation.checkpoint.v1";
@@ -2396,7 +2396,7 @@ fn validate_sender_proof_verifier_device_attestation_checkpoint_record(
 
 fn validate_sender_proof_verifier_device_trust_policy_record(
     record: &SenderProofVerifierDeviceTrustPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-trust.policy.v1";
@@ -2422,7 +2422,7 @@ fn validate_sender_proof_verifier_device_trust_policy_record(
 
 fn validate_sender_proof_verifier_device_measurement_policy_record(
     record: &SenderProofVerifierDeviceMeasurementPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-measurement.policy.v1";
@@ -2456,7 +2456,7 @@ fn validate_sender_proof_verifier_device_measurement_policy_record(
 
 fn validate_sender_proof_verifier_device_attestation_root_rotation_record(
     record: &SenderProofVerifierDeviceAttestationRootRotationRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-attestation-root-rotation.v1";
@@ -2497,7 +2497,7 @@ fn validate_sender_proof_verifier_device_attestation_root_rotation_record(
 
 fn validate_sender_proof_verifier_device_trust_binding_record(
     record: &SenderProofVerifierDeviceTrustBindingRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-trust-binding.v1";
@@ -2529,7 +2529,7 @@ fn validate_sender_proof_verifier_device_trust_binding_record(
 
 fn validate_sender_proof_verifier_device_trust_checkpoint_record(
     record: &SenderProofVerifierDeviceTrustCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-trust-checkpoint.v1";
@@ -2566,7 +2566,7 @@ fn validate_sender_proof_verifier_device_trust_checkpoint_record(
 
 fn validate_sender_proof_verifier_measured_boot_policy_record(
     record: &SenderProofVerifierMeasuredBootPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-measured-boot.policy.v1";
@@ -2597,7 +2597,7 @@ fn validate_sender_proof_verifier_measured_boot_policy_record(
 
 fn validate_sender_proof_verifier_measured_boot_evidence_record(
     record: &SenderProofVerifierMeasuredBootEvidenceRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-measured-boot.evidence.v1";
@@ -2638,7 +2638,7 @@ fn validate_sender_proof_verifier_measured_boot_evidence_record(
 
 fn validate_sender_proof_verifier_device_trust_revocation_set_record(
     record: &SenderProofVerifierDeviceTrustRevocationSetRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-trust-revocations.v1";
@@ -2668,7 +2668,7 @@ fn validate_sender_proof_verifier_device_trust_revocation_set_record(
 
 fn validate_sender_proof_verifier_measurement_recovery_record(
     record: &SenderProofVerifierMeasurementRecoveryRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-measurement-recovery.v1";
@@ -2700,7 +2700,7 @@ fn validate_sender_proof_verifier_measurement_recovery_record(
 
 fn validate_sender_proof_verifier_measured_boot_checkpoint_record(
     record: &SenderProofVerifierMeasuredBootCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-measured-boot.checkpoint.v1";
@@ -2737,7 +2737,7 @@ fn validate_sender_proof_verifier_measured_boot_checkpoint_record(
 
 fn validate_sender_proof_verifier_endorsement_policy_record(
     record: &SenderProofVerifierEndorsementPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.policy.v1";
@@ -2767,7 +2767,7 @@ fn validate_sender_proof_verifier_endorsement_policy_record(
 
 fn validate_sender_proof_verifier_manufacturer_root_set_record(
     record: &SenderProofVerifierManufacturerRootSetRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.manufacturer-root-set.v1";
@@ -2798,7 +2798,7 @@ fn validate_sender_proof_verifier_manufacturer_root_set_record(
 
 fn validate_sender_proof_verifier_endorsement_chain_evidence_record(
     record: &SenderProofVerifierEndorsementChainEvidenceRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.chain-evidence.v1";
@@ -2841,7 +2841,7 @@ fn validate_sender_proof_verifier_endorsement_chain_evidence_record(
 
 fn validate_sender_proof_verifier_endorsement_revocation_set_record(
     record: &SenderProofVerifierEndorsementRevocationSetRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.revocations.v1";
@@ -2877,7 +2877,7 @@ fn validate_sender_proof_verifier_endorsement_revocation_set_record(
 
 fn validate_sender_proof_verifier_endorsement_checkpoint_record(
     record: &SenderProofVerifierEndorsementCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.checkpoint.v1";
@@ -2918,7 +2918,7 @@ fn validate_sender_proof_verifier_endorsement_checkpoint_record(
 
 fn validate_sender_proof_verifier_artifact_record(
     record: &SenderProofVerifierArtifactRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const MAX_ARTIFACT_BYTES: u64 = 64 * 1024 * 1024;
@@ -2969,7 +2969,7 @@ fn validate_sender_proof_verifier_artifact_record(
 
 fn validate_sender_proof_verifier_transparency_record(
     record: &SenderProofVerifierTransparencyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     if record.contract_id != CONTRACT_ID
@@ -3018,7 +3018,7 @@ fn validate_sender_proof_verifier_transparency_record(
 
 fn validate_sender_proof_activation_policy_record(
     record: &SenderProofActivationPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY_ID: &str = "mycelix.mail.sender-proof-activation.operator-quorum.v2";
@@ -3105,7 +3105,7 @@ fn validate_sender_proof_activation_policy_record(
 
 fn validate_sender_proof_activation_audit_event(
     event: &SenderProofActivationAuditEvent,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const AUDIT_PROTOCOL: &str = "mycelix.mail.sender-proof-activation.audit-event.v1";
     if event.audit_event_protocol != AUDIT_PROTOCOL {
@@ -3172,7 +3172,7 @@ fn validate_sender_proof_activation_audit_event(
 
 fn validate_sender_proof_conflict_evidence(
     evidence: &SenderProofConflictEvidence,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     for (name, value) in [
         ("first_receipt_hash", evidence.first_receipt_hash),
@@ -3242,7 +3242,7 @@ fn validate_sender_proof_conflict_evidence(
 
 fn validate_sender_proof_authority_fork_evidence(
     evidence: &SenderProofAuthorityForkEvidence,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     for (name, value) in [
         (
@@ -3293,7 +3293,7 @@ fn validate_sender_proof_authority_fork_evidence(
 
 fn validate_sender_proof_conflict_quarantine(
     quarantine: &SenderProofConflictQuarantine,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     for (name, value) in [
         ("conflict_evidence_hash", quarantine.conflict_evidence_hash),
@@ -3325,7 +3325,7 @@ fn validate_sender_proof_conflict_quarantine(
 
 fn validate_sender_proof_consumption(
     consumption: &SenderProofConsumption,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
 
