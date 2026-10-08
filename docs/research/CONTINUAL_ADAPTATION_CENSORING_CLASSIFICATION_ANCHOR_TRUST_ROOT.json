@@ -4,7 +4,7 @@
   "trust_root_id": "mycelix.research.anchor-root.v1",
   "authority_id": "mycelix.research.anchor-authority.v1",
   "root_version": 2,
-  "current_manifest_sha256": "sha256:54ebc1b7f6d922cf069d1f1c577d159867ee777fa52aaa67cbe50433e5a11511",
+  "current_manifest_sha256": "sha256:290649ab061c8ec5cdfb81c0add4946fbb597c4df96a8ac613fbc4f9b371f31f",
   "current_manifest_version": 2,
   "minimum_manifest_version": 2,
   "maximum_manifest_version": 2,
