@@ -435,7 +435,7 @@ jobs:
           assert data['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
           PY
           else
-            GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release create "${release_tag}" --repo "${GITHUB_REPOSITORY}" --target "${EXPECTED_MAIN_SHA}" --title "COS Qualification ${claim_id}" --notes "Candidate-only content-addressed COS publication. Claim ceiling remains ReferenceModelOnly; publication alone grants no authority." --draft
+            GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release create "${release_tag}" --repo "${GITHUB_REPOSITORY}" --target "${EXPECTED_MAIN_SHA}" --title "COS Qualification ${claim_id}" --notes "Candidate-only content-addressed COS publication. Claim ceiling remains ReferenceModelOnly; publication alone grants no authority." --latest=false --draft
           fi
 
       - name: Build and prove durable archive
