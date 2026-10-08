@@ -316,6 +316,31 @@ fn required_inspection_criteria_are_unique(
     all_unique(hashes)
 }
 
+fn inspection_measurement_coverage(
+    required: &HashSet<ActionHash>,
+    measured: &[ActionHash],
+) -> Result<(), &'static str> {
+    let mut seen = HashSet::new();
+    for criterion_hash in measured {
+        if !required.contains(criterion_hash) {
+            return Err(
+                "execution measurement references an inspection criterion not required by the routing step",
+            );
+        }
+        if !seen.insert(criterion_hash.clone()) {
+            return Err(
+                "accepted execution contains multiple measurements for the same routing-required inspection criterion",
+            );
+        }
+    }
+    if &seen != required {
+        return Err(
+            "accepted execution is missing one or more routing-required inspection measurements",
+        );
+    }
+    Ok(())
+}
+
 
 
 fn capability_profile_from_contract(
@@ -886,7 +911,7 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
             }
 
             if let Some(required_criteria) = required_inspection_criteria.as_ref() {
-                let mut measured_criteria = HashSet::new();
+                let mut measured_criteria = Vec::with_capacity(e.measurement_hashes.len());
                 for hash in &e.measurement_hashes {
                     let record = must_get_valid_record(hash.clone())?;
                     let measurement: Option<MeasurementEntry> = record
@@ -906,28 +931,15 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                         }
                         continue;
                     };
-                    if !required_criteria.contains(&criterion_hash)
-                        && matches!(e.disposition, Disposition::Accepted)
-                    {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "execution measurement references an inspection criterion not required by the routing step".into(),
-                        ));
-                    }
-                    if matches!(e.disposition, Disposition::Accepted)
-                        && !measured_criteria.insert(criterion_hash)
-                    {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "accepted execution contains multiple measurements for the same routing-required inspection criterion".into(),
-                        ));
-                    }
+                    measured_criteria.push(criterion_hash);
                 }
 
-                if matches!(e.disposition, Disposition::Accepted)
-                    && measured_criteria != *required_criteria
-                {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "accepted execution is missing one or more routing-required inspection measurements".into(),
-                    ));
+                if matches!(e.disposition, Disposition::Accepted) {
+                    if let Err(message) =
+                        inspection_measurement_coverage(required_criteria, &measured_criteria)
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(message.into()));
+                    }
                 }
             }
 
@@ -982,6 +994,46 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inspection_measurement_coverage_rejects_unrelated_criterion() {
+        let required = HashSet::from([ActionHash::from_raw_36(vec![1; 36])]);
+        let unrelated = ActionHash::from_raw_36(vec![2; 36]);
+
+        assert_eq!(
+            inspection_measurement_coverage(&required, &[unrelated]),
+            Err(
+                "execution measurement references an inspection criterion not required by the routing step"
+            )
+        );
+    }
+
+    #[test]
+    fn inspection_measurement_coverage_rejects_duplicate_measurements() {
+        let criterion = ActionHash::from_raw_36(vec![1; 36]);
+        let required = HashSet::from([criterion.clone()]);
+
+        assert_eq!(
+            inspection_measurement_coverage(&required, &[criterion.clone(), criterion]),
+            Err(
+                "accepted execution contains multiple measurements for the same routing-required inspection criterion"
+            )
+        );
+    }
+
+    #[test]
+    fn inspection_measurement_coverage_requires_all_criteria() {
+        let first = ActionHash::from_raw_36(vec![1; 36]);
+        let second = ActionHash::from_raw_36(vec![2; 36]);
+        let required = HashSet::from([first.clone(), second]);
+
+        assert_eq!(
+            inspection_measurement_coverage(&required, &[first]),
+            Err(
+                "accepted execution is missing one or more routing-required inspection measurements"
+            )
+        );
+    }
 
     #[test]
     fn inspection_criterion_reference_set_requires_unique_hashes() {
