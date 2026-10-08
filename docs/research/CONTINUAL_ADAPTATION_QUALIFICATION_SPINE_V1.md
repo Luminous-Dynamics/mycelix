@@ -996,6 +996,33 @@ The shared-claim scope corpus explicitly tests:
 Claim A's projection must remain unchanged under those unrelated Claim B changes.
 
 
+## Temporal evidence composition
+
+Temporal fields are evidence inputs, not self-authenticating truth.
+
+Compose existing trusted-time/currentness work rather than creating a second time authority:
+
+- Mycelix #2845 — trusted-time/currentness evidence;
+- Mycelix #2192 — execution clock provenance vs trusted current-time authority;
+- Symthaea #5039 — temporal taxonomy and verifier-owned monotonic deadlines;
+- Symthaea #5116 — evaluation-time/currentness binding.
+
+Keep separate:
+
+    logical decision epoch
+    execution-relative monotonic elapsed time
+    source-declared timestamp
+    acquisition/capture time
+    trusted external time evidence
+    freshness/currentness assessment
+
+A timestamp's presence does not establish event-time truth, and a fresh acquisition timestamp does not establish that the underlying source state is current.
+
+For synthetic continual-adaptation campaigns, prefer logical epochs and frozen schedules for the primary estimand. For physical/sequential claims, consume an explicit temporal provenance/currentness profile and preserve clock uncertainty, ordering, and drift evidence.
+
+Clock-policy changes are claim-relevant changes and may require requalification. A freshness timestamp must never be advanced merely because the verifier was rerun.
+
+
 ## Freshness and target-regime drift
 
 Transport evidence is historical evidence about the exact validated subject, target regime, evaluator, observation process, and applicability profile.
@@ -1133,7 +1160,8 @@ Symthaea:
 - #7043 — freshness under regime drift;
 - #7056 — intervention-version and measurement invariance;
 - #7065 — evidence dependence and shared ancestry;
-- #7093 — qualification-policy identity and rule liveness.
+- #7093 — qualification-policy identity and rule liveness;
+- #5039 / #5116 — temporal/currentness composition for adaptation evidence.
 
 ## Claim ceiling
 
