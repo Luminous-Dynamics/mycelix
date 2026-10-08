@@ -50,7 +50,7 @@ def check_invariants(state: State) -> list[str]:
         i = idx(s)
         for p in state.effective[i]:
             if p not in state.nominal[i]:
-                failures.append("EffectiveExitIsIndependent")
+                failures.append("EffectiveExitRequiresNominalExit")
             if p == state.current[i]:
                 failures.append("EffectiveExitContextIsFresh")
             if not state.portable[i]:
@@ -67,9 +67,9 @@ def check_invariants(state: State) -> list[str]:
             failures.append("MigrationPreservesObligationsAndHistory")
         if state.switched[i]:
             if state.authority[i] != state.authority_before_switch[i]:
-                failures.append("ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority")
+                failures.append("ProviderSwitchDoesNotTransferAuthority")
             if state.jurisdiction[i] != state.jurisdiction_before_switch[i]:
-                failures.append("ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:jurisdiction")
+                failures.append("ProviderSwitchDoesNotTransferJurisdiction")
         if state.switching_cost[i] >= REVIEW_THRESHOLD and not state.review_required[i]:
             failures.append("HighSwitchingCostTriggersReview")
     return sorted(set(failures))
@@ -78,8 +78,10 @@ def reset_roots() -> None:
     ROOTS["P2"] = ("C2", "I2", "E2", "V2", "M2")
 
 def mutate(state: State, kind: str) -> State:
-    if kind == "nominal-effective":
+    if kind == "nonportable-effective":
         return replace(state, nominal=(("P2",), ()), effective=(("P2",), ()), portable=(False, True))
+    if kind == "missing-nominal":
+        return replace(state, nominal=((), ()), effective=(("P2",), ()), portable=(True, True))
     if kind == "shared-root":
         ROOTS["P2"] = ("C1", "I2", "E2", "V2", "M2")
         return replace(state, nominal=(("P2",), ()), effective=(("P2",), ()))
@@ -191,12 +193,13 @@ def main() -> int:
 
     controls = {
         "switch-stale-exit": "EffectiveExitContextIsFresh",
-        "nominal-effective": "EffectiveExitRequiresPortability",
+        "nonportable-effective": "EffectiveExitRequiresPortability",
+        "missing-nominal": "NoEffectiveExitWithoutNominalExit",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
         "switch-obligation": "MigrationPreservesObligationsAndHistory",
-        "switch-authority": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority",
-        "switch-jurisdiction": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:jurisdiction",
+        "switch-authority": "ProviderSwitchDoesNotTransferAuthority",
+        "switch-jurisdiction": "ProviderSwitchDoesNotTransferJurisdiction",
         "switch-review": "HighSwitchingCostTriggersReview",
     }
     for name, target in controls.items():
