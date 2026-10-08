@@ -59,6 +59,8 @@ jobs:
           assert 'COS_RELEASE_ADMIN_TOKEN:' in publish
           assert 'gh release create' in publish
           assert '--latest=false' in publish
+          assert 'isLatest' in publish
+          assert "assert d['isLatest'] is False" in publish
           assert 'gh release edit' in publish
           assert 'isImmutable' in publish
           assert 'gh release verify-asset' in publish
