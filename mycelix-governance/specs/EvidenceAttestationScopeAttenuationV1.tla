@@ -24,82 +24,80 @@ vars == <<activeGrants, revokedGrants, authority, evidenceRecorded,
           evidenceAuthorityBefore, evidenceAuthorityAfter>>
 
 AuthorityOf(active) ==
-  [a in Agents |-> IF a = Root
+  [a \in Agents |-> IF a = Root
                     THEN Scopes
-                    ELSE {s : GrantScope[g] : g in active / grantee[g] = a}]
+                    ELSE UNION {GrantScope[g] : g \in active /\ grantee[g] = a}]
 
-EmptyAuthoritySnapshot == [a in Agents |-> {}]
+EmptyAuthoritySnapshot == [a \in Agents |-> {}]
 
 Init ==
-  / activeGrants = {G1}
-  / revokedGrants = {}
-  / authority = AuthorityOf({G1})
-  / evidenceRecorded = {}
-  / evidenceAuthorityBefore = [e in Evidence |-> EmptyAuthoritySnapshot]
-  / evidenceAuthorityAfter = [e in Evidence |-> EmptyAuthoritySnapshot]
+  /\ activeGrants = {G1}
+  /\ revokedGrants = {}
+  /\ authority = AuthorityOf({G1})
+  /\ evidenceRecorded = {}
+  /\ evidenceAuthorityBefore = [e \in Evidence |-> EmptyAuthoritySnapshot]
+  /\ evidenceAuthorityAfter = [e \in Evidence |-> EmptyAuthoritySnapshot]
 
 RecordEvidence(e) ==
-  / e in Evidence
-  / e 
-otin evidenceRecorded
-  / evidenceRecorded' = evidenceRecorded cup {e}
-  / evidenceAuthorityBefore' =
+  /\ e \in Evidence
+  /\ e \notin evidenceRecorded
+  /\ evidenceRecorded' = evidenceRecorded \cup {e}
+  /\ evidenceAuthorityBefore' =
        [evidenceAuthorityBefore EXCEPT ![e] = authority]
-  / evidenceAuthorityAfter' =
+  /\ evidenceAuthorityAfter' =
        [evidenceAuthorityAfter EXCEPT ![e] = authority]
-  / UNCHANGED <<activeGrants, revokedGrants, authority>>
+  /\ UNCHANGED <<activeGrants, revokedGrants, authority>>
 
 ApplyEvidenceBackedGrant(e, g) ==
-  / e in Evidence
-  / e 
-otin evidenceRecorded
-  / SignatureValid[e]
-  / SignerTrusted[e]
-  / ClaimAuthorized[e]
-  / EvidenceSubject[e] = TargetSubject[e]
-  / g in Grants
-  / g 
-otin activeGrants
-  / g 
-otin revokedGrants
-  / grantee[g] = EvidenceSubject[e]
-  / GrantScope[g] subseteq authority[issuer[g]]
-  / evidenceRecorded' = evidenceRecorded cup {e}
-  / activeGrants' = activeGrants cup {g}
-  / revokedGrants' = revokedGrants
-  / authority' = AuthorityOf(activeGrants cup {g})
-  / evidenceAuthorityBefore' =
+  /\ e \in Evidence
+  /\ e \notin evidenceRecorded
+  /\ SignatureValid[e]
+  /\ SignerTrusted[e]
+  /\ ClaimAuthorized[e]
+  /\ EvidenceSubject[e] = TargetSubject[e]
+  /\ g \in Grants
+  /\ g \notin activeGrants
+  /\ g \notin revokedGrants
+  /\ grantee[g] = EvidenceSubject[e]
+  /\ GrantScope[g] \subseteq authority[issuer[g]]
+  /\ GrantScope[g] \subseteq ClaimScope[e]
+  /\ evidenceRecorded' = evidenceRecorded \cup {e}
+  /\ activeGrants' = activeGrants \cup {g}
+  /\ revokedGrants' = revokedGrants
+  /\ authority' = AuthorityOf(activeGrants \cup {g})
+  /\ evidenceAuthorityBefore' =
        [evidenceAuthorityBefore EXCEPT ![e] = authority]
-  / evidenceAuthorityAfter' =
+  /\ evidenceAuthorityAfter' =
        [evidenceAuthorityAfter EXCEPT ![e] = authority']
 
 Next ==
-  / E e in Evidence : RecordEvidence(e)
-  / E e in Evidence, g in Grants : ApplyEvidenceBackedGrant(e, g)
+  \/ \E e \in Evidence : RecordEvidence(e)
+  \/ \E e \in Evidence, g \in Grants : ApplyEvidenceBackedGrant(e, g)
 
 TypeOK ==
-  / activeGrants subseteq Grants
-  / revokedGrants subseteq Grants
-  / activeGrants cap revokedGrants = {}
-  / authority in [Agents -> SUBSET Scopes]
-  / evidenceRecorded subseteq Evidence
-  / evidenceAuthorityBefore in [Evidence -> [Agents -> SUBSET Scopes]]
-  / evidenceAuthorityAfter in [Evidence -> [Agents -> SUBSET Scopes]]
+  /\ activeGrants \subseteq Grants
+  /\ revokedGrants \subseteq Grants
+  /\ activeGrants \cap revokedGrants = {}
+  /\ authority \in [Agents -> SUBSET Scopes]
+  /\ evidenceRecorded \subseteq Evidence
+  /\ evidenceAuthorityBefore \in [Evidence -> [Agents -> SUBSET Scopes]]
+  /\ evidenceAuthorityAfter \in [Evidence -> [Agents -> SUBSET Scopes]]
 
 AuthorityMatchesCurrentGrants == authority = AuthorityOf(activeGrants)
 
 GrantScopeWithinIssuerAuthority ==
-  A g in activeGrants : GrantScope[g] subseteq authority[issuer[g]]
+  \A g \in activeGrants : GrantScope[g] \subseteq authority[issuer[g]]
 
 NoAuthorityWithoutCurrentGrant ==
-  A a in Agents  {Root}, s in authority[a] :
-    E g in activeGrants :
-      grantee[g] = a / s in GrantScope[g]
+  \A a \in Agents \ {Root}, s \in authority[a] :
+    \E g \in activeGrants :
+      grantee[g] = a /\ s \in GrantScope[g]
 
 ClaimAuthorizationScopeAttenuated ==
-  A e in evidenceRecorded :
-    (SignatureValid[e] / SignerTrusted[e] / ClaimAuthorized[e] /     EvidenceSubject[e] = TargetSubject[e]) =>
-      evidenceAuthorityAfter[e][EvidenceSubject[e]]         evidenceAuthorityBefore[e][EvidenceSubject[e]]
-        subseteq ClaimScope[e]
+  \A e \in evidenceRecorded :
+    (SignatureValid[e] /\ SignerTrusted[e] /\ ClaimAuthorized[e] /\
+     EvidenceSubject[e] = TargetSubject[e]) =>
+      (evidenceAuthorityAfter[e][EvidenceSubject[e]]
+        \ evidenceAuthorityBefore[e][EvidenceSubject[e]]) \subseteq ClaimScope[e]
 
 =========================================================================
