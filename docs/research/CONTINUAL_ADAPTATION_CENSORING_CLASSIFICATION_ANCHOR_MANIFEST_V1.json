@@ -1,0 +1,20 @@
+{
+  "schema": "mycelix.continual-adaptation.censoring-classification-anchor-manifest.v1",
+  "status": "research-anchor-manifest-only",
+  "authority_id": "mycelix.research.anchor-authority.v1",
+  "manifest_version": 1,
+  "previous_manifest_sha256": null,
+  "subject_fixture_git_blob_sha": "d43ad99f1468cfe8d4bc305864ac532fdc80e038",
+  "policy_blob_sha": "5ce9d28fa3e615a12aaabc4ad246ad1ae0af8655",
+  "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb",
+  "issued_epoch": "t0",
+  "expires_after_epoch": "t2",
+  "entries": {
+    "c02": {
+      "type": "CensoringClassification",
+      "commitment": "sha256:77551e754cd4ed5c05764fd22c13444b39d46626230dd0be0094f266ca4f44d9",
+      "registration_epoch": "t0",
+      "status": "active"
+    }
+  }
+}
