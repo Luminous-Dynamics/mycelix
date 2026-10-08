@@ -1916,6 +1916,25 @@ mod tests {
         .unwrap()
     }
 
+    fn authorized_admit(
+        store: &mut SqliteActionFenceStore,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        record: AttemptRecordV1,
+    ) -> Result<AtomicAdmissionDecision, String> {
+        let proof = AuthorizationAdmissionProofV1::new(
+            &record,
+            action_key,
+            0,
+            u64::MAX,
+            "test-admission-verifier-v1",
+            "test-policy-snapshot-v1",
+            "test-status-snapshot-v1",
+            "test-admission-verifier-v1",
+        )?;
+        authorized_admit(&mut store, action_key, attempt_identity, record, proof)
+    }
+
     fn evidence(
         action_key: &ActionKeyV1,
         attempt: &AttemptIdentityV1,
@@ -1955,7 +1974,7 @@ mod tests {
             AttemptRecordState::Consumed,
         );
         assert_eq!(
-            store.atomically_admit(&action, &owner, row).unwrap(),
+            authorized_admit(&mut store, &action, &owner, row).unwrap(),
             AtomicAdmissionDecision::Admitted
         );
         drop(store);
@@ -2785,7 +2804,7 @@ mod tests {
 
         assert_eq!(
             model.admit(&action, &owner, row.clone()).unwrap(),
-            store.atomically_admit(&action, &owner, row).unwrap()
+            authorized_admit(&mut store, &action, &owner, row).unwrap()
         );
         assert_eq!(
             model.attempt(owner.digest()).unwrap().record_digest(),
