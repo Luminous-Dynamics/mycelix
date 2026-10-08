@@ -39,8 +39,10 @@ pub struct Timelock {
 pub enum TimelockStatus {
     /// Waiting for timelock to expire
     Pending,
-    /// Ready to execute
+    /// Ready to be prepared for the external effect boundary
     Ready,
+    /// Prepared for host-side effect execution
+    Prepared,
     /// Successfully executed
     Executed,
     /// Cancelled before execution
@@ -334,9 +336,11 @@ pub fn check_update_timelock(original: &Timelock, updated: &Timelock) -> Result<
     match (&original.status, &updated.status) {
         (TimelockStatus::Pending, TimelockStatus::Ready)
         | (TimelockStatus::Pending, TimelockStatus::Cancelled)
-        | (TimelockStatus::Ready, TimelockStatus::Executed)
-        | (TimelockStatus::Ready, TimelockStatus::Failed)
+        | (TimelockStatus::Ready, TimelockStatus::Prepared)
         | (TimelockStatus::Ready, TimelockStatus::Cancelled)
+        | (TimelockStatus::Prepared, TimelockStatus::Executed)
+        | (TimelockStatus::Prepared, TimelockStatus::Failed)
+        | (TimelockStatus::Prepared, TimelockStatus::Cancelled)
         // Veto override transitions:
         | (TimelockStatus::Ready, TimelockStatus::Vetoed)      // Guardian veto
         | (TimelockStatus::Pending, TimelockStatus::Vetoed)    // Guardian veto on pending
