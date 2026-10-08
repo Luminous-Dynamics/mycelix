@@ -85,6 +85,11 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'current_timelock.status != TimelockStatus::Ready' <<<"$window" || {
+            echo "NOT QUALIFIED: preparation path still permits implicit Pending authorization."
+            exit 1
+          }
+
           if grep -Fq 'execute_actions(' <<<"$window"; then
             echo "NOT QUALIFIED: execute_timelock still reaches an in-WASM action dispatcher directly."
             exit 1
@@ -94,6 +99,11 @@ jobs:
             echo "NOT QUALIFIED: execute_timelock still performs a direct cross-zome effect."
             exit 1
           fi
+
+          grep -Fq 'execution.status == ExecutionStatus::Prepared' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: execution creation is not explicitly constrained to Prepared."
+            exit 1
+          }
 
           grep -Fq 'EntryTypes::ExecutionResolution' "$executor" || {
             echo "NOT QUALIFIED: host resolution attestation API is missing."
