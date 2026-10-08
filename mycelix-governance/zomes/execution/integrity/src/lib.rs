@@ -734,7 +734,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         },
         FlatOp::RegisterCreateLink {
             link_type,
-            base_address: _,
+            base_address,
             target_address,
             tag: _,
             action,
@@ -744,22 +744,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::TimelockToExecutionAttempt => {
                 validate_execution_index_target(
                     action,
+                    base_address,
                     target_address,
-                    ExecutionIndexTargetKind::Attempt,
+                    ExecutionIndexTargetKind::AttemptByTimelock,
                 )
             }
             LinkTypes::ActionKeyToExecutionAttempt => {
                 validate_execution_index_target(
                     action,
+                    base_address,
                     target_address,
-                    ExecutionIndexTargetKind::Attempt,
+                    ExecutionIndexTargetKind::AttemptByActionKey,
                 )
             }
             LinkTypes::PendingTimelocks => Ok(ValidateCallbackResult::Valid),
             LinkTypes::GuardianToVeto => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ProposalToFundAllocation => Ok(ValidateCallbackResult::Valid),
             LinkTypes::TimelockById => {
-                validate_execution_index_target(action, target_address, ExecutionIndexTargetKind::Timelock)
+                validate_execution_index_target(
+                    action,
+                    base_address,
+                    target_address,
+                    ExecutionIndexTargetKind::Timelock,
+                )
             }
             LinkTypes::VetoToOverrideVotes => Ok(ValidateCallbackResult::Valid),
             LinkTypes::VetoToOverrideResult => Ok(ValidateCallbackResult::Valid),
@@ -786,23 +793,39 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 #[derive(Clone, Copy)]
 enum ExecutionIndexTargetKind {
     Timelock,
-    Attempt,
+    AttemptByTimelock,
+    AttemptByActionKey,
 }
 
 fn validate_execution_index_target(
     action: CreateLink,
+    base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
     expected: ExecutionIndexTargetKind,
 ) -> ExternResult<ValidateCallbackResult> {
+    let base_entry_hash = base_address.clone().into_entry_hash().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Execution index base must be an entry hash".into())
+    ))?;
+    let base_record = must_get_valid_record(base_entry_hash)?;
+    let base_anchor: Anchor = base_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Execution index base has no Anchor entry".into()
+        )))?;
+
     let target_action_hash = target_address.into_action_hash().ok_or(wasm_error!(
         WasmErrorInner::Guest("Execution index target must be an action hash".into())
     ))?;
 
     let target_record = must_get_valid_record(target_action_hash)?;
 
-    if action.author() != target_record.action().author() {
+    if action.author() != base_record.action().author()
+        || action.author() != target_record.action().author()
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Execution index target must be authored by the link author".into(),
+            "Execution index base and target must both be authored by the link author".into(),
         ));
     }
 
@@ -815,13 +838,15 @@ fn validate_execution_index_target(
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
                     "TimelockById target has no Timelock entry".into()
                 )))?;
-            if timelock.id.trim().is_empty() {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "TimelockById target has an empty timelock ID".into(),
-                ));
+            let expected_anchor = format!("tl:{}", timelock.id);
+            if base_anchor.0 != expected_anchor {
+                return Ok(ValidateCallbackResult::Invalid(format!(
+                    "TimelockById base anchor mismatch: expected '{}'",
+                    expected_anchor
+                )));
             }
         }
-        ExecutionIndexTargetKind::Attempt => {
+        ExecutionIndexTargetKind::AttemptByTimelock => {
             let attempt = target_record
                 .entry()
                 .to_app_option::<ExecutionAttempt>()
@@ -833,6 +858,37 @@ fn validate_execution_index_target(
                 return Ok(ValidateCallbackResult::Invalid(
                     "Execution attempt index target has incomplete identity fields".into(),
                 ));
+            }
+            let expected_anchor = format!("tl:{}", attempt.timelock_id);
+            if base_anchor.0 != expected_anchor {
+                return Ok(ValidateCallbackResult::Invalid(format!(
+                    "TimelockToExecutionAttempt base anchor mismatch: expected '{}'",
+                    expected_anchor
+                )));
+            }
+        }
+        ExecutionIndexTargetKind::AttemptByActionKey => {
+            let attempt = target_record
+                .entry()
+                .to_app_option::<ExecutionAttempt>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ActionKeyToExecutionAttempt target has no ExecutionAttempt entry".into()
+                )))?;
+            if attempt.id.trim().is_empty()
+                || attempt.timelock_id.trim().is_empty()
+                || attempt.action_key_digest.trim().is_empty()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ActionKey execution-attempt index target has incomplete identity fields".into(),
+                ));
+            }
+            let expected_anchor = format!("action-key:{}", attempt.action_key_digest);
+            if base_anchor.0 != expected_anchor {
+                return Ok(ValidateCallbackResult::Invalid(format!(
+                    "ActionKeyToExecutionAttempt base anchor mismatch: expected '{}'",
+                    expected_anchor
+                )));
             }
         }
     }
@@ -1039,6 +1095,17 @@ fn validate_update_fund_allocation(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn deterministic_index_anchor_namespaces_are_not_interchangeable() {
+        let action_key =
+            "constitutional-action-key-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let timelock_id = "timelock:proposal-1:1";
+        assert_ne!(
+            format!("tl:{}", timelock_id),
+            format!("action-key:{}", action_key)
+        );
+    }
+
     #[test]
     fn timelock_material_action_is_immutable() {
         let base = Timelock {
