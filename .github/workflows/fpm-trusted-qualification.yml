@@ -223,6 +223,8 @@ jobs:
 ' "$lock_sha" >> "$GITHUB_OUTPUT"
 
       - name: Materialize dependency cache before hostile execution
+        # The dependency phase is networked, so it receives a smaller, explicit
+        # environment than the later hostile sandbox.
         id: dependencies
         working-directory: candidate
         env:
@@ -230,7 +232,49 @@ jobs:
           CARGO_HOME: ${{ env.FPM_RESOLVER_CARGO_HOME }}
         run: |
           set -euo pipefail
-          cargo fetch --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          lock = tomllib.loads(
+              Path("crates/fpm-wasm-artifact-identity/Cargo.lock").read_text(encoding="utf-8")
+          )
+          packages = lock.get("package")
+          if not isinstance(packages, list) or not packages:
+              raise SystemExit("Cargo.lock has no package entries")
+
+          allowed = "registry+https://github.com/rust-lang/crates.io-index"
+          source_free = []
+          for package in packages:
+              if not isinstance(package, dict):
+                  raise SystemExit("Cargo.lock package entry is malformed")
+              name = package.get("name")
+              source = package.get("source")
+              if source is None:
+                  source_free.append(name)
+                  continue
+              if source != allowed:
+                  raise SystemExit(f"unapproved Cargo.lock source: {name}: {source}")
+              checksum = package.get("checksum")
+              if not isinstance(checksum, str) or len(checksum) != 64 or any(
+                  char not in "0123456789abcdef" for char in checksum
+              ):
+                  raise SystemExit(f"registry package checksum is not canonical: {name}")
+
+          if source_free != ["fpm-wasm-artifact-identity"]:
+              raise SystemExit(
+                  f"unexpected source-free Cargo.lock packages: {source_free!r}"
+              )
+          PY
+          export HOME="$RUNNER_TEMP/fpm-resolver-home"
+          rm -rf "$HOME"
+          mkdir -p "$HOME"
+          chmod 700 "$HOME"
+          test ! -e "$HOME/.gitconfig"
+          test ! -e "$CARGO_HOME/config.toml"
+          test ! -e "$CARGO_HOME/credentials"
+          test ! -e "$CARGO_HOME/credentials.toml"
+          env -i             PATH="$PATH"             HOME="$HOME"             CARGO_HOME="$CARGO_HOME"             CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse             CARGO_NET_OFFLINE=false             CARGO_NET_GIT_FETCH_WITH_CLI=false             GIT_CONFIG_NOSYSTEM=true             GIT_TERMINAL_PROMPT=0             cargo fetch --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
           rm -rf "${FPM_CARGO_HOME}"
           cp -a "${CARGO_HOME}" "${FPM_CARGO_HOME}"
           test -d "${FPM_CARGO_HOME}"
@@ -565,6 +609,7 @@ jobs:
               "sandbox_image_digest": os.environ["SANDBOX_IMAGE_DIGEST"],
               "sandbox_probe": os.environ["SANDBOX_PROBE"],
               "dependency_cache_sha256": os.environ["DEPENDENCY_CACHE_SHA256"],
+              "dependency_source_policy": "crates-io-registry-only-v1",
               "steps": outcomes,
               "execution_pass": execution_pass,
               "procedure_trust": "trusted_default_branch_snapshot",
