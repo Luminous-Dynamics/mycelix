@@ -60,6 +60,16 @@ jobs:
                   ["git", "rev-parse", "HEAD:.github/workflows/fpm-trusted-qualification-independent-verify.yml"],
                   text=True,
               ).strip(),
+              "reference_verifier_path": "scripts/integral/verify_fpm_trusted_qualification.py",
+              "reference_verifier_blob_sha": subprocess.check_output(
+                  ["git", "rev-parse", "HEAD:scripts/integral/verify_fpm_trusted_qualification.py"],
+                  text=True,
+              ).strip(),
+              "artifact_collector_path": "scripts/integral/collect_fpm_trusted_artifacts.py",
+              "artifact_collector_blob_sha": subprocess.check_output(
+                  ["git", "rev-parse", "HEAD:scripts/integral/collect_fpm_trusted_artifacts.py"],
+                  text=True,
+              ).strip(),
           }
           Path("snapshot/verifier-control.json").write_text(
               json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n",
