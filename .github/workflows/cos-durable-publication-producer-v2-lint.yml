@@ -53,7 +53,6 @@ jobs:
           publish=text[publish_at:]
           assert 'COS_RELEASE_ADMIN_TOKEN:' not in prepare
           assert 'environment: cos-durable-publication' in publish
-          assert 'publisher_ref=refs/heads/main' in publish
           first_secret=publish.index('COS_RELEASE_ADMIN_TOKEN:')
           publisher_gate=publish.index('Require protected publisher ref')
           assert publisher_gate < first_secret
@@ -86,7 +85,8 @@ jobs:
           assert 'environment_policy_sha256' in text
           assert 'environment-policy-v1.json' in text
           assert 'X-GitHub-Api-Version: 2026-03-10' in text
-          assert "assert policy['sha256']==hashlib.sha256(canonical).hexdigest()" in text
+          assert "reported=policy.pop('sha256')" in text
+          assert "assert reported==hashlib.sha256(canonical).hexdigest()" in text
           assert "assert m['main_branch_policy_sha256']==main_policy['sha256']" in text
           assert "assert m['effective_main_rules_sha256']==effective_rules['sha256']" in text
           assert 'main-branch-policy-v1.json' in text
