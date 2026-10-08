@@ -5,6 +5,7 @@ on:
     paths:
       - "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json"
       - "docs/research/verify_continual_adaptation_ledger.py"
+      - "docs/research/verify_continual_adaptation_ledger.mjs"
       - ".github/workflows/continual-adaptation-ledger-fixtures.yml"
   workflow_dispatch:
 
@@ -26,11 +27,17 @@ jobs:
           git checkout --detach "${GITHUB_SHA}"
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
 
-      - name: Run dependency-free reference verifier
+      - name: Run Python reference verifier
         shell: bash
         run: |
           set -euo pipefail
           python3 docs/research/verify_continual_adaptation_ledger.py             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+
+      - name: Run Node reference verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          node docs/research/verify_continual_adaptation_ledger.mjs             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
 
       - name: State non-authoritative boundary
         run: |
