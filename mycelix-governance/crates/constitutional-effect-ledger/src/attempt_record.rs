@@ -2212,7 +2212,7 @@ mod tests {
             "test-status-snapshot",
             "test-admission-verifier-v1",
         )?;
-        model_admit(&mut model, action, owner, record, proof)
+        model.admit(action, owner, record, proof)
     }
 
     fn terminal_evidence(outcome: TerminalOutcomeV1, attempt_id: &str) -> TerminalEvidenceV1 {
