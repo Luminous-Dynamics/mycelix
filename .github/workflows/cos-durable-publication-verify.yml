@@ -78,6 +78,7 @@ jobs:
           assert data["tagName"] == os.environ["RELEASE_TAG"]
           assert data["isDraft"] is False
           assert data["isImmutable"] is True
+          assert data["isLatest"] is False
           assert data["publishedAt"]
           assert isinstance(data["assets"], list)
           matches = [asset for asset in data["assets"] if asset.get("name") == os.environ["ASSET_NAME"]]
@@ -180,6 +181,9 @@ jobs:
               "qualification-attestation-predicate-v3.json",
               "attestor-run-receipt.json",
               "qualification-attestation-bundle.json",
+              "environment-policy-v1.json",
+              "effective-main-rules-v1.json",
+              "main-branch-policy-v1.json",
               "SHA256SUMS",
           }
           members={line.strip().rstrip('/') for line in Path("durable-members.txt").read_text().splitlines() if line.strip()}
@@ -344,6 +348,9 @@ jobs:
           durable_manifest=strict(durable_manifest_path.read_text())
           bundle_raw=bundle_path.read_bytes()
           bundle_sha256=hashlib.sha256(bundle_raw).hexdigest()
+          environment_policy = strict((root/'environment-policy-v1.json').read_text())
+          effective_rules = strict((root/'effective-main-rules-v1.json').read_text())
+          main_branch_policy = strict((root/'main-branch-policy-v1.json').read_text())
           release=json.loads(Path('release.json').read_text())
           manifest_path=root/'qualification-manifest-v1.json'
           predicate_path=root/'qualification-attestation-predicate-v3.json'
@@ -366,6 +373,15 @@ jobs:
               'signed_attestation_bundle_sha256','files'
           }
           assert durable_manifest['schema'] == 'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1'
+          assert environment_policy['schema']=='MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1'
+          assert effective_rules['schema']=='MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1'
+          assert main_branch_policy['schema']=='MYCELIX-COS-PROTECTED-MAIN-POLICY-V1'
+          assert durable_manifest['environment_policy_sha256']==environment_policy['sha256']
+          assert durable_manifest['effective_main_rules_sha256']==effective_rules['sha256']
+          assert durable_manifest['main_branch_policy_sha256']==main_branch_policy['sha256']
+          assert durable_manifest['files']['environment-policy-v1.json']==hashlib.sha256((root/'environment-policy-v1.json').read_bytes()).hexdigest()
+          assert durable_manifest['files']['effective-main-rules-v1.json']==hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest()
+          assert durable_manifest['files']['main-branch-policy-v1.json']==hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest()
           assert durable_manifest['repository'] == os.environ['GITHUB_REPOSITORY']
           assert durable_manifest['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
           assert durable_manifest['release_tag'] == os.environ['RELEASE_TAG']
@@ -411,10 +427,14 @@ jobs:
               'qualification-attestation-predicate-v3.json': hashlib.sha256((root/'qualification-attestation-predicate-v3.json').read_bytes()).hexdigest(),
               'attestor-run-receipt.json': hashlib.sha256((root/'attestor-run-receipt.json').read_bytes()).hexdigest(),
               'qualification-attestation-bundle.json': bundle_sha256,
+              'environment-policy-v1.json': hashlib.sha256((root/'environment-policy-v1.json').read_bytes()).hexdigest(),
+              'effective-main-rules-v1.json': hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest(),
+              'main-branch-policy-v1.json': hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest(),
           }
           assert set(durable_manifest['files']) == {
               'qualification-manifest-v1.json','qualification-attestation-predicate-v3.json',
               'attestor-run-receipt.json','qualification-attestation-bundle.json',
+              'environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json',
           }
           assert durable_manifest['attestor_workflow_path'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
           assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
@@ -468,6 +488,7 @@ jobs:
               'release_tag':os.environ['RELEASE_TAG'],
               'release_id':release['id'],
               'immutable':release['isImmutable'],
+              'is_latest':release['isLatest'],
               'asset_name':os.environ['ASSET_NAME'],
               'asset_digest':asset['digest'],
               'expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],
@@ -482,7 +503,7 @@ jobs:
           }
           assert set(observation) == {
               'schema','repository','repository_id','release_tag','release_id',
-              'immutable','asset_name','asset_digest','expected_main_sha',
+              'immutable','is_latest','asset_name','asset_digest','expected_main_sha',
               'qualification_claim_id','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256','signed_attestation_bundle_sha256','durable_publication_manifest_sha256','qualification_manifest_sha256','state'
           }
           Path('durable-publication-verification.json').write_text(json.dumps(observation,indent=2,sort_keys=True)+'\n')
