@@ -82,8 +82,23 @@ pub enum MachineTemporalEvidenceResolution {
 }
 
 pub fn resolve_temporal_evidence(
-    mut evidence: Vec<MachineTemporalEvidenceObservation>,
+    evidence: Vec<MachineTemporalEvidenceObservation>,
 ) -> MachineTemporalEvidenceResolution {
+    let mut by_attestation = std::collections::HashMap::new();
+    for observation in evidence {
+        match by_attestation.get(&observation.attestation_hash) {
+            Some(existing) if existing != &observation => {
+                return MachineTemporalEvidenceResolution::InvalidEvidence;
+            }
+            Some(_) => {}
+            None => {
+                by_attestation.insert(observation.attestation_hash.clone(), observation);
+            }
+        }
+    }
+
+    let mut evidence: Vec<MachineTemporalEvidenceObservation> =
+        by_attestation.into_values().collect();
     if evidence.len() > MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
         return MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
             limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
@@ -575,9 +590,13 @@ fn validate_create_time_authority_profile(
         ));
     }
     let machine_record = must_get_valid_record(profile.machine_hash.clone())?;
-    if !matches!(machine_record.action(), Action::Create(_)) {
+    let machine: Option<MachineEntry> = machine_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if !matches!(machine_record.action(), Action::Create(_)) || machine.is_none() {
         return Ok(ValidateCallbackResult::Invalid(
-            "time authority profile must bind to a machine root".into(),
+            "time authority profile must bind to a machine root entry".into(),
         ));
     }
     if machine_record.action().author() != action.author() {
