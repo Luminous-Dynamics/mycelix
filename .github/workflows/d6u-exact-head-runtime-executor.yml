@@ -438,7 +438,7 @@ jobs:
           test ! -s "$GITHUB_ENV"
           test ! -s "$GITHUB_PATH"
 
-      - name: Assert pre-runtime inputs after clippy      - name: Assert pre-runtime inputs after clippy      - name: Assert pre-runtime inputs after clippy
+      - name: Assert pre-runtime inputs after clippy
         if: success()
         working-directory: d6u-runtime-harness
         env:
@@ -526,7 +526,7 @@ jobs:
           printf '%s\n' "$source_sha" | grep -Eq '^[0-9a-f]{64}$'
           echo "binary_sha=$source_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Assert runtime inputs after test binary build      - name: Assert runtime inputs after test binary build      - name: Assert runtime inputs after test binary build
+      - name: Assert runtime inputs after test binary build
         if: success()
         working-directory: d6u-runtime-harness
         env:
