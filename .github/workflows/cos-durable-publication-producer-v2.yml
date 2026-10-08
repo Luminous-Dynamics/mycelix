@@ -528,12 +528,13 @@ jobs:
           claim_id="${{ needs.prepare.outputs.claim_id }}"
           release_tag="cos-qualification-${claim_id}"
           asset_name="cos-durable-${claim_id}.tar.gz"
-          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,publishedAt,targetCommitish > published-release.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,isLatest,publishedAt,targetCommitish > published-release.json
           python - <<'PY'
           import json
           from pathlib import Path
           d=json.loads(Path('published-release.json').read_text())
           assert d['isDraft'] is False and d['isImmutable'] is True and d['publishedAt']
+          assert d['isLatest'] is False
           PY
           GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release verify "${release_tag}" --repo "${GITHUB_REPOSITORY}" --format json > release-attestation-verification.json
           rm -rf final-asset && mkdir final-asset
@@ -551,7 +552,7 @@ jobs:
           facts=json.loads(Path('handoff/source-facts.json').read_text())
           release=json.loads(Path('published-release.json').read_text())
           asset_name='cos-durable-'+facts['claim_id']+'.tar.gz'
-          observation={'schema':'MYCELIX-COS-DURABLE-PUBLICATION-VERIFICATION-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':1176351975,'release_tag':release['tagName'],'release_id':release['id'],'immutable':release['isImmutable'],'asset_name':asset_name,'asset_digest':'sha256:'+hashlib.sha256(Path(asset_name).read_bytes()).hexdigest(),'expected_main_sha':facts['expected_main_sha'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'trust_root_main_snapshot_sha':facts['trust_root_main_snapshot_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'state':'DurableAndVerifiable'}
+          observation={'schema':'MYCELIX-COS-DURABLE-PUBLICATION-VERIFICATION-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':1176351975,'release_tag':release['tagName'],'release_id':release['id'],'immutable':release['isImmutable'],'is_latest':release['isLatest'],'asset_name':asset_name,'asset_digest':'sha256:'+hashlib.sha256(Path(asset_name).read_bytes()).hexdigest(),'expected_main_sha':facts['expected_main_sha'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'trust_root_main_snapshot_sha':facts['trust_root_main_snapshot_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'state':'DurableAndVerifiable'}
           Path('durable-publication-verification.json').write_text(json.dumps(observation,indent=2,sort_keys=True)+'\n')
           PY
 
