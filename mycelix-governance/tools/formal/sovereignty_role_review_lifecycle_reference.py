@@ -198,7 +198,7 @@ def main():
     s1 = step(seed, "review", "s1", "s2")
     s2 = step(s1, "close", "s1") if s1 else None
     s3 = step(s2, "reviewer-after-close", "s1", "s2", "operator") if s2 else None
-    assert s3 is not None and "s2" in {k for k,v in s3.holders if "s2" in v}
+    assert s3 is not None and "s2" in dict(s3.holders)["operator"]
     print("POSITIVE PASS: closed-review history permits later reviewer role reacquisition")
 
     print("BOUNDED ROLE-REVIEW LIFECYCLE EXPLORATION PASS: smoke evidence only")
