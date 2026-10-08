@@ -91,6 +91,10 @@ jobs:
           grep -Fq 'terminal verification proof is not bound to the exact attempt' "$boundary"
           grep -Fq 'VerificationPurpose::InitialInvocation' "$boundary"
           grep -Fq 'VerificationPurpose::Reconciliation' "$boundary"
+          grep -Fq 'ProviderEntryPermitV1' "$boundary"
+          grep -Fq 'provider_idempotency_key' "$boundary"
+          grep -Fq 'terminal-evidence-v3:' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
+          grep -Fq 'mismatched_provider_idempotency_proof_holds_the_fence' "$boundary"
           grep -Fq 'provider_idempotency_key: &str' "$boundary"
           grep -Fq 'terminal-evidence-v3:' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'mismatched_provider_idempotency_proof_holds_the_fence' "$boundary"
