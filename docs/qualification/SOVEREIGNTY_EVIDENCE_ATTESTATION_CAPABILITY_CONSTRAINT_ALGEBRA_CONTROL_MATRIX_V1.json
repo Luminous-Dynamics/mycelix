@@ -1,0 +1,16 @@
+{
+  "schema":"mycelix.evidence-attestation-capability-constraint-algebra-control-matrix.v1",
+  "controls":[
+    {"id":"interval-widening","kind":"negative","obligation":"allow-denotation-subset","marker":"INTERVAL WIDENING NEGATIVE PASS"},
+    {"id":"interval-hole-filling","kind":"negative","obligation":"effective-denotation-subset","marker":"INTERVAL HOLE FILLING NEGATIVE PASS"},
+    {"id":"wildcard-expansion","kind":"negative","obligation":"allow-denotation-subset","marker":"WILDCARD EXPANSION NEGATIVE PASS"},
+    {"id":"temporal-window-widening","kind":"negative","obligation":"allow-denotation-subset","marker":"TEMPORAL WINDOW WIDENING NEGATIVE PASS"},
+    {"id":"context-weakening","kind":"negative","obligation":"allow-denotation-subset","marker":"CONTEXT WEAKENING NEGATIVE PASS"},
+    {"id":"normalization-equivalence","kind":"positive","obligation":"semantic-equivalence","marker":"NORMALIZATION PASS: syntax differs while denotation is preserved for canonical aliases"},
+    {"id":"non-equivalent-normalization","kind":"negative","obligation":"semantic-equivalence-rejection","marker":"NON EQUIVALENT NORMALIZATION NEGATIVE PASS"},
+    {"id":"deny-set-deletion","kind":"negative","obligation":"deny-preservation","marker":"DENY SET DELETION NEGATIVE PASS"},
+    {"id":"conflict-rule-substitution","kind":"negative","obligation":"deny-overrides-preservation","marker":"CONFLICT RULE SUBSTITUTION NEGATIVE PASS"},
+    {"id":"unknown-extension-treated-as-subsumed","kind":"negative","obligation":"fail-closed-unhandled-extension","marker":"UNKNOWN EXTENSION TREATED AS SUBSUMED NEGATIVE PASS"},
+    {"id":"unsupported-compound-extension","kind":"negative","obligation":"fail-closed-extension","marker":"UNSUPPORTED COMPOUND EXTENSION NEGATIVE PASS"}
+  ]
+}
