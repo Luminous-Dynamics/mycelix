@@ -1892,6 +1892,40 @@ def main() -> None:
     )
 
     expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'--label "security-kernel.run=$GITHUB_RUN_ID" ',
+                b"",
+                1,
+            ),
+            s1_sha,
+        ),
+        "Docker run ownership label removed",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"if: ${{ always() }}",
+                b"if: ${{ !cancelled() }}",
+                1,
+            ),
+            s1_sha,
+        ),
+        "cancellation teardown barrier reverted to skip-on-cancel semantics",
+    )
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b"docker rm -f $owned_containers >/dev/null 2>&1",
+                b"true >/dev/null 2>&1",
+                1,
+            ),
+            s1_sha,
+        ),
+        "owned-container cleanup removed",
+    )
+
+    expect_rejection(
         lambda: verify_s2(
             inject_extra_permission_with_blank(raw["s2"]),
             s0_sha,
