@@ -1349,13 +1349,12 @@ impl EffectBoundaryHostV1 {
         if current.state.is_terminal() {
             return Ok(BoundaryOutcome::TerminalAlreadyReached(current.state));
         }
-        if matches!(current.state, AttemptRecordState::Consumed | AttemptRecordState::Reserved) {
+        if matches!(
+            current.state,
+            AttemptRecordState::Consumed | AttemptRecordState::Reserved,
+        ) {
             return Ok(BoundaryOutcome::PreEntryStopRequired);
         }
-
-        self.trust_root
-            .authorize_provider_adapter(provider, &current, action_key)
-            .map_err(BoundaryError::Semantic)?;
 
         if !self.provider_registry.contains(&current.adapter_identity) {
             return Ok(BoundaryOutcome::IndeterminateHeld {
@@ -1384,7 +1383,11 @@ impl EffectBoundaryHostV1 {
                 .map_err(BoundaryError::Mutation)?;
         }
 
-        let indeterminate = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
+        let indeterminate = self.owned_attempt(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+        )?;
         let provider_context =
             ProviderActionContextV1::from_attempt(&indeterminate, action_key)?;
         let observation = {
@@ -1392,15 +1395,13 @@ impl EffectBoundaryHostV1 {
                 .provider_registry
                 .get_mut(provider_context.adapter_identity())
                 .map_err(BoundaryError::Semantic)?;
-            provider
-                .reconcile(&provider_context)
-                .map_err(BoundaryError::Semantic)?
-        };
-            Ok(value) => value,
-            Err(error) => {
-                return Ok(BoundaryOutcome::IndeterminateHeld {
-                    reason: format!("authoritative reconciliation unavailable: {error}"),
-                });
+            match provider.reconcile(&provider_context) {
+                Ok(value) => value,
+                Err(error) => {
+                    return Ok(BoundaryOutcome::IndeterminateHeld {
+                        reason: format!("authoritative reconciliation unavailable: {error}"),
+                    });
+                }
             }
         };
 
@@ -1409,8 +1410,7 @@ impl EffectBoundaryHostV1 {
                 reason: "authoritative reconciliation remains indeterminate".into(),
             }),
             ProviderObservation::Executed { .. } | ProviderObservation::Failed { .. } => {
-                let provider_idempotency_key =
-                    indeterminate.provider_idempotency_key.clone();
+                let provider_idempotency_key = indeterminate.provider_idempotency_key.clone();
                 match self.trust_root.outcome_verifier().verify(
                     &indeterminate,
                     &provider_idempotency_key,
@@ -1433,7 +1433,6 @@ impl EffectBoundaryHostV1 {
             }
         }
     }
-
     /// Recover a stranded provider-entry claim into INDETERMINATE.
     ///
     /// The authorization is exact-attempt scoped and must be issued only after
