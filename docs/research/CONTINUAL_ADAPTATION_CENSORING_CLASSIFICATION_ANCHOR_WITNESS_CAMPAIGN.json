@@ -1,7 +1,7 @@
 {
   "schema": "mycelix.continual-adaptation.censoring-classification-anchor-witness-campaign.v1",
   "status": "research-fixture-only",
-  "expected_trust_root_sha256": "sha256:e348519511273f9a64e39f9267c0231803d342d89e0d17be1e93ffbbe9fdd7a8",
+  "expected_trust_root_sha256": "sha256:46bbd3215736596eef8f8c0423590c1098f05a6fdd016b2ba10a6e232fc71d61",
   "cases": [
     {
       "case_id": "CAW-001",
