@@ -1,6 +1,8 @@
 ---------------- MODULE EvidenceAttestationFullDimensionalCompositionV1NegativeControls ----------------
 EXTENDS EvidenceAttestationFullDimensionalCompositionV1
 
+CONSTANT Control
+
 HybridDimensionContributors ==
   [resource |-> {Claim1, Claim3},
    action |-> {Claim2, Claim3},
@@ -8,6 +10,7 @@ HybridDimensionContributors ==
    expiry |-> {Claim1, Claim4}]
 
 BadComposeHybrid ==
+  /\ Control = "hybrid-synthesis"
   /\ composedAuthority' =
        ExpectedAuthority(inputClaims) \cup {HybridCapability}
   /\ contributorClaims' =
