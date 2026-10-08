@@ -7,6 +7,7 @@ on:
       - "scripts/integral/verify_fpm_trusted_qualification.py"
       - "scripts/integral/test_verify_fpm_trusted_qualification.py"
       - ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
+      - ".github/workflows/fpm-trusted-qualification.yml"
       - ".github/workflows/fpm-reference-verifier-selftest.yml"
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:

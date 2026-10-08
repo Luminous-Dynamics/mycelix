@@ -36,6 +36,7 @@ LOCK_SHA = "8" * 64
 CANDIDATE_RUN, TRUSTED_RUN = 1001, 2002
 RECEIPT_ARTIFACT, INDEX_ARTIFACT = 3003, 4004
 PR = 123
+SYSTEM_CLOSURE_COMMANDS = ["bash", "env", "grep", "tr", "timeout", "cargo", "rustc", "rustfmt", "cc", "ld", "as", "ldd", "realpath", "sha256sum", "sed", "uname", "cat"]
 
 
 def cjson(obj: object) -> bytes:
@@ -82,6 +83,21 @@ def snapshot(root: Path) -> None:
         "candidate_execution_profile": "fpm-docker-offline-v1",
         "sandbox_image_digest": "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
         "sandbox_probe": "passed",
+        "sandbox_system_closure": {
+            "profile": "fpm-ubuntu24.04-amd64-rust-1.96.1-v1",
+            "image_digest": "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
+            "architecture": "linux/amd64",
+            "os_release_sha256": "b" * 64,
+            "libc_version": "ldd (Ubuntu GLIBC 2.39-0ubuntu8.6) 2.39",
+            "commands": [
+                {"name": name, "path": ("/opt/fpm-rust/bin/" + name if name in {"cargo", "rustc", "rustfmt"} else "/usr/bin/" + name), "sha256": "c" * 64}
+                for name in sorted(SYSTEM_CLOSURE_COMMANDS)
+            ],
+            "libraries": [
+                {"path": "/lib/x86_64-linux-gnu/libc.so.6", "sha256": "d" * 64},
+                {"path": "/lib64/ld-linux-x86-64.so.2", "sha256": "e" * 64},
+            ],
+        },
         "dependency_cache_sha256": "a" * 64,
         "dependency_source_policy": "crates-io-registry-only-v1",
         "steps": {k: "success" for k in
@@ -208,10 +224,11 @@ def assert_evidence_archive_contract() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
     marker = "      - name: Normalize downloaded raw evidence archives\n"
     next_marker = "      - name: Extract evidence targets with strict JSON parser\n"
-    assert marker in workflow and next_marker in workflow
+    assert workflow.count(next_marker) == 1
+    assert marker in workflow
     block = workflow.split(marker, 1)[1].split(next_marker, 1)[0]
     assert "root.iterdir()" in block
-    assert "members != [expected_name]" in block
+    assert "len(members) != 1" in block
     assert "source.is_file()" in block
     assert "source.is_symlink()" in block
     assert "skip-decompress: true" in workflow
@@ -227,8 +244,16 @@ def assert_evidence_archive_contract() -> None:
     assert block.index("verify_raw_artifact_archive") < block.index("Path(\"snapshot/qualification-receipt.json\")")
     assert "find snapshot/download" not in workflow
     assert "-print -quit" not in workflow
-
-
+    assert "sandbox-system-closure.tsv" in workflow
+    assert "FPM_SYSTEM_CLOSURE_PROFILE" in workflow
+    assert "required_commands=(bash env grep tr timeout cargo rustc rustfmt cc ld as ldd realpath sha256sum sed uname cat)" in workflow
+    assert "sandbox_system_closure" in verifier
+    assert workflow.count("- name: Extract evidence targets with strict JSON parser") == 1
+    assert "root_config_hits=\"$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)\"" in workflow
+    assert "test ! -e .cargo/config" in workflow
+    assert "test ! -e .cargo/config.toml" in workflow
+    assert "config_hit=\"$(git ls-files | grep -E" not in workflow
+    
 
 
 def assert_artifact_collector_http_contract() -> None:
@@ -418,6 +443,54 @@ version = "1.0.0"
         ]
         for label, fn in receipt:
             expect_failure(root, "qualification-receipt.json", label, fn)
+
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.profile",
+            lambda x: x["sandbox_system_closure"].__setitem__("profile", "untrusted"),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.image_digest",
+            lambda x: x["sandbox_system_closure"].__setitem__("image_digest", "sha256:" + "f" * 64),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.os_release_sha256",
+            lambda x: x["sandbox_system_closure"].__setitem__("os_release_sha256", "not-a-sha"),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.command-missing",
+            lambda x: x["sandbox_system_closure"]["commands"].pop(),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.command-digest",
+            lambda x: x["sandbox_system_closure"]["commands"][0].__setitem__("sha256", "bad"),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.library-duplicate",
+            lambda x: x["sandbox_system_closure"]["libraries"].append(copy.deepcopy(x["sandbox_system_closure"]["libraries"][0])),
+        )
+
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.command-path-escape",
+            lambda x: x["sandbox_system_closure"]["commands"][0].__setitem__("path", "/tmp/escape"),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.command-path-duplicate",
+            lambda x: x["sandbox_system_closure"]["commands"][1].__setitem__(
+                "path", x["sandbox_system_closure"]["commands"][0]["path"]
+            ),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.library-path-escape",
+            lambda x: x["sandbox_system_closure"]["libraries"][0].__setitem__("path", "/tmp/libevil.so"),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.missing-libc",
+            lambda x: x["sandbox_system_closure"]["libraries"].pop(0),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.missing-loader",
+            lambda x: x["sandbox_system_closure"]["libraries"].pop(),
+        )
 
         expect_failure(
             root, "qualification-receipt.json", "receipt.steps.tests",

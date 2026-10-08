@@ -29,6 +29,7 @@ env:
   FPM_UNTRUSTED_TMP: ${{ runner.temp }}/fpm-untrusted-tmp
   FPM_EVIDENCE_DIR: ${{ runner.temp }}/fpm-trusted-evidence-${{ github.run_id }}
   FPM_SANDBOX_IMAGE: ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+  FPM_SYSTEM_CLOSURE_PROFILE: fpm-ubuntu24.04-amd64-rust-1.96.1-v1
 
 jobs:
   qualify:
@@ -158,8 +159,10 @@ jobs:
           subject_tree="$(git rev-parse HEAD^{tree})"
           test "$actual_head" = "${{ steps.preflight.outputs.expected_head_sha }}"
           test -z "$(git ls-files -s -- crates/fpm-wasm-artifact-identity | awk '$1 ~ /^120000$/ {print $4}')"
-          config_hit="$(git ls-files | grep -E '(^|/)\.cargo/config(\.toml)?$' || true)"
-          test -z "$config_hit"
+          root_config_hits="$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)"
+          test -z "$root_config_hits"
+          test ! -e .cargo/config
+          test ! -e .cargo/config.toml
           actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
           test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
           grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
@@ -376,6 +379,7 @@ jobs:
           CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
         run: |
           set -euo pipefail
+          rm -f "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
           docker run --rm --pull=never --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
             --pids-limit 256 --memory 6g --memory-swap 6g --cpus 2 \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m \
@@ -385,34 +389,75 @@ jobs:
             --mount type=bind,src="${FPM_TARGET_DIR}",dst=/target \
             --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
             "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+              umask 077
+              export HOME=/tmp/home
+              export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
+              export TMPDIR=/tmp
+              export CARGO_NET_OFFLINE=true
+              export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+              export RUSTC_WRAPPER=
               test ! -e /var/run/docker.sock
               test ! -d /github
               test ! -d /home/runner
               test ! -d /opt/hostedtoolcache
               test -z "$(env | grep '^GITHUB_' || true)"
-              probe=/candidate/.fpm-sandbox-write-probe
-              if touch "$probe" 2>/dev/null; then
-                echo "candidate source mount is writable" >&2
-                rm -f "$probe"
-                exit 1
-              fi
-              mkdir -p /target/.fpm-sandbox-write-probe
-              touch /target/.fpm-sandbox-write-probe/ok
-              rm -rf /target/.fpm-sandbox-write-probe
-              if timeout 2 bash -c "exec 3<>/dev/tcp/1.1.1.1/443" 2>/dev/null; then
-                echo "network namespace is not isolated" >&2
-                exit 1
-              fi
-              test -s /proc/1/cmdline
-              case "$(tr "\\0" " " </proc/1/cmdline)" in
-                *runsvc*|*Runner.Listener*|*dockerd*)
-                  echo "host control-plane process visible in sandbox" >&2
+              test "$(uname -m)" = "x86_64"
+              test -f /etc/os-release
+              test -x /opt/fpm-rust/bin/rustc
+              test -x /opt/fpm-rust/bin/cargo
+              test -x /opt/fpm-rust/bin/rustfmt
+              required_commands=(bash env grep tr timeout cargo rustc rustfmt cc ld as ldd realpath sha256sum sed uname cat)
+              closure=/tmp/fpm-system-closure.tsv
+              printf "profile\tfpm-ubuntu24.04-amd64-rust-1.96.1-v1\n" > "$closure"
+              printf "image_digest\tsha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b\n" >> "$closure"
+              printf "architecture\tlinux/amd64\n" >> "$closure"
+              printf "os_release_sha256\t%s\n" "$(sha256sum /etc/os-release | { read -r digest _; printf "%s" "$digest"; })" >> "$closure"
+              libc_version="$(ldd --version 2>&1 | { read -r line; printf "%s" "$line"; })"
+              printf "libc_version\t%s\n" "$libc_version" >> "$closure"
+              : > /tmp/fpm-ldd-queue
+              for command_name in "${required_commands[@]}"; do
+                command_path="$(command -v "$command_name")"
+                test -n "$command_path"
+                case "$command_path" in
+                  /opt/fpm-rust/bin/*|/usr/bin/*|/bin/*|/usr/sbin/*|/sbin/*) ;;
+                  *) echo "required command escaped immutable roots: $command_name=$command_path" >&2; exit 1 ;;
+                esac
+                resolved="$(realpath -e "$command_path")"
+                test -f "$resolved"
+                read -r command_sha _ < <(sha256sum "$resolved")
+                printf "command\t%s\t%s\t%s\n" "$command_name" "$resolved" "$command_sha" >> "$closure"
+                printf "%s\n" "$resolved" >> /tmp/fpm-ldd-queue
+              done
+              declare -A seen_libraries=()
+              : > /tmp/fpm-ldd-seen
+              while IFS= read -r binary; do
+                [ -n "$binary" ] || continue
+                ldd_output="$(ldd "$binary" 2>&1)"
+                if printf "%s\n" "$ldd_output" | grep -Fq "not found"; then
+                  echo "dynamic dependency missing for $binary" >&2
                   exit 1
-                  ;;
-              esac
-            '
+                fi
+                while IFS= read -r line; do
+                  dep_path="$(printf "%s\n" "$line" | sed -nE 's/^[[:space:]]*[^[:space:]]+[[:space:]]*=>[[:space:]]*(\/[^[:space:]]+).*/\1/p')"
+                  if [ -z "$dep_path" ]; then
+                    dep_path="$(printf "%s\n" "$line" | sed -nE 's/^[[:space:]]*(\/[^[:space:]]+)[[:space:]]+\(.*/\1/p')"
+                  fi
+                  [ -n "$dep_path" ] || continue
+                  resolved_dep="$(realpath -e "$dep_path")"
+                  test -f "$resolved_dep"
+                  if [ -z "${seen_libraries[$resolved_dep]+yes}" ]; then
+                    seen_libraries["$resolved_dep"]=1
+                    read -r dep_sha _ < <(sha256sum "$resolved_dep")
+                    printf "library\t%s\t%s\n" "$resolved_dep" "$dep_sha" >> "$closure"
+                    printf "%s\n" "$resolved_dep" >> /tmp/fpm-ldd-queue
+                  fi
+                done <<< "$ldd_output"
+              done < /tmp/fpm-ldd-queue
+              cat "$closure"
+            ' > "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
+          test -s "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
+          chmod 400 "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
           printf 'sandbox_probe=passed\n' >> "$GITHUB_OUTPUT"
-
       - name: Cargo test inside immutable offline sandbox
         id: tests
         if: success()
@@ -548,12 +593,14 @@ jobs:
           SANDBOX_IMAGE_DIGEST: ${{ steps.sandbox_image.outputs.sandbox_image_digest || '' }}
           SANDBOX_PROBE: ${{ steps.sandbox_probe.outputs.sandbox_probe || '' }}
           DEPENDENCY_CACHE_SHA256: ${{ steps.dependencies.outputs.dependency_cache_sha256 || '' }}
+          SYSTEM_CLOSURE_FILE: ${{ env.FPM_EVIDENCE_DIR }}/sandbox-system-closure.tsv
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import hashlib
           import json
           import os
+          from pathlib import Path
 
           def integer_or_zero(name: str) -> int:
               value = os.environ.get(name, "")
@@ -561,6 +608,36 @@ jobs:
                   return int(value) if value else 0
               except ValueError:
                   return 0
+
+          closure_path = os.environ["SYSTEM_CLOSURE_FILE"]
+          sandbox_system_closure = {
+              "profile": os.environ["FPM_SYSTEM_CLOSURE_PROFILE"],
+              "image_digest": os.environ["SANDBOX_IMAGE_DIGEST"],
+              "architecture": "linux/amd64",
+              "os_release_sha256": "",
+              "libc_version": "",
+              "commands": [],
+              "libraries": [],
+          }
+          if os.path.isfile(closure_path):
+              for line in Path(closure_path).read_text(encoding="utf-8").splitlines():
+                  parts = line.split("\t")
+                  if parts[0] == "profile" and len(parts) == 2:
+                      sandbox_system_closure["profile"] = parts[1]
+                  elif parts[0] == "image_digest" and len(parts) == 2:
+                      sandbox_system_closure["image_digest"] = parts[1]
+                  elif parts[0] == "architecture" and len(parts) == 2:
+                      sandbox_system_closure["architecture"] = parts[1]
+                  elif parts[0] == "os_release_sha256" and len(parts) == 2:
+                      sandbox_system_closure["os_release_sha256"] = parts[1]
+                  elif parts[0] == "libc_version" and len(parts) == 2:
+                      sandbox_system_closure["libc_version"] = parts[1]
+                  elif parts[0] == "command" and len(parts) == 4:
+                      sandbox_system_closure["commands"].append({"name": parts[1], "path": parts[2], "sha256": parts[3]})
+                  elif parts[0] == "library" and len(parts) == 3:
+                      sandbox_system_closure["libraries"].append({"path": parts[1], "sha256": parts[2]})
+          sandbox_system_closure["commands"] = sorted(sandbox_system_closure["commands"], key=lambda item: item["name"])
+          sandbox_system_closure["libraries"] = sorted(sandbox_system_closure["libraries"], key=lambda item: item["path"])
 
           outcomes = {              "preflight": os.environ["PREFLIGHT_OUTCOME"],
               "checkout": os.environ["CHECKOUT_OUTCOME"],
@@ -608,6 +685,7 @@ jobs:
               "candidate_execution_profile": os.environ["CANDIDATE_EXECUTION_PROFILE"],
               "sandbox_image_digest": os.environ["SANDBOX_IMAGE_DIGEST"],
               "sandbox_probe": os.environ["SANDBOX_PROBE"],
+              "sandbox_system_closure": sandbox_system_closure,
               "dependency_cache_sha256": os.environ["DEPENDENCY_CACHE_SHA256"],
               "dependency_source_policy": "crates-io-registry-only-v1",
               "steps": outcomes,

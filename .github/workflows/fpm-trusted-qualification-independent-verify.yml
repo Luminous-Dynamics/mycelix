@@ -292,7 +292,6 @@ jobs:
           PY
 
       - name: Extract evidence targets with strict JSON parser
-      - name: Extract evidence targets with strict JSON parser
         id: target
         run: |
           set -euo pipefail
