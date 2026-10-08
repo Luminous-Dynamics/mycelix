@@ -39,7 +39,7 @@ const DEFAULT_CONFIG: ExecutionClientConfig = {
  * Client for Execution operations
  *
  * Manages the timelock-based execution of passed proposals, including:
- * - Timelock creation and lifecycle (Pending → Ready → Executed/Cancelled/Failed)
+ * - Timelock lifecycle (Pending → Ready → Prepared; terminal outcomes are host-attested)
  * - Guardian vetoes during timelock period
  * - Fund allocation and release
  *
@@ -113,10 +113,13 @@ export class ExecutionClient extends ZomeClient {
   }
 
   /**
-   * Execute a ready timelock
+   * Prepare a ready timelock for host-side effect execution
    *
-   * @param input - Execution parameters
-   * @returns The execution result record
+   * The coordinator intentionally stops at Prepared; this call does not perform
+   * provider effects.
+   *
+   * @param input - Execution preparation parameters
+   * @returns The prepared execution record
    */
   async executeTimelock(input: ExecuteTimelockInput): Promise<HolochainRecord> {
     return this.callZomeOnce<HolochainRecord>('execute_timelock', {
