@@ -24,13 +24,21 @@ fn default_lease_schema_version() -> u8 {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct MachineControllerLeasePayload {
+pub struct MachineControllerLeasePayloadV1 {
     pub schema_id: String,
     pub machine_hash: ActionHash,
     pub controller_agent: AgentPubKey,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
-    #[serde(default)]
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineControllerLeasePayloadV2 {
+    pub schema_id: String,
+    pub machine_hash: ActionHash,
+    pub controller_agent: AgentPubKey,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
     pub requires_transition_approval: bool,
 }
 
@@ -46,7 +54,6 @@ pub struct MachineControllerTransitionApprovalPayload {
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
 }
-
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct MachineEntry {
@@ -83,19 +90,24 @@ pub struct MachineControllerAuthorityEntry {
 }
 
 impl MachineControllerAuthorityEntry {
-    pub fn signed_payload(&self) -> MachineControllerLeasePayload {
-        let v2 = self.lease_schema_version >= 2;
-        MachineControllerLeasePayload {
-            schema_id: if v2 {
-                MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V2.to_string()
-            } else {
-                MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V1.to_string()
-            },
+    pub fn signed_payload_v1(&self) -> MachineControllerLeasePayloadV1 {
+        MachineControllerLeasePayloadV1 {
+            schema_id: MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V1.to_string(),
             machine_hash: self.machine_hash.clone(),
             controller_agent: self.controller_agent.clone(),
             valid_from: self.valid_from,
             valid_until: self.valid_until,
-            requires_transition_approval: v2 && self.requires_transition_approval,
+        }
+    }
+
+    pub fn signed_payload_v2(&self) -> MachineControllerLeasePayloadV2 {
+        MachineControllerLeasePayloadV2 {
+            schema_id: MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V2.to_string(),
+            machine_hash: self.machine_hash.clone(),
+            controller_agent: self.controller_agent.clone(),
+            valid_from: self.valid_from,
+            valid_until: self.valid_until,
+            requires_transition_approval: true,
         }
     }
 }
@@ -353,11 +365,19 @@ fn validate_create_authority(
             "only the machine registrant may issue controller authority".into(),
         ));
     }
-    let signature_valid = verify_signature(
-        action.author().clone(),
-        signature,
-        authority.signed_payload(),
-    )?;
+        let signature_valid = match authority.lease_schema_version {
+        1 => verify_signature(
+            action.author().clone(),
+            signature,
+            authority.signed_payload_v1(),
+        )?,
+        2 => verify_signature(
+            action.author().clone(),
+            signature,
+            authority.signed_payload_v2(),
+        )?,
+        _ => false,
+    };
     if !signature_valid {
         return Ok(ValidateCallbackResult::Invalid(
             "machine controller authority issuer signature does not match the lease payload".into(),
@@ -758,6 +778,8 @@ mod content_restriction_tests {
             controller_agent: AgentPubKey::from_raw_32(vec![2; 32]),
             valid_from: Timestamp::from_micros(100),
             valid_until: Timestamp::from_micros(200),
+            lease_schema_version: 1,
+            requires_transition_approval: false,
             issuer_signature: None,
         };
 
