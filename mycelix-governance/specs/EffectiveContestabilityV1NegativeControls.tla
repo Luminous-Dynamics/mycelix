@@ -6,6 +6,7 @@ CONSTANT Control
 BadNominalPromotion(s, p) ==
   /\ Advanceable
   /\ NominalAlternative(s, p)
+  /\ p \in nominalExit[s]
   /\ nominalExit' = nominalExit
   /\ portable' = [portable EXCEPT ![s] = FALSE]
   /\ effectiveExit' = [effectiveExit EXCEPT ![s] = @ \cup {p}]
@@ -19,6 +20,8 @@ BadNominalPromotion(s, p) ==
 BadSharedRoot(s, p) ==
   /\ Advanceable
   /\ NominalAlternative(s, p)
+  /\ p \in nominalExit[s]
+  /\ portable[s]
   /\ effectiveExit' = [effectiveExit EXCEPT ![s] = @ \cup {p}]
   /\ UNCHANGED <<currentProvider, viableProviders, nominalExit, portable,
                   obligationsPreserved, historyPreserved, authority, jurisdiction,
@@ -30,6 +33,7 @@ BadSharedRoot(s, p) ==
 BadFailureAuthority(p) ==
   /\ Advanceable
   /\ p \in Providers
+  /\ p \notin providerFailed
   /\ providerFailed' = providerFailed \cup {p}
   /\ failureObserved' = TRUE
   /\ authority' = [authority EXCEPT ![S1] = @ \ {PowerA}]
@@ -43,38 +47,50 @@ BadFailureAuthority(p) ==
 BadSwitchObligation(s, p) ==
   /\ Advanceable
   /\ p \in effectiveExit[s]
+  /\ p # currentProvider[s]
+  /\ ~switchObserved[s]
+  /\ portable[s]
   /\ currentProvider' = [currentProvider EXCEPT ![s] = p]
   /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
+  /\ authorityBeforeSwitch' = [authorityBeforeSwitch EXCEPT ![s] = @]
+  /\ jurisdictionBeforeSwitch' = [jurisdictionBeforeSwitch EXCEPT ![s] = @]
   /\ obligationsPreserved' = [obligationsPreserved EXCEPT ![s] = FALSE]
   /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
                   historyPreserved, authority, jurisdiction, switchingCost,
-                  reviewRequired, providerFailed, failureObserved, failureAuthority,
-                  authorityBeforeSwitch, jurisdictionBeforeSwitch>>
+                  reviewRequired, providerFailed, failureObserved, failureAuthority>>
   /\ clock' = NextTime
 
 BadSwitchAuthority(s, p) ==
   /\ Advanceable
   /\ p \in effectiveExit[s]
+  /\ p # currentProvider[s]
+  /\ ~switchObserved[s]
+  /\ portable[s]
   /\ currentProvider' = [currentProvider EXCEPT ![s] = p]
   /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
   /\ authority' = [authority EXCEPT ![s] = @ \ {PowerA}]
   /\ authorityBeforeSwitch' = [authorityBeforeSwitch EXCEPT ![s] = @]
+  /\ jurisdictionBeforeSwitch' = [jurisdictionBeforeSwitch EXCEPT ![s] = @]
   /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
                   obligationsPreserved, historyPreserved, jurisdiction, switchingCost,
-                  reviewRequired, providerFailed, failureObserved, failureAuthority,
-                  jurisdictionBeforeSwitch>>
+                  reviewRequired, providerFailed, failureObserved, failureAuthority>>
   /\ clock' = NextTime
 
 BadSwitchJurisdiction(s, p) ==
   /\ Advanceable
   /\ p \in effectiveExit[s]
+  /\ p # currentProvider[s]
+  /\ ~switchObserved[s]
+  /\ portable[s]
   /\ currentProvider' = [currentProvider EXCEPT ![s] = p]
   /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
+  /\ authorityBeforeSwitch' = [authorityBeforeSwitch EXCEPT ![s] = @]
+  /\ jurisdictionBeforeSwitch' = [jurisdictionBeforeSwitch EXCEPT ![s] = @]
   /\ jurisdiction' = [jurisdiction EXCEPT ![s] = @ \cup {J2}]
   /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
                   obligationsPreserved, historyPreserved, authority,
                   switchingCost, reviewRequired, providerFailed, failureObserved,
-                  failureAuthority, authorityBeforeSwitch, jurisdictionBeforeSwitch>>
+                  failureAuthority>>
   /\ clock' = NextTime
 
 BadSwitchReview(s) ==
