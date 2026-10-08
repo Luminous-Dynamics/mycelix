@@ -226,6 +226,8 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
+      - name: Test SAP cause audit verifier
+        run: python3 -m unittest scripts/security/test_finance_sap_cause_conservation_audit.py
       - name: Audit SAP cause and conservation wiring
         run: python3 scripts/security/finance_sap_cause_conservation_audit.py
 
