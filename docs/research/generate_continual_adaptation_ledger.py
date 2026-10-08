@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Generate the bounded continual-adaptation ledger property corpus.
 
-Research fixture only. Deterministic by construction: seed + generator version
-are part of the output identity. No external randomness or network access.
+Research fixture only. Deterministic by construction: seed + generator
+version are part of the output identity. The canonical fixture supplies
+the sole base graph so the generator cannot silently create a second model.
 """
 from __future__ import annotations
 
-import copy
 import json
 import sys
 from pathlib import Path
@@ -27,58 +27,44 @@ def token(state: int, prefix: str) -> tuple[int, str]:
 def main() -> int:
     if len(sys.argv) != 3:
         print(
-            "usage: generate_continual_adaptation_ledger.py BASE_GRAPH.json OUTPUT.json",
+            "usage: generate_continual_adaptation_ledger.py "
+            "FIXED_FIXTURES.json OUTPUT.json",
             file=sys.stderr,
         )
         return 2
 
-    base = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    fixed = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    base = fixed["base_graph"]
     state = SEED
     cases: list[dict] = []
 
-    # 32 node-order permutations.
     for i in range(32):
         state = rng_step(state)
-        cases.append(
-            {
-                "case_id": f"GEN-NODE-{i:03d}",
-                "property": "representation_invariance",
-                "mutation": [["rotate_collection", "nodes", state % len(base["nodes"])]],
-            }
-        )
+        cases.append({
+            "case_id": f"GEN-NODE-{i:03d}",
+            "property": "representation_invariance",
+            "mutation": [["rotate_collection", "nodes", state % len(base["nodes"])]],
+        })
 
-    # 32 edge-order permutations.
     for i in range(32):
         state = rng_step(state)
-        cases.append(
-            {
-                "case_id": f"GEN-EDGE-{i:03d}",
-                "property": "representation_invariance",
-                "mutation": [["rotate_collection", "edges", state % len(base["edges"])]],
-            }
-        )
+        cases.append({
+            "case_id": f"GEN-EDGE-{i:03d}",
+            "property": "representation_invariance",
+            "mutation": [["rotate_collection", "edges", state % len(base["edges"])]],
+        })
 
-    # 32 unrelated-node additions.
     for i in range(32):
         state, commitment = token(state, "N")
-        cases.append(
-            {
-                "case_id": f"GEN-UNRELATED-{i:03d}",
-                "property": "claim_local_invariance",
-                "mutation": [
-                    [
-                        "add_node",
-                        {
-                            "id": f"noise-{i:03d}",
-                            "type": "UnrelatedEvidence",
-                            "commitment": commitment,
-                        },
-                    ]
-                ],
-            }
-        )
+        cases.append({
+            "case_id": f"GEN-UNRELATED-{i:03d}",
+            "property": "claim_local_invariance",
+            "mutation": [[
+                "add_node",
+                {"id": f"noise-{i:03d}", "type": "UnrelatedEvidence", "commitment": commitment},
+            ]],
+        })
 
-    # 32 claim-relevant identity corruptions.
     identity_targets = [
         ("subject", "commitment"),
         ("evaluator", "commitment"),
@@ -89,13 +75,11 @@ def main() -> int:
     for i in range(32):
         state, value = token(state, "X")
         node, field = identity_targets[i % len(identity_targets)]
-        cases.append(
-            {
-                "case_id": f"GEN-IDENTITY-{i:03d}",
-                "property": "identity_sensitivity",
-                "mutation": [["set", node, field, value]],
-            }
-        )
+        cases.append({
+            "case_id": f"GEN-IDENTITY-{i:03d}",
+            "property": "identity_sensitivity",
+            "mutation": [["set", node, field, value]],
+        })
 
     required_edges = [
         ["result", "claim", "qualifies"],
@@ -111,78 +95,57 @@ def main() -> int:
         ["claim", "freshness", "requires"],
         ["claim", "subject", "applies_to"],
     ]
-    # 32 missing-edge cases, cycling the required edge set.
     for i in range(32):
-        edge = required_edges[i % len(required_edges)]
-        cases.append(
-            {
-                "case_id": f"GEN-MISSING-{i:03d}",
-                "property": "structural_rejection",
-                "mutation": [["remove_edge", edge]],
-            }
-        )
+        cases.append({
+            "case_id": f"GEN-MISSING-{i:03d}",
+            "property": "structural_rejection",
+            "mutation": [["remove_edge", required_edges[i % len(required_edges)]]],
+        })
 
-    # 32 duplicate-edge cases.
     for i in range(32):
-        edge = required_edges[i % len(required_edges)]
-        cases.append(
-            {
-                "case_id": f"GEN-DUPEDGE-{i:03d}",
-                "property": "structural_rejection",
-                "mutation": [["add_edge", edge]],
-            }
-        )
+        cases.append({
+            "case_id": f"GEN-DUPEDGE-{i:03d}",
+            "property": "structural_rejection",
+            "mutation": [["add_edge", required_edges[i % len(required_edges)]]],
+        })
 
-    # 32 dangling-edge cases.
     for i in range(32):
         state, target = token(state, "missing-")
-        cases.append(
-            {
-                "case_id": f"GEN-DANGLING-{i:03d}",
-                "property": "structural_rejection",
-                "mutation": [["add_edge", ["claim", target, "requires"]]],
-            }
-        )
+        cases.append({
+            "case_id": f"GEN-DANGLING-{i:03d}",
+            "property": "structural_rejection",
+            "mutation": [["add_edge", ["claim", target, "requires"]]],
+        })
 
-    # 32 semantic relation cases:
-    # 0..9 ordered-array sensitivity,
-    # 10..19 explicit derivation dependence,
-    # 20..31 competing qualifying result contradiction.
     for i in range(32):
         if i < 10:
             first = "first" if i % 2 == 0 else "second"
             second = "second" if i % 2 == 0 else "first"
-            cases.append(
-                {
-                    "case_id": f"GEN-ORDERED-{i:03d}",
-                    "property": "ordered_array_sensitivity",
-                    "mutation": [["set", "claim", "ordered_probe", [first, second]]],
-                }
-            )
+            cases.append({
+                "case_id": f"GEN-ORDERED-{i:03d}",
+                "property": "ordered_array_sensitivity",
+                "mutation": [["set", "claim", "ordered_probe", [first, second]]],
+            })
         elif i < 20:
-            rid = f"derived-{i:03d}"
-            cases.append(
-                {
-                    "case_id": f"GEN-DERIVED-{i:03d}",
-                    "property": "provenance_dependence",
-                    "mutation": [
-                        ["add_node", {"id": rid, "type": "Result", "commitment": "X1"}],
-                        ["add_edge", [rid, "result", "derived_from"]],
-                    ],
-                }
-            )
+            result_id = f"derived-{i:03d}"
+            cases.append({
+                "case_id": f"GEN-DERIVED-{i:03d}",
+                "property": "provenance_dependence",
+                "mutation": [
+                    ["add_node", {"id": result_id, "type": "Result", "commitment": "X1"}],
+                    ["add_edge", [result_id, "result", "derived_from"]],
+                ],
+            })
         else:
-            rid = f"competing-{i:03d}"
-            cases.append(
-                {
-                    "case_id": f"GEN-CONFLICT-{i:03d}",
-                    "property": "result_conflict",
-                    "mutation": [
-                        ["add_node", {"id": rid, "type": "Result", "commitment": f"X{i}"}],
-                        ["add_edge", [rid, "claim", "qualifies"]],
-                    ],
-                }
-            )
+            result_id = f"competing-{i:03d}"
+            cases.append({
+                "case_id": f"GEN-CONFLICT-{i:03d}",
+                "property": "result_conflict",
+                "mutation": [
+                    ["add_node", {"id": result_id, "type": "Result", "commitment": f"X{i}"}],
+                    ["add_edge", [result_id, "claim", "qualifies"]],
+                ],
+            })
 
     corpus = {
         "schema": "mycelix.continual-adaptation.evidence-ledger-generated-properties.v1",
@@ -191,6 +154,7 @@ def main() -> int:
             "version": GENERATOR_VERSION,
             "seed": SEED,
             "mutation_count": len(cases),
+            "base_fixture_schema": fixed.get("schema"),
         },
         "base_graph": base,
         "cases": cases,
@@ -200,7 +164,10 @@ def main() -> int:
         json.dumps(corpus, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(f"generated={len(cases)} seed={SEED} version={GENERATOR_VERSION}")
+    print(
+        f"generated={len(cases)} seed={SEED} version={GENERATOR_VERSION} "
+        f"base_schema={fixed.get('schema')}"
+    )
     return 0
 
 
