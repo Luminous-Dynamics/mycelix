@@ -229,7 +229,7 @@ if (
 const report = corpus.cases.map(c => checkCase(corpus.base_graph, policy, c));
 const sortedReport = report
   .sort((a,b) => a.case_id < b.case_id ? -1 : a.case_id > b.case_id ? 1 : 0)
-  .map(row => Object.fromEntries(Object.entries(row).sort(([a],[b]) => a.localeCompare(b))));
+  .map(row => Object.fromEntries(Object.entries(row).sort(([a],[b]) => a < b ? -1 : a > b ? 1 : 0)));
 fs.writeFileSync(reportPath, JSON.stringify(sortedReport) + "\n");
 const failures = report.filter(r => r.status !== "pass");
 console.log("cases=" + report.length + " failures=" + failures.length);
