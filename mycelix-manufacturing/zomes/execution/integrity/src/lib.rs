@@ -40,6 +40,8 @@ struct RoutingStepProjection {
     sequence: u32,
     #[serde(default)]
     capability_requirement_hash: Option<ActionHash>,
+    #[serde(default)]
+    required_inspection_criterion_hashes: Vec<ActionHash>,
 }
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
@@ -307,6 +309,14 @@ fn routing_step_for_sequence(
 ) -> Option<&RoutingStepProjection> {
     routing.steps.iter().find(|step| step.sequence == sequence)
 }
+
+fn required_inspection_criteria_are_unique(
+    hashes: &[ActionHash],
+) -> bool {
+    all_unique(hashes)
+}
+
+
 
 fn capability_profile_from_contract(
     contract: &CapabilityContractEntry,
@@ -730,6 +740,8 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
             if let Some(hash) = e.bom_hash.clone() {
                 must_get_valid_record(hash)?;
             }
+            let mut required_inspection_criteria: Option<HashSet<ActionHash>> = None;
+
             if let Some(hash) = e.routing_hash.clone() {
                 let routing_record = must_get_valid_record(hash)?;
                 let routing: Option<RoutingRevisionProjection> = routing_record
@@ -748,6 +760,22 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 };
 
                 if matches!(e.disposition, Disposition::Accepted) {
+                    if !required_inspection_criteria_are_unique(
+                        &step.required_inspection_criterion_hashes,
+                    ) {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "accepted execution routing step has duplicate inspection criterion references".into(),
+                        ));
+                    }
+                    if step.required_inspection_criterion_hashes.is_empty() {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "accepted execution requires at least one routing-owned inspection criterion".into(),
+                        ));
+                    }
+                    required_inspection_criteria = Some(
+                        step.required_inspection_criterion_hashes.iter().cloned().collect(),
+                    );
+
                     let Some(requirement_hash) = step.capability_requirement_hash.clone() else {
                         return Ok(ValidateCallbackResult::Invalid(
                             "accepted execution requires a typed capability requirement on the routing step".into(),
@@ -857,6 +885,46 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 }
             }
 
+            if let Some(required_criteria) = required_inspection_criteria.as_ref() {
+                let mut measured_criteria = HashSet::new();
+                for hash in &e.measurement_hashes {
+                    let record = must_get_valid_record(hash.clone())?;
+                    let measurement: Option<MeasurementEntry> = record
+                        .entry()
+                        .to_app_option()
+                        .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                    let Some(measurement) = measurement else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "execution measurement reference is not a measurement record".into(),
+                        ));
+                    };
+                    let Some(criterion_hash) = measurement.criterion_hash.clone() else {
+                        if matches!(e.disposition, Disposition::Accepted) {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "accepted execution measurement must identify its inspection criterion".into(),
+                            ));
+                        }
+                        continue;
+                    };
+                    if !required_criteria.contains(&criterion_hash)
+                        && matches!(e.disposition, Disposition::Accepted)
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "execution measurement references an inspection criterion not required by the routing step".into(),
+                        ));
+                    }
+                    measured_criteria.insert(criterion_hash);
+                }
+
+                if matches!(e.disposition, Disposition::Accepted)
+                    && measured_criteria != *required_criteria
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "accepted execution is missing one or more routing-required inspection measurements".into(),
+                    ));
+                }
+            }
+
             let mut calibrated_assets = HashSet::new();
             for hash in &e.calibration_hashes {
                 let record = must_get_valid_record(hash.clone())?;
@@ -908,6 +976,14 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inspection_criterion_reference_set_requires_unique_hashes() {
+        let first = ActionHash::from_raw_36(vec![1; 36]);
+        let second = ActionHash::from_raw_36(vec![2; 36]);
+        assert!(required_inspection_criteria_are_unique(&[first.clone(), second]));
+        assert!(!required_inspection_criteria_are_unique(&[first.clone(), first]));
+    }
 
     #[test]
     fn rejects_capability_contract_that_fails_routing_requirement() {
