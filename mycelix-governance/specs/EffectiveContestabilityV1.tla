@@ -60,15 +60,15 @@ Init ==
   /\ portable = [s \in Subjects |-> TRUE]
   /\ obligationsPreserved = [s \in Subjects |-> TRUE]
   /\ historyPreserved = [s \in Subjects |-> TRUE]
-  /\ authority = [s \in Subjects |-> {}]
+  /\ authority = [S1 |-> {PowerA}, S2 |-> {PowerB}]
   /\ jurisdiction = [s \in Subjects |-> {J1}]
   /\ switchingCost = [s \in Subjects |-> 0]
   /\ reviewRequired = [s \in Subjects |-> FALSE]
   /\ providerFailed = {}
   /\ failureObserved = FALSE
-  /\ failureAuthority = [s \in Subjects |-> {}]
+  /\ failureAuthority = authority
   /\ switchObserved = [s \in Subjects |-> FALSE]
-  /\ authorityBeforeSwitch = [s \in Subjects |-> {}]
+  /\ authorityBeforeSwitch = authority
   /\ jurisdictionBeforeSwitch = [s \in Subjects |-> {J1}]
   /\ clock = 0
 
@@ -116,6 +116,8 @@ MarkEffectiveExit(s, p) ==
 SwitchProvider(s, p) ==
   /\ Advanceable
   /\ p \in effectiveExit[s]
+  /\ p # currentProvider[s]
+  /\ ~switchObserved[s]
   /\ portable[s]
   /\ currentProvider' = [currentProvider EXCEPT ![s] = p]
   /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
