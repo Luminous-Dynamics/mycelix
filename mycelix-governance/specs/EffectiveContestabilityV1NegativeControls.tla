@@ -44,6 +44,21 @@ BadFailureAuthority(p) ==
                   authorityBeforeSwitch, jurisdictionBeforeSwitch>>
   /\ clock' = NextTime
 
+
+BadSwitchStaleExit(s, p) ==
+  /\ Advanceable
+  /\ p \in effectiveExit[s]
+  /\ p # currentProvider[s]
+  /\ ~switchObserved[s]
+  /\ portable[s]
+  /\ currentProvider' = [currentProvider EXCEPT ![s] = p]
+  /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
+  /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
+                  obligationsPreserved, historyPreserved, authority, jurisdiction,
+                  switchingCost, reviewRequired, providerFailed, failureObserved,
+                  failureAuthority, authorityBeforeSwitch, jurisdictionBeforeSwitch>>
+  /\ clock' = NextTime
+
 BadSwitchObligation(s, p) ==
   /\ Advanceable
   /\ p \in effectiveExit[s]
