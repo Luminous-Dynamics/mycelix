@@ -134,6 +134,16 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'LinkTypes::ExecutionByTimelock' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: fund release does not use the stable timelock-to-execution index."
+            exit 1
+          }
+
+          grep -Fq 'execution_by_timelock_anchor' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: stable timelock execution anchor helper is missing."
+            exit 1
+          }
+
           if grep -Fq 'pub fn store_mut' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
             echo "NOT QUALIFIED: mutable durable-store escape hatch remains exposed."
             exit 1
