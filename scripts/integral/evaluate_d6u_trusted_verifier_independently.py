@@ -343,12 +343,12 @@ def run(candidate_root: pathlib.Path) -> None:
         "candidate verifier accepted an executor run from a different attempt",
     )
 
-    record_header = "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE\\n"
+    record_header = "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE\n"
     with tempfile.TemporaryDirectory() as scratch:
         scratch_path = pathlib.Path(scratch)
         valid_record_path = scratch_path / "valid-record.txt"
         valid_record_path.write_text(
-            record_header + "status=passed\\nworkflow_run_id=200\\n",
+            record_header + "status=passed\nworkflow_run_id=200\n",
             encoding="utf-8",
         )
         assert verifier.load_record(valid_record_path) == {
@@ -358,7 +358,7 @@ def run(candidate_root: pathlib.Path) -> None:
 
         duplicate_record_path = scratch_path / "duplicate-record.txt"
         duplicate_record_path.write_text(
-            record_header + "status=passed\\nstatus=failed\\n",
+            record_header + "status=passed\nstatus=failed\n",
             encoding="utf-8",
         )
         assert_rejected(
@@ -369,7 +369,7 @@ def run(candidate_root: pathlib.Path) -> None:
 
         malformed_record_path = scratch_path / "malformed-record.txt"
         malformed_record_path.write_text(
-            record_header + "not-a-key-value-line\\n",
+            record_header + "not-a-key-value-line\n",
             encoding="utf-8",
         )
         assert_rejected(
@@ -380,7 +380,7 @@ def run(candidate_root: pathlib.Path) -> None:
 
         wrong_header_path = scratch_path / "wrong-header.txt"
         wrong_header_path.write_text(
-            "UNTRUSTED HEADER\\nstatus=passed\\n",
+            "UNTRUSTED HEADER\nstatus=passed\n",
             encoding="utf-8",
         )
         assert_rejected(
@@ -392,7 +392,7 @@ def run(candidate_root: pathlib.Path) -> None:
         artifact_dir = scratch_path / "artifact-valid"
         artifact_dir.mkdir()
         (artifact_dir / "d6u-runtime-evidence.txt").write_text(
-            "inert evidence fixture\\n", encoding="utf-8"
+            "inert evidence fixture\n", encoding="utf-8"
         )
         verifier.verify_artifact_layout(
             artifact_dir,
@@ -401,7 +401,7 @@ def run(candidate_root: pathlib.Path) -> None:
         )
 
         extra_file = artifact_dir / "unexpected.txt"
-        extra_file.write_text("extra\\n", encoding="utf-8")
+        extra_file.write_text("extra\n", encoding="utf-8")
         assert_rejected(
             lambda: verifier.verify_artifact_layout(
                 artifact_dir,
