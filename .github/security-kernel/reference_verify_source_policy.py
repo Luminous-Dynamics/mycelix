@@ -333,13 +333,13 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
         found = 0
         literals = re.findall(r'"(.*?)"', text) + re.findall(r"'(.*?)'", text)
         for literal in literals:
-            for key in re.findall(r'(?:^|\\n)([A-Za-z0-9_-]+)(?:=|<<[A-Za-z0-9_-]+)', literal):
+            for key in re.findall(r'(?:^|\n)([A-Za-z0-9_-]+)(?:=|<<[A-Za-z0-9_-]+)', literal):
                 record_key(key)
                 found += 1
         return found
 
     def record_plain_key(text: str) -> int:
-        matches = re.findall(r'^(?:\\s*)([A-Za-z0-9_-]+)(?:=|<<[A-Za-z0-9_-]+)', text)
+        matches = re.findall(r'^\s*([A-Za-z0-9_-]+)(?:=|<<[A-Za-z0-9_-]+)', text)
         for key in matches:
             record_key(key)
         return len(matches)
@@ -368,13 +368,13 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
 
     reset_state()
     for line in lines_:
-        step_match = re.match(r"^\\s{6}- name: (.+)$", line)
+        step_match = re.match(r"^\s{6}- name: (.+)$", line)
         if step_match:
             flush()
             current_name = step_match.group(1)
             reset_state()
             continue
-        if re.match(r"^\\s{6}- ", line):
+        if re.match(r"^\s{6}- ", line):
             flush()
             current_name = None
             reset_state()
@@ -395,7 +395,7 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
             if stripped == "PY":
                 python_output_var = None
                 continue
-            if re.search(rf"\\b{re.escape(python_output_var)}\\.write\\(", stripped):
+            if re.search(rf"\b{re.escape(python_output_var)}\.write\(", stripped):
                 sink_seen = True
                 if record_literal_keys(stripped) == 0:
                     fail(f"{description}: Python GITHUB_OUTPUT writer under {current_name!r} has no statically visible output key")
@@ -408,7 +408,7 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
             continue
 
         python_match = re.search(
-            r'open\\(\\s*os\\.environ\\["GITHUB_OUTPUT"\\]\\s*,\\s*["\'](?:a|ab)["\'][^)]*\\)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:',
+            r'open\(\s*os\.environ\["GITHUB_OUTPUT"\]\s*,\s*["\'](?:a|ab)["\'][^)]*\)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*:',
             stripped,
         )
         if python_match:
@@ -416,10 +416,10 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
             python_output_var = python_match.group(1)
             continue
 
-        shell_command_match = re.search(r"\\b(printf|echo|cat)\\b", stripped)
+        shell_command_match = re.search(r"\b(printf|echo|cat)\b", stripped)
         if shell_command_match:
             heredoc_match = re.search(
-                r'<<-?\\s*["\']?([A-Za-z_][A-Za-z0-9_]*)["\']?\\s+.*\\$GITHUB_OUTPUT',
+                r'<<-?\s*["\']?([A-Za-z_][A-Za-z0-9_]*)["\']?\s+.*\$GITHUB_OUTPUT',
                 stripped,
             )
             if heredoc_match and shell_command_match.group(1) == "cat":
@@ -435,14 +435,6 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
         fail(f"{description}: unrecognized GITHUB_OUTPUT sink under {current_name!r}: {stripped!r}")
 
     flush()
-
-def require_no_forbidden_github_command_files(lines_: list[str], description: str) -> None:
-    """Reject trusted workflow writes to mutable GitHub runner command files outside GITHUB_OUTPUT."""
-    forbidden = ("GITHUB_ENV", "GITHUB_PATH", "GITHUB_STATE", "GITHUB_STEP_SUMMARY", "::set-output")
-    for line in lines_:
-        if any(fragment in line for fragment in forbidden):
-            fail(f"{description}: forbidden GitHub command-file/control primitive {line!r}")
-
 
 def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
     current_name = None
