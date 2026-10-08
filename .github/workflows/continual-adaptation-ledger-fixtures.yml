@@ -18,6 +18,8 @@ on:
       - "docs/research/verify_continual_adaptation_raw.py"
       - "docs/research/verify_continual_adaptation_raw.mjs"
       - ".github/workflows/continual-adaptation-ledger-fixtures.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
