@@ -111,7 +111,7 @@ def validate_policy(policy: Any) -> None:
         "admin observation requirement drift",
     )
     require(
-        observation_contract.get("admin_capability_probe_required_for_verified") is True,
+        observation_contract.get("admin_capability_probe_required_when_branch_protection_unavailable") is True,
         "admin capability probe requirement drift",
     )
     require(
@@ -256,7 +256,13 @@ def validate_observation_shape(observation: Any) -> None:
     capability_status = capability_probe.get("http_status")
     require(isinstance(capability_status, int), "admin capability probe http_status must be integer")
     capability_raw = validate_bound_raw_payload(observation, "admin_capability")
-    require(isinstance(capability_raw, list), "admin capability probe raw payload must be a list")
+    if capability_status == 200:
+        require(isinstance(capability_raw, list), "successful admin capability probe raw payload must be a list")
+    else:
+        require(
+            isinstance(capability_raw, (dict, list)),
+            "admin capability probe raw payload must be valid JSON",
+        )
     require(
         observation.get("admin_capability_probe", {}).get("http_status") == capability_status,
         "normalized admin capability probe status is inconsistent",
@@ -878,8 +884,12 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
         )
         capability_probe = observation.get("admin_capability_probe")
         require(
-            isinstance(capability_probe, dict) and capability_probe.get("http_status") == 200,
-            "verified administration observation requires a successful admin capability probe",
+            isinstance(capability_probe, dict)
+            and (
+                capability_probe.get("http_status") == 200
+                or observation.get("branch_protection_api", {}).get("http_status") == 200
+            ),
+            "verified administration observation requires explicit admin capability evidence",
         )
 
     default_branch = observation.get("default_branch")
@@ -1058,7 +1068,7 @@ def fixture_policy() -> dict[str, Any]:
             "raw_payloads_required": True,
             "raw_payload_sha256_required": True,
             "admin_observation_required_for_verified": True,
-            "admin_capability_probe_required_for_verified": True,
+            "admin_capability_probe_required_when_branch_protection_unavailable": True,
             "secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists": True,
             "applicable_rulesets_must_be_aggregated": True,
             "ruleset_repository_targeting_must_be_evaluated": True,
@@ -1603,6 +1613,7 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy))
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
     x["admin_capability_probe"]["http_status"] = 403
     x["admin_observation"]["status"] = "verified"
     try:
