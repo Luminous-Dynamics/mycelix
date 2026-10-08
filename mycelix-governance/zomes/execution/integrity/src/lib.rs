@@ -181,6 +181,10 @@ pub struct ExecutionResolution {
     pub timelock_id: String,
     pub proposal_id: String,
     pub executor: String,
+    #[serde(default)]
+    pub execution_action_hash: Option<ActionHash>,
+    #[serde(default)]
+    pub timelock_action_hash: Option<ActionHash>,
     pub attempt_identities: Vec<String>,
     pub action_key_digests: Vec<String>,
     pub terminal_evidence_digests: Vec<String>,
@@ -470,6 +474,14 @@ pub fn check_create_execution_resolution(
         || resolution.proposal_id.is_empty()
     {
         return Err("Resolution identifiers are required".into());
+    }
+    if resolution.execution_action_hash.is_none()
+        || resolution.timelock_action_hash.is_none()
+    {
+        return Err(
+            "New execution resolutions must anchor the prepared execution and timelock ActionHash"
+                .into(),
+        );
     }
     check_execution_resolution_bindings(
         &resolution.attempt_identities,
@@ -1183,6 +1195,8 @@ mod tests {
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
             executor: "did:key:z6Mk".into(),
+            execution_action_hash: Some(ActionHash::from_raw_36(vec![0; 36])),
+            timelock_action_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
             attempt_identities: vec![format!(
                 "{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}",
                 "e".repeat(64)
@@ -1198,6 +1212,14 @@ mod tests {
             resolved_at: ts(4_000_000),
         };
         assert!(check_create_execution_resolution(&valid).is_ok());
+
+        let mut missing_source_anchors = valid.clone();
+        missing_source_anchors.execution_action_hash = None;
+        assert!(check_create_execution_resolution(&missing_source_anchors).is_err());
+
+        let mut missing_timelock_anchor = valid.clone();
+        missing_timelock_anchor.timelock_action_hash = None;
+        assert!(check_create_execution_resolution(&missing_timelock_anchor).is_err());
 
         let mut bad = valid.clone();
         bad.terminal_evidence_digests.clear();

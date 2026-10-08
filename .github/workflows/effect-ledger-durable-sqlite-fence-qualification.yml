@@ -122,6 +122,9 @@ jobs:
           grep -Fq 'provider_idempotency_key does not match versioned derivation' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'persisted_provider_idempotency_key_is_versioned_and_fail_closed' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'provider_idempotency_key_is_bound_to_action_payload_and_scope' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
+          grep -Fq 'execution_action_hash' mycelix-governance/zomes/execution/integrity/src/lib.rs
+          grep -Fq 'timelock_action_hash' mycelix-governance/zomes/execution/integrity/src/lib.rs
+          grep -Fq 'exact prepared execution and timelock ActionHash' mycelix-governance/zomes/execution/integrity/src/lib.rs
           grep -Fq 'FinalProviderEntryProofV1' "$boundary"
           grep -Fq 'FinalProviderEntryVerifier' "$boundary"
           grep -Fq 'BoundaryTrustRoot' "$boundary"

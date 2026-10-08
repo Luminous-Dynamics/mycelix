@@ -386,6 +386,12 @@ host deployment is wired through it. The current execution coordinator remains a
 prepare-only Holochain path, and live provider execution wiring must be separately
 demonstrated and exact-head qualified.
 
+Resolution receipts also carry the exact Holochain ActionHash of the prepared
+Execution and Timelock records that they summarize. Those anchors are derived
+from the records fetched by the coordinator; they are not caller-selected IDs.
+This makes the source-chain provenance of a host-side resolution independently
+locatable without promoting the DHT into a global provider lock.
+
 This separation is intentional: a hardened boundary is a prerequisite for provider
 qualification, not evidence that the providers themselves satisfy the boundary.
 
