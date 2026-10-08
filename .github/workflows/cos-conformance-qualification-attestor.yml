@@ -971,7 +971,7 @@ jobs:
           qualification_claim_id = hashlib.sha256(
               claim_id_domain
               + bytes([0])
-+ repository_id.encode("ascii")
+              + repository_id.encode("ascii")
               + bytes([0])
               + predicate_schema.encode("utf-8")
               + bytes([0])
@@ -1126,7 +1126,7 @@ jobs:
           expected_claim_id = hashlib.sha256(
               claim_id_domain
               + bytes([0])
-+ repository_id.encode("ascii")
+              + repository_id.encode("ascii")
               + bytes([0])
               + predicate_schema.encode("utf-8")
               + bytes([0])
