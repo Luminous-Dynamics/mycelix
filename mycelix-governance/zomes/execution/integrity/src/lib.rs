@@ -102,6 +102,13 @@ pub const STRATEGIC_OVERRIDE_SUNSET_US: i64 = 36 * 30 * 24 * 3600 * 1_000_000_i6
 /// Threat categories that constitute valid constitutional justification
 /// for Charter Guardian Authority vetoes (post-sunset period).
 /// Non-charter vetoes are rejected after the sunset.
+pub const EXECUTION_ACTION_KEY_PREFIX: &str =
+    "constitutional-action-key-v1:";
+pub const EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX: &str =
+    "constitutional-authorization-admission-proof-v1:";
+pub const EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX: &str =
+    "constitutional-final-provider-entry-proof-v1:";
+
 pub const CHARTER_THREAT_CATEGORIES: &[&str] = &[
     "constitutional_violation",
     "core_principle_violation",
@@ -425,6 +432,16 @@ pub fn check_create_execution(execution: &Execution) -> Result<(), String> {
 }
 
 /// Check that a host-side execution resolution is structurally complete.
+fn is_tagged_digest(value: &str, prefix: &str) -> bool {
+    let Some(hex) = value.strip_prefix(prefix) else {
+        return false;
+    };
+    hex.len() == 64
+        && hex
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 pub fn check_create_execution_resolution(
     action: &Create,
     resolution: &ExecutionResolution,
@@ -459,18 +476,23 @@ pub fn check_create_execution_resolution(
         return Err("Resolution binding vectors must have equal lengths".into());
     }
     if resolution.attempt_identities.iter().any(|v| v.is_empty())
-        || resolution.action_key_digests.iter().any(|v| v.is_empty())
         || resolution.terminal_evidence_digests.iter().any(|v| v.is_empty())
+        || resolution.action_key_digests.iter().any(|v| {
+            !is_tagged_digest(
+                v,
+                EXECUTION_ACTION_KEY_PREFIX,
+            )
+        })
         || resolution
             .authorization_admission_proof_digests
             .iter()
-            .any(|v| v.is_empty())
+            .any(|v| !is_tagged_digest(v, EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX))
         || resolution
             .final_provider_entry_proof_digests
             .iter()
-            .any(|v| v.is_empty())
+            .any(|v| !is_tagged_digest(v, EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX))
     {
-        return Err("Resolution bindings must be non-empty".into());
+        return Err("Resolution bindings must use canonical digest namespaces".into());
     }
     Ok(())
 }
@@ -1129,10 +1151,10 @@ mod tests {
             proposal_id: "prop-1".into(),
             executor: "did:key:z6Mk".into(),
             attempt_identities: vec!["attempt-1".into()],
-            action_key_digests: vec!["action-key-1".into()],
-            terminal_evidence_digests: vec!["evidence-1".into()],
-            authorization_admission_proof_digests: vec!["auth-proof-1".into()],
-            final_provider_entry_proof_digests: vec!["final-entry-proof-1".into()],
+            action_key_digests: vec![format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "a".repeat(64))],
+            terminal_evidence_digests: vec![format!("terminal-evidence-v1:{}", "b".repeat(64))],
+            authorization_admission_proof_digests: vec![format!("{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}", "c".repeat(64))],
+            final_provider_entry_proof_digests: vec![format!("{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}", "d".repeat(64))],
             outcome: ExecutionResolutionOutcome::Executed,
             resolved_at: ts(4_000_000),
         };
@@ -1141,6 +1163,20 @@ mod tests {
         let mut bad = valid.clone();
         bad.terminal_evidence_digests.clear();
         assert!(check_create_execution_resolution(&bad).is_err());
+
+        let mut bad_action_root = valid.clone();
+        bad_action_root.action_key_digests[0] = "not-a-canonical-action-root".into();
+        assert!(check_create_execution_resolution(&bad_action_root).is_err());
+
+        let mut bad_auth_root = valid.clone();
+        bad_auth_root.authorization_admission_proof_digests[0] =
+            "not-a-canonical-admission-root".into();
+        assert!(check_create_execution_resolution(&bad_auth_root).is_err());
+
+        let mut bad_final_root = valid.clone();
+        bad_final_root.final_provider_entry_proof_digests[0] =
+            "not-a-canonical-final-entry-root".into();
+        assert!(check_create_execution_resolution(&bad_final_root).is_err());
 
         let mut missing_auth = valid.clone();
         missing_auth.authorization_admission_proof_digests.clear();
