@@ -102,7 +102,7 @@ function verifyAtt(cp,w,a,root,reg){
   const c=a.claims;
   if(c.registry_id!==REG_ID||c.registry_version!==reg.registry_version)return[null,"claims-registry-binding"];
   if(c.root_reference_sha256!==cp.root_reference_sha256||c.root_reference_sha256!==digest(root))return[null,"claims-root-binding"];
-  if(c.authority_id!==AUTH_ID||!Number.isInteger(c.manifest_version)||c.manifest_version<1)return[null,"claims-authority"];
+  if(c.authority_id!==AUTH_ID)return[null,"claims-authority"]; if(!Number.isInteger(c.manifest_version)||c.manifest_version<1)return[null,"claims-version"];
   const [pub,e]=keyFor(reg,w,a.key_id,c.manifest_version);if(e)return[null,e];
   let sig;try{sig=b64d(a.signature,64);}catch{return[null,"signature-encoding"];}
   const p={schema:SIG_SCHEMA,domain:DOMAIN,algorithm:ALG,witness_id:w,key_id:a.key_id,witness_identity_commitment:reg.witnesses[w].identity_commitment,claims:c};
