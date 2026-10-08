@@ -10,6 +10,7 @@ on:
       - 'mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1.cfg'
       - 'mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1Negative-*.cfg'
       - 'mycelix-governance/specs/alloy/EvidenceAttestationSemanticProjectionV1.als'
+      - 'mycelix-governance/tools/formal/AgentDelegationAuthorityAlloyRunner.java'
       - 'mycelix-governance/tools/formal/semantic_projection_reference.py'
       - 'mycelix-governance/tools/formal/test_semantic_projection_matrix.py'
       - 'mycelix-governance/tools/formal/run_semantic_projection_matrix.py'
@@ -18,13 +19,14 @@ on:
   pull_request:
     branches:
       - main
-      - sov-ai-auth-v12-effect-handoff-identity
+      - sov-ai-auth-v12-semantic-projection
     paths:
       - 'mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1.tla'
       - 'mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1NegativeControls.tla'
       - 'mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1.cfg'
       - 'mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1Negative-*.cfg'
       - 'mycelix-governance/specs/alloy/EvidenceAttestationSemanticProjectionV1.als'
+      - 'mycelix-governance/tools/formal/AgentDelegationAuthorityAlloyRunner.java'
       - 'mycelix-governance/tools/formal/semantic_projection_reference.py'
       - 'mycelix-governance/tools/formal/test_semantic_projection_matrix.py'
       - 'mycelix-governance/tools/formal/run_semantic_projection_matrix.py'
@@ -54,27 +56,23 @@ jobs:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
-
       - name: Assert exact candidate head
         env:
           EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-
       - name: Static matrix and Python syntax
         run: |
           set -euo pipefail
           python3 -m py_compile             mycelix-governance/tools/formal/semantic_projection_reference.py             mycelix-governance/tools/formal/test_semantic_projection_matrix.py             mycelix-governance/tools/formal/run_semantic_projection_matrix.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_SEMANTIC_PROJECTION_CONTROL_MATRIX_V1.json >/dev/null
           python3 mycelix-governance/tools/formal/test_semantic_projection_matrix.py             --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_SEMANTIC_PROJECTION_CONTROL_MATRIX_V1.json             --tla mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1.tla             --negative-tla mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1NegativeControls.tla             --alloy mycelix-governance/specs/alloy/EvidenceAttestationSemanticProjectionV1.als             --reference mycelix-governance/tools/formal/semantic_projection_reference.py
-
       - name: Install pinned Nix toolchain
         uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-
       - name: Download and hash formal tools
         run: |
           set -euo pipefail
@@ -82,12 +80,9 @@ jobs:
           nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#curl" "github:NixOS/nixpkgs/$NIXPKGS_REV#coreutils" --command bash -euo pipefail -c '
             curl --fail --location --retry 3 --retry-all-errors --output "$RUNNER_TEMP/semantic-projection-tools/tla2tools.jar" "$TLA_URL"
             curl --fail --location --retry 3 --retry-all-errors --output "$RUNNER_TEMP/semantic-projection-tools/alloy.jar" "$ALLOY_URL"
-            printf "%s  %s
-" "$TLA_SHA256" "$RUNNER_TEMP/semantic-projection-tools/tla2tools.jar" | sha256sum --check --strict
-            printf "%s  %s
-" "$ALLOY_SHA256" "$RUNNER_TEMP/semantic-projection-tools/alloy.jar" | sha256sum --check --strict
+            printf "%s  %s\n" "$TLA_SHA256" "$RUNNER_TEMP/semantic-projection-tools/tla2tools.jar" | sha256sum --check --strict
+            printf "%s  %s\n" "$ALLOY_SHA256" "$RUNNER_TEMP/semantic-projection-tools/alloy.jar" | sha256sum --check --strict
           '
-
       - name: Compile Alloy runner
         run: |
           set -euo pipefail
@@ -96,21 +91,17 @@ jobs:
             javac -cp "$RUNNER_TEMP/semantic-projection-tools/alloy.jar" -d "$RUNNER_TEMP/semantic-projection-java" mycelix-governance/tools/formal/AgentDelegationAuthorityAlloyRunner.java
             java -version 2>&1 | tee "$RUNNER_TEMP/semantic-projection-evidence/java-version.txt"
             javac -version 2>&1 | tee "$RUNNER_TEMP/semantic-projection-evidence/javac-version.txt"
-            printf "%s
-" "{"schema":"mycelix.evidence-attestation-capability-formal-runtime.v1","nixpkgs_rev":"$NIXPKGS_REV","jdk_package":"jdk17_headless","java_major":17}" > "$RUNNER_TEMP/semantic-projection-evidence/runtime.json"
+            printf "%s\n" "{"schema":"mycelix.evidence-attestation-capability-formal-runtime.v1","nixpkgs_rev":"$NIXPKGS_REV","jdk_package":"jdk17_headless","java_major":17}" > "$RUNNER_TEMP/semantic-projection-evidence/runtime.json"
           '
-
       - name: Execute exact formal matrix
         run: |
           set -euo pipefail
           python3 mycelix-governance/tools/formal/run_semantic_projection_matrix.py             --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_SEMANTIC_PROJECTION_CONTROL_MATRIX_V1.json             --tla mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1.tla             --canonical-cfg mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1.cfg             --negative-tla mycelix-governance/specs/EvidenceAttestationSemanticProjectionV1NegativeControls.tla             --negative-cfg-dir mycelix-governance/specs             --alloy mycelix-governance/specs/alloy/EvidenceAttestationSemanticProjectionV1.als             --runner-class-dir "$RUNNER_TEMP/semantic-projection-java"             --alloy-jar "$RUNNER_TEMP/semantic-projection-tools/alloy.jar"             --tla-jar "$RUNNER_TEMP/semantic-projection-tools/tla2tools.jar"             --reference mycelix-governance/tools/formal/semantic_projection_reference.py             --runtime "$RUNNER_TEMP/semantic-projection-evidence/runtime.json"             --evidence-dir "$RUNNER_TEMP/semantic-projection-evidence"
-
       - name: Verify repository postflight
         if: always()
         run: |
           set -euo pipefail
           test "$(git status --porcelain)" = ""
-
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
