@@ -504,6 +504,14 @@ impl AttemptRecordV1 {
 
     /// Digest of the complete durable projection. This is record integrity, not
     /// semantic action identity: `operation_id` is intentionally included here.
+    pub fn reconciliation_token_digest(&self) -> String {
+        reconciliation_token(
+            &self.ownership_token_digest,
+            &self.attempt_identity,
+            &self.action_key_digest,
+        )
+    }
+
     pub fn record_digest(&self) -> String {
         let mut hasher = blake3::Hasher::new();
         hasher.update(ATTEMPT_RECORD_DOMAIN);
