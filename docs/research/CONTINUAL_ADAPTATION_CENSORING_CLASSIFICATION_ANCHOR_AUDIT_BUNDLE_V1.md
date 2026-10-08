@@ -84,7 +84,7 @@ The hosted execution state remains separately observed. A synthetic success valu
 
 ## Campaign
 
-The 13-case campaign covers:
+The 18-case campaign covers:
 
 - valid bundle;
 - witness-registry artifact substitution;
@@ -98,7 +98,8 @@ The 13-case campaign covers:
 - hosted-PASS injection;
 - topology-head substitution;
 - decision-prerequisite weakening;
-- bundle identity substitution.
+- bundle identity substitution;
+- each individual upstream-verifier prerequisite being disabled.
 
 Python and Node implementations independently produce the same deterministic report.
 
