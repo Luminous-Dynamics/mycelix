@@ -133,6 +133,7 @@ jobs:
             --tla-jar "$RUNNER_TEMP/authority-tools/tla2tools.jar" \
             --alloy-jar "$RUNNER_TEMP/authority-tools/alloy.jar" \
             --reference mycelix-governance/tools/formal/agent_delegation_authority_reference.py \
+            --runtime "$RUNNER_TEMP/authority-evidence/runtime.json" \
             --evidence-dir "$RUNNER_TEMP/authority-evidence"
 
       - name: Verify repository postflight
