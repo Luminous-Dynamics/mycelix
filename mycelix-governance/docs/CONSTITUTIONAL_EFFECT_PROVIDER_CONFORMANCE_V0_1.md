@@ -396,6 +396,7 @@ one final-provider-entry proof commitment for each attempt/action pair, in paral
 with the terminal evidence commitment.
 
 These values are canonical digest commitments, not Holochain `ActionHash` references.
+Resolution receipts also cap the number of parallel action/evidence tuples at 256, so a single DHT entry cannot amplify resource consumption through unbounded proof-root vectors.
 The integrity zome therefore validates namespace/shape and vector alignment, while the
 host-side effect boundary remains responsible for dereferencing the commitments against
 its durable admission/evidence receipts.
