@@ -131,7 +131,7 @@ pub struct ProviderActionContextV1 {
 }
 
 impl ProviderActionContextV1 {
-    fn from_attempt(
+    pub(crate) fn from_attempt(
         attempt: &AttemptRecordV1,
         action_key: &ActionKeyV1,
     ) -> Result<Self, BoundaryError> {

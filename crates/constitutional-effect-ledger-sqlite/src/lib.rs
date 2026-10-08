@@ -19,6 +19,7 @@ use constitutional_effect_ledger::{
     AtomicAdmissionDecision, AttemptIdentityV1, AttemptRecordState, AttemptRecordV1,
     AuthorizationAdmissionProofV1, DurableActionFenceStore, NativeReplayBindingV1,
     ProviderEntryClaimV1, TerminalEvidenceV1, TerminalOutcomeV1,
+    ACTION_KEY_PREFIX, ATTEMPT_IDENTITY_PREFIX,
     ACTION_FENCE_SCHEMA_VERSION, ATTEMPT_RECORD_SCHEMA_VERSION,
     NATIVE_REPLAY_BINDING_SCHEMA_VERSION,
 };
@@ -38,6 +39,31 @@ const FENCE_TABLE: &str = "effect_action_fences";
 const REPLAY_TABLE: &str = "effect_native_replay_bindings";
 const ENTRY_CLAIM_TABLE: &str = "effect_provider_entry_claims";
 const AUTHORIZATION_PROOF_TABLE: &str = "effect_authorization_admission_proofs";
+
+const TERMINAL_EVIDENCE_DIGEST_PREFIX: &str = "constitutional-terminal-evidence-v3:";
+const AUTHORIZATION_ADMISSION_PROOF_DIGEST_PREFIX: &str =
+    "constitutional-authorization-admission-proof-v1:";
+const FINAL_PROVIDER_ENTRY_PROOF_DIGEST_PREFIX: &str =
+    "constitutional-final-provider-entry-proof-v1:";
+
+/// One per-action reference tuple received from a DHT execution resolution.
+///
+/// This is deliberately separate from the Holochain zome type so the host-side
+/// store does not depend on Holochain/WASM crates.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DurableResolutionBindingV1 {
+    pub attempt_identity: String,
+    pub action_key_digest: String,
+    pub terminal_evidence_digest: String,
+    pub authorization_admission_proof_digest: String,
+    pub final_provider_entry_proof_digest: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DurableResolutionOutcomeV1 {
+    Executed,
+    Failed,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqliteActionFenceStore {
@@ -71,6 +97,116 @@ impl SqliteActionFenceStore {
         let mut conn = open_connection(&self.path)?;
         ensure_schema(&mut conn)?;
         validate_persisted_state(&conn)
+    }
+
+    /// Reconcile a DHT resolution tuple against the durable host ledger.
+    ///
+    /// expected_action_key must be derived by the caller from the exact prepared
+    /// action under the configured native action profile. The typed action key
+    /// binds the material action digest and effecting target together. This
+    /// method checks those values against the durable attempt and confirms that
+    /// its admission, final-entry, and
+    /// terminal commitments are the same values recorded by the host boundary.
+    ///
+    /// It does not reconstruct final-entry or terminal-evidence preimages: only
+    /// their accepted digests are currently persisted on the attempt record.
+    pub fn reconcile_resolution_binding(
+        &self,
+        binding: &DurableResolutionBindingV1,
+        expected_action_key: &ActionKeyV1,
+        expected_outcome: DurableResolutionOutcomeV1,
+    ) -> Result<AttemptRecordV1, String> {
+        self.audit_integrity()?;
+
+        if !is_tagged_digest(&binding.attempt_identity, ATTEMPT_IDENTITY_PREFIX)
+            || !is_tagged_digest(&binding.action_key_digest, ACTION_KEY_PREFIX)
+            || !is_tagged_digest(
+                &binding.terminal_evidence_digest,
+                TERMINAL_EVIDENCE_DIGEST_PREFIX,
+            )
+            || !is_tagged_digest(
+                &binding.authorization_admission_proof_digest,
+                AUTHORIZATION_ADMISSION_PROOF_DIGEST_PREFIX,
+            )
+            || !is_tagged_digest(
+                &binding.final_provider_entry_proof_digest,
+                FINAL_PROVIDER_ENTRY_PROOF_DIGEST_PREFIX,
+            )
+        {
+            return Err("resolution binding contains a non-canonical durable root".into());
+        }
+        if binding.action_key_digest != expected_action_key.digest() {
+            return Err("resolution action-key digest does not match prepared action".into());
+        }
+
+        let conn = open_connection(&self.path)?;
+        let attempt = load_attempt_txless(&conn, &binding.attempt_identity)?
+            .ok_or_else(|| {
+                format!(
+                    "resolution references unknown durable attempt {}",
+                    binding.attempt_identity
+                )
+            })?;
+        attempt.validate()?;
+
+        if attempt.action_key_digest != binding.action_key_digest {
+            return Err("resolution action-key digest does not match durable attempt".into());
+        }
+        if attempt.action_digest != expected_action_key.material_action_digest() {
+            return Err("durable attempt action digest does not match prepared action".into());
+        }
+        if attempt.effecting_target_identity != expected_action_key.effecting_target_identity() {
+            return Err("durable attempt effecting target does not match prepared action".into());
+        }
+        if attempt.authorization_admission_proof_digest.as_deref()
+            != Some(binding.authorization_admission_proof_digest.as_str())
+        {
+            return Err("resolution admission-proof digest does not match durable attempt".into());
+        }
+        if attempt.entry_admission_proof_digest.as_deref()
+            != Some(binding.final_provider_entry_proof_digest.as_str())
+        {
+            return Err("resolution final-entry-proof digest does not match durable attempt".into());
+        }
+        if attempt.terminal_evidence_digest.as_deref()
+            != Some(binding.terminal_evidence_digest.as_str())
+        {
+            return Err("resolution terminal-evidence digest does not match durable attempt".into());
+        }
+
+        let admission_proof =
+            load_authorization_admission_proof_conn(&conn, &binding.attempt_identity)?
+                .ok_or_else(|| {
+                    "durable attempt is missing its full authorization admission receipt".to_owned()
+                })?;
+        admission_proof.validate()?;
+        if admission_proof.digest() != binding.authorization_admission_proof_digest.as_str()
+            || admission_proof.attempt_identity() != attempt.attempt_identity.as_str()
+            || admission_proof.action_key_digest() != attempt.action_key_digest.as_str()
+            || admission_proof.action_digest() != attempt.action_digest.as_str()
+            || admission_proof.effecting_target_identity()
+                != attempt.effecting_target_identity.as_str()
+            || admission_proof.operation_id() != attempt.operation_id.as_str()
+            || admission_proof.native_replay_identity() != attempt.native_replay_identity.as_str()
+            || admission_proof.provider_environment() != attempt.provider_environment.as_str()
+            || admission_proof.provider_audience() != attempt.provider_audience.as_str()
+            || admission_proof.adapter_identity() != attempt.adapter_identity.as_str()
+        {
+            return Err("durable admission receipt does not match resolution attempt scope".into());
+        }
+
+        let expected_state = match expected_outcome {
+            DurableResolutionOutcomeV1::Executed => AttemptRecordState::Executed,
+            DurableResolutionOutcomeV1::Failed => AttemptRecordState::Failed,
+        };
+        if attempt.state != expected_state {
+            return Err(format!(
+                "resolution outcome {:?} does not match durable attempt state {:?}",
+                expected_outcome, attempt.state
+            ));
+        }
+
+        Ok(attempt)
     }
 
     fn with_transaction<F, T>(&self, f: F) -> Result<T, ActionFenceMutationError>
@@ -836,6 +972,15 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
     }
 
 
+}
+
+fn is_tagged_digest(value: &str, prefix: &str) -> bool {
+    value.strip_prefix(prefix).is_some_and(|digest| {
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    })
 }
 
 fn storage_error(error: impl ToString) -> ActionFenceMutationError {
@@ -2931,6 +3076,206 @@ mod tests {
             .contains("authorization admission proof expired before durable admission"));
         assert!(store.durably_read_attempt(&owner).unwrap().is_none());
         assert!(store.durably_read_fence(&action).unwrap().is_none());
+    }
+
+    #[test]
+    fn resolution_binding_reconciles_against_durable_attempt_and_admission_receipt() {
+        use crate::boundary::{FinalProviderEntryProofV1, ProviderActionContextV1};
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("resolution-binding-reconciliation.db");
+        let mut store = SqliteActionFenceStore::open(&path).unwrap();
+        let action = key("resolution-binding-action");
+        let owner = attempt("resolution-binding-attempt");
+        let operation = "resolution-binding-operation";
+        let native_replay = "resolution-binding-native-replay";
+        let owner_token = format!("owner-token-{}", owner.attempt_id());
+        let claim_token =
+            "constitutional-provider-entry-claim-token-v1:resolution-binding-test";
+
+        let consumed = record(
+            owner.attempt_id(),
+            operation,
+            native_replay,
+            &action,
+            AttemptRecordState::Consumed,
+        );
+        let admission = AuthorizationAdmissionProofV1::new(
+            &consumed,
+            &action,
+            100,
+            10_000,
+            "authorization-snapshot-v1",
+            "policy-snapshot-v1",
+            "status-snapshot-v1",
+            "admission-verifier-v1",
+        )
+        .unwrap();
+
+        store
+            .atomically_admit(&action, &owner, consumed, admission.clone(), 101)
+            .unwrap();
+        store
+            .atomically_mark_dispatch_pending(&action, &owner, &owner_token)
+            .unwrap();
+
+        let pending = store.durably_read_attempt(&owner).unwrap().unwrap();
+        let context = ProviderActionContextV1::from_attempt(&pending, &action).unwrap();
+        let final_entry = FinalProviderEntryProofV1::new(
+            &pending,
+            &context,
+            120,
+            9_000,
+            "authorization-snapshot-v1",
+            "status-snapshot-v1",
+            "final-entry-verifier-v1",
+        )
+        .unwrap();
+
+        store
+            .atomically_claim_provider_entry(&action, &owner, &owner_token, claim_token)
+            .unwrap();
+        store
+            .atomically_record_provider_entry_proof(
+                &action,
+                &owner,
+                &owner_token,
+                final_entry.digest().to_owned(),
+            )
+            .unwrap();
+        store
+            .atomically_mark_invoked(&action, &owner, &owner_token, claim_token)
+            .unwrap();
+
+        let invoked = store.durably_read_attempt(&owner).unwrap().unwrap();
+        let terminal = TerminalEvidenceV1::from_attempt(
+            &action,
+            &invoked,
+            TerminalOutcomeV1::Executed,
+            invoked.provider_idempotency_key().to_owned(),
+            "provider-outcome-commitment-v1",
+            "terminal-verifier-v1",
+        )
+        .unwrap();
+        store
+            .atomically_close_executed(&action, &owner, &owner_token, &terminal)
+            .unwrap();
+
+        let binding = DurableResolutionBindingV1 {
+            attempt_identity: owner.digest().to_owned(),
+            action_key_digest: action.digest().to_owned(),
+            terminal_evidence_digest: terminal.digest().to_owned(),
+            authorization_admission_proof_digest: admission.digest().to_owned(),
+            final_provider_entry_proof_digest: final_entry.digest().to_owned(),
+        };
+
+        let reconciled = store
+            .reconcile_resolution_binding(
+                &binding,
+                &action,
+                DurableResolutionOutcomeV1::Executed,
+            )
+            .unwrap();
+        assert_eq!(reconciled.state, AttemptRecordState::Executed);
+
+        let mut wrong_terminal = binding.clone();
+        wrong_terminal.terminal_evidence_digest =
+            format!("{}{}", "constitutional-terminal-evidence-v3:", "0".repeat(64));
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &wrong_terminal,
+                    &action,
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("terminal-evidence digest")
+        );
+
+        let wrong_action = key("different-prepared-action-digest");
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &binding,
+                    &wrong_action,
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("action-key digest")
+        );
+
+        let wrong_target_action = ActionKeyV1::new(
+            "rp-test",
+            "different-prepared-effect-target",
+            action.material_action_digest(),
+        )
+        .unwrap();
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &binding,
+                    &wrong_target_action,
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("action-key digest")
+        );
+
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &binding,
+                    &action,
+                    DurableResolutionOutcomeV1::Failed,
+                )
+                .unwrap_err()
+                .contains("does not match durable attempt state")
+        );
+
+        let mut wrong_final_entry = binding.clone();
+        wrong_final_entry.final_provider_entry_proof_digest = format!(
+            "{}{}",
+            FINAL_PROVIDER_ENTRY_PROOF_DIGEST_PREFIX,
+            "0".repeat(64)
+        );
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &wrong_final_entry,
+                    &action,
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("final-entry-proof digest")
+        );
+
+        let mut malformed_admission = binding.clone();
+        malformed_admission.authorization_admission_proof_digest =
+            "not-a-canonical-admission-root".into();
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &malformed_admission,
+                    &action,
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("non-canonical durable root")
+        );
+
+        drop(store);
+        let reopened = SqliteActionFenceStore::open(&path).unwrap();
+        assert_eq!(
+            reopened
+                .reconcile_resolution_binding(
+                    &binding,
+                    &action,
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap()
+                .state,
+            AttemptRecordState::Executed
+        );
     }
 
     #[test]
