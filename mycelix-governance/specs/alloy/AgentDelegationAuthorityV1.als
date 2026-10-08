@@ -40,6 +40,11 @@ fact GrantCannotExceedIssuerAuthority {
     g.active = On implies g.power in g.issuer.authority
 }
 
+fact TransitiveDelegationCannotExceedIssuerAuthority {
+  all g: Grant |
+    g.active = On implies g.grantee.authority in g.issuer.authority
+}
+
 fact ChildAuthorityRequiresGrant {
   all a: Agent, p: Power |
     a.root = Off and p in a.authority implies
@@ -116,6 +121,11 @@ assert ActiveGrantsNeverExceedIssuerAuthority {
     g.active = On implies g.power in g.issuer.authority
 }
 
+assert TransitiveDelegationDoesNotAmplifyAuthority {
+  all g: Grant |
+    g.active = On implies g.grantee.authority in g.issuer.authority
+}
+
 assert RevokedGrantsHaveNoActiveDescendants {
   all g: Grant |
     g.revoked = On implies
@@ -142,6 +152,9 @@ assert ProviderFailureIsNonAmplifying {
 }
 
 check ActiveGrantsNeverExceedIssuerAuthority
+  for 6 but 6 Agent, 6 Power, 6 Grant expect 0
+
+check TransitiveDelegationDoesNotAmplifyAuthority
   for 6 but 6 Agent, 6 Power, 6 Grant expect 0
 
 check RevokedGrantsHaveNoActiveDescendants
