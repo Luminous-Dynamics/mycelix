@@ -627,7 +627,7 @@ mod tests {
         fn must_get_agent_activity(
             &self,
             _: MustGetAgentActivityInput,
-        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+        ) -> ExternResult<Vec<AgentActivity>> {
             unimplemented!("not exercised by this fix")
         }
         fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
