@@ -226,7 +226,7 @@ impl SqliteActionFenceStore {
                             action_key.digest(),
                             ActionFenceState::Occupied.storage_tag(),
                             attempt_identity.digest(),
-                            owner_token_digest,
+                            fence.owner_token_digest,
                             {
                                 let mut updated_fence = fence.clone();
                                 updated_fence.state = ActionFenceState::Closed;
@@ -250,7 +250,7 @@ impl SqliteActionFenceStore {
                             action_key.digest(),
                             ActionFenceState::Occupied.storage_tag(),
                             attempt_identity.digest(),
-                            owner_token_digest
+                            fence.owner_token_digest
                         ],
                     )
                     .map_err(storage_error)?;
