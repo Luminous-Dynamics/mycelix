@@ -3652,5 +3652,9 @@
         ]
       ]
     }
-  ]
+  ],
+  "policy_binding": {
+    "path": "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json",
+    "git_blob_sha": "ea15b5b4466821c71f457a833c3347ec3c02d8b5"
+  }
 }
