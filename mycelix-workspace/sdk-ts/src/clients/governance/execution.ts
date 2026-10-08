@@ -56,8 +56,8 @@ const DEFAULT_CONFIG: ExecutionClientConfig = {
  *   delayHours: 48,
  * });
  *
- * // Later, execute the timelock
- * const result = await execution.executeTimelock({ timelockId: timelock.id });
+ * // Later, prepare the timelock for host-side execution
+ * const prepared = await execution.prepareTimelockForExecution({ timelockId: timelock.id });
  * ```
  */
 export class ExecutionClient extends ZomeClient {
@@ -113,15 +113,24 @@ export class ExecutionClient extends ZomeClient {
   }
 
   /**
-   * Execute a ready timelock
+   * Prepare a ready timelock for host-side effect execution.
    *
-   * @param input - Execution parameters
-   * @returns The execution result record
+   * This does not execute provider effects. The underlying zome call stops at
+   * the Prepared state so a separately qualified host-side effect boundary can
+   * perform durable admission, provider entry, and outcome classification.
    */
-  async executeTimelock(input: ExecuteTimelockInput): Promise<HolochainRecord> {
+  async prepareTimelockForExecution(input: ExecuteTimelockInput): Promise<HolochainRecord> {
     return this.callZomeOnce<HolochainRecord>('execute_timelock', {
       timelock_id: input.timelockId,
     });
+  }
+
+  /**
+   * @deprecated Use prepareTimelockForExecution(). This compatibility alias does
+   * not execute provider effects despite its historical name.
+   */
+  async executeTimelock(input: ExecuteTimelockInput): Promise<HolochainRecord> {
+    return this.prepareTimelockForExecution(input);
   }
 
   /**
@@ -253,7 +262,8 @@ export class ExecutionClient extends ZomeClient {
   getStatusDescription(status: TimelockStatus): string {
     const descriptions: Record<TimelockStatus, string> = {
       Pending: 'Timelock delay period is active',
-      Ready: 'Timelock delay expired, ready for execution',
+      Ready: 'Timelock delay expired, ready for preparation',
+      Prepared: 'Timelock is prepared for host-side effect execution',
       Executed: 'Proposal actions have been executed',
       Cancelled: 'Timelock was cancelled (e.g., via veto)',
       Failed: 'Execution failed',

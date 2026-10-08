@@ -681,6 +681,7 @@ export interface ProposeAllocationInput {
 export type TimelockStatus =
   | 'Pending'
   | 'Ready'
+  | 'Prepared'
   | 'Executed'
   | 'Cancelled'
   | 'Failed';
