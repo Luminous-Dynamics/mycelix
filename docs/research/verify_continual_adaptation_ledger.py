@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Dependency-free, policy-driven reference verifier for the ledger fixtures.
+"""Policy-driven dependency-free reference verifier for the ledger fixtures.
 
 Research fixture only. This is not a production trust root.
-The declared policy and corpus use an RFC 8785-compatible restricted subset
-with numeric scalars excluded until full JCS number handling is implemented.
+The fixture currently uses an RFC 8785-compatible JSON subset that rejects
+numeric scalars before hashing.
 """
 from __future__ import annotations
 
@@ -28,14 +28,14 @@ def contains_number(value: object) -> bool:
 
 def canonical(value: object) -> bytes:
     if contains_number(value):
-        raise ValueError("numeric scalar found; extend RFC 8785-compatible number handling first")
+        raise ValueError("numeric scalar found")
     return json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
 
 
-def graph_digest(graph: dict) -> str:
-    return "sha256:" + hashlib.sha256(canonical(graph)).hexdigest()
+def digest(value: object) -> str:
+    return "sha256:" + hashlib.sha256(canonical(value)).hexdigest()
 
 
 def node_index(graph: dict) -> dict[str, dict] | None:
@@ -46,6 +46,38 @@ def node_index(graph: dict) -> dict[str, dict] | None:
             return None
         index[node_id] = node
     return index
+
+
+def semantic_normalize(graph: dict, policy: dict) -> dict | None:
+    nodes = node_index(graph)
+    if nodes is None:
+        return None
+
+    seen_edges: set[tuple[str, str, str]] = set()
+    for edge in graph["edges"]:
+        if (
+            not isinstance(edge, list)
+            or len(edge) != 3
+            or edge[0] not in nodes
+            or edge[1] not in nodes
+        ):
+            return None
+        key = tuple(edge)
+        if policy["graph_canonicalization"]["reject_duplicate_edges"] and key in seen_edges:
+            return None
+        seen_edges.add(key)
+
+    normalized = copy.deepcopy(graph)
+    if policy["graph_canonicalization"]["node_collection"] == "unordered-by-id":
+        normalized["nodes"] = sorted(normalized["nodes"], key=lambda n: n["id"])
+    if policy["graph_canonicalization"]["edge_collection"] == "unordered-by-tuple":
+        normalized["edges"] = sorted(normalized["edges"], key=canonical)
+    return normalized
+
+
+def semantic_digest(graph: dict, policy: dict) -> str:
+    normalized = semantic_normalize(graph, policy)
+    return "invalid" if normalized is None else digest(normalized)
 
 
 def edge_set(graph: dict) -> set[tuple[str, str, str]]:
@@ -66,8 +98,7 @@ def apply_mutations(base: dict, mutations: list[list[object]]) -> dict:
                 raise ValueError(f"unknown node: {node_id}")
             nodes[node_id][field] = value
         elif kind == "remove_edge":
-            target = operation[1]
-            graph["edges"].remove(target)
+            graph["edges"].remove(operation[1])
         elif kind == "add_node":
             node = operation[1]
             if node["id"] in nodes:
@@ -75,6 +106,11 @@ def apply_mutations(base: dict, mutations: list[list[object]]) -> dict:
             graph["nodes"].append(node)
         elif kind == "add_edge":
             graph["edges"].append(operation[1])
+        elif kind == "reverse_collection":
+            collection = operation[1]
+            if collection not in ("nodes", "edges"):
+                raise ValueError(f"unsupported collection: {collection}")
+            graph[collection].reverse()
         else:
             raise ValueError(f"unknown mutation operation: {kind}")
 
@@ -87,11 +123,9 @@ def verify(graph: dict, policy: dict) -> str:
         return "unresolved"
     edges = edge_set(graph)
 
-    required_ids = set()
     for spec in policy["required_nodes"]:
-        node_id = spec["id"]
-        required_ids.add(node_id)
-        if node_id not in nodes or nodes[node_id].get("type") != spec["type"]:
+        node_id, node_type = spec["id"], spec["type"]
+        if node_id not in nodes or nodes[node_id].get("type") != node_type:
             return "unresolved"
 
     for edge in policy["required_edges"]:
@@ -108,13 +142,13 @@ def verify(graph: dict, policy: dict) -> str:
             return constraint["failure_verdict"]
 
     for rule in policy["fixed_fields"]:
-        node = nodes[rule["node"]]
-        if node.get(rule["field"]) != rule["value"]:
+        if nodes[rule["node"]].get(rule["field"]) != rule["value"]:
             return rule["failure_verdict"]
 
     conflict = policy["result_conflict"]
-    qualifying_results = [
-        node for node in graph["nodes"]
+    qualifying = [
+        node
+        for node in graph["nodes"]
         if node.get("type") == conflict["node_type"]
         and (
             node.get("id") == "result"
@@ -122,19 +156,20 @@ def verify(graph: dict, policy: dict) -> str:
                 node.get("id"),
                 conflict["qualifies_edge_to"],
                 "qualifies",
-            ) in edges
+            )
+            in edges
         )
     ]
-    if len(qualifying_results) > conflict["max_qualifying_results"]:
+    if len(qualifying) > conflict["max_qualifying_results"]:
         return conflict["overflow_verdict"]
 
     dependence = policy["derived_dependence"]
-    for node in graph["nodes"]:
-        if (
-            node.get("type") == dependence["node_type"]
-            and node.get(dependence["derived_from_field"]) == dependence["source_node"]
-        ):
-            return dependence["verdict"]
+    if any(
+        node.get("type") == dependence["node_type"]
+        and node.get(dependence["derived_from_field"]) == dependence["source_node"]
+        for node in graph["nodes"]
+    ):
+        return dependence["verdict"]
 
     return "qualified"
 
@@ -153,22 +188,18 @@ def main() -> int:
 
     for case in corpus["cases"]:
         graph = apply_mutations(corpus["base_graph"], case["mutation"])
-        actual_digest = graph_digest(graph)
-        actual_verdict = verify(graph, policy)
+        serialized = digest(graph)
+        semantic = semantic_digest(graph, policy)
+        verdict = verify(graph, policy)
 
-        if actual_digest != case["expected_graph_digest_sha256"]:
-            failures.append(
-                (
-                    case["case_id"],
-                    "digest",
-                    case["expected_graph_digest_sha256"],
-                    actual_digest,
-                )
-            )
-        if actual_verdict != case["expected_verdict"]:
-            failures.append(
-                (case["case_id"], "verdict", case["expected_verdict"], actual_verdict)
-            )
+        for field, actual in (
+            ("expected_graph_digest_sha256", serialized),
+            ("expected_semantic_graph_digest_sha256", semantic),
+            ("expected_verdict", verdict),
+        ):
+            expected = case[field]
+            if actual != expected:
+                failures.append((case["case_id"], field, expected, actual))
 
     print(f"cases={len(corpus['cases'])} failures={len(failures)}")
     for failure in failures:
