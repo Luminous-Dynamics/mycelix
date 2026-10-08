@@ -1761,6 +1761,15 @@ def self_test(policy: dict[str, Any]) -> None:
         raise AssertionError("a non-administration observation source must not qualify for VERIFIED")
 
     x = copy.deepcopy(fixture_observation(policy))
+    x["live_main_sha"] = "c" * 40
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("live main observation must bind to branch API commit")
+
+    x = copy.deepcopy(fixture_observation(policy))
     x["branch"]["protected"] = False
     x["rulesets"]["entries"][0]["rules"] = [
         {"type": "non_fast_forward"},
@@ -1823,7 +1832,6 @@ def self_test(policy: dict[str, Any]) -> None:
         "include": ["~ALL"],
         "exclude": [],
     }
-    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["source_type"] = "Organization"
     x["rulesets"]["entries"][0]["source"] = ORGANIZATION_NAME
     x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
