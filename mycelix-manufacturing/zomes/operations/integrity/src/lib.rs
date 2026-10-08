@@ -89,6 +89,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "capability requirement requires process_family and material_class".into(),
                     ));
                 }
+                if requirement.requirement.envelope_x_mm == Some(0)
+                    || requirement.requirement.envelope_y_mm == Some(0)
+                    || requirement.requirement.envelope_z_mm == Some(0)
+                    || requirement.requirement.tolerance_um == Some(0)
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "capability requirement dimensions and tolerance must be > 0 when provided".into(),
+                    ));
+                }
+                if requirement
+                    .requirement
+                    .required_protocols
+                    .iter()
+                    .any(|protocol| protocol.is_empty())
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "capability requirement protocols must be non-empty".into(),
+                    ));
+                }
                 Ok(ValidateCallbackResult::Valid)
             }
             EntryTypes::Operation(op_entry) => {
