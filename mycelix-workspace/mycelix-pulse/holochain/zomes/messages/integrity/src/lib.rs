@@ -577,7 +577,7 @@ fn validate_email_v2_structure(email: &EncryptedEmailV2) -> Result<Vec<u8>, Stri
 
 fn validate_encrypted_email_v2(
     email: &EncryptedEmailV2,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     if email.sender != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -741,7 +741,7 @@ fn verify_recipient_key_state(email: &EncryptedEmailV2) -> ExternResult<Result<(
 
 fn validate_encrypted_email(
     email: &EncryptedEmail,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Sender must be the author
     if email.sender != action.author() {
@@ -902,7 +902,7 @@ fn validate_encrypted_email(
 
 fn validate_attachment(
     attachment: &EncryptedAttachment,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // The attachment's email_hash must resolve to a real email whose sender is
     // this attachment's own committer -- otherwise any agent could attach
@@ -977,7 +977,7 @@ fn validate_attachment(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_folder(folder: &EmailFolder, action: &Create) -> ExternResult<ValidateCallbackResult> {
+fn validate_folder(folder: &EmailFolder, action: &TypedAction<EntryCreationData>) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
     if folder.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -990,7 +990,7 @@ fn validate_folder(folder: &EmailFolder, action: &Create) -> ExternResult<Valida
 
 fn validate_email_state(
     state: &EmailState,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
     if state.owner != action.author() {
@@ -1002,7 +1002,7 @@ fn validate_email_state(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_draft(draft: &EmailDraft, action: &Create) -> ExternResult<ValidateCallbackResult> {
+fn validate_draft(draft: &EmailDraft, action: &TypedAction<EntryCreationData>) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
     if draft.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1022,7 +1022,7 @@ fn validate_draft(draft: &EmailDraft, action: &Create) -> ExternResult<ValidateC
 
 fn validate_read_receipt(
     receipt: &ReadReceipt,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Reader must be author
     if receipt.reader != action.author() {
@@ -1056,7 +1056,7 @@ fn validate_read_receipt(
 
 fn validate_delivery_receipt(
     receipt: &DeliveryReceipt,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Recipient must be author
     if receipt.recipient != action.author() {
@@ -1093,7 +1093,7 @@ fn validate_delivery_receipt(
 
 fn validate_thread(
     _thread: &EmailThread,
-    _action: &Create,
+    _action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Threads are created automatically, minimal validation
     Ok(ValidateCallbackResult::Valid)
