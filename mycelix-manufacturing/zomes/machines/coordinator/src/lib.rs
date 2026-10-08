@@ -58,6 +58,7 @@ pub struct CreateMachineTimeAuthorityProfileInput {
     pub source_profile: String,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
+    pub max_accuracy_micros: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -67,6 +68,7 @@ pub struct CreateMachineTemporalAttestationInput {
     pub subject_hash: ActionHash,
     pub evidence_kind: MachineTemporalEvidenceKind,
     pub attested_at: Timestamp,
+    pub accuracy_micros: i64,
     pub source_reference: String,
     pub source_commitment: Vec<u8>,
 }
@@ -368,9 +370,14 @@ pub fn create_machine_time_authority_profile(
             "only the machine registrant may create a time authority profile".into(),
         )));
     }
-    if input.valid_until < input.valid_from || input.profile_id.is_empty() || input.source_profile.is_empty() {
+    if input.valid_until < input.valid_from
+        || input.profile_id.is_empty()
+        || input.source_profile.is_empty()
+        || input.max_accuracy_micros < 0
+        || input.max_accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+    {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "time authority profile has invalid identity or validity fields".into(),
+            "time authority profile has invalid identity or accuracy bounds".into(),
         )));
     }
     let profile_payload = MachineTimeAuthorityProfilePayload {
@@ -390,6 +397,7 @@ pub fn create_machine_time_authority_profile(
         source_profile: input.source_profile,
         valid_from: input.valid_from,
         valid_until: input.valid_until,
+        max_accuracy_micros: input.max_accuracy_micros,
         registrant_signature: profile_signature,
     };
     let hash = create_entry(EntryTypes::MachineTimeAuthorityProfile(profile))?;
@@ -425,6 +433,9 @@ pub fn create_machine_temporal_attestation(
         || input.source_reference.is_empty()
         || input.source_commitment.is_empty()
         || input.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+        || input.accuracy_micros < 0
+        || input.accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+        || input.accuracy_micros > profile.max_accuracy_micros
     {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "temporal attestation is outside profile validity or lacks bounded source evidence".into(),
@@ -437,6 +448,7 @@ pub fn create_machine_temporal_attestation(
         subject_hash: input.subject_hash.clone(),
         evidence_kind: input.evidence_kind.clone(),
         attested_at: input.attested_at,
+        accuracy_micros: input.accuracy_micros,
         source_reference: input.source_reference.clone(),
         source_commitment: input.source_commitment.clone(),
     };
@@ -447,6 +459,7 @@ pub fn create_machine_temporal_attestation(
         subject_hash: input.subject_hash,
         evidence_kind: input.evidence_kind,
         attested_at: input.attested_at,
+        accuracy_micros: input.accuracy_micros,
         source_reference: input.source_reference,
         source_commitment: input.source_commitment,
         authority_signature: attestation_signature,
@@ -537,6 +550,7 @@ pub fn resolve_machine_temporal_attestations(
             subject_hash: attestation.subject_hash,
             evidence_kind: attestation.evidence_kind,
             attested_at: attestation.attested_at,
+            accuracy_micros: attestation.accuracy_micros,
             source_reference: attestation.source_reference,
             source_commitment: attestation.source_commitment,
         });
