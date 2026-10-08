@@ -705,8 +705,25 @@ fn validate_update_payment_channel(
         || o.currency != channel.currency || o.opened != channel.opened {
         return Ok(ValidateCallbackResult::Invalid("PaymentChannel identity/configuration is immutable".into()));
     }
+    let author_did = did_for_author(&action.author);
+    if author_did != channel.party_a && author_did != channel.party_b {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PaymentChannel updates must be authored by a participant".into(),
+        ));
+    }
     if channel.last_updated < o.last_updated || (o.closed.is_some() && channel.closed != o.closed) {
         return Ok(ValidateCallbackResult::Invalid("PaymentChannel timestamps/closure cannot move backwards".into()));
+    }
+    let old_total = o.balance_a.checked_add(o.balance_b).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("PaymentChannel predecessor balance sum overflow".into()))
+    })?;
+    let new_total = channel.balance_a.checked_add(channel.balance_b).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("PaymentChannel updated balance sum overflow".into()))
+    })?;
+    if old_total != new_total {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PaymentChannel balance conservation invariant violated".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
