@@ -323,6 +323,7 @@ jobs:
               ("refs/heads/*", "refs/heads/.hidden"),
               ("refs/heads/.hidden", "refs/heads/.hidden"),
               ("refs/**/main", "refs/.hidden/main"),
+              ("refs/heads/qa**/**", "refs/heads/qafoo"),
           ]
 
           for pattern, value in corpus:

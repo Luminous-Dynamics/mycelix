@@ -510,6 +510,10 @@ def _github_fnmatch_matches(
         if (
             pathname
             and pattern_index + 2 < pattern_len
+            and (
+                pattern_index == 0
+                or pattern[pattern_index - 1] == "/"
+            )
             and pattern[pattern_index : pattern_index + 3] == "**/"
         ):
             next_index = pattern_index
@@ -1709,6 +1713,10 @@ def self_test(policy: dict[str, Any]) -> None:
     assert not _github_ref_pattern_matches("refs/heads/.main", "refs/heads/*")
     assert _github_ref_pattern_matches("refs/heads/.main", "refs/heads/.main")
     assert not _github_ref_pattern_matches("refs/.hidden/main", "refs/**/main")
+    assert not _github_ref_pattern_matches(
+        "refs/heads/qafoo",
+        "refs/heads/qa**/**",
+    )
     assert _scope_pattern_matches("mycelix", "my[!]elix")
     for malformed_ref_pattern in (
         "refs/heads/a[",
