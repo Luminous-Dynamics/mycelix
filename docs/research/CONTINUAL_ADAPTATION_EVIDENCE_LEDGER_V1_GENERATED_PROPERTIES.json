@@ -4,8 +4,9 @@
   "generator": {
     "version": "ledger-property-generator-v1",
     "seed": 1179123713,
-    "mutation_count": 256,
-    "base_fixture_schema": "mycelix.continual-adaptation.evidence-ledger-fixtures.v1"
+    "mutation_count": 288,
+    "base_fixture_schema": "mycelix.continual-adaptation.evidence-ledger-fixtures.v1",
+    "endpoint_attack_count": 32
   },
   "base_graph": {
     "nodes": [
@@ -3014,6 +3015,454 @@
             "claim",
             "missing-d478c9a1",
             "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-000",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "result",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-001",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "result",
+            "generated_by"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-002",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "reference",
+            "evaluator",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-003",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "attempts",
+            "evaluator",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-004",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "attempts",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-005",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "subject",
+            "campaign",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-006",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "intervention",
+            "campaign",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-007",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "observation",
+            "campaign",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-008",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "measurement",
+            "campaign",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-009",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "transport",
+            "claim",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-010",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "freshness",
+            "claim",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-011",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "subject",
+            "claim",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-012",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "result",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-013",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "result",
+            "generated_by"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-014",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "reference",
+            "evaluator",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-015",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "attempts",
+            "evaluator",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-016",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "attempts",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-017",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "subject",
+            "campaign",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-018",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "intervention",
+            "campaign",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-019",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "observation",
+            "campaign",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-020",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "measurement",
+            "campaign",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-021",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "transport",
+            "claim",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-022",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "freshness",
+            "claim",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-023",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "subject",
+            "claim",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-024",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "result",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-025",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "result",
+            "generated_by"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-026",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "reference",
+            "evaluator",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-027",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "attempts",
+            "evaluator",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-028",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "attempts",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-029",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "subject",
+            "campaign",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-030",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "intervention",
+            "campaign",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ENDPOINT-031",
+      "property": "endpoint_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "observation",
+            "campaign",
+            "uses"
           ]
         ]
       ]
