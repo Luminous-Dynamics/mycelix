@@ -12,6 +12,8 @@ pub mod seam_profile;
 pub mod seam_scenario;
 pub mod canonical_derivation_receipt;
 pub mod d6s_raw_json;
+pub mod evidence_claim_graph;
+pub mod finality_eligibility_composition;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
