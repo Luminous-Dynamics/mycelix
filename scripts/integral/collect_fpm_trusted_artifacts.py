@@ -7,7 +7,6 @@ import argparse
 import hashlib
 import json
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -51,11 +50,7 @@ def load_live_page(repository: str, run_id: int, page: int) -> bytes:
             [
                 "gh",
                 "api",
-                f"repos/{repository}/actions/runs/{run_id}/artifacts",
-                "-f",
-                f"per_page={PAGE_SIZE}",
-                "-f",
-                f"page={page}",
+                f"repos/{repository}/actions/runs/{run_id}/artifacts?per_page={PAGE_SIZE}&page={page}",
             ],
             check=False,
             capture_output=True,
