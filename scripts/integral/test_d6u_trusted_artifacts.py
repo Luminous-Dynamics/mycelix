@@ -3150,6 +3150,7 @@ if __name__ == "__main__":
         test_current_run_handoff_artifact_accepts_exact_identity,
         test_current_run_handoff_artifact_rejects_oversized_archive_metadata,
         test_bounded_artifact_download_rejects_stream_overflow,
+        test_github_api_reader_rejects_cross_host_final_url,
         test_artifact_redirect_strips_authorization_header,
         test_git_blob_sha1_uses_git_object_framing,
         test_trusted_zip_entry_count_is_preflighted_before_zip_parsing,
