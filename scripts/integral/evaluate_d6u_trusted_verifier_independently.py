@@ -25,10 +25,15 @@ def load_module(path: pathlib.Path):
     return module
 
 
-def assert_rejected(fn, message: str) -> None:
+def assert_rejected(fn, expected_fragment: str, message: str) -> None:
     try:
         fn()
-    except AssertionError:
+    except AssertionError as exc:
+        if expected_fragment not in str(exc):
+            raise AssertionError(
+                f"{message}: rejection came from the wrong check; "
+                f"expected={expected_fragment!r}, observed={str(exc)!r}"
+            ) from exc
         return
     raise AssertionError(message)
 
@@ -171,6 +176,7 @@ def run(candidate_root: pathlib.Path) -> None:
     tampered["workflow_run_id"] = "201"
     assert_rejected(
         lambda: verifier.verify_record_metadata(tampered, p),
+        'record["workflow_run_id"] == record["executor_run_id"]',
         "candidate verifier accepted aliased workflow/executor run identities",
     )
 
@@ -178,13 +184,47 @@ def run(candidate_root: pathlib.Path) -> None:
     tampered["executor_run_attempt"] = "2"
     assert_rejected(
         lambda: verifier.verify_record_metadata(tampered, p),
+        'record["workflow_run_attempt"] == record["executor_run_attempt"]',
         "candidate verifier accepted mismatched executor run attempt",
+    )
+
+    tampered = dict(record)
+    tampered["workflow_run_id"] = "0200"
+    assert_rejected(
+        lambda: verifier.verify_record_metadata(tampered, p),
+        "runtime evidence run identity is not canonical",
+        "candidate verifier accepted a noncanonical workflow run ID",
+    )
+
+    tampered = dict(record)
+    tampered["executor_run_attempt"] = "0"
+    assert_rejected(
+        lambda: verifier.verify_record_metadata(tampered, p),
+        "runtime evidence run identity is not canonical",
+        "candidate verifier accepted a zero executor run attempt",
+    )
+
+    tampered = dict(record)
+    tampered["claim_ceiling"] = "OperationallyQualified"
+    assert_rejected(
+        lambda: verifier.verify_record_metadata(tampered, p),
+        'record["claim_ceiling"] == policy["claim_ceiling"]',
+        "candidate verifier accepted a widened claim ceiling",
+    )
+
+    duplicated_policy = policy()
+    duplicated_policy["record_fields"].append("workflow_run_id")
+    assert_rejected(
+        lambda: verifier.verify_record_metadata(record, duplicated_policy),
+        'len(expected_record_fields) == len(policy["record_fields"])',
+        "candidate verifier accepted duplicate policy record fields",
     )
 
     tampered = dict(record)
     tampered["unexpected"] = "attacker-controlled"
     assert_rejected(
         lambda: verifier.verify_record_metadata(tampered, p),
+        "runtime evidence record schema mismatch",
         "candidate verifier accepted an unexpected record field",
     )
 
@@ -192,6 +232,7 @@ def run(candidate_root: pathlib.Path) -> None:
     del tampered["workflow_run_attempt"]
     assert_rejected(
         lambda: verifier.verify_record_metadata(tampered, p),
+        "runtime evidence record schema mismatch",
         "candidate verifier accepted a missing record field",
     )
 
