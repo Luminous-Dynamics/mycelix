@@ -242,11 +242,12 @@ run HighSwitchingCostWithoutReviewWitness
 
 assert EffectiveAlternativesHaveIndependentRoots {
   all s: Subject, p: s.effective |
-    p.control != s.current.control and
-    p.identity != s.current.identity and
-    p.evidence != s.current.evidence and
-    p.evaluator != s.current.evaluator and
-    p.economic != s.current.economic
+    p != s.current implies
+      p.control != s.current.control and
+      p.identity != s.current.identity and
+      p.evidence != s.current.evidence and
+      p.evaluator != s.current.evaluator and
+      p.economic != s.current.economic
 }
 
 assert MigrationsPreserveObligationsHistoryAuthorityAndJurisdiction {
