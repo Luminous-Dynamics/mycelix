@@ -24,6 +24,71 @@ pub enum Disposition {
 
 use manufacturing_common::CapabilityQualification;
 
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct WorkOrderRevisionProjection {
+    #[serde(default)]
+    bom_hash: Option<ActionHash>,
+    #[serde(default)]
+    routing_hash: Option<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct RoutingStepProjection {
+    #[serde(default)]
+    sequence: u32,
+}
+
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct RoutingRevisionProjection {
+    #[serde(default)]
+    steps: Vec<RoutingStepProjection>,
+}
+
+fn bind_execution_to_work_order_revision(
+    execution: &ExecutionReceiptEntry,
+    work_order: &WorkOrderRevisionProjection,
+) -> Result<(), &'static str> {
+    let accepted = matches!(execution.disposition, Disposition::Accepted);
+
+    if accepted {
+        match (&work_order.bom_hash, &execution.bom_hash) {
+            (Some(work_order_bom), Some(execution_bom)) if work_order_bom == execution_bom => {}
+            (Some(_), Some(_)) => {
+                return Err("execution BOM does not match the work-order-bound BOM revision");
+            }
+            _ => {
+                return Err("accepted execution requires an exact work-order-bound BOM revision");
+            }
+        }
+        match (&work_order.routing_hash, &execution.routing_hash) {
+            (Some(work_order_routing), Some(execution_routing))
+                if work_order_routing == execution_routing => {}
+            (Some(_), Some(_)) => {
+                return Err("execution routing does not match the work-order-bound routing revision");
+            }
+            _ => {
+                return Err(
+                    "accepted execution requires an exact work-order-bound routing revision",
+                );
+            }
+        }
+        return Ok(());
+    }
+
+    if let Some(execution_bom) = &execution.bom_hash {
+        if work_order.bom_hash.as_ref() != Some(execution_bom) {
+            return Err("execution BOM does not match the work-order-bound BOM revision");
+        }
+    }
+    if let Some(execution_routing) = &execution.routing_hash {
+        if work_order.routing_hash.as_ref() != Some(execution_routing) {
+            return Err("execution routing does not match the work-order-bound routing revision");
+        }
+    }
+
+    Ok(())
+}
+
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum EvidenceKind {
@@ -224,6 +289,13 @@ fn measurement_matches_criterion(
         return Err("measurement value is outside its authoritative inspection criterion");
     }
     Ok(())
+}
+
+fn routing_contains_sequence(
+    routing: &RoutingRevisionProjection,
+    sequence: u32,
+) -> bool {
+    routing.steps.iter().any(|step| step.sequence == sequence)
 }
 
 fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
@@ -565,7 +637,19 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
             // Require every referenced action to be present in the DHT.
             // The stricter type checks below keep the local execution graph
             // from being populated with hashes for unrelated records.
-            must_get_valid_record(e.work_order_hash.clone())?;
+            let work_order_record = must_get_valid_record(e.work_order_hash.clone())?;
+            let work_order: WorkOrderRevisionProjection = work_order_record
+                .entry()
+                .to_app_option()
+                .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "work order reference is missing its entry".into(),
+                )))?;
+
+            if let Err(message) = bind_execution_to_work_order_revision(e, &work_order) {
+                return Ok(ValidateCallbackResult::Invalid(message.into()));
+            }
+
             must_get_valid_record(e.machine_hash.clone())?;
             if let Some(hash) = e.capability_contract_hash.clone() {
                 let record = must_get_valid_record(hash)?;
@@ -622,7 +706,21 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 must_get_valid_record(hash)?;
             }
             if let Some(hash) = e.routing_hash.clone() {
-                must_get_valid_record(hash)?;
+                let routing_record = must_get_valid_record(hash)?;
+                let routing: Option<RoutingRevisionProjection> = routing_record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                let Some(routing) = routing else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution routing reference is not a routing record".into(),
+                    ));
+                };
+                if !routing_contains_sequence(&routing, e.operation_sequence) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution operation sequence is not present in the bound routing revision".into(),
+                    ));
+                }
             }
 
             for hash in &e.input_lot_hashes {
@@ -747,6 +845,69 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rejects_execution_using_different_work_order_bom_revision() {
+        let execution = ExecutionReceiptEntry {
+            execution_id: "EXEC-1".into(),
+            qualification_attestation_hash: None,
+            work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
+            bom_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
+            routing_hash: Some(ActionHash::from_raw_36(vec![2; 36])),
+            operation_sequence: 10,
+            machine_hash: ActionHash::from_raw_36(vec![3; 36]),
+            capability_contract_hash: None,
+            process_parameters_hash: None,
+            input_lot_hashes: vec![ActionHash::from_raw_36(vec![4; 36])],
+            output_lot_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
+            measurement_hashes: vec![],
+            calibration_hashes: vec![],
+            started_at: Timestamp::from_micros(0),
+            completed_at: Timestamp::from_micros(1),
+            disposition: Disposition::Rejected,
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![6; 36])],
+            notes: None,
+        };
+        let work_order = WorkOrderRevisionProjection {
+            bom_hash: Some(ActionHash::from_raw_36(vec![9; 36])),
+            routing_hash: Some(ActionHash::from_raw_36(vec![2; 36])),
+        };
+
+        assert_eq!(
+            bind_execution_to_work_order_revision(&execution, &work_order),
+            Err("execution BOM does not match the work-order-bound BOM revision")
+        );
+    }
+
+    #[test]
+    fn allows_rejected_execution_to_omit_planned_revisions() {
+        let execution = ExecutionReceiptEntry {
+            execution_id: "EXEC-2".into(),
+            qualification_attestation_hash: None,
+            work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
+            bom_hash: None,
+            routing_hash: None,
+            operation_sequence: 10,
+            machine_hash: ActionHash::from_raw_36(vec![3; 36]),
+            capability_contract_hash: None,
+            process_parameters_hash: None,
+            input_lot_hashes: vec![ActionHash::from_raw_36(vec![4; 36])],
+            output_lot_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
+            measurement_hashes: vec![],
+            calibration_hashes: vec![],
+            started_at: Timestamp::from_micros(0),
+            completed_at: Timestamp::from_micros(1),
+            disposition: Disposition::Rejected,
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![6; 36])],
+            notes: None,
+        };
+        let work_order = WorkOrderRevisionProjection {
+            bom_hash: Some(ActionHash::from_raw_36(vec![9; 36])),
+            routing_hash: Some(ActionHash::from_raw_36(vec![8; 36])),
+        };
+
+        assert!(bind_execution_to_work_order_revision(&execution, &work_order).is_ok());
+    }
 
     #[test]
     fn rejects_malformed_inspection_criterion() {
