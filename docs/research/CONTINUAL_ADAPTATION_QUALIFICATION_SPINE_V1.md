@@ -676,6 +676,104 @@ A mapping that predicts well does not automatically establish that causal-effect
 Transportability literature explicitly identifies differences in implementation and outcome measurement as sources of external-validity problems. citeturn617824search2turn617824search7
 
 
+## Canonical claim-local evidence ledger
+
+Once separate evidence receipts exist, they must still be joined safely.
+
+The canonical composition unit is a **claim-local evidence graph**, not one universal trust blob.
+
+A positive claim should be able to reconstruct:
+
+    Claim
+      |
+      +-- QualificationPolicy
+      +-- Subject
+      +-- CampaignPlan
+      +-- AttemptCensus
+      +-- Counterfactual
+      +-- Intervention
+      +-- ObservationPolicy
+      +-- Measurement
+      +-- Evaluator
+      +-- AnalysisPlan
+      +-- Result
+      +-- TransportAssessment
+      +-- FreshnessAssessment
+      +-- provenance/source roots
+
+Every required node needs a stable semantic type, exact identity, schema/profile version, producer/provenance relation, applicability time where relevant, and claim-local role.
+
+At minimum, composite joins must reconcile:
+
+- subject and lineage;
+- campaign and analysis identity;
+- evaluator and reference identity/state;
+- intervention semantics;
+- observation and measurement identity;
+- execution environment/randomness;
+- target regime;
+- multiplicity/statistical profile;
+- freshness/currentness;
+- stage and claim applicability.
+
+Do not infer compatibility from names, versions, timestamps, repository location, or hash coincidence.
+
+Use typed relations rather than a generic relationship field:
+
+    uses
+    generated_by
+    derived_from
+    qualifies
+    applies_to
+    requires
+    invalidated_by
+    supersedes
+    translates
+    composes_with
+
+Unknown or missing required edges block the positive claim.
+
+### Closed-world join rule
+
+The verifier should be able to trace:
+
+    claim
+      <- result
+      <- analysis plan
+      <- evaluation evidence
+      <- attempt census
+      <- campaign plan
+      <- subject/intervention/observation/measurement identities
+      <- transport/currentness evidence
+
+Contradictions remain explicit. Supersession creates new lineage; it does not rewrite history.
+
+### Claim-local projection
+
+A verifier should derive the minimal subgraph required for the proposition and its claim ceiling. Unrelated high-trust evidence elsewhere in the graph must not strengthen an unrelated claim.
+
+### Adversarial join controls
+
+Attack at least:
+
+- subject/campaign mismatch;
+- evaluator/reference mismatch;
+- intervention-version mismatch;
+- measurement-profile mismatch;
+- stale or wrong currentness evidence;
+- transport evidence from another target;
+- omitted negative attempt;
+- contradictory receipts without reconciliation;
+- translation treated as identity;
+- missing prerequisite inferred from naming;
+- partial subgraph with hidden dependencies;
+- same hash reused under incompatible semantic roles.
+
+The same canonical graph must deterministically re-hash, and an independently implemented verifier must reach the same join verdict.
+
+The ledger is provenance and composition infrastructure, not a new qualification authority or trust root. It should interoperate with the existing receipt/attestation architecture; W3C PROV provides a useful general model of entities, activities, agents, derivations, and provenance chains, while Mycelix retains the stronger domain-specific claim semantics. citeturn914579search0turn914579search3
+
+
 ## Freshness and target-regime drift
 
 Transport evidence is historical evidence about the exact validated subject, target regime, evaluator, observation process, and applicability profile.
@@ -787,6 +885,7 @@ Mycelix:
 - #4579 — freshness and target-regime drift after transport validation;
 - #4598 — intervention-semantic consistency across regimes;
 - #4599 — measurement invariance across regimes;
+- #4617 — canonical claim-local evidence ledger and join theorem;
 
 Symthaea:
 
