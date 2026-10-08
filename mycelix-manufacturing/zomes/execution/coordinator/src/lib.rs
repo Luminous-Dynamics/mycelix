@@ -93,6 +93,7 @@ pub struct CreateCapabilityContractInput {
 pub struct CreateExecutionInput {
     pub execution_id: String,
     pub qualification_attestation_hash: Option<ActionHash>,
+    pub process_recipe_hash: Option<ActionHash>,
     pub work_order_hash: ActionHash,
     pub bom_hash: Option<ActionHash>,
     pub routing_hash: Option<ActionHash>,
@@ -287,6 +288,7 @@ pub fn record_execution(input: CreateExecutionInput) -> ExternResult<ActionHash>
     let hash = create_entry(EntryTypes::ExecutionReceipt(ExecutionReceiptEntry {
         execution_id: input.execution_id.clone(),
         qualification_attestation_hash: input.qualification_attestation_hash.clone(),
+        process_recipe_hash: input.process_recipe_hash.clone(),
         work_order_hash: input.work_order_hash.clone(),
         bom_hash: input.bom_hash,
         routing_hash: input.routing_hash,
@@ -339,6 +341,14 @@ pub fn record_execution(input: CreateExecutionInput) -> ExternResult<ActionHash>
             hash.clone(),
             attestation_hash,
             LinkTypes::ExecutionToQualificationAttestation,
+            (),
+        )?;
+    }
+    if let Some(recipe_hash) = input.process_recipe_hash {
+        create_link(
+            hash.clone(),
+            recipe_hash,
+            LinkTypes::ExecutionToProcessRecipe,
             (),
         )?;
     }
@@ -425,7 +435,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[test]
     fn test_measurement_input_serde_with_criterion() {
         let input = CreateMeasurementInput {
             measurement_id: "M-1".into(),
@@ -466,6 +475,8 @@ mod tests {
     fn test_execution_input_serde() {
         let input = CreateExecutionInput {
             execution_id: "EXEC-TEST".into(),
+            qualification_attestation_hash: None,
+            process_recipe_hash: None,
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: None,
             routing_hash: None,

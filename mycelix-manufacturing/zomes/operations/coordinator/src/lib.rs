@@ -7,10 +7,21 @@
 
 use hdk::prelude::*;
 use operations_integrity::*;
+use manufacturing_common::PROCESS_RECIPE_SCHEMA_ID;
 
 // ============================================================================
 // Input types
 // ============================================================================
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateProcessRecipeInput {
+    pub recipe_id: String,
+    pub revision: String,
+    pub process_family: String,
+    pub payload_hash: String,
+    pub parameter_schema: String,
+    pub external_reference: Option<String>,
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateCapabilityRequirementInput {
@@ -49,6 +60,7 @@ struct InspectionCriterionProjection {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RoutingStepInput {
     pub sequence: u32,
+    pub process_recipe_hash: Option<ActionHash>,
     pub capability_requirement_hash: Option<ActionHash>,
     pub required_inspection_criterion_hashes: Vec<ActionHash>,
     pub operation_name: String,
@@ -61,6 +73,43 @@ pub struct RoutingStepInput {
 // ============================================================================
 // Extern functions
 // ============================================================================
+
+/// Create an immutable process recipe for routing references.
+#[hdk_extern]
+pub fn create_process_recipe(input: CreateProcessRecipeInput) -> ExternResult<ActionHash> {
+    if input.recipe_id.is_empty() || input.recipe_id.len() > 200 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "recipe_id must be 1-200 characters".into(),
+        )));
+    }
+    if input.revision.is_empty() || input.revision.len() > 100 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "recipe revision must be 1-100 characters".into(),
+        )));
+    }
+
+    let hash = create_entry(EntryTypes::ProcessRecipe(ProcessRecipeEntry {
+        schema_id: PROCESS_RECIPE_SCHEMA_ID.into(),
+        recipe_id: input.recipe_id,
+        revision: input.revision,
+        process_family: input.process_family,
+        payload_hash: input.payload_hash,
+        parameter_schema: input.parameter_schema,
+        external_reference: input.external_reference,
+        created_at: sys_time()?,
+    }))?;
+
+    let path = Path::from("all_process_recipes")
+        .typed(LinkTypes::AllProcessRecipes)?;
+    path.ensure()?;
+    create_link(
+        path.path_entry_hash()?,
+        hash.clone(),
+        LinkTypes::AllProcessRecipes,
+        (),
+    )?;
+    Ok(hash)
+}
 
 /// Create an immutable typed capability requirement for routing references.
 #[hdk_extern]
@@ -155,6 +204,23 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
     }
 
     for step in &input.steps {
+        if let Some(recipe_hash) = step.process_recipe_hash.clone() {
+            let Some(record) = get(recipe_hash, GetOptions::default())? else {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "routing process recipe not found".to_string()
+                )));
+            };
+            let recipe: Option<ProcessRecipeEntry> = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if recipe.is_none() {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "routing process recipe reference is not a process recipe".to_string()
+                )));
+            }
+        }
+
         let mut step_criteria = std::collections::HashSet::new();
         for criterion_hash in &step.required_inspection_criterion_hashes {
             if !step_criteria.insert(criterion_hash.clone()) {
@@ -198,6 +264,7 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
         .into_iter()
         .map(|s| RoutingStepEntry {
             sequence: s.sequence,
+            process_recipe_hash: s.process_recipe_hash,
             capability_requirement_hash: s.capability_requirement_hash,
             required_inspection_criterion_hashes: s.required_inspection_criterion_hashes,
             operation_name: s.operation_name,
@@ -229,6 +296,14 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
     )?;
 
     for step in &entry.steps {
+        if let Some(recipe_hash) = step.process_recipe_hash.clone() {
+            create_link(
+                action_hash.clone(),
+                recipe_hash,
+                LinkTypes::RoutingToProcessRecipes,
+                (),
+            )?;
+        }
         for criterion_hash in &step.required_inspection_criterion_hashes {
             create_link(
                 action_hash.clone(),
@@ -277,6 +352,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_process_recipe_input_serde() {
+        let input = CreateProcessRecipeInput {
+            recipe_id: "RECIPE-001".into(),
+            revision: "A".into(),
+            process_family: "milling".into(),
+            payload_hash: "sha256:abc".into(),
+            parameter_schema: "schema-v1".into(),
+            external_reference: Some("vendor:v1".into()),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        let back: CreateProcessRecipeInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.recipe_id, "RECIPE-001");
+        assert_eq!(back.revision, "A");
+        assert_eq!(back.process_family, "milling");
+    }
+
+    #[test]
     fn test_capability_requirement_input_serde() {
         let input = CreateCapabilityRequirementInput {
             requirement_id: "CAPREQ-001".into(),
@@ -318,7 +410,9 @@ mod tests {
     fn test_routing_step_supports_typed_capability_requirement() {
         let input = RoutingStepInput {
             sequence: 10,
+            process_recipe_hash: Some(ActionHash::from_raw_36(vec![8; 36])),
             capability_requirement_hash: Some(ActionHash::from_raw_36(vec![7; 36])),
+            required_inspection_criterion_hashes: vec![],
             operation_name: "Mill".to_string(),
             machine_type: "CNC".to_string(),
             setup_time_min: 15,
@@ -335,6 +429,7 @@ mod tests {
         let steps = vec![
             RoutingStepInput {
                 sequence: 10,
+                process_recipe_hash: None,
                 capability_requirement_hash: None,
                 required_inspection_criterion_hashes: vec![],
                 operation_name: "Cut".to_string(),
@@ -345,6 +440,7 @@ mod tests {
             },
             RoutingStepInput {
                 sequence: 20,
+                process_recipe_hash: None,
                 capability_requirement_hash: None,
                 required_inspection_criterion_hashes: vec![],
                 operation_name: "Mill".to_string(),
@@ -367,6 +463,7 @@ mod tests {
             revision: "A".to_string(),
             steps: vec![RoutingStepInput {
                 sequence: 10,
+                process_recipe_hash: None,
                 capability_requirement_hash: None,
                 required_inspection_criterion_hashes: vec![],
                 operation_name: "Cut".to_string(),
