@@ -1358,17 +1358,26 @@ mod tests {
     fn evidence(
         action_key: &ActionKeyV1,
         attempt: &AttemptIdentityV1,
+        operation: &str,
+        native_replay: &str,
         outcome: TerminalOutcomeV1,
     ) -> TerminalEvidenceV1 {
-        TerminalEvidenceV1::new(
+        TerminalEvidenceV1::from_attempt(
             action_key,
-            attempt,
+            &record(
+                attempt.attempt_id(),
+                operation,
+                native_replay,
+                action_key,
+                AttemptRecordState::Invoked,
+            ),
             outcome,
             "provider-evidence-commitment",
             "verifier-test",
         )
         .unwrap()
     }
+
 
     #[test]
     fn admission_survives_close_and_reopen() {
@@ -1653,7 +1662,7 @@ mod tests {
                 &action,
                 &owner,
                 "owner-token-attempt-1",
-                &evidence(&action, &owner, TerminalOutcomeV1::Executed),
+                &evidence(&action, &owner, "operation-1", "native-1", TerminalOutcomeV1::Executed),
             )
             .unwrap();
 
@@ -1719,7 +1728,7 @@ mod tests {
                 &action,
                 &owner,
                 "owner-token-attempt-1",
-                &evidence(&action, &owner, TerminalOutcomeV1::Failed),
+                &evidence(&action, &owner, "operation-1", "native-shared", TerminalOutcomeV1::Failed),
             )
             .unwrap();
 
@@ -1789,7 +1798,7 @@ mod tests {
                     &action,
                     &owner,
                     "wrong-owner",
-                    &evidence(&action, &owner, TerminalOutcomeV1::Executed),
+                    &evidence(&action, &owner, "operation-1", "native-1", TerminalOutcomeV1::Executed),
                 )
                 .unwrap_err(),
             ActionFenceMutationError::OwnershipTokenMismatch
