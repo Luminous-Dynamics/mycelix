@@ -227,7 +227,7 @@ if(verifyGossipRegistry(greg)||digestObj(greg)!==EXPECTED_GREG_SHA)process.exit(
 const[q4,e4]=validateHeadQuorum(headFixture,wreg,vds,"size_4"),[q7,e7]=validateHeadQuorum(headFixture,wreg,vds,"size_7");
 if(e4||e7){console.error("tree-head-quorum-preflight="+(e4||e7));process.exit(1);}
 const forkHead=gossipFixture.subject_heads["w02-fork4"],[forkOk,forkErr]=verifySubjectHead(forkHead,wreg);
-if(!forkOk||forkHead.root_hash===q4.root.toString("hex")){if(!forkOk)console.error("signed-fork-head-preflight="+forkErr);process.exit(1);}
+if(!forkOk||forkHead.root_hash.slice(7)===q4.root.toString("hex")){if(!forkOk)console.error("signed-fork-head-preflight="+forkErr);process.exit(1);}
 for(const[id,obs]of Object.entries(gossipFixture.observations)){const[,e]=validateObservation(obs,greg,wreg,gossipFixture,vds,headFixture,q4);if(e){console.error("observation-preflight:"+id+"="+e);process.exit(1);}}
 const rows=[],failures=[];
 for(const c of campaign.cases){
