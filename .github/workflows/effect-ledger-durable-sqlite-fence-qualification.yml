@@ -145,6 +145,8 @@ jobs:
           grep -Fq 'admission_verifier_identity' "$boundary"
           grep -Fq 'rejected_admission_cannot_consume_or_fence' "$boundary"
           grep -Fq 'admission_proof_identity_must_match_pinned_trust_root' "$boundary"
+          grep -Fq 'duplicate_admission_remains_idempotent_with_new_proof_timestamp' "$boundary"
+          grep -Fq 'authorization_admission_proof_digest' "$boundary"
           grep -Fq 'authorization_admission_proof_digest' "$source"
           grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 6' "$source"
           grep -Fq 'entry_admission_proof_survives_restart' "$source"
