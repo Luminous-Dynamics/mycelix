@@ -20,6 +20,108 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Disposable D6U sandbox boundary probe. This PR-only job has read-only
+  # repository permission and runs entirely inside a pinned job container;
+  # it never receives the runner Docker socket.
+  d6u-container-boundary-probe:
+    name: D6U container boundary probe
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: rust@sha256:d8f0d5c09580253ecdd6d6894ff112b2b760683ff2a74585e5189f2578728ce4
+      options: >-
+        --network none
+        --cap-drop=ALL
+        --security-opt=no-new-privileges
+        --read-only
+        --pids-limit 64
+        --ulimit nofile=1024:1024
+        --ulimit core=0
+        --memory 2g
+        --tmpfs /tmp:rw,nosuid,nodev,noexec,size=1g
+        --user 1001:1001
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Assert container boundary
+        run: |
+          set -euo pipefail
+          test "$(id -u)" = "1001"
+          test "$(id -g)" = "1001"
+          test ! -e /var/run/docker.sock
+          test "$(awk '/^NoNewPrivs:/ {print $2}' /proc/self/status)" = "1"
+          test "$(awk '/^CapEff:/ {print $2}' /proc/self/status)" = "0000000000000000"
+          test "$(awk '/^CapBnd:/ {print $2}' /proc/self/status)" = "0000000000000000"
+          test -w /tmp
+          test ! -w /etc
+          test ! -w "$GITHUB_WORKSPACE"
+
+      - name: Create adversarial build script
+        run: |
+          set -euo pipefail
+          probe="$RUNNER_TEMP/d6u-container-boundary-probe"
+          mkdir -p "$probe/src" "$probe/target"
+          cat > "$probe/Cargo.toml" <<'EOF'
+          [package]
+          name = "d6u-container-boundary-probe"
+          version = "0.1.0"
+          edition = "2024"
+          build = "build.rs"
+          EOF
+          cat > "$probe/build.rs" <<'EOF'
+          use std::env;
+          use std::fs::OpenOptions;
+          use std::net::{SocketAddr, TcpStream};
+          use std::os::unix::net::UnixStream;
+          use std::path::Path;
+
+          fn field(name: &str) -> Option<String> {
+              std::fs::read_to_string("/proc/self/status").ok()?.lines().find_map(|line| {
+                  let (key, value) = line.split_once(':')?;
+                  (key == name).then(|| value.trim().to_owned())
+              })
+          }
+
+          fn main() {
+              assert!(UnixStream::connect("/var/run/docker.sock").is_err());
+              assert!("1.1.1.1:443".parse::<SocketAddr>().ok()
+                  .and_then(|a| TcpStream::connect_timeout(&a, std::time::Duration::from_millis(500)).ok()).is_none());
+              assert_eq!(field("NoNewPrivs").as_deref(), Some("1"));
+              assert_eq!(field("CapEff").as_deref(), Some("0000000000000000"));
+              assert_eq!(field("CapBnd").as_deref(), Some("0000000000000000"));
+              let workspace = env::var("GITHUB_WORKSPACE").expect("workspace");
+              assert!(OpenOptions::new().create(true).write(true)
+                  .open(Path::new(&workspace).join("d6u-container-build-script-write-probe")).is_err());
+              for name in ["GITHUB_TOKEN", "GH_TOKEN", "ACTIONS_RUNTIME_TOKEN",
+                           "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "GITHUB_ENV", "GITHUB_PATH",
+                           "GITHUB_OUTPUT", "GITHUB_STATE", "GITHUB_STEP_SUMMARY"] {
+                  assert!(env::var_os(name).is_none(), "workflow capability leaked: {name}");
+              }
+          }
+          EOF
+          printf '%s\n' 'fn main() {}' > "$probe/src/main.rs"
+
+      - name: Run adversarial build script offline
+        run: |
+          set -euo pipefail
+          probe="$RUNNER_TEMP/d6u-container-boundary-probe"
+          chmod -R a-w "$GITHUB_WORKSPACE"
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN \
+            -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH \
+            -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
+            CARGO_HOME=/tmp/cargo-home \
+            CARGO_TARGET_DIR="$probe/target" \
+            CARGO_NET_OFFLINE=true \
+            cargo check --manifest-path "$probe/Cargo.toml" --offline
+          test ! -e "$GITHUB_WORKSPACE/d6u-container-build-script-write-probe"
+
   # Detect which clusters changed
   changes:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
