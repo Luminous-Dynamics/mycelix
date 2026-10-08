@@ -907,8 +907,14 @@ impl EffectBoundaryHostV1 {
                     "existing attempt/action-key identity mismatch".into(),
                 ));
             }
+            record.validate().map_err(BoundaryError::Semantic)?;
+            if existing.same_admission_projection(&record) {
+                return Ok(BoundaryOutcome::Admitted(
+                    AtomicAdmissionDecision::DuplicateAttempt,
+                ));
+            }
             return Ok(BoundaryOutcome::Admitted(
-                AtomicAdmissionDecision::DuplicateAttempt,
+                AtomicAdmissionDecision::AttemptOwnershipConflict,
             ));
         }
 
@@ -930,8 +936,16 @@ impl EffectBoundaryHostV1 {
             ));
         }
 
+        let durable_admission_now_unix_ms =
+            current_unix_ms().map_err(BoundaryError::Store)?;
         self.store
-            .atomically_admit(action_key, attempt_identity, record, proof)
+            .atomically_admit(
+                action_key,
+                attempt_identity,
+                record,
+                proof,
+                durable_admission_now_unix_ms,
+            )
             .map(BoundaryOutcome::Admitted)
             .map_err(BoundaryError::Semantic)
     }
@@ -2257,6 +2271,43 @@ mod tests {
         let persisted = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
         assert!(persisted.authorization_admission_proof_digest().is_some());
         assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_some());
+    }
+
+    #[test]
+    fn same_attempt_id_with_changed_semantics_is_not_duplicate() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("admission-conflict.db")).unwrap();
+        let mut boundary = test_host(store);
+        let action_key = action();
+        let owner = identity("attempt-admission-conflict");
+
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-admission-conflict",
+                    "operation-original",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        let result = boundary.admit(
+            &action_key,
+            &owner,
+            attempt_record(
+                "attempt-admission-conflict",
+                "operation-mutated",
+                AttemptRecordState::Consumed,
+            ),
+        );
+        assert!(matches!(
+            result,
+            Ok(BoundaryOutcome::Admitted(
+                AtomicAdmissionDecision::AttemptOwnershipConflict
+            ))
+        ));
     }
 
     #[test]

@@ -419,7 +419,7 @@ impl AuthorizationAdmissionProofV1 {
         hasher.update(&valid_until_unix_ms.to_be_bytes());
         push_str(&mut hasher, &verifier_identity);
 
-        Ok(Self {
+        let out = Self {
             attempt_identity: attempt.attempt_identity.clone(),
             action_key_digest: action_key.digest().to_owned(),
             operation_id: attempt.operation_id.clone(),
@@ -868,6 +868,27 @@ impl AttemptRecordV1 {
         )
     }
 
+    pub fn same_admission_projection(&self, other: &Self) -> bool {
+        self.schema_version == other.schema_version
+            && self.attempt_identity == other.attempt_identity
+            && self.operation_id == other.operation_id
+            && self.native_replay_identity == other.native_replay_identity
+            && self.action_digest == other.action_digest
+            && self.action_key_digest == other.action_key_digest
+            && self.effecting_target_identity == other.effecting_target_identity
+            && self.provider_reference_seed_digest == other.provider_reference_seed_digest
+            && self.provider_reference_descriptor_digest == other.provider_reference_descriptor_digest
+            && self.provider_environment == other.provider_environment
+            && self.provider_audience == other.provider_audience
+            && self.adapter_identity == other.adapter_identity
+            && self.provider_idempotency_key == other.provider_idempotency_key
+            && self.ownership_token_digest == other.ownership_token_digest
+            && self.reconciliation_token_digest == other.reconciliation_token_digest
+            && self.terminal_evidence_digest == other.terminal_evidence_digest
+            && self.state == other.state
+            && self.not_entered_marker == other.not_entered_marker
+    }
+
     pub fn record_digest(&self) -> String {
         let mut hasher = blake3::Hasher::new();
         hasher.update(ATTEMPT_RECORD_DOMAIN);
@@ -1053,6 +1074,7 @@ pub trait DurableActionFenceStore {
         attempt_identity: &AttemptIdentityV1,
         record: AttemptRecordV1,
         authorization_proof: AuthorizationAdmissionProofV1,
+        admission_now_unix_ms: u64,
     ) -> Result<AtomicAdmissionDecision, String>;
 
     /// Advance a durable attempt through the non-terminal lifecycle. Each method
@@ -2137,7 +2159,11 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         attempt_identity: &AttemptIdentityV1,
         record: AttemptRecordV1,
         authorization_proof: AuthorizationAdmissionProofV1,
+        admission_now_unix_ms: u64,
     ) -> Result<AtomicAdmissionDecision, String> {
+        if !authorization_proof.is_fresh(admission_now_unix_ms) {
+            return Err("authorization admission proof expired before durable admission".into());
+        }
         self.admit(
             action_key,
             attempt_identity,

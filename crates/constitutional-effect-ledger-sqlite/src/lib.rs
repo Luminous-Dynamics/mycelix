@@ -281,6 +281,7 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
         attempt_identity: &AttemptIdentityV1,
         mut record: AttemptRecordV1,
         authorization_proof: AuthorizationAdmissionProofV1,
+        admission_now_unix_ms: u64,
     ) -> Result<AtomicAdmissionDecision, String> {
         if record.authorization_admission_proof_digest.is_some() {
             return Err(
@@ -289,6 +290,9 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
             );
         }
         authorization_proof.validate()?;
+        if !authorization_proof.is_fresh(admission_now_unix_ms) {
+            return Err("authorization admission proof expired before durable admission".into());
+        }
         if !authorization_proof.matches(&record, action_key) {
             return Err("authorization admission proof does not match exact attempt/action".into());
         }
@@ -2216,7 +2220,13 @@ mod tests {
             "test-status-snapshot-v1",
             "test-admission-verifier-v1",
         )?;
-        authorized_admit(&mut store, action_key, attempt_identity, record, proof)
+        store.atomically_admit(
+            action_key,
+            attempt_identity,
+            record,
+            proof,
+            100,
+        )
     }
 
     fn evidence(
@@ -2884,6 +2894,46 @@ mod tests {
     }
 
     #[test]
+    fn expired_authorization_admission_proof_is_rejected_at_durable_boundary() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("authorization-proof-expired.db");
+        let mut store = SqliteActionFenceStore::open(&path).unwrap();
+        let action = key("authorization-proof-expired");
+        let owner = attempt("attempt-authorization-proof-expired");
+        let record = record(
+            "attempt-authorization-proof-expired",
+            "operation-authorization-proof-expired",
+            "native-authorization-proof-expired",
+            &action,
+            AttemptRecordState::Consumed,
+        );
+        let proof = AuthorizationAdmissionProofV1::new(
+            &record,
+            &action,
+            100,
+            110,
+            "authorization-snapshot-v1",
+            "policy-snapshot-v1",
+            "status-snapshot-v1",
+            "test-admission-verifier-v1",
+        )
+        .unwrap();
+
+        let result = store.atomically_admit(
+            &action,
+            &owner,
+            record,
+            proof,
+            111,
+        );
+        assert!(result
+            .unwrap_err()
+            .contains("authorization admission proof expired before durable admission"));
+        assert!(store.durably_read_attempt(&owner).unwrap().is_none());
+        assert!(store.durably_read_fence(&action).unwrap().is_none());
+    }
+
+    #[test]
     fn authorization_admission_receipt_survives_restart() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("authorization-receipt-restart.db");
@@ -2914,7 +2964,7 @@ mod tests {
 
             expected_digest = proof.digest().to_owned();
             store
-                .atomically_admit(&action, &owner, record, proof.clone())
+                .atomically_admit(&action, &owner, record, proof.clone(), 100)
                 .unwrap();
             assert_eq!(
                 store
@@ -3326,7 +3376,7 @@ mod tests {
         {
             let mut store = SqliteActionFenceStore::open(&path).unwrap();
             store
-                .atomically_admit(&action, &owner, record, proof)
+                .atomically_admit(&action, &owner, record, proof, 100)
                 .unwrap();
         }
 
