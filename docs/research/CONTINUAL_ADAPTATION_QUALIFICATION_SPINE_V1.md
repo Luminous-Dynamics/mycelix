@@ -837,6 +837,17 @@ Local rehearsal result for the committed fixture corpus: 10 cases / 0 failures. 
 The executable reference must remain subordinate to the future independently controlled verifier and must never become a new trust root merely because its regression lane is green.
 
 
+### Differential reference verification
+
+The ledger fixtures now have two independent dependency-free reference implementations:
+
+- verify_continual_adaptation_ledger.py
+- verify_continual_adaptation_ledger.mjs
+
+Both implement the restricted fixture dialect, independently compute the graph digest, apply the mutation language, and derive the expected join verdict. Their agreement is a development regression signal, not qualification authority.
+
+Local differential rehearsal: 10 cases / 0 failures in each implementation. The hosted workflow is non-authoritative and must not be treated as an independent verifier merely because it succeeds.
+
 ## Freshness and target-regime drift
 
 Transport evidence is historical evidence about the exact validated subject, target regime, evaluator, observation process, and applicability profile.
@@ -950,6 +961,7 @@ Mycelix:
 - #4599 — measurement invariance across regimes;
 - #4617 — canonical claim-local evidence ledger and join theorem;
 - #4618 — evidence dependence and shared-ancestry accounting;
+- #4617 — executable claim-local ledger fixtures and differential reference verification;
 
 Symthaea:
 
