@@ -16,11 +16,21 @@ concurrency:
 
 jobs:
   independent-verifier:
+    if: ${{ github.ref == 'refs/heads/main' }}
     permissions:
       contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      - name: Require workflow dispatch from trusted main ref
+        env:
+          EXPECTED_WORKFLOW_REF: Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-verifier-candidate-check.yml@refs/heads/main
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_WORKFLOW_REF" = "$EXPECTED_WORKFLOW_REF"
+          test "$GITHUB_REPOSITORY" = "Luminous-Dynamics/mycelix"
+
       - name: Checkout trusted default-branch source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -120,6 +130,7 @@ jobs:
             printf 'trusted_evaluator_blob_sha=%s\n' "$observed_evaluator_blob"
             printf 'trusted_source_commit_sha=%s\n' "$EXPECTED_TRUSTED_SHA"
             printf 'workflow_file_commit_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+            printf 'workflow_ref=%s\n' "$GITHUB_WORKFLOW_REF"
             printf 'run_id=%s\n' "$GITHUB_RUN_ID"
             printf 'run_attempt=%s\n' "$GITHUB_RUN_ATTEMPT"
             printf '%s\n' "claim_ceiling=ReferenceModelOnly"
