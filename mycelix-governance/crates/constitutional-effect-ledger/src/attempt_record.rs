@@ -234,6 +234,7 @@ impl AttemptRecordState {
                 | Self::Reserved
                 | Self::DispatchPending
                 | Self::Invoked
+                | Self::InvocationClaimed
                 | Self::Indeterminate
         )
     }
@@ -249,7 +250,9 @@ impl AttemptRecordState {
                 | (Self::Reserved, Self::DispatchPending)
                 | (Self::DispatchPending, Self::Invoked)
                 | (Self::DispatchPending, Self::Indeterminate)
+                | (Self::Invoked, Self::InvocationClaimed)
                 | (Self::Invoked, Self::Indeterminate)
+                | (Self::InvocationClaimed, Self::Indeterminate)
         )
     }
 
@@ -416,6 +419,7 @@ impl AttemptRecordV1 {
             self.state,
             AttemptRecordState::DispatchPending
                 | AttemptRecordState::Invoked
+                | AttemptRecordState::InvocationClaimed
                 | AttemptRecordState::Executed
                 | AttemptRecordState::Failed
                 | AttemptRecordState::Indeterminate
@@ -1099,7 +1103,9 @@ impl AtomicActionFenceModelV1 {
         }
         if !matches!(
             current.state,
-            AttemptRecordState::Invoked | AttemptRecordState::Indeterminate
+            AttemptRecordState::Invoked
+                | AttemptRecordState::InvocationClaimed
+                | AttemptRecordState::Indeterminate
         ) {
             return Err(if current.state.is_terminal() {
                 ActionFenceMutationError::AlreadyClosed
