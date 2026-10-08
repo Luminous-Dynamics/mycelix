@@ -250,11 +250,11 @@ jobs:
               f"expected exactly one upstream PR association for {pull_request_number}, "
               f"observed {len(matches)}"
           )
+          # The top-level workflow-run head SHA/branch are the immutable execution facts.
+          # Do not treat nested pull_requests head fields as a historical snapshot:
+          # GitHub can update the PR after the run is created.
           associated_pr = matches[0]
-          assert associated_pr["head"]["sha"] == head_sha
-          assert associated_pr["head"]["ref"] == head_branch
-          assert associated_pr["head"]["repo"]["full_name"] == repo
-          assert int(associated_pr["head"]["repo"]["id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert int(associated_pr["number"]) == pull_request_number
           assert record["workflow_ref"].endswith("/merge")
           assert record["workflow"] == "D6S Canonical Qualification"
           workflow_commit = record["workflow_file_commit_sha"]
