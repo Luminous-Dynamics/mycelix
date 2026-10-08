@@ -443,6 +443,28 @@ const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 /// into one conservation-preserving `transfer_sap`, make raw credit non-public, and
 /// route all issuance through authorized mints (`mint_sap_from_governance` already
 /// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
+fn ensure_sap_balance_entry(member_did: &str) -> ExternResult<()> {
+    if find_sap_balance_record(member_did)?.is_some() {
+        return Ok(());
+    }
+    let now = sys_time()?;
+    let balance = SapBalance {
+        member_did: member_did.to_string(),
+        balance: 0,
+        last_demurrage_at: now,
+        exemption: None,
+        justified_by: None,
+    };
+    let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
+    create_link(
+        anchor_hash(&format!("sap:{}", member_did))?,
+        action_hash,
+        LinkTypes::DidToSapBalance,
+        (),
+    )?;
+    Ok(())
+}
+
 #[hdk_extern]
 pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
     // Opportunistically drain any pending compost deliveries
@@ -453,8 +475,20 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
         );
     }
 
+    if input.amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "SAP credit amount must be positive".into()
+        )));
+    }
+    if input.justified_by.is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "SAP credit requires an explicit validated cause".into()
+        )));
+    }
     if find_sap_balance_record(&input.member_did)?.is_none() {
-        initialize_sap_balance(input.member_did.clone())?;
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "SAP balance must be initialized at zero before a caused credit".into()
+        )));
     }
 
     // Existing balance: optimistic-locking retry loop
@@ -483,11 +517,6 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
         };
 
         let expected_balance = post_demurrage + input.amount;
-        if input.amount == 0 {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "SAP credit amount must be positive".into()
-            )));
-        }
         let updated = SapBalance {
             balance: expected_balance,
             last_demurrage_at: now,
@@ -678,7 +707,7 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
     }
     // Debit the sender (enforces caller==from, demurrage, sufficient balance).
     if find_sap_balance_record(&input.to_did)?.is_none() {
-        initialize_sap_balance(input.to_did.clone())?;
+        ensure_sap_balance_entry(&input.to_did)?;
     }
     let debit_record = debit_sap(DebitSapInput {
         member_did: input.from_did.clone(),
