@@ -18,6 +18,15 @@ BadGrandchildExceedsAncestor ==
        ![C] = {P1, P2}]
   /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
 
+BadTransitivePower ==
+  /\ activeGrants' = {G1, G2, G3, G4}
+  /\ revokedGrants' = {}
+  /\ authority' = [authority EXCEPT
+       ![A] = {P1},
+       ![B] = {P1, P2},
+       ![C] = {P2}]
+  /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
+
 BadRevokedDescendant ==
   /\ revokedGrants' = revokedGrants \cup {G1}
   /\ activeGrants' = activeGrants \cup {G1, G2}
@@ -36,6 +45,7 @@ BadFailureAuthority ==
   /\ UNCHANGED <<activeGrants, revokedGrants, evidenceRecorded>>
 
 NegativeNext ==
+  \/ IF Control = "transitive-power" THEN BadTransitivePower ELSE FALSE
   \/ IF Control = "undelegated-child" THEN BadUndelegatedChild ELSE FALSE
   \/ IF Control = "grandchild-exceeds-ancestor" THEN BadGrandchildExceedsAncestor ELSE FALSE
   \/ IF Control = "revoked-descendant" THEN BadRevokedDescendant ELSE FALSE
