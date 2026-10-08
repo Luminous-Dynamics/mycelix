@@ -1,0 +1,25 @@
+{
+  "schema": "MYCELIX-SYM-CIVIC-018-TRUSTED-ADMISSION-V1",
+  "qualification_workflow": {
+    "workflow_id": 375144995,
+    "path": ".github/workflows/sym-civic-018-cbor-encoding.yml",
+    "repository_id": 1176351975,
+    "repository": "Luminous-Dynamics/mycelix",
+    "event": "pull_request"
+  },
+  "pr_number": 4322,
+  "parent_subject": "1196889eb2a849ddc359d8d05edf063aa9537699",
+  "candidate_subject": "11d5586c555f47b9e682a24597e04340a5234373",
+  "expected_changed_files": [
+    ".github/workflows/sym-civic-018-cbor-encoding.yml",
+    "mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_CBOR_ENCODING_V1.md",
+    "mycelix-workspace/docs/civic-resilience/sym_civic_018_cbor_encoding_v1.json",
+    "scripts/qualification/sym_civic_018_cbor_encoding_v1.py"
+  ],
+  "expected_blob_sha": {
+    ".github/workflows/sym-civic-018-cbor-encoding.yml": "27359c1bc7d130780ca82bababa927a1952f170b",
+    "mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_CBOR_ENCODING_V1.md": "1d92fc0304402ff61316313a6df5b5230b0803ef",
+    "mycelix-workspace/docs/civic-resilience/sym_civic_018_cbor_encoding_v1.json": "b9be91fb92b929809d580c6f4b86f5516d5144eb",
+    "scripts/qualification/sym_civic_018_cbor_encoding_v1.py": "af388f237c4b99b028464caf173d586d4ef1b352"
+  }
+}
