@@ -51,6 +51,25 @@ pub struct CreateMachineTransitionApprovalInput {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct CreateMachineTimeAuthorityProfileInput {
+    pub machine_hash: ActionHash,
+    pub authority_agent: AgentPubKey,
+    pub profile_id: String,
+    pub source_profile: String,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateMachineTemporalAttestationInput {
+    pub machine_hash: ActionHash,
+    pub profile_hash: ActionHash,
+    pub subject_hash: ActionHash,
+    pub evidence_kind: MachineTemporalEvidenceKind,
+    pub attested_at: Timestamp,
+    pub source_reference: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GetMachinesByTypeInput {
     pub machine_type: MachineType,
 }
@@ -329,6 +348,98 @@ pub fn create_machine_transition_approval(
         .typed(LinkTypes::AllMachineTransitionApprovals)?;
     path.ensure()?;
     create_link(path.path_entry_hash()?, hash.clone(), LinkTypes::AllMachineTransitionApprovals, ())?;
+    Ok(hash)
+}
+/// Register a registrant-approved source/policy for temporal evidence on one machine.
+#[hdk_extern]
+pub fn create_machine_time_authority_profile(
+    input: CreateMachineTimeAuthorityProfileInput,
+) -> ExternResult<ActionHash> {
+    let machine_record = get(input.machine_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Machine not found".into())))?;
+    if !matches!(machine_record.action(), Action::Create(_)) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "time authority profile must target the machine root".into(),
+        )));
+    }
+    if machine_record.action().author() != agent_info()?.agent_initial_pubkey {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "only the machine registrant may create a time authority profile".into(),
+        )));
+    }
+    if input.valid_until < input.valid_from || input.profile_id.is_empty() || input.source_profile.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "time authority profile has invalid identity or validity fields".into(),
+        )));
+    }
+    let profile = MachineTimeAuthorityProfileEntry {
+        machine_hash: input.machine_hash.clone(),
+        authority_agent: input.authority_agent,
+        profile_id: input.profile_id,
+        source_profile: input.source_profile,
+        valid_from: input.valid_from,
+        valid_until: input.valid_until,
+        registrant_signature: Signature(vec![]),
+    };
+    let signature = sign(machine_record.action().author().clone(), profile.signed_payload())?;
+    let profile = MachineTimeAuthorityProfileEntry {
+        registrant_signature: signature,
+        ..profile
+    };
+    let hash = create_entry(EntryTypes::MachineTimeAuthorityProfile(profile))?;
+    create_link(input.machine_hash.clone(), hash.clone(), LinkTypes::MachineToTimeAuthorityProfiles, ())?;
+    let path = Path::from("all_machine_time_authority_profiles")
+        .typed(LinkTypes::AllMachineTimeAuthorityProfiles)?;
+    path.ensure()?;
+    create_link(path.path_entry_hash()?, hash.clone(), LinkTypes::AllMachineTimeAuthorityProfiles, ())?;
+    Ok(hash)
+}
+
+/// Record an authority-signed temporal attestation for an exact immutable subject.
+#[hdk_extern]
+pub fn create_machine_temporal_attestation(
+    input: CreateMachineTemporalAttestationInput,
+) -> ExternResult<ActionHash> {
+    let profile_record = get(input.profile_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Time authority profile not found".into())))?;
+    let profile: MachineTimeAuthorityProfileEntry = profile_record.entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Could not deserialize time authority profile".into())))?;
+    if profile.machine_hash != input.machine_hash {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "temporal attestation profile is bound to a different machine".into(),
+        )));
+    }
+    if profile.authority_agent != agent_info()?.agent_initial_pubkey {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "current agent is not the designated time authority".into(),
+        )));
+    }
+    if !temporal_profile_contains(&profile, input.attested_at) || input.source_reference.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "temporal attestation is outside profile validity or lacks source evidence".into(),
+        )));
+    }
+    let attestation = MachineTemporalAttestationEntry {
+        machine_hash: input.machine_hash.clone(),
+        profile_hash: input.profile_hash.clone(),
+        subject_hash: input.subject_hash,
+        evidence_kind: input.evidence_kind,
+        attested_at: input.attested_at,
+        source_reference: input.source_reference,
+        authority_signature: Signature(vec![]),
+    };
+    let signature = sign(profile.authority_agent.clone(), attestation.signed_payload())?;
+    let attestation = MachineTemporalAttestationEntry {
+        authority_signature: signature,
+        ..attestation
+    };
+    let hash = create_entry(EntryTypes::MachineTemporalAttestation(attestation))?;
+    create_link(input.machine_hash.clone(), hash.clone(), LinkTypes::MachineToTemporalAttestations, ())?;
+    let path = Path::from("all_machine_temporal_attestations")
+        .typed(LinkTypes::AllMachineTemporalAttestations)?;
+    path.ensure()?;
+    create_link(path.path_entry_hash()?, hash.clone(), LinkTypes::AllMachineTemporalAttestations, ())?;
     Ok(hash)
 }
 /// Get a controller authority by action hash.
