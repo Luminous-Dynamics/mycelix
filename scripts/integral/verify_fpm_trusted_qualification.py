@@ -387,6 +387,86 @@ def verify_tracked_lock_source_policy(lock_bytes: bytes) -> None:
         )
 
 
+def verify_sandbox_invocations(policy_text: str) -> None:
+    lines = policy_text.splitlines()
+    invocations: list[tuple[str, str]] = []
+    for index, line in enumerate(lines):
+        if "docker run --rm" not in line:
+            continue
+        step = "unknown"
+        for prior in reversed(lines[: index + 1]):
+            if prior.startswith("      - name: "):
+                step = prior.removeprefix("      - name: ").strip()
+                break
+
+        command_parts = [line.rstrip().rstrip("\\").strip()]
+        cursor = index + 1
+        while cursor < len(lines):
+            part = lines[cursor].rstrip()
+            command_parts.append(part.rstrip("\\").strip())
+            if "${SANDBOX_IMAGE}" in part:
+                break
+            cursor += 1
+        else:
+            fail(f"sandbox docker invocation in {step} has no pinned image terminator")
+        invocations.append((step, " ".join(command_parts)))
+
+    expected_steps = {
+        "Cargo fmt inside immutable sandbox",
+        "Probe hostile-code sandbox boundary",
+        "Cargo test inside immutable offline sandbox",
+    }
+    actual_steps = {step for step, _ in invocations}
+    if len(invocations) != 3 or actual_steps != expected_steps:
+        fail(f"unexpected sandbox invocation set: {sorted(actual_steps)!r}")
+
+    common = (
+        "--pull=never",
+        "--network none",
+        "--read-only",
+        "--cap-drop ALL",
+        "--security-opt no-new-privileges",
+        '--mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly',
+        '--mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly',
+        '--user "${CANDIDATE_UID}:${CANDIDATE_GID}"',
+    )
+    expected_by_step = {
+        "Cargo fmt inside immutable sandbox": (
+            "--pids-limit 256",
+            "--memory 2g",
+            "--memory-swap 2g",
+            "--cpus 1",
+        ),
+        "Probe hostile-code sandbox boundary": (
+            "--pids-limit 256",
+            "--memory 6g",
+            "--memory-swap 6g",
+            "--cpus 2",
+            '--mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly',
+            '--mount type=bind,src="${FPM_TARGET_DIR}",dst=/target',
+        ),
+        "Cargo test inside immutable offline sandbox": (
+            "--pids-limit 512",
+            "--memory 6g",
+            "--memory-swap 6g",
+            "--cpus 2",
+            '--mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly',
+            '--mount type=bind,src="${FPM_TARGET_DIR}",dst=/target',
+        ),
+    }
+    for step, command in invocations:
+        for token in common:
+            if token not in command:
+                fail(f"{step} sandbox invocation is missing required control: {token}")
+        for token in expected_by_step[step]:
+            if token not in command:
+                fail(f"{step} sandbox invocation is missing exact profile control: {token}")
+        if "--privileged" in command or "--pid=host" in command or "--network host" in command:
+            fail(f"{step} sandbox invocation contains forbidden namespace broadening")
+        if "--cap-add" in command or "docker.sock" in command:
+            fail(f"{step} sandbox invocation contains forbidden privilege broadening")
+
+
 def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: str) -> None:
     if policy_file.get("encoding") != "base64":
         fail("trusted policy file is not represented as base64 content")
@@ -431,6 +511,9 @@ def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: st
     for token in forbidden:
         if token in policy_text:
             fail(f"trusted sandbox policy contains forbidden broadening: {token}")
+
+    verify_sandbox_invocations(policy_text)
+    return policy_text
 
 def verify_receipt(
     receipt: dict[str, Any],
@@ -495,7 +578,7 @@ def verify_receipt(
         fail("receipt trusted policy blob mismatch")
     if policy_file.get("path") != TRUSTED_WORKFLOW_PATH:
         fail("policy file path mismatch")
-    verify_sandbox_policy(
+    policy_text = verify_sandbox_policy(
         policy_file,
         "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
     )
