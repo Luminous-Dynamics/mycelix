@@ -316,6 +316,8 @@ jobs:
           assert "Discoverable" in scanned
           assert "SignedButNotDiscoverable" in scanned
           assert "DiscoverabilityMismatch" in scanned
+          assert "LookupFailed" in scanned
+          assert "lookup_status" in scanned
           assert "EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}" in scanned
           assert "json.load(" not in scanned
           assert "manifest = json.loads(manifest_path.read_text())" not in scanned
@@ -1324,10 +1326,12 @@ jobs:
           mkdir -p attestor-evidence
           raw_path="attestor-evidence/attestation-publication-discovery-raw.json"
           summary_path="attestor-evidence/attestation-publication-discovery.json"
-          gh api --method GET "repos/${GITHUB_REPOSITORY}/attestations/${SUBJECT_DIGEST}" \
-            -f "predicate_type=${EXPECTED_PREDICATE_TYPE}" > "${raw_path}" || {
+          lookup_status=0
+          if ! gh api --method GET "repos/${GITHUB_REPOSITORY}/attestations/${SUBJECT_DIGEST}" \
+            -f "predicate_type=${EXPECTED_PREDICATE_TYPE}" > "${raw_path}"; then
+            lookup_status=$?
             printf '%s\n' '{"attestations":[]}' > "${raw_path}"
-          }
+          fi
           python - <<'PY'
           import json
           import os
@@ -1335,7 +1339,21 @@ jobs:
           from pathlib import Path
           raw_path = Path("attestor-evidence/attestation-publication-discovery-raw.json")
           summary_path = Path("attestor-evidence/attestation-publication-discovery.json")
-          data = json.loads(raw_path.read_text())
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(text, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_nonstandard_constant)
+
+          data = strict_json_loads(raw_path.read_text())
           assert set(data) == {"attestations"}
           attestations = data["attestations"]
           assert isinstance(attestations, list)
@@ -1349,7 +1367,7 @@ jobs:
               mismatch = mismatch or item["repository_id"] != expected_repo_id
               assert isinstance(item["bundle_url"], str) and item["bundle_url"]
               assert isinstance(item["initiator"], str) and item["initiator"]
-          state = "DiscoverabilityMismatch" if mismatch else ("Discoverable" if attestations else "SignedButNotDiscoverable")
+          state = "LookupFailed" if lookup_status != 0 else ("DiscoverabilityMismatch" if mismatch else ("Discoverable" if attestations else "SignedButNotDiscoverable"))
           observation = {
               "schema": "MYCELIX-COS-ATTESTATION-DISCOVERABILITY-V1",
               "repository": os.environ["GITHUB_REPOSITORY"],
@@ -1358,10 +1376,12 @@ jobs:
               "predicate_type": os.environ["EXPECTED_PREDICATE_TYPE"],
               "attestation_count": len(attestations),
               "repository_ids": sorted(set(repository_ids)),
+              "lookup_status": lookup_status,
               "state": state,
           }
           assert re.fullmatch(r"sha256:[0-9a-f]{64}", observation["subject_digest"])
-          assert observation["state"] in {"Discoverable", "SignedButNotDiscoverable", "DiscoverabilityMismatch"}
+          assert observation["state"] in {"Discoverable", "SignedButNotDiscoverable", "DiscoverabilityMismatch", "LookupFailed"}
+          assert isinstance(observation["lookup_status"], int) and observation["lookup_status"] >= 0
           summary_path.write_text(json.dumps(observation, indent=2, sort_keys=True) + "\n")
           if state != "Discoverable":
               raise SystemExit(2)
