@@ -103,10 +103,10 @@ TypeOK ==
   /\ contributorClaims \in [CapabilityUniverse -> SUBSET Claims]
   /\ dimensionContributors \in
        [CapabilityUniverse ->
-          [resource -> SUBSET Claims,
-           action -> SUBSET Claims,
-           audience -> SUBSET Claims,
-           expiry -> SUBSET Claims]]
+          [resource : SUBSET Claims,
+           action : SUBSET Claims,
+           audience : SUBSET Claims,
+           expiry : SUBSET Claims]]
 
 AllInputClaimsValid ==
   \A c \in inputClaims :
