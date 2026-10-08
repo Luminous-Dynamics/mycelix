@@ -164,7 +164,7 @@ impl TerminalEvidenceV1 {
         require_opaque("verifier_identity", &verifier_identity, MAX_REF_LEN)?;
 
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"MYCELIX-CONSTITUTIONAL-TERMINAL-EVIDENCE\0V2\0");
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-TERMINAL-EVIDENCE\0V3\0");
         hasher.update(&ATTEMPT_RECORD_SCHEMA_VERSION.to_be_bytes());
         push_str(&mut hasher, action_key.digest());
         push_str(&mut hasher, &attempt.attempt_identity);
@@ -1816,6 +1816,7 @@ mod tests {
             &action,
             &record,
             outcome,
+            format!("provider-idempotency-{attempt_id}"),
             format!("provider-evidence-{attempt_id}"),
             "qualified-verifier-v1",
         )
