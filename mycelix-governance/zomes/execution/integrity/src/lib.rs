@@ -401,6 +401,12 @@ pub fn check_create_execution(execution: &Execution) -> Result<(), String> {
     if execution.id.is_empty() || execution.timelock_id.is_empty() || execution.proposal_id.is_empty() {
         return Err("Execution identifiers are required".into());
     }
+    if execution.status != ExecutionStatus::Prepared {
+        return Err(
+            "New execution records must begin in Prepared state; terminal state requires resolution"
+                .into(),
+        );
+    }
     if execution.status == ExecutionStatus::Prepared
         && (execution.result.is_some() || execution.error.is_some())
     {
