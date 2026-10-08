@@ -43,7 +43,7 @@
       {
         "id": "p01",
         "type": "ClassificationPolicy",
-        "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
+        "policy_blob_sha": "5ce9d28fa3e615a12aaabc4ad246ad1ae0af8655",
         "frozen_epoch": "t0"
       },
       {
