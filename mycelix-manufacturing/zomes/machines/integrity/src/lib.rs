@@ -11,11 +11,20 @@ use manufacturing_common::{MachineStatus, MachineType};
 /// Maximum controller lease duration for the initial deterministic authority model.
 pub const MAX_MACHINE_CONTROLLER_LEASE_MICROS: i64 = 86_400_000_000;
 /// Domain-separated payload signed by the machine registrant for a controller lease.
-pub const MACHINE_CONTROLLER_LEASE_SCHEMA_ID: &str =
+pub const MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V1: &str =
     "mycelix-manufacturing-machine-controller-lease-v1";
+pub const MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V2: &str =
+    "mycelix-manufacturing-machine-controller-lease-v2";
+pub const MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID: &str =
+    "mycelix-manufacturing-machine-transition-approval-v1";
+pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
+
+fn default_lease_schema_version() -> u8 {
+    1
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct MachineControllerLeasePayload {
+pub struct MachineControllerLeasePayloadV1 {
     pub schema_id: String,
     pub machine_hash: ActionHash,
     pub controller_agent: AgentPubKey,
@@ -23,6 +32,28 @@ pub struct MachineControllerLeasePayload {
     pub valid_until: Timestamp,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineControllerLeasePayloadV2 {
+    pub schema_id: String,
+    pub machine_hash: ActionHash,
+    pub controller_agent: AgentPubKey,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    pub requires_transition_approval: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineControllerTransitionApprovalPayload {
+    pub schema_id: String,
+    pub machine_hash: ActionHash,
+    pub authority_hash: ActionHash,
+    pub controller_agent: AgentPubKey,
+    pub predecessor_action: ActionHash,
+    pub new_status: MachineStatus,
+    pub work_order_hash: Option<ActionHash>,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+}
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct MachineEntry {
@@ -35,6 +66,8 @@ pub struct MachineEntry {
     pub current_work_order: Option<ActionHash>,
     #[serde(default)]
     pub last_status_authority_hash: Option<ActionHash>,
+    #[serde(default)]
+    pub last_status_transition_approval_hash: Option<ActionHash>,
     pub registered_at: Timestamp,
 }
 
@@ -45,19 +78,64 @@ pub struct MachineControllerAuthorityEntry {
     pub controller_agent: AgentPubKey,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
+    #[serde(default = "default_lease_schema_version")]
+    pub lease_schema_version: u8,
+    #[serde(default)]
+    pub requires_transition_approval: bool,
     /// Cryptographic proof that the machine registrant authored the exact lease fields.
-    /// `None` is migration compatibility only; unsigned legacy authorities cannot be
+    /// None is migration compatibility only; unsigned legacy authorities cannot be
     /// used for new control-field updates.
     #[serde(default)]
     pub issuer_signature: Option<Signature>,
 }
 
 impl MachineControllerAuthorityEntry {
-    pub fn signed_payload(&self) -> MachineControllerLeasePayload {
-        MachineControllerLeasePayload {
-            schema_id: MACHINE_CONTROLLER_LEASE_SCHEMA_ID.to_string(),
+    pub fn signed_payload_v1(&self) -> MachineControllerLeasePayloadV1 {
+        MachineControllerLeasePayloadV1 {
+            schema_id: MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V1.to_string(),
             machine_hash: self.machine_hash.clone(),
             controller_agent: self.controller_agent.clone(),
+            valid_from: self.valid_from,
+            valid_until: self.valid_until,
+        }
+    }
+
+    pub fn signed_payload_v2(&self) -> MachineControllerLeasePayloadV2 {
+        MachineControllerLeasePayloadV2 {
+            schema_id: MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V2.to_string(),
+            machine_hash: self.machine_hash.clone(),
+            controller_agent: self.controller_agent.clone(),
+            valid_from: self.valid_from,
+            valid_until: self.valid_until,
+            requires_transition_approval: true,
+        }
+    }
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct MachineControllerTransitionApprovalEntry {
+    pub machine_hash: ActionHash,
+    pub authority_hash: ActionHash,
+    pub controller_agent: AgentPubKey,
+    pub predecessor_action: ActionHash,
+    pub new_status: MachineStatus,
+    pub work_order_hash: Option<ActionHash>,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    pub issuer_signature: Signature,
+}
+
+impl MachineControllerTransitionApprovalEntry {
+    pub fn signed_payload(&self) -> MachineControllerTransitionApprovalPayload {
+        MachineControllerTransitionApprovalPayload {
+            schema_id: MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID.to_string(),
+            machine_hash: self.machine_hash.clone(),
+            authority_hash: self.authority_hash.clone(),
+            controller_agent: self.controller_agent.clone(),
+            predecessor_action: self.predecessor_action.clone(),
+            new_status: self.new_status.clone(),
+            work_order_hash: self.work_order_hash.clone(),
             valid_from: self.valid_from,
             valid_until: self.valid_until,
         }
@@ -73,6 +151,8 @@ pub struct MachineStatusLog {
     pub previous_status: MachineStatus,
     pub new_status: MachineStatus,
     pub work_order_hash: Option<ActionHash>,
+    #[serde(default)]
+    pub transition_approval_hash: Option<ActionHash>,
     pub changed_at: Timestamp,
 }
 
@@ -82,6 +162,7 @@ pub enum EntryTypes {
     Machine(MachineEntry),
     StatusLog(MachineStatusLog),
     MachineControllerAuthority(MachineControllerAuthorityEntry),
+    MachineControllerTransitionApproval(MachineControllerTransitionApprovalEntry),
 }
 
 #[hdk_link_types]
@@ -92,6 +173,8 @@ pub enum LinkTypes {
     MachineUpdateToStatusLog,
     MachineToAuthorities,
     AllMachineControllerAuthorities,
+    MachineToTransitionApprovals,
+    AllMachineTransitionApprovals,
     LocationToMachines,
 }
 
@@ -114,6 +197,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_create_authority(action, authority)
                 }
                 EntryTypes::StatusLog(log) => validate_create_status_log(action, log),
+                EntryTypes::MachineControllerTransitionApproval(approval) => {
+                    validate_create_transition_approval(action, approval)
+                }
                 other => validate_create_entry(other),
             }
         }
@@ -133,10 +219,128 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+fn validate_create_transition_approval(
+    action: TypedAction<CreateData>,
+    approval: MachineControllerTransitionApprovalEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if approval.valid_until < approval.valid_from {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval validity window is inverted".into(),
+        ));
+    }
+    let Some(duration) = approval
+        .valid_until
+        .as_micros()
+        .checked_sub(approval.valid_from.as_micros())
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval validity arithmetic overflow".into(),
+        ));
+    };
+    if duration > MAX_MACHINE_TRANSITION_APPROVAL_MICROS {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval exceeds the maximum 5-minute validity".into(),
+        ));
+    }
+
+    let authority_record = must_get_valid_record(approval.authority_hash.clone())?;
+    let authority: Option<MachineControllerAuthorityEntry> = authority_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let Some(authority) = authority else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval references a non-authority record".into(),
+        ));
+    };
+    if authority.lease_schema_version != 2 || !authority.requires_transition_approval {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval requires a schema-v2 controller lease".into(),
+        ));
+    }
+    if authority.machine_hash != approval.machine_hash
+        || authority.controller_agent != approval.controller_agent
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval does not match the controller authority".into(),
+        ));
+    }
+    if approval.valid_from < authority.valid_from || approval.valid_until > authority.valid_until {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval interval exceeds controller lease interval".into(),
+        ));
+    }
+
+    let machine_record = must_get_valid_record(approval.machine_hash.clone())?;
+    let machine: Option<MachineEntry> = machine_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if machine.is_none() || !matches!(machine_record.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval must target a machine root".into(),
+        ));
+    }
+    if machine_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "only the machine registrant may create transition approvals".into(),
+        ));
+    }
+    if !verify_signature(
+        machine_record.action().author().clone(),
+        approval.issuer_signature.clone(),
+        approval.signed_payload(),
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval issuer signature does not match the exact approval payload".into(),
+        ));
+    }
+
+    let predecessor_record = must_get_valid_record(approval.predecessor_action.clone())?;
+    if !matches!(predecessor_record.action(), Action::Create(_) | Action::Update(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval predecessor is not a machine entry action".into(),
+        ));
+    }
+    let predecessor_machine: MachineEntry = predecessor_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "transition approval predecessor is not a machine record".into(),
+        )))?;
+    if !predecessor_machine.status.can_transition_to(&approval.new_status) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval does not describe a valid machine transition".into(),
+        ));
+    }
+    let predecessor_root = resolve_machine_root_action_hash(approval.predecessor_action.clone())?;
+    if predecessor_root != approval.machine_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval predecessor belongs to a different machine".into(),
+        ));
+    }
+    if !authority_valid_at(&authority, approval.valid_from)
+        || !authority_valid_at(&authority, approval.valid_until)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval interval is outside controller authority validity".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_create_authority(
     action: TypedAction<CreateData>,
     authority: MachineControllerAuthorityEntry,
 ) -> ExternResult<ValidateCallbackResult> {
+    if authority.lease_schema_version != 1 && authority.lease_schema_version != 2 {
+        return Ok(ValidateCallbackResult::Invalid("unsupported machine controller lease schema version".into()));
+    }
+    if authority.lease_schema_version == 2 && !authority.requires_transition_approval {
+        return Ok(ValidateCallbackResult::Invalid("lease schema v2 requires per-transition approval".into()));
+    }
     if authority.valid_until < authority.valid_from {
         return Ok(ValidateCallbackResult::Invalid(
             "machine controller authority validity window is inverted".into(),
@@ -173,11 +377,19 @@ fn validate_create_authority(
             "only the machine registrant may issue controller authority".into(),
         ));
     }
-    let signature_valid = verify_signature(
-        action.author().clone(),
-        signature,
-        authority.signed_payload(),
-    )?;
+        let signature_valid = match authority.lease_schema_version {
+        1 => verify_signature(
+            action.author().clone(),
+            signature,
+            authority.signed_payload_v1(),
+        )?,
+        2 => verify_signature(
+            action.author().clone(),
+            signature,
+            authority.signed_payload_v2(),
+        )?,
+        _ => false,
+    };
     if !signature_valid {
         return Ok(ValidateCallbackResult::Invalid(
             "machine controller authority issuer signature does not match the lease payload".into(),
@@ -216,6 +428,16 @@ fn validate_create_status_log(
     if authority.issuer_signature.is_none() {
         return Ok(ValidateCallbackResult::Invalid(
             "unsigned legacy controller authority cannot authorize new machine status".into(),
+        ));
+    }
+    if authority.requires_transition_approval && log.transition_approval_hash.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "schema-v2 controller status requires a transition approval".into(),
+        ));
+    }
+    if !authority.requires_transition_approval && log.transition_approval_hash.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "legacy controller status cannot carry a transition approval".into(),
         ));
     }
     if action.author() != authority.controller_agent {
@@ -269,6 +491,8 @@ fn validate_create_status_log(
     if updated_machine.status != log.new_status
         || updated_machine.current_work_order != log.work_order_hash
         || updated_machine.last_status_authority_hash != Some(log.authority_hash.clone())
+        || (authority.requires_transition_approval
+            && updated_machine.last_status_transition_approval_hash != log.transition_approval_hash)
     {
         return Ok(ValidateCallbackResult::Invalid(
             "machine status log does not match its referenced machine update".into(),
@@ -308,6 +532,7 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::MachineControllerAuthority(_) => unreachable!(),
+        EntryTypes::MachineControllerTransitionApproval(_) => unreachable!(),
     }
 }
 
@@ -354,8 +579,27 @@ fn machine_control_fields_changed(
     original.status != updated.status
         || original.current_work_order != updated.current_work_order
         || original.last_status_authority_hash != updated.last_status_authority_hash
+        || original.last_status_transition_approval_hash != updated.last_status_transition_approval_hash
 }
 
+fn transition_approval_matches_update(
+    approval: &MachineControllerTransitionApprovalEntry,
+    machine_root: &ActionHash,
+    authority_hash: &ActionHash,
+    controller_agent: &AgentPubKey,
+    predecessor_action: &ActionHash,
+    new_status: &MachineStatus,
+    work_order_hash: Option<&ActionHash>,
+    action_timestamp: Timestamp,
+) -> bool {
+    approval.machine_hash == *machine_root
+        && approval.authority_hash == *authority_hash
+        && approval.controller_agent == *controller_agent
+        && approval.predecessor_action == *predecessor_action
+        && approval.new_status == *new_status
+        && approval.work_order_hash.as_ref() == work_order_hash
+        && approval_valid_at(approval, action_timestamp)
+}
 fn authority_valid_at(
     authority: &MachineControllerAuthorityEntry,
     timestamp: Timestamp,
@@ -400,7 +644,7 @@ fn validate_update_entry(
                 || m.registered_at != original.registered_at
             {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Only status/current_work_order/last_status_authority_hash can change on a machine update".into(),
+                    "Only status/current_work_order/last_status_authority_hash/last_status_transition_approval_hash can change on a machine update".into(),
                 ));
             }
 
@@ -433,6 +677,56 @@ fn validate_update_entry(
                     return Ok(ValidateCallbackResult::Invalid(
                         "unsigned legacy controller authority cannot authorize new machine updates".into(),
                     ));
+                }
+                if !authority.requires_transition_approval
+                    && m.last_status_transition_approval_hash.is_some()
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "legacy controller update cannot carry a transition approval".into(),
+                    ));
+                }
+                if authority.requires_transition_approval {
+                    let Some(approval_hash) = m.last_status_transition_approval_hash.clone() else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "schema-v2 controller updates require a transition approval".into(),
+                        ));
+                    };
+                    let approval_record = must_get_valid_record(approval_hash)?;
+                    let approval: Option<MachineControllerTransitionApprovalEntry> = approval_record
+                        .entry().to_app_option()
+                        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+                    let Some(approval) = approval else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "transition approval reference is not an approval record".into(),
+                        ));
+                    };
+                    if approval.valid_from < authority.valid_from
+                        || approval.valid_until > authority.valid_until
+                        || !transition_approval_matches_update(
+                            &approval,
+                            &machine_root,
+                            &authority_hash,
+                            action.author(),
+                            &original_action_hash,
+                            &m.status,
+                            m.current_work_order.as_ref(),
+                            action.timestamp(),
+                        )
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "transition approval does not exactly authorize this machine update".into(),
+                        ));
+                    }
+                    let machine_root_record = must_get_valid_record(machine_root.clone())?;
+                    if !verify_signature(
+                        machine_root_record.action().author().clone(),
+                        approval.issuer_signature.clone(),
+                        approval.signed_payload(),
+                    )? {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "transition approval signature is invalid for this machine registrant".into(),
+                        ));
+                    }
                 }
                 if action.author() != authority.controller_agent {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -479,10 +773,61 @@ mod content_restriction_tests {
             status: MachineStatus::Available,
             current_work_order: None,
             last_status_authority_hash: None,
+            last_status_transition_approval_hash: None,
             registered_at: Timestamp::from_micros(0),
         }
     }
 
+    fn sample_approval() -> MachineControllerTransitionApprovalEntry {
+        let valid_from = Timestamp::from_micros(100);
+        MachineControllerTransitionApprovalEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_hash: ActionHash::from_raw_36(vec![2; 36]),
+            controller_agent: AgentPubKey::from_raw_32(vec![3; 32]),
+            predecessor_action: ActionHash::from_raw_36(vec![4; 36]),
+            new_status: MachineStatus::Running,
+            work_order_hash: Some(ActionHash::from_raw_36(vec![5; 36])),
+            valid_from,
+            valid_until: Timestamp::from_micros(200),
+            issuer_signature: Signature(vec![0; 64]),
+        }
+    }
+
+    #[test]
+    fn transition_approval_binds_exact_update_tuple() {
+        let approval = sample_approval();
+        let machine = ActionHash::from_raw_36(vec![1; 36]);
+        let authority = ActionHash::from_raw_36(vec![2; 36]);
+        let controller = AgentPubKey::from_raw_32(vec![3; 32]);
+        let predecessor = ActionHash::from_raw_36(vec![4; 36]);
+        let work_order = ActionHash::from_raw_36(vec![5; 36]);
+        assert!(transition_approval_matches_update(
+            &approval, &machine, &authority, &controller, &predecessor,
+            &MachineStatus::Running, Some(&work_order), Timestamp::from_micros(150)
+        ));
+
+        let wrong_machine = ActionHash::from_raw_36(vec![9; 36]);
+        assert!(!transition_approval_matches_update(
+            &approval, &wrong_machine, &authority, &controller, &predecessor,
+            &MachineStatus::Running, Some(&work_order), Timestamp::from_micros(150)
+        ));
+
+        let wrong_predecessor = ActionHash::from_raw_36(vec![8; 36]);
+        assert!(!transition_approval_matches_update(
+            &approval, &machine, &authority, &controller, &wrong_predecessor,
+            &MachineStatus::Running, Some(&work_order), Timestamp::from_micros(150)
+        ));
+
+        assert!(!transition_approval_matches_update(
+            &approval, &machine, &authority, &controller, &predecessor,
+            &MachineStatus::Maintenance, Some(&work_order), Timestamp::from_micros(150)
+        ));
+
+        assert!(!transition_approval_matches_update(
+            &approval, &machine, &authority, &controller, &predecessor,
+            &MachineStatus::Running, Some(&work_order), Timestamp::from_micros(201)
+        ));
+    }
     #[test]
     fn controller_lease_duration_is_bounded() {
         let start = Timestamp::from_micros(1_000_000);
@@ -494,6 +839,8 @@ mod content_restriction_tests {
                 start.as_micros() + MAX_MACHINE_CONTROLLER_LEASE_MICROS,
             ),
             issuer_signature: None,
+            lease_schema_version: 1,
+            requires_transition_approval: false,
         };
         assert!(authority_duration_is_bounded(&within));
 
@@ -513,6 +860,8 @@ mod content_restriction_tests {
             controller_agent: AgentPubKey::from_raw_32(vec![2; 32]),
             valid_from: Timestamp::from_micros(100),
             valid_until: Timestamp::from_micros(200),
+            lease_schema_version: 1,
+            requires_transition_approval: false,
             issuer_signature: None,
         };
 
@@ -522,6 +871,25 @@ mod content_restriction_tests {
         assert!(!authority_valid_at(&authority, Timestamp::from_micros(201)));
     }
 
+    #[test]
+    fn transition_approval_interval_is_bounded() {
+        let start = Timestamp::from_micros(10_000);
+        let within = MachineControllerTransitionApprovalEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_hash: ActionHash::from_raw_36(vec![2; 36]),
+            controller_agent: AgentPubKey::from_raw_32(vec![3; 32]),
+            predecessor_action: ActionHash::from_raw_36(vec![4; 36]),
+            new_status: MachineStatus::Running,
+            work_order_hash: None,
+            valid_from: start,
+            valid_until: Timestamp::from_micros(start.as_micros() + MAX_MACHINE_TRANSITION_APPROVAL_MICROS),
+            issuer_signature: Signature(vec![0; 64]),
+        };
+        assert!(approval_valid_at(&within, Timestamp::from_micros(10_000)));
+        assert!(approval_valid_at(&within, Timestamp::from_micros(10_000 + MAX_MACHINE_TRANSITION_APPROVAL_MICROS)));
+        assert!(!approval_valid_at(&within, Timestamp::from_micros(9_999)));
+        assert!(!approval_valid_at(&within, Timestamp::from_micros(10_000 + MAX_MACHINE_TRANSITION_APPROVAL_MICROS + 1)));
+    }
     #[test]
     fn control_field_change_requires_authority() {
         let original = valid_machine();
@@ -572,6 +940,7 @@ mod content_restriction_tests {
             previous_status: MachineStatus::Offline,
             new_status: MachineStatus::Running,
             work_order_hash: None,
+            transition_approval_hash: None,
             changed_at: Timestamp::from_micros(0),
         };
         let result = validate_create_entry(EntryTypes::StatusLog(log)).unwrap();
