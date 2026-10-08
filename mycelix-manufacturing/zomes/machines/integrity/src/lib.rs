@@ -90,6 +90,7 @@ pub struct MachineTimeAuthorityProfilePayload {
     pub authority_agent: AgentPubKey,
     pub profile_id: String,
     pub source_profile: String,
+    pub source_authority_commitment: Vec<u8>,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
     pub max_accuracy_micros: i64,
@@ -167,6 +168,7 @@ pub struct MachineTimeAuthorityProfileEntry {
     pub authority_agent: AgentPubKey,
     pub profile_id: String,
     pub source_profile: String,
+    pub source_authority_commitment: Vec<u8>,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
     pub max_accuracy_micros: i64,
@@ -181,6 +183,7 @@ impl MachineTimeAuthorityProfileEntry {
             authority_agent: self.authority_agent.clone(),
             profile_id: self.profile_id.clone(),
             source_profile: self.source_profile.clone(),
+            source_authority_commitment: self.source_authority_commitment.clone(),
             valid_from: self.valid_from,
             valid_until: self.valid_until,
             max_accuracy_micros: self.max_accuracy_micros,
@@ -433,6 +436,8 @@ fn validate_create_time_authority_profile(
 ) -> ExternResult<ValidateCallbackResult> {
     if profile.profile_id.is_empty()
         || profile.source_profile.is_empty()
+        || profile.source_authority_commitment.is_empty()
+        || profile.source_authority_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || profile.max_accuracy_micros < 0
         || profile.max_accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
     {
@@ -1276,6 +1281,10 @@ mod content_restriction_tests {
         let before = profile.signed_payload();
         profile.max_accuracy_micros += 1;
         assert_ne!(profile.signed_payload(), before);
+
+        let before_source = profile.signed_payload();
+        profile.source_authority_commitment[0] ^= 1;
+        assert_ne!(profile.signed_payload(), before_source);
     }
 
     #[test]
