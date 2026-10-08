@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 SEED = 0x43505601
-VERSION = "censoring-classification-provenance-v4-scope-fields"
+VERSION = "censoring-classification-provenance-v5-object-identity"
 SCOPE_ANCHOR = "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
 FOREIGN_SCOPE_ANCHOR = "sha256:1415e536f9e5bab08514ba2451fa63f044b5273a51f37f0d26813931ad8365c7"
 
@@ -395,11 +395,21 @@ def main() -> int:
     if identity_anchor is None:
         raise ValueError("missing anchored non-base object c02")
 
+    def object_identity_anchor(node: dict) -> str:
+        return digest({
+            "id": node["id"],
+            "type": node["type"],
+            "commitment": node["commitment"],
+        })
+
     def anchored_c02(revision: str = "1") -> dict:
         node = revision_node(policy_sha, revision=revision)
         node["id"] = "c02"
         node["commitment"] = classification_commitment(node)
         return node
+
+    if object_identity_anchor(anchored_c02()) != identity_anchor:
+        raise ValueError("anchored c02 identity does not match fixture anchor")
 
     identity_cases = []
 
