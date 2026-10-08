@@ -48,6 +48,28 @@ jobs:
           assert 'permissions:\n  actions: read\n  contents: read' in top
           assert 'contents: write' not in top
           assert text.count('environment: cos-durable-publication') >= 2
+          lines=text.splitlines()
+          current_job=None
+          job_has_gate=False
+          job_has_secret=False
+          privileged_jobs=[]
+          for line in lines:
+              if line.startswith('  ') and not line.startswith('    ') and line.endswith(':'):
+                  if current_job is not None and job_has_secret:
+                      assert job_has_gate, f'privileged token exposed outside protected environment: {current_job}'
+                      privileged_jobs.append(current_job)
+                  current_job=line.strip()[:-1]
+                  job_has_gate=False
+                  job_has_secret=False
+              if current_job is not None and 'environment: cos-durable-publication' in line:
+                  job_has_gate=True
+              if current_job is not None and 'COS_RELEASE_ADMIN_TOKEN:' in line:
+                  job_has_secret=True
+          if current_job is not None and job_has_secret:
+              assert job_has_gate, f'privileged token exposed outside protected environment: {current_job}'
+              privileged_jobs.append(current_job)
+          assert len(set(privileged_jobs)) == 2
+          assert 'prepare' in privileged_jobs and 'publish' in privileged_jobs
           first_secret=text.index('COS_RELEASE_ADMIN_TOKEN:')
           first_gate=text.index('environment: cos-durable-publication')
           assert first_secret > first_gate
