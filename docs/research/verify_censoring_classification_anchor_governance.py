@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT_SCHEMA = "mycelix.continual-adaptation.censoring-classification-anchor-trust-root.v1"
 MANIFEST_SCHEMA = "mycelix.continual-adaptation.censoring-classification-anchor-manifest.v1"
 CAMPAIGN_SCHEMA = "mycelix.continual-adaptation.censoring-classification-anchor-governance-campaign.v1"
+OBSERVED_STATE_SCHEMA = "mycelix.continual-adaptation.censoring-classification-anchor-observed-state.v1"
 AUTHORITY_ID = "mycelix.research.anchor-authority.v1"
 ROOT_ID = "mycelix.research.anchor-root.v1"
 ROOT_EPOCH = "t1"
@@ -56,6 +57,15 @@ def set_path(obj: dict, dotted: str, value: object) -> None:
 def epoch_index(v: object) -> int | None:
     return EPOCHS.index(v) if v in EPOCHS else None
 
+def validate_observed_state(observed: dict, expected: str) -> str | None:
+    if digest(observed) != expected: return "observed-pin"
+    if observed.get("schema") != OBSERVED_STATE_SCHEMA or observed.get("status") != "research-anchor-observed-state-only": return "observed-schema"
+    if observed.get("trust_root_id") != ROOT_ID or observed.get("authority_id") != AUTHORITY_ID: return "observed-authority"
+    if not isinstance(observed.get("highest_manifest_version"), int) or observed.get("highest_manifest_version") < 1: return "observed-version"
+    if not isinstance(observed.get("highest_manifest_sha256"), str): return "observed-commitment"
+    if not isinstance(observed.get("observed_subject_fixture_git_blob_sha"), str): return "observed-subject"
+    return None
+
 def validate_root(root: dict, manifest: dict, expected: str) -> str | None:
     if digest(root) != expected: return "root-pin"
     if root.get("schema") != ROOT_SCHEMA or root.get("status") != "research-anchor-trust-root-only": return "root-schema"
@@ -67,7 +77,7 @@ def validate_root(root: dict, manifest: dict, expected: str) -> str | None:
     if epoch_index(root.get("current_epoch")) is None: return "root-epoch"
     return None
 
-def validate_manifest(manifest: dict, previous: dict, subject_bytes: bytes, policy_sha: str, graph: dict) -> str | None:
+def validate_manifest(manifest: dict, previous: dict, subject_bytes: bytes, policy_sha: str, graph: dict, current_epoch_name: str) -> str | None:
     if manifest.get("schema") != MANIFEST_SCHEMA or manifest.get("status") != "research-anchor-manifest-only": return "manifest-schema"
     if manifest.get("authority_id") != AUTHORITY_ID: return "manifest-authority"
     version = manifest.get("manifest_version")
@@ -75,7 +85,7 @@ def validate_manifest(manifest: dict, previous: dict, subject_bytes: bytes, poli
     if version > 1:
         if manifest.get("previous_manifest_sha256") != digest(previous): return "previous-manifest-link"
         if previous.get("manifest_version") != version - 1: return "previous-manifest-version"
-    issued, expiry, current = epoch_index(manifest.get("issued_epoch")), epoch_index(manifest.get("expires_after_epoch")), epoch_index(ROOT_EPOCH)
+    issued, expiry, current = epoch_index(manifest.get("issued_epoch")), epoch_index(manifest.get("expires_after_epoch")), epoch_index(current_epoch_name)
     if issued is None or expiry is None or issued > expiry or current > expiry: return "manifest-epoch"
     if manifest.get("subject_fixture_git_blob_sha") != git_blob_sha_bytes(subject_bytes): return "subject-fixture-binding"
     if manifest.get("policy_blob_sha") != policy_sha: return "policy-binding"
@@ -101,7 +111,7 @@ def root_for_case(c: dict, base: dict, manifest: dict) -> dict:
     for op in c.get("root_mutations", []): set_path(r, op[1], op[2])
     return r
 
-def evaluate(c: dict, fixture: dict, current: dict, previous: dict, base_root: dict, policy_sha: str, fixture_bytes: bytes, expected_root: str) -> str:
+def evaluate(c: dict, fixture: dict, current: dict, previous: dict, base_root: dict, observed: dict, policy_sha: str, fixture_bytes: bytes, expected_root: str, expected_observed: str) -> str:
     source = {x["case_id"]: x for x in fixture["cases"]}.get(c.get("source_case_id"))
     if source is None: return "unresolved"
     subject = apply_mutations(fixture["base_graph"], source["mutation"] + c.get("subject_mutations", []))
@@ -109,11 +119,24 @@ def evaluate(c: dict, fixture: dict, current: dict, previous: dict, base_root: d
     root = root_for_case(c, base_root, manifest)
     expected = expected_root if c.get("mode") == "fixed-pin" else digest(root)
     if c.get("mode") not in {"fixed-pin","semantic-liveness"}: return "unresolved"
+    if validate_observed_state(observed, expected_observed): return "unresolved"
     if validate_root(root, manifest, expected): return "unresolved"
     subject_bytes = fixture_bytes + c.get("fixture_suffix","").encode("utf-8")
-    if validate_manifest(manifest, previous, subject_bytes, policy_sha, subject): return "unresolved"
+    if validate_manifest(manifest, previous, subject_bytes, policy_sha, subject, root.get("current_epoch")): return "unresolved"
     nodes = node_index(subject)
     assert nodes is not None
+    observed_version = observed["highest_manifest_version"]
+    candidate_version = manifest["manifest_version"]
+    candidate_manifest_sha = digest(manifest)
+    if candidate_version < observed_version: return "unresolved"
+    if candidate_version == observed_version:
+        if candidate_manifest_sha != observed["highest_manifest_sha256"]: return "unresolved"
+    elif candidate_version == observed_version + 1:
+        if manifest.get("previous_manifest_sha256") != observed["highest_manifest_sha256"]: return "unresolved"
+    else:
+        return "unresolved"
+    if manifest.get("subject_fixture_git_blob_sha") != observed.get("observed_subject_fixture_git_blob_sha") and candidate_version == observed_version:
+        return "unresolved"
     for node_id, entry in manifest["entries"].items():
         node = nodes.get(node_id)
         if node is None: continue
@@ -127,19 +150,20 @@ def evaluate(c: dict, fixture: dict, current: dict, previous: dict, base_root: d
     return "qualified"
 
 def main() -> int:
-    if len(sys.argv) != 8:
-        print("usage: verify_anchor_governance.py EXPECTED_ROOT_SHA ROOT.json CURRENT_MANIFEST.json PREVIOUS_MANIFEST.json POLICY.json FIXTURES.json REPORT.json", file=sys.stderr); return 2
-    expected_root, root_path, current_path, previous_path, policy_path, campaign_path, report_path = map(Path, sys.argv[1:8])
+    if len(sys.argv) != 9:
+        print("usage: verify_anchor_governance.py EXPECTED_ROOT_SHA EXPECTED_OBSERVED_SHA OBSERVED.json ROOT.json CURRENT_MANIFEST.json PREVIOUS_MANIFEST.json POLICY.json CAMPAIGN.json REPORT.json", file=sys.stderr); return 2
+    expected_root, expected_observed, observed_path, root_path, current_path, previous_path, policy_path, campaign_path, report_path = map(Path, sys.argv[1:10])
     expected = str(expected_root)
     root = json.loads(root_path.read_text(encoding="utf-8"))
+    observed = json.loads(observed_path.read_text(encoding="utf-8"))
     current = json.loads(current_path.read_text(encoding="utf-8"))
     previous = json.loads(previous_path.read_text(encoding="utf-8"))
     campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
     fixture_path = policy_path.parent / "CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_FIXTURES.json"
     fixture_bytes = fixture_path.read_bytes()
     fixture = json.loads(fixture_bytes)
-    if campaign.get("schema") != CAMPAIGN_SCHEMA or campaign.get("expected_trust_root_sha256") != expected:
-        print("campaign root/schema mismatch", file=sys.stderr); return 1
+    if campaign.get("schema") != CAMPAIGN_SCHEMA or campaign.get("expected_trust_root_sha256") != expected or campaign.get("expected_observed_state_sha256") != str(expected_observed):
+        print("campaign root/schema/observed pin mismatch", file=sys.stderr); return 1
     ids = [c.get("case_id") for c in campaign.get("cases", [])]
     fixed_ids = [c.get("case_id") for c in fixture.get("cases", [])]
     if len(ids) != len(set(ids)) or any(not isinstance(x, str) for x in ids) or len(fixed_ids) != len(set(fixed_ids)) or any(not isinstance(x, str) for x in fixed_ids):
@@ -147,10 +171,10 @@ def main() -> int:
     policy_sha = git_blob_sha(policy_path)
     failures, rows = [], []
     for c in campaign["cases"]:
-        verdict = evaluate(c, fixture, current, previous, root, policy_sha, fixture_bytes, expected)
+        verdict = evaluate(c, fixture, current, previous, root, observed, policy_sha, fixture_bytes, expected, str(expected_observed))
         rows.append({"actual_verdict":verdict,"case_id":c["case_id"],"expected_verdict":c["expected_verdict"],"mode":c["mode"]})
         if verdict != c["expected_verdict"]: failures.append([c["case_id"],c["expected_verdict"],verdict])
-    report = {"cases":rows,"failures":failures,"external_trust_root_sha256":expected,"current_manifest_version":current.get("manifest_version"),"schema":"mycelix.continual-adaptation.censoring-classification-anchor-governance-report.v1","status":"research-evidence-only"}
+    report = {"cases":rows,"failures":failures,"external_trust_root_sha256":expected,"external_observed_state_sha256":str(expected_observed),"current_manifest_version":current.get("manifest_version"),"schema":"mycelix.continual-adaptation.censoring-classification-anchor-governance-report.v1","status":"research-evidence-only"}
     report_path.write_text(canonical(report).decode("utf-8")+"\n",encoding="utf-8")
     print(f"cases={len(rows)} failures={len(failures)}")
     return 1 if failures else 0
