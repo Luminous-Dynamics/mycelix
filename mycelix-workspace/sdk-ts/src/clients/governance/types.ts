@@ -804,6 +804,10 @@ export interface ExecutionResolution {
   timelockId: string;
   proposalId: string;
   executor: string;
+  /** Exact prepared Execution source-chain action; absent only on legacy receipts. */
+  preparedExecutionActionHash?: string | null;
+  /** Exact prepared Timelock update source-chain action; absent only on legacy receipts. */
+  preparedTimelockActionHash?: string | null;
   attemptIdentities: string[];
   actionKeyDigests: string[];
   terminalEvidenceDigests: string[];
