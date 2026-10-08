@@ -85,6 +85,12 @@ jobs:
           assert 'required_reviewers' in text
           assert 'environment_policy_sha256' in text
           assert 'environment-policy-v1.json' in text
+          assert 'X-GitHub-Api-Version: 2026-03-10' in text
+          assert "assert policy['sha256']==hashlib.sha256(canonical).hexdigest()" in text
+          assert "assert m['main_branch_policy_sha256']==main_policy['sha256']" in text
+          assert "assert m['effective_main_rules_sha256']==effective_rules['sha256']" in text
+          assert 'main-branch-policy-v1.json' in text
+          assert 'effective-main-rules-v1.json' in text
           assert 'expected_handoff' in text
           assert 'verifier_run_attempt' in text
           assert 'attestor_run_attempt' in text
