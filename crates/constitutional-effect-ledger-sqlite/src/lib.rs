@@ -782,7 +782,7 @@ fn ensure_schema(conn: &mut Connection) -> Result<(), String> {
 }
 
 fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
-    let expectations: [(&str, &[(&str, &str, i64, i64)]); 4] = [
+    let expectations: [(&str, &[(&str, &str, i64, i64)]); 5] = [
         (
             META_TABLE,
             &[
@@ -833,6 +833,16 @@ fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
                 ("record_digest", "TEXT", 1, 0),
             ],
         ),
+        (
+            ENTRY_CLAIM_TABLE,
+            &[
+                ("attempt_identity", "TEXT", 1, 1),
+                ("action_key_digest", "TEXT", 1, 0),
+                ("owner_token_digest", "TEXT", 1, 0),
+                ("claim_token_digest", "TEXT", 1, 0),
+                ("record_digest", "TEXT", 1, 0),
+            ],
+        ),
     ];
 
     for (table, expected) in expectations {
@@ -880,9 +890,9 @@ fn validate_no_managed_triggers(conn: &Connection) -> Result<(), String> {
             "SELECT EXISTS(
                 SELECT 1 FROM sqlite_master
                 WHERE type = 'trigger'
-                  AND tbl_name IN (?1, ?2, ?3, ?4)
+                  AND tbl_name IN (?1, ?2, ?3, ?4, ?5)
             )",
-            params![META_TABLE, ATTEMPT_TABLE, FENCE_TABLE, REPLAY_TABLE],
+            params![META_TABLE, ATTEMPT_TABLE, FENCE_TABLE, REPLAY_TABLE, ENTRY_CLAIM_TABLE],
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
@@ -973,6 +983,67 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
     for row in rows {
         let replay = row.map_err(|e| e.to_string())?;
         replays.insert(replay.native_replay_identity.clone(), replay);
+    }
+
+    let mut claims = HashMap::new();
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT attempt_identity, action_key_digest, owner_token_digest,
+                    claim_token_digest, record_digest
+             FROM {ENTRY_CLAIM_TABLE}
+             ORDER BY attempt_identity"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], map_provider_entry_claim_row)
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        let claim = row.map_err(|e| e.to_string())?;
+        claims.insert(claim.attempt_identity.clone(), claim);
+    }
+
+    for claim in claims.values() {
+        let attempt = attempts.get(&claim.attempt_identity).ok_or_else(|| {
+            format!(
+                "provider entry claim {} references unknown attempt",
+                claim.attempt_identity
+            )
+        })?;
+        if attempt.state != AttemptRecordState::DispatchPending {
+            return Err(format!(
+                "provider entry claim {} requires DISPATCH_PENDING attempt",
+                claim.attempt_identity
+            ));
+        }
+        if attempt.action_key_digest != claim.action_key_digest
+            || attempt.ownership_token_digest != claim.owner_token_digest
+        {
+            return Err(format!(
+                "provider entry claim {} does not match attempt owner/action",
+                claim.attempt_identity
+            ));
+        }
+        let fence = fences.get(&claim.action_key_digest).ok_or_else(|| {
+            format!(
+                "provider entry claim {} is missing its action fence",
+                claim.attempt_identity
+            )
+        })?;
+        if fence.owner_attempt_identity != claim.attempt_identity
+            || fence.owner_token_digest != claim.owner_token_digest
+            || fence.state != ActionFenceState::Occupied
+        {
+            return Err(format!(
+                "provider entry claim {} does not match occupied action fence",
+                claim.attempt_identity
+            ));
+        }
+    }
+
+    for (attempt_id, claim) in &claims {
+        if attempt_id != &claim.attempt_identity {
+            return Err("provider entry claim map key mismatch".into());
+        }
     }
 
     for record in attempts.values() {
@@ -1400,6 +1471,77 @@ fn map_fence_row(row: &rusqlite::Row<'_>) -> Result<ActionFenceRecordV1, rusqlit
         ));
     }
     Ok(record)
+}
+
+fn load_provider_entry_claim_tx(
+    tx: &Transaction<'_>,
+    attempt_identity: &str,
+) -> Result<Option<ProviderEntryClaimV1>, String> {
+    tx.query_row(
+        &format!(
+            "SELECT attempt_identity, action_key_digest, owner_token_digest,
+                    claim_token_digest, record_digest
+             FROM {ENTRY_CLAIM_TABLE}
+             WHERE attempt_identity = ?1"
+        ),
+        params![attempt_identity],
+        map_provider_entry_claim_row,
+    )
+    .optional()
+    .map_err(|e| e.to_string())
+}
+
+fn load_provider_entry_claim_txless(
+    conn: &Connection,
+    attempt_identity: &str,
+) -> Result<Option<ProviderEntryClaimV1>, String> {
+    conn.query_row(
+        &format!(
+            "SELECT attempt_identity, action_key_digest, owner_token_digest,
+                    claim_token_digest, record_digest
+             FROM {ENTRY_CLAIM_TABLE}
+             WHERE attempt_identity = ?1"
+        ),
+        params![attempt_identity],
+        map_provider_entry_claim_row,
+    )
+    .optional()
+    .map_err(|e| e.to_string())
+}
+
+fn map_provider_entry_claim_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<ProviderEntryClaimV1> {
+    let attempt_identity: String = row.get(0)?;
+    let action_key_digest: String = row.get(1)?;
+    let owner_token_digest: String = row.get(2)?;
+    let claim_token_digest: String = row.get(3)?;
+    let record_digest: String = row.get(4)?;
+    let claim = ProviderEntryClaimV1::new(
+        attempt_identity,
+        action_key_digest,
+        owner_token_digest,
+        claim_token_digest,
+    )
+    .map_err(|error| rusqlite::Error::FromSqlConversionFailure(
+        4,
+        rusqlite::types::Type::Text,
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            error,
+        )),
+    ))?;
+    if claim.record_digest() != record_digest {
+        return Err(rusqlite::Error::FromSqlConversionFailure(
+            4,
+            rusqlite::types::Type::Text,
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "provider entry claim record digest mismatch",
+            )),
+        ));
+    }
+    Ok(claim)
 }
 
 fn load_replay_tx(
