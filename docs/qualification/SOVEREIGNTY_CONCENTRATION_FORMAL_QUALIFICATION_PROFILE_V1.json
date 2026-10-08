@@ -84,6 +84,10 @@
       }
     }
   },
+  "runtime": {
+    "jdk_package": "jdk17_headless",
+    "java_major": 17
+  },
   "claim_contract": {
     "candidate_only": true,
     "requires": [
@@ -96,7 +100,11 @@
       "bounded reference exploration",
       "candidate classifier bytes are frozen before execution",
       "Alloy enforcing facts are independently mutation-tested against their assertions",
-      "every profiled reference negative control emits its expected counterexample marker"
+      "every profiled reference negative control emits its expected counterexample marker",
+      "exact Java/JDK runtime metadata is bound to the pinned Nixpkgs revision",
+      "compiled Alloy runner class bytes are captured in the candidate receipt",
+      "each TLA negative control isolates its intended invariant violation",
+      "each Alloy negative control preserves unrelated canonical outcomes"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
