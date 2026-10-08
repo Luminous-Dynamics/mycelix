@@ -340,5 +340,5 @@
       "derive_root_hash": true
     }
   ],
-  "expected_observed_state_sha256": "sha256:cb7e6250fd388812613ec3d967f3af306b8cbf6373abff697f694ec54c5a2078"
+  "expected_observed_state_sha256": "sha256:10406333afe0bfdeead43b5d85ef21f56fd0e9d099fd4ee4c4cc7cb77019932f"
 }
