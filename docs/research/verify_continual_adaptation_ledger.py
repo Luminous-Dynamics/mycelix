@@ -251,15 +251,22 @@ def verify(graph: dict, policy: dict) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print(
-            "usage: verify_continual_adaptation_ledger.py POLICY.json CORPUS.json",
+            "usage: verify_continual_adaptation_ledger.py "
+            "EXPECTED_POLICY_BLOB_SHA POLICY.json CORPUS.json",
             file=sys.stderr,
         )
         return 2
 
-    policy = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    corpus = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+    expected_policy_blob_sha = sys.argv[1]
+    policy = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+    corpus = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+
+    binding = corpus.get("policy_binding", {})
+    if binding.get("git_blob_sha") != expected_policy_blob_sha:
+        print("policy binding mismatch", file=sys.stderr)
+        return 1
     failures: list[tuple[str, str, str, str]] = []
 
     for case in corpus["cases"]:
