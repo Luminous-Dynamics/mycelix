@@ -6,6 +6,12 @@
 import fs from "node:fs";
 import crypto from "node:crypto";
 
+function gitBlobSha(path) {
+  const data = fs.readFileSync(path);
+  const header = Buffer.from("blob " + data.length + "\\0", "ascii");
+  return crypto.createHash("sha1").update(Buffer.concat([header, data])).digest("hex");
+}
+
 function hasNumber(value) {
   if (typeof value === "number") return true;
   if (Array.isArray(value)) return value.some(hasNumber);
@@ -213,6 +219,12 @@ function verify(graph, policy) {
 }
 
 const expectedPolicyBlobSha = process.argv[2];
+function gitBlobSha(path) {
+  const data = fs.readFileSync(path);
+  const header = Buffer.from("blob " + data.length + "\\0", "ascii");
+  return crypto.createHash("sha1").update(Buffer.concat([header, data])).digest("hex");
+}
+
 const policyPath = process.argv[3];
 const corpusPath = process.argv[4];
 if (!expectedPolicyBlobSha || !policyPath || !corpusPath) {
@@ -222,7 +234,11 @@ if (!expectedPolicyBlobSha || !policyPath || !corpusPath) {
 
 const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
 const corpus = JSON.parse(fs.readFileSync(corpusPath, "utf8"));
-if (corpus.policy_binding?.git_blob_sha !== expectedPolicyBlobSha) {
+const actualPolicyBlobSha = gitBlobSha(policyPath);
+if (
+  actualPolicyBlobSha !== expectedPolicyBlobSha ||
+  corpus.policy_binding?.git_blob_sha !== actualPolicyBlobSha
+) {
   console.error("policy binding mismatch");
   process.exit(1);
 }
