@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import json
@@ -107,7 +108,30 @@ def snapshot(root: Path) -> None:
           "base": {"ref": "main", "sha": BASE, "repo": {"id": REPO_ID}},
           "head": {"sha": SUBJECT, "repo": {"id": REPO_ID, "full_name": REPO}}}
     commit = {"sha": SUBJECT, "commit": {"tree": {"sha": TREE}}}
-    policy = {"path": TW_PATH, "sha": POLICY_BLOB}
+    policy_text = """
+FPM_SANDBOX_IMAGE: ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+--network none
+--read-only
+--cap-drop ALL
+--security-opt no-new-privileges
+--pids-limit 512
+--memory 6g
+--memory-swap 6g
+--cpus 2
+--mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly
+--mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly
+--mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly
+--mount type=bind,src="${FPM_TARGET_DIR}",dst=/target
+--user "${CANDIDATE_UID}:${CANDIDATE_GID}"
+CARGO_NET_OFFLINE=true
+cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+"""
+    policy = {
+        "path": TW_PATH,
+        "sha": POLICY_BLOB,
+        "encoding": "base64",
+        "content": base64.b64encode(policy_text.encode()).decode(),
+    }
     manifest = {"path": MANIFEST, "sha": MANIFEST_SHA}
     control = {"repository": REPO, "repository_id": REPO_ID, "path": IW_PATH,
                "ref": "refs/heads/main",
@@ -200,6 +224,24 @@ def main() -> None:
         ]
         for file_name, label, fn in external:
             expect_failure(root, file_name, label, fn)
+
+        policy_cases = [
+            ("--network none", "--network host", "policy.network"),
+            ("--read-only", "--security-opt no-new-privileges", "policy.read-only"),
+            ("--cap-drop ALL", "--cap-drop NET_RAW", "policy.cap-drop"),
+            ("--security-opt no-new-privileges", "--privileged", "policy.no-new-privileges"),
+            ("--pids-limit 512", "--pids-limit 4096", "policy.pids-limit"),
+            ("--memory 6g", "--memory 64g", "policy.memory"),
+            ("--cpus 2", "--cpus 64", "policy.cpus"),
+            ("CARGO_NET_OFFLINE=true", "CARGO_NET_OFFLINE=false", "policy.offline"),
+            ("cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo test --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.cargo-offline"),
+        ]
+        for old, new, label in policy_cases:
+            def mutate_policy(value, old=old, new=new):
+                decoded = base64.b64decode(value["content"], validate=True).decode()
+                assert old in decoded
+                value["content"] = base64.b64encode(decoded.replace(old, new, 1).encode()).decode()
+            expect_failure(root, "policy-file.json", label, mutate_policy)
 
         expect_failure(
             root, "artifacts.json", "artifact-set-extra",
