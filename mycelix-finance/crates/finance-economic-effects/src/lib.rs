@@ -632,7 +632,7 @@ mod tests {
             EconomicEffectObservation {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
-                effect_id: "effect-a".into(),
+                effect_identity: base_transfer().identity.clone(),
             },
         ];
         assert!(matches!(
@@ -644,7 +644,7 @@ mod tests {
             EconomicEffectObservation {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
-                effect_id: "effect-a".into(),
+                effect_identity: base_transfer().identity.clone(),
             },
             EconomicEffectObservation {
                 predecessor_action_reference: "prev-1".into(),
