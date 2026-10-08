@@ -2717,16 +2717,6 @@ mod tests {
             )
             .unwrap();
 
-        let mut provider = FakeProvider {
-            invocation: ProviderObservation::Executed {
-                evidence_commitment: "provider-proof".into(),
-            },
-            reconciliation: ProviderObservation::Executed {
-                evidence_commitment: "reconciled-proof".into(),
-            },
-            invoked_states: Arc::new(Mutex::new(Vec::new())),
-        };
-
         let result = boundary
             .dispatch(
                 &action_key,
@@ -2779,7 +2769,6 @@ mod tests {
             &action_key,
             &owner,
             "owner-attempt-mismatch-idempotency",
-            &mut provider,
         );
         assert!(matches!(
             result,
@@ -2832,7 +2821,6 @@ mod tests {
             &action_key,
             &owner,
             "owner-attempt-mismatch",
-            &mut provider,
         );
         assert!(matches!(
             result,
