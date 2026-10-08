@@ -187,13 +187,17 @@ function checkCase(base, policy, testCase) {
   return row;
 }
 
-const [policyPath, corpusPath, reportPath] = process.argv.slice(2);
-if (!policyPath || !corpusPath || !reportPath) {
-  console.error("usage: verify_generated_properties.mjs POLICY.json GENERATED.json REPORT.json");
+const [expectedPolicyBlobSha, policyPath, corpusPath, reportPath] = process.argv.slice(2);
+if (!expectedPolicyBlobSha || !policyPath || !corpusPath || !reportPath) {
+  console.error("usage: verify_generated_properties.mjs EXPECTED_POLICY_BLOB_SHA POLICY.json GENERATED.json REPORT.json");
   process.exit(2);
 }
 const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
 const corpus = JSON.parse(fs.readFileSync(corpusPath, "utf8"));
+if (corpus.policy_binding?.git_blob_sha !== expectedPolicyBlobSha) {
+  console.error("policy binding mismatch");
+  process.exit(1);
+}
 const report = corpus.cases.map(c => checkCase(corpus.base_graph, policy, c));
 const sortedReport = report
   .sort((a,b) => a.case_id < b.case_id ? -1 : a.case_id > b.case_id ? 1 : 0)
