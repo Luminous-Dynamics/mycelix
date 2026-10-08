@@ -48,7 +48,19 @@ def node_index(graph: dict) -> dict[str, dict] | None:
     return index
 
 
+def contains_non_ascii(value: object) -> bool:
+    if isinstance(value, str):
+        return any(ord(char) > 0x7F for char in value)
+    if isinstance(value, list):
+        return any(contains_non_ascii(item) for item in value)
+    if isinstance(value, dict):
+        return any(contains_non_ascii(item) for item in value.values())
+    return False
+
+
 def semantic_normalize(graph: dict, policy: dict) -> dict | None:
+    if policy["graph_canonicalization"].get("string_policy") == "ASCII-only" and contains_non_ascii(graph):
+        return None
     nodes = node_index(graph)
     if nodes is None:
         return None
