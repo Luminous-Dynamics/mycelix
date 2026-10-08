@@ -155,7 +155,7 @@ jobs:
           assert run["run_attempt"] == run_attempt
           assert run["status"] == "completed"
           assert run["conclusion"] == "success"
-          assert run["event"] == "pull_request_target"
+          assert run["event"] in ("pull_request_target", "schedule")
           assert run["ref"] == "refs/heads/main"
           assert run["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
           assert run["repository"]["full_name"] == repo
@@ -234,34 +234,80 @@ jobs:
               "same-commit S1 reusable workflow blob is outside the registered trust profile"
           )
 
-          title = run.get("display_title", "")
-          match = re.fullmatch(
-              r"SEC-KERNEL-DISPATCH repo_id=([0-9]+) pr=([0-9]+) candidate=([0-9a-f]{40})",
-              title,
-          )
-          assert match, f"unexpected trusted-dispatch run name: {title!r}"
-          candidate_repo_id, candidate_pr, candidate_sha = match.groups()
-          candidate_repo_id = int(candidate_repo_id)
-          candidate_pr = int(candidate_pr)
-
-          run_prs = run.get("pull_requests") or []
-          assert len(run_prs) == 1, f"S0 run must identify exactly one PR: {len(run_prs)}"
-          assert run_prs[0]["number"] == candidate_pr
-
-          pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
-          assert pr["number"] == candidate_pr
-          assert pr["state"] == "open"
-          assert pr["base"]["repo"]["full_name"] == repo
-          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-          assert pr["head"]["sha"] == candidate_sha
-
-          candidate_repository_obj = pr.get("head", {}).get("repo") or {}
-          candidate_repository = candidate_repository_obj.get("full_name")
-          candidate_repository_id = candidate_repository_obj.get("id")
-          assert candidate_repository, "candidate PR is missing head repository identity"
-          assert candidate_repository_id == candidate_repo_id, (
-              "current PR head repository identity differs from the trusted S0-bound repository"
-          )
+          trigger_event = run["event"]
+          if trigger_event == "pull_request_target":
+              title = run.get("display_title", "")
+              match = re.fullmatch(
+                  r"SEC-KERNEL-DISPATCH event=pull_request_target pr=([0-9]+) candidate=([0-9a-f]{40})",
+                  title,
+              )
+              assert match, f"unexpected trusted-dispatch run name: {title!r}"
+              candidate_pr, candidate_sha = match.groups()
+              candidate_pr = int(candidate_pr)
+              run_prs = run.get("pull_requests") or []
+              assert len(run_prs) == 1 and run_prs[0]["number"] == candidate_pr
+              pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
+              assert pr["number"] == candidate_pr and pr["state"] == "open"
+              assert pr["base"]["repo"]["full_name"] == repo and pr["base"]["ref"] == os.environ["BASE_BRANCH"]
+              assert pr["head"]["sha"] == candidate_sha
+              candidate_repository_obj = pr.get("head", {}).get("repo") or {}
+              candidate_repository = candidate_repository_obj.get("full_name")
+              candidate_repository_id = candidate_repository_obj.get("id")
+              assert candidate_repository and isinstance(candidate_repository_id, int)
+              assert candidate_repository_id == int(pr["head"]["repo"]["id"])
+          else:
+              assert trigger_event == "schedule"
+              assert (run.get("pull_requests") or []) == []
+              artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
+              receipts = [
+                  item for item in artifacts
+                  if re.fullmatch(r"security-kernel-independent-qualification-[0-9a-f]{40}-attempt-[0-9]+\.txt", item.get("name", ""))
+                  and (item.get("workflow_run") or {}).get("id") == int(run_id)
+              ]
+              assert len(receipts) == 1, f"scheduled dispatcher must expose exactly one qualification receipt: {len(receipts)}"
+              receipt_artifact = receipts[0]
+              candidate_sha = re.fullmatch(r"security-kernel-independent-qualification-([0-9a-f]{40})-attempt-[0-9]+\.txt", receipt_artifact["name"]).group(1)
+              archive_url = receipt_artifact.get("archive_download_url")
+              assert isinstance(archive_url, str) and archive_url
+              request = urllib.request.Request(archive_url,headers={"Accept":"application/octet-stream","Authorization":f"Bearer {token}","X-GitHub-Api-Version":"2026-03-10"})
+              class NoRedirect(urllib.request.HTTPRedirectHandler):
+                  def redirect_request(self, req, fp, code, msg, headers):
+                      return None
+              try:
+                  with urllib.request.build_opener(NoRedirect).open(request,timeout=30) as response:
+                      raise AssertionError("scheduled qualification receipt endpoint unexpectedly returned 200")
+              except urllib.error.HTTPError as error:
+                  assert error.code in (301,302,303,307,308)
+                  download_url=error.headers.get("Location")
+                  assert isinstance(download_url,str) and download_url
+              parsed=urllib.parse.urlparse(download_url)
+              assert parsed.scheme=="https" and not parsed.username and not parsed.password and parsed.port in (None,443)
+              with urllib.request.build_opener(NoRedirect).open(download_url,timeout=30) as response:
+                  payload=response.read(16*1024+1)
+              assert payload and len(payload)<=16*1024
+              if zipfile.is_zipfile(io.BytesIO(payload)):
+                  with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                      infos=archive.infolist()
+                      assert len(infos)==1 and not infos[0].is_dir()
+                      assert 0<infos[0].file_size<=16*1024 and 0<infos[0].compress_size<=16*1024
+                      payload=archive.read(infos[0])
+              receipt_fields={}
+              for line in payload.decode("utf-8").splitlines():
+                  assert "=" in line
+                  key,value=line.split("=",1)
+                  assert key not in receipt_fields
+                  receipt_fields[key]=value
+              assert receipt_fields.get("schema")=="security-kernel-independent-qualification-v1"
+              assert receipt_fields.get("candidate_sha")==candidate_sha
+              assert receipt_fields.get("qualification_invocation_source")=="scheduled-fallback"
+              candidate_pr=int(receipt_fields["candidate_pr"])
+              candidate_repository=receipt_fields["candidate_repository"]
+              candidate_repository_id=int(receipt_fields["candidate_repository_id"])
+              pr=get(f"/repos/{repo}/pulls/{candidate_pr}")
+              assert pr["number"]==candidate_pr and pr["state"]=="open"
+              assert pr["base"]["repo"]["full_name"]==repo and pr["base"]["ref"]==os.environ["BASE_BRANCH"]
+              assert pr["head"]["sha"]==candidate_sha
+              assert pr["head"]["repo"]["full_name"]==candidate_repository and pr["head"]["repo"]["id"]==candidate_repository_id
 
           jobs = get(
               f"/repos/{repo}/actions/runs/{run_id}/attempts/{run_attempt}/jobs?per_page=100"
@@ -375,6 +421,7 @@ jobs:
               verifier_workflow_path=".github/workflows/security-kernel-trusted-result-verifier.yml",
               verifier_workflow_sha=os.environ["GITHUB_WORKFLOW_SHA"],
               verifier_workflow_blob_sha=os.environ["WORKFLOW_BLOB_SHA"],
+              trigger_event=trigger_event,
               run_id=run_id,
               run_attempt=run_attempt,
               run_number=run["run_number"],
@@ -396,6 +443,7 @@ jobs:
               "verifier_workflow_path": ".github/workflows/security-kernel-trusted-result-verifier.yml",
               "verifier_workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
               "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
+              "trigger_event": trigger_event,
               "run_id": int(run_id),
               "run_attempt": run_attempt,
               "run_number": run["run_number"],
@@ -425,6 +473,7 @@ jobs:
               "verifier_workflow_path": binding["verifier_workflow_path"] + ".mutated",
               "verifier_workflow_sha": "5" * 40,
               "verifier_workflow_blob_sha": "6" * 40,
+              "trigger_event": "mutated",
           }
           for field, replacement in mutations.items():
               mutated = dict(binding)
@@ -546,7 +595,7 @@ jobs:
               receipt[key] = value
 
           expected_receipt_keys = {
-              "schema","candidate_repository","candidate_repository_id","candidate_pr","candidate_sha",
+              "schema","candidate_repository","candidate_repository_id","candidate_pr","candidate_sha","qualification_invocation_source",
               "candidate_tree","candidate_source_tree_entry_count","candidate_source_file_count",
               "candidate_source_total_path_bytes","candidate_source_total_bytes","candidate_source_max_blob_bytes",
               "candidate_source_digest","source_staging_digest","executed_source_digest","candidate_cargo_lock_format","candidate_cargo_lock_sha256",
@@ -574,7 +623,8 @@ jobs:
               "candidate_repository_id": str(candidate_repo_id),
               "candidate_pr": str(candidate_pr),
               "candidate_sha": candidate_sha,
-              "source_event": "pull_request_target",
+              "source_event": trigger_event,
+              "qualification_invocation_source": "trusted-dispatch" if trigger_event == "pull_request_target" else "scheduled-fallback",
               "source_resource_profile": "v1",
               "dependency_manifest_max_bytes": "2097152",
               "dependency_lock_max_bytes": "33554432",
@@ -621,7 +671,7 @@ jobs:
                   f"{receipt.get(key)!r} != {expected_value!r}"
               )
           evidence_binding = dict(binding)
-          evidence_binding["schema"] = "security-kernel-execution-binding-v3"
+          evidence_binding["schema"] = "security-kernel-execution-binding-v4"
           evidence_binding["artifact_name"] = expected_artifact_name
           evidence_binding["artifact_id"] = int(artifact["id"])
           evidence_binding["artifact_digest"] = artifact_digest
