@@ -1,0 +1,16 @@
+{
+  "schema": "mycelix.evidence-attestation-scope-attenuation-control-matrix.v1",
+  "control": {
+    "id": "scope-expansion",
+    "boundary": "authorized claim cannot widen authority beyond claim-authorized scope",
+    "tla_invariant": "ClaimAuthorizationScopeAttenuated",
+    "tla_control": "scope-expansion",
+    "alloy_witness": "BroadScopeGrantWitness",
+    "alloy_assertion": "ScopeNeverExceedsClaimAuthorization",
+    "alloy_mutant_fact": "ClaimAuthorizationScopeAttenuated",
+    "reference_markers": [
+      "ISOLATION PASS: broad grant remains fully grant-backed outside claim scope",
+      "NEGATIVE PASS: claim-to-authority scope expansion detected"
+    ]
+  }
+}
