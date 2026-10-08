@@ -292,7 +292,22 @@ jobs:
           assert len(re.findall(r"(?m)^      id-token:\s*write\s*$", scanned)) == 1
           assert len(re.findall(r"(?m)^      attestations:\s*write\s*$", scanned)) == 1
           assert not re.search(r"(?m)^      artifact-metadata:\s*write\s*$", scanned)
-          assert "continue-on-error:" not in scanned
+          attest_start = scanned.index("      - name: Generate signed qualification attestation")
+          pre_attestation = scanned[:attest_start]
+          assert "continue-on-error:" not in pre_attestation
+          post_attestation = scanned[attest_start:]
+          for post_name in (
+              "Revalidate trust-root after signing",
+              "Preserve attestation bundle",
+              "Verify exact preserved attestation bundle",
+              "Verify signed attestation independently",
+              "Write attestor run receipt",
+              "Preserve attestor evidence",
+          ):
+              step_start = post_attestation.index(f"      - name: {post_name}")
+              step_end = post_attestation.find("\n      - name:", step_start + 1)
+              step_text = post_attestation[step_start:] if step_end < 0 else post_attestation[step_start:step_end]
+              assert "        continue-on-error: true" in step_text
           assert "json.load(" not in scanned
           assert "manifest = json.loads(manifest_path.read_text())" not in scanned
           assert "verification = json.loads(Path(" not in scanned
@@ -326,7 +341,7 @@ jobs:
           assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2" in scanned
           assert "changed_root_claim_id" in scanned
           assert "changed_root_claim_id != receipt[\"qualification_claim_id\"]" in scanned
-          assert "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V2" in scanned
+          assert "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3" in scanned
           receipt_step_start = scanned.index("      - name: Write attestor run receipt")
           receipt_step_end = scanned.index("\n\n      - name: Preserve attestor evidence", receipt_step_start)
           receipt_step = scanned[receipt_step_start:receipt_step_end]
@@ -344,9 +359,9 @@ jobs:
           assert "trust root rotated after validation" in scanned
           assert "trust root content changed after validation" in scanned
           assert "PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1" in scanned
-          assert "qualification-attestation-predicate-v2.json" in scanned
-          assert "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V2" in scanned
-          assert "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V2" in scanned
+          assert "qualification-attestation-predicate-v3.json" in scanned
+          assert "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3" in scanned
+          assert "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3" in scanned
           assert 'workflows: ["COS Conformance Independent Verify"]' in scanned
           assert "VERIFIER_WORKFLOW_NAME: COS Conformance Independent Verify" in scanned
           assert 'actions/workflows?per_page=100' in scanned
@@ -398,7 +413,7 @@ jobs:
 
           # The construction-audit step is excluded above, leaving 23 executable
           # steps in the actual trusted workflow graph.
-          assert len(step_blocks) == 23, f"unexpected step count: {len(step_blocks)}"
+          assert len(step_blocks) == 24, f"unexpected step count: {len(step_blocks)}"
           step_names = [block[0].split(" - name: ", 1)[1] for block in step_blocks]
           assert len(set(step_names)) == len(step_names), "duplicate workflow step name"
 
@@ -932,7 +947,7 @@ jobs:
               + trust_root_sha.encode("ascii")
           ).hexdigest()
           predicate = {
-              "schema": "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V2",
+              "schema": "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3",
               "predicate_type": os.environ["PREDICATE_TYPE"],
               "claim_ceiling": manifest["claim_ceiling"],
               "repository": manifest["repository"],
@@ -941,6 +956,10 @@ jobs:
               "expected_base_sha": manifest["expected_base_sha"],
               "qualification_result": manifest["qualification_result"],
               "qualification_claim_id": qualification_claim_id,
+              "publication": {
+                  "profile": "COS-TERMINAL-ATTESTATION-V1",
+                  "state": "preconditions_satisfied_terminal_side_effect",
+              },
               "qualification_manifest_sha256": manifest_sha,
               "qualification_manifest_artifact": {
                   "id": int(os.environ["VERIFIED_ARTIFACT_ID"]),
@@ -985,10 +1004,10 @@ jobs:
                   "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
               },
           }
-          Path("signing-input/qualification-attestation-predicate-v2.json").write_text(
+          Path("signing-input/qualification-attestation-predicate-v3.json").write_text(
               json.dumps(predicate, indent=2, sort_keys=True) + "\n"
           )
-          print(hashlib.sha256(Path("signing-input/qualification-attestation-predicate-v2.json").read_bytes()).hexdigest())
+          print(hashlib.sha256(Path("signing-input/qualification-attestation-predicate-v3.json").read_bytes()).hexdigest())
           PY
           printf 'manifest_sha256=%s\n' "${manifest_sha256}" > signing-input/manifest-sha256.txt
         env:
@@ -1004,10 +1023,10 @@ jobs:
           EXPECTED_TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
         run: |
           set -euo pipefail
-          test -s signing-input/qualification-attestation-predicate-v2.json
+          test -s signing-input/qualification-attestation-predicate-v3.json
           actual_manifest_sha="$(sha256sum signing-input/qualification-manifest-v1.json | awk '{print $1}')"
           test "${actual_manifest_sha}" = "${EXPECTED_MANIFEST_SHA}"
-          predicate_sha="$(sha256sum signing-input/qualification-attestation-predicate-v2.json | awk '{print $1}')"
+          predicate_sha="$(sha256sum signing-input/qualification-attestation-predicate-v3.json | awk '{print $1}')"
           python - <<'PY'
           import hashlib
           import json
@@ -1051,7 +1070,7 @@ jobs:
               parse_constant=reject_nonstandard_constant,
           )
           predicate = json.loads(
-              Path("signing-input/qualification-attestation-predicate-v2.json").read_text(),
+              Path("signing-input/qualification-attestation-predicate-v3.json").read_text(),
               object_pairs_hook=reject_duplicate_keys,
               parse_constant=reject_nonstandard_constant,
           )
@@ -1068,6 +1087,7 @@ jobs:
               "schema", "predicate_type", "claim_ceiling", "repository",
               "pr_number", "expected_head_sha", "expected_base_sha",
               "qualification_claim_id",
+              "publication",
               "qualification_result", "qualification_manifest_sha256",
               "qualification_manifest_artifact", "verifier", "trigger",
               "trust_root",
@@ -1081,10 +1101,13 @@ jobs:
           assert set(predicate["trigger"]) == {"run_id", "run_attempt", "workflow_id", "workflow_path", "event", "conclusion"}
           assert set(predicate["candidate"]) == {"federation_blob_sha", "trusted_federation_manifest_blob_sha", "federation_test_body_attestation_sha256"}
           assert set(predicate["attestor"]) == {"workflow_path", "workflow_ref", "workflow_sha", "workflow_file_blob_sha", "run_id", "run_attempt"}
-          assert predicate["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V2"
+          assert predicate["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3"
           assert predicate["predicate_type"] == os.environ["PREDICATE_TYPE"]
           assert predicate["claim_ceiling"] == "ReferenceModelOnly"
           assert predicate["qualification_result"] == "passed"
+          assert set(predicate["publication"]) == {"profile", "state"}
+          assert predicate["publication"]["profile"] == "COS-TERMINAL-ATTESTATION-V1"
+          assert predicate["publication"]["state"] == "preconditions_satisfied_terminal_side_effect"
           assert re.fullmatch(r"[0-9a-f]{64}", predicate["qualification_claim_id"])
           assert predicate["qualification_claim_id"] == expected_claim_id
           assert predicate["repository"] == os.environ["GITHUB_REPOSITORY"]
@@ -1166,13 +1189,13 @@ jobs:
           test "${artifact_run_id}" = "${GITHUB_RUN_ID}"
           test "${artifact_expired}" = "false"
           test -s signing-input/qualification-manifest-v1.json
-          test -s signing-input/qualification-attestation-predicate-v2.json
+          test -s signing-input/qualification-attestation-predicate-v3.json
           test -s signing-input/manifest-sha256.txt
 
           manifest_sha="$(sha256sum signing-input/qualification-manifest-v1.json | awk '{print $1}')"
           test "${manifest_sha}" = "${{ needs.validate.outputs.manifest_sha256 }}"
           test "$(cat signing-input/manifest-sha256.txt)" = "${manifest_sha}"
-          predicate_sha="$(sha256sum signing-input/qualification-attestation-predicate-v2.json | awk '{print $1}')"
+          predicate_sha="$(sha256sum signing-input/qualification-attestation-predicate-v3.json | awk '{print $1}')"
           test "${predicate_sha}" = "${{ needs.validate.outputs.predicate_sha256 }}"
 
       - name: Revalidate trust-root at signing time
@@ -1200,15 +1223,45 @@ jobs:
           }
           printf 'live_main_head_sha=%s\n' "${live_main_sha}" >> "${GITHUB_OUTPUT}"
 
+      - name: Assert terminal publication preconditions
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          predicate = json.loads(
+              Path("signing-input/qualification-attestation-predicate-v3.json").read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          assert predicate["publication"] == {
+              "profile": "COS-TERMINAL-ATTESTATION-V1",
+              "state": "preconditions_satisfied_terminal_side_effect",
+          }
+          PY
+
       - name: Generate signed qualification attestation
         id: attest
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: qualification-manifest-v1.json
           subject-digest: sha256:${{ needs.validate.outputs.manifest_sha256 }}
-          predicate-path: signing-input/qualification-attestation-predicate-v2.json
+          predicate-path: signing-input/qualification-attestation-predicate-v3.json
 
       - name: Revalidate trust-root after signing
+        continue-on-error: true
         id: trust_root_post_signing
         env:
           EXPECTED_ROOT_BLOB_SHA: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
@@ -1237,6 +1290,7 @@ jobs:
             exit 1
           }
       - name: Preserve attestation bundle
+        continue-on-error: true
         run: |
           set -euo pipefail
           mkdir -p attestor-evidence
@@ -1244,6 +1298,7 @@ jobs:
           sha256sum attestor-evidence/qualification-attestation-bundle.json | awk '{print $1}' > attestor-evidence/qualification-attestation-bundle.sha256
 
       - name: Verify exact preserved attestation bundle
+        continue-on-error: true
         id: verify_bundle
         env:
           SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
@@ -1285,7 +1340,7 @@ jobs:
                   parse_constant=reject_nonstandard_constant,
               )
           verification = strict_json_loads(Path("attestor-evidence/attestation-bundle-verification.json").read_text())
-          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v2.json").read_text())
+          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v3.json").read_text())
           assert isinstance(verification, list) and verification
           exact = []
           for item in verification:
@@ -1303,6 +1358,7 @@ jobs:
           PY
 
       - name: Verify signed attestation independently
+        continue-on-error: true
         id: verify_attestation
         env:
           SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
@@ -1351,7 +1407,7 @@ jobs:
                   parse_constant=reject_nonstandard_constant,
               )
           data = strict_json_loads(Path("attestor-evidence/attestation-verification.json").read_text())
-          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v2.json").read_text())
+          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v3.json").read_text())
           assert isinstance(data, list) and data
           matches = []
           for item in data:
@@ -1367,7 +1423,7 @@ jobs:
               )
               predicate = statement["predicate"]
               if (
-                  predicate.get("schema") == "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V2"
+                  predicate.get("schema") == "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3"
                   and predicate == expected_predicate
               ):
                   matches.append(predicate)
@@ -1375,6 +1431,7 @@ jobs:
           PY
 
       - name: Write attestor run receipt
+        continue-on-error: true
         env:
           VERIFIER_RUN_ID: ${{ needs.validate.outputs.verifier_run_id }}
           VERIFIER_RUN_ATTEMPT: ${{ needs.validate.outputs.verifier_run_attempt }}
@@ -1400,7 +1457,7 @@ jobs:
           from pathlib import Path
 
           receipt = {
-              "schema": "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V2",
+              "schema": "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3",
               "predicate_type": os.environ["PREDICATE_TYPE"],
               "repository": os.environ["GITHUB_REPOSITORY"],
               "attestor": {
@@ -1430,6 +1487,10 @@ jobs:
                   + b"\\x00"
                   + os.environ["TRUST_ROOT_MANIFEST_SHA256"].encode("ascii")
               ).hexdigest(),
+              "publication": {
+                  "profile": "COS-TERMINAL-ATTESTATION-V1",
+                  "state": "preconditions_satisfied_terminal_side_effect",
+              },
               "qualification_manifest_sha256": os.environ["MANIFEST_SHA256"],
               "predicate_sha256": os.environ["PREDICATE_SHA256"],
               "signing_input_artifact": {
@@ -1493,13 +1554,17 @@ jobs:
                   "schema", "predicate_type", "repository", "attestor",
                   "trust_root", "verifier_run", "qualification_topology",
                   "qualification_claim_id",
+                  "publication",
                   "qualification_manifest_sha256", "predicate_sha256",
                   "signing_input_artifact", "attestation",
               }
               assert set(receipt) == expected_receipt_keys
-              assert receipt["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V2"
+              assert receipt["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3"
               assert receipt["predicate_type"] == os.environ["PREDICATE_TYPE"]
               assert receipt["repository"] == os.environ["GITHUB_REPOSITORY"]
+              assert set(receipt["publication"]) == {"profile", "state"}
+              assert receipt["publication"]["profile"] == "COS-TERMINAL-ATTESTATION-V1"
+              assert receipt["publication"]["state"] == "preconditions_satisfied_terminal_side_effect"
               assert re.fullmatch(r"[0-9a-f]{64}", receipt["qualification_claim_id"])
               expected_claim_id = hashlib.sha256(
                   b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V2\\x00"
@@ -1620,6 +1685,7 @@ jobs:
           ) > attestor-evidence/SHA256SUMS
 
       - name: Preserve attestor evidence
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cos-conformance-qualification-attestation-${{ needs.validate.outputs.expected_head_sha }}
