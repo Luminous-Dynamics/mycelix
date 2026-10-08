@@ -366,6 +366,15 @@ def _repository_condition_state(
     if repository_selectors:
         key, selector = next(iter(repository_selectors.items()))
         if key == "repository_name":
+            if not isinstance(selector, dict):
+                return "UNVERIFIED"
+            # GitHub's organization repository-name condition has an
+            # additional "protected" property controlling whether repository
+            # renaming is prevented. We do not retain a trusted observation of
+            # that repository property, so never treat such a selector as
+            # applicable by ignoring it.
+            if "protected" in selector:
+                return "UNVERIFIED"
             return _selector_state(
                 selector,
                 patterns=("include", "exclude"),
@@ -1676,6 +1685,19 @@ def self_test(policy: dict[str, Any]) -> None:
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Organization"
+    x["rulesets"]["entries"][0]["source"] = ORGANIZATION_NAME
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["mycelix"],
+        "exclude": [],
+        "protected": True,
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["source_type"] = "Enterprise"
