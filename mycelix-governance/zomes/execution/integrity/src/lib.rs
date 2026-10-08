@@ -183,6 +183,10 @@ pub struct ExecutionResolution {
     pub timelock_id: String,
     pub proposal_id: String,
     pub executor: String,
+    /// Exact source-chain action hash of the Prepared timelock record used to
+    /// authorize this resolution. None is legacy-only; new receipts must set it.
+    #[serde(default)]
+    pub prepared_timelock_action_hash: Option<ActionHash>,
     pub attempt_identities: Vec<String>,
     pub action_key_digests: Vec<String>,
     pub terminal_evidence_digests: Vec<String>,
@@ -473,6 +477,9 @@ pub fn check_create_execution_resolution(
     {
         return Err("Resolution identifiers are required".into());
     }
+    if resolution.prepared_timelock_action_hash.is_none() {
+        return Err("Resolution must bind the exact prepared timelock action hash".into());
+    }
     check_execution_resolution_bindings(
         &resolution.attempt_identities,
         &resolution.action_key_digests,
@@ -510,6 +517,20 @@ pub fn check_execution_resolution_bindings(
         || attempt_identities.len() != final_provider_entry_proof_digests.len()
     {
         return Err("Resolution binding vectors must have equal lengths".into());
+    }
+    let has_duplicates = |values: &[String]| {
+        values
+            .iter()
+            .enumerate()
+            .any(|(index, value)| values[..index].contains(value))
+    };
+    if has_duplicates(attempt_identities)
+        || has_duplicates(action_key_digests)
+        || has_duplicates(terminal_evidence_digests)
+        || has_duplicates(authorization_admission_proof_digests)
+        || has_duplicates(final_provider_entry_proof_digests)
+    {
+        return Err("Resolution binding vectors must not reuse a tuple root".into());
     }
     if attempt_identities
         .iter()
@@ -768,10 +789,32 @@ fn validate_create_execution_resolution(
     action: Create,
     resolution: ExecutionResolution,
 ) -> ExternResult<ValidateCallbackResult> {
-    match check_create_execution_resolution(&action, &resolution) {
-        Ok(()) => Ok(ValidateCallbackResult::Valid),
-        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    if let Err(reason) = check_create_execution_resolution(&action, &resolution) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
     }
+    let Some(prepared_hash) = resolution.prepared_timelock_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution must bind the exact prepared timelock action hash".into(),
+        ));
+    };
+
+    let prepared_record = must_get_valid_record(prepared_hash)?;
+    let prepared_timelock: Timelock = prepared_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Prepared timelock action hash does not reference a Timelock entry".into()
+        )))?;
+    if prepared_timelock.status != TimelockStatus::Prepared
+        || prepared_timelock.id != resolution.timelock_id
+        || prepared_timelock.proposal_id != resolution.proposal_id
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution prepared-timelock action does not match its timelock/proposal scope".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_execution(
@@ -1185,6 +1228,7 @@ mod tests {
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
             executor: "did:key:z6Mk".into(),
+            prepared_timelock_action_hash: Some(ActionHash::from_raw_36(vec![0; 36])),
             attempt_identities: vec![format!(
                 "{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}",
                 "e".repeat(64)
@@ -1260,6 +1304,28 @@ mod tests {
             MAX_EXECUTION_RESOLUTION_BINDINGS + 1
         ];
         assert!(check_create_execution_resolution(&too_many).is_err());
+
+        let mut missing_timelock_root = valid.clone();
+        missing_timelock_root.prepared_timelock_action_hash = None;
+        assert!(check_create_execution_resolution(&missing_timelock_root).is_err());
+
+        let mut reused_attempt = valid.clone();
+        reused_attempt.attempt_identities.push(reused_attempt.attempt_identities[0].clone());
+        reused_attempt.action_key_digests.push(reused_attempt.action_key_digests[0].clone());
+        reused_attempt.terminal_evidence_digests.push(reused_attempt.terminal_evidence_digests[0].clone());
+        reused_attempt.authorization_admission_proof_digests.push(
+            reused_attempt.authorization_admission_proof_digests[0].clone()
+        );
+        reused_attempt.final_provider_entry_proof_digests.push(
+            reused_attempt.final_provider_entry_proof_digests[0].clone()
+        );
+        assert!(check_execution_resolution_bindings(
+            &reused_attempt.attempt_identities,
+            &reused_attempt.action_key_digests,
+            &reused_attempt.terminal_evidence_digests,
+            &reused_attempt.authorization_admission_proof_digests,
+            &reused_attempt.final_provider_entry_proof_digests,
+        ).is_err());
 
         let mut misaligned = valid.clone();
         misaligned
