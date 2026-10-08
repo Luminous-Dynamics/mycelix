@@ -139,7 +139,7 @@ jobs:
           printf 'canonical_predicate_sha256=%s\n' "$canonical_predicate_sha256" >> "$GITHUB_OUTPUT"
       - name: Prepare exact auditor handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "59"
+          D6U_TRUSTED_POLICY_VERSION: "60"
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
@@ -372,7 +372,7 @@ EOF
 
       - name: Assert exact auditor handoff
         env:
-          D6U_TRUSTED_POLICY_VERSION: "59"
+          D6U_TRUSTED_POLICY_VERSION: "60"
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
@@ -465,7 +465,7 @@ EOF
             test "$(wc -c < "$report")" -le 4194304
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-auditor-handoff" \
-            D6U_TRUSTED_POLICY_VERSION="59" \
+            D6U_TRUSTED_POLICY_VERSION="60" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
@@ -473,7 +473,7 @@ EOF
       - name: Retain and offline-verify trusted attestations
         env:
           GH_TOKEN: ${{ github.token }}
-          D6U_TRUSTED_POLICY_VERSION: "59"
+          D6U_TRUSTED_POLICY_VERSION: "60"
         run: |
           set -euo pipefail
           retention_dir="$RUNNER_TEMP/d6u-attestation-retention"
