@@ -360,6 +360,8 @@ pub enum LinkTypes {
     ExecutionToResolution,
     /// O(1) lookup: execution ID anchor → execution record
     ExecutionById,
+    /// O(1) lookup: stable timelock ID anchor → all prepared executions
+    ExecutionByTimelock,
 }
 
 // ---------------------------------------------------------------------------
@@ -714,6 +716,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::VetoToOverrideResult => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ExecutionToResolution => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ExecutionById => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::ExecutionByTimelock => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterDeleteLink {
             link_type,
