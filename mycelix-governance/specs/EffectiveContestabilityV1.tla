@@ -184,10 +184,6 @@ TypeOK ==
   /\ reviewRequired \in [Subjects -> BOOLEAN]
   /\ clock \in 0..MaxSwitchingCost
 
-EffectiveExitRequiresNominalExit ==
-  \A s \in Subjects, p \in effectiveExit[s] :
-    p \in nominalExit[s]
-
 EffectiveExitContextIsFresh ==
   \A s \in Subjects, p \in effectiveExit[s] :
     p # currentProvider[s]
