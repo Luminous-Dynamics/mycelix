@@ -178,11 +178,11 @@ fn validate_create_status_log(
     }
 
     let update_record = must_get_valid_record(log.machine_update_hash.clone())?;
-    if !matches!(update_record.action(), Action::Update(_)) {
+    let Action::Update(update_action) = update_record.action() else {
         return Ok(ValidateCallbackResult::Invalid(
             "machine status log must reference a machine update action".into(),
         ));
-    }
+    };
     let updated_machine: Option<MachineEntry> = update_record
         .entry()
         .to_app_option()
@@ -192,6 +192,22 @@ fn validate_create_status_log(
             "machine status log update reference is not a machine record".into(),
         ));
     };
+
+    let previous_record = must_get_valid_record(update_action.original_action_address.clone())?;
+    let previous_machine: Option<MachineEntry> = previous_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let Some(previous_machine) = previous_machine else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log update predecessor is not a machine record".into(),
+        ));
+    };
+    if previous_machine.status != log.previous_status {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log previous_status does not match the referenced machine update predecessor".into(),
+        ));
+    }
 
     let update_root = resolve_machine_root_action_hash(log.machine_update_hash.clone())?;
     if update_root != log.machine_hash {
