@@ -8,8 +8,7 @@ on:
 # This workflow is only an untrusted execution-request beacon.
 # It deliberately does not execute candidate code. The trusted qualification
 # workflow re-checks out the exact candidate and runs it inside the sandbox.
-permissions:
-  contents: read
+permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,8 +16,8 @@ env:
 jobs:
   qualify:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
