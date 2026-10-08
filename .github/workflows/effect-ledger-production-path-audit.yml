@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - hardening/effect-ledger-durable-sqlite-fence-v1
+      - hardening/effect-ledger-entry-claim-v1
       - hardening/effect-ledger-verifier-affirmation-v1
   pull_request:
   workflow_dispatch:
