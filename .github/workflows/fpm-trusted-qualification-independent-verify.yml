@@ -111,6 +111,7 @@ jobs:
       - name: Capture upstream trusted run
         id: upstream
         env:
+          GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           EXPECTED_NAME: FPM trusted qualification policy
           EXPECTED_PATH: .github/workflows/fpm-trusted-qualification.yml
