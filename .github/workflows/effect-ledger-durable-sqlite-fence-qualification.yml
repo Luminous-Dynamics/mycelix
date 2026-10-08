@@ -10,6 +10,7 @@ on:
       - hardening/effect-ledger-persisted-idempotency-v1
       - hardening/effect-ledger-final-entry-gate-v1
       - hardening/effect-ledger-pinned-trust-root-v1
+      - hardening/effect-ledger-provider-binding-v1
   pull_request:
   workflow_dispatch:
 
@@ -86,6 +87,11 @@ jobs:
           grep -Fq 'ProviderEntryClaimV1' "$source"
           grep -Fq 'atomically_claim_provider_entry' "$source"
           grep -Fq 'ProviderEntryPermitV1' "$boundary"
+          grep -Fq 'ProviderAdapterAuthorizer' "$boundary"
+          grep -Fq 'PinnedProviderAdapterAuthorizer' "$boundary"
+          grep -Fq 'authorize_provider_adapter' "$boundary"
+          grep -Fq 'fn adapter_identity(&self)' "$boundary"
+          grep -Fq 'provider_adapter_must_match_pinned_attempt_identity' "$boundary"
           grep -Fq 'ProviderActionContextV1' "$boundary"
           grep -Fq 'fn reconcile(&mut self, context: &ProviderActionContextV1)' "$boundary"
           if grep -Fq 'fn reconcile(&mut self, attempt: &AttemptRecordV1)' "$boundary"; then
