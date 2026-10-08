@@ -501,7 +501,7 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
             // No entry type in this zome has a real update_entry call anywhere in the
             // coordinator (confirmed via direct grep) -- reject outright rather than leave
@@ -512,7 +512,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
             "Federation entries cannot be updated".to_string(),
         )),
         _ => Ok(ValidateCallbackResult::Valid),
@@ -521,7 +521,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<CreateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::FederatedNetwork(network) => validate_network(&network, &action),
@@ -541,7 +541,7 @@ fn validate_federation_audit_log(
     log: &FederationAuditLog,
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
-    if log.actor.as_ref() != Some(&action.author) {
+    if log.actor.as_ref() != Some(&action.author()) {
         return Ok(ValidateCallbackResult::Invalid(
             "FederationAuditLog actor must match the committing agent".to_string(),
         ));
@@ -556,7 +556,7 @@ fn validate_network(
     // register_network already derives owner from agent_info() coordinator-side with
     // zero user input -- bind it at the DHT level too (P0 author-binding gap: ownership
     // was previously only a link, not a provable entry field).
-    if network.owner != action.author {
+    if network.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "FederatedNetwork owner must match action author".to_string(),
         ));
@@ -615,7 +615,7 @@ fn validate_route(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "network_registration_hash must reference a valid FederatedNetwork entry".to_string()
         )))?;
-    if network.owner != action.author {
+    if network.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the source network's owner may create a route for it".to_string(),
         ));
@@ -687,8 +687,8 @@ fn validate_envelope(
     //    here.
     if envelope.relay_bridge_registration_hash.is_none() {
         // Cases 1/2: a real Holochain identity, self-certifying via signature.
-        let claimed_sender: AgentPubKey = if envelope.source_agent == action.author.to_string() {
-            action.author.clone()
+        let claimed_sender: AgentPubKey = if envelope.source_agent == action.author().to_string() {
+            action.author().clone()
         } else {
             AgentPubKey::try_from(envelope.source_agent.clone()).map_err(|_| {
                 wasm_error!(WasmErrorInner::Guest(
@@ -725,7 +725,7 @@ fn validate_envelope(
                 "relay_bridge_registration_hash must reference a valid BridgeAgent entry"
                     .to_string()
             )))?;
-        if bridge.agent != action.author {
+        if bridge.agent != action.author() {
             return Ok(ValidateCallbackResult::Invalid(
                 "relay_bridge_registration_hash must reference the committer's own \
                  BridgeAgent registration"
@@ -798,7 +798,7 @@ fn validate_bridge_agent(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Agent must be the author
-    if bridge.agent != action.author {
+    if bridge.agent != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Bridge agent must match action author".to_string(),
         ));
@@ -833,7 +833,7 @@ fn validate_domain(
     }
 
     // Admin must be author
-    if domain.admin_agent != action.author {
+    if domain.admin_agent != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Domain admin must match author".to_string(),
         ));
