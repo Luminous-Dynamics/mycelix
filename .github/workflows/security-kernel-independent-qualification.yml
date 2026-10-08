@@ -307,18 +307,37 @@ jobs:
           docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$FETCH_IMAGE" | grep -Fx "$FETCH_IMAGE"
           runner_uid="$(id -u)"; runner_gid="$(id -g)"
           timeout --signal=TERM --kill-after=20s 10m docker run --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" --rm --platform=linux/amd64 --pull=never \
-            --network=bridge --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --security-opt=seccomp=default \
+            --network "$EGRESS_INTERNAL_NETWORK" --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --security-opt=seccomp=default \
             --pids-limit=512 --memory=2g --memory-swap=2g --cpus=2 --ulimit=nofile=4096:4096 --ulimit=core=0:0 \
             --user "$runner_uid:$runner_gid" --init --stop-timeout=5 --ipc=private --pid=private --cgroupns=private \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m,nr_inodes=600000 \
             --env HOME=/tmp --env GIT_CONFIG_NOSYSTEM=1 --env GIT_TERMINAL_PROMPT=0 --env GIT_CONFIG_GLOBAL=/tmp/gitconfig \
+            --env http_proxy= --env https_proxy= --env all_proxy= \
+            --env HTTP_PROXY= --env HTTPS_PROXY= --env ALL_PROXY= \
+            --env NO_PROXY= \
             --env CANDIDATE_SHA="$CANDIDATE_SHA" --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY" --env CANDIDATE_TREE="$candidate_tree" \
             --volume "$candidate_volume_name:/output:rw" "$FETCH_IMAGE" /bin/bash -euo pipefail -c '
               set -euo pipefail
               export XDG_CONFIG_HOME=/tmp/config; mkdir -p /tmp/config /tmp/repository /output
               git config --global core.hooksPath /dev/null; git config --global protocol.file.allow never; git config --global protocol.ext.allow never; git config --global http.followRedirects false
+              python3 - "$EGRESS_BROKER_PORT" <<'PY'
+              import socket, sys
+              port=int(sys.argv[1])
+              def probe(authority):
+                  with socket.create_connection(("egress-broker", port), timeout=5) as sock:
+                      sock.sendall(("CONNECT " + authority + " HTTP/1.1\r\nHost: " + authority + "\r\n\r\n").encode())
+                      return sock.recv(4096)
+              assert probe("example.com:443").startswith(b"HTTP/1.1 403")
+              assert probe("github.com:444").startswith(b"HTTP/1.1 403")
+              assert probe("github.com:443").startswith(b"HTTP/1.1 200")
+              print("PASS: egress broker rejected non-GitHub CONNECT authorities and accepted only github.com:443")
+              PY
+              if timeout --signal=TERM --kill-after=10s 15s bash -c 'echo probe >/dev/tcp/1.1.1.1/80'; then
+                echo "unexpected direct external connectivity from internal fetch network" >&2
+                exit 1
+              fi
               git -C /tmp/repository init -q; git -C /tmp/repository remote add origin "https://github.com/$CANDIDATE_REPOSITORY.git"
-              git -C /tmp/repository -c fetch.fsckObjects=true -c protocol.version=2 fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
+              git -C /tmp/repository -c http.proxy=http://egress-broker:$EGRESS_BROKER_PORT -c https.proxy=http://egress-broker:$EGRESS_BROKER_PORT -c http.followRedirects=false -c fetch.fsckObjects=true -c protocol.version=2 fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
               resolved="$(git -C /tmp/repository rev-parse FETCH_HEAD)"; test "$resolved" = "$CANDIDATE_SHA"
               resolved_tree="$(git -C /tmp/repository rev-parse "$resolved^{tree}")"; test "$resolved_tree" = "$CANDIDATE_TREE"
               timeout --signal=TERM --kill-after=10s 3m git -C /tmp/repository fsck --full --strict "$resolved"
@@ -1427,4 +1446,26 @@ jobs:
               fi
             fi
           done
-          echo "PASS: final non-cancelled teardown left no owned source/vendor volume"
+          for network_name in "$EGRESS_INTERNAL_NETWORK" "$EGRESS_EXTERNAL_NETWORK"; do
+            if ! existing_networks="$(docker network ls --format '{{.Name}}')"; then
+              echo "security-kernel final teardown network inventory query failed" >&2
+              exit 1
+            fi
+            if printf "%s\n" "$existing_networks" | grep -Fxq "$network_name"; then
+              network_labels="$(docker network inspect --format '{{index .Labels "security-kernel.run"}}|{{index .Labels "security-kernel.attempt"}}' "$network_name")"
+              test "$network_labels" = "$GITHUB_RUN_ID|$GITHUB_RUN_ATTEMPT"
+              if ! docker network rm "$network_name" >/dev/null 2>&1; then
+                echo "security-kernel final teardown network removal failed: $network_name" >&2
+                exit 1
+              fi
+              if ! remaining_networks="$(docker network ls --format '{{.Name}}')"; then
+                echo "security-kernel final teardown network inventory query failed after removal" >&2
+                exit 1
+              fi
+              if printf "%s\n" "$remaining_networks" | grep -Fxq "$network_name"; then
+                echo "security-kernel final teardown network remains: $network_name" >&2
+                exit 1
+              fi
+            fi
+          done
+          echo "PASS: final non-cancelled teardown left no owned source/vendor volume or egress network"
