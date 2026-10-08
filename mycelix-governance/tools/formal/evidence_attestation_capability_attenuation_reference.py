@@ -108,10 +108,17 @@ def transition_failures(state: State) -> list[str]:
 def main() -> int:
     g1 = Grant("G1", "Root", "Alice", Capability("R1", "Read", "AudienceA", 1), active=True)
     g2 = Grant("G2", "Root", "Alice", Capability("R2", "Read", "AudienceA", 1))
+    root_caps = tuple(
+        Capability(r, a, u, t)
+        for r in ("R1", "R2")
+        for a in ("Read", "Write")
+        for u in ("AudienceA", "AudienceB")
+        for t in (1, 2)
+    )
     base = State(
         grants=(g1, g2),
         authority=(
-            ("Root", tuple(grant.capability for grant in (g1, g2))),
+            ("Root", root_caps),
             ("Alice", (g1.capability,)),
         ),
     )
