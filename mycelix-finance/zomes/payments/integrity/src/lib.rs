@@ -599,13 +599,23 @@ fn validate_update_sap_balance(
                 "SAP debit cause must update the same balance owner".into()
             ));
         }
+        if did_for_author(&cause_author) != cause_predecessor.member_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP debit cause must be authorized by the causative balance owner".into()
+            ));
+        }
+        if cause_balance.last_demurrage_at != cause_timestamp {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP debit cause timestamp must be recorded on the resulting balance".into()
+            ));
+        }
         if cause_predecessor.member_did == bal.member_did {
             return Ok(ValidateCallbackResult::Invalid(
                 "SAP credit cause must debit a different balance owner".into()
             ));
         }
 
-        let from = cause_balance.last_demurrage_at.as_micros();
+        let from = cause_predecessor.last_demurrage_at.as_micros();
         let to = cause_timestamp.as_micros();
         let elapsed = if to > from {
             ((to - from) / 1_000_000) as u64
