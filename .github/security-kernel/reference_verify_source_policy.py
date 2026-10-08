@@ -1066,6 +1066,8 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         fail("S2 execution binding trigger witness missing")
     if 'qualification_invocation_source' not in joined:
         fail("S2 receipt invocation witness missing")
+    if exact_count(l, 'assert receipt["source_event"] == trigger_event') != 1:
+        fail("S2 receipt source_event must bind to the observed dispatcher trigger event")
     require_no_fail_open_controls(l, "S2")
     require_no_yaml_reuse_syntax(l, S2)
     require_explicit_bash_for_run_steps(l, S2)
@@ -1231,6 +1233,22 @@ def main() -> None:
             s1_sha,
         ),
         "S0 trusted shell syntax audit removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'assert receipt["source_event"] == trigger_event',
+                b'assert receipt["source_event"] == "pull_request_target"',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 scheduled receipt source_event hard-coded to pull_request_target",
     )
 
     expect_rejection(
