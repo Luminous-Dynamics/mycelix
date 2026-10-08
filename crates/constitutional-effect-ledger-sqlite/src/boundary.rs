@@ -1285,6 +1285,29 @@ mod tests {
         }
     }
 
+    struct SlowExpiryFinalEntry;
+
+    impl FinalProviderEntryVerifier for SlowExpiryFinalEntry {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            context: &ProviderActionContextV1,
+            now_unix_ms: u64,
+        ) -> Result<FinalProviderEntryProofV1, String> {
+            let proof = FinalProviderEntryProofV1::new(
+                attempt,
+                context,
+                now_unix_ms,
+                now_unix_ms.saturating_add(1),
+                "authorization-snapshot-v1",
+                "status-snapshot-v1",
+                "slow-final-entry-verifier-v1",
+            )?;
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            Ok(proof)
+        }
+    }
+
     struct RejectFinalEntry;
 
     impl FinalProviderEntryVerifier for RejectFinalEntry {
@@ -1689,6 +1712,76 @@ mod tests {
         ));
         assert_eq!(
             boundary.store.durably_read_attempt(&owner).unwrap().unwrap().state,
+            AttemptRecordState::NotEntered
+        );
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
+        assert!(boundary
+            .store
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn final_entry_proof_is_rechecked_after_verifier_returns() {
+        let dir = tempdir().unwrap();
+        let store =
+            SqliteActionFenceStore::open(dir.path().join("final-gate-post-verify.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-final-gate-post-verify");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-final-gate-post-verify",
+                    "operation-final-gate-post-verify",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        struct MustNotInvoke;
+        impl ProviderAdapter for MustNotInvoke {
+            fn invoke(
+                &mut self,
+                _permit: &ProviderEntryPermitV1,
+            ) -> Result<ProviderObservation, String> {
+                panic!("post-verifier expiry must prevent provider invocation");
+            }
+
+            fn reconcile(
+                &mut self,
+                _context: &ProviderActionContextV1,
+            ) -> Result<ProviderObservation, String> {
+                unreachable!()
+            }
+        }
+
+        let result = boundary
+            .dispatch(
+                &action_key,
+                &owner,
+                "owner-attempt-final-gate-post-verify",
+                &mut MustNotInvoke,
+                &Verifier,
+                &SlowExpiryFinalEntry,
+            )
+            .unwrap();
+
+        assert!(matches!(
+            result,
+            BoundaryOutcome::FinalEntryRejectedNotEntered { reason }
+                if reason.contains("expired before provider entry")
+        ));
+        assert_eq!(
+            boundary
+                .store
+                .durably_read_attempt(&owner)
+                .unwrap()
+                .unwrap()
+                .state,
             AttemptRecordState::NotEntered
         );
         assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
