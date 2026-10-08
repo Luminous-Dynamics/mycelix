@@ -216,9 +216,9 @@ describe('ExecutionClient', () => {
         executionId: 'execution-1',
         timelockId: 'timelock-1',
         executorDid: 'did:mycelix:test',
-        attemptIdentities: ['constitutional-attempt-1:' + 'a'.repeat(64)],
+        attemptIdentities: ['constitutional-attempt-identity-v1:' + 'a'.repeat(64)],
         actionKeyDigests: ['constitutional-action-key-v1:' + 'b'.repeat(64)],
-        terminalEvidenceDigests: ['constitutional-terminal-evidence-v1:' + 'c'.repeat(64)],
+        terminalEvidenceDigests: ['constitutional-terminal-evidence-v3:' + 'c'.repeat(64)],
         authorizationAdmissionProofDigests: [
           'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
         ],
@@ -235,10 +235,10 @@ describe('ExecutionClient', () => {
             execution_id: 'execution-1',
             timelock_id: 'timelock-1',
             executor_did: 'did:mycelix:test',
-            attempt_identities: ['constitutional-attempt-1:' + 'a'.repeat(64)],
+            attempt_identities: ['constitutional-attempt-identity-v1:' + 'a'.repeat(64)],
             action_key_digests: ['constitutional-action-key-v1:' + 'b'.repeat(64)],
             terminal_evidence_digests: [
-              'constitutional-terminal-evidence-v1:' + 'c'.repeat(64),
+              'constitutional-terminal-evidence-v3:' + 'c'.repeat(64),
             ],
             authorization_admission_proof_digests: [
               'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
