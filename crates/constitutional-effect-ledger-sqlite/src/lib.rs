@@ -2890,7 +2890,7 @@ mod tests {
         let action = key("authorization-receipt-restart");
         let owner = attempt("attempt-authorization-receipt-restart");
 
-        let receipt;
+        let expected_digest;
         {
             let mut store = SqliteActionFenceStore::open(&path).unwrap();
             let record = record(
@@ -2900,26 +2900,6 @@ mod tests {
                 &action,
                 AttemptRecordState::Consumed,
             );
-            receipt = AuthorizationAdmissionProofV1::from_persisted(
-                owner.digest().to_owned(),
-                action.digest().to_owned(),
-                record.operation_id.clone(),
-                record.native_replay_identity.clone(),
-                record.action_digest.clone(),
-                record.effecting_target_identity.clone(),
-                record.provider_environment.clone(),
-                record.provider_audience.clone(),
-                record.adapter_identity.clone(),
-                "authorization-snapshot-v1".into(),
-                "policy-snapshot-v1".into(),
-                "status-snapshot-v1".into(),
-                100,
-                200,
-                "test-admission-verifier-v1".into(),
-                "constitutional-authorization-admission-proof-v1:test".into(),
-            )
-            .err();
-
             let proof = AuthorizationAdmissionProofV1::new(
                 &record,
                 &action,
@@ -2932,6 +2912,7 @@ mod tests {
             )
             .unwrap();
 
+            expected_digest = proof.digest().to_owned();
             store
                 .atomically_admit(&action, &owner, record, proof.clone())
                 .unwrap();
@@ -2951,7 +2932,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(restored.validate().is_ok());
-        assert_eq!(restored.digest(), receipt.as_deref().unwrap_or(""));
+        assert_eq!(restored.digest(), expected_digest);
     }
 
     #[test]
