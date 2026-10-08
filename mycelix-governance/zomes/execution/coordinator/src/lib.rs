@@ -2078,6 +2078,77 @@ mod tests {
     }
 
     #[test]
+    fn execution_resolution_for_refund_requires_failed_exact_source_anchors() {
+        let timelock_hash = ActionHash::from_raw_36(vec![3; 36]);
+        let execution_hash = ActionHash::from_raw_36(vec![4; 36]);
+        let timelock = Timelock {
+            id: "tl-refund-1".into(),
+            proposal_id: "prop-refund-1".into(),
+            actions: "[]".into(),
+            started: ts(1_000_000),
+            expires: ts(2_000_000),
+            status: TimelockStatus::Prepared,
+            cancellation_reason: None,
+        };
+        let execution = Execution {
+            id: "execution-refund-1".into(),
+            timelock_id: "tl-refund-1".into(),
+            proposal_id: "prop-refund-1".into(),
+            executor: "did:mycelix:test".into(),
+            status: ExecutionStatus::Prepared,
+            result: None,
+            error: None,
+            executed_at: ts(2_000_001),
+        };
+        let mut resolution = ExecutionResolution {
+            id: "resolution:execution-refund-1".into(),
+            execution_id: "execution-refund-1".into(),
+            timelock_id: "tl-refund-1".into(),
+            proposal_id: "prop-refund-1".into(),
+            executor: "did:mycelix:test".into(),
+            execution_action_hash: Some(execution_hash.clone()),
+            timelock_action_hash: Some(timelock_hash.clone()),
+            attempt_identities: vec![],
+            action_key_digests: vec![],
+            terminal_evidence_digests: vec![],
+            authorization_admission_proof_digests: vec![],
+            final_provider_entry_proof_digests: vec![],
+            outcome: ExecutionResolutionOutcome::Failed,
+            resolved_at: ts(2_000_010),
+        };
+
+        assert!(validate_execution_resolution_for_refund(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_ok());
+
+        resolution.outcome = ExecutionResolutionOutcome::Executed;
+        assert!(validate_execution_resolution_for_refund(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_err());
+
+        resolution.outcome = ExecutionResolutionOutcome::Failed;
+        resolution.timelock_action_hash = Some(ActionHash::from_raw_36(vec![9; 36]));
+        assert!(validate_execution_resolution_for_refund(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_err());
+    }
+
+    #[test]
     fn test_transfer_credits_valid() {
         let action = GovernanceAction::TransferCredits {
             from: "treasury".into(),
