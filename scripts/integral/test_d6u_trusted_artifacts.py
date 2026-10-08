@@ -3023,7 +3023,7 @@ def test_trusted_builder_documentation_is_current() -> None:
         encoding="utf-8"
     )
     assert "Current trusted policy revision: v61." in documentation
-    assert "seventy-two deterministic checks" in documentation
+    assert "seventy-three deterministic checks" in documentation
     assert "`push-to-registry: false`" in documentation
     assert "`create-storage-record: false`" in documentation
     assert "keeps redirects on HTTPS" in documentation
