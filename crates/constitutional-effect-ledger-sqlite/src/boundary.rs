@@ -713,15 +713,15 @@ impl EffectBoundaryHostV1 {
             )
             .map_err(BoundaryError::Mutation)?;
 
-        let now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
+        let verifier_now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
         let context = ProviderActionContextV1::from_attempt(&pending, action_key)?;
-        let final_entry_proof = match entry_verifier.verify(&pending, &context, now_unix_ms) {
-            Ok(proof)
-                if proof.matches(&pending, &context) && proof.is_fresh(now_unix_ms) =>
-            {
-                proof
-            }
-            Ok(_) => {
+        let final_entry_proof = match entry_verifier.verify(
+            &pending,
+            &context,
+            verifier_now_unix_ms,
+        ) {
+            Ok(proof) => proof,
+            Err(error) => {
                 let marker =
                     "final provider-entry proof was stale or scope-mismatched".to_owned();
                 match self.store.atomically_release_provider_entry_claim_not_entered(
@@ -766,12 +766,37 @@ impl EffectBoundaryHostV1 {
             }
         };
 
+        let pre_entry_now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
+        if !final_entry_proof.matches(&pending, &context)
+            || !final_entry_proof.is_fresh(pre_entry_now_unix_ms)
+        {
+            let marker = "final provider-entry proof expired before provider entry".to_owned();
+            match self.store.atomically_release_provider_entry_claim_not_entered(
+                action_key,
+                attempt_identity,
+                owner_token_digest,
+                &claim_token,
+                marker.clone(),
+            ) {
+                Ok(()) => return Ok(BoundaryOutcome::FinalEntryRejectedNotEntered {
+                    reason: marker,
+                }),
+                Err(release_error) => {
+                    return Ok(BoundaryOutcome::IndeterminateHeld {
+                        reason: format!(
+                            "final-entry proof expired and claim release was not confirmed: {release_error:?}"
+                        ),
+                    });
+                }
+            }
+        }
+
         let permit = ProviderEntryPermitV1::new(
             pending,
             action_key,
             claim,
             final_entry_proof,
-            now_unix_ms,
+            pre_entry_now_unix_ms,
         )?;
         let observation = match provider.invoke(&permit) {
             Ok(value) => value,
