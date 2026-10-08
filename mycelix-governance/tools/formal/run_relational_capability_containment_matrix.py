@@ -14,6 +14,7 @@ for n in ("matrix","tla","canonical-cfg","negative-tla","negative-cfg-dir","allo
 a=p.parse_args(); a.evidence_dir.mkdir(parents=True,exist_ok=True); m=json.loads(a.matrix.read_text()); controls=m["controls"]
 assert [c["id"] for c in controls]==IDS
 head=run(["git","rev-parse","HEAD"]); tree=run(["git","rev-parse","HEAD^{tree}"])
+if head.returncode or tree.returncode: raise RuntimeError("head/tree resolution failed")
 runtime=json.loads(a.runtime.read_text())
 cfgs=[a.negative_cfg_dir/f"EvidenceAttestationRelationalCapabilityContainmentV1Negative-{c['id']}.cfg" for c in controls]
 if any(not x.is_file() for x in cfgs): raise RuntimeError("missing negative CFG")
@@ -40,12 +41,13 @@ for c in controls:
 cp=f"{a.runner_class_dir}:{a.alloy_jar}"; ar=run(["java","-cp",cp,"AgentDelegationAuthorityAlloyRunner",str(a.alloy)])
 (a.evidence_dir/"alloy.log").write_text(ar.stdout)
 if ar.returncode: raise RuntimeError("Alloy runner failed")
-rows0=rows(ar.stdout)
+arows=rows(ar.stdout)
 for k in ("CapabilitySetOrderReflexive","CapabilitySetOrderTransitive","CapabilitySetOrderAntisymmetricModuloEquivalence","CanonicalAggregate"):
- if rows0.get(k)!="UNSAT": raise RuntimeError("canonical Alloy result mismatch "+k+":"+repr(rows0.get(k)))
+ if arows.get(k)!="UNSAT": raise RuntimeError("canonical Alloy result mismatch "+k+":"+repr(arows.get(k)))
 for c in controls:
- if rows0.get(c["alloy_witness"]) is not None: raise RuntimeError("canonical witness label unexpectedly present as result: "+c["id"])
-receipt["alloy"]={"canonical":{k:rows0.get(k) for k in ("CapabilitySetOrderReflexive","CapabilitySetOrderTransitive","CapabilitySetOrderAntisymmetricModuloEquivalence","CanonicalAggregate")}}
+ label=c["alloy_assertion"]
+ if arows.get(label)!="SAT": raise RuntimeError("Alloy negative aggregate not SAT "+c["id"]+":"+repr(arows.get(label)))
+receipt["alloy"]={"canonical":{k:arows[k] for k in ("CapabilitySetOrderReflexive","CapabilitySetOrderTransitive","CapabilitySetOrderAntisymmetricModuloEquivalence","CanonicalAggregate")},"negatives":{c["id"]:"SAT" for c in controls}}
 receipt["result"]="ExecutedPass"
 (a.evidence_dir/"evidence-attestation-relational-capability-containment-formal-receipt-v1.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
 print(json.dumps(receipt,sort_keys=True))
