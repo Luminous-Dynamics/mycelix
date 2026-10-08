@@ -11,7 +11,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: d6u-trusted-verifier-candidate-${{ inputs.candidate_sha }}
+  group: d6u-trusted-verifier-candidate-${{ github.run_id }}
   cancel-in-progress: true
 
 jobs:
