@@ -477,6 +477,9 @@ pub fn resolve_machine_temporal_attestations(
         let Some(record) = get(hash, GetOptions::default())? else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
+        if record.validation_status != ValidationStatus::Valid {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
         let Some(attestation): Option<MachineTemporalAttestationEntry> = record
             .entry().to_app_option()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
