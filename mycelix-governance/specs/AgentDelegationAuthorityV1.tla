@@ -113,7 +113,7 @@ DelegationNonAmplification ==
 
 TransitiveDelegationBounded ==
   \A g \in activeGrants :
-    grantPower[g] \in RootPowers
+    \A a \in ancestor[g] : grantPower[g] = grantPower[a]
 
 RevocationPropagates ==
   \A g \in revokedGrants :
