@@ -17,7 +17,7 @@ BUNDLE_SCHEMA = "mycelix.continual-adaptation.censoring-classification-anchor-au
 CAMPAIGN_SCHEMA = "mycelix.continual-adaptation.censoring-classification-anchor-audit-bundle-campaign.v1"
 WREG_ID = "mycelix.research.anchor-witness-registry.v2"
 VDS_ID = "mycelix.research.anchor-statement-sequence.v1"
-EXPECTED_STACK_HEAD = "deb940fea8bb83ce2882a72459b2d9e3af7a9d52"
+EXPECTED_STACK_HEAD = "61c46f16d32ee4d0bc42ffae76743caf19a76dd1"
 EXPECTED_BUNDLE_ID = f"mycelix.audit-bundle.v1@{EXPECTED_STACK_HEAD}"
 
 def canonical(v):
@@ -52,8 +52,8 @@ def validate_bundle(bundle, repo_root: Path):
         (4870, "2af796188bd7981fac111178141ae82165c2fc4e"),
         (4873, "e3a175b905a041a17630b92356e123ccba0d9175"),
         (4874, "b55af8c135a858abfb0663a762e7fd510e9ea6d2"),
-        (4875, "4c34a77adacd533cbbcafc076846ccf09c9b0749"),
-        (4876, "267e43350f9311a5515762311ec37677b1f4b8da"),
+        (4875, "7648801649b30bde5233ac380924a539b0cdbf35"),
+        (4876, "1e352f442a4bc7bc537d0223cb39c5fe37944c56"),
         (4877, EXPECTED_STACK_HEAD),
     }
     if topo != expected_topo:
