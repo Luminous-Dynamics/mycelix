@@ -428,21 +428,17 @@ const MAX_SAP_RETRIES: usize = 3;
 /// risks double-application against a stale balance. Skip if < 60s elapsed.
 const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 
-/// Credit SAP to a member's balance (used by bridge deposits and community issuance).
-/// Auto-initializes the SapBalance entry if the member has none yet.
+/// Credit SAP to a member's balance only when an integrity-verifiable cause is supplied.
+/// A non-zero balance is never created through this path.
 ///
 /// Uses optimistic locking with retry: after updating, re-reads via
 /// `follow_update_chain` to verify our update won. If a concurrent update
 /// created a fork, retries up to `MAX_SAP_RETRIES` times.
 ///
-/// KNOWN HOLE (tracked, not yet closed): this is still a public extern that mints
-/// SAP into any DID. Unlike `debit_sap`, it can't be guarded with a caller==member
-/// check — legitimate credits target *other* members (payee in a transfer) AND the
-/// caller's own balance (bridge collateral deposit, pool withdrawal), so no single
-/// caller rule is correct. The proper fix is the transfer refactor: fold debit+credit
-/// into one conservation-preserving `transfer_sap`, make raw credit non-public, and
-/// route all issuance through authorized mints (`mint_sap_from_governance` already
-/// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
+/// Positive credits require an integrity-verifiable cause. Member-to-member
+/// transfers use the immediately preceding owner-authorized debit. Governance,
+/// bridge, and staking credits remain intentionally blocked until their cross-domain
+/// authorization proofs are implemented (AC-154).
 #[hdk_extern]
 pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
     // Opportunistically drain any pending compost deliveries
