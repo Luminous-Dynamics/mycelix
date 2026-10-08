@@ -724,7 +724,6 @@ impl ObserverLifecycleLedgerV1 {
         )
         .into_iter()
         .last()
-        .copied()
     }
 
     pub fn record_rotation(
@@ -1169,10 +1168,9 @@ pub fn lifecycle_transition_can_mint_authority_capacity_or_consent(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contestable_finality::{
-        ExternalEffectObservationV1, ExternalObservedStateV1,
-        ExternalObservationSourceV1,
-    };
+    use crate::contestable_finality::ExternalEffectObservationV1;
+    use crate::effect_finality::ExternalObservedStateV1;
+    use crate::contestable_finality::ExternalObservationSourceV1;
 
     fn profile() -> ObserverLifecycleProfileV1 {
         let allowed_roles = [
