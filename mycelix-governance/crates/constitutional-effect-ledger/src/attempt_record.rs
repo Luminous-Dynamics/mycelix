@@ -1883,6 +1883,15 @@ impl AtomicActionFenceModelV1 {
                     return Err("provider entry proof digest is empty".into());
                 }
             }
+            if attempt.state == AttemptRecordState::DispatchPending
+                && attempt.entry_admission_proof_digest.is_some()
+                && !self.provider_entry_claims.contains_key(&attempt.attempt_identity)
+            {
+                return Err(
+                    "DISPATCH_PENDING attempt with entry proof is missing its provider entry claim"
+                        .into(),
+                );
+            }
             let fence = self
                 .fences
                 .get(&claim.action_key_digest)
