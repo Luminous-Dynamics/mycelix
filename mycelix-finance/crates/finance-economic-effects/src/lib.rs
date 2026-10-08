@@ -649,7 +649,7 @@ mod tests {
     #[test]
     fn self_burn_requires_typed_burn_sink() {
         let mut effect = base_transfer();
-        effect.mutation_class = MutationClass::Burn;
+        effect.identity.mutation_class = MutationClass::Burn;
         effect.credits = vec![allocation("alice", AllocationRole::Account, 100)];
         assert_eq!(
             validate(&effect),
@@ -734,7 +734,7 @@ mod tests {
     #[test]
     fn mint_is_explicitly_typed_not_an_unbalanced_transfer() {
         let mut effect = base_transfer();
-        effect.mutation_class = MutationClass::Mint;
+        effect.identity.mutation_class = MutationClass::Mint;
         effect.debits.clear();
         effect.credits = vec![allocation("alice", AllocationRole::Account, 100)];
         assert!(validate(&effect).is_ok());
@@ -750,7 +750,7 @@ mod tests {
     #[test]
     fn demurrage_requires_full_typed_routing() {
         let mut effect = base_transfer();
-        effect.mutation_class = MutationClass::Demurrage;
+        effect.identity.mutation_class = MutationClass::Demurrage;
         effect.debits = vec![allocation("alice", AllocationRole::Account, 70)];
         effect.credits = vec![
             allocation("local", AllocationRole::Commons, 49),
@@ -904,6 +904,7 @@ mod tests {
             EconomicEffectObservation {
                 successor_action_reference: "succ-b".into(),
                 effect_identity: EconomicEffectIdentityV1 {
+                    economic_identity: "transfer-b".into(),
                     predecessor_action_reference: "prev-1".into(),
                     cause_action_reference: "cause-b".into(),
                     asset: "SAP".into(),
