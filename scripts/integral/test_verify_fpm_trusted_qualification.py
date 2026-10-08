@@ -410,6 +410,12 @@ def main() -> None:
             lambda x: x["artifacts"][0].__setitem__("expires_at", "2026-10-07T19:59:59Z"),
         )
 
+        expect_failure(
+            root, "artifacts.json", "artifact-size-mismatch",
+            lambda x: x["artifacts"][0].__setitem__(
+                "size_in_bytes", x["artifacts"][0]["size_in_bytes"] + 1
+            ),
+        )
         raw = (root / "qualification-receipt.json").read_bytes()
         duplicate = raw[:-1].replace(
             b',"subject_sha":"' + SUBJECT.encode() + b'"',
