@@ -156,7 +156,7 @@ def enumerate_artifacts(
 
 
 def enumerate_consistent_artifacts(
-    get_page: callable,
+    get_page: Callable[[int], tuple[int, list[dict[str, Any]]]],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     artifacts, metadata = enumerate_artifacts(get_page)
     second_artifacts, second_metadata = enumerate_artifacts(get_page)
