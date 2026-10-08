@@ -90,27 +90,123 @@ impl VerifiedTerminalOutcomeV1 {
     }
 }
 
-/// Implementations must not cross into the protected provider until the
-/// supplied attempt is in durable DISPATCH_PENDING.
+/// The provider receives only the frozen action context required by its
+/// downstream interface. Boundary custody, owner tokens, reconciliation tokens,
+/// and lifecycle state are intentionally not exposed to the adapter.
 pub trait ProviderAdapter {
     /// Provider entry is only exposed through a durable, single-winner permit.
-    /// Adapters should use the permit's derived provider idempotency key.
     fn invoke(&mut self, permit: &ProviderEntryPermitV1) -> Result<ProviderObservation, String>;
-    fn reconcile(&mut self, attempt: &AttemptRecordV1) -> Result<ProviderObservation, String>;
+    fn reconcile(&mut self, context: &ProviderActionContextV1) -> Result<ProviderObservation, String>;
+}
+
+/// Frozen action context exposed to the provider adapter.
+///
+/// This is deliberately smaller than AttemptRecordV1. It contains the material
+/// action/provider fields needed for invocation or reconciliation while excluding
+/// boundary-only custody state such as owner tokens, durable lifecycle state,
+/// reconciliation credentials, and terminal evidence state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderActionContextV1 {
+    action_digest: String,
+    action_key_digest: String,
+    operation_id: String,
+    native_replay_identity: String,
+    effecting_target_identity: String,
+    provider_reference_seed_digest: Option<String>,
+    provider_reference_descriptor_digest: Option<String>,
+    provider_environment: String,
+    provider_audience: String,
+    adapter_identity: String,
+    provider_idempotency_key: String,
+}
+
+impl ProviderActionContextV1 {
+    fn from_attempt(
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+    ) -> Result<Self, BoundaryError> {
+        attempt
+            .validate()
+            .map_err(BoundaryError::Semantic)?;
+        if attempt.action_key_digest != action_key.digest()
+            || attempt.action_digest != action_key.material_action_digest()
+            || attempt.effecting_target_identity != action_key.effecting_target_identity()
+        {
+            return Err(BoundaryError::Semantic(
+                "provider action context does not exactly bind the attempt to the action".into(),
+            ));
+        }
+
+        let provider_idempotency_key = derive_provider_idempotency_key(attempt, action_key);
+        Ok(Self {
+            action_digest: attempt.action_digest.clone(),
+            action_key_digest: attempt.action_key_digest.clone(),
+            operation_id: attempt.operation_id.clone(),
+            native_replay_identity: attempt.native_replay_identity.clone(),
+            effecting_target_identity: attempt.effecting_target_identity.clone(),
+            provider_reference_seed_digest: attempt.provider_reference_seed_digest.clone(),
+            provider_reference_descriptor_digest: attempt.provider_reference_descriptor_digest.clone(),
+            provider_environment: attempt.provider_environment.clone(),
+            provider_audience: attempt.provider_audience.clone(),
+            adapter_identity: attempt.adapter_identity.clone(),
+            provider_idempotency_key,
+        })
+    }
+
+    pub fn action_digest(&self) -> &str {
+        &self.action_digest
+    }
+
+    pub fn action_key_digest(&self) -> &str {
+        &self.action_key_digest
+    }
+
+    pub fn operation_id(&self) -> &str {
+        &self.operation_id
+    }
+
+    pub fn native_replay_identity(&self) -> &str {
+        &self.native_replay_identity
+    }
+
+    pub fn effecting_target_identity(&self) -> &str {
+        &self.effecting_target_identity
+    }
+
+    pub fn provider_reference_seed_digest(&self) -> Option<&str> {
+        self.provider_reference_seed_digest.as_deref()
+    }
+
+    pub fn provider_reference_descriptor_digest(&self) -> Option<&str> {
+        self.provider_reference_descriptor_digest.as_deref()
+    }
+
+    pub fn provider_environment(&self) -> &str {
+        &self.provider_environment
+    }
+
+    pub fn provider_audience(&self) -> &str {
+        &self.provider_audience
+    }
+
+    pub fn adapter_identity(&self) -> &str {
+        &self.adapter_identity
+    }
+
+    pub fn provider_idempotency_key(&self) -> &str {
+        &self.provider_idempotency_key
+    }
 }
 
 /// Final provider-entry capability.
 ///
 /// This object can only be constructed from a durably confirmed
-/// DISPATCH_PENDING attempt plus its single-winner provider-entry claim. It
-/// freezes the exact attempt metadata used for provider invocation and carries
-/// an idempotency key derived from native replay identity rather than the
-/// operation identifier.
+/// DISPATCH_PENDING attempt plus its single-winner provider-entry claim.
+/// Boundary-only custody state remains private to this type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProviderEntryPermitV1 {
-    attempt: AttemptRecordV1,
+    context: ProviderActionContextV1,
     claim: ProviderEntryClaimV1,
-    provider_idempotency_key: String,
 }
 
 impl ProviderEntryPermitV1 {
@@ -134,20 +230,16 @@ impl ProviderEntryPermitV1 {
             ));
         }
 
-        let provider_idempotency_key = derive_provider_idempotency_key(&attempt, action_key);
-        Ok(Self {
-            attempt,
-            claim,
-            provider_idempotency_key,
-        })
+        let context = ProviderActionContextV1::from_attempt(&attempt, action_key)?;
+        Ok(Self { context, claim })
     }
 
-    pub fn attempt(&self) -> &AttemptRecordV1 {
-        &self.attempt
+    pub fn context(&self) -> &ProviderActionContextV1 {
+        &self.context
     }
 
     pub fn provider_idempotency_key(&self) -> &str {
-        &self.provider_idempotency_key
+        self.context.provider_idempotency_key()
     }
 
     fn claim_token_digest(&self) -> &str {
@@ -703,7 +795,9 @@ impl EffectBoundaryHostV1 {
         }
 
         let indeterminate = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
-        let observation = match provider.reconcile(&indeterminate) {
+        let provider_context =
+            ProviderActionContextV1::from_attempt(&indeterminate, action_key)?;
+        let observation = match provider.reconcile(&provider_context) {
             Ok(value) => value,
             Err(error) => {
                 return Ok(BoundaryOutcome::IndeterminateHeld {
@@ -928,15 +1022,20 @@ mod tests {
 
     impl ProviderAdapter for FakeProvider {
         fn invoke(&mut self, permit: &ProviderEntryPermitV1) -> Result<ProviderObservation, String> {
-            self.invoked_states.lock().unwrap().push(permit.attempt().state);
             assert!(permit
                 .provider_idempotency_key()
                 .starts_with("constitutional-provider-idempotency-v1:"));
+            assert!(!permit.context().operation_id().is_empty());
+            self.invoked_states
+                .lock()
+                .unwrap()
+                .push(AttemptRecordState::DispatchPending);
             Ok(self.invocation.clone())
         }
 
-        fn reconcile(&mut self, attempt: &AttemptRecordV1) -> Result<ProviderObservation, String> {
-            assert_eq!(attempt.state, AttemptRecordState::Indeterminate);
+        fn reconcile(&mut self, context: &ProviderActionContextV1) -> Result<ProviderObservation, String> {
+            assert!(!context.operation_id().is_empty());
+            assert!(!context.native_replay_identity().is_empty());
             Ok(self.reconciliation.clone())
         }
     }
@@ -1362,7 +1461,7 @@ mod tests {
             }
             fn reconcile(
                 &mut self,
-                _attempt: &AttemptRecordV1,
+                _context: &ProviderActionContextV1,
             ) -> Result<ProviderObservation, String> {
                 panic!("active claim must block reconciliation before provider access");
             }
