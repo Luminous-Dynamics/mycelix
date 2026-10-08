@@ -601,6 +601,81 @@ A failed target validation is immutable evidence against the corresponding trans
 Do not create a universal generalization or transportability scalar.
 
 
+## Intervention-semantic consistency
+
+A source and target regime must not silently treat the same nominal UPDATE label as the same intervention.
+
+Bind, as applicable:
+
+- intervention/update identity;
+- exact action semantics;
+- target surface;
+- timing and duration;
+- dose/bounds;
+- preconditions;
+- execution/runtime/actuation mapping;
+- fallback/rejection behavior;
+- resource budget;
+- realized-versus-requested action.
+
+Distinguish:
+
+    SameInterventionVersion
+    BoundedSemanticVariant
+    MaterialInterventionVariant
+    TranslationRequired
+    InterventionUnresolved
+
+A requested action and the realized action are separate evidence objects.
+
+Direct transport is permitted only when intervention identity is compatible under the declared profile. Otherwise use an explicit intervention-translation hypothesis followed by target validation.
+
+This boundary is required because treatment-version consistency is a foundational transport assumption; distinct versions of an exposure can represent different causal interventions. citeturn617824search4turn617824search5
+
+## Measurement invariance
+
+Source/target comparison also requires measurement compatibility.
+
+Bind, as applicable:
+
+- observable/construct identity;
+- sensor/instrument identity;
+- calibration profile;
+- sampling timing/frequency;
+- preprocessing/filtering;
+- aggregation;
+- unit/scale transformation;
+- missingness/censoring semantics;
+- reference/ground-truth source;
+- measurement uncertainty;
+- operator/manual scoring rules;
+- threshold/tolerance semantics.
+
+Distinguish:
+
+    MeasurementInvariant
+    BoundedMeasurementVariant
+    CalibrationTranslationRequired
+    MeasurementShifted
+    MeasurementUnresolved
+
+Do not infer comparability from metric name, unit, or score range alone.
+
+When measurements differ, use:
+
+    source measurement
+        ->
+    declared measurement mapping
+        ->
+    target measurement
+        ->
+    mapping validation
+
+A mapping that predicts well does not automatically establish that causal-effect comparisons remain valid.
+
+Transportability literature explicitly identifies differences in implementation and outcome measurement as sources of external-validity problems. citeturn617824search2turn617824search7
+
+
 ## Freshness and target-regime drift
 
 Transport evidence is historical evidence about the exact validated subject, target regime, evaluator, observation process, and applicability profile.
@@ -710,6 +785,8 @@ Mycelix:
 - #4577 — source-to-target transportability and target-regime validation;
 - #4570 — action-dependent observation and policy-induced distribution shift.
 - #4579 — freshness and target-regime drift after transport validation;
+- #4598 — intervention-semantic consistency across regimes;
+- #4599 — measurement invariance across regimes;
 
 Symthaea:
 
@@ -722,6 +799,7 @@ Symthaea:
 - #7030 — adaptive cognition evaluation with evaluator-state and observation-shift integrity.
 - #7041 — target-regime transport of continual-adaptation evidence;
 - #7043 — freshness of transported adaptation evidence under regime drift;
+- #7056 — intervention-version and measurement invariance for transported adaptation evidence;
 
 ## Claim ceiling
 
