@@ -39,9 +39,21 @@ struct RoutingStepProjection {
     #[serde(default)]
     sequence: u32,
     #[serde(default)]
+    process_recipe_hash: Option<ActionHash>,
+    #[serde(default)]
     capability_requirement_hash: Option<ActionHash>,
     #[serde(default)]
     required_inspection_criterion_hashes: Vec<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct ProcessRecipeProjection {
+    schema_id: String,
+    recipe_id: String,
+    revision: String,
+    process_family: String,
+    payload_hash: String,
+    parameter_schema: String,
 }
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
@@ -208,9 +220,12 @@ pub struct CalibrationEntry {
 #[derive(Clone, PartialEq)]
 pub struct ExecutionReceiptEntry {
     pub execution_id: String,
-    /// Optional during migration; accepted executions require an attributed qualification attestation.
+    /// Optional during migration; accepted executions require an exact routing-owned recipe.
     #[serde(default)]
     pub qualification_attestation_hash: Option<ActionHash>,
+    /// Exact process recipe selected by the routing step.
+    #[serde(default)]
+    pub process_recipe_hash: Option<ActionHash>,
     pub work_order_hash: ActionHash,
     pub bom_hash: Option<ActionHash>,
     pub routing_hash: Option<ActionHash>,
@@ -262,6 +277,7 @@ pub enum LinkTypes {
     MeasurementToInspectionCriterion,
     ExecutionToCalibrations,
     ExecutionToQualificationAttestation,
+    ExecutionToProcessRecipe,
 }
 
 #[hdk_extern]
@@ -356,6 +372,30 @@ fn capability_profile_from_contract(
         supported_protocols: contract.supported_protocols.clone(),
         qualification: contract.qualification.clone(),
     }
+}
+
+fn bind_execution_to_routing_process_recipe(
+    execution: &ExecutionReceiptEntry,
+    routing_step_recipe_hash: Option<&ActionHash>,
+) -> Result<(), &'static str> {
+    if matches!(execution.disposition, Disposition::Accepted) {
+        let Some(route_hash) = routing_step_recipe_hash else {
+            return Err("accepted execution requires a process recipe on the routing step");
+        };
+        let Some(execution_hash) = execution.process_recipe_hash.as_ref() else {
+            return Err("accepted execution requires an exact process recipe reference");
+        };
+        if execution_hash != route_hash {
+            return Err("execution process recipe does not match the routing-owned process recipe");
+        }
+    } else if let (Some(execution_hash), Some(route_hash)) =
+        (execution.process_recipe_hash.as_ref(), routing_step_recipe_hash)
+    {
+        if execution_hash != route_hash {
+            return Err("execution process recipe does not match the routing-owned process recipe");
+        }
+    }
+    Ok(())
 }
 
 fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
@@ -666,10 +706,10 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 ));
             }
             if matches!(e.disposition, Disposition::Accepted)
-                && e.process_parameters_hash.is_none()
+                && e.process_recipe_hash.is_none()
             {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "accepted execution requires a process-parameter hash".into(),
+                    "accepted execution requires an exact process recipe reference".into(),
                 ));
             }
             if matches!(e.disposition, Disposition::Accepted)
@@ -783,6 +823,52 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                         "execution operation sequence is not present in the bound routing revision".into(),
                     ));
                 };
+
+                if let Err(message) =
+                    bind_execution_to_routing_process_recipe(
+                        e,
+                        step.process_recipe_hash.as_ref(),
+                    )
+                {
+                    return Ok(ValidateCallbackResult::Invalid(message.into()));
+                }
+
+                if let Some(recipe_hash) = e.process_recipe_hash.clone() {
+                    let recipe_record = must_get_valid_record(recipe_hash.clone())?;
+                    let recipe: ProcessRecipeProjection = recipe_record
+                        .entry()
+                        .to_app_option()
+                        .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "execution process recipe record has no entry".into(),
+                        )))?;
+                    if recipe.schema_id != "mycelix-manufacturing-process-recipe-v1"
+                        || recipe.recipe_id.is_empty()
+                        || recipe.revision.is_empty()
+                        || recipe.process_family.is_empty()
+                        || recipe.payload_hash.is_empty()
+                        || recipe.parameter_schema.is_empty()
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "execution process recipe reference is malformed".into(),
+                        ));
+                    }
+
+                    if let Some(contract_hash) = e.capability_contract_hash.clone() {
+                        let contract_record = must_get_valid_record(contract_hash)?;
+                        let contract: Option<CapabilityContractEntry> = contract_record
+                            .entry()
+                            .to_app_option()
+                            .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                        if let Some(contract) = contract {
+                            if contract.process_family != recipe.process_family {
+                                return Ok(ValidateCallbackResult::Invalid(
+                                    "execution process recipe family does not match capability contract family".into(),
+                                ));
+                            }
+                        }
+                    }
+                }
 
                 if matches!(e.disposition, Disposition::Accepted) {
                     if !required_inspection_criteria_are_unique(
@@ -1044,6 +1130,38 @@ mod tests {
     }
 
     #[test]
+    fn accepts_exact_routing_process_recipe_binding() {
+        let recipe = ActionHash::from_raw_36(vec![1; 36]);
+        let execution = ExecutionReceiptEntry {
+            execution_id: "EXEC-RECIPE".into(),
+            qualification_attestation_hash: None,
+            process_recipe_hash: Some(recipe.clone()),
+            work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
+            bom_hash: None,
+            routing_hash: None,
+            operation_sequence: 10,
+            machine_hash: ActionHash::from_raw_36(vec![3; 36]),
+            capability_contract_hash: None,
+            process_parameters_hash: None,
+            input_lot_hashes: vec![ActionHash::from_raw_36(vec![4; 36])],
+            output_lot_hashes: vec![ActionHash::from_raw_36(vec![5; 36])],
+            measurement_hashes: vec![],
+            calibration_hashes: vec![],
+            started_at: Timestamp::from_micros(0),
+            completed_at: Timestamp::from_micros(1),
+            disposition: Disposition::Accepted,
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![6; 36])],
+            notes: None,
+        };
+        assert!(bind_execution_to_routing_process_recipe(&execution, Some(&recipe)).is_ok());
+        assert!(bind_execution_to_routing_process_recipe(
+            &execution,
+            Some(&ActionHash::from_raw_36(vec![2; 36]))
+        )
+        .is_err());
+    }
+
+    #[test]
     fn rejects_capability_contract_that_fails_routing_requirement() {
         let requirement = CapabilityRequirement {
             process_family: "milling".into(),
@@ -1081,6 +1199,7 @@ mod tests {
         let execution = ExecutionReceiptEntry {
             execution_id: "EXEC-1".into(),
             qualification_attestation_hash: None,
+            process_recipe_hash: None,
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
             routing_hash: Some(ActionHash::from_raw_36(vec![2; 36])),
@@ -1114,6 +1233,7 @@ mod tests {
         let execution = ExecutionReceiptEntry {
             execution_id: "EXEC-2".into(),
             qualification_attestation_hash: None,
+            process_recipe_hash: None,
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: None,
             routing_hash: None,
@@ -1144,6 +1264,7 @@ mod tests {
         let execution = ExecutionReceiptEntry {
             execution_id: "EXEC-3".into(),
             qualification_attestation_hash: None,
+            process_recipe_hash: None,
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
             routing_hash: Some(ActionHash::from_raw_36(vec![2; 36])),
@@ -1325,6 +1446,7 @@ mod tests {
         let entry = ExecutionReceiptEntry {
             execution_id: "EXEC-TEST".into(),
             qualification_attestation_hash: None,
+            process_recipe_hash: None,
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: None,
             routing_hash: None,
@@ -1351,6 +1473,7 @@ mod tests {
         let entry = ExecutionReceiptEntry {
             execution_id: "EXEC-TEST-2".into(),
             qualification_attestation_hash: None,
+            process_recipe_hash: None,
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: None,
             routing_hash: None,
