@@ -33,7 +33,11 @@ sig ProviderFailure {
 fun grantDerivedAuthority[gs: set Grant]: Agent -> Power {
   { a: Agent, p: Power |
     a.root = Off and
-    some g: gs | g.grantee = a and g.power = p
+    some g: gs |
+      g.grantee = a and
+      g.power = p and
+      g.active = On and
+      g.revoked = Off
   }
 }
 
@@ -133,6 +137,9 @@ pred EvidenceGrantBackedAuthorityDeltaWitness {
   some e: Evidence, g: Grant |
     e.recorded = On and
     g in e.grantsAfter and g not in e.grantsBefore and
+    g.active = On and
+    g.revoked = Off and
+    g.power in g.issuer.authority and
     e.grantsBefore != e.grantsAfter and
     e.authorityBefore = grantDerivedAuthority[e.grantsBefore] and
     e.authorityAfter = grantDerivedAuthority[e.grantsAfter] and
