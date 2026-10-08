@@ -345,8 +345,10 @@ jobs:
           predicate_validation = scanned[predicate_validation_start:predicate_validation_end]
           assert "          import re" in predicate_validation
           assert "expected_receipt_keys" in scanned
-          assert "claim_id_domain = b\"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\\\x00\"" in scanned
+          assert "claim_id_domain = b\"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\"" in scanned
           assert "qualification_claim_id" in scanned
+          assert "claim_id_separator = bytes([0])" in scanned
+          assert "bytes([0])" in scanned
           assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4" in scanned
           assert "expected_claim_id = hashlib.sha256" in scanned
           assert "TRUST_ROOT_MANIFEST_SHA256" in scanned
@@ -965,21 +967,22 @@ jobs:
           predicate_type = os.environ["PREDICATE_TYPE"]
           publication_profile = "COS-TERMINAL-ATTESTATION-V1"
           claim_ceiling = manifest["claim_ceiling"]
-          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
           qualification_claim_id = hashlib.sha256(
               claim_id_domain
+              + bytes([0])
               + repository_id.encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + predicate_schema.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + predicate_type.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + publication_profile.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + claim_ceiling.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + manifest_sha.encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + trust_root_sha.encode("ascii")
           ).hexdigest()
           predicate = {
@@ -1119,21 +1122,22 @@ jobs:
           predicate_type = os.environ["PREDICATE_TYPE"]
           publication_profile = predicate["publication"]["profile"]
           claim_ceiling = predicate["claim_ceiling"]
-          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+          claim_id_domain = b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
           expected_claim_id = hashlib.sha256(
               claim_id_domain
+              + bytes([0])
               + repository_id.encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + predicate_schema.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + predicate_type.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + publication_profile.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + claim_ceiling.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + manifest_sha.encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + trust_root_sha.encode("ascii")
           ).hexdigest()
           expected_predicate_keys = {
@@ -1616,19 +1620,20 @@ jobs:
                   "base_sha": os.environ["EXPECTED_BASE_SHA"],
               },
               "qualification_claim_id": hashlib.sha256(
-                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
+                  + bytes([0])
                   + os.environ["REPOSITORY_ID"].encode("ascii")
-                  + b"\\x00"
+                  + bytes([0])
                   + b"MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3"
-                  + b"\\x00"
+                  + bytes([0])
                   + os.environ["PREDICATE_TYPE"].encode("utf-8")
-                  + b"\\x00"
+                  + bytes([0])
                   + b"COS-TERMINAL-ATTESTATION-V1"
-                  + b"\\x00"
+                  + bytes([0])
                   + b"ReferenceModelOnly"
-                  + b"\\x00"
+                  + bytes([0])
                   + os.environ["MANIFEST_SHA256"].encode("ascii")
-                  + b"\\x00"
+                  + bytes([0])
                   + os.environ["TRUST_ROOT_MANIFEST_SHA256"].encode("ascii")
               ).hexdigest(),
               "publication": {
@@ -1694,6 +1699,8 @@ jobs:
           def validate_receipt(receipt):
               sha40 = re.compile(r"^[0-9a-f]{40}$")
               sha64 = re.compile(r"^[0-9a-f]{64}$")
+              claim_id_separator = bytes([0])
+              assert len(claim_id_separator) == 1 and claim_id_separator[0] == 0
               expected_receipt_keys = {
                   "schema", "predicate_type", "repository", "repository_id", "attestor",                  "trust_root", "verifier_run", "qualification_topology",
                   "qualification_claim_id",
@@ -1711,19 +1718,20 @@ jobs:
               assert receipt["publication"]["state"] == "preconditions_satisfied_terminal_side_effect"
               assert re.fullmatch(r"[0-9a-f]{64}", receipt["qualification_claim_id"])
               expected_claim_id = hashlib.sha256(
-                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+                  b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
+                  + bytes([0])
                   + os.environ["REPOSITORY_ID"].encode("ascii")
-                  + b"\\x00"
+                  + bytes([0])
                   + b"MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3"
-                  + b"\\x00"
+                  + bytes([0])
                   + os.environ["PREDICATE_TYPE"].encode("utf-8")
-                  + b"\\x00"
+                  + bytes([0])
                   + receipt["publication"]["profile"].encode("utf-8")
-                  + b"\\x00"
+                  + bytes([0])
                   + b"ReferenceModelOnly"
-                  + b"\\x00"
+                  + bytes([0])
                   + os.environ["MANIFEST_SHA256"].encode("ascii")
-                  + b"\\x00"
+                  + bytes([0])
                   + os.environ["TRUST_ROOT_MANIFEST_SHA256"].encode("ascii")
               ).hexdigest()
               assert receipt["qualification_claim_id"] == expected_claim_id
@@ -1790,76 +1798,82 @@ jobs:
 
           changed_manifest = "0" * 64
           changed_claim_id = hashlib.sha256(
-              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
+              + bytes([0])
               + changed_manifest.encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + receipt["trust_root"]["manifest_sha256"].encode("ascii")
           ).hexdigest()
           assert changed_claim_id != receipt["qualification_claim_id"]
 
           changed_predicate_schema = "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V4"
           changed_schema_claim_id = hashlib.sha256(
-              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
+              + bytes([0])
               + receipt["repository_id"].__str__().encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + changed_predicate_schema.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + os.environ["PREDICATE_TYPE"].encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + receipt["publication"]["profile"].encode("utf-8")
-              + b"\\x00ReferenceModelOnly\\x00"
+              + bytes([0]) + b"ReferenceModelOnly" + bytes([0])
               + receipt["qualification_manifest_sha256"].encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + receipt["trust_root"]["manifest_sha256"].encode("ascii")
           ).hexdigest()
           assert changed_schema_claim_id != receipt["qualification_claim_id"]
 
           changed_profile = "COS-ANOTHER-PUBLICATION-PROFILE-V1"
           changed_profile_claim_id = hashlib.sha256(
-              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
+              + bytes([0])
               + receipt["repository_id"].__str__().encode("ascii")
-              + b"\\x00MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3\\x00"
+              + bytes([0]) + b"MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3" + bytes([0])
               + os.environ["PREDICATE_TYPE"].encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + changed_profile.encode("utf-8")
-              + b"\\x00ReferenceModelOnly\\x00"
+              + bytes([0]) + b"ReferenceModelOnly" + bytes([0])
               + receipt["qualification_manifest_sha256"].encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + receipt["trust_root"]["manifest_sha256"].encode("ascii")
           ).hexdigest()
           assert changed_profile_claim_id != receipt["qualification_claim_id"]
 
           changed_ceiling = "SomeOtherCeiling"
           changed_ceiling_claim_id = hashlib.sha256(
-              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
+              + bytes([0])
               + receipt["repository_id"].__str__().encode("ascii")
-              + b"\\x00MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3\\x00"
+              + bytes([0]) + b"MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3" + bytes([0])
               + os.environ["PREDICATE_TYPE"].encode("utf-8")
-              + b"\\x00COS-TERMINAL-ATTESTATION-V1\\x00"
+              + bytes([0]) + b"COS-TERMINAL-ATTESTATION-V1" + bytes([0])
               + changed_ceiling.encode("utf-8")
-              + b"\\x00"
+              + bytes([0])
               + receipt["qualification_manifest_sha256"].encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + receipt["trust_root"]["manifest_sha256"].encode("ascii")
           ).hexdigest()
           assert changed_ceiling_claim_id != receipt["qualification_claim_id"]
 
           changed_repository = str(int(receipt["repository_id"]) + 1)
           changed_repository_claim_id = hashlib.sha256(
-              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
+              + bytes([0])
               + changed_repository.encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + receipt["qualification_manifest_sha256"].encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + receipt["trust_root"]["manifest_sha256"].encode("ascii")
           ).hexdigest()
           assert changed_repository_claim_id != receipt["qualification_claim_id"]
 
           changed_root = "f" * 64
           changed_root_claim_id = hashlib.sha256(
-              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4\\x00"
+              b"MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4"
+              + bytes([0])
               + receipt["qualification_manifest_sha256"].encode("ascii")
-              + b"\\x00"
+              + bytes([0])
               + changed_root.encode("ascii")
           ).hexdigest()
           assert changed_root_claim_id != receipt["qualification_claim_id"]
