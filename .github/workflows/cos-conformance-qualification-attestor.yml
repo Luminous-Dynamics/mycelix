@@ -294,6 +294,8 @@ jobs:
           assert not re.search(r"(?m)^      artifact-metadata:\s*write\s*$", scanned)
           assert "continue-on-error:" not in scanned
           assert "json.load(" not in scanned
+          assert "publication_disposition" in scanned
+          assert "Finalized" in scanned
           assert "manifest = json.loads(manifest_path.read_text())" not in scanned
           assert "verification = json.loads(Path(" not in scanned
           assert "data = json.loads(Path(" not in scanned
@@ -1359,6 +1361,7 @@ jobs:
 
           receipt = {
               "schema": "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1",
+              "publication_disposition": "Finalized",
               "predicate_type": os.environ["PREDICATE_TYPE"],
               "repository": os.environ["GITHUB_REPOSITORY"],
               "attestor": {
@@ -1396,9 +1399,26 @@ jobs:
           bundle_path = Path("attestor-evidence/qualification-attestation-bundle.json")
           import hashlib
           receipt["attestation"]["bundle_sha256"] = hashlib.sha256(bundle_path.read_bytes()).hexdigest()
-          Path("attestor-evidence/attestor-run-receipt.json").write_text(
-              json.dumps(receipt, indent=2, sort_keys=True) + "\n"
+          receipt_path = Path("attestor-evidence/attestor-run-receipt.json")
+          receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+
+          saved = json.loads(
+              receipt_path.read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
           )
+          assert set(saved) == {
+              "schema", "publication_disposition", "predicate_type", "repository",
+              "attestor", "trust_root", "verifier_run", "qualification_topology",
+              "qualification_manifest_sha256", "predicate_sha256", "signing_input_artifact",
+              "attestation",
+          }
+          assert saved["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1"
+          assert saved["publication_disposition"] == "Finalized"
+          assert saved["trust_root"]["status"] == "candidate_not_authoritative_until_protected_adoption"
+          assert saved["attestation"]["id"] > 0
+          assert saved["attestation"]["url"]
+          assert len(saved["attestation"]["bundle_sha256"]) == 64
           PY
           (
             cd attestor-evidence
