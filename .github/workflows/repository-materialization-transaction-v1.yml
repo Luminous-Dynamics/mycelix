@@ -1,0 +1,157 @@
+name: Repository Materialization Transaction V1 Qualification
+
+on:
+  push:
+    branches:
+      - feat/repository-materialization-transaction-v1
+    paths:
+      - 'crates/mycelix-repository-materialization-core/**'
+      - '.github/workflows/repository-materialization-transaction-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PARENT: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  MANIFEST: 'crates/mycelix-repository-materialization-core/Cargo.toml'
+  CRATE_DIR: 'crates/mycelix-repository-materialization-core'
+
+concurrency:
+  group: repository-materialization-transaction-v1
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact protocol subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove one-commit four-file protocol subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          test "${#changed[@]}" -eq 4
+          expected=(
+            '.github/workflows/repository-materialization-transaction-v1.yml'
+            'crates/mycelix-repository-materialization-core/Cargo.toml'
+            'crates/mycelix-repository-materialization-core/README.md'
+            'crates/mycelix-repository-materialization-core/src/lib.rs'
+          )
+          for index in 0 1 2 3; do
+            test "${changed[$index]}" = "${expected[$index]}"
+          done
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Prove zero-dependency lock derivation
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: /tmp/repository-materialization-target
+        run: |
+          set -euo pipefail
+          rustc --version | grep -F 'rustc 1.96.0'
+          cargo generate-lockfile --manifest-path "$MANIFEST" --offline
+          lock="$CRATE_DIR/Cargo.lock"
+          test -f "$lock"
+          test "$(grep -c '^\[\[package\]\]' "$lock")" -eq 1
+          grep -Fx 'name = "mycelix-repository-materialization-core"' "$lock"
+          grep -Fx 'version = "0.1.0"' "$lock"
+
+      - name: Execute exact protocol gates
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: /tmp/repository-materialization-target
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$MANIFEST" -- --check
+          cargo test --manifest-path "$MANIFEST" --all-targets --locked --offline
+          cargo clippy --manifest-path "$MANIFEST" --all-targets --locked --offline -- -D warnings
+
+      - name: Independently verify frozen semantic-publication vector
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+
+          def frame(value: bytes) -> bytes:
+              return len(value).to_bytes(4, 'big') + value
+
+          def oid(tag: int, digest: bytes) -> bytes:
+              return bytes([tag, len(digest)]) + digest
+
+          preimage = b''.join([
+              b'mycelix/repository-materialization/semantic-publication/v1\x00',
+              (1).to_bytes(2, 'big'),
+              frame(b'Luminous-Dynamics/mycelix'),
+              frame(b'refs/heads/fix/example'),
+              oid(1, bytes([0x11]) * 20),
+              frame(b'lock-only'),
+              bytes([0x22]) * 32,
+              (1).to_bytes(4, 'big'),
+              frame(b'Cargo.lock'),
+              b'\x01',
+              (0o100644).to_bytes(4, 'big'),
+              oid(1, bytes([0x33]) * 20),
+              bytes([0x44]) * 32,
+          ])
+
+          expected_preimage = (
+              '6d7963656c69782f7265706f7369746f72792d6d6174657269616c697a6174696f6e2f73656d'
+              '616e7469632d7075626c69636174696f6e2f7631000001000000194c756d696e6f75732d4479'
+              '6e616d6963732f6d7963656c697800000016726566732f68656164732f6669782f6578616d70'
+              '6c6501141111111111111111111111111111111111111111000000096c6f636b2d6f6e6c7922'
+              '2222222222222222222222222222222222222222222222222222222222222200000001000000'
+              '0a436172676f2e6c6f636b01000081a401143333333333333333333333333333333333333333'
+              '4444444444444444444444444444444444444444444444444444444444444444'
+          )
+          expected_sha256 = 'fbcd1412678368c9e561bedeb0b7ce0d49bae7542e44db20d933429b70308267'
+          assert len(preimage) == 260
+          assert preimage.hex() == expected_preimage
+          assert hashlib.sha256(preimage).hexdigest() == expected_sha256
+          print('independent_semantic_publication_vector=PASS')
+          print(f'semantic_publication_sha256={expected_sha256}')
+          PY
+
+      - name: Enforce pure non-authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source="$CRATE_DIR/src/lib.rs"
+          grep -Fq 'push_error != DefinitelyNotPublished' "$CRATE_DIR/README.md"
+          grep -Fq 'content_sha256' "$source"
+          grep -Fq 'UnknownAfterAttempt' "$source"
+          grep -Fq 'IndeterminatePublication' "$source"
+          grep -Fq 'PublishedRecoveredEquivalent' "$source"
+          grep -Fq 'CandidateUnavailable' "$source"
+          if grep -Eq 'std::process|std::fs|std::net|Command::|git2|reqwest|hyper|octocrab' "$source"; then
+            echo 'Pure protocol crossed into process/filesystem/network/repository authority.' >&2
+            exit 1
+          fi
+
+      - name: Postflight immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "$CRATE_DIR/Cargo.lock"
+          test -z "$(git status --porcelain=v1)"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          echo 'repository_materialization_transaction_v1=PASS'
+          echo 'claim=pure canonical semantic publication preimage plus independently content-bound typed observation/recovery resolver'
+          echo 'nonclaim=artifact derivation honesty, repository authorization, GitHub correctness, publisher qualification, product semantics, release readiness'
