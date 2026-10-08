@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Dependency-free reference verifier for the continual-adaptation ledger fixtures.
+"""Dependency-free, policy-driven reference verifier for the ledger fixtures.
 
 Research fixture only. This is not a production trust root.
-The fixture corpus intentionally restricts scalar data to I-JSON-safe strings,
-booleans, arrays, and objects; extend JCS number handling before adding numeric cases.
+The declared policy and corpus use an RFC 8785-compatible restricted subset
+with numeric scalars excluded until full JCS number handling is implemented.
 """
-
 from __future__ import annotations
 
 import copy
@@ -13,21 +12,6 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-
-REQUIRED_EDGES = {
-    ("result", "claim", "qualifies"),
-    ("result", "evaluator", "generated_by"),
-    ("evaluator", "reference", "uses"),
-    ("evaluator", "attempts", "uses"),
-    ("attempts", "campaign", "derived_from"),
-    ("campaign", "subject", "applies_to"),
-    ("campaign", "intervention", "uses"),
-    ("campaign", "observation", "uses"),
-    ("campaign", "measurement", "uses"),
-    ("claim", "transport", "requires"),
-    ("claim", "freshness", "requires"),
-    ("claim", "subject", "applies_to"),
-}
 
 
 def contains_number(value: object) -> bool:
@@ -54,8 +38,14 @@ def graph_digest(graph: dict) -> str:
     return "sha256:" + hashlib.sha256(canonical(graph)).hexdigest()
 
 
-def node_map(graph: dict) -> dict[str, dict]:
-    return {node["id"]: node for node in graph["nodes"]}
+def node_index(graph: dict) -> dict[str, dict] | None:
+    index: dict[str, dict] = {}
+    for node in graph["nodes"]:
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or node_id in index:
+            return None
+        index[node_id] = node
+    return index
 
 
 def edge_set(graph: dict) -> set[tuple[str, str, str]]:
@@ -66,7 +56,9 @@ def apply_mutations(base: dict, mutations: list[list[object]]) -> dict:
     graph = copy.deepcopy(base)
     for operation in mutations:
         kind = operation[0]
-        nodes = node_map(graph)
+        nodes = node_index(graph)
+        if nodes is None:
+            raise ValueError("invalid or duplicate node id")
 
         if kind == "set":
             _, node_id, field, value = operation
@@ -74,7 +66,8 @@ def apply_mutations(base: dict, mutations: list[list[object]]) -> dict:
                 raise ValueError(f"unknown node: {node_id}")
             nodes[node_id][field] = value
         elif kind == "remove_edge":
-            graph["edges"].remove(operation[1])
+            target = operation[1]
+            graph["edges"].remove(target)
         elif kind == "add_node":
             node = operation[1]
             if node["id"] in nodes:
@@ -88,86 +81,89 @@ def apply_mutations(base: dict, mutations: list[list[object]]) -> dict:
     return graph
 
 
-def verify(graph: dict) -> str:
-    nodes = node_map(graph)
+def verify(graph: dict, policy: dict) -> str:
+    nodes = node_index(graph)
+    if nodes is None:
+        return "unresolved"
     edges = edge_set(graph)
-    required_ids = {
-        "claim",
-        "subject",
-        "campaign",
-        "attempts",
-        "evaluator",
-        "reference",
-        "intervention",
-        "observation",
-        "measurement",
-        "result",
-        "transport",
-        "freshness",
-    }
 
-    if not required_ids <= set(nodes):
-        return "unresolved"
+    required_ids = set()
+    for spec in policy["required_nodes"]:
+        node_id = spec["id"]
+        required_ids.add(node_id)
+        if node_id not in nodes or nodes[node_id].get("type") != spec["type"]:
+            return "unresolved"
 
-    if not REQUIRED_EDGES <= edges:
-        return "unresolved"
+    for edge in policy["required_edges"]:
+        edge_tuple = tuple(edge)
+        if edge_tuple not in edges:
+            return "unresolved"
+        if edge_tuple[0] not in nodes or edge_tuple[1] not in nodes:
+            return "unresolved"
 
-    claim = nodes["claim"]
-    subject = nodes["subject"]
-    evaluator = nodes["evaluator"]
-    intervention = nodes["intervention"]
-    measurement = nodes["measurement"]
-    transport = nodes["transport"]
+    for constraint in policy["equality_constraints"]:
+        left_node, left_field = constraint["left"]
+        right_node, right_field = constraint["right"]
+        if nodes[left_node].get(left_field) != nodes[right_node].get(right_field):
+            return constraint["failure_verdict"]
 
-    if claim.get("subject") != subject.get("commitment"):
-        return "unqualified"
-    if claim.get("target") != transport.get("target"):
-        return "unqualified"
-    if evaluator.get("commitment") != "E1":
-        return "unqualified"
-    if evaluator.get("state") != "fresh":
-        return "unqualified"
-    if intervention.get("semantic_id") != "U1":
-        return "unqualified"
-    if measurement.get("semantic_id") != "M1":
-        return "unqualified"
+    for rule in policy["fixed_fields"]:
+        node = nodes[rule["node"]]
+        if node.get(rule["field"]) != rule["value"]:
+            return rule["failure_verdict"]
 
+    conflict = policy["result_conflict"]
     qualifying_results = [
-        node
-        for node in graph["nodes"]
-        if node.get("type") == "Result"
-        and (node["id"] == "result" or (node["id"], "claim", "qualifies") in edges)
+        node for node in graph["nodes"]
+        if node.get("type") == conflict["node_type"]
+        and (
+            node.get("id") == "result"
+            or (
+                node.get("id"),
+                conflict["qualifies_edge_to"],
+                "qualifies",
+            ) in edges
+        )
     ]
-    if len(qualifying_results) > 1:
-        return "unresolved"
+    if len(qualifying_results) > conflict["max_qualifying_results"]:
+        return conflict["overflow_verdict"]
 
-    derived_copies = [
-        node
-        for node in graph["nodes"]
-        if node.get("type") == "Result" and node.get("derived_from") == "result"
-    ]
-    if derived_copies:
-        return "qualified-with-dependence"
+    dependence = policy["derived_dependence"]
+    for node in graph["nodes"]:
+        if (
+            node.get("type") == dependence["node_type"]
+            and node.get(dependence["derived_from_field"]) == dependence["source_node"]
+        ):
+            return dependence["verdict"]
 
     return "qualified"
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: verify_continual_adaptation_ledger.py CORPUS.json", file=sys.stderr)
+    if len(sys.argv) != 3:
+        print(
+            "usage: verify_continual_adaptation_ledger.py POLICY.json CORPUS.json",
+            file=sys.stderr,
+        )
         return 2
 
-    corpus = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    policy = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    corpus = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
     failures: list[tuple[str, str, str, str]] = []
 
     for case in corpus["cases"]:
         graph = apply_mutations(corpus["base_graph"], case["mutation"])
         actual_digest = graph_digest(graph)
-        actual_verdict = verify(graph)
+        actual_verdict = verify(graph, policy)
 
         if actual_digest != case["expected_graph_digest_sha256"]:
             failures.append(
-                (case["case_id"], "digest", case["expected_graph_digest_sha256"], actual_digest)
+                (
+                    case["case_id"],
+                    "digest",
+                    case["expected_graph_digest_sha256"],
+                    actual_digest,
+                )
             )
         if actual_verdict != case["expected_verdict"]:
             failures.append(
@@ -177,7 +173,6 @@ def main() -> int:
     print(f"cases={len(corpus['cases'])} failures={len(failures)}")
     for failure in failures:
         print("FAIL", failure)
-
     return 1 if failures else 0
 
 
