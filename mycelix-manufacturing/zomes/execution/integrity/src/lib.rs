@@ -182,7 +182,9 @@ pub enum LinkTypes {
     ExecutionToInputs,
     ExecutionToOutputs,
     ExecutionToMeasurements,
+    MeasurementToInspectionCriterion,
     ExecutionToCalibrations,
+    ExecutionToQualificationAttestation,
 }
 
 #[hdk_extern]
