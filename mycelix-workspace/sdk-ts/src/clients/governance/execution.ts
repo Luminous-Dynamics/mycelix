@@ -18,6 +18,7 @@ import type {
   TimelockStatus,
   CreateTimelockInput,
   ExecuteTimelockInput,
+  RecordPreparedExecutionResolutionInput,
   VetoTimelockInput,
 } from './types';
 import type { AppClient, Record as HolochainRecord } from '@holochain/client';
@@ -120,6 +121,46 @@ export class ExecutionClient extends ZomeClient {
   async executeTimelock(input: ExecuteTimelockInput): Promise<HolochainRecord> {
     return this.callZomeOnce<HolochainRecord>('execute_timelock', {
       timelock_id: input.timelockId,
+    });
+  }
+
+  /**
+   * Record host-side evidence references for a prepared execution.
+   *
+   * The coordinator checks that there is exactly one aligned proof tuple per
+   * prepared action. This method performs basic vector validation only; the
+   * host effect boundary remains responsible for authenticating each receipt.
+   */
+  async recordPreparedExecutionResolution(
+    input: RecordPreparedExecutionResolutionInput
+  ): Promise<HolochainRecord> {
+    const bindingCount = input.attemptIdentities.length;
+    const vectors = [
+      input.actionKeyDigests,
+      input.terminalEvidenceDigests,
+      input.authorizationAdmissionProofDigests,
+      input.finalProviderEntryProofDigests,
+    ];
+    if (
+      bindingCount < 1 ||
+      bindingCount > 256 ||
+      vectors.some(vector => vector.length !== bindingCount)
+    ) {
+      throw new Error(
+        'Execution resolution requires 1–256 aligned attempt/action/evidence proof tuples'
+      );
+    }
+
+    return this.callZomeOnce<HolochainRecord>('record_prepared_execution_resolution', {
+      execution_id: input.executionId,
+      timelock_id: input.timelockId,
+      executor_did: input.executorDid,
+      attempt_identities: input.attemptIdentities,
+      action_key_digests: input.actionKeyDigests,
+      terminal_evidence_digests: input.terminalEvidenceDigests,
+      authorization_admission_proof_digests: input.authorizationAdmissionProofDigests,
+      final_provider_entry_proof_digests: input.finalProviderEntryProofDigests,
+      outcome: input.outcome,
     });
   }
 
