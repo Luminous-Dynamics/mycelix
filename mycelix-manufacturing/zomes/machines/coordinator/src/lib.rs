@@ -23,10 +23,19 @@ pub struct RegisterMachineInput {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct GrantMachineControllerInput {
+    pub machine_hash: ActionHash,
+    pub controller_agent: AgentPubKey,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateMachineStatusInput {
     pub machine_hash: ActionHash,
     pub new_status: MachineStatus,
     pub work_order_hash: Option<ActionHash>,
+    pub authority_hash: ActionHash,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -140,34 +149,195 @@ pub fn get_current_machine_state(machine_hash: ActionHash) -> ExternResult<Machi
     resolve_machine_state_from_action(machine_hash)
 }
 
+/// Grant a controller a time-scoped authority over a machine's status.
+#[hdk_extern]
+pub fn grant_machine_controller(
+    input: GrantMachineControllerInput,
+) -> ExternResult<ActionHash> {
+    let machine_record = get(input.machine_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Machine not found".into())),
+    )?;
+    let machine: MachineEntry = machine_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Could not deserialize machine".into(),
+        )))?;
+
+    if !matches!(machine_record.action(), Action::Create(_)) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "controller authority must target the machine's root creation action".into(),
+        )));
+    }
+    if machine_record.action().author() != agent_info()?.agent_initial_pubkey {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "only the machine registrant may grant controller authority".into(),
+        )));
+    }
+    if input.valid_until < input.valid_from {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "controller authority validity window is inverted".into(),
+        )));
+    }
+
+    let hash = create_entry(EntryTypes::MachineControllerAuthority(
+        MachineControllerAuthorityEntry {
+            machine_hash: input.machine_hash.clone(),
+            controller_agent: input.controller_agent,
+            valid_from: input.valid_from,
+            valid_until: input.valid_until,
+        },
+    ))?;
+
+    create_link(
+        input.machine_hash.clone(),
+        hash.clone(),
+        LinkTypes::MachineToAuthorities,
+        (),
+    )?;
+
+    let all_path = Path::from("all_machine_controller_authorities")
+        .typed(LinkTypes::AllMachineControllerAuthorities)?;
+    all_path.ensure()?;
+    create_link(
+        all_path.path_entry_hash()?,
+        hash.clone(),
+        LinkTypes::AllMachineControllerAuthorities,
+        (),
+    )?;
+
+    let _ = machine;
+    Ok(hash)
+}
+
+/// Get a controller authority by action hash.
+#[hdk_extern]
+pub fn get_machine_controller_authority(
+    hash: ActionHash,
+) -> ExternResult<Option<Record>> {
+    get(hash, GetOptions::default())
+}
+
+/// List controller authorities granted for a machine.
+#[hdk_extern]
+pub fn list_machine_controller_authorities(
+    machine_hash: ActionHash,
+) -> ExternResult<Vec<Link>> {
+    get_links(
+        GetLinksInputBuilder::try_new(
+            machine_hash,
+            LinkTypes::MachineToAuthorities,
+        )?
+        .build(),
+    )
+}
+
+/// List every controller authority in the machine registry.
+#[hdk_extern]
+pub fn list_all_machine_controller_authorities(_: ()) -> ExternResult<Vec<Link>> {
+    let path = Path::from("all_machine_controller_authorities")
+        .typed(LinkTypes::AllMachineControllerAuthorities)?;
+    get_links(
+        GetLinksInputBuilder::try_new(
+            path.path_entry_hash()?,
+            LinkTypes::AllMachineControllerAuthorities,
+        )?
+        .build(),
+    )
+}
+
 /// Update machine status (e.g., Available -> Running).
 #[hdk_extern]
 pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<ActionHash> {
-    let record = get(input.machine_hash.clone(), GetOptions::default())?.ok_or(
-        wasm_error!(WasmErrorInner::Guest("Machine not found".to_string())),
-    )?;
+    let resolution = get_current_machine_state(input.machine_hash.clone())?;
+    let head_action = match resolution {
+        MachineStateResolution::Resolved { status, head_action } => {
+            if !status.can_transition_to(&input.new_status) {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid machine transition: {:?} -> {:?}",
+                    status, input.new_status
+                ))));
+            }
+            head_action
+        }
+        MachineStateResolution::NotFound => {
+            return Err(wasm_error!(WasmErrorInner::Guest("Machine not found".into())));
+        }
+        MachineStateResolution::InvalidRecord => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Machine state contains an invalid record".into(),
+            )));
+        }
+        MachineStateResolution::Ambiguous { .. } => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Machine state is ambiguous; status update refused".into(),
+            )));
+        }
+        MachineStateResolution::Deleted => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Machine is deleted".into(),
+            )));
+        }
+    };
 
+    let record = get(head_action.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Current machine head not found".into())),
+    )?;
     let machine: MachineEntry = record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Could not deserialize machine".to_string()
+            "Could not deserialize current machine head".into(),
         )))?;
 
-    if !machine.status.can_transition_to(&input.new_status) {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid machine transition: {:?} -> {:?}",
-            machine.status, input.new_status
-        ))));
-    }
+    let authority_record =
+        get(input.authority_hash.clone(), GetOptions::default())?.ok_or(
+            wasm_error!(WasmErrorInner::Guest(
+                "Machine controller authority not found".into(),
+            )),
+        )?;
+    let authority: MachineControllerAuthorityEntry = authority_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Could not deserialize machine controller authority".into(),
+        )))?;
 
     let now = sys_time()?;
+    if authority.machine_hash != input.machine_hash {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Controller authority is bound to a different machine".into(),
+        )));
+    }
+    if authority.controller_agent != agent_info()?.agent_initial_pubkey {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Current agent is not the authorized machine controller".into(),
+        )));
+    }
+    if now < authority.valid_from || now > authority.valid_until {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Controller authority is not currently valid".into(),
+        )));
+    }
 
-    // Log the status change
+    let authority_hash = input.authority_hash.clone();
+    let previous_status = machine.status.clone();
+    let updated = MachineEntry {
+        status: input.new_status,
+        current_work_order: input.work_order_hash.clone(),
+        last_status_authority_hash: Some(authority_hash.clone()),
+        ..machine
+    };
+    let update_hash = update_entry(head_action, EntryTypes::Machine(updated))?;
+
     let log = MachineStatusLog {
         machine_hash: input.machine_hash.clone(),
-        previous_status: machine.status.clone(),
+        machine_update_hash: update_hash.clone(),
+        authority_hash,
+        previous_status,
         new_status: input.new_status.clone(),
         work_order_hash: input.work_order_hash.clone(),
         changed_at: now,
@@ -175,18 +345,19 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
     let log_hash = create_entry(EntryTypes::StatusLog(log))?;
     create_link(
         input.machine_hash.clone(),
-        log_hash,
+        log_hash.clone(),
         LinkTypes::MachineToStatusLog,
         (),
     )?;
+    create_link(
+        update_hash.clone(),
+        log_hash,
+        LinkTypes::MachineUpdateToStatusLog,
+        (),
+    )?;
 
-    // Update the machine entry
-    let updated = MachineEntry {
-        status: input.new_status,
-        current_work_order: input.work_order_hash,
-        ..machine
-    };
-    update_entry(input.machine_hash, EntryTypes::Machine(updated))
+    Ok(update_hash)
+
 }
 
 /// Get all machines that are currently Available.
@@ -194,24 +365,29 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
 pub fn get_available_machines(_: ()) -> ExternResult<Vec<Record>> {
     let all_path = Path::from("all_machines").typed(LinkTypes::AllMachines)?;
     let links = get_links(
-        GetLinksInputBuilder::try_new(all_path.path_entry_hash()?, LinkTypes::AllMachines)?.build(),
+        GetLinksInputBuilder::try_new(
+            all_path.path_entry_hash()?,
+            LinkTypes::AllMachines,
+        )?
+        .build(),
     )?;
 
     let mut available = Vec::new();
     for link in links {
-        if let Some(hash) = link.target.into_action_hash() {
-            if let Some(record) = get(hash, GetOptions::default())? {
-                if let Some(machine) = record
-                    .entry()
-                    .to_app_option::<MachineEntry>()
-                    .ok()
-                    .flatten()
-                {
-                    if machine.status == MachineStatus::Available {
-                        available.push(record);
-                    }
-                }
-            }
+        let Some(root_hash) = link.target.clone().into_action_hash() else {
+            continue;
+        };
+
+        let MachineStateResolution::Resolved {
+            status: MachineStatus::Available,
+            head_action,
+        } = get_current_machine_state(root_hash)?
+        else {
+            continue;
+        };
+
+        if let Some(record) = get(head_action, GetOptions::default())? {
+            available.push(record);
         }
     }
     Ok(available)
@@ -305,11 +481,26 @@ mod tests {
     }
 
     #[test]
+    fn test_grant_controller_input_serde() {
+        let input = GrantMachineControllerInput {
+            machine_hash: ActionHash::from_raw_36(vec![0; 36]),
+            controller_agent: AgentPubKey::from_raw_32(vec![1; 32]),
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(10),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        let back: GrantMachineControllerInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.machine_hash, input.machine_hash);
+        assert_eq!(back.controller_agent, input.controller_agent);
+    }
+
+    #[test]
     fn test_update_status_input_serde() {
         let input = UpdateMachineStatusInput {
             machine_hash: ActionHash::from_raw_36(vec![0u8; 36]),
             new_status: MachineStatus::Running,
             work_order_hash: Some(ActionHash::from_raw_36(vec![1u8; 36])),
+            authority_hash: ActionHash::from_raw_36(vec![2u8; 36]),
         };
         let json = serde_json::to_string(&input).unwrap();
         let back: UpdateMachineStatusInput = serde_json::from_str(&json).unwrap();
@@ -341,6 +532,7 @@ mod tests {
             max_throughput_per_hour: 8,
             status: MachineStatus::Available,
             current_work_order: None,
+            last_status_authority_hash: None,
             registered_at: Timestamp::from_micros(0),
         };
         let json = serde_json::to_string(&entry).unwrap();
