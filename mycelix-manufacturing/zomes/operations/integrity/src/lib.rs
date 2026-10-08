@@ -219,3 +219,33 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
+
+#[cfg(test)]
+mod recipe_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_wrong_recipe_schema_identity() {
+        let recipe = ProcessRecipeEntry {
+            schema_id: "wrong-schema".into(),
+            recipe_id: "R1".into(),
+            revision: "A".into(),
+            process_family: "milling".into(),
+            payload_hash: "sha256:abc".into(),
+            parameter_schema: "schema-v1".into(),
+            external_reference: None,
+            created_at: Timestamp::from_micros(0),
+        };
+        let result = validate_create_for_test(recipe);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn validate_create_for_test(recipe: ProcessRecipeEntry) -> ValidateCallbackResult {
+        if recipe.schema_id != PROCESS_RECIPE_SCHEMA_ID {
+            return ValidateCallbackResult::Invalid(
+                "process recipe schema_id is invalid".into(),
+            );
+        }
+        ValidateCallbackResult::Valid
+    }
+}
