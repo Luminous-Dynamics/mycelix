@@ -972,6 +972,22 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         fail("S2 source-policy verifier path mismatch")
     if exact_count(l, f'SOURCE_POLICY_VERIFIER_BLOB_SHA: "{expected_policy_sha}"') != 1:
         fail("S2 source-policy verifier self-pin mismatch")
+    if exact_count(l, 'assert len(jobs) == 3, f"trusted dispatcher must have exactly three jobs: {len(jobs)}"') != 1:
+        fail("S2 must require the resolver, decision witness, and qualification job topology")
+    if exact_count(l, 'r"Dispatch decision: (trusted-dispatch|scheduled-fallback)/(qualified|suppressed)/eligible=(event|[1-9][0-9]?|0)"') != 1:
+        fail("S2 dispatch-decision witness parser missing")
+    if exact_count(l, 'print("SUPPRESSED: scheduled Security Kernel dispatcher completed with no eligible candidate in its bounded discovery window; no candidate qualification was executed")') != 1:
+        fail("S2 scheduled suppression witness missing")
+    if exact_count(l, 'assert matching_s1_jobs[0]["conclusion"] == "skipped"') != 1:
+        fail("S2 suppression path must prove the candidate qualification job was skipped")
+    if exact_count(l, 'output.write("dispatch_decision=suppressed\\n")') != 1:
+        fail("S2 suppression decision output binding missing")
+    if exact_count(l, 'output.write(f"dispatch_decision={dispatch_decision}\\n")') != 1:
+        fail("S2 qualified decision output binding missing")
+    if exact_count(l, 'test "$DISPATCH_DECISION" = "qualified"') != 1:
+        fail("S2 final publication must reject unknown dispatch decisions")
+    if exact_count(l, 'if [ "$DISPATCH_DECISION" = "suppressed" ]; then') != 1:
+        fail("S2 final publication must explicitly handle suppressed dispatches")
     joined = "\n".join(l)
     for required in (
         'parsed_download_url = urllib.parse.urlparse(download_url)',
@@ -1006,7 +1022,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_step_execution_modes(l, S2)
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
-    require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: success()", "S2 transcript download gate")
+    require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}", "S2 transcript download gate")
     require_following(l, "Verify official receipt transport and publish verified result", "if: success()", "S2 final witness gate")
     require_no_escalation(l, "S2")
 
@@ -1530,6 +1546,38 @@ def main() -> None:
     expect_rejection(
         lambda: verify_s1(raw["s1"].replace(b'pipeline_status=("${PIPESTATUS[@]}")\n', b"# negative-control pipeline status capture removed\n", 1), s1_sha),
         "negative-control pipeline status capture removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'assert matching_s1_jobs[0]["conclusion"] == "skipped"\n',
+                b'assert matching_s1_jobs[0]["conclusion"] == "success"\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 suppression witness accepts executed qualification job",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'if [ "$DISPATCH_DECISION" = "suppressed" ]; then\n',
+                b'if [ "$DISPATCH_DECISION" = "other" ]; then\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 suppressed final branch weakened",
     )
 
     expect_rejection(
