@@ -608,6 +608,17 @@ jobs:
               'trust_root_manifest_sha256','trust_root_manifest_blob_sha1','trust_root_main_snapshot_sha',
               'environment_policy_sha256','asset_name','release_tag'
           )}
+          expected_manifest_keys={
+              'schema','repository','repository_id','release_tag','asset_name','expected_main_sha',
+              'qualification_claim_id','qualification_manifest_sha256','predicate_type','publication_profile',
+              'claim_ceiling','trust_root_manifest_blob_sha1','trust_root_manifest_sha256','trust_root_main_snapshot_sha',
+              'attestor_run_id','attestor_run_attempt','attestor_artifact_id','attestor_artifact_digest',
+              'verifier_run_id','verifier_run_attempt','signing_input_artifact_id','signing_input_artifact_digest',
+              'environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256',
+              'attestor_workflow_path','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256',
+              'signed_attestation_bundle_sha256','publication_handoff_sha256','files'
+          }
+          assert set(manifest)==expected_manifest_keys
           computed_handoff=hashlib.sha256(json.dumps(basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()
           assert computed_handoff==facts['publication_handoff_sha256']
           manifest['publication_handoff_sha256']=computed_handoff
