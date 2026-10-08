@@ -150,10 +150,11 @@ def evaluate(c: dict, fixture: dict, current: dict, previous: dict, base_root: d
     return "qualified"
 
 def main() -> int:
-    if len(sys.argv) != 9:
+    if len(sys.argv) != 10:
         print("usage: verify_anchor_governance.py EXPECTED_ROOT_SHA EXPECTED_OBSERVED_SHA OBSERVED.json ROOT.json CURRENT_MANIFEST.json PREVIOUS_MANIFEST.json POLICY.json CAMPAIGN.json REPORT.json", file=sys.stderr); return 2
-    expected_root, expected_observed, observed_path, root_path, current_path, previous_path, policy_path, campaign_path, report_path = map(Path, sys.argv[1:10])
-    expected = str(expected_root)
+    expected = sys.argv[1]
+    expected_observed = sys.argv[2]
+    observed_path, root_path, current_path, previous_path, policy_path, campaign_path, report_path = map(Path, sys.argv[3:10])
     root = json.loads(root_path.read_text(encoding="utf-8"))
     observed = json.loads(observed_path.read_text(encoding="utf-8"))
     current = json.loads(current_path.read_text(encoding="utf-8"))
@@ -162,7 +163,7 @@ def main() -> int:
     fixture_path = policy_path.parent / "CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_FIXTURES.json"
     fixture_bytes = fixture_path.read_bytes()
     fixture = json.loads(fixture_bytes)
-    if campaign.get("schema") != CAMPAIGN_SCHEMA or campaign.get("expected_trust_root_sha256") != expected or campaign.get("expected_observed_state_sha256") != str(expected_observed):
+    if campaign.get("schema") != CAMPAIGN_SCHEMA or campaign.get("expected_trust_root_sha256") != expected or campaign.get("expected_observed_state_sha256") != expected_observed:
         print("campaign root/schema/observed pin mismatch", file=sys.stderr); return 1
     ids = [c.get("case_id") for c in campaign.get("cases", [])]
     fixed_ids = [c.get("case_id") for c in fixture.get("cases", [])]
@@ -171,10 +172,10 @@ def main() -> int:
     policy_sha = git_blob_sha(policy_path)
     failures, rows = [], []
     for c in campaign["cases"]:
-        verdict = evaluate(c, fixture, current, previous, root, observed, policy_sha, fixture_bytes, expected, str(expected_observed))
+        verdict = evaluate(c, fixture, current, previous, root, observed, policy_sha, fixture_bytes, expected, expected_observed)
         rows.append({"actual_verdict":verdict,"case_id":c["case_id"],"expected_verdict":c["expected_verdict"],"mode":c["mode"]})
         if verdict != c["expected_verdict"]: failures.append([c["case_id"],c["expected_verdict"],verdict])
-    report = {"cases":rows,"failures":failures,"external_trust_root_sha256":expected,"external_observed_state_sha256":str(expected_observed),"current_manifest_version":current.get("manifest_version"),"schema":"mycelix.continual-adaptation.censoring-classification-anchor-governance-report.v1","status":"research-evidence-only"}
+    report = {"cases":rows,"failures":failures,"external_trust_root_sha256":expected,"external_observed_state_sha256":expected_observed,"current_manifest_version":current.get("manifest_version"),"schema":"mycelix.continual-adaptation.censoring-classification-anchor-governance-report.v1","status":"research-evidence-only"}
     report_path.write_text(canonical(report).decode("utf-8")+"\n",encoding="utf-8")
     print(f"cases={len(rows)} failures={len(failures)}")
     return 1 if failures else 0
