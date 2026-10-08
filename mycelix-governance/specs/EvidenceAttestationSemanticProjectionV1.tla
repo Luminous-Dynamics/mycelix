@@ -26,6 +26,9 @@ EffectFieldsAuthorized ==
 RequiredFieldsPresent ==
   ~projectionCommitted \/ RequiredFields \subseteq EffectFields
 
+EffectFieldsDecisionBacked ==
+  ~projectionCommitted \/ (EffectFields \ DefaultedFields) \subseteq DecisionValueFields
+
 ProjectionSourcesExact ==
   ~projectionCommitted \/
     /\ ProjectionSourceOperation = "operation"
