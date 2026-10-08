@@ -498,7 +498,7 @@ fn validate_create_entry(
 /// agent_info() coordinator-side with zero user input (P0 author-binding gap).
 fn validate_sync_checkpoint(
     checkpoint: &SyncCheckpoint,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     if checkpoint.agent != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -508,7 +508,7 @@ fn validate_sync_checkpoint(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_sync_state(state: &SyncState, action: &Create) -> ExternResult<ValidateCallbackResult> {
+fn validate_sync_state(state: &SyncState, action: &TypedAction<EntryCreationData>) -> ExternResult<ValidateCallbackResult> {
     // Agent must be author
     if state.agent != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -520,7 +520,7 @@ fn validate_sync_state(state: &SyncState, action: &Create) -> ExternResult<Valid
 
 fn validate_sync_operation(
     op: &SyncOperation,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Agent must be author
     if op.agent != action.author() {
