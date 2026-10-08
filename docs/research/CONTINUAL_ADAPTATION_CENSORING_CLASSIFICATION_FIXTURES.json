@@ -11,7 +11,8 @@
     "nodes": [
       {
         "id": "claim",
-        "type": "Claim"
+        "type": "Claim",
+        "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
       },
       {
         "id": "attempts",
@@ -1742,7 +1743,7 @@
           "set_node",
           "c01",
           "commitment",
-          "sha256:5d370e2f92a93cec10f618dd4389ffb727750bfed860d4ba24d3fef62c8bf6dd"
+          "sha256:15b4f9a39fe6b902df66901ca2c8c730200236e5bb407cf61c2e672b8481603a"
         ]
       ],
       "expected_verdict": "unresolved",
