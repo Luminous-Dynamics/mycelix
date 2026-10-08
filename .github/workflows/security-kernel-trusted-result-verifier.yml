@@ -29,6 +29,9 @@ env:
   EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "b660622db144aa69a8536ebb5ca5736f658992b4"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
   SOURCE_POLICY_VERIFIER_BLOB_SHA: "446f2c0574ae20d26676288a9610e238a7f0d387"
+  EGRESS_BROKER_PATH: ".github/security-kernel/github_egress_proxy.py"
+  EGRESS_BROKER_BLOB_SHA: "b288278af2e2c821eda8acb52c705229b97a0d84"
+  EGRESS_BROKER_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -206,6 +209,10 @@ jobs:
           assert current_s1["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
               "registered S1 trust profile is stale relative to current protected main"
           )
+          current_broker = get(f"/repos/{repo}/contents/{os.environ['EGRESS_BROKER_PATH']}?ref={main_sha}")
+          assert current_broker["sha"] == os.environ["EGRESS_BROKER_BLOB_SHA"], (
+              "registered egress broker source is stale relative to current protected main"
+          )
           print("PASS: registered S0/S1 workflow trust profile still matches the current protected main tip")
 
           def decode_file(document):
@@ -238,6 +245,10 @@ jobs:
           )
           assert s1_at_run["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
               "same-commit S1 reusable workflow blob is outside the registered trust profile"
+          )
+          broker_at_run = get(f"/repos/{repo}/contents/{os.environ['EGRESS_BROKER_PATH']}?ref={workflow_sha}")
+          assert broker_at_run["sha"] == os.environ["EGRESS_BROKER_BLOB_SHA"], (
+              "same-commit trusted egress broker source is outside the registered trust profile"
           )
 
           trigger_event = run["event"]
