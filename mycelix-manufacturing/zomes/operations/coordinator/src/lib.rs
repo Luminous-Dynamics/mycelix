@@ -179,6 +179,17 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
         (),
     )?;
 
+    for step in &entry.steps {
+        for criterion_hash in &step.required_inspection_criterion_hashes {
+            create_link(
+                action_hash.clone(),
+                criterion_hash.clone(),
+                LinkTypes::RoutingToInspectionCriteria,
+                (),
+            )?;
+        }
+    }
+
     Ok(action_hash)
 }
 
