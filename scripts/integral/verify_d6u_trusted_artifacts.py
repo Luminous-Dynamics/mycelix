@@ -276,6 +276,9 @@ def verify_executor_run_record(
     assert executor_run["head_repository"]["full_name"] == repo
     assert int(executor_run["head_repository"]["id"]) == expected_repository_id
     assert executor_run["head_branch"] == "main"
+    head_sha = executor_run["head_sha"]
+    assert isinstance(head_sha, str) and re.fullmatch(r"[0-9a-f]{40}", head_sha)
+    assert record["executor_workflow_commit_sha"] == head_sha
     assert executor_run["id"] == int(record["executor_run_id"])
     assert executor_run["run_attempt"] == int(record["executor_run_attempt"])
 
