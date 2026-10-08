@@ -222,9 +222,11 @@ def main():
         scenario=sim_fixture.get("scenarios",{}).get(case.get("scenario"))
         if scenario is None:return 1
         report=simulate_scenario(case["scenario"],scenario,case.get("mutation"),greg,wreg,gossip_fixture,vds,head_fixture,q4)
-        row={"case_id":case["case_id"],"expected_verdict":case["expected_verdict"],**report}
+        assertion_results={k:report.get(k)==expected for k,expected in case.get("expected_metrics",{}).items()}
+        row={"case_id":case["case_id"],"expected_verdict":case["expected_verdict"],**report,"assertion_results":assertion_results}
         rows.append(row)
-        if row["verdict"]!=case["expected_verdict"]:failures.append([case["case_id"],case["expected_verdict"],row["verdict"],row["reason"]])
+        if row["verdict"]!=case["expected_verdict"] or not all(assertion_results.values()):
+            failures.append([case["case_id"],case["expected_verdict"],row["verdict"],row["reason"] if all(assertion_results.values()) else "metric-assertion-failed"])
     out={"schema":"mycelix.continual-adaptation.censoring-classification-anchor-observer-gossip-simulation-report.v1","status":"research-evidence-only","case_count":len(rows),"cases":rows,"failures":failures}
     Path(outp).write_bytes(json.dumps(out,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode()+b"\n")
     print(f"cases={len(rows)} failures={len(failures)}")
