@@ -203,6 +203,30 @@ pub enum AttemptRecordState {
 }
 
 impl AttemptRecordState {
+    /// Stable integer encoding for durable stores.
+    ///
+    /// This encoding is part of the v1 persistence contract; callers must not
+    /// invent a second state mapping in each storage adapter.
+    pub fn storage_tag(self) -> i64 {
+        attempt_state_tag(self) as i64
+    }
+
+    /// Decode the stable v1 durable-store state encoding.
+    pub fn from_storage_tag(tag: i64) -> Option<Self> {
+        match tag {
+            1 => Some(Self::Consumed),
+            2 => Some(Self::Reserved),
+            3 => Some(Self::DispatchPending),
+            4 => Some(Self::Invoked),
+            5 => Some(Self::InvocationClaimed),
+            6 => Some(Self::Executed),
+            7 => Some(Self::Failed),
+            8 => Some(Self::Indeterminate),
+            9 => Some(Self::NotEntered),
+            _ => None,
+        }
+    }
+
     pub fn occupies_action_fence(self) -> bool {
         matches!(
             self,
@@ -480,6 +504,20 @@ pub enum ActionFenceState {
 }
 
 impl ActionFenceState {
+    /// Stable integer encoding for durable stores.
+    pub fn storage_tag(self) -> i64 {
+        fence_state_tag(self) as i64
+    }
+
+    /// Decode the stable v1 durable-store state encoding.
+    pub fn from_storage_tag(tag: i64) -> Option<Self> {
+        match tag {
+            1 => Some(Self::Occupied),
+            2 => Some(Self::Closed),
+            _ => None,
+        }
+    }
+
     pub fn is_closed(self) -> bool {
         matches!(self, Self::Closed)
     }
@@ -518,7 +556,7 @@ impl ActionFenceRecordV1 {
         Ok(out)
     }
 
-    fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         if self.schema_version != ACTION_FENCE_SCHEMA_VERSION {
             return Err("unsupported action fence schema version".into());
         }
@@ -569,6 +607,10 @@ pub enum ActionFenceMutationError {
     AlreadyClosed,
     InvalidTransition,
     TerminalEvidenceMismatch,
+    /// The durable storage layer failed. This is deliberately distinct from a
+    /// semantic denial so callers cannot reinterpret infrastructure failure as a
+    /// successful release/transition.
+    StorageFailure(String),
 }
 
 /// Durable-store contract for the same-action fence.
@@ -588,6 +630,29 @@ pub trait DurableActionFenceStore {
         attempt_identity: &AttemptIdentityV1,
         record: AttemptRecordV1,
     ) -> Result<AtomicAdmissionDecision, String>;
+
+    /// Advance a durable attempt through the non-terminal lifecycle. Each method
+    /// MUST be a single conflict-detecting durable transaction.
+    fn atomically_mark_dispatch_pending(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError>;
+
+    fn atomically_mark_invoked(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError>;
+
+    fn atomically_mark_indeterminate(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError>;
 
     fn atomically_release_after_failed(
         &mut self,
@@ -612,6 +677,24 @@ pub trait DurableActionFenceStore {
         owner_token_digest: &str,
         marker: String,
     ) -> Result<(), ActionFenceMutationError>;
+
+    /// Durable reads are part of the contract: a caller must be able to prove
+    /// the persisted state it is about to act on after restart, rather than
+    /// relying on an in-memory cache or a DHT discovery index.
+    fn durably_read_attempt(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<AttemptRecordV1>, String>;
+
+    fn durably_read_fence(
+        &self,
+        action_key: &ActionKeyV1,
+    ) -> Result<Option<ActionFenceRecordV1>, String>;
+
+    fn durably_read_replay_binding(
+        &self,
+        native_replay_identity: &str,
+    ) -> Result<Option<NativeReplayBindingV1>, String>;
 }
 
 /// Durable binding for one native replay identity.
@@ -643,7 +726,7 @@ impl NativeReplayBindingV1 {
         Ok(out)
     }
 
-    fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         if self.schema_version != NATIVE_REPLAY_BINDING_SCHEMA_VERSION {
             return Err("unsupported native replay binding schema version".into());
         }
