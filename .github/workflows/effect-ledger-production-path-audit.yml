@@ -114,6 +114,15 @@ jobs:
             echo "NOT QUALIFIED: prepared execution has no explicit host-resolution attestation handoff."
             exit 1
           }
+          grep -Fq 'authorization_admission_proof_digests' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: execution resolution does not bind admission proof roots."
+            exit 1
+          }
+
+          grep -Fq 'final_provider_entry_proof_digests' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: execution resolution does not bind final-entry proof roots."
+            exit 1
+          }
 
           if grep -Fq 'pub fn store_mut' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
             echo "NOT QUALIFIED: mutable durable-store escape hatch remains exposed."
