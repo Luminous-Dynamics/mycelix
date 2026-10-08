@@ -115,12 +115,12 @@ jobs:
             exit 1
           }
 
-          grep -Fq 'authorization_admission_proof_digests' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+          grep -Fq 'authorization_admission_proof_digest' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
             echo "NOT QUALIFIED: execution resolution does not bind admission proof roots."
             exit 1
           }
 
-          grep -Fq 'final_provider_entry_proof_digests' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+          grep -Fq 'final_provider_entry_proof_digest' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
             echo "NOT QUALIFIED: execution resolution does not bind final-entry proof roots."
             exit 1
           }
