@@ -57,7 +57,11 @@ RECEIPT_KEYS = frozenset(
         "rustc_commit",
         "cargo_version",
         "candidate_uid",
+        "candidate_gid",
         "candidate_execution_profile",
+        "sandbox_image_digest",
+        "sandbox_probe",
+        "dependency_cache_sha256",
         "steps",
         "execution_pass",
         "procedure_trust",
@@ -66,7 +70,19 @@ RECEIPT_KEYS = frozenset(
 )
 
 STEP_KEYS = frozenset(
-    {"preflight", "checkout", "source", "toolchain", "lock", "fmt", "tests", "postflight"}
+    {
+        "preflight",
+        "checkout",
+        "source",
+        "toolchain",
+        "lock",
+        "dependencies",
+        "sandbox_image",
+        "fmt",
+        "sandbox_probe",
+        "tests",
+        "postflight",
+    }
 )
 
 INDEX_KEYS = frozenset(
@@ -148,6 +164,10 @@ def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def reject_nonstandard_constant(value: str) -> Any:
+    fail(f"non-standard JSON constant is forbidden: {value}")
+
+
 def load_canonical_json(path: Path) -> dict[str, Any]:
     raw = path.read_bytes()
     if not raw.endswith(b"\n"):
@@ -157,7 +177,11 @@ def load_canonical_json(path: Path) -> dict[str, Any]:
         fail(f"{path} has more than one trailing LF")
     try:
         text = canonical_bytes.decode("utf-8")
-        value = json.loads(text, object_pairs_hook=reject_duplicate_keys)
+        value = json.loads(
+            text,
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_nonstandard_constant,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         fail(f"{path} is not valid UTF-8 JSON: {exc}")
     if not isinstance(value, dict):
@@ -202,6 +226,51 @@ def validate_artifact_lifetime(item: dict[str, Any], label: str) -> tuple[str, s
         fail(f"{label} artifact expires_at is not after created_at")
     return created, expires
 
+
+def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: str) -> None:
+    if policy_file.get("encoding") != "base64":
+        fail("trusted policy file is not represented as base64 content")
+    encoded = policy_file.get("content")
+    if not isinstance(encoded, str) or not encoded:
+        fail("trusted policy file content is missing")
+    try:
+        raw = base64.b64decode("".join(encoded.split()), validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        fail(f"trusted policy file base64 is invalid: {exc}")
+    policy_text = raw.decode("utf-8")
+    required = (
+        f"FPM_SANDBOX_IMAGE: ubuntu@{expected_image_digest}",
+        "--network none",
+        "--read-only",
+        "--cap-drop ALL",
+        "--security-opt no-new-privileges",
+        "--pids-limit 512",
+        "--memory 6g",
+        "--memory-swap 6g",
+        "--cpus 2",
+        "--mount type=bind,src=\"${GITHUB_WORKSPACE}/candidate\",dst=/candidate,readonly",
+        "--mount type=bind,src=\"${FPM_TOOLCHAIN_ROOT}\",dst=/opt/fpm-rust,readonly",
+        "--mount type=bind,src=\"${FPM_CARGO_HOME}\",dst=/cargo-ro,readonly",
+        "--mount type=bind,src=\"${FPM_TARGET_DIR}\",dst=/target",
+        "--user \"${CANDIDATE_UID}:${CANDIDATE_GID}\"",
+        "CARGO_NET_OFFLINE=true",
+        "cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml",
+        "cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml",
+    )
+    for token in required:
+        if token not in policy_text:
+            fail(f"trusted sandbox policy is missing required invariant: {token}")
+    forbidden = (
+        "--privileged",
+        "--pid=host",
+        "--network host",
+        "--cap-add",
+        "docker.sock",
+        'sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"',
+    )
+    for token in forbidden:
+        if token in policy_text:
+            fail(f"trusted sandbox policy contains forbidden broadening: {token}")
 
 def verify_receipt(
     receipt: dict[str, Any],
@@ -266,6 +335,10 @@ def verify_receipt(
         fail("receipt trusted policy blob mismatch")
     if policy_file.get("path") != TRUSTED_WORKFLOW_PATH:
         fail("policy file path mismatch")
+    verify_sandbox_policy(
+        policy_file,
+        "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
+    )
 
     trusted_run_id = int(receipt["trusted_workflow_run_id"])
     if trusted_run_id != expected_trusted_run_id:
@@ -364,10 +437,18 @@ def verify_receipt(
         fail("rustc commit mismatch")
     if not isinstance(receipt["cargo_version"], str) or not receipt["cargo_version"].startswith("cargo 1.96.1"):
         fail("cargo version mismatch")
-    if receipt["candidate_execution_profile"] != "fpm-untrusted.env-i.v2":
+    if receipt["candidate_execution_profile"] != "fpm-docker-offline-v1":
         fail("unexpected candidate execution profile")
     if not isinstance(receipt["candidate_uid"], int) or receipt["candidate_uid"] <= 0:
         fail("invalid candidate UID")
+    if not isinstance(receipt["candidate_gid"], int) or receipt["candidate_gid"] <= 0:
+        fail("invalid candidate GID")
+    require_sha256_prefixed(receipt["sandbox_image_digest"], "sandbox_image_digest")
+    if receipt["sandbox_image_digest"] != "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b":
+        fail("unexpected sandbox image digest")
+    if receipt["sandbox_probe"] != "passed":
+        fail("sandbox boundary probe did not pass")
+    require_sha256(receipt["dependency_cache_sha256"], "dependency_cache_sha256")
 
     steps = receipt["steps"]
     if not isinstance(steps, dict) or set(steps) != STEP_KEYS:
