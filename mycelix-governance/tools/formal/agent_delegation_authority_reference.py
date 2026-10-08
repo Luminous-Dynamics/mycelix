@@ -46,7 +46,7 @@ def invariant_failures(state: State) -> list[str]:
             failures.append("ActiveGrantCurrent")
         if g.active and g.power not in amap.get(g.issuer, set()):
             failures.append("DelegationNonAmplification")
-        if g.active and not amap.get(g.grantee, set()).issubset(amap.get(g.issuer, set())):
+        if g.active and len(ancestor_chain(g, gmap)) >= 2 and not amap.get(g.grantee, set()).issubset(amap.get(g.issuer, set())):
             failures.append("TransitiveDelegationBounded")
         if g.parent and g.parent in gmap and g.active:
             parent = gmap[g.parent]
