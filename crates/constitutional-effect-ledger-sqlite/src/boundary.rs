@@ -2274,6 +2274,43 @@ mod tests {
     }
 
     #[test]
+    fn same_attempt_id_with_changed_semantics_is_not_duplicate() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("admission-conflict.db")).unwrap();
+        let mut boundary = test_host(store);
+        let action_key = action();
+        let owner = identity("attempt-admission-conflict");
+
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-admission-conflict",
+                    "operation-original",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        let result = boundary.admit(
+            &action_key,
+            &owner,
+            attempt_record(
+                "attempt-admission-conflict",
+                "operation-mutated",
+                AttemptRecordState::Consumed,
+            ),
+        );
+        assert!(matches!(
+            result,
+            Ok(BoundaryOutcome::Admitted(
+                AtomicAdmissionDecision::AttemptOwnershipConflict
+            ))
+        ));
+    }
+
+    #[test]
     fn rejected_admission_cannot_consume_or_fence() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("admission-rejected.db")).unwrap();
