@@ -546,6 +546,12 @@ jobs:
               "effective branch rules changed during governance observation"
           )
 
+          capability_status_before = Path("evidence/governance/admin-capability-probe-http-status.txt").read_text().strip()
+          capability_status_after = Path("evidence/governance/admin-capability-probe-http-status-after.txt").read_text().strip()
+          assert capability_status_before == capability_status_after, (
+              "admin capability observation status changed during governance observation"
+          )
+
           protection_status_before = Path("evidence/governance/branch-protection-http-status.txt").read_text().strip()
           protection_status_after = Path("evidence/governance/branch-protection-http-status-after.txt").read_text().strip()
           assert protection_status_before == protection_status_after, (
@@ -587,14 +593,13 @@ jobs:
 
           protection_status = int(os.environ["PROTECTION_STATUS"])
           admin_source = os.environ["ADMIN_SOURCE"]
-          full_ruleset_admin_visibility = (
-              bool(rulesets)
-              and all(isinstance(entry.get("bypass_actors"), list) for entry in rulesets)
+          capability_status = int(
+              Path("evidence/governance/admin-capability-probe-http-status.txt").read_text().strip()
           )
           admin_verified = (
               admin_source == "repository_administration_secret"
               and bool(os.environ.get("GOVERNANCE_ADMIN_TOKEN"))
-              and (protection_status == 200 or full_ruleset_admin_visibility)
+              and (protection_status == 200 or capability_status == 200)
           )
 
           protection = None
@@ -682,6 +687,15 @@ jobs:
               "effective_rules_payload_sha256": hashlib.sha256(effective_rules_raw).hexdigest(),
               "branch_protection_payload_base64": base64.b64encode(protection_raw).decode(),
               "branch_protection_payload_sha256": hashlib.sha256(protection_raw).hexdigest(),
+              "admin_capability_probe": {
+                  "http_status": capability_status,
+              },
+              "admin_capability_payload_base64": base64.b64encode(
+                  Path("evidence/governance/admin-capability-probe-payload.json").read_bytes()
+              ).decode(),
+              "admin_capability_payload_sha256": hashlib.sha256(
+                  Path("evidence/governance/admin-capability-probe-payload.json").read_bytes()
+              ).hexdigest(),
               "branch": {
                   "name": branch.get("name"),
                   "target_ref": "refs/heads/main",
