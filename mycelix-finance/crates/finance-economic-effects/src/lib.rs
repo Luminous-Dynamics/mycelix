@@ -168,8 +168,7 @@ pub fn validate_account_balance_projection(
     successor.validate()?;
     let validated = effect.validate(EffectValidationContext {
         seen_effect_identities: &[],
-        seen_cause_action_references: &[],
-    })?;
+            })?;
 
     if predecessor.owner != successor.owner
         || predecessor.owner != effect.identity.source_owner
@@ -602,8 +601,7 @@ mod tests {
     fn validate(effect: &EconomicEffectV1) -> Result<ValidatedEconomicEffect<'_>, EconomicEffectError> {
         effect.validate(EffectValidationContext {
             seen_effect_identities: &[],
-            seen_cause_action_references: &[],
-            seen_economic_identities: &[],
+                        seen_economic_identities: &[],
         })
     }
 
@@ -709,8 +707,7 @@ mod tests {
         assert_eq!(
             effect.validate(EffectValidationContext {
                 seen_effect_identities: &[],
-                seen_cause_action_references: &[],
-                seen_economic_identities: &seen,
+                                seen_economic_identities: &seen,
             }),
             Err(EconomicEffectError::EconomicReplay)
         );
@@ -733,8 +730,7 @@ mod tests {
         );
         assert!(transfer.validate(EffectValidationContext {
             seen_effect_identities: &[],
-            seen_cause_action_references: &[],
-            seen_economic_identities: &[],
+                        seen_economic_identities: &[],
         }).is_ok());
     }
 
@@ -953,7 +949,7 @@ mod tests {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: EconomicEffectIdentityV1 {
-                    economic_identity: "transfer-b".into(),
+                    key: "transfer-b".into(),
                     predecessor_action_reference: "prev-1".into(),
                     cause_action_reference: "cause-b".into(),
                     asset: "SAP".into(),
