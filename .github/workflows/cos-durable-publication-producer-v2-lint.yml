@@ -53,6 +53,7 @@ jobs:
           publish=text[publish_at:]
           assert 'COS_RELEASE_ADMIN_TOKEN:' not in prepare
           assert 'environment: cos-durable-publication' in publish
+          assert text.count('environment: cos-durable-publication') >= 1
           first_secret=publish.index('COS_RELEASE_ADMIN_TOKEN:')
           publisher_gate=publish.index('Require protected publisher ref')
           assert publisher_gate < first_secret
@@ -67,6 +68,11 @@ jobs:
           assert 'gh release verify-asset' in publish
           assert 'candidate_not_authoritative_until_protected_adoption' in text
           assert 'ReferenceModelOnly' in text
+          assert 'sha256 --check --strict SHA256SUMS' in publish
+          assert 'isPrerelease' in publish
+          assert 'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1' in text
+          assert 'MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1' in text
+          assert 'MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1' in text
           assert 'requires_durable_subject_publication' in text
           assert 'transient_actions_artifacts_are_insufficient' in text
           assert 'required_durability_profile' in text
