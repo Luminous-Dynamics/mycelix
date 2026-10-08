@@ -40,6 +40,15 @@ pub struct CreateCalibrationInput {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct CreateEvidenceInput {
+    pub evidence_id: String,
+    pub subject_id: String,
+    pub kind: EvidenceKind,
+    pub payload_hash: String,
+    pub source: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CreateCapabilityContractInput {
     pub contract_id: String,
     pub machine_hash: ActionHash,
@@ -56,6 +65,7 @@ pub struct CreateCapabilityContractInput {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateExecutionInput {
+    pub execution_id: String,
     pub work_order_hash: ActionHash,
     pub bom_hash: Option<ActionHash>,
     pub routing_hash: Option<ActionHash>,
@@ -129,6 +139,21 @@ pub fn record_calibration(input: CreateCalibrationInput) -> ExternResult<ActionH
 }
 
 #[hdk_extern]
+pub fn record_evidence(input: CreateEvidenceInput) -> ExternResult<ActionHash> {
+    let hash = create_entry(EntryTypes::Evidence(EvidenceEntry {
+        evidence_id: input.evidence_id,
+        subject_id: input.subject_id,
+        kind: input.kind,
+        payload_hash: input.payload_hash,
+        source: input.source,
+        observed_at: sys_time()?,
+    }))?;
+
+    link_from("all_evidence", LinkTypes::AllEvidence, hash.clone())?;
+    Ok(hash)
+}
+
+#[hdk_extern]
 pub fn record_capability_contract(
     input: CreateCapabilityContractInput,
 ) -> ExternResult<ActionHash> {
@@ -165,6 +190,7 @@ pub fn record_capability_contract(
 #[hdk_extern]
 pub fn record_execution(input: CreateExecutionInput) -> ExternResult<ActionHash> {
     let hash = create_entry(EntryTypes::ExecutionReceipt(ExecutionReceiptEntry {
+        execution_id: input.execution_id.clone(),
         work_order_hash: input.work_order_hash.clone(),
         bom_hash: input.bom_hash,
         routing_hash: input.routing_hash,
@@ -242,6 +268,7 @@ mod tests {
     #[test]
     fn test_execution_input_serde() {
         let input = CreateExecutionInput {
+            execution_id: "EXEC-TEST".into(),
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: None,
             routing_hash: None,
