@@ -1,5 +1,5 @@
 {
-  "schema": "mycelix.continual-adaptation.censoring-classification-fixtures.v1",
+  "schema": "mycelix.continual-adaptation.censoring-classification-fixtures.v2",
   "status": "research-fixture-only",
   "policy_binding": {
     "git_blob_sha": "5ce9d28fa3e615a12aaabc4ad246ad1ae0af8655"
