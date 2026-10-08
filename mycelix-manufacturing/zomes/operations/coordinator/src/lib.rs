@@ -144,6 +144,44 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
         }
     }
 
+    let mut all_inspection_criteria = std::collections::HashSet::new();
+    for step in &input.steps {
+        for criterion_hash in &step.required_inspection_criterion_hashes {
+            if !all_inspection_criteria.insert(criterion_hash.clone()) {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "routing cannot require the same inspection criterion more than once".to_string()
+                )));
+            }
+
+            let response = call(
+                CallTargetCell::Local,
+                ZomeName::from("execution"),
+                FunctionName::from("get_inspection_criterion"),
+                None,
+                ExternIO::encode(criterion_hash.clone())?,
+            )?;
+            match response {
+                ZomeCallResponse::Ok(data) => {
+                    let criterion: Option<Record> = data.decode().map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "failed to decode inspection criterion: {e}"
+                        )))
+                    })?;
+                    if criterion.is_none() {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "routing inspection criterion not found".to_string()
+                        )));
+                    }
+                }
+                _ => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "routing inspection criterion lookup failed".to_string()
+                    )));
+                }
+            }
+        }
+    }
+
     let steps: Vec<RoutingStepEntry> = input
         .steps
         .into_iter()
