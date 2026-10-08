@@ -43,6 +43,17 @@ fn verify_governance_or_bootstrap() -> ExternResult<()> {
     verify_governance_or_bootstrap_from_links(gov_links)
 }
 
+fn verify_registered_monetary_governance() -> ExternResult<()> {
+    let gov_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::GovernanceAgents,
+        )?,
+        GetStrategy::default(),
+    )?;
+    verify_registered_governance_agent_from_links(gov_links)
+}
+
 /// Register a governance agent. Only existing governance agents can register
 /// new ones (or anyone during bootstrap when no agents exist yet).
 #[hdk_extern]
@@ -61,6 +72,13 @@ pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash>
 #[hdk_extern]
 pub fn verify_governance_agent(_: ()) -> ExternResult<()> {
     verify_governance_or_bootstrap()
+}
+
+/// Verify a registered governance agent for monetary authority.
+/// An empty governance registry is always rejected.
+#[hdk_extern]
+pub fn verify_monetary_governance_agent(_: ()) -> ExternResult<()> {
+    verify_registered_monetary_governance()
 }
 
 // =============================================================================
