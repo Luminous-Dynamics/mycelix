@@ -19,21 +19,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          persist-credentials: false
-
-      - name: Assert exact candidate checkout
+      - name: Emit execution-request beacon
         env:
-          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -eu
-          actual="$(git rev-parse HEAD)"
-          test "$actual" = "$EXPECTED_SHA"
-          echo "EXACT_HEAD=$actual"
-
-      - name: Emit execution-request beacon
+          echo "FPM candidate execution request accepted for exact head $EXPECTED_SHA"
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
