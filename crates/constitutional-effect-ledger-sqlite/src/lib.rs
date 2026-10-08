@@ -281,6 +281,7 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
         attempt_identity: &AttemptIdentityV1,
         mut record: AttemptRecordV1,
         authorization_proof: AuthorizationAdmissionProofV1,
+        admission_now_unix_ms: u64,
     ) -> Result<AtomicAdmissionDecision, String> {
         if record.authorization_admission_proof_digest.is_some() {
             return Err(
@@ -289,6 +290,9 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
             );
         }
         authorization_proof.validate()?;
+        if !authorization_proof.is_fresh(admission_now_unix_ms) {
+            return Err("authorization admission proof expired before durable admission".into());
+        }
         if !authorization_proof.matches(&record, action_key) {
             return Err("authorization admission proof does not match exact attempt/action".into());
         }
