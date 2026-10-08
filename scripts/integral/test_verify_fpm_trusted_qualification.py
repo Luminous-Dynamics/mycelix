@@ -262,8 +262,10 @@ def main() -> None:
             extracted = zroot / "qualification-receipt.json"
             extracted.write_bytes(good_data)
             verified_archive = verifier.verify_raw_artifact_archive(
-                good_zip, "qualification-receipt.json", f"sha256:{good_digest}", extracted, "receipt"
+                good_zip, "qualification-receipt.json", f"sha256:{good_digest}", good_zip.stat().st_size, extracted, "receipt"
             )
+            assert verified_archive["member_count"] == 1
+            assert verified_archive["member_names"] == ["qualification-receipt.json"]
             assert verified_archive["member_sha256"] == hashlib.sha256(good_data).hexdigest()
             assert verified_archive["member_set_sha256"] == hashlib.sha256(
                 b'["qualification-receipt.json"]'
@@ -304,7 +306,7 @@ def main() -> None:
                     digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
                 try:
                     verifier.verify_raw_artifact_archive(
-                        archive_path, "qualification-receipt.json", f"sha256:{digest}", extracted, "receipt"
+                        archive_path, "qualification-receipt.json", f"sha256:{digest}", archive_path.stat().st_size, extracted, "receipt"
                     )
                 except SystemExit:
                     pass
@@ -314,7 +316,7 @@ def main() -> None:
             extracted.write_bytes(b"tampered\n")
             try:
                 verifier.verify_raw_artifact_archive(
-                    good_zip, "qualification-receipt.json", f"sha256:{good_digest}", extracted, "receipt"
+                    good_zip, "qualification-receipt.json", f"sha256:{good_digest}", good_zip.stat().st_size, extracted, "receipt"
                 )
             except SystemExit:
                 pass
