@@ -8,7 +8,7 @@ import hashlib
 import json
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 PAGE_SIZE = 100
 MAX_ARTIFACTS = 256
@@ -85,7 +85,7 @@ def identity_commitment(items: list[dict[str, Any]]) -> str:
 
 
 def enumerate_artifacts(
-    get_page: callable,
+    get_page: Callable[[int], tuple[int, list[dict[str, Any]]]],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     items: list[dict[str, Any]] = []
     seen_ids: set[int] = set()
