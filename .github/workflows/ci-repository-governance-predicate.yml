@@ -76,6 +76,8 @@ jobs:
           assert "ref: ${{ github.event.pull_request.head.sha || github.sha }}" in text
           assert "git rev-parse HEAD" in text
           assert "EXPECTED_WORKFLOW_SHA" in text
+          assert "Differential-test GitHub ref matcher" in text
+          assert "File::FNM_PATHNAME" in text
           PY
 
       - name: Validate governance policy JSON
@@ -256,6 +258,66 @@ jobs:
           assert "definition_not_present_in_ruleset" in scanned_text
           assert "set(index_ids) == set(full_ids)" in scanned_text
           assert "1176351975" in scanned_text
+          PY
+
+      - name: Differential-test GitHub ref matcher
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import subprocess
+          from pathlib import Path
+
+          module_path = Path("scripts/validate_repository_governance_observation_v1.py")
+          spec = importlib.util.spec_from_file_location("governance_evaluator", module_path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          ruby_script = """
+          pattern = ARGV.fetch(0)
+          value = ARGV.fetch(1)
+          puts(File.fnmatch(pattern, value, File::FNM_PATHNAME) ? "true" : "false")
+          """.strip()
+
+          corpus = [
+              ("refs/heads/main", "refs/heads/main"),
+              ("refs/heads/*", "refs/heads/main"),
+              ("refs/heads/*", "refs/heads/feature/main"),
+              ("refs/heads/?ain", "refs/heads/main"),
+              ("refs/heads/[a-m]ain", "refs/heads/main"),
+              ("refs/heads/**", "refs/heads/main"),
+              ("refs/heads/**", "refs/heads/feature/main"),
+              ("refs/**/main", "refs/heads/main"),
+              ("refs/**/main", "refs/heads/feature/main"),
+              ("refs/heads/feature/*", "refs/heads/feature/main"),
+              ("refs/heads/qa/**/*", "refs/heads/qa/foo/bar/hello-world"),
+              ("refs/heads/qa**/**/*", "refs/heads/qafoo/bar/hello-world"),
+              ("refs/*/*", "refs/main"),
+              ("refs/*/*", "refs/heads/main"),
+          ]
+
+          for pattern, value in corpus:
+              expected = subprocess.run(
+                  ["ruby", "-e", ruby_script, pattern, value],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              ).stdout.strip() == "true"
+              actual = module._github_ref_pattern_matches(value, pattern)
+              assert actual == expected, (
+                  f"GitHub FNM_PATHNAME parity mismatch: "
+                  f"pattern={pattern!r} value={value!r} expected={expected} actual={actual}"
+              )
+
+          unsupported = [
+              "refs/heads/" + chr(92) + "main",
+              "refs/heads/[^m]ain",
+          ]
+          for pattern in unsupported:
+              assert module._github_ref_pattern_matches("refs/heads/main", pattern) is False
+
+          print(f"GitHub FNM_PATHNAME parity PASS: {len(corpus)} supported cases")
+          print(f"Unsupported-pattern fail-closed PASS: {len(unsupported)} cases")
           PY
 
       - name: Run fail-closed evaluator self-tests
