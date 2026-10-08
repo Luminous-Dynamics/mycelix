@@ -334,7 +334,7 @@ def verify_trigger_run_record(
     assert trigger["name"] == cfg["name"]
     assert trigger["path"] == cfg["path"]
     assert int(trigger["workflow_id"]) == int(cfg["workflow_id"])
-    assert trigger["event"] == "push"
+    assert trigger["event"] == "pull_request"
     assert trigger["conclusion"] == "success"
     assert trigger["head_repository"]["full_name"] == repo
     assert int(trigger["head_repository"]["id"]) == expected_repository_id
