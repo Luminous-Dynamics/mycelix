@@ -20,7 +20,7 @@ use crate::{ActionKeyV1, AttemptIdentityV1};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const ATTEMPT_RECORD_SCHEMA_VERSION: u16 = 3;
+pub const ATTEMPT_RECORD_SCHEMA_VERSION: u16 = 4;
 pub const ACTION_FENCE_SCHEMA_VERSION: u16 = 1;
 pub const ATTEMPT_RECORD_PREFIX: &str = "constitutional-attempt-record-v1:";
 pub const ACTION_FENCE_RECORD_PREFIX: &str = "constitutional-action-fence-v1:";
