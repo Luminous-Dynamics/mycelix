@@ -67,12 +67,17 @@ pub enum EconomicIdentityNamespaceV1 {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct EconomicEffectIdentityV1 {
+pub struct EconomicIdentityV1 {
     /// Source-defined canonical economic key. For example, collateral
     /// issuance binds this to FIN-SAFE-010's canonical mint_id; transfer
     /// binds it to the canonical transfer ID.
     pub namespace: EconomicIdentityNamespaceV1,
     pub key: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct EconomicEffectIdentityV1 {
+    pub economic_identity: EconomicIdentityV1,
     pub predecessor_action_reference: String,
     pub cause_action_reference: String,
     pub asset: String,
@@ -82,7 +87,18 @@ pub struct EconomicEffectIdentityV1 {
 
 impl EconomicEffectIdentityV1 {
     fn validate(&self) -> Result<(), EconomicEffectError> {
-        validate_id(&self.key, EconomicEffectError::InvalidEconomicIdentity)?;
+        validate_id(&self.economic_identity.key, EconomicEffectError::InvalidEconomicIdentity)?;
+        match (self.economic_identity.namespace, self.mutation_class) {
+            (EconomicIdentityNamespaceV1::Transfer, MutationClass::Transfer)
+            | (EconomicIdentityNamespaceV1::Fee, MutationClass::Fee)
+            | (EconomicIdentityNamespaceV1::Demurrage, MutationClass::Demurrage)
+            | (EconomicIdentityNamespaceV1::TreasuryAllocation, MutationClass::TreasuryAllocation)
+            | (EconomicIdentityNamespaceV1::Burn, MutationClass::Burn)
+            | (EconomicIdentityNamespaceV1::CollateralMint, MutationClass::Mint)
+            | (EconomicIdentityNamespaceV1::GovernanceMint, MutationClass::Mint)
+            | (EconomicIdentityNamespaceV1::Generic, _) => {}
+            _ => return Err(EconomicEffectError::IdentityNamespaceMismatch),
+        }
         validate_id(
             &self.predecessor_action_reference,
             EconomicEffectError::InvalidPredecessorReference,
@@ -252,7 +268,7 @@ impl EconomicEffectV1 {
         if context
             .seen_economic_identities
             .iter()
-            .any(|identity| identity == &self.identity.key)
+            .any(|identity| identity == &self.identity.economic_identity)
         {
             return Err(EconomicEffectError::EconomicReplay);
         }
@@ -367,7 +383,7 @@ impl EconomicEffectV1 {
 #[derive(Clone, Copy, Debug)]
 pub struct EffectValidationContext<'a> {
     pub seen_effect_identities: &'a [EconomicEffectIdentityV1],
-    pub seen_economic_identities: &'a [String],
+    pub seen_economic_identities: &'a [EconomicIdentityV1],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -532,6 +548,7 @@ fn validate_id(value: &str, error: EconomicEffectError) -> Result<(), EconomicEf
 pub enum EconomicEffectError {
     UnsupportedSchema,
     InvalidEconomicIdentity,
+    IdentityNamespaceMismatch,
     InvalidPredecessorReference,
     InvalidCauseReference,
     InvalidSuccessorReference,
@@ -585,8 +602,10 @@ mod tests {
         EconomicEffectV1 {
             schema_version: ECONOMIC_EFFECT_V1_SCHEMA_VERSION,
             identity: EconomicEffectIdentityV1 {
-                namespace: EconomicIdentityNamespaceV1::Transfer,
-                key: "transfer-1".into(),
+                economic_identity: EconomicIdentityV1 {
+                    namespace: EconomicIdentityNamespaceV1::Transfer,
+                    key: "transfer-1".into(),
+                },
                 predecessor_action_reference: "prev-1".into(),
                 cause_action_reference: "cause-1".into(),
                 asset: "SAP".into(),
@@ -640,6 +659,7 @@ mod tests {
         );
 
         effect.identity.mutation_class = MutationClass::Fee;
+        effect.identity.economic_identity.namespace = EconomicIdentityNamespaceV1::Fee;
         effect.credits = vec![allocation("treasury", AllocationRole::Treasury, 100)];
         effect.debits[0].amount = 50;
         assert_eq!(
@@ -657,6 +677,7 @@ mod tests {
     fn self_burn_requires_typed_burn_sink() {
         let mut effect = base_transfer();
         effect.identity.mutation_class = MutationClass::Burn;
+        effect.identity.economic_identity.namespace = EconomicIdentityNamespaceV1::Burn;
         effect.credits = vec![allocation("alice", AllocationRole::Account, 100)];
         assert_eq!(
             validate(&effect),
@@ -701,7 +722,10 @@ mod tests {
     #[test]
     fn same_economic_identity_is_rejected_even_when_physical_provenance_differs() {
         let mut effect = base_transfer();
-        let seen = vec!["mint-or-operation-1".to_string()];
+        let seen = vec![EconomicIdentityV1 {
+            namespace: EconomicIdentityNamespaceV1::CollateralMint,
+            key: "mint-or-operation-1".into(),
+        }];
         effect.identity.predecessor_action_reference = "different-prev".into();
         effect.identity.cause_action_reference = "different-cause".into();
         assert_eq!(
@@ -717,8 +741,8 @@ mod tests {
     fn same_cause_can_fan_out_when_source_allows_multiple_effects() {
         let transfer = base_transfer();
         let mut fee = base_transfer();
-        fee.identity.namespace = EconomicIdentityNamespaceV1::Fee;
-        fee.identity.key = "fee-1".into();
+        fee.identity.economic_identity.namespace = EconomicIdentityNamespaceV1::Fee;
+        fee.identity.economic_identity.key = "fee-1".into();
         fee.identity.mutation_class = MutationClass::Fee;
         fee.credits = vec![allocation("treasury", AllocationRole::Treasury, 100)];
 
@@ -740,6 +764,7 @@ mod tests {
     fn mint_is_explicitly_typed_not_an_unbalanced_transfer() {
         let mut effect = base_transfer();
         effect.identity.mutation_class = MutationClass::Mint;
+        effect.identity.economic_identity.namespace = EconomicIdentityNamespaceV1::CollateralMint;
         effect.debits.clear();
         effect.credits = vec![allocation("alice", AllocationRole::Account, 100)];
         assert!(validate(&effect).is_ok());
@@ -756,6 +781,7 @@ mod tests {
     fn demurrage_requires_full_typed_routing() {
         let mut effect = base_transfer();
         effect.identity.mutation_class = MutationClass::Demurrage;
+        effect.identity.economic_identity.namespace = EconomicIdentityNamespaceV1::Demurrage;
         effect.debits = vec![allocation("alice", AllocationRole::Account, 70)];
         effect.credits = vec![
             allocation("local", AllocationRole::Commons, 49),
@@ -909,8 +935,10 @@ mod tests {
             EconomicEffectObservation {
                 successor_action_reference: "succ-b".into(),
                 effect_identity: EconomicEffectIdentityV1 {
-                    namespace: EconomicIdentityNamespaceV1::Transfer,
-                    key: "transfer-b".into(),
+                    economic_identity: EconomicIdentityV1 {
+                        namespace: EconomicIdentityNamespaceV1::Transfer,
+                        key: "transfer-b".into(),
+                    },
                     predecessor_action_reference: "prev-1".into(),
                     cause_action_reference: "cause-b".into(),
                     asset: "SAP".into(),
