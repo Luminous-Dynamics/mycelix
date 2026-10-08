@@ -20,7 +20,7 @@ use crate::{ActionKeyV1, AttemptIdentityV1};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const ATTEMPT_RECORD_SCHEMA_VERSION: u16 = 2;
+pub const ATTEMPT_RECORD_SCHEMA_VERSION: u16 = 3;
 pub const ACTION_FENCE_SCHEMA_VERSION: u16 = 1;
 pub const ATTEMPT_RECORD_PREFIX: &str = "constitutional-attempt-record-v1:";
 pub const ACTION_FENCE_RECORD_PREFIX: &str = "constitutional-action-fence-v1:";
@@ -33,6 +33,10 @@ const ATTEMPT_RECORD_DOMAIN: &[u8] =
     b"MYCELIX-CONSTITUTIONAL-ATTEMPT-RECORD\0V1\0";
 const ACTION_FENCE_RECORD_DOMAIN: &[u8] =
     b"MYCELIX-CONSTITUTIONAL-ACTION-FENCE-RECORD\0V1\0";
+const PROVIDER_IDEMPOTENCY_KEY_DOMAIN: &[u8] =
+    b"MYCELIX-CONSTITUTIONAL-PROVIDER-IDEMPOTENCY-KEY\0V1\0";
+pub const PROVIDER_IDEMPOTENCY_KEY_PREFIX: &str =
+    "constitutional-provider-idempotency-v1:";
 
 fn valid_opaque(value: &str, max_len: usize) -> bool {
     !value.trim().is_empty() && value.len() <= max_len
@@ -70,6 +74,44 @@ fn push_str(hasher: &mut blake3::Hasher, value: &str) {
 
 fn tagged(prefix: &str, hash: blake3::Hash) -> String {
     format!("{prefix}{}", hash.to_hex())
+}
+
+fn derive_provider_idempotency_key_inner(
+    native_replay_identity: &str,
+    action_key_digest: &str,
+    provider_environment: &str,
+    provider_audience: &str,
+    adapter_identity: &str,
+) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(PROVIDER_IDEMPOTENCY_KEY_DOMAIN);
+    push_str(&mut hasher, native_replay_identity);
+    push_str(&mut hasher, action_key_digest);
+    push_str(&mut hasher, provider_environment);
+    push_str(&mut hasher, provider_audience);
+    push_str(&mut hasher, adapter_identity);
+    format!("{}{}", PROVIDER_IDEMPOTENCY_KEY_PREFIX, hasher.finalize().to_hex())
+}
+
+pub fn derive_provider_idempotency_key(
+    native_replay_identity: &str,
+    action_key_digest: &str,
+    provider_environment: &str,
+    provider_audience: &str,
+    adapter_identity: &str,
+) -> Result<String, String> {
+    require_opaque("native_replay_identity", native_replay_identity, MAX_REF_LEN)?;
+    require_tagged_hash("action_key_digest", action_key_digest, crate::ACTION_KEY_PREFIX)?;
+    require_opaque("provider_environment", provider_environment, MAX_REF_LEN)?;
+    require_opaque("provider_audience", provider_audience, MAX_REF_LEN)?;
+    require_opaque("adapter_identity", adapter_identity, MAX_REF_LEN)?;
+    Ok(derive_provider_idempotency_key_inner(
+        native_replay_identity,
+        action_key_digest,
+        provider_environment,
+        provider_audience,
+        adapter_identity,
+    ))
 }
 
 fn reconciliation_token(owner_token: &str, attempt_identity: &str, action_key_digest: &str) -> String {
@@ -317,6 +359,7 @@ pub struct AttemptRecordV1 {
     pub provider_environment: String,
     pub provider_audience: String,
     pub adapter_identity: String,
+    pub provider_idempotency_key: String,
     pub ownership_token_digest: String,
     pub reconciliation_token_digest: Option<String>,
     pub terminal_evidence_digest: Option<String>,
@@ -364,6 +407,13 @@ impl AttemptRecordV1 {
         require_opaque("provider_environment", &provider_environment, MAX_REF_LEN)?;
         require_opaque("provider_audience", &provider_audience, MAX_REF_LEN)?;
         require_opaque("adapter_identity", &adapter_identity, MAX_REF_LEN)?;
+        let provider_idempotency_key = derive_provider_idempotency_key(
+            &native_replay_identity,
+            action_key.digest(),
+            &provider_environment,
+            &provider_audience,
+            &adapter_identity,
+        )?;
         require_opaque("ownership_token_digest", &ownership_token_digest, MAX_REF_LEN)?;
 
         if action_digest != action_key.material_action_digest() {
@@ -394,6 +444,7 @@ impl AttemptRecordV1 {
             provider_environment,
             provider_audience,
             adapter_identity,
+            provider_idempotency_key,
             ownership_token_digest,
             reconciliation_token_digest: None,
             terminal_evidence_digest: None,
@@ -437,6 +488,21 @@ impl AttemptRecordV1 {
         )?;
         require_opaque("provider_audience", &self.provider_audience, MAX_REF_LEN)?;
         require_opaque("adapter_identity", &self.adapter_identity, MAX_REF_LEN)?;
+        require_opaque(
+            "provider_idempotency_key",
+            &self.provider_idempotency_key,
+            MAX_REF_LEN,
+        )?;
+        let expected_provider_idempotency_key = derive_provider_idempotency_key(
+            &self.native_replay_identity,
+            &self.action_key_digest,
+            &self.provider_environment,
+            &self.provider_audience,
+            &self.adapter_identity,
+        )?;
+        if self.provider_idempotency_key != expected_provider_idempotency_key {
+            return Err("provider_idempotency_key does not match versioned derivation".into());
+        }
         require_opaque(
             "ownership_token_digest",
             &self.ownership_token_digest,
@@ -515,6 +581,10 @@ impl AttemptRecordV1 {
 
     /// Digest of the complete durable projection. This is record integrity, not
     /// semantic action identity: `operation_id` is intentionally included here.
+    pub fn provider_idempotency_key(&self) -> &str {
+        &self.provider_idempotency_key
+    }
+
     pub fn reconciliation_token_digest(&self) -> String {
         reconciliation_token(
             &self.ownership_token_digest,
@@ -546,6 +616,7 @@ impl AttemptRecordV1 {
         push_str(&mut hasher, &self.provider_environment);
         push_str(&mut hasher, &self.provider_audience);
         push_str(&mut hasher, &self.adapter_identity);
+        push_str(&mut hasher, &self.provider_idempotency_key);
         push_str(&mut hasher, &self.ownership_token_digest);
         push_str(
             &mut hasher,
