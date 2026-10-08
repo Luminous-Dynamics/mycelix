@@ -182,16 +182,17 @@ impl SqliteActionFenceStore {
                     "durable attempt is missing its full authorization admission receipt".to_owned()
                 })?;
         admission_proof.validate()?;
-        if admission_proof.digest() != binding.authorization_admission_proof_digest
-            || admission_proof.attempt_identity() != attempt.attempt_identity
-            || admission_proof.action_key_digest() != attempt.action_key_digest
-            || admission_proof.action_digest() != attempt.action_digest
-            || admission_proof.effecting_target_identity() != attempt.effecting_target_identity
-            || admission_proof.operation_id() != attempt.operation_id
-            || admission_proof.native_replay_identity() != attempt.native_replay_identity
-            || admission_proof.provider_environment() != attempt.provider_environment
-            || admission_proof.provider_audience() != attempt.provider_audience
-            || admission_proof.adapter_identity() != attempt.adapter_identity
+        if admission_proof.digest() != binding.authorization_admission_proof_digest.as_str()
+            || admission_proof.attempt_identity() != attempt.attempt_identity.as_str()
+            || admission_proof.action_key_digest() != attempt.action_key_digest.as_str()
+            || admission_proof.action_digest() != attempt.action_digest.as_str()
+            || admission_proof.effecting_target_identity()
+                != attempt.effecting_target_identity.as_str()
+            || admission_proof.operation_id() != attempt.operation_id.as_str()
+            || admission_proof.native_replay_identity() != attempt.native_replay_identity.as_str()
+            || admission_proof.provider_environment() != attempt.provider_environment.as_str()
+            || admission_proof.provider_audience() != attempt.provider_audience.as_str()
+            || admission_proof.adapter_identity() != attempt.adapter_identity.as_str()
         {
             return Err("durable admission receipt does not match resolution attempt scope".into());
         }
@@ -3229,6 +3230,39 @@ mod tests {
                 )
                 .unwrap_err()
                 .contains("does not match durable attempt state")
+        );
+
+        let mut wrong_final_entry = binding.clone();
+        wrong_final_entry.final_provider_entry_proof_digest = format!(
+            "{}{}",
+            FINAL_PROVIDER_ENTRY_PROOF_DIGEST_PREFIX,
+            "0".repeat(64)
+        );
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &wrong_final_entry,
+                    action.material_action_digest(),
+                    action.effecting_target_identity(),
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("final-entry-proof digest")
+        );
+
+        let mut malformed_admission = binding.clone();
+        malformed_admission.authorization_admission_proof_digest =
+            "not-a-canonical-admission-root".into();
+        assert!(
+            store
+                .reconcile_resolution_binding(
+                    &malformed_admission,
+                    action.material_action_digest(),
+                    action.effecting_target_identity(),
+                    DurableResolutionOutcomeV1::Executed,
+                )
+                .unwrap_err()
+                .contains("non-canonical durable root")
         );
 
         drop(store);
