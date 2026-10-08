@@ -357,6 +357,38 @@ Signal loss or redelivery then changes UI freshness, not constitutional history.
 
 ---
 
+## Boundary status after the effect-ledger hardening tranche
+
+The host-side constitutional effect boundary now has a stronger generic control
+plane than the provider lanes described above. In particular, the current stacked
+hardening work requires:
+
+```text
+exact admission proof
+    -> durable replay/action fence
+    -> persisted provider idempotency identity
+    -> single-winner provider-entry claim
+    -> final authorization/status freshness proof
+    -> terminal evidence verifier affirmation
+```
+
+These controls do **not** upgrade any provider lane in this document. The three
+provider classifications remain independent:
+
+```text
+TransferCredits  = Incompatible
+UpdateParameter  = Incompatible
+EmitEvent        = ProjectionOnly
+```
+
+Nor does the existence of the SQLite/reference-model boundary prove that a live
+host deployment is wired through it. The current execution coordinator remains a
+prepare-only Holochain path, and live provider execution wiring must be separately
+demonstrated and exact-head qualified.
+
+This separation is intentional: a hardened boundary is a prerequisite for provider
+qualification, not evidence that the providers themselves satisfy the boundary.
+
 ## Adapter contract added by D1D0
 
 Every future provider adapter must establish all of the following before it is eligible for live D1C execution wiring:
