@@ -72,7 +72,12 @@ jobs:
             mycelix-governance/tools/formal/test_evidence_attestation_claim_composition_matrix.py \
             mycelix-governance/tools/formal/run_evidence_attestation_claim_composition_matrix.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOSITION_CONTROL_MATRIX_V1.json >/dev/null
-          python3 mycelix-governance/tools/formal/test_evidence_attestation_claim_composition_matrix.py
+          python3 mycelix-governance/tools/formal/test_evidence_attestation_claim_composition_matrix.py \
+            --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOSITION_CONTROL_MATRIX_V1.json \
+            --tla mycelix-governance/specs/EvidenceAttestationClaimCompositionV1.tla \
+            --negative-tla mycelix-governance/specs/EvidenceAttestationClaimCompositionV1NegativeControls.tla \
+            --alloy mycelix-governance/specs/alloy/EvidenceAttestationClaimCompositionV1.als \
+            --reference mycelix-governance/tools/formal/evidence_attestation_claim_composition_reference.py
 
       - name: Install pinned Nix toolchain
         uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b
