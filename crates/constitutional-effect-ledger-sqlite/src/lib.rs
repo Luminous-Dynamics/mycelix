@@ -2924,7 +2924,7 @@ mod tests {
 
             expected_digest = proof.digest().to_owned();
             store
-                .atomically_admit(&action, &owner, record, proof.clone())
+                .atomically_admit(&action, &owner, record, proof.clone(), 100)
                 .unwrap();
             assert_eq!(
                 store
@@ -3336,7 +3336,7 @@ mod tests {
         {
             let mut store = SqliteActionFenceStore::open(&path).unwrap();
             store
-                .atomically_admit(&action, &owner, record, proof)
+                .atomically_admit(&action, &owner, record, proof, 100)
                 .unwrap();
         }
 
