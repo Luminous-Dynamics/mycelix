@@ -205,6 +205,22 @@ def run(candidate_root: pathlib.Path) -> None:
     )
 
     tampered = dict(record)
+    tampered["trigger_workflow_run_id"] = "0100"
+    assert_rejected(
+        lambda: verifier.verify_record_metadata(tampered, p),
+        "runtime evidence run identity is not canonical",
+        "candidate verifier accepted a noncanonical trigger run ID",
+    )
+
+    tampered = dict(record)
+    tampered["trigger_workflow_run_attempt"] = "01"
+    assert_rejected(
+        lambda: verifier.verify_record_metadata(tampered, p),
+        "runtime evidence run identity is not canonical",
+        "candidate verifier accepted a noncanonical trigger run attempt",
+    )
+
+    tampered = dict(record)
     tampered["claim_ceiling"] = "OperationallyQualified"
     assert_rejected(
         lambda: verifier.verify_record_metadata(tampered, p),
