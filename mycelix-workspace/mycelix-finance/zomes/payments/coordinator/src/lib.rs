@@ -16,7 +16,7 @@ use mycelix_finance_shared::{
 use mycelix_finance_types::{
     AMBER_CUSTODIAL_CAP_MICRO_SAP, AMBER_MAX_CAP_MICRO_SAP, AmberClass, AmberExemption,
     COMPOST_LOCAL_PCT, COMPOST_MAX_RETRIES, COMPOST_REGIONAL_PCT, CompostPoolTier,
-    DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, FeeTier, PendingCompost, SAP_MINT_ANNUAL_MAX,
+    DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, PendingCompost, SAP_MINT_ANNUAL_MAX,
     SAP_MINT_PER_PROPOSAL_MAX, SapMintCapCounter, SapMintSource, SuccessionPreference,
     compute_demurrage_deduction, compute_demurrage_with_exemption,
 };
@@ -1034,12 +1034,32 @@ fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)>
     ))))
 }
 
-/// Compute the progressive SAP fee for a payment based on sender's MYCEL score.
+/// Validate an authoritative SAP fee rate before converting it into a monetary amount.
 ///
-/// Queries the bridge coordinator for the canonical fee tier (single source of truth).
-/// Falls back to direct recognition lookup, then to Newcomer tier (0.10%).
+/// Fee rates are policy inputs. A malformed, non-finite, non-positive, or
+/// out-of-domain value must therefore remain an explicit error rather than
+/// becoming a synthetic fee tier or being truncated during float conversion.
+fn validate_sap_fee_rate(rate: f64) -> ExternResult<f64> {
+    if !rate.is_finite() || rate <= 0.0 || rate > 1.0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Finance bridge returned an invalid SAP fee rate: {rate:?}"
+        ))));
+    }
+    Ok(rate)
+}
+
+/// Compute the progressive SAP fee for a payment from the canonical Finance
+/// bridge fee-tier authority.
+///
+/// The bridge is authoritative here. There is deliberately no direct
+/// recognition fallback: an unavailable policy authority is not evidence of
+/// the Newcomer tier.
 fn compute_sap_fee(sender_did: &str, micro_amount: u64) -> ExternResult<u64> {
-    // Try canonical path: bridge → recognition → FeeTier
+    #[derive(Debug, Deserialize)]
+    struct TierResp {
+        base_fee_rate: f64,
+    }
+
     let fee_rate = match call(
         CallTargetCell::Local,
         ZomeName::from("finance_bridge"),
@@ -1048,112 +1068,59 @@ fn compute_sap_fee(sender_did: &str, micro_amount: u64) -> ExternResult<u64> {
         sender_did.to_string(),
     ) {
         Ok(ZomeCallResponse::Ok(result)) => {
-            #[derive(Debug, Deserialize)]
-            struct TierResp {
-                base_fee_rate: f64,
-            }
-            match result.decode::<TierResp>() {
-                Ok(resp) if resp.base_fee_rate.is_finite() => resp.base_fee_rate,
-                Ok(resp) => {
-                    debug!(
-                        "compute_sap_fee: non-finite fee rate {:?} for {}, using Newcomer rate",
-                        resp.base_fee_rate, sender_did
-                    );
-                    FeeTier::Newcomer.base_fee_rate()
-                }
-                Err(e) => {
-                    debug!(
-                        "compute_sap_fee: fee tier decode error for {}: {:?}, using Newcomer rate",
-                        sender_did, e
-                    );
-                    FeeTier::Newcomer.base_fee_rate()
-                }
-            }
+            let response = result.decode::<TierResp>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Finance bridge fee-tier response was malformed for {}: {:?}",
+                    sender_did, e
+                )))
+            })?;
+            validate_sap_fee_rate(response.base_fee_rate)?
         }
         Ok(other) => {
-            debug!(
-                "compute_sap_fee: bridge returned {:?} for {}, falling back to direct recognition",
-                other, sender_did
-            );
-            // Bridge unavailable — fall back to direct recognition call
-            let mycel_score = match call(
-                CallTargetCell::Local,
-                ZomeName::from("recognition"),
-                FunctionName::from("get_mycel_score"),
-                None,
-                sender_did.to_string(),
-            ) {
-                Ok(ZomeCallResponse::Ok(result)) => {
-                    #[derive(Debug, Deserialize)]
-                    struct MycelState {
-                        mycel_score: f64,
-                    }
-                    result
-                        .decode::<MycelState>()
-                        .map(|s| s.mycel_score)
-                        .unwrap_or(0.0)
-                }
-                Ok(other) => {
-                    debug!(
-                        "compute_sap_fee: recognition returned {:?} for {}, defaulting to 0.0",
-                        other, sender_did
-                    );
-                    0.0
-                }
-                Err(e) => {
-                    debug!(
-                        "compute_sap_fee: recognition unreachable for {}: {:?}, defaulting to 0.0",
-                        sender_did, e
-                    );
-                    0.0
-                }
-            };
-            FeeTier::from_mycel(mycel_score).base_fee_rate()
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Finance bridge fee-tier authority returned unexpected response for {}: {:?}",
+                sender_did, other
+            ))));
         }
         Err(e) => {
-            debug!(
-                "compute_sap_fee: bridge unreachable for {}: {:?}, falling back to direct recognition",
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Finance bridge fee-tier authority unavailable for {}: {:?}",
                 sender_did, e
-            );
-            // Bridge unavailable — fall back to direct recognition call
-            let mycel_score = match call(
-                CallTargetCell::Local,
-                ZomeName::from("recognition"),
-                FunctionName::from("get_mycel_score"),
-                None,
-                sender_did.to_string(),
-            ) {
-                Ok(ZomeCallResponse::Ok(result)) => {
-                    #[derive(Debug, Deserialize)]
-                    struct MycelState {
-                        mycel_score: f64,
-                    }
-                    result
-                        .decode::<MycelState>()
-                        .map(|s| s.mycel_score)
-                        .unwrap_or(0.0)
-                }
-                Ok(other) => {
-                    debug!(
-                        "compute_sap_fee: recognition returned {:?} for {}, defaulting to 0.0",
-                        other, sender_did
-                    );
-                    0.0
-                }
-                Err(e2) => {
-                    debug!(
-                        "compute_sap_fee: recognition also unreachable for {}: {:?}, defaulting to 0.0",
-                        sender_did, e2
-                    );
-                    0.0
-                }
-            };
-            FeeTier::from_mycel(mycel_score).base_fee_rate()
+            ))));
         }
     };
 
     let fee = (micro_amount as f64 * fee_rate) as u64;
     Ok(fee)
+}
+
+#[cfg(test)]
+mod sap_fee_policy_tests {
+    use super::*;
+
+    #[test]
+    fn sap_fee_rate_accepts_bounded_positive_finite_values() {
+        assert_eq!(validate_sap_fee_rate(0.0001).unwrap(), 0.0001);
+        assert_eq!(validate_sap_fee_rate(0.5).unwrap(), 0.5);
+        assert_eq!(validate_sap_fee_rate(1.0).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn sap_fee_rate_rejects_false_green_values() {
+        for rate in [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            0.0,
+            -0.0001,
+            1.000001,
+        ] {
+            assert!(
+                validate_sap_fee_rate(rate).is_err(),
+                "policy-bearing invalid fee rate must fail closed: {rate:?}"
+            );
+        }
+    }
 }
 
 fn elapsed_seconds(from: Timestamp, to: Timestamp) -> u64 {
