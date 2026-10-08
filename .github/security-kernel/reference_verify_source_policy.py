@@ -1072,6 +1072,12 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         fail("S2 source-policy verifier path mismatch")
     if exact_count(l, f'SOURCE_POLICY_VERIFIER_BLOB_SHA: "{expected_policy_sha}"') != 1:
         fail("S2 source-policy verifier self-pin mismatch")
+    if exact_count(l, "class ApiNoRedirect(urllib.request.HTTPRedirectHandler):") != 2:
+        fail("S2 token-bearing GitHub API reads must each install an explicit no-redirect handler")
+    if exact_count(l, "api_opener=urllib.request.build_opener(ApiNoRedirect)") != 2:
+        fail("S2 token-bearing GitHub API reads must use explicit no-redirect openers")
+    if "with urllib.request.urlopen(req, timeout=20) as response:" in joined:
+        fail("S2 token-bearing GitHub API reads must not use urllib.request.urlopen directly")
     if exact_count(l, 'TRUSTED_DISPATCHER_WORKFLOW_ID: "375560659"') != 1:
         fail("S2 trusted dispatcher workflow ID pin mismatch")
     if exact_count(l, 'assert len(jobs) == 3, f"trusted dispatcher must have exactly three jobs: {len(jobs)}"') != 1:
@@ -1342,6 +1348,21 @@ def main() -> None:
         "S2 trusted shell-audit target replaced",
     )
 
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'class ApiNoRedirect(urllib.request.HTTPRedirectHandler):',
+                b'class ApiNoRedirectRemoved:',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 token-bearing GitHub API no-redirect handler removed",
+    )
     expect_rejection(
         lambda: verify_s2(
             raw["s2"].replace(
