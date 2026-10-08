@@ -1,0 +1,203 @@
+name: D6U Compiler Sandbox Self-Test
+
+on:
+  push:
+    branches:
+      - chore/d6u-compiler-sandbox-self-test-20261008
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d6u-compiler-sandbox-self-test-${{ github.workflow_ref }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compiler-sandbox:
+    name: hostile compiler boundary probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact test subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact test subject
+        run: test "$(git rev-parse HEAD)" = "${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
+
+      - name: Isolate Rust and Cargo state
+        env:
+          CARGO_HOME: ${{ runner.temp }}/d6u-sandbox-cargo-home
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-sandbox-rustup-home
+        run: |
+          set -euo pipefail
+          test ! -e "$CARGO_HOME"
+          test ! -e "$RUSTUP_HOME"
+          mkdir -m 700 "$CARGO_HOME" "$RUSTUP_HOME"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        env:
+          CARGO_HOME: ${{ runner.temp }}/d6u-sandbox-cargo-home
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-sandbox-rustup-home
+        with:
+          toolchain: 1.96.1
+
+      - name: Assert sandbox substrate
+        run: |
+          set -euo pipefail
+          test -S /var/run/docker.sock
+          command -v sudo >/dev/null
+          command -v unshare >/dev/null
+          command -v runuser >/dev/null
+          command -v setpriv >/dev/null
+          test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
+
+      - name: Prepare dedicated builder
+        id: sandbox_setup
+        env:
+          BUILDER_HOME: ${{ runner.temp }}/d6u-sandbox-builder-home
+          CARGO_HOME: ${{ runner.temp }}/d6u-sandbox-cargo-home
+        run: |
+          set -euo pipefail
+          runner_uid="$(id -u)"
+          if ! getent group d6u-sandbox-build >/dev/null; then
+            sudo -n groupadd --system d6u-sandbox-build
+          fi
+          if ! id d6u-sandbox-builder >/dev/null 2>&1; then
+            sudo -n useradd --system --no-create-home --gid d6u-sandbox-build --home-dir "$BUILDER_HOME" --shell /usr/sbin/nologin d6u-sandbox-builder
+          fi
+          build_gid="$(getent group d6u-sandbox-build | cut -d: -f3)"
+          build_uid="$(id -u d6u-sandbox-builder)"
+          test "$build_uid" -gt 0
+          test "$build_uid" -ne "$runner_uid"
+          ! id -nG d6u-sandbox-builder | grep -Eq '(^|[[:space:]])docker([[:space:]]|$)'
+
+          sudo -n install -d -o "$runner_uid" -g "$build_gid" -m 2770 "$BUILDER_HOME"
+          sudo -n install -d -o "$runner_uid" -g "$build_gid" -m 2770 "$BUILDER_HOME/tmp"
+          sudo -n install -d -o "$runner_uid" -g "$build_gid" -m 2770 "$BUILDER_HOME/target"
+          sudo -n chgrp -R "$build_gid" "$CARGO_HOME"
+          sudo -n chmod -R g+rwX,o-rwx "$CARGO_HOME"
+
+          probe="$BUILDER_HOME/host-boundary-probe"
+          mkdir -m 2770 "$probe" "$probe/src"
+          cat > "$probe/Cargo.toml" <<'EOF'
+          [package]
+          name = "d6u-host-boundary-probe"
+          version = "0.1.0"
+          edition = "2024"
+          EOF
+          cat > "$probe/build.rs" <<'EOF'
+          use std::env;
+          use std::fs::OpenOptions;
+          use std::net::{SocketAddr, TcpStream};
+          use std::os::unix::net::UnixStream;
+          use std::path::Path;
+          use std::process::Command;
+          use std::time::Duration;
+
+          fn main() {
+              let docker_reachable = UnixStream::connect("/var/run/docker.sock").is_ok();
+              let network_reachable = "1.1.1.1:443"
+                  .parse::<SocketAddr>()
+                  .ok()
+                  .and_then(|addr| TcpStream::connect_timeout(&addr, Duration::from_millis(500)).ok())
+                  .is_some();
+              let sudo_privileged = Command::new("sudo")
+                  .args(["-n", "true"])
+                  .status()
+                  .map(|status| status.success())
+                  .unwrap_or(false);
+              let workspace = env::var("GITHUB_WORKSPACE").expect("workspace must be exported");
+              let workspace_write = OpenOptions::new()
+                  .create(true)
+                  .write(true)
+                  .open(Path::new(&workspace).join(".d6u-host-boundary-write-probe"))
+                  .is_ok();
+              assert!(!docker_reachable, "build script reached the host Docker socket");
+              assert!(!network_reachable, "build script reached the external network");
+              assert!(!sudo_privileged, "build script gained passwordless sudo");
+              assert!(!workspace_write, "build script wrote the source workspace");
+          }
+          EOF
+          printf '%s
+' 'fn main() {}' > "$probe/src/main.rs"
+          sudo -n chgrp -R "$build_gid" "$BUILDER_HOME"
+          sudo -n chmod -R g+rwX,o-rwx "$BUILDER_HOME"
+          echo "builder_gid=$build_gid" >> "$GITHUB_OUTPUT"
+
+      - name: Execute hostile build script inside namespace
+        env:
+          BUILDER_HOME: ${{ runner.temp }}/d6u-sandbox-builder-home
+          BUILDER_TARGET: ${{ runner.temp }}/d6u-sandbox-builder-home/target
+          CARGO_HOME: ${{ runner.temp }}/d6u-sandbox-cargo-home
+          TOOLCHAIN_BIN: ${{ runner.temp }}/d6u-sandbox-rustup-home/toolchains/1.96.1-x86_64-unknown-linux-gnu/bin
+        run: |
+          set -euo pipefail
+          sandbox="$RUNNER_TEMP/d6u-sandbox-wrapper.sh"
+          cat > "$sandbox" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          mount --make-rprivate /
+          mount --bind "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE"
+          mount -o remount,bind,ro "$GITHUB_WORKSPACE"
+          mount -t tmpfs -o nosuid,nodev,noexec,size=512m tmpfs /tmp
+          mount -t tmpfs -o nosuid,nodev,size=256m tmpfs /run
+          mount -t tmpfs -o nosuid,nodev,size=256m tmpfs /dev/shm
+          mkdir -p /run/d6u /run/lock
+          : > /run/docker.sock
+          chmod 600 /run/docker.sock
+          exec /usr/sbin/runuser -u "$D6U_BUILD_USER" -g "$D6U_BUILD_GROUP" --
+            /usr/bin/setpriv --no-new-privs --bounding-set=-all --inh-caps=-all --
+            /usr/bin/env -i
+              HOME="$D6U_BUILDER_HOME"
+              TMPDIR=/tmp
+              PATH="$D6U_TOOLCHAIN_BIN:/usr/bin:/bin"
+              CARGO_HOME="$CARGO_HOME"
+              CARGO_TARGET_DIR="$D6U_BUILDER_TARGET"
+              GITHUB_WORKSPACE="$GITHUB_WORKSPACE"
+              EXPECTED_BUILD_GID="$EXPECTED_BUILD_GID"
+              GIT_CONFIG_NOSYSTEM=1
+              GIT_CONFIG_GLOBAL=/dev/null
+              GIT_TERMINAL_PROMPT=0
+              CARGO_NET_OFFLINE=true
+              /usr/bin/bash -euo pipefail -c '
+                umask 007
+                ulimit -c 0
+                ulimit -n 4096
+                ulimit -u 256
+                test "$(id -u)" != "0"
+                test "$(id -g)" = "$EXPECTED_BUILD_GID"
+                test "$(awk "/^NoNewPrivs:/ {print \$2}" /proc/self/status)" = "1"
+                test "$(awk "/^CapEff:/ {print \$2}" /proc/self/status)" = "0000000000000000"
+                test "$(awk "/^CapBnd:/ {print \$2}" /proc/self/status)" = "0000000000000000"
+                test ! -S /var/run/docker.sock
+                test ! -w "$GITHUB_WORKSPACE"
+                test -d "$CARGO_HOME"
+                test -d "$CARGO_TARGET_DIR"
+                test -d "$HOME"
+                test -z "$(printenv GITHUB_TOKEN || true)"
+                test -z "$(printenv GH_TOKEN || true)"
+                test -z "$(printenv ACTIONS_RUNTIME_TOKEN || true)"
+                test -z "$(printenv ACTIONS_ID_TOKEN_REQUEST_TOKEN || true)"
+                exec "$@"
+              ' bash "$@"
+          EOF
+          chmod 700 "$sandbox"
+          sudo -n unshare --mount --net --pid --ipc --fork --mount-proc \
+            env \
+              D6U_BUILD_USER=d6u-sandbox-builder \
+              D6U_BUILD_GROUP=d6u-sandbox-build \
+              D6U_TOOLCHAIN_BIN="$TOOLCHAIN_BIN" \
+              GITHUB_WORKSPACE="${{ github.workspace }}" \
+              RUNNER_TEMP="${{ runner.temp }}" \
+              CARGO_HOME="$CARGO_HOME" \
+              D6U_BUILDER_HOME="$BUILDER_HOME" \
+              D6U_BUILDER_TARGET="$BUILDER_TARGET" \
+              EXPECTED_BUILD_GID="${{ steps.sandbox_setup.outputs.builder_gid }}" \
+              "$sandbox" \
+              "$TOOLCHAIN_BIN/cargo" check --manifest-path "$BUILDER_HOME/host-boundary-probe/Cargo.toml" --offline
