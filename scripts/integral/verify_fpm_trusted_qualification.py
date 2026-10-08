@@ -709,6 +709,22 @@ def verify_index(
         fail("index trusted run ID mismatch")
 
 
+def current_promotion_eligible(
+    pr: dict[str, Any],
+    receipt: dict[str, Any],
+    trusted_run: dict[str, Any],
+    main_sha: str,
+) -> bool:
+    return (
+        receipt["lock_mode"] == "tracked"
+        and pr["state"] == "open"
+        and pr["draft"] is False
+        and pr["head"]["sha"] == receipt["subject_sha"]
+        and pr["base"]["sha"] == main_sha
+        and trusted_run["head_sha"] == main_sha
+    )
+
+
 def verify(snapshot_dir: Path) -> dict[str, Any]:
     receipt = load_canonical_json(snapshot_dir / "qualification-receipt.json")
     index = load_canonical_json(snapshot_dir / "artifact-binding-index.json")
@@ -838,12 +854,11 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     ).encode("utf-8")
     index_digest = hashlib.sha256(index_canonical).hexdigest()
 
-    current_promotion_eligible = (
-        pr["state"] == "open"
-        and pr["draft"] is False
-        and pr["head"]["sha"] == receipt_subject
-        and pr["base"]["sha"] == main_sha
-        and trusted_run["head_sha"] == main_sha
+    current_promotion_eligible = current_promotion_eligible(
+        pr=pr,
+        receipt=receipt,
+        trusted_run=trusted_run,
+        main_sha=main_sha,
     )
 
     return {
