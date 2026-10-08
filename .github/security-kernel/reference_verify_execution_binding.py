@@ -2,7 +2,7 @@
 """Independent reference verifier for Security Kernel execution/evidence bindings.
 
 No network access and no repository-local imports. The verifier validates the exact
-execution-binding v3 schema currently emitted by S2, then computes a distinct
+execution-binding v4 schema currently emitted by S2, then computes a distinct
 length-framed commitment and verifies that every non-schema field affects it.
 """
 
@@ -170,7 +170,7 @@ def scalar(value: object) -> bytes:
 
 
 def reference_digest(binding: dict) -> str:
-    pieces = [frame(b"security-kernel-execution-reference-v3")]
+    pieces = [frame(b"security-kernel-execution-reference-v4")]
     for key in sorted(binding):
         pieces.append(frame(key.encode("utf-8")))
         pieces.append(frame(scalar(binding[key])))
