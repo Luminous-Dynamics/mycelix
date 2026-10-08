@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import json
@@ -66,9 +67,13 @@ def snapshot(root: Path) -> None:
         "rustc_version": "rustc 1.96.1",
         "rustc_commit": "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd",
         "cargo_version": "cargo 1.96.1", "candidate_uid": 10001,
-        "candidate_execution_profile": "fpm-untrusted.env-i.v2",
+        "candidate_gid": 10001,
+        "candidate_execution_profile": "fpm-docker-offline-v1",
+        "sandbox_image_digest": "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
+        "sandbox_probe": "passed",
+        "dependency_cache_sha256": "a" * 64,
         "steps": {k: "success" for k in
-                  ("preflight", "checkout", "source", "toolchain", "lock", "fmt", "tests", "postflight")},
+                  ("preflight", "checkout", "source", "toolchain", "lock", "dependencies", "sandbox_image", "fmt", "sandbox_probe", "tests", "postflight")},
         "execution_pass": True,
         "procedure_trust": "trusted_default_branch_snapshot",
         "promotion_authority": "pending_repository_governance_evidence",
@@ -105,7 +110,13 @@ def snapshot(root: Path) -> None:
           "base": {"ref": "main", "sha": BASE, "repo": {"id": REPO_ID}},
           "head": {"sha": SUBJECT, "repo": {"id": REPO_ID, "full_name": REPO}}}
     commit = {"sha": SUBJECT, "commit": {"tree": {"sha": TREE}}}
-    policy = {"path": TW_PATH, "sha": POLICY_BLOB}
+    policy_text = "FPM_SANDBOX_IMAGE: ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b\n--network none\n--read-only\n--cap-drop ALL\n--security-opt no-new-privileges\n--pids-limit 512\n--memory 6g\n--memory-swap 6g\n--cpus 2\n--mount type=bind,src=\"${GITHUB_WORKSPACE}/candidate\",dst=/candidate,readonly\n--mount type=bind,src=\"${FPM_TOOLCHAIN_ROOT}\",dst=/opt/fpm-rust,readonly\n--mount type=bind,src=\"${FPM_CARGO_HOME}\",dst=/cargo-ro,readonly\n--mount type=bind,src=\"${FPM_TARGET_DIR}\",dst=/target\n--user \"${CANDIDATE_UID}:${CANDIDATE_GID}\"\nCARGO_NET_OFFLINE=true\ncargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml\ncargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml\n"
+    policy = {
+        "path": TW_PATH,
+        "sha": POLICY_BLOB,
+        "encoding": "base64",
+        "content": base64.b64encode(policy_text.encode()).decode(),
+    }
     manifest = {"path": MANIFEST, "sha": MANIFEST_SHA}
     control = {"repository": REPO, "repository_id": REPO_ID, "path": IW_PATH,
                "ref": "refs/heads/main",
@@ -200,6 +211,10 @@ def main() -> None:
             ("receipt.manifest_blob_sha", lambda x: x.__setitem__("manifest_blob_sha", "c" * 40)),
             ("receipt.lock_sha256", lambda x: x.__setitem__("lock_sha256", "d" * 64)),
             ("receipt.candidate_uid", lambda x: x.__setitem__("candidate_uid", 10002)),
+            ("receipt.candidate_gid", lambda x: x.__setitem__("candidate_gid", 10002)),
+            ("receipt.sandbox_image_digest", lambda x: x.__setitem__("sandbox_image_digest", "sha256:" + "b" * 64)),
+            ("receipt.sandbox_probe", lambda x: x.__setitem__("sandbox_probe", "failed")),
+            ("receipt.dependency_cache_sha256", lambda x: x.__setitem__("dependency_cache_sha256", "b" * 64)),
             ("receipt.execution_pass", lambda x: x.__setitem__("execution_pass", False)),
             ("receipt.promotion_authority", lambda x: x.__setitem__("promotion_authority", "authorized")),
         ]
@@ -225,6 +240,25 @@ def main() -> None:
         ]
         for file_name, label, fn in external:
             expect_failure(root, file_name, label, fn)
+
+        policy_cases = [
+            ("--network none", "--network host", "policy.network"),
+            ("--read-only", "--security-opt no-new-privileges", "policy.read-only"),
+            ("--cap-drop ALL", "--cap-drop NET_RAW", "policy.cap-drop"),
+            ("--security-opt no-new-privileges", "--privileged", "policy.no-new-privileges"),
+            ("--pids-limit 512", "--pids-limit 4096", "policy.pids-limit"),
+            ("--memory 6g", "--memory 64g", "policy.memory"),
+            ("--cpus 2", "--cpus 64", "policy.cpus"),
+            ("CARGO_NET_OFFLINE=true", "CARGO_NET_OFFLINE=false", "policy.offline"),
+            ("cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo test --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.cargo-offline"),
+            ("cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo fmt --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.rustfmt"),
+        ]
+        for old, new, label in policy_cases:
+            def mutate_policy(value, old=old, new=new):
+                decoded = base64.b64decode(value["content"], validate=True).decode()
+                assert old in decoded
+                value["content"] = base64.b64encode(decoded.replace(old, new, 1).encode()).decode()
+            expect_failure(root, "policy-file.json", label, mutate_policy)
 
         expect_failure(
             root, "verifier-control.json", "control.reference-verifier-blob",
@@ -264,6 +298,26 @@ def main() -> None:
         ) + b"\n"
         (root / "qualification-receipt.json").write_bytes(duplicate)
         assert run(root).returncode != 0, "duplicate JSON key accepted"
+
+        def expect_nonstandard_constant(value: str) -> None:
+            raw = (root / "qualification-receipt.json").read_bytes()
+            marker = b'"repository_id":1176351975'
+            assert marker in raw
+            mutated = raw.replace(marker, b'"repository_id":' + value.encode(), 1)
+            fresh_root = Path(tempfile.mkdtemp(prefix="fpm-ref-constant-"))
+            try:
+                for src in root.iterdir():
+                    (fresh_root / src.name).write_bytes(src.read_bytes())
+                (fresh_root / "qualification-receipt.json").write_bytes(mutated)
+                result = run(fresh_root)
+                assert result.returncode != 0, f"{value} was accepted"
+                assert "non-standard JSON constant" in result.stderr
+            finally:
+                shutil.rmtree(fresh_root)
+
+        expect_nonstandard_constant("NaN")
+        expect_nonstandard_constant("Infinity")
+        expect_nonstandard_constant("-Infinity")
 
         fresh = mutated_case(
             root,
