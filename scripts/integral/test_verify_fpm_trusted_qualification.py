@@ -268,11 +268,11 @@ def main() -> None:
         }
         promotion_receipt = {"subject_sha": SUBJECT, "lock_mode": "generated_for_run"}
         promotion_trusted_run = {"head_sha": BASE}
-        assert verifier.current_promotion_eligible(
+        assert verifier.is_current_promotion_eligible(
             promotion_pr, promotion_receipt, promotion_trusted_run, BASE
         ) is False
         promotion_receipt["lock_mode"] = "tracked"
-        assert verifier.current_promotion_eligible(
+        assert verifier.is_current_promotion_eligible(
             promotion_pr, promotion_receipt, promotion_trusted_run, BASE
         ) is True
 
