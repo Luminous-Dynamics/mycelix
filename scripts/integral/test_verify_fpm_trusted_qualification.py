@@ -466,6 +466,29 @@ version = "1.0.0"
         )
 
         expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.command-path-escape",
+            lambda x: x["sandbox_system_closure"]["commands"][0].__setitem__("path", "/tmp/escape"),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.command-path-duplicate",
+            lambda x: x["sandbox_system_closure"]["commands"][1].__setitem__(
+                "path", x["sandbox_system_closure"]["commands"][0]["path"]
+            ),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.library-path-escape",
+            lambda x: x["sandbox_system_closure"]["libraries"][0].__setitem__("path", "/tmp/libevil.so"),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.missing-libc",
+            lambda x: x["sandbox_system_closure"]["libraries"].pop(0),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.missing-loader",
+            lambda x: x["sandbox_system_closure"]["libraries"].pop(),
+        )
+
+        expect_failure(
             root, "qualification-receipt.json", "receipt.steps.tests",
             lambda x: x["steps"].__setitem__("tests", "failure"),
         )
