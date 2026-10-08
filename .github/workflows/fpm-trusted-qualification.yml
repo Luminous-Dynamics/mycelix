@@ -289,16 +289,39 @@ jobs:
             test -z "$status"
           fi
 
-      - name: Cargo fmt against immutable candidate source
+      - name: Cargo fmt inside immutable sandbox
         id: fmt
+        if: success()
         env:
+          SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
           GITHUB_ENV: /dev/null
           GITHUB_OUTPUT: /dev/null
           GITHUB_PATH: /dev/null
           GITHUB_STEP_SUMMARY: /dev/null
         run: |
           set -euo pipefail
-          sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             TMPDIR="${FPM_UNTRUSTED_TMP}"             CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'umask 077; cd "$1" && cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
+          docker run --rm --pull=never --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit 256 --memory 2g --memory-swap 2g --cpus 1 \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m \
+            --mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly \
+            --mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly \
+            --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+              umask 077
+              export HOME=/tmp/home
+              export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
+              export TMPDIR=/tmp
+              export CARGO_NET_OFFLINE=true
+              export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+              export RUSTC_WRAPPER=
+              test ! -e /var/run/docker.sock
+              test ! -d /github
+              test ! -d /home/runner
+              test -z "$(env | grep '^GITHUB_' || true)"
+              cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+            '
 
       - name: Probe hostile-code sandbox boundary
         id: sandbox_probe
