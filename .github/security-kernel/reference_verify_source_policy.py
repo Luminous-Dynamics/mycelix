@@ -750,7 +750,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
     joined = "\n".join(l)
-    resolve_source_output_refs = set(re.findall(r"steps\\.resolve_source\\.outputs\\.([A-Za-z0-9_-]+)", joined))
+    resolve_source_output_refs = set(re.findall(r"steps\.resolve_source\.outputs\.([A-Za-z0-9_-]+)", joined))
     allowed_resolve_source_outputs = {
         "source_volume_name", "source_volume_spec", "source_copy_bytes", "source_copy_files",
         "source_copy_inodes", "candidate_tree", "source_tree_entry_count", "source_file_count",
@@ -760,7 +760,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     if not resolve_source_output_refs <= allowed_resolve_source_outputs:
         fail(f"S1 resolve_source output reference is not emitted by the acquisition step: {sorted(resolve_source_output_refs - allowed_resolve_source_outputs)!r}")
     for required_output in allowed_resolve_source_outputs:
-        if not re.search(rf"\\b{re.escape(required_output)}=", joined):
+        if not re.search(rf"\b{re.escape(required_output)}=", joined):
             fail(f"S1 resolve_source output field missing from the workflow: {required_output}")
     if 'test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"' not in joined:
         fail("S1 must bind called workflow commit to caller workflow commit")
