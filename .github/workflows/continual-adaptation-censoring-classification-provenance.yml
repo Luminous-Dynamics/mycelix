@@ -85,7 +85,7 @@ jobs:
           python3 docs/research/generate_censoring_classification_properties.py "$POLICY" "$FIXTURES" generated-a.json
           python3 docs/research/generate_censoring_classification_properties.py "$POLICY" "$FIXTURES" generated-b.json
           cmp -s generated-a.json generated-b.json
-          test "$(python3 -c 'import json; print(len(json.load(open("generated-a.json"))["cases"]))')" = "144"
+          test "$(python3 -c 'import json; print(len(json.load(open("generated-a.json"))["cases"]))')" = "160"
 
       - name: Run generated corpus with Python
         shell: bash

@@ -366,6 +366,23 @@ def verify(
                 return "unresolved"
             if node.get("commitment") != anchor:
                 return "unqualified"
+            if cid not in claim_nodes:
+                return "unresolved"
+            anchor_targets = [
+                edge[1]
+                for edge in graph["edges"]
+                if edge[0] == cid and edge[2] == "classifies"
+            ]
+            if len(anchor_targets) != 1:
+                return "unresolved"
+            anchor_attempt = nodes.get(anchor_targets[0])
+            if (
+                anchor_attempt is None
+                or anchor_attempt.get("type") != "Attempt"
+                or anchor_targets[0] not in claim_nodes
+                or node.get("attempt_id") != anchor_targets[0]
+            ):
+                return "unresolved"
 
     # Exact policy identity is external to the graph and cannot be substituted.
     for node in nodes.values():

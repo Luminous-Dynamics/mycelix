@@ -259,3 +259,14 @@ The research distinction remains:
     forged/incompatible provenance -> unqualified
 
 A green result still establishes only bounded synthetic verifier behaviour.
+
+
+## Anchor-lineage closure follow-up
+
+Direct composition after the omission hardening found a second-order bypass: an immutable base classification could remain present and correctly committed while being orphaned from the claim-local lineage. A fresh revision-0 classification could then become the sole active local classification.
+
+The closure therefore requires each declared base anchor to be both claim-local and connected to exactly one claim-local Attempt through its `classifies` edge. A valid superseding revision may keep the base reachable through the supersession relation, so direct AttemptCensus membership of the historical base is not required when lineage preserves it.
+
+This preserves the distinction between historical continuity and current reachability while preventing an unrelated revision-0 replacement from inheriting the anchor.
+
+The generated campaign now exercises 160 cases, including anchor-lineage and representation-composition mutations.
