@@ -774,6 +774,54 @@ The same canonical graph must deterministically re-hash, and an independently im
 The ledger is provenance and composition infrastructure, not a new qualification authority or trust root. It should interoperate with the existing receipt/attestation architecture; W3C PROV provides a useful general model of entities, activities, agents, derivations, and provenance chains, while Mycelix retains the stronger domain-specific claim semantics. citeturn914579search0turn914579search3
 
 
+## Evidence dependence and shared ancestry
+
+A distinct receipt identity does not create independent information.
+
+Multiple metrics, endpoints, seeds, campaigns, or reports may share claim-relevant upstream roots:
+
+- source corpus;
+- subject/runtime lineage;
+- simulator/world-state lineage;
+- evaluator/reference corpus;
+- campaign plan;
+- candidate-generation process;
+- randomness/seed family;
+- measurement session/device;
+- operator/provider environment;
+- upstream qualification artifact.
+
+Preserve this ancestry after every derivation.
+
+Use claim-local dependence classifications such as:
+
+    IndependentSource
+    SharedSource
+    SharedSubject
+    SharedEvaluationSession
+    SharedRandomness
+    SharedEvaluator
+    DerivedReuse
+    DependenceUnknown
+
+Do not expose a global independent=true property. Independence is relative to the claim, estimand, evidence family, inferential unit, and required independence domain.
+
+A campaign can contain many receipts while containing only a small number of independent source roots.
+
+Therefore:
+
+    many receipts
+    + few independent roots
+    !=
+    many independent confirmations
+
+This composes with multiplicity. Multiplicity counts analysis opportunities; dependence determines how much distinct information those opportunities contain.
+
+The verifier should preserve shared ancestry rather than silently collapsing it or treating transformed copies as independent evidence. Current evidence-synthesis literature continues to show that ignoring dependence among effect estimates can underestimate uncertainty and inflate false-positive conclusions; current machine-learning benchmark work also demonstrates hidden dependence between samples sharing physical, subject, or acquisition origins. citeturn264457search0turn264457search2turn264457search4
+
+Do not introduce a universal effective-sample-size or confidence scalar into the core. Statistical aggregation remains claim- and method-specific.
+
+
 ## Freshness and target-regime drift
 
 Transport evidence is historical evidence about the exact validated subject, target regime, evaluator, observation process, and applicability profile.
@@ -886,6 +934,7 @@ Mycelix:
 - #4598 — intervention-semantic consistency across regimes;
 - #4599 — measurement invariance across regimes;
 - #4617 — canonical claim-local evidence ledger and join theorem;
+- #4618 — evidence dependence and shared-ancestry accounting;
 
 Symthaea:
 
@@ -899,6 +948,7 @@ Symthaea:
 - #7041 — target-regime transport of continual-adaptation evidence;
 - #7043 — freshness of transported adaptation evidence under regime drift;
 - #7056 — intervention-version and measurement invariance for transported adaptation evidence;
+- #7065 — evidence dependence and shared ancestry in adaptation claims;
 
 ## Claim ceiling
 
