@@ -2027,8 +2027,21 @@ mod tests {
         store
             .atomically_mark_dispatch_pending(&action, &owner, "owner-token-attempt-1")
             .unwrap();
+        let claim = store
+            .atomically_claim_provider_entry(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                "constitutional-provider-entry-claim-token-v1:test",
+            )
+            .unwrap();
         store
-            .atomically_mark_invoked(&action, &owner, "owner-token-attempt-1")
+            .atomically_mark_invoked(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                &claim.claim_token_digest,
+            )
             .unwrap();
         let reconciliation_token = store
             .atomically_mark_indeterminate(&action, &owner, "owner-token-attempt-1")
@@ -2096,8 +2109,21 @@ mod tests {
         store
             .atomically_mark_dispatch_pending(&action, &owner, "owner-token-attempt-1")
             .unwrap();
+        let claim = store
+            .atomically_claim_provider_entry(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                "constitutional-provider-entry-claim-token-v1:test",
+            )
+            .unwrap();
         store
-            .atomically_mark_invoked(&action, &owner, "owner-token-attempt-1")
+            .atomically_mark_invoked(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                &claim.claim_token_digest,
+            )
             .unwrap();
         store
             .atomically_release_after_failed(
@@ -2164,8 +2190,21 @@ mod tests {
         store
             .atomically_mark_dispatch_pending(&action, &owner, "owner-token-attempt-1")
             .unwrap();
+        let claim = store
+            .atomically_claim_provider_entry(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                "constitutional-provider-entry-claim-token-v1:test",
+            )
+            .unwrap();
         store
-            .atomically_mark_invoked(&action, &owner, "owner-token-attempt-1")
+            .atomically_mark_invoked(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                &claim.claim_token_digest,
+            )
             .unwrap();
 
         assert_eq!(
@@ -2312,6 +2351,58 @@ mod tests {
     }
 
     #[test]
+    fn second_boundary_cannot_claim_an_already_claimed_provider_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("claim-collision.db");
+        let mut first = SqliteActionFenceStore::open(&path).unwrap();
+        let mut second = SqliteActionFenceStore::open(&path).unwrap();
+        let action = key("claim-collision-action");
+        let owner = attempt("attempt-claim-collision");
+
+        first
+            .atomically_admit(
+                &action,
+                &owner,
+                record(
+                    "attempt-claim-collision",
+                    "operation-claim-collision",
+                    "native-claim-collision",
+                    &action,
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        first
+            .atomically_mark_dispatch_pending(
+                &action,
+                &owner,
+                "owner-token-claim-collision",
+            )
+            .unwrap();
+
+        first
+            .atomically_claim_provider_entry(
+                &action,
+                &owner,
+                "owner-token-claim-collision",
+                "constitutional-provider-entry-claim-token-v1:first",
+            )
+            .unwrap();
+
+        assert_eq!(
+            second
+                .atomically_claim_provider_entry(
+                    &action,
+                    &owner,
+                    "owner-token-claim-collision",
+                    "constitutional-provider-entry-claim-token-v1:second",
+                )
+                .unwrap_err(),
+            ActionFenceMutationError::ProviderEntryClaimed
+        );
+    }
+
+    #[test]
     fn durable_adapter_matches_reference_model_for_terminal_trace() {
         use constitutional_effect_ledger::AtomicActionFenceModelV1;
 
@@ -2349,11 +2440,39 @@ mod tests {
             .atomically_mark_dispatch_pending(&action, &owner, "owner-token-attempt-1")
             .unwrap();
 
+        let model_claim = model
+            .claim_provider_entry(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                "constitutional-provider-entry-claim-token-v1:differential",
+            )
+            .unwrap();
+        let store_claim = store
+            .atomically_claim_provider_entry(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                "constitutional-provider-entry-claim-token-v1:differential",
+            )
+            .unwrap();
+        assert_eq!(model_claim.record_digest(), store_claim.record_digest());
+
         model
-            .mark_invoked(&action, &owner, "owner-token-attempt-1")
+            .mark_invoked_with_claim(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                &model_claim.claim_token_digest,
+            )
             .unwrap();
         store
-            .atomically_mark_invoked(&action, &owner, "owner-token-attempt-1")
+            .atomically_mark_invoked(
+                &action,
+                &owner,
+                "owner-token-attempt-1",
+                &store_claim.claim_token_digest,
+            )
             .unwrap();
 
         let model_reconciliation_token = model
