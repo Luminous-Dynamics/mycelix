@@ -1,16 +1,14 @@
 name: D6S Canonical Qualification
 
 on:
-  push:
-    branches:
-      - myc-int-demo-d6u-holochain-07-runtime
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
-  group: d6s-canon-reference-${{ github.workflow_ref }}-${{ github.ref }}
+  group: d6s-canon-reference-${{ github.workflow_ref }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -20,22 +18,38 @@ jobs:
 
   d6s-canon-reference:
     name: D6S canonical reference qualification
-    if: github.ref == 'refs/heads/myc-int-demo-d6u-holochain-07-runtime'
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/myc-int-demo-d6u-holochain-07-runtime' ||
+      github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'myc-int-demo-d6u-holochain-07-runtime'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      QUALIFIED_SHA: ${{ github.sha }}
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       CARGO_HOME: ${{ runner.temp }}/d6s-cargo-home
       RUSTUP_HOME: ${{ runner.temp }}/d6s-rustup-home
     steps:
-      - name: Checkout exact qualification subject
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ env.QUALIFIED_SHA }}
-          persist-credentials: false
+      - name: Fetch exact qualification subject without a GitHub token
+        run: |
+          set -euo pipefail
+          unset GITHUB_TOKEN GH_TOKEN ACTIONS_RUNTIME_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL ACTIONS_ID_TOKEN_REQUEST_TOKEN
+          export GIT_TERMINAL_PROMPT=0
+          git init .
+          git config --local credential.helper ""
+          git remote add origin https://github.com/Luminous-Dynamics/mycelix.git
+          git -c credential.helper= -c protocol.version=2 fetch --no-tags --depth=1 origin "$QUALIFIED_SHA"
+          git checkout --detach FETCH_HEAD
 
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Assert tokenless D6S execution environment
+        run: |
+          set -euo pipefail
+          test -z "${GITHUB_TOKEN:-}"
+          test -z "${GH_TOKEN:-}"
+          test -z "${ACTIONS_RUNTIME_TOKEN:-}"
+          test -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
+          test -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
 
       - name: Reject ambient build overrides
         run: |
