@@ -143,6 +143,7 @@ pub fn record_capability_contract(
         tolerance_um: input.tolerance_um,
         supported_protocols: input.supported_protocols,
         qualification: input.qualification,
+        qualification_evidence_hashes: input.qualification_evidence_hashes,
         created_at: sys_time()?,
     }))?;
 
