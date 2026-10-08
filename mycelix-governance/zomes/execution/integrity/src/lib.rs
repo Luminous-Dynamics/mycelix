@@ -462,41 +462,51 @@ pub fn check_create_execution_resolution(
     {
         return Err("Resolution identifiers are required".into());
     }
-    if resolution.attempt_identities.is_empty()
-        || resolution.action_key_digests.is_empty()
-        || resolution.terminal_evidence_digests.is_empty()
+    check_execution_resolution_bindings(
+        &resolution.attempt_identities,
+        &resolution.action_key_digests,
+        &resolution.terminal_evidence_digests,
+        &resolution.authorization_admission_proof_digests,
+        &resolution.final_provider_entry_proof_digests,
+    )?;
+    Ok(())
+}
+
+/// Validate the parallel proof/action binding vectors carried by an execution
+/// resolution. Shared by coordinator and integrity validation paths.
+pub fn check_execution_resolution_bindings(
+    attempt_identities: &[String],
+    action_key_digests: &[String],
+    terminal_evidence_digests: &[String],
+    authorization_admission_proof_digests: &[String],
+    final_provider_entry_proof_digests: &[String],
+) -> Result<(), String> {
+    if attempt_identities.is_empty()
+        || action_key_digests.is_empty()
+        || terminal_evidence_digests.is_empty()
     {
         return Err("Resolution requires attempt and terminal evidence bindings".into());
     }
-    if resolution.attempt_identities.len() != resolution.action_key_digests.len()
-        || resolution.attempt_identities.len() != resolution.terminal_evidence_digests.len()
-        || resolution.attempt_identities.len()
-            != resolution.authorization_admission_proof_digests.len()
-        || resolution.attempt_identities.len()
-            != resolution.final_provider_entry_proof_digests.len()
+    if attempt_identities.len() != action_key_digests.len()
+        || attempt_identities.len() != terminal_evidence_digests.len()
+        || attempt_identities.len() != authorization_admission_proof_digests.len()
+        || attempt_identities.len() != final_provider_entry_proof_digests.len()
     {
         return Err("Resolution binding vectors must have equal lengths".into());
     }
-    if resolution
-        .attempt_identities
+    if attempt_identities
         .iter()
         .any(|v| !is_tagged_digest(v, EXECUTION_ATTEMPT_IDENTITY_PREFIX))
-        || resolution
-            .terminal_evidence_digests
+        || action_key_digests
+            .iter()
+            .any(|v| !is_tagged_digest(v, EXECUTION_ACTION_KEY_PREFIX))
+        || terminal_evidence_digests
             .iter()
             .any(|v| !is_tagged_digest(v, EXECUTION_TERMINAL_EVIDENCE_PREFIX))
-        || resolution.action_key_digests.iter().any(|v| {
-            !is_tagged_digest(
-                v,
-                EXECUTION_ACTION_KEY_PREFIX,
-            )
-        })
-        || resolution
-            .authorization_admission_proof_digests
+        || authorization_admission_proof_digests
             .iter()
             .any(|v| !is_tagged_digest(v, EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX))
-        || resolution
-            .final_provider_entry_proof_digests
+        || final_provider_entry_proof_digests
             .iter()
             .any(|v| !is_tagged_digest(v, EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX))
     {
