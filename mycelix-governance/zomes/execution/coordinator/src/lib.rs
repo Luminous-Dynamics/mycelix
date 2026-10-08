@@ -443,7 +443,7 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
                                     }
                                 }
                             }
-                            // If committee fetch fails, proceed (signature itself is already verified)
+                            // Committee lookup and scope decoding are required authorization inputs; failure is fail-closed.
 
                             // Emit audit signal with signature details
                             let _ = emit_signal(serde_json::json!({
@@ -464,15 +464,12 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
                     ))));
                 }
                 _ => {
-                    // Threshold-signing zome not installed — graceful degradation
-                    let _ = emit_signal(serde_json::json!({
-                        "type": "GovernanceWarning",
-                        "warning": "threshold_signing_unavailable",
-                        "message": format!(
-                            "Threshold-signing zome not installed. Executing proposal '{}' without signature verification.",
-                            current_timelock.proposal_id
-                        ),
-                    }));
+                    // Fail closed: an unavailable authorization verifier is not
+                    // authorization to cross the execution boundary.
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "Threshold-signing verification unavailable for proposal '{}'; execution withheld",
+                        current_timelock.proposal_id
+                    ))));
                 }
             }
         }
