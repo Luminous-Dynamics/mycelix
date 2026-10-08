@@ -796,15 +796,12 @@ pub fn run_mrp(input: RunMrpInput) -> ExternResult<MrpOutput> {
     } else {
         MrpFeasibility::MaterialInfeasible
     };
-    let feasible = matches!(feasibility, MrpFeasibility::Feasible);
-
     let result = MrpResult {
         planned_orders,
         scheduled_operations: Vec::new(), // Scheduling is not evaluated in this MRP-only pass.
         capacity_warnings: Vec::new(),
         material_shortages: shortages,
         feasibility: feasibility.clone(),
-        feasible,
     };
 
     // --- Step 6: Persist the MRP run ---
@@ -813,7 +810,6 @@ pub fn run_mrp(input: RunMrpInput) -> ExternResult<MrpOutput> {
         horizon_days: horizon,
         run_at: now,
         feasibility,
-        feasible,
     };
     let run_hash = create_entry(EntryTypes::MrpRun(run_entry))?;
 
@@ -949,11 +945,10 @@ mod tests {
                 short_quantity: 80,
             }],
             feasibility: MrpFeasibility::MaterialInfeasible,
-            feasible: false,
         };
         let json = serde_json::to_string(&result).unwrap();
         let back: MrpResult = serde_json::from_str(&json).unwrap();
-        assert!(!back.feasible);
+        assert_eq!(back.feasibility, MrpFeasibility::MaterialInfeasible);
         assert_eq!(back.material_shortages.len(), 1);
         assert_eq!(back.planned_orders[0].quantity_to_order, 80);
     }
@@ -1012,7 +1007,6 @@ mod tests {
                 capacity_warnings: vec![],
                 material_shortages: vec![],
                 feasibility: MrpFeasibility::Feasible,
-                feasible: true,
             },
         };
         let json = serde_json::to_string(&output).unwrap();
