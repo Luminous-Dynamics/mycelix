@@ -480,7 +480,14 @@ mod tests {
 
         effect.mutation_class = MutationClass::Fee;
         effect.credits = vec![allocation("treasury", AllocationRole::Treasury, 100)];
-        assert!(validate(&effect).is_err());
+        effect.debits[0].amount = 50;
+        assert_eq!(
+            validate(&effect),
+            Err(EconomicEffectError::InsufficientDebit {
+                debit_total: 50,
+                credit_total: 100
+            })
+        );
         effect.debits[0].amount = 100;
         assert!(validate(&effect).is_ok());
     }
