@@ -1,0 +1,1510 @@
+name: COS Qualification Attestor
+
+on:
+  workflow_run:
+    workflows: ["COS Conformance Independent Verify"]
+    types: [completed]
+
+# This workflow is a trusted publication boundary. No signing authority is
+# granted at workflow scope; only the dedicated attestation job receives it.
+permissions: {}
+
+concurrency:
+  group: cos-qualification-attestor-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+env:
+  PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1
+  VERIFIER_WORKFLOW_NAME: COS Conformance Independent Verify
+  VERIFIER_WORKFLOW_PATH: .github/workflows/cos-conformance-independent-verify.yml
+  ATTESTOR_WORKFLOW_PATH: .github/workflows/cos-conformance-qualification-attestor.yml
+  FEDERATION_MANIFEST_PATH: .github/cos/federation-semantic-manifest-v1.json
+  TRUST_ROOT_MANIFEST_PATH: .github/cos/qualification-trust-root-v2.json
+
+jobs:
+  validate:
+    name: Validate immutable qualification input
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      signing_input_artifact_id: ${{ steps.signing_input.outputs.artifact-id }}
+      signing_input_artifact_digest: ${{ steps.signing_input.outputs.artifact-digest }}
+      signing_input_artifact_name: ${{ steps.signing_input_name.outputs.name }}
+      manifest_sha256: ${{ steps.validate_manifest.outputs.manifest_sha256 }}
+      predicate_sha256: ${{ steps.validate_predicate.outputs.predicate_sha256 }}
+      verifier_run_id: ${{ steps.bind.outputs.verifier_run_id }}
+      verifier_run_attempt: ${{ steps.bind.outputs.verifier_run_attempt }}
+      verifier_workflow_id: ${{ steps.bind.outputs.verifier_workflow_id }}
+      expected_head_sha: ${{ steps.bind.outputs.expected_head_sha }}
+      expected_base_sha: ${{ steps.bind.outputs.expected_base_sha }}
+      trust_root_manifest_sha256: ${{ steps.reconcile_trust_root.outputs.trust_root_manifest_sha256 }}
+      trust_root_manifest_blob_sha1: ${{ steps.validate_trust_root.outputs.trust_root_manifest_blob_sha1 }}
+      trust_root_main_snapshot_sha: ${{ github.sha }}
+    steps:
+      - name: Fetch trusted attestor source
+        id: trusted_source
+        env:
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          TRUST_ROOT_REF: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "${{ github.workflow_ref }}" = "${GITHUB_REPOSITORY}/${ATTESTOR_WORKFLOW_PATH}@refs/heads/main"
+          test "${TRUSTED_WORKFLOW_SHA}" = "${{ github.workflow_sha }}"
+          gh api "repos/${GITHUB_REPOSITORY}/contents/${ATTESTOR_WORKFLOW_PATH}?ref=${TRUSTED_WORKFLOW_SHA}" --jq '.content' |
+            tr -d '\n' | base64 --decode > trusted-attestor-workflow.yml
+          api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${ATTESTOR_WORKFLOW_PATH}?ref=${TRUSTED_WORKFLOW_SHA}" --jq '.sha')"
+          checkout_blob_sha="$(git hash-object -t blob trusted-attestor-workflow.yml)"
+          printf '%s\n' "${api_blob_sha}" > trusted-attestor-workflow-blob-sha.txt
+          test "${api_blob_sha}" = "${checkout_blob_sha}" || {
+            echo "trusted attestor workflow blob mismatch: API=${api_blob_sha} local=${checkout_blob_sha}" >&2
+            exit 1
+          }
+          printf '%s\n' "${TRUST_ROOT_REF}" | grep -Eq '^[0-9a-f]{40}$'
+          printf 'trusted_workflow_sha=%s\n' "${TRUSTED_WORKFLOW_SHA}" >> "${GITHUB_OUTPUT}"
+          printf 'trusted_workflow_file_blob_sha=%s\n' "${api_blob_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate COS qualification trust-root manifest
+        id: validate_trust_root
+        env:
+          TRUSTED_ATTESTOR_SHA: ${{ steps.trusted_source.outputs.trusted_workflow_sha }}
+          TRUST_ROOT_REF: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          root_manifest=".github/cos/qualification-trust-root-v2.json"
+          test "${TRUST_ROOT_REF}" = "${{ github.sha }}"
+          gh api "repos/${GITHUB_REPOSITORY}/contents/${root_manifest}?ref=${TRUST_ROOT_REF}" --jq '.content' |
+            tr -d '\n' | base64 --decode > qualification-trust-root-v2.json
+          api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${root_manifest}?ref=${TRUST_ROOT_REF}" --jq '.sha')"
+          checkout_blob_sha="$(git hash-object -t blob qualification-trust-root-v2.json)"
+          test "${api_blob_sha}" = "${checkout_blob_sha}"
+          printf 'trust_root_manifest_blob_sha1=%s\n' "${api_blob_sha}" >> "${GITHUB_OUTPUT}"
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("qualification-trust-root-v2.json")
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      json.loads(
+                          payload,
+                          object_pairs_hook=reject_duplicate_keys,
+                          parse_constant=reject_nonstandard_constant,
+                      )
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+
+          root = json.loads(
+              path.read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          assert set(root) == {
+              "schema",
+              "status",
+              "claim_ceiling",
+              "repository",
+              "default_branch",
+              "governance",
+              "components",
+              "digest_rule",
+              "identity_rule",
+              "activation_rule",
+              "nonclaims",
+          }
+          assert root["schema"] == "MYCELIX-COS-QUALIFICATION-TRUST-ROOT-V2"
+          assert root["status"] == "candidate_not_authoritative_until_protected_adoption"
+          assert root["claim_ceiling"] == "ReferenceModelOnly"
+          assert root["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert root["default_branch"] == "main"
+          assert root["governance"]["issue"] == 4601
+          assert set(root["governance"]) == {"issue", "required_properties"}
+          assert set(root["governance"]["required_properties"]) == {
+              "pull_request_required",
+              "force_push_blocked",
+              "branch_deletion_blocked",
+              "bypass_actors_explicitly_censused",
+              "two_party_review_required_for_root_changes",
+              "linear_history_required_for_protected_main",
+              "final_cos_required_check_deferred_until_rotation_path_is_qualified",
+          }
+          assert set(root["digest_rule"]) == {
+              "content_sha256_is_strong_integrity_identity",
+              "git_blob_sha1_is_retained_for_repository_object_reconciliation",
+          }
+          assert all(root["digest_rule"].values())
+          assert set(root["identity_rule"]) == {
+              "main_head_is_provenance",
+              "root_component_identity_is_path_plus_git_blob_sha1_and_content_sha256",
+              "unrelated_main_churn_must_not_be_interpreted_as_root_semantic_change",
+          }
+          assert all(root["identity_rule"].values())
+          assert set(root["activation_rule"]) == {
+              "authoritative",
+              "requires_protected_main_readback",
+              "requires_exact_adoption_of_component_bytes",
+              "requires_rotation_recovery_path",
+          }
+          assert root["activation_rule"] == {
+              "authoritative": False,
+              "requires_protected_main_readback": True,
+              "requires_exact_adoption_of_component_bytes": True,
+              "requires_rotation_recovery_path": True,
+          }
+          assert isinstance(root["nonclaims"], list) and root["nonclaims"]
+          assert root["components"]["qualification_attestor_workflow"]["git_blob_sha1"] == Path("trusted-attestor-workflow-blob-sha.txt").read_text().strip()
+          assert root["components"]["qualification_attestor_workflow"]["content_sha256"] == hashlib.sha256(Path("trusted-attestor-workflow.yml").read_bytes()).hexdigest()
+          assert set(root["components"]) == {
+              "independent_verifier_workflow",
+              "qualification_attestor_workflow",
+              "federation_semantic_manifest",
+          }
+          for component in root["components"].values():
+              assert re.fullmatch(r"[0-9a-f]{40}", component["git_blob_sha1"])
+              assert re.fullmatch(r"[0-9a-f]{64}", component["content_sha256"])
+              assert component["path"].startswith(".github/")
+          assert root["components"]["independent_verifier_workflow"]["path"] == os.environ["VERIFIER_WORKFLOW_PATH"]
+          assert root["components"]["qualification_attestor_workflow"]["path"] == os.environ["ATTESTOR_WORKFLOW_PATH"]
+          assert root["components"]["federation_semantic_manifest"]["path"] == os.environ["FEDERATION_MANIFEST_PATH"]
+          manifest_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path("qualification-trust-root-sha256.txt").write_text(manifest_sha + "\n")
+          PY
+        env:
+          VERIFIER_WORKFLOW_PATH: ${{ env.VERIFIER_WORKFLOW_PATH }}
+          ATTESTOR_WORKFLOW_PATH: ${{ env.ATTESTOR_WORKFLOW_PATH }}
+          FEDERATION_MANIFEST_PATH: ${{ env.FEDERATION_MANIFEST_PATH }}
+
+      - name: Reconcile COS trust-root component digests
+        id: reconcile_trust_root
+        env:
+          TRUST_ROOT_REF: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-trust-root-components
+          for spec in \
+            "verifier|independent_verifier_workflow" \
+            "attestor|qualification_attestor_workflow" \
+            "federation_manifest|federation_semantic_manifest"; do
+            kind="${spec%%|*}"
+            key="${spec#*|}"
+            path="$(jq -r ".components.${key}.path" qualification-trust-root-v2.json)"
+            blob="$(jq -r ".components.${key}.git_blob_sha1" qualification-trust-root-v2.json)"
+            digest="$(jq -r ".components.${key}.content_sha256" qualification-trust-root-v2.json)"
+            api_blob="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${path}?ref=${TRUST_ROOT_REF}" --jq '.sha')"
+            test "${api_blob}" = "${blob}"
+            gh api "repos/${GITHUB_REPOSITORY}/contents/${path}?ref=${TRUST_ROOT_REF}" --jq '.content' |
+              tr -d '\n' | base64 --decode > "qualification-trust-root-components/${kind}"
+            test "$(sha256sum "qualification-trust-root-components/${kind}" | awk '{print $1}')" = "${digest}"
+          done
+          printf 'trust_root_manifest_sha256=%s\n' "$(cat qualification-trust-root-sha256.txt)" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate trusted attestor workflow construction
+        run: |
+          python - <<'PY'
+          import re
+          import subprocess
+          from pathlib import Path
+
+          path = Path("trusted-attestor-workflow.yml")
+          text = path.read_text()
+          audit_start = text.index("      - name: Validate trusted attestor workflow construction")
+          audit_end = text.index("\n\n      - name: Bind upstream verifier run", audit_start)
+          scanned = text[:audit_start] + text[audit_end:]
+
+          assert "permissions: {}" in scanned
+          assert "qualification-trust-root-v2.json" in scanned
+          assert "MYCELIX-COS-QUALIFICATION-TRUST-ROOT-V2" in scanned
+          assert "content_sha256" in scanned
+          assert "reject_duplicate_keys" in scanned
+          assert scanned.count("object_pairs_hook=reject_duplicate_keys") >= 3
+          assert scanned.count("parse_constant=reject_nonstandard_constant") >= 3
+          assert "reject_nonstandard_constant" in scanned
+          assert "assert_strict_json_rejects_ambiguous_inputs()" in scanned
+          assert '{"duplicate": 1, "duplicate": 2}' in scanned
+          assert '{"nonstandard": NaN}' in scanned
+          assert "qualification_attestor_workflow" in scanned
+          # This trusted source profile deliberately forbids YAML anchors,
+          # aliases, and merge keys because the audit reasons over literal
+          # workflow structure rather than an expanded YAML graph.
+          yaml_source = re.sub(
+              r"(?ms)^        run: \|\n(?:          .*\n|\n)*?(?=^      - name: |^  [A-Za-z])",
+              "",
+              scanned,
+          )
+          anchor_or_alias_with_value = re.compile(
+              r"(?m)^\s*(?:[-]?\s+)?(?:[A-Za-z0-9_.-]+:\s*)[&*][A-Za-z_][A-Za-z0-9_-]*(?:\s|$)"
+          )
+          alias_or_anchor_list_item = re.compile(
+              r"(?m)^\s*-\s+[&*][A-Za-z_][A-Za-z0-9_-]*(?:\s|$)"
+          )
+          merge_key = re.compile(r"(?m)^\s*<<:\s*")
+          assert not anchor_or_alias_with_value.search(yaml_source)
+          assert not alias_or_anchor_list_item.search(yaml_source)
+          assert not merge_key.search(yaml_source)
+
+          yaml_indirection_probe = """
+          name: &anchored_value example
+          env: *anchored_value
+          - &list_anchor example
+          - *list_anchor
+          <<: *merge_source
+          """
+          assert anchor_or_alias_with_value.search(yaml_indirection_probe)
+          assert alias_or_anchor_list_item.search(yaml_indirection_probe)
+          assert merge_key.search(yaml_indirection_probe)
+          assert "workflow_dispatch" not in scanned
+          assert scanned.count("runs-on: ubuntu-24.04") == 2
+          assert "runs-on: ubuntu-latest" not in scanned
+          assert "actions/cache@" not in scanned
+          assert "secrets." not in scanned
+          assert "allow-unsafe-pr-checkout: true" not in scanned
+          assert len(re.findall(r"(?m)^      id-token:\s*write\s*$", scanned)) == 1
+          assert len(re.findall(r"(?m)^      attestations:\s*write\s*$", scanned)) == 1
+          assert not re.search(r"(?m)^      artifact-metadata:\s*write\s*$", scanned)
+          assert "continue-on-error:" not in scanned
+          assert "json.load(" not in scanned
+          assert "manifest = json.loads(manifest_path.read_text())" not in scanned
+          assert "verification = json.loads(Path(" not in scanned
+          assert "data = json.loads(Path(" not in scanned
+          assert "Revalidate trust-root after signing" in scanned
+          assert "trust root rotated during attestation publication" in scanned
+          assert "trust root content changed during attestation publication" in scanned
+          assert "live_main_head_sha" in scanned
+          assert "TRUST_ROOT_CURRENT_MAIN_HEAD_SHA" in scanned
+          assert "Validate attestor run receipt" in scanned
+          assert "Seal attestor evidence" in scanned
+          assert "TRUST_ROOT_REF: ${{ github.sha }}" in scanned
+          assert "linear_history_required_for_protected_main" in scanned
+          assert "two_party_review_required_for_root_changes" in scanned
+          assert 'root_manifest="${TRUST_ROOT_MANIFEST_PATH}"' in scanned
+          assert "TRUST_ROOT_MANIFEST_PATH: .github/cos/qualification-trust-root-v2.json" in scanned
+          assert "ref=${TRUST_ROOT_REF}" in scanned
+          assert "ref=${TRUSTED_ATTESTOR_SHA}" not in scanned
+          assert 'root["components"]["qualification_attestor_workflow"]["commit"]' not in scanned
+          assert '"main_snapshot_sha": os.environ["TRUST_ROOT_MAIN_SNAPSHOT_SHA"]' in scanned
+          assert "TRUST_ROOT_MAIN_SNAPSHOT_SHA" in scanned
+          assert "Revalidate trust-root at signing time" in scanned
+          assert "git/ref/heads/main" in scanned
+          assert "trust root rotated after validation" in scanned
+          assert "trust root content changed after validation" in scanned
+          assert "PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1" in scanned
+          assert 'workflows: ["COS Conformance Independent Verify"]' in scanned
+          assert "VERIFIER_WORKFLOW_NAME: COS Conformance Independent Verify" in scanned
+          assert 'actions/workflows?per_page=100' in scanned
+          assert "canonical_workflow_id" in scanned
+          assert 'test "${canonical_workflow_id}" = "${run_workflow_id}"' in scanned
+
+          expected = {
+              "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+              "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+              "actions/attest": "1e69f48acb82d1966a394da916b4c1698aa569d6",
+          }
+          refs = {}
+          pattern = re.compile(
+              r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
+          )
+          for row in scanned.splitlines():
+              stripped = row.lstrip()
+              if not (stripped.startswith("- uses:") or stripped.startswith("uses:")):
+                  continue
+              match = pattern.fullmatch(row)
+              assert match, f"unpinned or malformed action use: {row!r}"
+              action, ref = match.groups()
+              if action in refs:
+                  assert refs[action] == ref
+              else:
+                  refs[action] = ref
+          assert refs == expected, f"attestor action pin drift: {refs!r}"
+          assert "subject-digest: sha256:${{ needs.validate.outputs.manifest_sha256 }}" in scanned
+
+          # Enforce the workflow graph itself: exactly two jobs, 20 uniquely named
+          # steps, one executor per step, and unique step IDs. This prevents a
+          # future construction edit from silently adding a second execution path.
+          jobs_start = scanned.index("\njobs:\n")
+          jobs_section = scanned[jobs_start:]
+          job_names = re.findall(r"(?m)^  ([a-z][a-z0-9_-]*):\s*$", jobs_section)
+          assert job_names == ["validate", "attest"], f"unexpected job graph: {job_names!r}"
+
+          step_blocks = []
+          current = None
+          for row in scanned.splitlines():
+              if row.startswith("      - name: "):
+                  if current is not None:
+                      step_blocks.append(current)
+                  current = [row]
+              elif current is not None:
+                  current.append(row)
+          if current is not None:
+              step_blocks.append(current)
+
+          # The construction-audit step is excluded above, leaving 25 executable
+          # steps in the actual trusted workflow graph.
+          assert len(step_blocks) == 25, f"unexpected step count: {len(step_blocks)}"
+          step_names = [block[0].split(" - name: ", 1)[1] for block in step_blocks]
+          assert len(set(step_names)) == len(step_names), "duplicate workflow step name"
+
+          step_ids = []
+          for block in step_blocks:
+              block_text = "\n".join(block)
+              run_count = len(re.findall(r"(?m)^        run:\s*\|?\s*$", block_text))
+              uses_count = len(re.findall(r"(?m)^        uses:\s+", block_text))
+              assert run_count + uses_count == 1, (
+                  f"workflow step executor invariant violated for {block[0]!r}: {run_count}+{uses_count}"
+              )
+              step_ids.extend(re.findall(r"(?m)^        id:\s+([A-Za-z0-9_-]+)\s*$", block_text))
+          assert len(set(step_ids)) == len(step_ids), "duplicate workflow step id"
+
+          write_permissions = re.findall(r"(?m)^      ([A-Za-z-]+):\s*write\s*$", scanned)
+          assert sorted(write_permissions) == ["attestations", "id-token"]
+
+          # The construction audit itself is excluded above, so negative-policy
+          # checks cannot be satisfied by their own source literals.
+          rows = scanned.splitlines()
+          blocks = []
+          i = 0
+          while i < len(rows):
+              if rows[i].startswith("        run: |"):
+                  body = []
+                  i += 1
+                  while i < len(rows) and (not rows[i].strip() or rows[i].startswith("          ")):
+                      body.append(rows[i][10:] if rows[i].strip() else "")
+                      i += 1
+                  blocks.append("\n".join(body) + "\n")
+                  continue
+              i += 1
+          assert blocks, "no shell blocks discovered"
+          for index, block in enumerate(blocks, 1):
+              normalized_block = re.sub(r"\$\{\{.*?\}\}", "__GITHUB_EXPRESSION__", block, flags=re.DOTALL)
+              check = subprocess.run(["bash", "-n"], input=normalized_block, text=True, capture_output=True)
+              assert check.returncode == 0, f"shell syntax failure in block {index}: {check.stderr.strip()}"
+
+          # Compile every embedded Python heredoc without executing it. This
+          # catches indentation/parse regressions that Bash -n cannot observe.
+          python_heredoc_count = 0
+          for block_index, block in enumerate(blocks, 1):
+              rows = block.splitlines()
+              i = 0
+              while i < len(rows):
+                  if re.search(r"""python(?:3)?\s+-\s+<<['"]PY['"]""", rows[i]):
+                      python_heredoc_count += 1
+                      python_rows = []
+                      i += 1
+                      terminated = False
+                      while i < len(rows):
+                          if rows[i].strip() == "PY":
+                              terminated = True
+                              break
+                          python_rows.append(rows[i])
+                          i += 1
+                      assert terminated, (
+                          f"unterminated Python heredoc in shell block {block_index}"
+                      )
+                      python_source = "\n".join(python_rows) + "\n"
+                      python_source = re.sub(
+                          r"\$\{\{.*?\}\}", "__GITHUB_EXPRESSION__", python_source, flags=re.DOTALL
+                      )
+                      compile(
+                          python_source,
+                          f"<embedded-python-block-{block_index}-{python_heredoc_count}>",
+                          "exec",
+                      )
+                  i += 1
+          assert python_heredoc_count > 0, "no embedded Python heredocs found"
+
+          # The validator job itself must remain authority-free.
+          validate_start = scanned.index("  validate:")
+          validate_end = scanned.index("\n  attest:", validate_start)
+          validate_text = scanned[validate_start:validate_end]
+          assert not re.search(r"(?m)^      id-token:\s*write\s*$", validate_text)
+          assert not re.search(r"(?m)^      attestations:\s*write\s*$", validate_text)
+          assert not re.search(r"(?m)^      artifact-metadata:\s*write\s*$", validate_text)
+
+          attest_start = scanned.index("  attest:")
+          attest_text = scanned[attest_start:]
+          assert re.search(r"(?m)^      id-token:\s*write\s*$", attest_text)
+          assert re.search(r"(?m)^      attestations:\s*write\s*$", attest_text)
+          assert "subject-path:" not in attest_text
+          assert "subject-digest: sha256:${{ needs.validate.outputs.manifest_sha256 }}" in attest_text
+          assert "trigger_run_attempt" in scanned
+          assert len(re.findall(r"(?m)^      id-token:\s*write\s*$", attest_text)) == 1
+          assert len(re.findall(r"(?m)^      attestations:\s*write\s*$", attest_text)) == 1
+          assert not re.search(r"(?m)^      artifact-metadata:\s*write\s*$", attest_text)
+          PY
+
+      - name: Bind upstream verifier run
+        id: bind
+        env:
+          VERIFIER_RUN_ID: ${{ github.event.workflow_run.id }}
+          VERIFIER_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          VERIFIER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          VERIFIER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          VERIFIER_EVENT: ${{ github.event.workflow_run.event }}
+          VERIFIER_PATH: ${{ github.event.workflow_run.path }}
+          VERIFIER_REPOSITORY: ${{ github.event.workflow_run.repository.full_name }}
+          VERIFIER_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "${VERIFIER_CONCLUSION}" = "success"
+          test "${VERIFIER_EVENT}" = "workflow_run"
+          test "${VERIFIER_PATH}" = "${VERIFIER_WORKFLOW_PATH}"
+          test "${VERIFIER_REPOSITORY}" = "${GITHUB_REPOSITORY}"
+          test "${VERIFIER_HEAD_REPOSITORY}" = "${GITHUB_REPOSITORY}"
+          printf '%s\n' "${VERIFIER_RUN_ID}" | grep -Eq '^[1-9][0-9]*$'
+          printf '%s\n' "${VERIFIER_RUN_ATTEMPT}" | grep -Eq '^[1-9][0-9]*$'
+          printf '%s\n' "${VERIFIER_HEAD_SHA}" | grep -Eq '^[0-9a-f]{40}$'
+
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${VERIFIER_RUN_ID}")"
+          test "$(jq -r '.id' <<<"${run_json}")" = "${VERIFIER_RUN_ID}"
+          test "$(jq -r '.run_attempt' <<<"${run_json}")" = "${VERIFIER_RUN_ATTEMPT}"
+          test "$(jq -r '.status' <<<"${run_json}")" = "completed"
+          test "$(jq -r '.conclusion' <<<"${run_json}")" = "success"
+          test "$(jq -r '.event' <<<"${run_json}")" = "workflow_run"
+          test "$(jq -r '.path' <<<"${run_json}")" = "${VERIFIER_WORKFLOW_PATH}"
+          test "$(jq -r '.repository.full_name' <<<"${run_json}")" = "${GITHUB_REPOSITORY}"
+          test "$(jq -r '.head_repository.full_name' <<<"${run_json}")" = "${GITHUB_REPOSITORY}"
+          test "$(jq -r '.head_sha' <<<"${run_json}")" = "${VERIFIER_HEAD_SHA}"
+
+          run_workflow_id="$(jq -r '.workflow_id' <<<"${run_json}")"
+          printf '%s\n' "${run_workflow_id}" | grep -Eq '^[1-9][0-9]*$'
+          workflow_list="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows?per_page=100")"
+          canonical_count="$(jq --arg name "${VERIFIER_WORKFLOW_NAME}" --arg path "${VERIFIER_WORKFLOW_PATH}" '[.workflows[] | select(.name == $name and .path == $path)] | length' <<<"${workflow_list}")"
+          test "${canonical_count}" = "1" || {
+            echo "expected exactly one canonical verifier workflow, got ${canonical_count}" >&2
+            exit 1
+          }
+          canonical_workflow_id="$(jq -r --arg name "${VERIFIER_WORKFLOW_NAME}" --arg path "${VERIFIER_WORKFLOW_PATH}" '.workflows[] | select(.name == $name and .path == $path) | .id' <<<"${workflow_list}")"
+          test "${canonical_workflow_id}" = "${run_workflow_id}" || {
+            echo "upstream verifier workflow identity mismatch: event=${run_workflow_id}, canonical=${canonical_workflow_id}" >&2
+            exit 1
+          }
+
+          printf 'verifier_run_id=%s\n' "${VERIFIER_RUN_ID}" >> "${GITHUB_OUTPUT}"
+          printf 'verifier_run_attempt=%s\n' "${VERIFIER_RUN_ATTEMPT}" >> "${GITHUB_OUTPUT}"
+          printf 'verifier_workflow_id=%s\n' "${canonical_workflow_id}" >> "${GITHUB_OUTPUT}"
+          printf 'expected_head_sha=%s\n' "${VERIFIER_HEAD_SHA}" >> "${GITHUB_OUTPUT}"
+
+          pr_count="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${VERIFIER_RUN_ID}" --jq '.pull_requests | length')"
+          test "${pr_count}" = "1" || {
+            echo "qualification attestor requires exactly one PR association on verifier run, got ${pr_count}" >&2
+            exit 1
+          }
+          pr_number="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${VERIFIER_RUN_ID}" --jq '.pull_requests[0].number // empty')"
+          test -n "${pr_number}"
+          printf 'pr_number=%s\n' "${pr_number}" >> "${GITHUB_OUTPUT}"
+
+          actual_base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" --jq '.base.sha')"
+          actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" --jq '.head.sha')"
+          head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" --jq '.head.repo.full_name')"
+          pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" --jq '.state')"
+          test "${actual_head_sha}" = "${VERIFIER_HEAD_SHA}"
+          test "${head_repository}" = "${GITHUB_REPOSITORY}"
+          test "${pull_request_state}" = "open"
+          printf 'expected_base_sha=%s\n' "${actual_base_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Locate exact validated evidence artifact
+        id: locate_artifact
+        env:
+          VERIFIER_RUN_ID: ${{ steps.bind.outputs.verifier_run_id }}
+          EXPECTED_HEAD_SHA: ${{ steps.bind.outputs.expected_head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          expected_name="cos-conformance-independent-evidence-${EXPECTED_HEAD_SHA}"
+          : > artifacts.jsonl
+          for page in 1 2 3 4 5 6 7 8 9 10; do
+            page_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${VERIFIER_RUN_ID}/artifacts?per_page=100&page=${page}")"
+            jq -c --arg name "${expected_name}" '.artifacts[] | select(.name == $name)' <<<"${page_json}" >> artifacts.jsonl
+            page_count="$(jq '.artifacts | length' <<<"${page_json}")"
+            if [[ "${page_count}" -lt 100 ]]; then
+              break
+            fi
+          done
+
+          match_count="$(wc -l < artifacts.jsonl)"
+          test "${match_count}" = "1" || {
+            echo "expected exactly one validated evidence artifact, got ${match_count}" >&2
+            exit 1
+          }
+
+          artifact_id="$(jq -r '.id' < artifacts.jsonl)"
+          artifact_name="$(jq -r '.name' < artifacts.jsonl)"
+          artifact_expired="$(jq -r '.expired' < artifacts.jsonl)"
+          artifact_size="$(jq -r '.size_in_bytes' < artifacts.jsonl)"
+          artifact_digest="$(jq -r '.digest' < artifacts.jsonl)"
+          artifact_run_id="$(jq -r '.workflow_run.id' < artifacts.jsonl)"
+
+          test "${artifact_name}" = "${expected_name}"
+          test "${artifact_expired}" = "false"
+          test "${artifact_size}" -gt 0
+          test "${artifact_run_id}" = "${VERIFIER_RUN_ID}"
+          printf '%s\n' "${artifact_digest#sha256:}" | grep -Eq '^[0-9a-f]{64}$'
+
+          printf 'artifact_id=%s\n' "${artifact_id}" >> "${GITHUB_OUTPUT}"
+          printf 'artifact_name=%s\n' "${artifact_name}" >> "${GITHUB_OUTPUT}"
+          printf 'artifact_digest=%s\n' "${artifact_digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download validated evidence artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ steps.locate_artifact.outputs.artifact_id }}
+          run-id: ${{ steps.bind.outputs.verifier_run_id }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+          path: validated-evidence
+
+      - name: Validate downloaded artifact identity
+        env:
+          VERIFIER_RUN_ID: ${{ steps.bind.outputs.verifier_run_id }}
+          EXPECTED_ARTIFACT_ID: ${{ steps.locate_artifact.outputs.artifact_id }}
+          EXPECTED_ARTIFACT_NAME: ${{ steps.locate_artifact.outputs.artifact_name }}
+          EXPECTED_ARTIFACT_DIGEST: ${{ steps.locate_artifact.outputs.artifact_digest }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.id')"
+          artifact_name="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.name')"
+          artifact_digest="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.digest')"
+          artifact_run_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.id')"
+          artifact_expired="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.expired')"
+          test "${artifact_id}" = "${EXPECTED_ARTIFACT_ID}"
+          test "${artifact_name}" = "${EXPECTED_ARTIFACT_NAME}"
+          test "${artifact_digest}" = "${EXPECTED_ARTIFACT_DIGEST}"
+          test "${artifact_run_id}" = "${VERIFIER_RUN_ID}"
+          test "${artifact_expired}" = "false"
+
+          test -f validated-evidence/qualification-manifest-v1.json
+          test -f validated-evidence/independent-run-envelope.json
+          test -f validated-evidence/SHA256SUMS
+          (cd validated-evidence && sha256sum -c SHA256SUMS)
+
+      - name: Validate qualification manifest independently
+        id: validate_manifest
+        env:
+          VERIFIER_RUN_ID: ${{ steps.bind.outputs.verifier_run_id }}
+          VERIFIER_RUN_ATTEMPT: ${{ steps.bind.outputs.verifier_run_attempt }}
+          VERIFIER_WORKFLOW_ID: ${{ steps.bind.outputs.verifier_workflow_id }}
+          EXPECTED_HEAD_SHA: ${{ steps.bind.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.bind.outputs.expected_base_sha }}
+          EXPECTED_ARTIFACT_ID: ${{ steps.locate_artifact.outputs.artifact_id }}
+          EXPECTED_ARTIFACT_DIGEST: ${{ steps.locate_artifact.outputs.artifact_digest }}
+          PR_NUMBER: ${{ steps.bind.outputs.pr_number }}
+          TRUSTED_ATTESTOR_SHA: ${{ steps.trusted_source.outputs.trusted_workflow_sha }}
+          TRUSTED_ATTESTOR_BLOB_SHA: ${{ steps.trusted_source.outputs.trusted_workflow_file_blob_sha }}
+          TRUST_ROOT_MANIFEST_PATH: .github/cos/qualification-trust-root-v2.json
+          TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          TRUST_ROOT_MANIFEST_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          TRUST_ROOT_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          root = Path("validated-evidence")
+          manifest_path = root / "qualification-manifest-v1.json"
+          envelope_path = root / "independent-run-envelope.json"
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      json.loads(
+                          payload,
+                          object_pairs_hook=reject_duplicate_keys,
+                          parse_constant=reject_nonstandard_constant,
+                      )
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+
+          manifest = json.loads(
+              manifest_path.read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          envelope = json.loads(
+              envelope_path.read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          trust_root = json.loads(
+              Path("qualification-trust-root-v2.json").read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          sha64 = re.compile(r"^[0-9a-f]{64}$")
+          expected_keys = {
+              "schema",
+              "manifest_scope",
+              "claim_ceiling",
+              "repository",
+              "pr_number",
+              "expected_head_sha",
+              "expected_base_sha",
+              "tested_commit_sha",
+              "trusted_workflow_sha",
+              "trusted_workflow_ref",
+              "trusted_workflow_file_blob_sha",
+              "trigger_run_id",
+              "trigger_run_attempt",
+              "trigger_workflow_id",
+              "trigger_workflow_path",
+              "trigger_event",
+              "trigger_conclusion",
+              "raw_execution_artifact_id",
+              "raw_execution_artifact_digest",
+              "run_id",
+              "run_attempt",
+              "runner_os",
+              "candidate_federation_blob_sha",
+              "candidate_federation_git_blob_sha",
+              "trusted_federation_manifest_blob_sha",
+              "federation_test_body_attestation_sha256",
+              "qualification_result",
+              "independent_run_envelope_sha256",
+              "covered_files",
+          }
+          assert set(manifest) == expected_keys
+          assert trust_root["schema"] == "MYCELIX-COS-QUALIFICATION-TRUST-ROOT-V2"
+          assert trust_root["status"] == "candidate_not_authoritative_until_protected_adoption"
+          assert sha40.fullmatch(manifest["trusted_workflow_sha"])
+          assert manifest["trusted_workflow_file_blob_sha"] == trust_root["components"]["independent_verifier_workflow"]["git_blob_sha1"]
+          assert trust_root["components"]["qualification_attestor_workflow"]["git_blob_sha1"] == os.environ["TRUSTED_ATTESTOR_BLOB_SHA"]
+          assert "path.is_symlink()" in (Path("trusted-attestor-workflow.yml").read_text())
+
+
+          assert manifest["schema"] == "MYCELIX-COS-CONFORMANCE-QUALIFICATION-MANIFEST-V1"
+          assert manifest["manifest_scope"] == "validated_independent_evidence_set"
+          assert manifest["claim_ceiling"] == "ReferenceModelOnly"
+          assert manifest["qualification_result"] == "passed"
+          assert manifest["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert manifest["pr_number"] == int(os.environ["PR_NUMBER"])
+          assert manifest["expected_head_sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          assert manifest["expected_base_sha"] == os.environ["EXPECTED_BASE_SHA"]
+          assert manifest["tested_commit_sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2"
+          assert envelope["claim_ceiling"] == "ReferenceModelOnly"
+          assert envelope["qualification_result"] == "passed"
+          assert envelope["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert envelope["pr_number"] == int(os.environ["PR_NUMBER"])
+          assert envelope["expected_head_sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          assert envelope["expected_base_sha"] == os.environ["EXPECTED_BASE_SHA"]
+          assert envelope["tested_commit_sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          assert envelope["run_id"] == int(os.environ["VERIFIER_RUN_ID"])
+          assert envelope["run_attempt"] == int(os.environ["VERIFIER_RUN_ATTEMPT"])
+          assert manifest["trigger_run_attempt"] == envelope["trigger_run_attempt"]
+          assert manifest["run_id"] == int(os.environ["VERIFIER_RUN_ID"])
+          assert manifest["run_attempt"] == int(os.environ["VERIFIER_RUN_ATTEMPT"])
+          assert manifest["trusted_workflow_ref"] == f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['VERIFIER_WORKFLOW_PATH']}@refs/heads/main"
+          assert sha40.fullmatch(manifest["trusted_workflow_sha"])
+          assert sha40.fullmatch(manifest["trusted_workflow_file_blob_sha"])
+          assert manifest["trigger_event"] == "pull_request"
+          assert manifest["trigger_conclusion"] == "success"
+          assert manifest["trigger_workflow_path"] == ".github/workflows/cos-conformance-evidence.yml"
+          assert manifest["trigger_workflow_id"] == 374065836
+          assert isinstance(manifest["trigger_run_attempt"], int) and manifest["trigger_run_attempt"] >= 1
+          assert sha40.fullmatch(manifest["candidate_federation_blob_sha"])
+          assert manifest["candidate_federation_blob_sha"] == manifest["candidate_federation_git_blob_sha"]
+          assert sha40.fullmatch(manifest["trusted_federation_manifest_blob_sha"])
+          assert manifest["trusted_federation_manifest_blob_sha"] == trust_root["components"]["federation_semantic_manifest"]["git_blob_sha1"]
+          assert sha64.fullmatch(manifest["federation_test_body_attestation_sha256"])
+          assert manifest["raw_execution_artifact_id"] > 0
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", manifest["raw_execution_artifact_digest"])
+
+          envelope_bytes = envelope_path.read_bytes()
+          assert manifest["independent_run_envelope_sha256"] == hashlib.sha256(envelope_bytes).hexdigest()
+
+          expected_covered = []
+          root_resolved = root.resolve()
+          for path in sorted(root.rglob("*")):
+              if path.is_symlink():
+                  raise AssertionError(f"symlink forbidden in validated evidence: {path}")
+              if not path.is_file():
+                  continue
+              resolved = path.resolve()
+              if not resolved.is_relative_to(root_resolved):
+                  raise AssertionError(f"validated evidence path escapes root: {path}")
+              rel = path.relative_to(root).as_posix()
+              if rel in {"qualification-manifest-v1.json", "SHA256SUMS"}:
+                  continue
+              data = path.read_bytes()
+              expected_covered.append(
+                  {
+                      "path": rel,
+                      "sha256": hashlib.sha256(data).hexdigest(),
+                      "size_bytes": len(data),
+                  }
+              )
+          assert manifest["covered_files"] == expected_covered
+
+          manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"manifest_sha256={manifest_sha256}\n")
+          PY
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Reconcile trusted verifier and federation identities
+        env:
+          EXPECTED_HEAD_SHA: ${{ steps.bind.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.bind.outputs.expected_base_sha }}
+          PR_NUMBER: ${{ steps.bind.outputs.pr_number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          manifest="validated-evidence/qualification-manifest-v1.json"
+          manifest_trusted_sha="$(jq -r '.trusted_workflow_sha' "${manifest}")"
+          manifest_trusted_blob="$(jq -r '.trusted_workflow_file_blob_sha' "${manifest}")"
+          manifest_fed_blob="$(jq -r '.candidate_federation_blob_sha' "${manifest}")"
+          manifest_trigger_id="$(jq -r '.trigger_run_id' "${manifest}")"
+          manifest_trigger_attempt="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${manifest_trigger_id}" --jq '.run_attempt')"
+          manifest_trigger_path="$(jq -r '.trigger_workflow_path' "${manifest}")"
+          manifest_trigger_workflow_id="$(jq -r '.trigger_workflow_id' "${manifest}")"
+          manifest_trigger_head="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${manifest_trigger_id}" --jq '.head_sha')"
+          manifest_trigger_event="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${manifest_trigger_id}" --jq '.event')"
+          manifest_trigger_conclusion="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${manifest_trigger_id}" --jq '.conclusion')"
+          manifest_trigger_path_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${manifest_trigger_id}" --jq '.path')"
+          manifest_trigger_repo="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${manifest_trigger_id}" --jq '.repository.full_name')"
+          manifest_trigger_workflow_id_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${manifest_trigger_id}" --jq '.workflow_id')"
+
+          test "${manifest_trigger_path}" = ".github/workflows/cos-conformance-evidence.yml"
+          test "${manifest_trigger_workflow_id}" = "374065836"
+          test "${manifest_trigger_path_live}" = "${manifest_trigger_path}"
+          test "${manifest_trigger_attempt}" = "$(jq -r .trigger_run_attempt "${manifest}")"
+          test "${manifest_trigger_workflow_id_live}" = "${manifest_trigger_workflow_id}"
+          test "${manifest_trigger_repo}" = "${GITHUB_REPOSITORY}"
+          test "${manifest_trigger_event}" = "pull_request"
+          test "${manifest_trigger_conclusion}" = "success"
+          test "${manifest_trigger_head}" = "${EXPECTED_HEAD_SHA}"
+
+          expected_fed_blob="$(gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/crates/cos_conformance/src/federation.rs?ref=${EXPECTED_HEAD_SHA}" --jq '.sha')"
+          test "${expected_fed_blob}" = "${manifest_fed_blob}"
+
+          verifier_file_blob="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${VERIFIER_WORKFLOW_PATH}?ref=${manifest_trusted_sha}" --jq '.sha')"
+          test "${verifier_file_blob}" = "${manifest_trusted_blob}"
+
+          actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          actual_base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
+          head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
+          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}"
+          test "${actual_base_sha}" = "${EXPECTED_BASE_SHA}"
+          test "${head_repository}" = "${GITHUB_REPOSITORY}"
+          test "${pull_request_state}" = "open"
+
+      - name: Write qualification attestation predicate
+        id: write_predicate
+        env:
+          VERIFIER_RUN_ID: ${{ steps.bind.outputs.verifier_run_id }}
+          VERIFIER_RUN_ATTEMPT: ${{ steps.bind.outputs.verifier_run_attempt }}
+          VERIFIER_WORKFLOW_ID: ${{ steps.bind.outputs.verifier_workflow_id }}
+          EXPECTED_HEAD_SHA: ${{ steps.bind.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.bind.outputs.expected_base_sha }}
+          PR_NUMBER: ${{ steps.bind.outputs.pr_number }}
+          VERIFIED_ARTIFACT_ID: ${{ steps.locate_artifact.outputs.artifact_id }}
+          VERIFIED_ARTIFACT_NAME: ${{ steps.locate_artifact.outputs.artifact_name }}
+          VERIFIED_ARTIFACT_DIGEST: ${{ steps.locate_artifact.outputs.artifact_digest }}
+          TRUSTED_ATTESTOR_SHA: ${{ steps.trusted_source.outputs.trusted_workflow_sha }}
+          TRUSTED_ATTESTOR_BLOB_SHA: ${{ steps.trusted_source.outputs.trusted_workflow_file_blob_sha }}
+          TRUST_ROOT_MANIFEST_PATH: .github/cos/qualification-trust-root-v2.json
+          TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          TRUST_ROOT_MANIFEST_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+        run: |
+          set -euo pipefail
+          mkdir -p signing-input
+          cp validated-evidence/qualification-manifest-v1.json signing-input/qualification-manifest-v1.json
+          manifest_sha256="$(sha256sum signing-input/qualification-manifest-v1.json | awk '{print $1}')"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          manifest_path = Path("signing-input/qualification-manifest-v1.json")
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+          manifest = strict_json_loads(manifest_path.read_text())
+          predicate = {
+              "schema": "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V1",
+              "predicate_type": os.environ["PREDICATE_TYPE"],
+              "claim_ceiling": manifest["claim_ceiling"],
+              "repository": manifest["repository"],
+              "pr_number": manifest["pr_number"],
+              "expected_head_sha": manifest["expected_head_sha"],
+              "expected_base_sha": manifest["expected_base_sha"],
+              "qualification_result": manifest["qualification_result"],
+              "qualification_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+              "qualification_manifest_artifact": {
+                  "id": int(os.environ["VERIFIED_ARTIFACT_ID"]),
+                  "name": os.environ["VERIFIED_ARTIFACT_NAME"],
+                  "digest": os.environ["VERIFIED_ARTIFACT_DIGEST"],
+                  "producer_run_id": int(os.environ["VERIFIER_RUN_ID"]),
+              },
+              "trust_root": {
+                  "manifest_path": os.environ["TRUST_ROOT_MANIFEST_PATH"],
+                  "manifest_blob_sha1": os.environ["TRUST_ROOT_MANIFEST_BLOB_SHA1"],
+                  "manifest_sha256": os.environ["TRUST_ROOT_MANIFEST_SHA256"],
+                  "status": "candidate_not_authoritative_until_protected_adoption",
+                  "main_snapshot_sha": os.environ["TRUST_ROOT_MAIN_SNAPSHOT_SHA"],
+              },
+              "verifier": {
+                  "workflow_path": os.environ["VERIFIER_WORKFLOW_PATH"],
+                  "workflow_sha": manifest["trusted_workflow_sha"],
+                  "workflow_file_blob_sha": manifest["trusted_workflow_file_blob_sha"],
+                  "workflow_id": int(os.environ["VERIFIER_WORKFLOW_ID"]),
+                  "run_id": int(os.environ["VERIFIER_RUN_ID"]),
+                  "run_attempt": int(os.environ["VERIFIER_RUN_ATTEMPT"]),
+              },
+              "trigger": {
+                  "run_id": int(manifest["trigger_run_id"]),
+                  "run_attempt": int(manifest["trigger_run_attempt"]),
+                  "workflow_id": int(manifest["trigger_workflow_id"]),
+                  "workflow_path": manifest["trigger_workflow_path"],
+                  "event": manifest["trigger_event"],
+                  "conclusion": manifest["trigger_conclusion"],
+              },
+              "candidate": {
+                  "federation_blob_sha": manifest["candidate_federation_blob_sha"],
+                  "trusted_federation_manifest_blob_sha": manifest["trusted_federation_manifest_blob_sha"],
+                  "federation_test_body_attestation_sha256": manifest["federation_test_body_attestation_sha256"],
+              },
+              "attestor": {
+                  "workflow_path": os.environ["ATTESTOR_WORKFLOW_PATH"],
+                  "workflow_ref": f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main",
+                  "workflow_sha": os.environ["TRUSTED_ATTESTOR_SHA"],
+                  "workflow_file_blob_sha": os.environ["TRUSTED_ATTESTOR_BLOB_SHA"],
+                  "run_id": int(os.environ["GITHUB_RUN_ID"]),
+                  "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              },
+          }
+          Path("signing-input/qualification-attestation-predicate-v1.json").write_text(
+              json.dumps(predicate, indent=2, sort_keys=True) + "\n"
+          )
+          print(hashlib.sha256(Path("signing-input/qualification-attestation-predicate-v1.json").read_bytes()).hexdigest())
+          PY
+          printf 'manifest_sha256=%s\n' "${manifest_sha256}" > signing-input/manifest-sha256.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Validate predicate identity
+        id: validate_predicate
+        env:
+          EXPECTED_HEAD_SHA: ${{ steps.bind.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.bind.outputs.expected_base_sha }}
+          EXPECTED_MANIFEST_SHA: ${{ steps.validate_manifest.outputs.manifest_sha256 }}
+          EXPECTED_TRUST_ROOT_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+        run: |
+          set -euo pipefail
+          test -s signing-input/qualification-attestation-predicate-v1.json
+          actual_manifest_sha="$(sha256sum signing-input/qualification-manifest-v1.json | awk '{print $1}')"
+          test "${actual_manifest_sha}" = "${EXPECTED_MANIFEST_SHA}"
+          predicate_sha="$(sha256sum signing-input/qualification-attestation-predicate-v1.json | awk '{print $1}')"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      json.loads(
+                          payload,
+                          object_pairs_hook=reject_duplicate_keys,
+                          parse_constant=reject_nonstandard_constant,
+                      )
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+
+          manifest = json.loads(
+              Path("signing-input/qualification-manifest-v1.json").read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          predicate = json.loads(
+              Path("signing-input/qualification-attestation-predicate-v1.json").read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          manifest_sha = hashlib.sha256(Path("signing-input/qualification-manifest-v1.json").read_bytes()).hexdigest()
+          expected_predicate_keys = {
+              "schema", "predicate_type", "claim_ceiling", "repository",
+              "pr_number", "expected_head_sha", "expected_base_sha",
+              "qualification_result", "qualification_manifest_sha256",
+              "qualification_manifest_artifact", "verifier", "trigger",
+              "trust_root",
+              "candidate", "attestor",
+          }
+          assert manifest["schema"] == "MYCELIX-COS-CONFORMANCE-QUALIFICATION-MANIFEST-V1"
+          assert set(predicate) == expected_predicate_keys
+          assert set(predicate["qualification_manifest_artifact"]) == {"id", "name", "digest", "producer_run_id"}
+          assert set(predicate["trust_root"]) == {"manifest_path", "manifest_blob_sha1", "manifest_sha256", "status", "main_snapshot_sha"}
+          assert set(predicate["verifier"]) == {"workflow_path", "workflow_sha", "workflow_file_blob_sha", "workflow_id", "run_id", "run_attempt"}
+          assert set(predicate["trigger"]) == {"run_id", "run_attempt", "workflow_id", "workflow_path", "event", "conclusion"}
+          assert set(predicate["candidate"]) == {"federation_blob_sha", "trusted_federation_manifest_blob_sha", "federation_test_body_attestation_sha256"}
+          assert set(predicate["attestor"]) == {"workflow_path", "workflow_ref", "workflow_sha", "workflow_file_blob_sha", "run_id", "run_attempt"}
+          assert predicate["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V1"
+          assert predicate["predicate_type"] == os.environ["PREDICATE_TYPE"]
+          assert predicate["claim_ceiling"] == "ReferenceModelOnly"
+          assert predicate["qualification_result"] == "passed"
+          assert predicate["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert predicate["pr_number"] == int(os.environ["PR_NUMBER"])
+          assert predicate["expected_head_sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          assert predicate["expected_base_sha"] == os.environ["EXPECTED_BASE_SHA"]
+          assert predicate["qualification_manifest_sha256"] == manifest_sha
+          assert predicate["qualification_manifest_artifact"]["id"] == int(os.environ["VERIFIED_ARTIFACT_ID"])
+          assert predicate["qualification_manifest_artifact"]["digest"] == os.environ["VERIFIED_ARTIFACT_DIGEST"]
+          assert predicate["trust_root"]["manifest_path"] == ".github/cos/qualification-trust-root-v2.json"
+          assert predicate["trust_root"]["main_snapshot_sha"] == os.environ["EXPECTED_TRUST_ROOT_MAIN_SNAPSHOT_SHA"]
+          assert re.fullmatch(r"[0-9a-f]{40}", predicate["trust_root"]["main_snapshot_sha"])
+          assert predicate["trust_root"]["manifest_blob_sha1"] == os.environ["TRUST_ROOT_MANIFEST_BLOB_SHA1"]
+          assert predicate["trust_root"]["manifest_sha256"] == os.environ["TRUST_ROOT_MANIFEST_SHA256"]
+          assert predicate["trust_root"]["status"] == "candidate_not_authoritative_until_protected_adoption"
+          assert predicate["verifier"]["workflow_id"] == int(os.environ["VERIFIER_WORKFLOW_ID"])
+          assert predicate["verifier"]["run_id"] == int(os.environ["VERIFIER_RUN_ID"])
+          assert predicate["verifier"]["run_attempt"] == int(os.environ["VERIFIER_RUN_ATTEMPT"])
+          assert predicate["trigger"]["run_id"] == manifest["trigger_run_id"]
+          assert predicate["trigger"]["run_attempt"] == manifest["trigger_run_attempt"]
+          assert predicate["attestor"]["workflow_sha"] == os.environ["TRUSTED_ATTESTOR_SHA"]
+          assert predicate["attestor"]["workflow_file_blob_sha"] == os.environ["TRUSTED_ATTESTOR_BLOB_SHA"]
+          assert predicate["attestor"]["run_id"] == int(os.environ["GITHUB_RUN_ID"])
+          assert predicate["attestor"]["run_attempt"] == int(os.environ["GITHUB_RUN_ATTEMPT"])
+          assert predicate["attestor"]["workflow_ref"] == f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main"
+          print(predicate_sha)
+          PY
+          printf 'predicate_sha256=%s\n' "${predicate_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish isolated signing input
+        id: signing_input
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-qualification-attestor-input-${{ steps.bind.outputs.verifier_run_id }}-${{ steps.bind.outputs.expected_head_sha }}
+          path: signing-input/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record signing-input artifact name
+        id: signing_input_name
+        run: |
+          printf 'name=%s\n' "cos-qualification-attestor-input-${{ steps.bind.outputs.verifier_run_id }}-${{ steps.bind.outputs.expected_head_sha }}" >> "${GITHUB_OUTPUT}"
+
+  attest:
+    name: Sign validated qualification manifest
+    needs: validate
+    if: needs.validate.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download immutable signing input
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.validate.outputs.signing_input_artifact_id }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+          path: signing-input
+
+      - name: Validate signing-input artifact identity
+        env:
+          EXPECTED_ARTIFACT_ID: ${{ needs.validate.outputs.signing_input_artifact_id }}
+          EXPECTED_ARTIFACT_DIGEST: ${{ needs.validate.outputs.signing_input_artifact_digest }}
+          EXPECTED_ARTIFACT_NAME: ${{ needs.validate.outputs.signing_input_artifact_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.id')"
+          artifact_name="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.name')"
+          artifact_digest="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.digest')"
+          artifact_run_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.id')"
+          artifact_expired="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.expired')"
+          test "${artifact_id}" = "${EXPECTED_ARTIFACT_ID}"
+          test "${artifact_name}" = "${EXPECTED_ARTIFACT_NAME}"
+          test "${artifact_digest}" = "${EXPECTED_ARTIFACT_DIGEST}"
+          test "${artifact_run_id}" = "${GITHUB_RUN_ID}"
+          test "${artifact_expired}" = "false"
+          test -s signing-input/qualification-manifest-v1.json
+          test -s signing-input/qualification-attestation-predicate-v1.json
+          test -s signing-input/manifest-sha256.txt
+
+          manifest_sha="$(sha256sum signing-input/qualification-manifest-v1.json | awk '{print $1}')"
+          test "${manifest_sha}" = "${{ needs.validate.outputs.manifest_sha256 }}"
+          test "$(cat signing-input/manifest-sha256.txt)" = "${manifest_sha}"
+          predicate_sha="$(sha256sum signing-input/qualification-attestation-predicate-v1.json | awk '{print $1}')"
+          test "${predicate_sha}" = "${{ needs.validate.outputs.predicate_sha256 }}"
+
+      - name: Revalidate trust-root at signing time
+        id: trust_root_freshness
+        env:
+          EXPECTED_ROOT_BLOB_SHA: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          EXPECTED_ROOT_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          live_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
+          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          root_path=".github/cos/qualification-trust-root-v2.json"
+          api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".sha")"
+          test "${api_blob_sha}" = "${EXPECTED_ROOT_BLOB_SHA}" || {
+            echo "trust root rotated after validation: expected ${EXPECTED_ROOT_BLOB_SHA}, got ${api_blob_sha}" >&2
+            exit 1
+          }
+          gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".content" |
+            tr -d "\n" | base64 --decode > live-qualification-trust-root-v2.json
+          live_sha256="$(sha256sum live-qualification-trust-root-v2.json | awk '{print $1}')"
+          test "${live_sha256}" = "${EXPECTED_ROOT_SHA256}" || {
+            echo "trust root content changed after validation: expected ${EXPECTED_ROOT_SHA256}, got ${live_sha256}" >&2
+            exit 1
+          }
+          printf 'live_main_head_sha=%s\n' "${live_main_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Generate signed qualification attestation
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: qualification-manifest-v1.json
+          subject-digest: sha256:${{ needs.validate.outputs.manifest_sha256 }}
+          predicate-path: signing-input/qualification-attestation-predicate-v1.json
+
+      - name: Revalidate trust-root after signing
+        id: trust_root_post_signing
+        env:
+          EXPECTED_ROOT_BLOB_SHA: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          EXPECTED_ROOT_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          live_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
+          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          root_path=".github/cos/qualification-trust-root-v2.json"
+          api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".sha")"
+          test "${api_blob_sha}" = "${EXPECTED_ROOT_BLOB_SHA}" || {
+            echo "trust root rotated during attestation publication: expected ${EXPECTED_ROOT_BLOB_SHA}, got ${api_blob_sha}" >&2
+            exit 1
+          }
+          gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".content" |
+            tr -d "\n" | base64 --decode > live-qualification-trust-root-v2-post-signing.json
+          live_sha256="$(sha256sum live-qualification-trust-root-v2-post-signing.json | awk '{print $1}')"
+          test "${live_sha256}" = "${EXPECTED_ROOT_SHA256}" || {
+            echo "trust root content changed during attestation publication: expected ${EXPECTED_ROOT_SHA256}, got ${live_sha256}" >&2
+            exit 1
+          }
+      - name: Preserve attestation bundle
+        run: |
+          set -euo pipefail
+          mkdir -p attestor-evidence
+          cp "${{ steps.attest.outputs.bundle-path }}" attestor-evidence/qualification-attestation-bundle.json
+          sha256sum attestor-evidence/qualification-attestation-bundle.json | awk '{print $1}' > attestor-evidence/qualification-attestation-bundle.sha256
+
+      - name: Verify exact preserved attestation bundle
+        id: verify_bundle
+        env:
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
+          SIGNER_DIGEST: ${{ github.workflow_sha }}
+          SUBJECT_FILE: signing-input/qualification-manifest-v1.json
+          SUBJECT_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_TYPE: ${{ env.PREDICATE_TYPE }}
+        run: |
+          set -euo pipefail
+          test -s attestor-evidence/qualification-attestation-bundle.json
+          gh attestation verify "${SUBJECT_FILE}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --bundle attestor-evidence/qualification-attestation-bundle.json \
+            --predicate-type "${EXPECTED_PREDICATE_TYPE}" \
+            --signer-workflow "${SIGNER_WORKFLOW}" \
+            --signer-digest "${SIGNER_DIGEST}" \
+            --deny-self-hosted-runners \
+            --format json > attestor-evidence/attestation-bundle-verification.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+          verification = strict_json_loads(Path("attestor-evidence/attestation-bundle-verification.json").read_text())
+          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v1.json").read_text())
+          assert isinstance(verification, list) and verification
+          exact = []
+          for item in verification:
+              statement = item["verificationResult"]["statement"]
+              assert statement["predicateType"] == os.environ["EXPECTED_PREDICATE_TYPE"]
+              assert any(
+                  subject.get("name") == "qualification-manifest-v1.json" and
+                  subject.get("digest", {}).get("sha256") == os.environ["SUBJECT_SHA256"]
+                  for subject in statement["subject"]
+              )
+              predicate = statement["predicate"]
+              if predicate == expected_predicate:
+                  exact.append(predicate)
+          assert len(exact) == 1
+          PY
+
+      - name: Verify signed attestation independently
+        id: verify_attestation
+        env:
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
+          SIGNER_DIGEST: ${{ github.workflow_sha }}
+          SUBJECT_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_TYPE: ${{ env.PREDICATE_TYPE }}
+        run: |
+          set -euo pipefail
+          rm -f attestor-evidence/attestation-verification.json
+          status=1
+          for attempt in 1 2 3 4 5; do
+            if gh attestation verify signing-input/qualification-manifest-v1.json \
+              --repo "${GITHUB_REPOSITORY}" \
+              --predicate-type "${EXPECTED_PREDICATE_TYPE}" \
+              --signer-workflow "${SIGNER_WORKFLOW}" \
+              --signer-digest "${SIGNER_DIGEST}" \
+              --deny-self-hosted-runners \
+              --format json > attestor-evidence/attestation-verification.json; then
+              status=0
+              break
+            fi
+            sleep 5
+          done
+          test "${status}" = "0"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+          data = strict_json_loads(Path("attestor-evidence/attestation-verification.json").read_text())
+          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v1.json").read_text())
+          assert isinstance(data, list) and data
+          matches = []
+          for item in data:
+              result = item["verificationResult"]
+              statement = result["statement"]
+              assert statement["predicateType"] == os.environ["EXPECTED_PREDICATE_TYPE"]
+              subjects = statement["subject"]
+              assert subjects
+              assert any(
+                  subj.get("name") == "qualification-manifest-v1.json" and
+                  subj.get("digest", {}).get("sha256") == os.environ["SUBJECT_SHA256"]
+                  for subj in subjects
+              )
+              predicate = statement["predicate"]
+              if (
+                  predicate.get("schema") == "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V1"
+                  and predicate == expected_predicate
+              ):
+                  matches.append(predicate)
+          assert len(matches) >= 1
+          PY
+
+      - name: Write attestor run receipt
+        env:
+          VERIFIER_RUN_ID: ${{ needs.validate.outputs.verifier_run_id }}
+          VERIFIER_RUN_ATTEMPT: ${{ needs.validate.outputs.verifier_run_attempt }}
+          EXPECTED_HEAD_SHA: ${{ needs.validate.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ needs.validate.outputs.expected_base_sha }}
+          MANIFEST_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          PREDICATE_SHA256: ${{ needs.validate.outputs.predicate_sha256 }}
+          INPUT_ARTIFACT_ID: ${{ needs.validate.outputs.signing_input_artifact_id }}
+          INPUT_ARTIFACT_DIGEST: ${{ needs.validate.outputs.signing_input_artifact_digest }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+          TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          TRUST_ROOT_MANIFEST_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          TRUST_ROOT_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+          TRUST_ROOT_CURRENT_MAIN_HEAD_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}
+        run: |
+          test -s attestor-evidence/attestation-bundle-verification.json
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          receipt = {
+              "schema": "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1",
+              "predicate_type": os.environ["PREDICATE_TYPE"],
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "attestor": {
+                  "workflow_ref": f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main",
+                  "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+              },
+              "trust_root": {
+                  "manifest_path": ".github/cos/qualification-trust-root-v2.json",
+                  "manifest_blob_sha1": os.environ["TRUST_ROOT_MANIFEST_BLOB_SHA1"],
+                  "manifest_sha256": os.environ["TRUST_ROOT_MANIFEST_SHA256"],
+                  "status": "candidate_not_authoritative_until_protected_adoption",
+                  "main_snapshot_sha": os.environ["TRUST_ROOT_MAIN_SNAPSHOT_SHA"],
+                  "current_main_head_sha": os.environ["TRUST_ROOT_CURRENT_MAIN_HEAD_SHA"],
+              },
+              "verifier_run": {
+                  "workflow_id": int(os.environ["VERIFIER_WORKFLOW_ID"]),
+                  "id": int(os.environ["VERIFIER_RUN_ID"]),
+                  "attempt": int(os.environ["VERIFIER_RUN_ATTEMPT"]),
+              },
+              "qualification_topology": {
+                  "head_sha": os.environ["EXPECTED_HEAD_SHA"],
+                  "base_sha": os.environ["EXPECTED_BASE_SHA"],
+              },
+              "qualification_manifest_sha256": os.environ["MANIFEST_SHA256"],
+              "predicate_sha256": os.environ["PREDICATE_SHA256"],
+              "signing_input_artifact": {
+                  "id": int(os.environ["INPUT_ARTIFACT_ID"]),
+                  "digest": os.environ["INPUT_ARTIFACT_DIGEST"],
+              },
+              "attestation": {
+                  "id": int(os.environ["ATTESTATION_ID"]),
+                  "url": os.environ["ATTESTATION_URL"],
+              },
+          }
+          bundle_path = Path("attestor-evidence/qualification-attestation-bundle.json")
+          import hashlib
+          receipt["attestation"]["bundle_sha256"] = hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+          Path("attestor-evidence/attestor-run-receipt.json").write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+          (
+            cd attestor-evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+
+      - name: Validate attestor run receipt
+        id: validate_receipt
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.validate.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ needs.validate.outputs.expected_base_sha }}
+          EXPECTED_MANIFEST_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_SHA256: ${{ needs.validate.outputs.predicate_sha256 }}
+          EXPECTED_INPUT_ARTIFACT_ID: ${{ needs.validate.outputs.signing_input_artifact_id }}
+          EXPECTED_INPUT_ARTIFACT_DIGEST: ${{ needs.validate.outputs.signing_input_artifact_digest }}
+          EXPECTED_ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          EXPECTED_ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+          EXPECTED_TRUST_ROOT_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          EXPECTED_TRUST_ROOT_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          EXPECTED_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+          EXPECTED_POST_SIGNING_MAIN_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -s attestor-evidence/attestor-run-receipt.json
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          receipt = strict_json_loads(Path("attestor-evidence/attestor-run-receipt.json").read_text())
+          expected_keys = {
+              "schema", "predicate_type", "repository", "attestor", "trust_root",
+              "verifier_run", "qualification_topology", "qualification_manifest_sha256",
+              "predicate_sha256", "signing_input_artifact", "attestation",
+          }
+          assert set(receipt) == expected_keys
+          assert set(receipt["attestor"]) == {"workflow_ref", "workflow_sha"}
+          assert set(receipt["trust_root"]) == {
+              "manifest_path", "manifest_blob_sha1", "manifest_sha256", "status",
+              "main_snapshot_sha", "current_main_head_sha",
+          }
+          assert set(receipt["verifier_run"]) == {"workflow_id", "id", "attempt"}
+          assert set(receipt["qualification_topology"]) == {"head_sha", "base_sha"}
+          assert set(receipt["signing_input_artifact"]) == {"id", "digest"}
+          assert set(receipt["attestation"]) == {"id", "url", "bundle_sha256"}
+
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          sha64 = re.compile(r"^[0-9a-f]{64}$")
+          assert receipt["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1"
+          assert receipt["predicate_type"] == os.environ["PREDICATE_TYPE"]
+          assert receipt["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert receipt["attestor"]["workflow_ref"] == f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main"
+          assert receipt["attestor"]["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
+          assert receipt["trust_root"]["manifest_path"] == ".github/cos/qualification-trust-root-v2.json"
+          assert receipt["trust_root"]["manifest_blob_sha1"] == os.environ["EXPECTED_TRUST_ROOT_BLOB_SHA1"]
+          assert receipt["trust_root"]["manifest_sha256"] == os.environ["EXPECTED_TRUST_ROOT_SHA256"]
+          assert receipt["trust_root"]["status"] == "candidate_not_authoritative_until_protected_adoption"
+          assert receipt["trust_root"]["main_snapshot_sha"] == os.environ["EXPECTED_MAIN_SNAPSHOT_SHA"]
+          assert receipt["trust_root"]["current_main_head_sha"] == os.environ["EXPECTED_POST_SIGNING_MAIN_SHA"]
+          assert sha40.fullmatch(receipt["trust_root"]["manifest_blob_sha1"])
+          assert sha64.fullmatch(receipt["trust_root"]["manifest_sha256"])
+          assert sha40.fullmatch(receipt["trust_root"]["current_main_head_sha"])
+
+          assert receipt["qualification_topology"]["head_sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          assert receipt["qualification_topology"]["base_sha"] == os.environ["EXPECTED_BASE_SHA"]
+          assert sha64.fullmatch(receipt["qualification_manifest_sha256"])
+          assert receipt["qualification_manifest_sha256"] == os.environ["EXPECTED_MANIFEST_SHA256"]
+          assert sha64.fullmatch(receipt["predicate_sha256"])
+          assert receipt["predicate_sha256"] == os.environ["EXPECTED_PREDICATE_SHA256"]
+          assert receipt["signing_input_artifact"]["id"] == int(os.environ["EXPECTED_INPUT_ARTIFACT_ID"])
+          assert receipt["signing_input_artifact"]["digest"] == os.environ["EXPECTED_INPUT_ARTIFACT_DIGEST"]
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", receipt["signing_input_artifact"]["digest"])
+          assert receipt["attestation"]["id"] == int(os.environ["EXPECTED_ATTESTATION_ID"])
+          assert receipt["attestation"]["url"] == os.environ["EXPECTED_ATTESTATION_URL"]
+          assert receipt["attestation"]["url"].startswith("https://github.com/")
+          assert sha64.fullmatch(receipt["attestation"]["bundle_sha256"])
+
+          verifier_run = receipt["verifier_run"]
+          assert verifier_run["workflow_id"] > 0
+          assert verifier_run["id"] > 0
+          assert verifier_run["attempt"] > 0
+
+          manifest_path = Path("signing-input/qualification-manifest-v1.json")
+          predicate_path = Path("signing-input/qualification-attestation-predicate-v1.json")
+          bundle_path = Path("attestor-evidence/qualification-attestation-bundle.json")
+          assert hashlib.sha256(manifest_path.read_bytes()).hexdigest() == receipt["qualification_manifest_sha256"]
+          assert hashlib.sha256(predicate_path.read_bytes()).hexdigest() == receipt["predicate_sha256"]
+          assert hashlib.sha256(bundle_path.read_bytes()).hexdigest() == receipt["attestation"]["bundle_sha256"]
+          PY
+
+      - name: Seal attestor evidence
+        id: seal_attestor_evidence
+        run: |
+          set -euo pipefail
+          (
+            cd attestor-evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+          ) > attestor-evidence/SHA256SUMS
+      - name: Preserve attestor evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-qualification-attestation-${{ needs.validate.outputs.expected_head_sha }}
+          path: attestor-evidence/
+          if-no-files-found: error
+          retention-days: 30
