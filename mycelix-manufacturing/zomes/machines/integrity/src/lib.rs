@@ -808,11 +808,19 @@ fn transition_approval_matches_update(
         && approval.work_order_hash.as_ref() == work_order_hash
         && approval_valid_at(approval, action_timestamp)
 }
+fn temporal_interval_contains(
+    valid_from: Timestamp,
+    valid_until: Timestamp,
+    timestamp: Timestamp,
+) -> bool {
+    valid_from <= timestamp && timestamp <= valid_until
+}
+
 fn temporal_profile_contains(
     profile: &MachineTimeAuthorityProfileEntry,
     timestamp: Timestamp,
 ) -> bool {
-    profile.valid_from <= timestamp && timestamp <= profile.valid_until
+    temporal_interval_contains(profile.valid_from, profile.valid_until, timestamp)
 }
 fn authority_valid_at(
     authority: &MachineControllerAuthorityEntry,
@@ -1044,19 +1052,12 @@ mod content_restriction_tests {
     }
     #[test]
     fn temporal_profile_boundaries_are_inclusive() {
-        let profile = MachineTimeAuthorityProfileEntry {
-            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
-            authority_agent: AgentPubKey::from_raw_32(vec![2; 32]),
-            profile_id: "clock-a".into(),
-            source_profile: "external-time-v1".into(),
-            valid_from: Timestamp::from_micros(100),
-            valid_until: Timestamp::from_micros(200),
-            registrant_signature: unsafe { std::mem::MaybeUninit::zeroed().assume_init() },
-        };
-        assert!(temporal_profile_contains(&profile, Timestamp::from_micros(100)));
-        assert!(temporal_profile_contains(&profile, Timestamp::from_micros(200)));
-        assert!(!temporal_profile_contains(&profile, Timestamp::from_micros(99)));
-        assert!(!temporal_profile_contains(&profile, Timestamp::from_micros(201)));
+        let from = Timestamp::from_micros(100);
+        let until = Timestamp::from_micros(200);
+        assert!(temporal_interval_contains(from, until, Timestamp::from_micros(100)));
+        assert!(temporal_interval_contains(from, until, Timestamp::from_micros(200)));
+        assert!(!temporal_interval_contains(from, until, Timestamp::from_micros(99)));
+        assert!(!temporal_interval_contains(from, until, Timestamp::from_micros(201)));
     }
     #[test]
     fn controller_lease_duration_is_bounded() {
