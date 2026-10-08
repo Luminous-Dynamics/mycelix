@@ -50,6 +50,7 @@
     "unobserved_repository_selector_properties_must_fail_closed": true,
     "repository_owner_identity_must_be_rechecked": true,
     "live_main_tip_must_be_rechecked": true,
+    "enterprise_ruleset_source_identity_must_be_observed": true,
     "effective_rule_provenance_must_be_bound": true,
     "effective_rule_definition_must_match_observed_ruleset": true
   },
