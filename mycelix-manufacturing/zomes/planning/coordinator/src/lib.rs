@@ -84,6 +84,11 @@ pub enum CapabilityPlanRejection {
     QualificationMissing,
     QualificationMalformed,
     QualificationNotCurrent,
+    MachineStateAuthorityLookupFailed,
+    MachineStateAuthorityMissing,
+    MachineStateAuthorityMalformed,
+    MachineStateAuthorityWrongMachine,
+    MachineStateAuthorityNotCurrent,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -91,6 +96,7 @@ pub struct CapabilityPlanDecision {
     pub machine_hash: Option<ActionHash>,
     pub capability_contract_hash: ActionHash,
     pub qualification_attestation_hashes: Vec<ActionHash>,
+    pub machine_state_authority_hash: Option<ActionHash>,
     pub machine_status: Option<MachineStatus>,
     pub machine_state_head: Option<ActionHash>,
     pub eligible: bool,
@@ -104,6 +110,7 @@ pub struct CapabilityPlanSelection {
     pub observed_at: Timestamp,
     pub selected_machine_hash: Option<ActionHash>,
     pub selected_capability_contract_hash: Option<ActionHash>,
+    pub selected_machine_state_authority_hash: Option<ActionHash>,
     pub decisions: Vec<CapabilityPlanDecision>,
 }
 
@@ -124,6 +131,19 @@ struct CapabilityContractProjection {
 struct QualificationAttestationProjection {
     capability_contract_hash: ActionHash,
     outcome: CapabilityQualification,
+    valid_from: Timestamp,
+    valid_until: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct MachineHeadProjection {
+    #[serde(default)]
+    last_status_authority_hash: Option<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct MachineStateAuthorityProjection {
+    machine_hash: ActionHash,
     valid_from: Timestamp,
     valid_until: Timestamp,
 }
@@ -150,6 +170,20 @@ fn qualification_attestation_is_current(
     matches!(attestation.outcome, CapabilityQualification::Qualified)
         && attestation.valid_from <= observed_at
         && observed_at <= attestation.valid_until
+}
+
+fn machine_state_authority_is_current(
+    authority: &MachineStateAuthorityProjection,
+    machine_hash: &ActionHash,
+    observed_at: Timestamp,
+) -> Result<(), &'static str> {
+    if &authority.machine_hash != machine_hash {
+        return Err("machine state authority is bound to a different machine");
+    }
+    if observed_at < authority.valid_from || observed_at > authority.valid_until {
+        return Err("machine state authority is not current at the planning observation time");
+    }
+    Ok(())
 }
 
 fn capability_profile(contract: &CapabilityContractProjection) -> CapabilityProfile {
@@ -228,6 +262,7 @@ pub fn select_live_capability(
         MachineStatus,
         ActionHash,
         Vec<ActionHash>,
+        ActionHash,
     )> = Vec::new();
     let mut rejected: Vec<CapabilityPlanDecision> = Vec::new();
 
@@ -256,6 +291,7 @@ pub fn select_live_capability(
                         machine_hash: None,
                         capability_contract_hash: contract_hash,
                         qualification_attestation_hashes: Vec::new(),
+                        machine_state_authority_hash: None,
                         machine_status: None,
                         machine_state_head: None,
                         eligible: false,
@@ -270,6 +306,7 @@ pub fn select_live_capability(
                     machine_hash: None,
                     capability_contract_hash: contract_hash,
                     qualification_attestation_hashes: Vec::new(),
+                    machine_state_authority_hash: None,
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -290,6 +327,7 @@ pub fn select_live_capability(
                         machine_hash: None,
                         capability_contract_hash: contract_hash,
                         qualification_attestation_hashes: Vec::new(),
+                        machine_state_authority_hash: None,
                         machine_status: None,
                         machine_state_head: None,
                         eligible: false,
@@ -455,6 +493,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     qualification_attestation_hashes: Vec::new(),
+                    machine_state_authority_hash: None,
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -470,6 +509,174 @@ pub fn select_live_capability(
                 status: MachineStatus::Available,
                 head_action,
             } => {
+                let machine_response = call(
+                    CallTargetCell::Local,
+                    ZomeName::from("machines"),
+                    FunctionName::from("get_machine"),
+                    None,
+                    ExternIO::encode(head_action.clone())?,
+                )?;
+                let machine_record = match machine_response {
+                    ZomeCallResponse::Ok(data) => data.decode::<Option<Record>>().map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "failed to decode current machine head: {e}"
+                        )))
+                    })?,
+                    _ => {
+                        rejected.push(CapabilityPlanDecision {
+                            machine_hash: Some(machine_hash),
+                            capability_contract_hash: contract_hash,
+                            qualification_attestation_hashes: current_attestations,
+                            machine_state_authority_hash: None,
+                            machine_status: Some(MachineStatus::Available),
+                            machine_state_head: Some(head_action),
+                            eligible: false,
+                            mismatch: None,
+                            rejection: Some(CapabilityPlanRejection::MachineLookupFailed),
+                        });
+                        continue;
+                    }
+                };
+
+                let Some(machine_record) = machine_record else {
+                    rejected.push(CapabilityPlanDecision {
+                        machine_hash: Some(machine_hash),
+                        capability_contract_hash: contract_hash,
+                        qualification_attestation_hashes: current_attestations,
+                        machine_state_authority_hash: None,
+                        machine_status: Some(MachineStatus::Available),
+                        machine_state_head: Some(head_action),
+                        eligible: false,
+                        mismatch: None,
+                        rejection: Some(CapabilityPlanRejection::MachineNotFound),
+                    });
+                    continue;
+                };
+
+                let machine_head: MachineHeadProjection =
+                    match machine_record.entry().to_app_option().map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(e.to_string()))
+                    })? {
+                        Some(machine) => machine,
+                        None => {
+                            rejected.push(CapabilityPlanDecision {
+                                machine_hash: Some(machine_hash),
+                                capability_contract_hash: contract_hash,
+                                qualification_attestation_hashes: current_attestations,
+                                machine_state_authority_hash: None,
+                                machine_status: Some(MachineStatus::Available),
+                                machine_state_head: Some(head_action),
+                                eligible: false,
+                                mismatch: None,
+                                rejection: Some(CapabilityPlanRejection::MachineInvalidRecord),
+                            });
+                            continue;
+                        }
+                    };
+
+                let Some(authority_hash) = machine_head.last_status_authority_hash.clone() else {
+                    rejected.push(CapabilityPlanDecision {
+                        machine_hash: Some(machine_hash),
+                        capability_contract_hash: contract_hash,
+                        qualification_attestation_hashes: current_attestations,
+                        machine_state_authority_hash: None,
+                        machine_status: Some(MachineStatus::Available),
+                        machine_state_head: Some(head_action),
+                        eligible: false,
+                        mismatch: None,
+                        rejection: Some(CapabilityPlanRejection::MachineStateAuthorityMissing),
+                    });
+                    continue;
+                };
+
+                let authority_response = call(
+                    CallTargetCell::Local,
+                    ZomeName::from("machines"),
+                    FunctionName::from("get_machine_controller_authority"),
+                    None,
+                    ExternIO::encode(authority_hash.clone())?,
+                )?;
+                let authority_record = match authority_response {
+                    ZomeCallResponse::Ok(data) => data.decode::<Option<Record>>().map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "failed to decode machine controller authority: {e}"
+                        )))
+                    })?,
+                    _ => {
+                        rejected.push(CapabilityPlanDecision {
+                            machine_hash: Some(machine_hash),
+                            capability_contract_hash: contract_hash,
+                            qualification_attestation_hashes: current_attestations,
+                            machine_state_authority_hash: Some(authority_hash),
+                            machine_status: Some(MachineStatus::Available),
+                            machine_state_head: Some(head_action),
+                            eligible: false,
+                            mismatch: None,
+                            rejection: Some(CapabilityPlanRejection::MachineStateAuthorityLookupFailed),
+                        });
+                        continue;
+                    }
+                };
+
+                let Some(authority_record) = authority_record else {
+                    rejected.push(CapabilityPlanDecision {
+                        machine_hash: Some(machine_hash),
+                        capability_contract_hash: contract_hash,
+                        qualification_attestation_hashes: current_attestations,
+                        machine_state_authority_hash: Some(authority_hash),
+                        machine_status: Some(MachineStatus::Available),
+                        machine_state_head: Some(head_action),
+                        eligible: false,
+                        mismatch: None,
+                        rejection: Some(CapabilityPlanRejection::MachineStateAuthorityMalformed),
+                    });
+                    continue;
+                };
+
+                let authority: MachineStateAuthorityProjection =
+                    match authority_record.entry().to_app_option().map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(e.to_string()))
+                    })? {
+                        Some(authority) => authority,
+                        None => {
+                            rejected.push(CapabilityPlanDecision {
+                                machine_hash: Some(machine_hash),
+                                capability_contract_hash: contract_hash,
+                                qualification_attestation_hashes: current_attestations,
+                                machine_state_authority_hash: Some(authority_hash),
+                                machine_status: Some(MachineStatus::Available),
+                                machine_state_head: Some(head_action),
+                                eligible: false,
+                                mismatch: None,
+                                rejection: Some(CapabilityPlanRejection::MachineStateAuthorityMalformed),
+                            });
+                            continue;
+                        }
+                    };
+
+                if let Err(reason) = machine_state_authority_is_current(
+                    &authority,
+                    &machine_hash,
+                    observed_at,
+                ) {
+                    rejected.push(CapabilityPlanDecision {
+                        machine_hash: Some(machine_hash),
+                        capability_contract_hash: contract_hash,
+                        qualification_attestation_hashes: current_attestations,
+                        machine_state_authority_hash: Some(authority_hash),
+                        machine_status: Some(MachineStatus::Available),
+                        machine_state_head: Some(head_action),
+                        eligible: false,
+                        mismatch: None,
+                        rejection: if reason.contains("different machine") {
+                            Some(CapabilityPlanRejection::MachineStateAuthorityWrongMachine)
+                        } else {
+                            Some(CapabilityPlanRejection::MachineStateAuthorityNotCurrent)
+                        },
+                    });
+                    continue;
+                }
+
                 let profile = capability_profile(&contract);
                 raw.push((
                     machine_hash.to_string(),
@@ -479,6 +686,7 @@ pub fn select_live_capability(
                     MachineStatus::Available,
                     head_action,
                     current_attestations,
+                    authority_hash,
                 ));
                 continue;
             }
@@ -487,6 +695,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     qualification_attestation_hashes: current_attestations,
+                    machine_state_authority_hash: None,
                     machine_status: Some(status),
                     machine_state_head: Some(head_action),
                     eligible: false,
@@ -500,6 +709,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     qualification_attestation_hashes: Vec::new(),
+                    machine_state_authority_hash: None,
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -513,6 +723,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     qualification_attestation_hashes: Vec::new(),
+                    machine_state_authority_hash: None,
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -526,6 +737,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     qualification_attestation_hashes: Vec::new(),
+                    machine_state_authority_hash: None,
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -539,6 +751,7 @@ pub fn select_live_capability(
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     qualification_attestation_hashes: Vec::new(),
+                    machine_state_authority_hash: None,
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -558,14 +771,14 @@ pub fn select_live_capability(
     });
 
     let mut machine_contract_counts = std::collections::HashMap::new();
-    for (machine_id, _, _, _, _, _, _) in &raw {
+    for (machine_id, _, _, _, _, _, _, _) in &raw {
         *machine_contract_counts.entry(machine_id.clone()).or_insert(0usize) += 1;
     }
 
     let mut candidates = Vec::new();
     let mut candidate_meta = Vec::new();
 
-    for (machine_id, machine_hash, contract_hash, profile, status, head_action, attestation_hashes) in raw {
+    for (machine_id, machine_hash, contract_hash, profile, status, head_action, attestation_hashes, authority_hash) in raw {
         if machine_contract_counts.get(&machine_id).copied().unwrap_or(0) != 1 {
             rejected.push(CapabilityPlanDecision {
                 machine_hash: Some(machine_hash),
@@ -592,7 +805,7 @@ pub fn select_live_capability(
 
     let mut decisions = rejected;
     for decision in selection.decisions {
-        if let Some((_, machine_hash, contract_hash, status, head_action, attestation_hashes)) = candidate_meta
+        if let Some((_, machine_hash, contract_hash, status, head_action, attestation_hashes, authority_hash)) = candidate_meta
             .iter()
             .find(|(id, _, _, _, _)| *id == decision.machine_id)
         {
@@ -623,19 +836,25 @@ pub fn select_live_capability(
     let selected_machine_hash = selection.selected_machine_id.and_then(|id| {
         candidate_meta
             .iter()
-            .find(|(machine_id, _, _, _, _, _)| *machine_id == id)
-            .map(|(_, hash, _, _, _, _)| hash.clone())
+            .find(|(machine_id, _, _, _, _, _, _)| *machine_id == id)
+            .map(|(_, hash, _, _, _, _, _)| hash.clone())
     });
     let selected_capability_contract_hash = selected_machine_hash.as_ref().and_then(|hash| {
         candidate_meta
             .iter()
-            .find(|(_, machine_hash, _, _, _, _)| machine_hash == hash)
-            .map(|(_, _, contract_hash, _, _, _)| contract_hash.clone())
+            .find(|(_, machine_hash, _, _, _, _, _)| machine_hash == hash)
+            .map(|(_, _, contract_hash, _, _, _, _)| contract_hash.clone())
     });
 
     Ok(CapabilityPlanSelection {
         selected_machine_hash,
         selected_capability_contract_hash,
+        selected_machine_state_authority_hash: selected_machine_hash.as_ref().and_then(|hash| {
+            candidate_meta
+                .iter()
+                .find(|(_, machine_hash, _, _, _, _, _)| machine_hash == hash)
+                .map(|(_, _, _, _, _, _, authority_hash)| authority_hash.clone())
+        }),
         decisions,
     })
 }
