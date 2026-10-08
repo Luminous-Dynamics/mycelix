@@ -537,10 +537,136 @@
       "expected_graph_digest_sha256": "sha256:db34a1aa19df6bf09ae9bae52b0788f4bd50fe2f21672e8d4d59e811d8f6f7b4",
       "expected_semantic_graph_digest_sha256": "sha256:733d40d84c954f0480a692472465539b05225d20452d2b7ca7d88f7ba1593ec6",
       "expected_claim_local_graph_digest_sha256": "sha256:733d40d84c954f0480a692472465539b05225d20452d2b7ca7d88f7ba1593ec6"
+    },
+    {
+      "case_id": "ACV-020",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "subject",
+            "claim",
+            "applies_to"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "reversed applies_to",
+      "expected_graph_digest_sha256": "sha256:1d3e1c963650958a450516bf36dc21f2cfdc937d1eb485195e45c1975f0c9834",
+      "expected_semantic_graph_digest_sha256": "invalid",
+      "expected_claim_local_graph_digest_sha256": "invalid"
+    },
+    {
+      "case_id": "ACV-021",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "result",
+            "qualifies"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "reversed qualifies",
+      "expected_graph_digest_sha256": "sha256:4ca3e2fdccc5584ddd7fe697dc57f503400971ad742c9c57072b082fbaea30ce",
+      "expected_semantic_graph_digest_sha256": "invalid",
+      "expected_claim_local_graph_digest_sha256": "invalid"
+    },
+    {
+      "case_id": "ACV-022",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "result",
+            "generated_by"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "reversed generated_by",
+      "expected_graph_digest_sha256": "sha256:670ea501e5b11aabe6714ca97398c86d689b2e587c550b19186bbb21eb5829aa",
+      "expected_semantic_graph_digest_sha256": "invalid",
+      "expected_claim_local_graph_digest_sha256": "invalid"
+    },
+    {
+      "case_id": "ACV-023",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "reference",
+            "evaluator",
+            "uses"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "reversed uses",
+      "expected_graph_digest_sha256": "sha256:71e6cb05795c80308c03c88dc219361d60ab283412085262b1417b6b8927248b",
+      "expected_semantic_graph_digest_sha256": "invalid",
+      "expected_claim_local_graph_digest_sha256": "invalid"
+    },
+    {
+      "case_id": "ACV-024",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "result",
+            "claim",
+            "not_a_relation"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "unknown relation",
+      "expected_graph_digest_sha256": "sha256:cbb1abadfde1e11dc61f3d7c508d1c644694ac45e1c505bd03e4a1c42befcefe",
+      "expected_semantic_graph_digest_sha256": "invalid",
+      "expected_claim_local_graph_digest_sha256": "invalid"
+    },
+    {
+      "case_id": "ACV-025",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "wrong source type",
+      "expected_graph_digest_sha256": "sha256:e2784fe58e98cb390b4ae4b77ae49b6e527de7da98910f2eba04464138c80c2d",
+      "expected_semantic_graph_digest_sha256": "invalid",
+      "expected_claim_local_graph_digest_sha256": "invalid"
+    },
+    {
+      "case_id": "ACV-026",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "result",
+            "subject",
+            "generated_by"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "wrong target type",
+      "expected_graph_digest_sha256": "sha256:eec91c56d0412b75a9992cf173ccb233114526740b6150b90239d3cf07d3640c",
+      "expected_semantic_graph_digest_sha256": "invalid",
+      "expected_claim_local_graph_digest_sha256": "invalid"
     }
   ],
   "policy_binding": {
     "path": "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json",
-    "git_blob_sha": "5e742d7c04f3144192011a4ea5b969247d9d531f"
+    "git_blob_sha": "13b1d18c485920c2f904acce769f7e37d673019f"
   }
 }
