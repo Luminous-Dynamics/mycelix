@@ -372,8 +372,10 @@ pub fn create_machine_time_authority_profile(
         )));
     }
     if input.valid_until < input.valid_from
-        || input.profile_id.is_empty()
-        || input.source_profile.is_empty()
+        || input.profile_id.trim().is_empty()
+        || input.profile_id.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || input.source_profile.trim().is_empty()
+        || input.source_profile.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
         || input.source_authority_commitment.is_empty()
         || input.source_authority_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || input.max_accuracy_micros < 0
@@ -440,7 +442,8 @@ pub fn create_machine_temporal_attestation(
             input.attested_at,
             input.accuracy_micros,
         )
-        || input.source_reference.is_empty()
+        || input.source_reference.trim().is_empty()
+        || input.source_reference.len() > MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES
         || input.source_commitment.is_empty()
         || input.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || input.accuracy_micros < 0
