@@ -21,5 +21,52 @@
     "mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_CBOR_ENCODING_V1.md": "1d92fc0304402ff61316313a6df5b5230b0803ef",
     "mycelix-workspace/docs/civic-resilience/sym_civic_018_cbor_encoding_v1.json": "b9be91fb92b929809d580c6f4b86f5516d5144eb",
     "scripts/qualification/sym_civic_018_cbor_encoding_v1.py": "af388f237c4b99b028464caf173d586d4ef1b352"
+  },
+  "candidate_execution_receipt": {
+    "schema": "MYCELIX-SYM-CIVIC-018-QUALIFICATION-RECEIPT-V1",
+    "source": "github-actions-job-log",
+    "run_id": 37714865009,
+    "job_id": 113108933070,
+    "job_name": "CBOR encoding boundary",
+    "workflow_id": 375144995,
+    "workflow_path": ".github/workflows/sym-civic-018-cbor-encoding.yml",
+    "candidate_sha": "11d5586c555f47b9e682a24597e04340a5234373",
+    "parent_sha": "1196889eb2a849ddc359d8d05edf063aa9537699",
+    "cases": 51,
+    "corpus_sha256": "279d8836f4c2c48720eb539bbf60a0d9a83b89b9e0adfadc6c9bfa0cc73d3393",
+    "depth_vectors": {
+      "D-01": "DEPTH_PROBE_EXCEEDED",
+      "D-02": "DEPTH_PROBE_WITHIN_LIMIT",
+      "D-03": "DEPTH_PROBE_WITHIN_LIMIT",
+      "D-04": "DEPTH_PROBE_EXCEEDED"
+    },
+    "depth_corpus_sha256": "ed130ccaa3cd40fcfdd329e02dffcd8bbe6d17d2280292634e5ee3942a2a124b",
+    "resource_vectors": {
+      "R-01": "RESOURCE_PROBE_WITHIN_LIMIT",
+      "R-02": "RESOURCE_PROBE_WITHIN_LIMIT",
+      "R-03": "RESOURCE_PROBE_EXCEEDED",
+      "R-04": "RESOURCE_PROBE_WITHIN_LIMIT",
+      "R-05": "RESOURCE_PROBE_WITHIN_LIMIT",
+      "R-06": "RESOURCE_PROBE_EXCEEDED",
+      "R-07": "RESOURCE_PROBE_WITHIN_LIMIT",
+      "R-08": "RESOURCE_PROBE_WITHIN_LIMIT",
+      "R-09": "RESOURCE_PROBE_EXCEEDED",
+      "R-10": "RESOURCE_PROBE_WITHIN_LIMIT",
+      "R-11": "RESOURCE_PROBE_WITHIN_LIMIT",
+      "R-12": "RESOURCE_PROBE_EXCEEDED"
+    },
+    "resource_corpus_sha256": "23d115bcd1d9e1a909db90d0954b1835afb003b87b332efbabe3462c380ef6f4",
+    "counts": {
+      "CBOR_ENCODING_REJECT": 17,
+      "CBOR_ENCODING_SUFFICIENT": 9,
+      "CBOR_ENCODING_UNRESOLVED": 0,
+      "CBOR_MESSAGE_REJECT": 13,
+      "CBOR_PARSE_ERROR": 12
+    },
+    "metamorphic": "PASS",
+    "ordered_result_commitment": "79c63865e5ecee076e4c71150a992af02564870a601d3b3da7482caa3810b1c1",
+    "claim_ceiling": "SYNTHETIC_RESEARCH_ONLY",
+    "artifact_name": "sym-civic-018-qualification-receipt-37714865009",
+    "retention_days": 90
   }
 }
