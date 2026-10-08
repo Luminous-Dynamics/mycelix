@@ -124,6 +124,31 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: admission proof roots are not namespace-validated."
+            exit 1
+          }
+
+          grep -Fq 'EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: final-entry proof roots are not namespace-validated."
+            exit 1
+          }
+
+          grep -Fq 'check_prepared_resolution_action_count' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution proof tuples are not cardinality-bound to prepared actions."
+            exit 1
+          }
+
+          grep -Fq 'test_resolution_must_bind_every_prepared_action_exactly_once' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: exact prepared-action resolution cardinality has no regression test."
+            exit 1
+          }
+
+          grep -Fq 'test_validate_actions_reports_exact_action_count_and_rejects_empty_batches' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: action cardinality parser lacks empty-batch coverage."
+            exit 1
+          }
+
           if grep -Fq 'pub fn store_mut' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
             echo "NOT QUALIFIED: mutable durable-store escape hatch remains exposed."
             exit 1
