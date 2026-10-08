@@ -76,26 +76,35 @@ jobs:
             *) echo "unsupported Security Kernel dispatcher event: $EVENT_NAME" >&2; exit 1 ;;
           esac
           python3 - <<'PY'
-          import base64, json, os, re, urllib.parse, urllib.request
+          import base64, json, os, re, urllib.error, urllib.parse, urllib.request
           repo=os.environ["BASE_REPOSITORY"]; event=os.environ["EVENT_NAME"]; token=os.environ["TOKEN"]; workflow_sha=os.environ["GITHUB_WORKFLOW_SHA"]; run_id=int(os.environ["RUN_ID"])
           headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {token}","X-GitHub-Api-Version":"2022-11-28"}
           SCHEDULE_RATE_LIMIT_MIN_REMAINING=400
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+          api_opener=urllib.request.build_opener(NoRedirect)
           def get(path):
               req=urllib.request.Request("https://api.github.com"+path,headers=headers)
-              with urllib.request.urlopen(req,timeout=20) as response:
-                  if event=="schedule":
-                      remaining=response.headers.get("x-ratelimit-remaining")
-                      if remaining is None:
-                          raise SystemExit("GitHub API response omitted x-ratelimit-remaining; refusing to continue scheduled discovery")
-                      try:
-                          remaining_int=int(remaining)
-                      except ValueError as exc:
-                          raise SystemExit("GitHub API x-ratelimit-remaining was not an integer") from exc
-                      if remaining_int < SCHEDULE_RATE_LIMIT_MIN_REMAINING:
-                          raise SystemExit(
-                              f"GitHub API rate-limit reserve exhausted: remaining={remaining_int} reserve={SCHEDULE_RATE_LIMIT_MIN_REMAINING}"
-                          )
-                  return json.load(response)
+              try:
+                  with api_opener.open(req,timeout=20) as response:
+                      if event=="schedule":
+                          remaining=response.headers.get("x-ratelimit-remaining")
+                          if remaining is None:
+                              raise SystemExit("GitHub API response omitted x-ratelimit-remaining; refusing to continue scheduled discovery")
+                          try:
+                              remaining_int=int(remaining)
+                          except ValueError as exc:
+                              raise SystemExit("GitHub API x-ratelimit-remaining was not an integer") from exc
+                          if remaining_int < SCHEDULE_RATE_LIMIT_MIN_REMAINING:
+                              raise SystemExit(
+                                  f"GitHub API rate-limit reserve exhausted: remaining={remaining_int} reserve={SCHEDULE_RATE_LIMIT_MIN_REMAINING}"
+                              )
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  if error.code in (301,302,303,307,308):
+                      raise SystemExit(f"GitHub API endpoint unexpectedly redirected with HTTP {error.code}; refusing to follow")
+                  raise
           def content(path,ref):
               return get("/repos/"+repo+"/contents/"+urllib.parse.quote(path,safe="/")+"?ref="+urllib.parse.quote(ref,safe=""))
           dispatcher=content(".github/workflows/security-kernel-trusted-dispatch.yml",workflow_sha); s1=content(".github/workflows/security-kernel-independent-qualification.yml",workflow_sha)
