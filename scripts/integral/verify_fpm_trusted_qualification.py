@@ -72,6 +72,7 @@ RECEIPT_KEYS = frozenset(
         "sandbox_image_digest",
         "sandbox_probe",
         "dependency_cache_sha256",
+        "dependency_source_policy",
         "steps",
         "execution_pass",
         "procedure_trust",
@@ -609,6 +610,8 @@ def verify_receipt(
     if receipt["sandbox_probe"] != "passed":
         fail("sandbox boundary probe did not pass")
     require_sha256(receipt["dependency_cache_sha256"], "dependency_cache_sha256")
+    if receipt["dependency_source_policy"] != "crates-io-registry-only-v1":
+        fail("unexpected dependency source policy")
 
     steps = receipt["steps"]
     if not isinstance(steps, dict) or set(steps) != STEP_KEYS:
