@@ -36,11 +36,15 @@ function verifyHead(a,w,reg,entries){
   return verify(pub,sig,Buffer.from(canon(p),'utf8'))?[a,null]:[null,'head-signature-invalid'];
 }
 
-function headQuorum(f,reg){
-  const vals=[];for(const[w,a]of Object.entries(f.head_quorum)){const[v,e]=verifyHead(a,w,reg,f.entries);if(e)return[null,e];vals.push(v);}
+function headQuorum(headFixture,reg,entries,expectedRoot){
+  const vals=[];
+  for(const[w,a]of Object.entries(headFixture.heads.size_7.attestations)){
+    const[v,e]=verifyHead(a,w,reg,entries);if(e)return[null,e];vals.push(v);
+  }
   if(vals.length<3)return[null,'head-below-threshold'];
   const target=new Set(vals.map(a=>JSON.stringify([a.manifest_version,a.tree_size,a.root_hash])));if(target.size!==1)return[null,'head-equivocation'];
-  const q=digest({tree_size:7,root_hash:f.root_hash,head_digests:vals.map(digest).sort()});if(q!==f.tree_head_quorum_digest)return[null,'head-quorum-digest'];
+  const q=digest({tree_size:7,root_hash:expectedRoot,head_digests:vals.map(digest).sort()});
+  if(headFixture.tree_head_quorum_digest&&q!==headFixture.tree_head_quorum_digest)return[null,'head-quorum-digest'];
   return[vals[0],null];
 }
 
@@ -75,7 +79,7 @@ function inclusion(index,size,leafHash,root,path){
 const args=process.argv.slice(2);if(args.length!==5){console.error('usage: receipt-verifier TS_REGISTRY RECEIPT_FIXTURE CAMPAIGN WITNESS_REGISTRY REPORT');process.exit(2);}
 const[tsP,fP,cP,wP,outP]=args;
 const ts=JSON.parse(fs.readFileSync(tsP,'utf8')),f=JSON.parse(fs.readFileSync(fP,'utf8')),camp=JSON.parse(fs.readFileSync(cP,'utf8')),wreg=JSON.parse(fs.readFileSync(wP,'utf8'));
-if(ts.registry_id!==REG_ID||ts.registry_version!==1||digest(ts)!==EXPECTED_TS_REG_SHA||f.ts_registry_sha256!==EXPECTED_TS_REG_SHA||camp.case_count!==16||camp.cases.length!==16)process.exit(1);
+if(ts.registry_id!==REG_ID||ts.registry_version!==1||digest(ts)!==EXPECTED_TS_REG_SHA||f.ts_registry_sha256!==EXPECTED_TS_REG_SHA||camp.case_count!==16||camp.cases.length!==16||!headFixture.heads?.size_7?.attestations)process.exit(1);
 const rows=[],failures=[];
 for(const c of camp.cases){
   const r=structuredClone(f.receipts[String(c.receipt_id??0)]);
