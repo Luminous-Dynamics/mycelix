@@ -1109,6 +1109,7 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
         "workflow_id": 371215723,
         "event": "pull_request",
         "conclusion": "success",
+        "id": 11,
         "head_repository": {"id": 9002, "full_name": "Luminous-Dynamics/mycelix"},
         "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
         "run_attempt": 2,
@@ -1120,6 +1121,12 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
     assert_rejected(
         lambda: verify_trigger_run_record(record, bad_repository, policy, "Luminous-Dynamics/mycelix"),
         "tampered trigger repository was accepted",
+    )
+
+    bad_trigger = {**trigger, "id": 12}
+    assert_rejected(
+        lambda: verify_trigger_run_record(record, bad_trigger, policy, "Luminous-Dynamics/mycelix"),
+        "mismatched trigger run ID was accepted",
     )
 
     bad_trigger = {**trigger, "head_sha": "e" * 40}
