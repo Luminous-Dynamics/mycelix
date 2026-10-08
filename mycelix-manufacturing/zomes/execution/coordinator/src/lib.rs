@@ -51,6 +51,7 @@ pub struct CreateCapabilityContractInput {
     pub tolerance_um: Option<u32>,
     pub supported_protocols: Vec<String>,
     pub qualification: CapabilityQualification,
+    pub qualification_evidence_hashes: Vec<ActionHash>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
