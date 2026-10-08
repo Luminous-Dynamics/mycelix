@@ -166,6 +166,10 @@ pub struct ExecutionResolution {
     pub attempt_identities: Vec<String>,
     pub action_key_digests: Vec<String>,
     pub terminal_evidence_digests: Vec<String>,
+    #[serde(default)]
+    pub authorization_admission_proof_digests: Vec<String>,
+    #[serde(default)]
+    pub final_provider_entry_proof_digests: Vec<String>,
     pub outcome: ExecutionResolutionOutcome,
     pub resolved_at: Timestamp,
 }
@@ -447,12 +451,24 @@ pub fn check_create_execution_resolution(
     }
     if resolution.attempt_identities.len() != resolution.action_key_digests.len()
         || resolution.attempt_identities.len() != resolution.terminal_evidence_digests.len()
+        || resolution.attempt_identities.len()
+            != resolution.authorization_admission_proof_digests.len()
+        || resolution.attempt_identities.len()
+            != resolution.final_provider_entry_proof_digests.len()
     {
         return Err("Resolution binding vectors must have equal lengths".into());
     }
     if resolution.attempt_identities.iter().any(|v| v.is_empty())
         || resolution.action_key_digests.iter().any(|v| v.is_empty())
         || resolution.terminal_evidence_digests.iter().any(|v| v.is_empty())
+        || resolution
+            .authorization_admission_proof_digests
+            .iter()
+            .any(|v| v.is_empty())
+        || resolution
+            .final_provider_entry_proof_digests
+            .iter()
+            .any(|v| v.is_empty())
     {
         return Err("Resolution bindings must be non-empty".into());
     }
@@ -1115,6 +1131,8 @@ mod tests {
             attempt_identities: vec!["attempt-1".into()],
             action_key_digests: vec!["action-key-1".into()],
             terminal_evidence_digests: vec!["evidence-1".into()],
+            authorization_admission_proof_digests: vec!["auth-proof-1".into()],
+            final_provider_entry_proof_digests: vec!["final-entry-proof-1".into()],
             outcome: ExecutionResolutionOutcome::Executed,
             resolved_at: ts(4_000_000),
         };
