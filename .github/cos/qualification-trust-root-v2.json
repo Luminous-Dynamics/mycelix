@@ -1,0 +1,59 @@
+{
+  "schema": "MYCELIX-COS-QUALIFICATION-TRUST-ROOT-V2",
+  "status": "candidate_not_authoritative_until_protected_adoption",
+  "claim_ceiling": "ReferenceModelOnly",
+  "repository": "Luminous-Dynamics/mycelix",
+  "default_branch": "main",
+  "governance": {
+    "issue": 4601,
+    "required_properties": [
+      "pull_request_required",
+      "force_push_blocked",
+      "branch_deletion_blocked",
+      "bypass_actors_explicitly_censused",
+      "two_party_review_required_for_root_changes",
+      "linear_history_required_for_protected_main",
+      "final_cos_required_check_deferred_until_rotation_path_is_qualified"
+    ]
+  },
+  "components": {
+    "independent_verifier_workflow": {
+      "path": ".github/workflows/cos-conformance-independent-verify.yml",
+      "git_blob_sha1": "3c329ef659df75123947a53194fbc979da3f2463",
+      "content_sha256": "44b2089f17b40dd064a1821f917133a1c669f856dacf58547c0112c8a5c74a8a"
+    },
+    "qualification_attestor_workflow": {
+      "path": ".github/workflows/cos-conformance-qualification-attestor.yml",
+      "git_blob_sha1": "aa48e04a0dc0b8d486b4437bb9fdcf60b0a67f3f",
+      "content_sha256": "0848f6db0732e5c8de5266de48b6cb3cc6fb3ff814541451887f5b98123d6dfd"
+    },
+    "federation_semantic_manifest": {
+      "path": ".github/cos/federation-semantic-manifest-v1.json",
+      "git_blob_sha1": "51f84de0b3aba717a335a061b7ca063e55957370",
+      "content_sha256": "62d733a240d0d56f069d192b6bd4d543a7b7af2f0a0ecd381e73f329de15dd41"
+    }
+  },
+  "digest_rule": {
+    "content_sha256_is_strong_integrity_identity": true,
+    "git_blob_sha1_is_retained_for_repository_object_reconciliation": true
+  },
+  "identity_rule": {
+    "main_head_is_provenance": true,
+    "unrelated_main_churn_must_not_be_interpreted_as_root_semantic_change": true,
+    "root_component_identity_is_path_plus_git_blob_sha1_and_content_sha256": true
+  },
+  "activation_rule": {
+    "authoritative": false,
+    "requires_protected_main_readback": true,
+    "requires_rotation_recovery_path": true,
+    "requires_exact_adoption_of_component_bytes": true
+  },
+  "nonclaims": [
+    "GitHub platform compromise resistance",
+    "repository owner or account compromise resistance",
+    "formal verification",
+    "verifier correctness merely from source inspection",
+    "qualification PASS",
+    "runtime authority"
+  ]
+}
