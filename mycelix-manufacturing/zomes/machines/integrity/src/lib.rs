@@ -20,7 +20,7 @@ pub const MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID: &str =
 pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
 
 pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
-    "mycelix-manufacturing-machine-time-authority-profile-v4";
+    "mycelix-manufacturing-machine-time-authority-profile-v5";
 pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-temporal-attestation-v4";
 /// Hard upper bound used to keep temporal uncertainty arithmetic bounded.
@@ -102,6 +102,14 @@ pub enum MachineTemporalCommitmentAlgorithm {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MachineTemporalAuthorityCommitmentTarget {
+    CertificateDer,
+    SubjectPublicKeyInfo,
+    PublicKey,
+    ProfileDefined(String),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineTimeAuthorityProfilePayload {
     pub schema_id: String,
     pub machine_hash: ActionHash,
@@ -110,6 +118,7 @@ pub struct MachineTimeAuthorityProfilePayload {
     pub source_profile: String,
     pub source_authority_commitment: Vec<u8>,
     pub source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget,
     pub commitment_algorithm: MachineTemporalCommitmentAlgorithm,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
@@ -191,6 +200,7 @@ pub struct MachineTimeAuthorityProfileEntry {
     pub source_profile: String,
     pub source_authority_commitment: Vec<u8>,
     pub source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget,
     pub commitment_algorithm: MachineTemporalCommitmentAlgorithm,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
@@ -199,6 +209,20 @@ pub struct MachineTimeAuthorityProfileEntry {
 }
 
 impl MachineTimeAuthorityProfileEntry {
+    fn authority_commitment_target_is_empty(&self) -> bool {
+        matches!(
+            &self.source_authority_commitment_target,
+            MachineTemporalAuthorityCommitmentTarget::ProfileDefined(value) if value.trim().is_empty()
+        )
+    }
+
+    fn authority_commitment_target_text_len(&self) -> usize {
+        match &self.source_authority_commitment_target {
+            MachineTemporalAuthorityCommitmentTarget::ProfileDefined(value) => value.len(),
+            _ => 0,
+        }
+    }
+
     pub fn signed_payload(&self) -> MachineTimeAuthorityProfilePayload {
         MachineTimeAuthorityProfilePayload {
             schema_id: MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID.to_string(),
@@ -208,6 +232,7 @@ impl MachineTimeAuthorityProfileEntry {
             source_profile: self.source_profile.clone(),
             source_authority_commitment: self.source_authority_commitment.clone(),
             source_authority_commitment_algorithm: self.source_authority_commitment_algorithm.clone(),
+            source_authority_commitment_target: self.source_authority_commitment_target.clone(),
             commitment_algorithm: self.commitment_algorithm.clone(),
             valid_from: self.valid_from,
             valid_until: self.valid_until,
@@ -482,7 +507,9 @@ fn validate_create_time_authority_profile(
         || profile.source_authority_commitment.is_empty()
         || profile.source_authority_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || profile.max_accuracy_micros < 0
+        || profile.authority_commitment_target_is_empty()
         || profile.max_accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+        || profile.authority_commitment_target_text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
     {
         return Ok(ValidateCallbackResult::Invalid(
             "time authority profile has invalid identity or accuracy bounds".into(),
@@ -1324,6 +1351,7 @@ mod content_restriction_tests {
             source_profile: "rfc3161".into(),
             source_authority_commitment: vec![9; 32],
             source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget::CertificateDer,
             commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
             valid_from: Timestamp::from_micros(0),
             valid_until: Timestamp::from_micros(1_000),
@@ -1340,6 +1368,28 @@ mod content_restriction_tests {
 
         let encoded_profile_id = "p".repeat(MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES + 1);
         assert!(encoded_profile_id.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES);
+    }
+
+    #[test]
+    fn temporal_profile_signs_authority_commitment_target() {
+        let mut profile = MachineTimeAuthorityProfileEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            profile_id: "profile-1".into(),
+            source_profile: "rfc3161".into(),
+            source_authority_commitment: vec![9; 32],
+            source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget::CertificateDer,
+            commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(1_000),
+            max_accuracy_micros: 5,
+            registrant_signature: Signature(vec![0; 64]),
+        };
+        let before = profile.signed_payload();
+        profile.source_authority_commitment_target =
+            MachineTemporalAuthorityCommitmentTarget::SubjectPublicKeyInfo;
+        assert_ne!(profile.signed_payload(), before);
     }
 
     #[test]
