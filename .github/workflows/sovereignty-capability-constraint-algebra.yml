@@ -64,9 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/capability-constraint-evidence"
-          nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#jdk17_headless" --command bash -euo pipefail -c '
-            printf '{"'"'"'schema'"'"':"'"'"'"'mycelix.evidence-attestation-capability-formal-runtime.v1"'"'"'"',"'"'"'nixpkgs_rev'"'"'":"'"'"'"'%s'"'"'"',"'"'"'jdk_package'"'"'":"'"'"'"'jdk17_headless'"'"'"',"'"'"'java_major'"'"'":17}\n' "$NIXPKGS_REV" > "$RUNNER_TEMP/capability-constraint-evidence/runtime.json"
-          '
+          python3 -c 'import json,os; json.dump({"schema":"mycelix.evidence-attestation-capability-formal-runtime.v1","nixpkgs_rev":os.environ["NIXPKGS_REV"],"jdk_package":"jdk17_headless","java_major":17},open(os.environ["RUNNER_TEMP"]+"/capability-constraint-evidence/runtime.json","w"))'
           python3 mycelix-governance/tools/formal/run_capability_constraint_algebra.py --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_CAPABILITY_CONSTRAINT_ALGEBRA_CONTROL_MATRIX_V1.json --reference mycelix-governance/tools/formal/capability_constraint_algebra_reference.py --tla mycelix-governance/specs/EvidenceAttestationCapabilityConstraintAlgebraV1.tla --canonical-cfg mycelix-governance/specs/EvidenceAttestationCapabilityConstraintAlgebraV1.cfg --negative-cfg-dir mycelix-governance/specs --alloy mycelix-governance/specs/alloy/EvidenceAttestationCapabilityConstraintAlgebraV1.als --runner-class-dir "$RUNNER_TEMP/capability-constraint-java" --alloy-jar "$RUNNER_TEMP/capability-constraint-tools/alloy.jar" --tla-jar "$RUNNER_TEMP/capability-constraint-tools/tla2tools.jar" --runtime "$RUNNER_TEMP/capability-constraint-evidence/runtime.json" --evidence-dir "$RUNNER_TEMP/capability-constraint-evidence"
       - name: Verify repository postflight
         if: always()
