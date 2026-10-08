@@ -1,0 +1,85 @@
+{
+  "schema": "mycelix.evidence-attestation-decision-effect-binding-control-matrix.v1",
+  "controls": [
+    {
+      "id": "authority-epoch",
+      "boundary": "decision-to-effect admission cannot outlive or change any bound authority/request/target/policy/adapter/invocation condition",
+      "tla_invariant": "AuthorityEpochBound",
+      "tla_control": "authority-epoch",
+      "alloy_witness": "AuthorityEpochSubstitutionWitness",
+      "alloy_assertion": "AuthorityEpochBound",
+      "alloy_mutant_fact": "AuthorityEpochBound",
+      "reference_marker": "CANONICAL PASS: decision identity, issuance time, authority epoch, request, target, policy, adapter, invocation, and horizons are bound"
+    },
+    {
+      "id": "request-commitment",
+      "boundary": "decision-to-effect admission cannot outlive or change any bound authority/request/target/policy/adapter/invocation condition",
+      "tla_invariant": "RequestCommitmentBound",
+      "tla_control": "request-commitment",
+      "alloy_witness": "RequestCommitmentSubstitutionWitness",
+      "alloy_assertion": "RequestCommitmentBound",
+      "alloy_mutant_fact": "RequestCommitmentBound",
+      "reference_marker": "CANONICAL PASS: decision identity, issuance time, authority epoch, request, target, policy, adapter, invocation, and horizons are bound"
+    },
+    {
+      "id": "target",
+      "boundary": "decision-to-effect admission cannot outlive or change any bound authority/request/target/policy/adapter/invocation condition",
+      "tla_invariant": "TargetBound",
+      "tla_control": "target",
+      "alloy_witness": "TargetSubstitutionWitness",
+      "alloy_assertion": "TargetBound",
+      "alloy_mutant_fact": "TargetBound",
+      "reference_marker": "CANONICAL PASS: decision identity, issuance time, authority epoch, request, target, policy, adapter, invocation, and horizons are bound"
+    },
+    {
+      "id": "policy-epoch",
+      "boundary": "decision-to-effect admission cannot outlive or change any bound authority/request/target/policy/adapter/invocation condition",
+      "tla_invariant": "PolicyEpochBound",
+      "tla_control": "policy-epoch",
+      "alloy_witness": "PolicyEpochSubstitutionWitness",
+      "alloy_assertion": "PolicyEpochBound",
+      "alloy_mutant_fact": "PolicyEpochBound",
+      "reference_marker": "CANONICAL PASS: decision identity, issuance time, authority epoch, request, target, policy, adapter, invocation, and horizons are bound"
+    },
+    {
+      "id": "adapter-profile",
+      "boundary": "decision-to-effect admission cannot outlive or change any bound authority/request/target/policy/adapter/invocation condition",
+      "tla_invariant": "AdapterIdentityBound",
+      "tla_control": "adapter-profile",
+      "alloy_witness": "AdapterSubstitutionWitness",
+      "alloy_assertion": "AdapterIdentityBound",
+      "alloy_mutant_fact": "AdapterIdentityBound",
+      "reference_marker": "CANONICAL PASS: decision identity, issuance time, authority epoch, request, target, policy, adapter, invocation, and horizons are bound"
+    },
+    {
+      "id": "invocation-identity",
+      "boundary": "decision-to-effect admission cannot outlive or change any bound authority/request/target/policy/adapter/invocation condition",
+      "tla_invariant": "InvocationIdentityBound",
+      "tla_control": "invocation-identity",
+      "alloy_witness": "InvocationSubstitutionWitness",
+      "alloy_assertion": "InvocationIdentityBound",
+      "alloy_mutant_fact": "InvocationIdentityBound",
+      "reference_marker": "CANONICAL PASS: decision identity, issuance time, authority epoch, request, target, policy, adapter, invocation, and horizons are bound"
+    },
+    {
+      "id": "capability-expiry",
+      "boundary": "decision-to-effect admission cannot outlive or change any bound authority/request/target/policy/adapter/invocation condition",
+      "tla_invariant": "CapabilityCurrentAtEffect",
+      "tla_control": "capability-expiry",
+      "alloy_witness": "CapabilityExpiryWitness",
+      "alloy_assertion": "CapabilityCurrentAtEffect",
+      "alloy_mutant_fact": "CapabilityCurrentAtEffect",
+      "reference_marker": "CANONICAL PASS: decision identity, issuance time, authority epoch, request, target, policy, adapter, invocation, and horizons are bound"
+    },
+    {
+      "id": "decision-horizon",
+      "boundary": "decision-to-effect admission cannot outlive or change any bound authority/request/target/policy/adapter/invocation condition",
+      "tla_invariant": "DecisionHorizonCurrentAtEffect",
+      "tla_control": "decision-horizon",
+      "alloy_witness": "DecisionHorizonWitness",
+      "alloy_assertion": "DecisionHorizonCurrentAtEffect",
+      "alloy_mutant_fact": "DecisionHorizonCurrentAtEffect",
+      "reference_marker": "CANONICAL PASS: decision identity, issuance time, authority epoch, request, target, policy, adapter, invocation, and horizons are bound"
+    }
+  ]
+}
