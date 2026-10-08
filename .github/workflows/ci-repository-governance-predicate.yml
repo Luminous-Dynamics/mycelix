@@ -257,18 +257,18 @@ jobs:
           assert "main branch commit changed during governance observation" in scanned_text
           assert "main branch commit SHA is invalid" in scanned_text
           assert "live_main_sha = branch.get(\"commit\", {}).get(\"sha\")" in scanned_text
-          assert "source_type == \"Enterprise\"" in scanned_text
-          assert "no authoritative enterprise" in scanned_text
-          assert "_github_fnmatch_pattern_supported" in scanned_text
-          assert "File::FNM_EXTGLOB" in scanned_text
-          assert "unsupported extglob syntax" in scanned_text
-          assert 'head == "**" and tail' in scanned_text
-          assert "object_pairs_hook=_reject_duplicate_json_keys" in scanned_text
-          assert "parse_constant=_reject_nonstandard_json_constant" in scanned_text
-          assert "policy claim scope drift" in scanned_text
-          assert "fail-closed contract drift" in scanned_text
-          assert "policy = _strict_json_loads(" in scanned_text
-          assert "observation = _strict_json_loads(" in scanned_text
+          # Audit semantic bindings of the current independent verifier rather
+          # than asserting implementation details from a historical inlined matcher.
+          assert "python scripts/validate_repository_governance_observation_v1.py" in scanned_text
+          assert scanned_text.count("python scripts/validate_repository_governance_observation_v1.py") >= 2
+          assert "--observation evidence/governance/observation.json" in scanned_text
+          assert "governance evaluator structural failure" in scanned_text
+          assert 'result["governance_state"] in {"VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"}' in scanned_text
+          assert 'result["grants_trusted_verifier_root"] is (result["governance_state"] == "VERIFIED")' in scanned_text
+          assert 'if result["governance_state"] == "NOT_RUN":' in scanned_text
+          assert "EXPECTED_GOVERNANCE_STATE" in scanned_text
+          assert "EXPECTED_GOVERNANCE_GRANT" in scanned_text
+          assert "claim_ceiling" in scanned_text
           assert "EXPECTED_LIVE_MAIN_SHA" in scanned_text
           assert "rulesets-payload-after.json" in scanned_text
           assert "rulesets-after/${ruleset_id}.json" in scanned_text
