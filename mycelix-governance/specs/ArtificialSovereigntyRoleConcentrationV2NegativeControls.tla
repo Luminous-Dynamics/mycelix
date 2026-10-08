@@ -7,6 +7,7 @@ BadAssignSecondWithoutFinding(s, role) ==
     /\ Advanceable
     /\ s \in Subjects
     /\ role \in Roles
+    /\ s \notin roleHolder[role]
     /\ Cardinality({r \in Roles : s \in roleHolder[r]}) = 1
     /\ ~conflictFinding[s]
     /\ roleHolder' = [roleHolder EXCEPT ![role] = @ \cup {s}]
@@ -64,7 +65,6 @@ BadReviewerRoleDrift(subject, reviewer, role) ==
     /\ subject \in Subjects
     /\ reviewer \in Subjects
     /\ reviewer # subject
-    /\ Cardinality({r \in Roles : reviewer \in roleHolder[r]}) = 0
     /\ activeReviewers' = [activeReviewers EXCEPT ![subject] = {reviewer}]
     /\ reviewHistory' = [reviewHistory EXCEPT ![subject] = @ \cup {reviewer}]
     /\ roleHolder' = [roleHolder EXCEPT ![role] = @ \cup {reviewer}]
