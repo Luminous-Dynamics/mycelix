@@ -86,6 +86,7 @@ pub enum LinkTypes {
     AllProcessRecipes,
     DesignToRouting,
     RoutingToInspectionCriteria,
+    RoutingToProcessRecipes,
     RoutingToOperations,
 }
 
