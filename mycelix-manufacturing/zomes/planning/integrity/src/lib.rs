@@ -15,10 +15,10 @@ pub struct MrpRunEntry {
     pub horizon_days: u32,
     pub run_at: Timestamp,
     /// Full manufacturing feasibility. Material-only success is not sufficient.
+    /// Defaults conservatively for older records that only carried the legacy
+    /// boolean feasibility field.
     #[serde(default)]
     pub feasibility: MrpFeasibility,
-    /// Legacy compatibility flag; true only when feasibility is Feasible.
-    pub feasible: bool,
 }
 
 #[hdk_entry_helper]
