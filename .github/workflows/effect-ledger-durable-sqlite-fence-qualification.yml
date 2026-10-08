@@ -8,6 +8,7 @@ on:
       - hardening/effect-ledger-verifier-affirmation-v1
       - hardening/effect-ledger-provider-context-v1
       - hardening/effect-ledger-persisted-idempotency-v1
+      - hardening/effect-ledger-final-entry-gate-v1
   pull_request:
   workflow_dispatch:
 
@@ -102,6 +103,11 @@ jobs:
           grep -Fq 'provider_idempotency_key' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'provider_idempotency_key does not match versioned derivation' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'persisted_provider_idempotency_key_is_versioned_and_fail_closed' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
+          grep -Fq 'FinalProviderEntryProofV1' "$boundary"
+          grep -Fq 'FinalProviderEntryVerifier' "$boundary"
+          grep -Fq 'FinalEntryRejectedNotEntered' "$boundary"
+          grep -Fq 'atomically_release_provider_entry_claim_not_entered' "$source"
+          grep -Fq 'expired_final_entry_proof_cannot_reach_provider' "$boundary"
           grep -Fq 'VerifiedTerminalOutcomeV1::new' "$boundary"
           grep -Fq 'terminal verification proof is not bound to the exact attempt' "$boundary"
           grep -Fq 'VerificationPurpose::InitialInvocation' "$boundary"
