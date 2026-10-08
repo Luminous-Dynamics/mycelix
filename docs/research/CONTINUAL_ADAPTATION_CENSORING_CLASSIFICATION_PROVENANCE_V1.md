@@ -311,7 +311,7 @@ The closure therefore requires each declared base anchor to be both claim-local 
 
 This preserves the distinction between historical continuity and current reachability while preventing an unrelated revision-0 replacement from inheriting the anchor.
 
-The generated campaign now exercises 168 deterministic cases, including anchor-lineage and representation-composition mutations.
+The generated campaign now exercises 168 deterministic cases, including anchor-lineage and representation-composition mutations. The fixed fixture is also required to have unique case identifiers; duplicate IDs are rejected before fixed-corpus execution so policy-liveness lookup cannot select the wrong mutation.
 
 
 ## Claim-local supersession scope closure
