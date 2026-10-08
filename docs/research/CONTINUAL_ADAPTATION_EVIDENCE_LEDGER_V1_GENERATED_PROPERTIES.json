@@ -1,0 +1,3656 @@
+{
+  "schema": "mycelix.continual-adaptation.evidence-ledger-generated-properties.v1",
+  "status": "research-fixture-only",
+  "generator": {
+    "version": "ledger-property-generator-v1",
+    "seed": 1179123713,
+    "mutation_count": 256,
+    "base_fixture_schema": "mycelix.continual-adaptation.evidence-ledger-fixtures.v1"
+  },
+  "base_graph": {
+    "nodes": [
+      {
+        "id": "claim",
+        "type": "Claim",
+        "subject": "S1",
+        "target": "T1"
+      },
+      {
+        "id": "subject",
+        "type": "Subject",
+        "commitment": "S1"
+      },
+      {
+        "id": "campaign",
+        "type": "CampaignPlan",
+        "commitment": "C1"
+      },
+      {
+        "id": "attempts",
+        "type": "AttemptCensus",
+        "commitment": "A1"
+      },
+      {
+        "id": "evaluator",
+        "type": "EvaluationEvaluator",
+        "commitment": "E1",
+        "state": "fresh"
+      },
+      {
+        "id": "reference",
+        "type": "Reference",
+        "commitment": "R1"
+      },
+      {
+        "id": "intervention",
+        "type": "Intervention",
+        "semantic_id": "U1"
+      },
+      {
+        "id": "observation",
+        "type": "ObservationPolicy",
+        "semantic_id": "O1"
+      },
+      {
+        "id": "measurement",
+        "type": "Measurement",
+        "semantic_id": "M1"
+      },
+      {
+        "id": "result",
+        "type": "Result",
+        "commitment": "X1"
+      },
+      {
+        "id": "transport",
+        "type": "TransportAssessment",
+        "target": "T1",
+        "status": "supported"
+      },
+      {
+        "id": "freshness",
+        "type": "FreshnessAssessment",
+        "subject": "S1",
+        "status": "current"
+      }
+    ],
+    "edges": [
+      [
+        "result",
+        "claim",
+        "qualifies"
+      ],
+      [
+        "result",
+        "evaluator",
+        "generated_by"
+      ],
+      [
+        "evaluator",
+        "reference",
+        "uses"
+      ],
+      [
+        "evaluator",
+        "attempts",
+        "uses"
+      ],
+      [
+        "attempts",
+        "campaign",
+        "derived_from"
+      ],
+      [
+        "campaign",
+        "subject",
+        "applies_to"
+      ],
+      [
+        "campaign",
+        "intervention",
+        "uses"
+      ],
+      [
+        "campaign",
+        "observation",
+        "uses"
+      ],
+      [
+        "campaign",
+        "measurement",
+        "uses"
+      ],
+      [
+        "claim",
+        "transport",
+        "requires"
+      ],
+      [
+        "claim",
+        "freshness",
+        "requires"
+      ],
+      [
+        "claim",
+        "subject",
+        "applies_to"
+      ]
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "GEN-NODE-000",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          8
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-001",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          7
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-002",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          2
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-003",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          5
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-004",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          4
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-005",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          11
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-006",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          2
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-007",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          5
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-008",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          4
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-009",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          7
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-010",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          6
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-011",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          1
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-012",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          0
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-013",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          3
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-014",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          2
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-015",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          5
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-016",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          8
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-017",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          11
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-018",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          6
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-019",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          9
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-020",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          0
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-021",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          7
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-022",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          2
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-023",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          9
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-024",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          4
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-025",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          11
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-026",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          2
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-027",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          1
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-028",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          4
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-029",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          3
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-030",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          6
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-NODE-031",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "nodes",
+          1
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-000",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          8
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-001",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          11
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-002",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          10
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-003",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          1
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-004",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          0
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-005",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          7
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-006",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          10
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-007",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          1
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-008",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          0
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-009",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          3
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-010",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          2
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-011",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          9
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-012",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          0
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-013",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          11
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-014",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          6
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-015",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          9
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-016",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          8
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-017",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          3
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-018",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          6
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-019",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          1
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-020",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          0
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-021",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          3
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-022",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          10
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-023",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          1
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-024",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          4
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-025",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          3
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-026",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          6
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-027",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          9
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-028",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          8
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-029",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          7
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-030",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          10
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-EDGE-031",
+      "property": "representation_invariance",
+      "mutation": [
+        [
+          "rotate_collection",
+          "edges",
+          5
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-000",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-000",
+            "type": "UnrelatedEvidence",
+            "commitment": "N34fdceac"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-001",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-001",
+            "type": "UnrelatedEvidence",
+            "commitment": "N3c76fa1b"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-002",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-002",
+            "type": "UnrelatedEvidence",
+            "commitment": "N22c368be"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-003",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-003",
+            "type": "UnrelatedEvidence",
+            "commitment": "N16a4f905"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-004",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-004",
+            "type": "UnrelatedEvidence",
+            "commitment": "N6f8496a0"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-005",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-005",
+            "type": "UnrelatedEvidence",
+            "commitment": "N6fce597f"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-006",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-006",
+            "type": "UnrelatedEvidence",
+            "commitment": "Ndef918d2"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-007",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-007",
+            "type": "UnrelatedEvidence",
+            "commitment": "N3b7ae209"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-008",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-008",
+            "type": "UnrelatedEvidence",
+            "commitment": "N4a9d03d4"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-009",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-009",
+            "type": "UnrelatedEvidence",
+            "commitment": "Nf5a29d23"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-010",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-010",
+            "type": "UnrelatedEvidence",
+            "commitment": "Nd8b7e026"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-011",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-011",
+            "type": "UnrelatedEvidence",
+            "commitment": "N64ca794d"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-012",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-012",
+            "type": "UnrelatedEvidence",
+            "commitment": "Ndf90ca48"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-013",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-013",
+            "type": "UnrelatedEvidence",
+            "commitment": "N0869e907"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-014",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-014",
+            "type": "UnrelatedEvidence",
+            "commitment": "N9e5792ba"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-015",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-015",
+            "type": "UnrelatedEvidence",
+            "commitment": "N7f8182d1"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-016",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-016",
+            "type": "UnrelatedEvidence",
+            "commitment": "N168addfc"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-017",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-017",
+            "type": "UnrelatedEvidence",
+            "commitment": "N638aa12b"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-018",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-018",
+            "type": "UnrelatedEvidence",
+            "commitment": "N43e3448e"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-019",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-019",
+            "type": "UnrelatedEvidence",
+            "commitment": "Nee280295"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-020",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-020",
+            "type": "UnrelatedEvidence",
+            "commitment": "N860b72f0"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-021",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-021",
+            "type": "UnrelatedEvidence",
+            "commitment": "Nd43f698f"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-022",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-022",
+            "type": "UnrelatedEvidence",
+            "commitment": "N96ad49a2"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-023",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-023",
+            "type": "UnrelatedEvidence",
+            "commitment": "N1f643c99"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-024",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-024",
+            "type": "UnrelatedEvidence",
+            "commitment": "Naf9bfd24"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-025",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-025",
+            "type": "UnrelatedEvidence",
+            "commitment": "N06bb2633"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-026",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-026",
+            "type": "UnrelatedEvidence",
+            "commitment": "Ne02335f6"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-027",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-027",
+            "type": "UnrelatedEvidence",
+            "commitment": "Neabeb4dd"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-028",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-028",
+            "type": "UnrelatedEvidence",
+            "commitment": "Ncdc33098"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-029",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-029",
+            "type": "UnrelatedEvidence",
+            "commitment": "N338cfb17"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-030",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-030",
+            "type": "UnrelatedEvidence",
+            "commitment": "N8be1dd8a"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-UNRELATED-031",
+      "property": "claim_local_invariance",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise-031",
+            "type": "UnrelatedEvidence",
+            "commitment": "Nf7a62f61"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-000",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "subject",
+          "commitment",
+          "Xa739014c"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-001",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "commitment",
+          "X91444c3b"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-002",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "state",
+          "X4509545e"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-003",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "intervention",
+          "semantic_id",
+          "Xb2b3b025"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-004",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "measurement",
+          "semantic_id",
+          "X1b5aa340"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-005",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "subject",
+          "commitment",
+          "Xae54bd9f"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-006",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "commitment",
+          "X5ed0ee72"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-007",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "state",
+          "X952e7b29"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-008",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "intervention",
+          "semantic_id",
+          "X5bde8a74"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-009",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "measurement",
+          "semantic_id",
+          "X173a3343"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-010",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "subject",
+          "commitment",
+          "X9c5b3fc6"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-011",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "commitment",
+          "Xc2d0146d"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-012",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "state",
+          "X07c86ae8"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-013",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "intervention",
+          "semantic_id",
+          "Xecdcd127"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-014",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "measurement",
+          "semantic_id",
+          "Xabca1c5a"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-015",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "subject",
+          "commitment",
+          "X41c83ff1"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-016",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "commitment",
+          "X9b9d389c"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-017",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "state",
+          "X4f34fb4b"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-018",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "intervention",
+          "semantic_id",
+          "Xe892982e"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-019",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "measurement",
+          "semantic_id",
+          "X510101b5"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-020",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "subject",
+          "commitment",
+          "Xead72790"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-021",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "commitment",
+          "Xc02f55af"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-022",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "state",
+          "X39110742"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-023",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "intervention",
+          "semantic_id",
+          "Xa0a29db9"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-024",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "measurement",
+          "semantic_id",
+          "X9699abc4"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-025",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "subject",
+          "commitment",
+          "Xe2d0c453"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-026",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "commitment",
+          "X1b5cfd96"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-027",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "state",
+          "X70d797fd"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-028",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "intervention",
+          "semantic_id",
+          "Xb5a57938"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-029",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "measurement",
+          "semantic_id",
+          "X3a9a6b37"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-030",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "subject",
+          "commitment",
+          "X355d4f2a"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-IDENTITY-031",
+      "property": "identity_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "evaluator",
+          "commitment",
+          "Xdad0b481"
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-000",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "result",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-001",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "result",
+            "evaluator",
+            "generated_by"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-002",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "evaluator",
+            "reference",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-003",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "evaluator",
+            "attempts",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-004",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "attempts",
+            "campaign",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-005",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-006",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "intervention",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-007",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "observation",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-008",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "measurement",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-009",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "claim",
+            "transport",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-010",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "claim",
+            "freshness",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-011",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "claim",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-012",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "result",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-013",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "result",
+            "evaluator",
+            "generated_by"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-014",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "evaluator",
+            "reference",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-015",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "evaluator",
+            "attempts",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-016",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "attempts",
+            "campaign",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-017",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-018",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "intervention",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-019",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "observation",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-020",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "measurement",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-021",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "claim",
+            "transport",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-022",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "claim",
+            "freshness",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-023",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "claim",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-024",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "result",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-025",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "result",
+            "evaluator",
+            "generated_by"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-026",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "evaluator",
+            "reference",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-027",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "evaluator",
+            "attempts",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-028",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "attempts",
+            "campaign",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-029",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-030",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "intervention",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-MISSING-031",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "campaign",
+            "observation",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-000",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "result",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-001",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "result",
+            "evaluator",
+            "generated_by"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-002",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "reference",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-003",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "attempts",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-004",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "attempts",
+            "campaign",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-005",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-006",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "intervention",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-007",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "observation",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-008",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "measurement",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-009",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "transport",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-010",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "freshness",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-011",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-012",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "result",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-013",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "result",
+            "evaluator",
+            "generated_by"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-014",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "reference",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-015",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "attempts",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-016",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "attempts",
+            "campaign",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-017",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-018",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "intervention",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-019",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "observation",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-020",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "measurement",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-021",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "transport",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-022",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "freshness",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-023",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-024",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "result",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-025",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "result",
+            "evaluator",
+            "generated_by"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-026",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "reference",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-027",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "evaluator",
+            "attempts",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-028",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "attempts",
+            "campaign",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-029",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "subject",
+            "applies_to"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-030",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "intervention",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DUPEDGE-031",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "campaign",
+            "observation",
+            "uses"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-000",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-218c83ec",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-001",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-cf2dae5b",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-002",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-fc1c0ffe",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-003",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-c808f745",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-004",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-1d25ffe0",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-005",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-d83031bf",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-006",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-465a9412",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-007",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-5bc9a449",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-008",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-48426114",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-009",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-d56fd963",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-010",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-de656f66",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-011",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-d2ee3f8d",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-012",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-149f5b88",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-013",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-b746c947",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-014",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-672875fa",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-015",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-1de88d11",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-016",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-301be33c",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-017",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-fb3f656b",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-018",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-2882bbce",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-019",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-b90490d5",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-020",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-982c2c30",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-021",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-e0f851cf",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-022",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-96da94e2",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-023",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-86ec8ed9",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-024",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-4a8daa64",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-025",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-1b487273",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-026",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-a9f19536",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-027",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-b16d0b1d",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-028",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-c73b11d8",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-029",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-a1a2eb57",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-030",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-56f890ca",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DANGLING-031",
+      "property": "structural_rejection",
+      "mutation": [
+        [
+          "add_edge",
+          [
+            "claim",
+            "missing-d478c9a1",
+            "requires"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-000",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "first",
+            "second"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-001",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "second",
+            "first"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-002",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "first",
+            "second"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-003",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "second",
+            "first"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-004",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "first",
+            "second"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-005",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "second",
+            "first"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-006",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "first",
+            "second"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-007",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "second",
+            "first"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-008",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "first",
+            "second"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-ORDERED-009",
+      "property": "ordered_array_sensitivity",
+      "mutation": [
+        [
+          "set",
+          "claim",
+          "ordered_probe",
+          [
+            "second",
+            "first"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-010",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-010",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-010",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-011",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-011",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-011",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-012",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-012",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-012",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-013",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-013",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-013",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-014",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-014",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-014",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-015",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-015",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-015",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-016",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-016",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-016",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-017",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-017",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-017",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-018",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-018",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-018",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-DERIVED-019",
+      "property": "provenance_dependence",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "derived-019",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "derived-019",
+            "result",
+            "derived_from"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-020",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-020",
+            "type": "Result",
+            "commitment": "X20"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-020",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-021",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-021",
+            "type": "Result",
+            "commitment": "X21"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-021",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-022",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-022",
+            "type": "Result",
+            "commitment": "X22"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-022",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-023",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-023",
+            "type": "Result",
+            "commitment": "X23"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-023",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-024",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-024",
+            "type": "Result",
+            "commitment": "X24"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-024",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-025",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-025",
+            "type": "Result",
+            "commitment": "X25"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-025",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-026",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-026",
+            "type": "Result",
+            "commitment": "X26"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-026",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-027",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-027",
+            "type": "Result",
+            "commitment": "X27"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-027",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-028",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-028",
+            "type": "Result",
+            "commitment": "X28"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-028",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-029",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-029",
+            "type": "Result",
+            "commitment": "X29"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-029",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-030",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-030",
+            "type": "Result",
+            "commitment": "X30"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-030",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "GEN-CONFLICT-031",
+      "property": "result_conflict",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "competing-031",
+            "type": "Result",
+            "commitment": "X31"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "competing-031",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ]
+    }
+  ]
+}
