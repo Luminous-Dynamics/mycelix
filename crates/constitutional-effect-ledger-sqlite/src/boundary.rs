@@ -137,7 +137,7 @@ impl ProviderActionContextV1 {
             ));
         }
 
-        let provider_idempotency_key = derive_provider_idempotency_key(attempt, action_key);
+        let provider_idempotency_key = attempt.provider_idempotency_key().to_owned();
         Ok(Self {
             action_digest: attempt.action_digest.clone(),
             action_key_digest: attempt.action_key_digest.clone(),
@@ -250,20 +250,6 @@ impl ProviderEntryPermitV1 {
 fn push_digest_string(hasher: &mut blake3::Hasher, value: &str) {
     hasher.update(&(value.len() as u64).to_be_bytes());
     hasher.update(value.as_bytes());
-}
-
-fn derive_provider_idempotency_key(
-    attempt: &AttemptRecordV1,
-    action_key: &ActionKeyV1,
-) -> String {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(b"MYCELIX-CONSTITUTIONAL-PROVIDER-IDEMPOTENCY-KEY\0V1\0");
-    push_digest_string(&mut hasher, &attempt.native_replay_identity);
-    push_digest_string(&mut hasher, action_key.digest());
-    push_digest_string(&mut hasher, &attempt.provider_environment);
-    push_digest_string(&mut hasher, &attempt.provider_audience);
-    push_digest_string(&mut hasher, &attempt.adapter_identity);
-    format!("constitutional-provider-idempotency-v1:{}", hasher.finalize().to_hex())
 }
 
 fn derive_entry_claim_token(
@@ -812,7 +798,7 @@ impl EffectBoundaryHostV1 {
             }),
             ProviderObservation::Executed { .. } | ProviderObservation::Failed { .. } => {
                 let provider_idempotency_key =
-                    derive_provider_idempotency_key(&indeterminate, action_key);
+                    indeterminate.provider_idempotency_key.clone();
                 match verifier.verify(
                     &indeterminate,
                     &provider_idempotency_key,
@@ -1156,18 +1142,15 @@ mod tests {
         second.operation_id = "operation-two".into();
         second.validate().unwrap();
 
-        let first_key = derive_provider_idempotency_key(&first, &action_key);
-        let second_key = derive_provider_idempotency_key(&second, &action_key);
+        let first_key = first.provider_idempotency_key.clone();
+        let second_key = second.provider_idempotency_key.clone();
         assert_eq!(first_key, second_key);
 
         let mut different_replay = second.clone();
         different_replay.native_replay_identity = "native-replay-different".into();
         different_replay.validate().unwrap();
 
-        assert_ne!(
-            second_key,
-            derive_provider_idempotency_key(&different_replay, &action_key)
-        );
+        assert_ne!(second_key, different_replay.provider_idempotency_key);
         assert_eq!(first.attempt_identity, attempt_identity_a.digest());
     }
 
