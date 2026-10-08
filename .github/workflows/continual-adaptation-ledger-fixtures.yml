@@ -13,6 +13,8 @@ on:
       - "docs/research/CONTINUAL_ADAPTATION_CLAIM_LOCAL_PROJECTION_SCOPE_FIXTURES.json"
       - "docs/research/verify_claim_local_projection_scope.py"
       - "docs/research/verify_claim_local_projection_scope.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_POLICY_LIVENESS_FIXTURES.json"
+      - "docs/research/verify_continual_adaptation_policy_liveness.py"
       - "docs/research/verify_continual_adaptation_ledger.py"
       - "docs/research/verify_continual_adaptation_ledger.mjs"
       - "docs/research/verify_continual_adaptation_raw.py"
@@ -119,6 +121,13 @@ jobs:
         run: |
           set -euo pipefail
           diff -u python-generated-properties.json node-generated-properties.json
+
+      - name: Run declarative policy-rule liveness campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          python3 docs/research/verify_continual_adaptation_policy_liveness.py             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_POLICY_LIVENESS_FIXTURES.json             docs/research/verify_continual_adaptation_ledger.py             docs/research/verify_continual_adaptation_ledger.mjs
 
       - name: Run Python claim-local projection scope verifier
         shell: bash
