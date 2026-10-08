@@ -360,6 +360,12 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
 
 }
 
+/// Get an exact machine record by action hash.
+#[hdk_extern]
+pub fn get_machine(hash: ActionHash) -> ExternResult<Option<Record>> {
+    get(hash, GetOptions::default())
+}
+
 /// Get all machines that are currently Available.
 #[hdk_extern]
 pub fn get_available_machines(_: ()) -> ExternResult<Vec<Record>> {
