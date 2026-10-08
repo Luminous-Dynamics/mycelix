@@ -140,15 +140,16 @@ jobs:
             exit 1
           fi
 
-          grep -Fq 'ProviderAdapterAuthorizer' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs' || {
-            echo "NOT QUALIFIED: provider adapter authorization is missing."
+          grep -Fq 'PinnedProviderAdapterRegistry' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs' || {
+            echo "NOT QUALIFIED: provider adapter registry is not constructor-pinned."
             exit 1
           }
 
-          grep -Fq 'authorize_provider_adapter' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs' || {
-            echo "NOT QUALIFIED: provider adapter is not authorized before entry."
+          if grep -Fq 'provider: &mut' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
+            echo "NOT QUALIFIED: provider adapter is still caller-injected."
             exit 1
-          }
+          fi
+
 
           if grep -Fq 'pub fn store_mut' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
             echo "NOT QUALIFIED: mutable durable-store escape hatch remains exposed."
