@@ -727,8 +727,9 @@ impl ProviderAdapterAuthorizer for PinnedProviderAdapterAuthorizer {
 
 /// Constructor-bound authority/evidence trust root.
 ///
-/// Provider adapters may still vary by invocation, but the concrete adapter must
-/// be authorized by this root before any provider-entry transition is acquired.
+/// Admission authority, provider-adapter selection, terminal evidence
+/// verification, final-entry freshness verification, and both recovery
+/// authorities are pinned when the boundary is constructed.
 pub trait BoundaryTrustRoot {
     fn admission_verifier_identity(&self) -> &str;
     fn authorize_admission(
@@ -754,8 +755,8 @@ pub trait BoundaryTrustRoot {
     ) -> &dyn ProviderEntryClaimRecoveryAuthorizer;
 }
 
-/// Concrete trust-root container for deployments that pin four independent
-/// authorities while keeping their identities explicit.
+/// Concrete trust-root container for deployments that pin all effect-boundary
+/// authorities while keeping verifier identities explicit.
 pub struct PinnedBoundaryTrustRoot {
     admission_authorizer: Box<dyn AdmissionAuthorizer>,
     admission_verifier_identity: String,
