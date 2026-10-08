@@ -391,6 +391,8 @@ def verify_record_metadata(record: dict[str, str], policy: dict) -> None:
     for key in (
         "workflow_run_id",
         "workflow_run_attempt",
+        "trigger_workflow_run_id",
+        "trigger_workflow_run_attempt",
         "executor_run_id",
         "executor_run_attempt",
     ):
