@@ -1,0 +1,78 @@
+name: Effect Ledger Production Path Audit
+
+on:
+  push:
+    branches:
+      - hardening/effect-ledger-durable-sqlite-fence-v1
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QUALIFICATION_CHECKOUT_REPOSITORY: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+  QUALIFICATION_CHECKOUT_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  audit:
+    name: Production consequence-path audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.QUALIFICATION_CHECKOUT_REPOSITORY }}
+          ref: ${{ env.QUALIFICATION_CHECKOUT_REF }}
+
+      - name: Assert exact qualification head
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${QUALIFICATION_CHECKOUT_REF}"
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "exact-head mismatch: expected=$expected actual=$actual" >&2
+            exit 1
+          }
+
+      - name: Verify durable boundary exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f crates/constitutional-effect-ledger-sqlite/Cargo.toml
+          test -f crates/constitutional-effect-ledger-sqlite/src/lib.rs
+          test -f crates/constitutional-effect-ledger-sqlite/src/boundary.rs
+          grep -Fq 'pub mod boundary;' crates/constitutional-effect-ledger-sqlite/src/lib.rs
+          grep -Fq 'DurableActionFenceStore' crates/constitutional-effect-ledger-sqlite/src/boundary.rs
+
+      - name: Refuse unmediated production execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          executor='mycelix-governance/zomes/execution/coordinator/src/lib.rs'
+
+          start="$(grep -n '^pub fn execute_timelock' "$executor" | head -n1 | cut -d: -f1)"
+          test -n "$start"
+
+          end="$(tail -n +"$((start + 1))" "$executor" | grep -n '^/// Input for executing actions\|^struct ActionExecutionResult' | head -n1 | cut -d: -f1 || true)"
+          if [ -z "$end" ]; then
+            end=$((start + 400))
+          else
+            end=$((start + end))
+          fi
+
+          window="$(sed -n "${start},${end}p" "$executor")"
+
+          if grep -Fq 'execute_actions(&current_timelock.actions)' <<<"$window"; then
+            echo "NOT QUALIFIED: execute_timelock still reaches execute_actions directly."
+            echo "The durable host boundary exists, but the production consequence path is not yet mediated by it."
+            exit 1
+          fi
+
+          grep -Fq 'EffectBoundaryHostV1' "$executor" || {
+            echo "Production executor has no visible EffectBoundaryHostV1 integration."
+            exit 1
+          }
