@@ -218,11 +218,39 @@ jobs:
           python - <<'PY'
           import base64,hashlib,json,subprocess
           from pathlib import Path
-          def strict(path): return json.loads(Path(path).read_text())
-          root_api= strict('trust-root-api.json'); signer_api=strict('signer-workflow-api.json')
+
+          def reject(pairs):
+              out={}
+              for key,value in pairs:
+                  if key in out:
+                      raise ValueError(f'duplicate JSON key: {key}')
+                  out[key]=value
+              return out
+
+          def reject_constant(value):
+              raise ValueError(f'non-standard JSON constant: {value}')
+
+          def strict(path):
+              return json.loads(Path(path).read_text(),object_pairs_hook=reject,parse_constant=reject_constant)
+
+          root_api=strict('trust-root-api.json'); signer_api=strict('signer-workflow-api.json')
           root_bytes=base64.b64decode(''.join(root_api['content'].splitlines()),validate=True)
           signer_bytes=base64.b64decode(''.join(signer_api['content'].splitlines()),validate=True)
-          root=json.loads(root_bytes.decode('utf-8'))
+          root=json.loads(root_bytes.decode('utf-8'),object_pairs_hook=reject,parse_constant=reject_constant)
+          assert root['schema']=='MYCELIX-COS-QUALIFICATION-TRUST-ROOT-V2'
+          assert root['repository']==os.environ['GITHUB_REPOSITORY']
+          assert root['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert root['status']=='candidate_not_authoritative_until_protected_adoption'
+          assert root['claim_ceiling']=='ReferenceModelOnly'
+          assert root['activation_rule']=={
+              'authoritative':False,
+              'requires_protected_main_readback':True,
+              'requires_exact_adoption_of_component_bytes':True,
+              'requires_rotation_recovery_path':True,
+              'requires_durable_subject_publication':True,
+              'transient_actions_artifacts_are_insufficient':True,
+              'required_durability_profile':'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1',
+          }
           component=root['components']['qualification_attestor_workflow']
           assert component['path']=='.github/workflows/cos-conformance-qualification-attestor.yml'
           assert subprocess.check_output(['git','hash-object','--stdin'],input=signer_bytes).decode().strip()==component['git_blob_sha1']
