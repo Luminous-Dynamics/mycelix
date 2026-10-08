@@ -127,7 +127,7 @@ jobs:
           EXPECTED_PATH: .github/workflows/fpm-trusted-qualification.yml
         run: |
           set -euo pipefail
-          mkdir -p snapshot/download/receipt snapshot/download/index
+          mkdir -p snapshot/raw/receipt-download snapshot/raw/index-download
           gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > snapshot/trusted-run.json
           python3 - <<'PY'
           import json
@@ -202,7 +202,8 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ github.event.workflow_run.id }}
           artifact-ids: ${{ steps.upstream.outputs.receipt_artifact_id }}
-          path: snapshot/download/receipt
+          path: snapshot/raw/receipt-download
+          skip-decompress: true
           digest-mismatch: error
 
       - name: Download exact upstream binding index
@@ -212,10 +213,11 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ github.event.workflow_run.id }}
           artifact-ids: ${{ steps.upstream.outputs.index_artifact_id }}
-          path: snapshot/download/index
+          path: snapshot/raw/index-download
+          skip-decompress: true
           digest-mismatch: error
 
-      - name: Normalize downloaded evidence
+      - name: Normalize downloaded raw evidence archives
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -223,29 +225,30 @@ jobs:
           import shutil
 
           def normalize(root: Path, expected_name: str, output: Path) -> None:
-              members = sorted(path.relative_to(root).as_posix() for path in root.rglob("*"))
-              if members != [expected_name]:
+              members = sorted(root.iterdir(), key=lambda path: path.name)
+              if len(members) != 1:
                   raise SystemExit(
-                      f"evidence archive extracted member set is not exact: "
-                      f"expected={[expected_name]!r} actual={members!r}"
+                      f"raw artifact download must contain exactly one archive: {root}: {members!r}"
                   )
-              source = root / expected_name
+              source = members[0]
               if not source.is_file() or source.is_symlink():
-                  raise SystemExit(f"evidence member is not a regular file: {source}")
+                  raise SystemExit(f"raw artifact download is not a regular file: {source}")
+              output.parent.mkdir(parents=True, exist_ok=True)
               shutil.copyfile(source, output)
 
           normalize(
-              Path("snapshot/download/receipt"),
+              Path("snapshot/raw/receipt-download"),
               "qualification-receipt.json",
-              Path("snapshot/qualification-receipt.json"),
+              Path("snapshot/raw/receipt.zip"),
           )
           normalize(
-              Path("snapshot/download/index"),
+              Path("snapshot/raw/index-download"),
               "artifact-binding-index.json",
-              Path("snapshot/artifact-binding-index.json"),
+              Path("snapshot/raw/index.zip"),
           )
           PY
 
+      - name: Extract evidence targets with strict JSON parser
       - name: Extract evidence targets with strict JSON parser
         id: target
         run: |
