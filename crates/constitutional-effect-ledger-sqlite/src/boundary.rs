@@ -1641,6 +1641,73 @@ mod tests {
     }
 
     #[test]
+    fn provider_entry_permit_requires_durable_entry_proof() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("permit-proof.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-permit-proof");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-permit-proof",
+                    "operation-permit-proof",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        boundary
+            .store
+            .atomically_mark_dispatch_pending(
+                &action_key,
+                &owner,
+                "owner-attempt-permit-proof",
+            )
+            .unwrap();
+        let claim = boundary
+            .store
+            .atomically_claim_provider_entry(
+                &action_key,
+                &owner,
+                "owner-attempt-permit-proof",
+                "constitutional-provider-entry-claim-token-v1:permit-proof",
+            )
+            .unwrap();
+        let pending = boundary
+            .store
+            .durably_read_attempt(&owner)
+            .unwrap()
+            .unwrap();
+        let context = ProviderActionContextV1::from_attempt(&pending, &action_key).unwrap();
+        let now = current_unix_ms().unwrap();
+        let proof = FinalProviderEntryProofV1::new(
+            &pending,
+            &context,
+            now,
+            now.saturating_add(60_000),
+            "authorization-snapshot-v1",
+            "status-snapshot-v1",
+            "final-entry-verifier-v1",
+        )
+        .unwrap();
+
+        let result = ProviderEntryPermitV1::new(
+            pending,
+            &action_key,
+            claim,
+            proof,
+            now,
+        );
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("provider entry claim/proof does not exactly bind")
+        ));
+    }
+
+    #[test]
     fn final_entry_gate_rejection_cannot_reach_provider() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("final-gate-rejected.db")).unwrap();
