@@ -150,6 +150,10 @@ def validate_policy(policy: Any) -> None:
         observation_contract.get("ruleset_source_identity_must_match_source_type") is True,
         "ruleset source identity contract drift",
     )
+    require(
+        observation_contract.get("live_main_tip_must_be_rechecked") is True,
+        "live main freshness contract drift",
+    )
 
     fail_closed = policy.get("fail_closed")
     require(isinstance(fail_closed, dict), "fail_closed missing")
