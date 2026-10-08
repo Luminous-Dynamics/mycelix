@@ -31,6 +31,8 @@ pub const MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES: usize = 128;
 pub const MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES: usize = 128;
 /// Bounded external evidence locator size.
 pub const MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES: usize = 512;
+/// Maximum evidence observations a single temporal resolution will process.
+pub const MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS: usize = 256;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineTemporalEvidenceObservation {
@@ -51,28 +53,42 @@ pub struct MachineTemporalEvidenceObservation {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum MachineTemporalEvidenceResolution {
-    NoEvidence,
-
-    /// All valid witnesses agree on the same attested time and accuracy.
+    /// No evidence was returned by this query.
     ///
-    /// This represents temporal agreement only; it is deliberately not a trust
-    /// score or an assertion of witness independence.
-    Unique {
+    /// This is not proof that no evidence exists elsewhere in the DHT.
+    NoEvidenceObserved,
+
+    /// All evidence returned by this query agrees on attested time and accuracy.
+    ///
+    /// This is observational agreement only, not a complete network census,
+    /// trust score, quorum, or assertion of witness independence.
+    UniqueObserved {
         time: Timestamp,
         evidence: Vec<MachineTemporalEvidenceObservation>,
     },
 
-    /// Valid witnesses disagree on attested time and/or declared accuracy.
+    /// Evidence returned by this query disagrees on attested time or accuracy.
     /// No winner is selected.
-    Conflicting(Vec<MachineTemporalEvidenceObservation>),
+    ConflictingObserved(Vec<MachineTemporalEvidenceObservation>),
 
     /// At least one validation-critical dependency or semantic invariant failed.
     InvalidEvidence,
+
+    /// The observed evidence set exceeded the resolver's processing bound.
+    /// No partial set is reported as unique or conflict-free.
+    EvidenceSetLimitExceeded {
+        limit: u32,
+    },
 }
 
 pub fn resolve_temporal_evidence(
     mut evidence: Vec<MachineTemporalEvidenceObservation>,
 ) -> MachineTemporalEvidenceResolution {
+    if evidence.len() > MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
+        return MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
+            limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
+        };
+    }
     evidence.sort_by(|left, right| {
         left.attested_at
             .as_micros()
@@ -80,19 +96,19 @@ pub fn resolve_temporal_evidence(
             .then_with(|| left.attestation_hash.get_raw_36().cmp(right.attestation_hash.get_raw_36()))
     });
     match evidence.as_slice() {
-        [] => MachineTemporalEvidenceResolution::NoEvidence,
+        [] => MachineTemporalEvidenceResolution::NoEvidenceObserved,
         [first, rest @ ..]
             if rest.iter().all(|observation| {
                 observation.attested_at == first.attested_at
                     && observation.accuracy_micros == first.accuracy_micros
             }) =>
         {
-            MachineTemporalEvidenceResolution::Unique {
+            MachineTemporalEvidenceResolution::UniqueObserved {
                 time: first.attested_at,
                 evidence,
             }
         }
-        _ => MachineTemporalEvidenceResolution::Conflicting(evidence),
+        _ => MachineTemporalEvidenceResolution::ConflictingObserved(evidence),
     }
 }
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -1552,7 +1568,7 @@ mod content_restriction_tests {
         let b = temporal_observation(2, 8, 100);
         assert_eq!(
             resolve_temporal_evidence(vec![b.clone(), a.clone()]),
-            MachineTemporalEvidenceResolution::Unique {
+            MachineTemporalEvidenceResolution::UniqueObserved {
                 time: Timestamp::from_micros(100),
                 evidence: vec![a, b],
             }
@@ -1566,8 +1582,21 @@ mod content_restriction_tests {
         b.accuracy_micros = 6;
         assert!(matches!(
             resolve_temporal_evidence(vec![a, b]),
-            MachineTemporalEvidenceResolution::Conflicting(_)
+            MachineTemporalEvidenceResolution::ConflictingObserved(_)
         ));
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_bounds_observation_work() {
+        let evidence = (0..=MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS)
+            .map(|index| temporal_observation((index % 250) as u8, 7, 100))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            resolve_temporal_evidence(evidence),
+            MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
+                limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
+            }
+        );
     }
 
     #[test]
@@ -1576,11 +1605,11 @@ mod content_restriction_tests {
         let b = temporal_observation(2, 8, 200);
         assert_eq!(
             resolve_temporal_evidence(vec![b.clone(), a.clone()]),
-            MachineTemporalEvidenceResolution::Conflicting(vec![a, b])
+            MachineTemporalEvidenceResolution::ConflictingObserved(vec![a, b])
         );
         assert_eq!(
             resolve_temporal_evidence(vec![]),
-            MachineTemporalEvidenceResolution::NoEvidence
+            MachineTemporalEvidenceResolution::NoEvidenceObserved
         );
     }
     #[test]
