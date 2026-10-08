@@ -326,6 +326,12 @@ def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
     return match(pattern_parts, value_parts)
 
 
+def _validate_ref_pattern_lists(includes: list[str], excludes: list[str]) -> bool:
+    if "~ALL" in excludes or "~DEFAULT_BRANCH" in excludes:
+        return False
+    return not ("~ALL" in includes and includes != ["~ALL"])
+
+
 def _ref_pattern_matches_main(pattern: Any, default_branch: str) -> bool:
     if not isinstance(pattern, str) or pattern == "":
         return False
@@ -345,6 +351,27 @@ def _scope_pattern_matches(value: str, pattern: str) -> bool:
     return pattern == "~ALL" or fnmatch.fnmatchcase(value.casefold(), pattern.casefold())
 
 
+def _validate_special_selector_patterns(
+    includes: list[str],
+    excludes: list[str],
+    *,
+    allow_emus: bool = False,
+) -> bool:
+    if "~ALL" in excludes or "~DEFAULT_BRANCH" in excludes:
+        return False
+    if allow_emus and "~EMUS" in excludes:
+        return False
+    if "~ALL" in includes and includes != ["~ALL"]:
+        return False
+    if "~DEFAULT_BRANCH" in includes:
+        return False
+    if "~EMUS" in includes and (not allow_emus or includes != ["~EMUS"]):
+        return False
+    if not allow_emus and "~EMUS" in includes:
+        return False
+    return True
+
+
 def _selector_state(
     selector: Any,
     *,
@@ -360,6 +387,8 @@ def _selector_state(
     if not isinstance(includes, list) or not isinstance(excludes, list):
         return "UNVERIFIED"
     if not all(isinstance(pattern, str) and pattern for pattern in includes + excludes):
+        return "UNVERIFIED"
+    if not _validate_special_selector_patterns(includes, excludes, allow_emus=allow_emus):
         return "UNVERIFIED"
     if ids_key is not None:
         ids = selector.get(ids_key)
@@ -449,6 +478,7 @@ def _organization_condition_state(conditions: dict[str, Any]) -> str:
             selector,
             patterns=("include", "exclude"),
             value=ORGANIZATION_NAME,
+            allow_emus=True,
         )
     if key == "organization_id":
         if not isinstance(selector, dict):
@@ -526,6 +556,8 @@ def _ruleset_target_state(entry: Any, default_branch: str) -> str:
     if not isinstance(includes, list) or not isinstance(excludes, list):
         return "UNVERIFIED"
     if not all(isinstance(pattern, str) and pattern for pattern in includes + excludes):
+        return "UNVERIFIED"
+    if not _validate_ref_pattern_lists(includes, excludes):
         return "UNVERIFIED"
 
     return (
@@ -1479,6 +1511,20 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["~ALL", "refs/heads/main"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["exclude"] = ["~ALL"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs*main"]
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
@@ -1769,6 +1815,18 @@ def self_test(policy: dict[str, Any]) -> None:
         "include": ["~ALL"],
         "exclude": [],
     }
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Organization"
+    x["rulesets"]["entries"][0]["source"] = ORGANIZATION_NAME
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["~ALL", "mycelix"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
     _refresh_bound_fixture_payloads(x)
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
