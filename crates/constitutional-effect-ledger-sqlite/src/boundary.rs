@@ -1156,6 +1156,27 @@ mod tests {
         );
     }
 
+    struct MismatchedIdempotencyVerifier;
+
+    impl OutcomeVerifier for MismatchedIdempotencyVerifier {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            _provider_idempotency_key: &str,
+            _observation: &ProviderObservation,
+            purpose: VerificationPurpose,
+        ) -> Result<VerifiedTerminalOutcomeV1, String> {
+            VerifiedTerminalOutcomeV1::new(
+                attempt,
+                purpose,
+                "constitutional-provider-idempotency-v1:wrong-key",
+                TerminalOutcomeV1::Executed,
+                "wrong-idempotency-proof",
+                "malbound-verifier",
+            )
+        }
+    }
+
     struct MismatchedVerifier;
 
     impl OutcomeVerifier for MismatchedVerifier {
@@ -1194,6 +1215,57 @@ mod tests {
                 "malbound-verifier",
             )
         }
+    }
+
+    #[test]
+    fn mismatched_provider_idempotency_proof_holds_the_fence() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("mismatch-idempotency.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-mismatch-idempotency");
+        let record = attempt_record(
+            "attempt-mismatch-idempotency",
+            "operation-mismatch-idempotency",
+            AttemptRecordState::Consumed,
+        );
+
+        boundary.admit(&action_key, &owner, record).unwrap();
+
+        let mut provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
+
+        let result = boundary.dispatch(
+            &action_key,
+            &owner,
+            "owner-attempt-mismatch-idempotency",
+            &mut provider,
+            &MismatchedIdempotencyVerifier,
+        );
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("not bound to the exact attempt, action, or purpose")
+        ));
+
+        let attempt = boundary
+            .store
+            .durably_read_attempt(&owner)
+            .unwrap()
+            .unwrap();
+        assert_eq!(attempt.state, AttemptRecordState::Invoked);
+        assert!(boundary
+            .store
+            .durably_read_fence(&action_key)
+            .unwrap()
+            .is_some());
     }
 
     #[test]
