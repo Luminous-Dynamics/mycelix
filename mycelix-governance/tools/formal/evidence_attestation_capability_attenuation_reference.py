@@ -52,17 +52,24 @@ def auth_map(state: State) -> dict[str, set[Capability]]:
     return {agent: set(caps) for agent, caps in state.authority}
 
 
-def grant_authority(state: State) -> dict[str, set[Capability]]:
-    caps = {grant.capability for grant in state.grants if grant.active and not grant.revoked}
+def capability_universe() -> set[Capability]:
     return {
-        "Root": {
-            Capability(r, a, u, t)
-            for r in ("R1", "R2")
-            for a in ("Read", "Write")
-            for u in ("AudienceA", "AudienceB")
-            for t in (1, 2)
+        Capability(resource, action, audience, expiry)
+        for resource in ("R1", "R2")
+        for action in ("Read", "Write")
+        for audience in ("AudienceA", "AudienceB")
+        for expiry in (1, 2)
+    }
+
+
+def grant_authority(state: State) -> dict[str, set[Capability]]:
+    return {
+        "Root": capability_universe(),
+        "Alice": {
+            grant.capability
+            for grant in state.grants
+            if grant.active and not grant.revoked
         },
-        "Alice": {grant.capability for grant in state.grants if grant.active and not grant.revoked},
     }
 
 
@@ -77,8 +84,8 @@ def steady_state_failures(state: State) -> list[str]:
             failures.append("ActiveGrantCurrent")
         if grant.active and grant.capability not in amap.get(grant.issuer, set()):
             failures.append("GrantCapabilitiesWithinIssuerAuthority")
-    for cap in amap.get("Alice", set()):
-        if cap not in derived["Alice"]:
+    for capability in amap.get("Alice", set()):
+        if capability not in derived["Alice"]:
             failures.append("NoAuthorityWithoutCurrentGrant")
     return sorted(set(failures))
 
@@ -105,40 +112,48 @@ def transition_failures(state: State) -> list[str]:
     return sorted(set(failures))
 
 
-def main() -> int:
-    g1 = Grant("G1", "Root", "Alice", Capability("R1", "Read", "AudienceA", 1), active=True)
-    g2 = Grant("G2", "Root", "Alice", Capability("R2", "Read", "AudienceA", 1))
-    root_caps = tuple(
-        Capability(r, a, u, t)
-        for r in ("R1", "R2")
-        for a in ("Read", "Write")
-        for u in ("AudienceA", "AudienceB")
-        for t in (1, 2)
-    )
-    base = State(
-        grants=(g1, g2),
+def state_for(grant: Grant, evidence: Evidence, root_caps: tuple[Capability, ...]) -> State:
+    return State(
+        grants=(g1, grant),
         authority=(
             ("Root", root_caps),
-            ("Alice", (g1.capability,)),
+            ("Alice", (g1.capability, grant.capability)),
         ),
+        evidence=(evidence,),
     )
+
+
+g1 = Grant("G1", "Root", "Alice", Capability("R1", "Read", "AudienceA", 1), active=True)
+g2 = Grant("G2", "Root", "Alice", Capability("R2", "Read", "AudienceA", 1))
+root_caps_tuple = tuple(sorted(capability_universe(), key=lambda c: (c.resource, c.action, c.audience, c.expiry)))
+
+base = State(
+    grants=(g1, g2),
+    authority=(("Root", root_caps_tuple), ("Alice", (g1.capability,))),
+)
+
+
+def main() -> int:
     assert not steady_state_failures(base), steady_state_failures(base)
 
     valid = replace(
         base,
         grants=(g1, replace(g2, active=True)),
-        authority=(
-            ("Root", tuple(grant.capability for grant in (g1, g2))),
-            ("Alice", (g1.capability, g2.capability)),
-        ),
+        authority=(("Root", root_caps_tuple), ("Alice", (g1.capability, g2.capability))),
         evidence=(
             Evidence(
-                "E1", True, True, True, "Alice", "Alice",
+                "E1",
+                True,
+                True,
+                True,
+                "Alice",
+                "Alice",
                 frozenset({"R1", "R2"}),
                 frozenset({"Read", "Write"}),
                 frozenset({"AudienceA", "AudienceB"}),
                 2,
-                ("G1",), ("G1", "G2"),
+                ("G1",),
+                ("G1", "G2"),
                 frozenset({g1.capability}),
                 frozenset({g1.capability, g2.capability}),
             ),
@@ -147,17 +162,62 @@ def main() -> int:
     assert not steady_state_failures(valid), steady_state_failures(valid)
     assert not transition_failures(valid), transition_failures(valid)
 
-    negatives = {
-        "resource": replace(valid.evidence[0], claim_resources=frozenset({"R1"})),
-        "action": replace(
-            valid.evidence[0],
-            claim_actions=frozenset({"Read"}),
+    cases = {
+        "resource": (
+            replace(g2, active=True),
+            replace(valid.evidence[0], claim_resources=frozenset({"R1"})),
         ),
-        "audience": replace(
-            valid.evidence[0],
-            claim_audiences=frozenset({"AudienceA"}),
+        "action": (
+            replace(
+                g2,
+                capability=Capability("R2", "Write", "AudienceA", 1),
+                active=True,
+            ),
+            replace(
+                valid.evidence[0],
+                claim_actions=frozenset({"Read"}),
+                authority_after=frozenset(
+                    {
+                        g1.capability,
+                        Capability("R2", "Write", "AudienceA", 1),
+                    }
+                ),
+            ),
         ),
-        "expiry": replace(valid.evidence[0], claim_expiry=1),
+        "audience": (
+            replace(
+                g2,
+                capability=Capability("R2", "Read", "AudienceB", 1),
+                active=True,
+            ),
+            replace(
+                valid.evidence[0],
+                claim_audiences=frozenset({"AudienceA"}),
+                authority_after=frozenset(
+                    {
+                        g1.capability,
+                        Capability("R2", "Read", "AudienceB", 1),
+                    }
+                ),
+            ),
+        ),
+        "expiry": (
+            replace(
+                g2,
+                capability=Capability("R2", "Read", "AudienceA", 2),
+                active=True,
+            ),
+            replace(
+                valid.evidence[0],
+                claim_expiry=1,
+                authority_after=frozenset(
+                    {
+                        g1.capability,
+                        Capability("R2", "Read", "AudienceA", 2),
+                    }
+                ),
+            ),
+        ),
     }
     expected = {
         "resource": "ResourceScopeAttenuated",
@@ -165,9 +225,9 @@ def main() -> int:
         "audience": "AudienceScopeAttenuated",
         "expiry": "ExpiryScopeAttenuated",
     }
-    for name, evidence in negatives.items():
-        state = replace(valid, evidence=(evidence,))
-        assert not steady_state_failures(state), steady_state_failures(state)
+    for name, (grant, evidence) in cases.items():
+        state = state_for(grant, evidence, root_caps_tuple)
+        assert not steady_state_failures(state), (name, steady_state_failures(state))
         assert transition_failures(state) == [expected[name]], (
             name,
             transition_failures(state),
