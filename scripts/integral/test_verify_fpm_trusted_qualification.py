@@ -210,7 +210,6 @@ def assert_workflow_target_extractor_dependencies() -> None:
 
 def main() -> None:
     assert_artifact_collector_http_contract()
-    assert_artifact_collector_http_contract()
     assert_evidence_normalization_contract()
     assert_workflow_target_extractor_dependencies()
     with tempfile.TemporaryDirectory(prefix="fpm-ref-corpus-") as td:
