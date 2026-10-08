@@ -1,0 +1,65 @@
+name: COS Durable Publication Producer V2 Lint
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cos-durable-publication-producer-v2.yml
+      - .github/workflows/cos-durable-publication-producer-v2-lint.yml
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da764da990b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download exact actionlint release
+        run: |
+          set -euo pipefail
+          version=1.7.12
+          archive="actionlint_${version}_linux_amd64.tar.gz"
+          expected_sha256=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          curl --fail --show-error --silent --location --max-redirs 5 --proto '=https' --tlsv1.2 \
+            --output "${archive}" \
+            "https://github.com/rhysd/actionlint/releases/download/v${version}/${archive}"
+          test "$(sha256sum "${archive}" | awk '{print $1}')" = "${expected_sha256}"
+          tar -xzf "${archive}" actionlint
+          ./actionlint -version
+
+      - name: Lint V2 producer
+        run: |
+          set -euo pipefail
+          ./actionlint -oneline .github/workflows/cos-durable-publication-producer-v2.yml
+
+      - name: Verify privilege and evidence invariants
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/cos-durable-publication-producer-v2.yml').read_text()
+          top=text.split('\njobs:',1)[0]
+          assert 'permissions:\n  actions: read\n  contents: read' in top
+          assert 'contents: write' not in top
+          assert 'prepare:\n    name: Read-only qualification handoff' in text
+          publish_at=text.index('\n  publish:')
+          prepare=text[:publish_at]
+          publish=text[publish_at:]
+          assert 'COS_RELEASE_ADMIN_TOKEN:' not in prepare
+          assert 'environment: cos-durable-publication' in publish
+          assert 'COS_RELEASE_ADMIN_TOKEN:' in publish
+          assert 'gh release create' in publish
+          assert 'gh release edit' in publish
+          assert 'isImmutable' in publish
+          assert 'gh release verify-asset' in publish
+          assert 'candidate_not_authoritative_until_protected_adoption' in text
+          assert 'ReferenceModelOnly' in text
+          assert 'build_asset asset-a.tar.gz' in publish
+          assert 'build_asset asset-b.tar.gz' in publish
+          assert 'sha256sum --check --strict SHA256SUMS' in publish
+          assert "bytes([0])" in text
+          PY
