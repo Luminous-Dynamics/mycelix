@@ -1,0 +1,64 @@
+{
+  "schema":"mycelix.continual-adaptation.evidence-ledger-fixtures.v1",
+  "status":"research-fixture-only",
+  "canonicalization":{
+    "profile":"RFC8785-JCS",
+    "hash":"SHA-256",
+    "input_policy":"I-JSON; reject invalid numeric hazards before hashing"
+  },
+  "rules":{
+    "unknown_is_not_compatible":true,
+    "missing_required_edge":"unresolved",
+    "contradiction_without_reconciliation":"unresolved",
+    "derived_copy_is_not_independent":true,
+    "translation_is_not_identity":true
+  },
+  "base_graph":{
+    "nodes":[
+      {"id":"claim","type":"Claim","subject":"S1","target":"T1"},
+      {"id":"subject","type":"Subject","commitment":"S1"},
+      {"id":"campaign","type":"CampaignPlan","commitment":"C1"},
+      {"id":"attempts","type":"AttemptCensus","commitment":"A1"},
+      {"id":"evaluator","type":"EvaluationEvaluator","commitment":"E1","state":"fresh"},
+      {"id":"reference","type":"Reference","commitment":"R1"},
+      {"id":"intervention","type":"Intervention","semantic_id":"U1"},
+      {"id":"observation","type":"ObservationPolicy","semantic_id":"O1"},
+      {"id":"measurement","type":"Measurement","semantic_id":"M1"},
+      {"id":"result","type":"Result","commitment":"X1"},
+      {"id":"transport","type":"TransportAssessment","target":"T1","status":"supported"},
+      {"id":"freshness","type":"FreshnessAssessment","subject":"S1","status":"current"}
+    ],
+    "edges":[
+      ["result","claim","qualifies"],
+      ["result","evaluator","generated_by"],
+      ["evaluator","reference","uses"],
+      ["evaluator","attempts","uses"],
+      ["attempts","campaign","derived_from"],
+      ["campaign","subject","applies_to"],
+      ["campaign","intervention","uses"],
+      ["campaign","observation","uses"],
+      ["campaign","measurement","uses"],
+      ["claim","transport","requires"],
+      ["claim","freshness","requires"],
+      ["claim","subject","applies_to"]
+    ]
+  },
+  "mutation_language":{
+    "set_node":["set","node_id","property","value"],
+    "remove_edge":["remove_edge",["from","to","relation"]],
+    "add_node":["add_node",{"id":"...","type":"..."}],
+    "add_edge":["add_edge",["from","to","relation"]]
+  },
+  "cases":[
+    {"case_id":"ACV-001","mutation":[],"expected_verdict":"qualified","expected_graph_digest_sha256":"sha256:cb65ad3b53edba9d6479d9f9bdec218d8c7ea5ee5d48490b8688cedbce1249bf"},
+    {"case_id":"ACV-002","mutation":[["set","subject","commitment","S2"]],"expected_verdict":"unqualified","reason":"subject identity mismatch","expected_graph_digest_sha256":"sha256:83e1c4397ede6570ea5d489462826e4d6522230916c1aa78514dc0b264753353"},
+    {"case_id":"ACV-003","mutation":[["set","evaluator","commitment","E2"]],"expected_verdict":"unqualified","reason":"evaluator mismatch","expected_graph_digest_sha256":"sha256:4e8ffc3a182ad73712cdfb7850bfef7256d82e5e7bf66e2987ab27c413014e65"},
+    {"case_id":"ACV-004","mutation":[["set","transport","target","T2"]],"expected_verdict":"unqualified","reason":"target regime mismatch","expected_graph_digest_sha256":"sha256:da2b6afc1eebd2ea21c6e6e8ae2a69fee015ccfecc94fd52e74fd5b663286c9c"},
+    {"case_id":"ACV-005","mutation":[["set","intervention","semantic_id","U2"]],"expected_verdict":"unqualified","reason":"intervention semantic mismatch","expected_graph_digest_sha256":"sha256:f8195ef1bafba874bf897876142e573c189037ee1922f6dea75edcc801211a82"},
+    {"case_id":"ACV-006","mutation":[["set","measurement","semantic_id","M2"]],"expected_verdict":"unqualified","reason":"measurement identity mismatch","expected_graph_digest_sha256":"sha256:195a910af5b8dc53c5f17fbde240159247a40e26c7f13be2a0c5a61ec87b32d2"},
+    {"case_id":"ACV-007","mutation":[["remove_edge",["claim","freshness","requires"]]],"expected_verdict":"unresolved","reason":"missing required edge","expected_graph_digest_sha256":"sha256:2694b12a90a9c101fb3ddc2cd6c8cfce43884ac039768c5936aefd3a19b606db"},
+    {"case_id":"ACV-008","mutation":[["add_node",{"id":"result2","type":"Result","commitment":"X2"}],["add_edge",["result2","claim","qualifies"]]],"expected_verdict":"unresolved","reason":"contradictory results without reconciliation","expected_graph_digest_sha256":"sha256:9910b1fc7b0ea7827c4d8f6c150a8b4a5d9c5ff583968969a3b586b0450a6510"},
+    {"case_id":"ACV-009","mutation":[["add_node",{"id":"result2","type":"Result","commitment":"X1","derived_from":"result"}]],"expected_verdict":"qualified-with-dependence","reason":"derived copy shares ancestry","expected_graph_digest_sha256":"sha256:d3085565054c49a6ba3f86b6207ed792364df84dcfc8d4c05d29c28303aeb3d7"},
+    {"case_id":"ACV-010","mutation":[["set","evaluator","state","warmed"]],"expected_verdict":"unqualified","reason":"evaluator state mismatch","expected_graph_digest_sha256":"sha256:8798cabbc4a63208c4481d31394704654938eeff3130f91a945f8d3c3d8ebf7f"}
+  ]
+}
