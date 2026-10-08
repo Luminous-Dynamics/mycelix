@@ -54,6 +54,8 @@ jobs:
         run: cargo test --workspace --manifest-path mycelix-finance/Cargo.toml
       - name: Run Finance update predecessor audit
         run: python3 scripts/security/finance_update_integrity_audit.py
+      - name: Run SAP cause conservation audit
+        run: python3 scripts/security/finance_sap_cause_conservation_audit.py
       - name: Emit immutable qualification evidence
         run: |
           set -euo pipefail
