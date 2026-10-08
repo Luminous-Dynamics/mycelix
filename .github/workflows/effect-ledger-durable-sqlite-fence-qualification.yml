@@ -9,6 +9,7 @@ on:
       - hardening/effect-ledger-provider-context-v1
       - hardening/effect-ledger-persisted-idempotency-v1
       - hardening/effect-ledger-final-entry-gate-v1
+      - hardening/effect-ledger-pinned-trust-root-v1
   pull_request:
   workflow_dispatch:
 
@@ -122,7 +123,8 @@ jobs:
             exit 1
           fi
           grep -Fq 'final_entry_verifier_identity' "$boundary"
-          grep -Fq 'terminal_verifier_identity' "$boundary"
+          grep -Fq 'outcome_verifier_identity' "$boundary"
+          grep -Fq 'terminal verifier identity does not match pinned trust root' "$boundary"
           grep -Fq 'FinalEntryRejectedNotEntered' "$boundary"
           grep -Fq 'atomically_release_provider_entry_claim_not_entered' "$source"
           grep -Fq 'atomically_record_provider_entry_proof' "$source"
