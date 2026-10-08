@@ -822,6 +822,21 @@ The verifier should preserve shared ancestry rather than silently collapsing it 
 Do not introduce a universal effective-sample-size or confidence scalar into the core. Statistical aggregation remains claim- and method-specific.
 
 
+## Executable ledger reference
+
+The first dependency-light executable reference is intentionally outside the production qualification authority:
+
+- `docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json` — deterministic base graph plus adversarial mutations and expected verdicts/digests;
+- `docs/research/verify_continual_adaptation_ledger.py` — dependency-free reference verifier;
+- `.github/workflows/continual-adaptation-ledger-fixtures.yml` — non-authoritative regression lane that fetches the exact event commit before execution.
+
+The fixture verifier currently supports the restricted fixture dialect only. Its canonicalization profile is RFC 8785 JCS for the fixture subset, with SHA-256 graph digests. RFC 8785 defines deterministic property ordering for canonical JSON and requires I-JSON-compatible inputs; its verified errata additionally call out `-0` handling, which the reference verifier treats conservatively. citeturn693055search0turn693055search2
+
+Local rehearsal result for the committed fixture corpus: 10 cases / 0 failures. This is development evidence only; it is not an independent qualification result.
+
+The executable reference must remain subordinate to the future independently controlled verifier and must never become a new trust root merely because its regression lane is green.
+
+
 ## Freshness and target-regime drift
 
 Transport evidence is historical evidence about the exact validated subject, target regime, evaluator, observation process, and applicability profile.
