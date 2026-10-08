@@ -302,10 +302,100 @@ fn validate_create_transition_approval(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_create_transition_approval(
+    action: TypedAction<CreateData>,
+    approval: MachineControllerTransitionApprovalEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if approval.valid_until < approval.valid_from {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval validity window is inverted".into(),
+        ));
+    }
+    let Some(duration) = approval.valid_until.as_micros().checked_sub(approval.valid_from.as_micros()) else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval validity arithmetic overflow".into(),
+        ));
+    };
+    if duration > MAX_MACHINE_TRANSITION_APPROVAL_MICROS {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval exceeds the maximum 5-minute validity".into(),
+        ));
+    }
+    let authority_record = must_get_valid_record(approval.authority_hash.clone())?;
+    let authority: Option<MachineControllerAuthorityEntry> = authority_record
+        .entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let Some(authority) = authority else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval references a non-authority record".into(),
+        ));
+    };
+    if authority.lease_schema_version != 2 || !authority.requires_transition_approval {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval requires a schema-v2 controller lease".into(),
+        ));
+    }
+    if authority.machine_hash != approval.machine_hash || authority.controller_agent != approval.controller_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval does not match the controller authority".into(),
+        ));
+    }
+    if approval.valid_from < authority.valid_from || approval.valid_until > authority.valid_until {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval interval exceeds controller lease interval".into(),
+        ));
+    }
+    let machine_record = must_get_valid_record(approval.machine_hash.clone())?;
+    if !matches!(machine_record.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval must target a machine root".into(),
+        ));
+    }
+    let machine: Option<MachineEntry> = machine_record.entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if machine.is_none() || machine_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "only the machine registrant may create transition approvals".into(),
+        ));
+    }
+    if !verify_signature(
+        machine_record.action().author().clone(),
+        approval.issuer_signature.clone(),
+        approval.signed_payload(),
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval issuer signature does not match the exact approval payload".into(),
+        ));
+    }
+    let predecessor_record = must_get_valid_record(approval.predecessor_action.clone())?;
+    if !matches!(predecessor_record.action(), Action::Create(_) | Action::Update(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval predecessor is not a machine entry action".into(),
+        ));
+    }
+    let predecessor_root = resolve_machine_root_action_hash(approval.predecessor_action.clone())?;
+    if predecessor_root != approval.machine_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval predecessor belongs to a different machine".into(),
+        ));
+    }
+    if !authority_valid_at(&authority, approval.valid_from) || !authority_valid_at(&authority, approval.valid_until) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval interval is outside controller authority validity".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
 fn validate_create_authority(
     action: TypedAction<CreateData>,
     authority: MachineControllerAuthorityEntry,
 ) -> ExternResult<ValidateCallbackResult> {
+    if authority.lease_schema_version != 1 && authority.lease_schema_version != 2 {
+        return Ok(ValidateCallbackResult::Invalid("unsupported machine controller lease schema version".into()));
+    }
+    if authority.lease_schema_version == 2 && !authority.requires_transition_approval {
+        return Ok(ValidateCallbackResult::Invalid("lease schema v2 requires per-transition approval".into()));
+    }
     if authority.valid_until < authority.valid_from {
         return Ok(ValidateCallbackResult::Invalid(
             "machine controller authority validity window is inverted".into(),
@@ -387,6 +477,11 @@ fn validate_create_status_log(
             "unsigned legacy controller authority cannot authorize new machine status".into(),
         ));
     }
+    if authority.requires_transition_approval && log.transition_approval_hash.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "schema-v2 controller status requires a transition approval".into(),
+        ));
+    }
     if action.author() != authority.controller_agent {
         return Ok(ValidateCallbackResult::Invalid(
             "machine status action author is not an authorized controller".into(),
@@ -438,6 +533,8 @@ fn validate_create_status_log(
     if updated_machine.status != log.new_status
         || updated_machine.current_work_order != log.work_order_hash
         || updated_machine.last_status_authority_hash != Some(log.authority_hash.clone())
+        || (authority.requires_transition_approval
+            && updated_machine.last_status_transition_approval_hash != log.transition_approval_hash)
     {
         return Ok(ValidateCallbackResult::Invalid(
             "machine status log does not match its referenced machine update".into(),
@@ -523,6 +620,14 @@ fn machine_control_fields_changed(
     original.status != updated.status
         || original.current_work_order != updated.current_work_order
         || original.last_status_authority_hash != updated.last_status_authority_hash
+        || original.last_status_transition_approval_hash != updated.last_status_transition_approval_hash
+}
+
+fn approval_valid_at(
+    approval: &MachineControllerTransitionApprovalEntry,
+    timestamp: Timestamp,
+) -> bool {
+    approval.valid_from <= timestamp && timestamp <= approval.valid_until
 }
 
 fn approval_valid_at(
@@ -576,7 +681,7 @@ fn validate_update_entry(
                 || m.registered_at != original.registered_at
             {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Only status/current_work_order/last_status_authority_hash can change on a machine update".into(),
+                    "Only status/current_work_order/last_status_authority_hash/last_status_transition_approval_hash can change on a machine update".into(),
                 ));
             }
 
