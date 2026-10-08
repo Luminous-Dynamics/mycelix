@@ -1052,6 +1052,7 @@ CREATE TABLE effect_attempts (
     provider_audience TEXT NOT NULL,
     adapter_identity TEXT NOT NULL,
     ownership_token_digest TEXT NOT NULL,
+    reconciliation_token_digest TEXT,
     terminal_evidence_digest TEXT,
     state INTEGER NOT NULL CHECK(state IN (1,2,3,4,5,6,7,8)),
     not_entered_marker TEXT,
@@ -1138,10 +1139,10 @@ fn update_attempt_tx(
                  terminal_evidence_digest = ?3,
                  not_entered_marker = ?4,
                  record_digest = ?5
-             WHERE attempt_identity = ?5
-               AND state = ?6
-               AND action_key_digest = ?7
-               AND ownership_token_digest = ?8
+             WHERE attempt_identity = ?6
+               AND state = ?7
+               AND action_key_digest = ?8
+               AND ownership_token_digest = ?9
                AND record_digest = ?10",
             params![
                 updated.state.storage_tag(),
@@ -1197,7 +1198,8 @@ fn load_attempt_txless(
                     action_digest, action_key_digest, effecting_target_identity,
                     provider_reference_seed_digest, provider_reference_descriptor_digest,
                     provider_environment, provider_audience, adapter_identity,
-                    ownership_token_digest, terminal_evidence_digest, state,
+                    ownership_token_digest, reconciliation_token_digest,
+                    terminal_evidence_digest, state,
                     not_entered_marker, record_digest
              FROM {ATTEMPT_TABLE}
              WHERE attempt_identity = ?1"
