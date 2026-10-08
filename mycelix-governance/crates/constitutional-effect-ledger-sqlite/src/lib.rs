@@ -1698,14 +1698,14 @@ mod tests {
         store
             .atomically_mark_invoked(&action, &owner, "owner-token-attempt-1")
             .unwrap();
-        store
+        let reconciliation_token = store
             .atomically_mark_indeterminate(&action, &owner, "owner-token-attempt-1")
             .unwrap();
         store
             .atomically_close_executed(
                 &action,
                 &owner,
-                "owner-token-attempt-1",
+                &reconciliation_token,
                 &evidence(&action, &owner, "operation-1", "native-1", TerminalOutcomeV1::Executed),
             )
             .unwrap();
@@ -2024,19 +2024,26 @@ mod tests {
             .atomically_mark_invoked(&action, &owner, "owner-token-attempt-1")
             .unwrap();
 
-        model
+        let model_reconciliation_token = model
             .mark_indeterminate(&action, &owner, "owner-token-attempt-1")
             .unwrap();
-        store
+        let store_reconciliation_token = store
             .atomically_mark_indeterminate(&action, &owner, "owner-token-attempt-1")
             .unwrap();
+        assert_eq!(model_reconciliation_token, store_reconciliation_token);
 
-        let proof = evidence(&action, &owner, TerminalOutcomeV1::Executed);
+        let proof = evidence(
+            &action,
+            &owner,
+            "operation-1",
+            "native-1",
+            TerminalOutcomeV1::Executed,
+        );
         model
             .close_executed(
                 &action,
                 &owner,
-                "owner-token-attempt-1",
+                &model_reconciliation_token,
                 &proof,
             )
             .unwrap();
@@ -2044,7 +2051,7 @@ mod tests {
             .atomically_close_executed(
                 &action,
                 &owner,
-                "owner-token-attempt-1",
+                &store_reconciliation_token,
                 &proof,
             )
             .unwrap();
