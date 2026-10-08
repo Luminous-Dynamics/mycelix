@@ -27,6 +27,14 @@ on:
       - "docs/research/verify_censoring_classification_anchor_witness.py"
       - "docs/research/verify_censoring_classification_anchor_witness.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_REGISTRY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_TRUST_ROOT.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_BASELINE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_FORWARD.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_witness_crypto.py"
+      - "docs/research/verify_censoring_classification_anchor_witness_crypto.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -55,6 +63,14 @@ on:
       - "docs/research/verify_censoring_classification_anchor_witness.py"
       - "docs/research/verify_censoring_classification_anchor_witness.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_REGISTRY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_TRUST_ROOT.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_BASELINE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_FORWARD.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_witness_crypto.py"
+      - "docs/research/verify_censoring_classification_anchor_witness_crypto.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   workflow_dispatch:
 
@@ -178,6 +194,29 @@ jobs:
           python3 docs/research/verify_censoring_classification_anchor_witness.py             "$WITNESS_ROOT_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_REGISTRY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_BASELINE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_FORWARD.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CAMPAIGN.json             witness-python.json
           node docs/research/verify_censoring_classification_anchor_witness.mjs             "$WITNESS_ROOT_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_REGISTRY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_BASELINE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_FORWARD.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CAMPAIGN.json             witness-node.json
           diff -u witness-python.json witness-node.json
+
+      - name: Run cryptographic witness authentication campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          WITNESS_CRYPTO_ROOT_SHA256="sha256:99ec416914eb75a7c953fbc74045d25fc83cb894c6e7a5bcd899c757a736b9d7"
+          python3 docs/research/verify_censoring_classification_anchor_witness_crypto.py \
+            "$WITNESS_CRYPTO_ROOT_SHA256" \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_TRUST_ROOT.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_REGISTRY.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_BASELINE.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_FORWARD.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_CAMPAIGN.json \
+            witness-crypto-python.json
+          node docs/research/verify_censoring_classification_anchor_witness_crypto.mjs \
+            "$WITNESS_CRYPTO_ROOT_SHA256" \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_TRUST_ROOT.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_REGISTRY.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_BASELINE.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_FORWARD.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_CAMPAIGN.json \
+            witness-crypto-node.json
+          diff -u witness-crypto-python.json witness-crypto-node.json
 
       - name: Emit exact-head receipt
         shell: bash
