@@ -709,6 +709,7 @@ Mycelix:
 - #4571 — experiment-attempt completeness and immutable negative evidence;
 - #4577 — source-to-target transportability and target-regime validation;
 - #4570 — action-dependent observation and policy-induced distribution shift.
+- #4579 — freshness and target-regime drift after transport validation;
 
 Symthaea:
 
