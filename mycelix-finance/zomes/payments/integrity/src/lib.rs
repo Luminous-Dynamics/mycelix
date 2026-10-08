@@ -891,6 +891,15 @@ fn validate_create_payment_channel(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn payment_channel_balances_conserved(
+    old_a: u64,
+    old_b: u64,
+    new_a: u64,
+    new_b: u64,
+) -> bool {
+    old_a.checked_add(old_b) == new_a.checked_add(new_b)
+}
+
 fn validate_update_payment_channel(
     action: Update,
     channel: PaymentChannel,
@@ -1369,6 +1378,23 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    // ---- 9a. PaymentChannel conservation ----
+
+    #[test]
+    fn test_payment_channel_balance_conservation_accepts() {
+        assert!(payment_channel_balances_conserved(500, 500, 700, 300));
+    }
+
+    #[test]
+    fn test_payment_channel_balance_conservation_rejects_inflation() {
+        assert!(!payment_channel_balances_conserved(500, 500, 700, 301));
+    }
+
+    #[test]
+    fn test_payment_channel_balance_conservation_rejects_overflow() {
+        assert!(!payment_channel_balances_conserved(u64::MAX, 1, u64::MAX, 1));
     }
 
     // ---- 10. PaymentChannel with invalid party DID (must fail) ----
