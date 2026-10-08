@@ -1,0 +1,15 @@
+{
+  "schema": "mycelix.continual-adaptation.censoring-classification-anchor-witness-attestation.v1",
+  "registry_id": "mycelix.research.anchor-witness-registry.v1",
+  "registry_version": 1,
+  "root_reference_sha256": "sha256:e348519511273f9a64e39f9267c0231803d342d89e0d17be1e93ffbbe9fdd7a8",
+  "authority_id": "mycelix.research.anchor-authority.v1",
+  "manifest_version": 2,
+  "manifest_sha256": "sha256:290649ab061c8ec5cdfb81c0add4946fbb597c4df96a8ac613fbc4f9b371f31f",
+  "previous_manifest_sha256": "sha256:c501fb1f3a76e47d1e3dde9295803f82e2e18b7d551b0fff42d33c7b585bbad1",
+  "attestations": {
+    "w01": "sha256:a26906d8865c1fbd69ed2da7d381813f8ef7dd2a8e65c7aafeaf171713818ab4",
+    "w02": "sha256:50039abe671c7bb396d0326f34142876719ddb8ad391436492f46d04e35c4e74",
+    "w03": "sha256:9442bbea9533c7ebf5c4c3c1999a6fd8df1e2e37ee29680314fd33f43a25a092"
+  }
+}
