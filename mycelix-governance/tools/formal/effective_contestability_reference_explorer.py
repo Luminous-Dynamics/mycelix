@@ -84,6 +84,13 @@ def mutate(state: State, kind: str) -> State:
     if kind == "failure-authority":
         return replace(state, authority=((), ("PowerB",)), failure_observed=True,
                        failed=("P1",), failure_authority=state.authority)
+    if kind == "switch-stale-exit":
+        return replace(
+            state, current=("P2", "P1"), switched=(True, False),
+            nominal=(("P2",), ()), effective=(("P2",), ()),
+            authority_before_switch=state.authority,
+            jurisdiction_before_switch=state.jurisdiction
+        )
     if kind == "switch-obligation":
         return replace(
             state, current=("P2", "P1"), switched=(True, False),
@@ -181,6 +188,7 @@ def main() -> int:
     print("CANONICAL PASS: no invariant violation through depth 4")
 
     controls = {
+        "switch-stale-exit": "EffectiveExitIsIndependent",
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
