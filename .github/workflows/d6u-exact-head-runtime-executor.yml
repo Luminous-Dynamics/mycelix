@@ -197,15 +197,7 @@ jobs:
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
-      - name: Check formatting
-        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
-        env:
-          GIT_CONFIG_NOSYSTEM: 1
-          GIT_CONFIG_GLOBAL: /dev/null
-          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
-          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
-        run: cargo +1.96.1 fmt --all --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- --check
-      - name: Generate dependency graph
+
         working-directory: ${{ runner.temp }}/d6u-cargo-cwd
         env:
           GIT_CONFIG_NOSYSTEM: 1
@@ -309,6 +301,26 @@ jobs:
           mkdir -m 700 "$RUNNER_TEMP/d6u-container-output"
           echo "image=$D6U_COMPILER_IMAGE" >> "$GITHUB_OUTPUT"
 
+      - name: Check formatting inside pinned compiler container
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          D6U_COMPILER_IMAGE: ${{ steps.compiler_image.outputs.image }}
+        run: |
+          set -euo pipefail
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 --network none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --pids-limit 64 --ulimit nofile=1024:1024 \
+            --ulimit core=0 --memory 2g --tmpfs /tmp:rw,nosuid,nodev,noexec,size=1g \
+            --mount type=bind,src="${{ github.workspace }}",dst=/workspace,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-cargo-home",dst=/cargo-home,readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-rustup-home/toolchains/1.96.1-x86_64-unknown-linux-gnu",dst=/toolchain,readonly \
+            --workdir /workspace/d6u-runtime-harness \
+            --user "$(id -u):$(id -g)" \
+            --env PATH=/toolchain/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            --env HOME=/tmp --env TMPDIR=/tmp --env CARGO_HOME=/cargo-home \
+            --env CARGO_NET_OFFLINE=true --env GIT_CONFIG_NOSYSTEM=1 --env GIT_CONFIG_GLOBAL=/dev/null \
+            --env GIT_TERMINAL_PROMPT=0 --env GITHUB_WORKSPACE=/workspace "$D6U_COMPILER_IMAGE" \
+            /toolchain/bin/cargo fmt --all --manifest-path /workspace/d6u-runtime-harness/Cargo.toml -- --check
       - name: Capture runtime source integrity
         id: runtime_source
         working-directory: d6u-runtime-harness
