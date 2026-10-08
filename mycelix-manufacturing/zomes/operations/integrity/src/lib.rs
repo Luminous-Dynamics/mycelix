@@ -43,6 +43,9 @@ pub struct RoutingStepEntry {
     /// Optional migration-era typed capability requirement.
     #[serde(default)]
     pub capability_requirement_hash: Option<ActionHash>,
+    /// Exact immutable inspection criteria required for this routing step.
+    #[serde(default)]
+    pub required_inspection_criterion_hashes: Vec<ActionHash>,
     pub operation_name: String,
     pub machine_type: String,
     pub setup_time_min: u32,
@@ -143,6 +146,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                 }
                 for step in &routing.steps {
+                    if step
+                        .required_inspection_criterion_hashes
+                        .iter()
+                        .any(|hash| step.required_inspection_criterion_hashes.iter().filter(|h| *h == hash).count() > 1)
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "routing step inspection criterion hashes must be unique".into(),
+                        ));
+                    }
                     if let Some(requirement_hash) = step.capability_requirement_hash.clone() {
                         let record = must_get_valid_record(requirement_hash)?;
                         let requirement: Option<CapabilityRequirementEntry> = record
