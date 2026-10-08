@@ -3,6 +3,7 @@
   "status": "candidate_not_authoritative_until_protected_adoption",
   "claim_ceiling": "ReferenceModelOnly",
   "repository": "Luminous-Dynamics/mycelix",
+  "repository_id": 1176351975,
   "default_branch": "main",
   "governance": {
     "issue": 4601,
@@ -24,8 +25,8 @@
     },
     "qualification_attestor_workflow": {
       "path": ".github/workflows/cos-conformance-qualification-attestor.yml",
-      "git_blob_sha1": "d8b5ab56caa61c39fbcd669fd839ec72a9438432",
-      "content_sha256": "08c8db69d3dde840ddff784e5dea14d3c8265e326eb63959ff36a7a7df49eb63"
+      "git_blob_sha1": "9f3c606952c6cb0aa5750f853985ffacf5ac37fd",
+      "content_sha256": "9dd1ed09595c6a00020423c747638b9664fa55f457f6fb75484e3509428fe74a"
     },
     "federation_semantic_manifest": {
       "path": ".github/cos/federation-semantic-manifest-v1.json",
