@@ -34,6 +34,19 @@ jobs:
           ref: ${{ env.QUALIFIED_SHA }}
           persist-credentials: false
 
+      - name: Assert trusted D6S workflow identity
+        env:
+          EXPECTED_D6S_WORKFLOW_BLOB: e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4
+        run: |
+          set -euo pipefail
+          actual="$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+          test "$actual" = "$EXPECTED_D6S_WORKFLOW_BLOB"
+          test "${{ github.event.workflow_run.head_repository.id }}" = "${{ github.repository_id }}"
+          test "${{ github.event.workflow_run.head_repository.full_name }}" = "${{ github.repository }}"
+          test "${{ github.event.workflow_run.head_branch }}" = "myc-int-demo-d6u-holochain-07-runtime"
+          test "${{ github.event.workflow_run.event }}" = "pull_request"
+          test "${{ github.event.workflow_run.conclusion }}" = "success"
+
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
 
