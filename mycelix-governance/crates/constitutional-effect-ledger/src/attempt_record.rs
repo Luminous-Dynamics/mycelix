@@ -859,8 +859,14 @@ impl AtomicActionFenceModelV1 {
             }
         }
 
-        if !record.state.occupies_action_fence() {
-            return Err("admitted attempt must occupy the action fence".into());
+        if !matches!(
+            record.state,
+            AttemptRecordState::Consumed | AttemptRecordState::Reserved
+        ) {
+            return Err(
+                "admitted attempt must begin in Consumed or Reserved before DISPATCH_PENDING"
+                    .into(),
+            );
         }
 
         let fence = ActionFenceRecordV1::new(
@@ -1346,9 +1352,16 @@ mod tests {
     }
 
     fn terminal_evidence(outcome: TerminalOutcomeV1, attempt_id: &str) -> TerminalEvidenceV1 {
-        TerminalEvidenceV1::new(
-            &key(),
-            &attempt(attempt_id),
+        let action = key();
+        let owner = attempt(attempt_id);
+        let record = record(
+            attempt_id,
+            "operation-1",
+            AttemptRecordState::Invoked,
+        );
+        TerminalEvidenceV1::from_attempt(
+            &action,
+            &record,
             outcome,
             format!("provider-evidence-{attempt_id}"),
             "qualified-verifier-v1",
@@ -1655,8 +1668,22 @@ mod tests {
     #[test]
     fn fresh_authority_and_new_operation_cannot_bypass_fence() {
         let mut model = AtomicActionFenceModelV1::new();
-        let first = record("attempt-1", "operation-1", AttemptRecordState::Indeterminate);
-        model.admit(&key(), &attempt("attempt-1"), first).unwrap();
+        model
+            .admit(
+                &key(),
+                &attempt("attempt-1"),
+                record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+        model
+            .mark_dispatch_pending(&key(), &attempt("attempt-1"), "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_invoked(&key(), &attempt("attempt-1"), "owner-token-attempt-1")
+            .unwrap();
+        model
+            .mark_indeterminate(&key(), &attempt("attempt-1"), "owner-token-attempt-1")
+            .unwrap();
 
         let mut second = record("attempt-2", "operation-2", AttemptRecordState::Consumed);
         second.native_replay_identity = "native-replay-2".into();
