@@ -35,6 +35,11 @@ on:
       - "docs/research/verify_censoring_classification_anchor_witness_crypto.py"
       - "docs/research/verify_censoring_classification_anchor_witness_crypto.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_witness_vds.py"
+      - "docs/research/verify_censoring_classification_anchor_witness_vds.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -71,6 +76,11 @@ on:
       - "docs/research/verify_censoring_classification_anchor_witness_crypto.py"
       - "docs/research/verify_censoring_classification_anchor_witness_crypto.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_witness_vds.py"
+      - "docs/research/verify_censoring_classification_anchor_witness_vds.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   workflow_dispatch:
 
@@ -217,6 +227,20 @@ jobs:
             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_CRYPTO_CAMPAIGN.json \
             witness-crypto-node.json
           diff -u witness-crypto-python.json witness-crypto-node.json
+
+      - name: Run append-only VDS consistency campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_censoring_classification_anchor_witness_vds.py \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS_CAMPAIGN.json \
+            witness-vds-python.json
+          node docs/research/verify_censoring_classification_anchor_witness_vds.mjs \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS_CAMPAIGN.json \
+            witness-vds-node.json
+          diff -u witness-vds-python.json witness-vds-node.json
 
       - name: Emit exact-head receipt
         shell: bash
