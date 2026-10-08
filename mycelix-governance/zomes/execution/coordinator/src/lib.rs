@@ -548,6 +548,20 @@ fn validate_actions(actions_json: &str) -> ExternResult<usize> {
     Ok(actions.len())
 }
 
+fn check_prepared_resolution_action_count(
+    prepared_action_count: usize,
+    binding_count: usize,
+) -> Result<(), String> {
+    if prepared_action_count == 0 || binding_count != prepared_action_count {
+        return Err(format!(
+            "Execution resolution must bind exactly one attempt/proof tuple per prepared action: expected {}, got {}",
+            prepared_action_count,
+            binding_count
+        ));
+    }
+    Ok(())
+}
+
 /// Record an immutable host-side resolution attestation.
 ///
 /// This function records evidence references. It does not execute provider
@@ -634,13 +648,11 @@ pub fn record_prepared_execution_resolution(
     }
 
     let prepared_action_count = validate_actions(&timelock.actions)?;
-    if input.attempt_identities.len() != prepared_action_count {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Execution resolution must bind exactly one attempt/proof tuple per prepared action: expected {}, got {}",
-            prepared_action_count,
-            input.attempt_identities.len()
-        ))));
-    }
+    check_prepared_resolution_action_count(
+        prepared_action_count,
+        input.attempt_identities.len(),
+    )
+    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
     check_execution_resolution_bindings(
         &input.attempt_identities,
@@ -1670,6 +1682,15 @@ pub fn get_pending_timelocks(_: ()) -> ExternResult<Vec<Record>> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_resolution_must_bind_every_prepared_action_exactly_once() {
+        assert!(check_prepared_resolution_action_count(1, 1).is_ok());
+        assert!(check_prepared_resolution_action_count(256, 256).is_ok());
+        assert!(check_prepared_resolution_action_count(2, 1).is_err());
+        assert!(check_prepared_resolution_action_count(1, 2).is_err());
+        assert!(check_prepared_resolution_action_count(0, 0).is_err());
+    }
+
     #[test]
     fn test_validate_actions_reports_exact_action_count_and_rejects_empty_batches() {
         let single = r#"{"type":"EmitEvent","event":"hello"}"#;
