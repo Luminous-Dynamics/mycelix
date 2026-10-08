@@ -8,7 +8,9 @@ import datetime as dt
 import hashlib
 import json
 import re
+import stat
 import sys
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +29,11 @@ MANIFEST_BLOB_SHA = "c94b53f61ed8a9bfb6249b1b339550dddd074d6c"
 
 RUSTC_VERSION = "rustc 1.96.1"
 RUSTC_COMMIT = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+
+MAX_ARTIFACT_ARCHIVE_BYTES = 8 * 1024 * 1024
+MAX_ARTIFACT_ARCHIVE_MEMBERS = 8
+MAX_ARTIFACT_MEMBER_BYTES = 2 * 1024 * 1024
+ALLOWED_ARTIFACT_COMPRESSION = frozenset({zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED})
 
 RECEIPT_KEYS = frozenset(
     {
@@ -209,6 +216,103 @@ def require_sha256_prefixed(value: Any, field: str) -> str:
         fail(f"{field} is not sha256:<64 lowercase hex>")
     return value
 
+
+def verify_raw_artifact_archive(
+    archive: Path,
+    expected_member: str,
+    expected_digest: str,
+    extracted: Path,
+    label: str,
+) -> dict[str, Any]:
+    if not archive.is_file() or archive.is_symlink():
+        fail(f"{label} artifact archive is not a regular file")
+    archive_size = archive.stat().st_size
+    if archive_size <= 0 or archive_size > MAX_ARTIFACT_ARCHIVE_BYTES:
+        fail(f"{label} artifact archive size exceeds the closed-world bound")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", expected_digest):
+        fail(f"{label} artifact digest is malformed")
+    archive_bytes = archive.read_bytes()
+    archive_sha256 = hashlib.sha256(archive_bytes).hexdigest()
+    if f"sha256:{archive_sha256}" != expected_digest:
+        fail(f"{label} artifact archive digest mismatch")
+    if not extracted.is_file() or extracted.is_symlink():
+        fail(f"{label} extracted evidence is not a regular file")
+
+    try:
+        with zipfile.ZipFile(archive) as bundle:
+            infos = bundle.infolist()
+            if not infos:
+                fail(f"{label} artifact archive is empty")
+            if len(infos) > MAX_ARTIFACT_ARCHIVE_MEMBERS:
+                fail(f"{label} artifact archive has too many members")
+
+            names = [info.filename for info in infos]
+            if len(names) != len(set(names)):
+                fail(f"{label} artifact archive contains duplicate member names")
+            if names != [expected_member]:
+                fail(
+                    f"{label} artifact archive member set mismatch: "
+                    f"expected={[expected_member]!r} actual={names!r}"
+                )
+
+            info = infos[0]
+            if (
+                not expected_member
+                or "\x00" in info.filename
+                or "\\" in info.filename
+                or info.filename.startswith("/")
+            ):
+                fail(f"{label} artifact archive member path is unsafe")
+            parts = info.filename.split("/")
+            if any(part in {"", ".", ".."} for part in parts):
+                fail(f"{label} artifact archive member path is unsafe")
+            if len(info.filename.encode("utf-8")) > 512:
+                fail(f"{label} artifact archive member name is too long")
+            if info.is_dir():
+                fail(f"{label} artifact archive member is a directory")
+            if info.flag_bits & 0x1:
+                fail(f"{label} artifact archive member is encrypted")
+            if info.compress_type not in ALLOWED_ARTIFACT_COMPRESSION:
+                fail(f"{label} artifact archive uses an unsupported compression method")
+            if info.file_size > MAX_ARTIFACT_MEMBER_BYTES:
+                fail(f"{label} artifact archive member is too large")
+            if info.compress_size > MAX_ARTIFACT_ARCHIVE_BYTES:
+                fail(f"{label} artifact archive compressed member is too large")
+
+            unix_mode = (info.external_attr >> 16) & 0xFFFF
+            file_type = stat.S_IFMT(unix_mode)
+            if file_type not in {0, stat.S_IFREG}:
+                fail(f"{label} artifact archive member is not a regular file")
+            if info.create_system == 0 and info.external_attr & 0x10:
+                fail(f"{label} artifact archive member has directory attributes")
+
+            try:
+                with bundle.open(info, "r") as source:
+                    member = source.read(MAX_ARTIFACT_MEMBER_BYTES + 1)
+            except (OSError, RuntimeError, ValueError, zipfile.BadZipFile) as exc:
+                fail(f"{label} artifact archive member could not be read: {exc}")
+            if len(member) > MAX_ARTIFACT_MEMBER_BYTES:
+                fail(f"{label} artifact archive member exceeds size bound")
+            member_sha256 = hashlib.sha256(member).hexdigest()
+
+            extracted_bytes = extracted.read_bytes()
+            if extracted_bytes != member:
+                fail(f"{label} extracted evidence does not match raw archive member")
+
+            member_set_sha256 = hashlib.sha256(
+                json.dumps([info.filename], separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+            ).hexdigest()
+            return {
+                "archive_sha256": archive_sha256,
+                "archive_size_bytes": archive_size,
+                "member_name": info.filename,
+                "member_set_sha256": member_set_sha256,
+                "member_size_bytes": len(member),
+                "member_sha256": member_sha256,
+                "compression_method": info.compress_type,
+            }
+    except zipfile.BadZipFile as exc:
+        fail(f"{label} artifact archive is not a valid ZIP: {exc}")
 
 def validate_artifact_lifetime(item: dict[str, Any], label: str) -> tuple[str, str]:
     created = item.get("created_at")
@@ -675,6 +779,21 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
             fail(f"{label} artifact head repository mismatch")
         require_sha256_prefixed(item["digest"], f"{label} artifact digest")
 
+    receipt_archive = verify_raw_artifact_archive(
+        archive=snapshot_dir / "raw/receipt.zip",
+        expected_member="qualification-receipt.json",
+        expected_digest=primary_artifact["digest"],
+        extracted=snapshot_dir / "qualification-receipt.json",
+        label="receipt",
+    )
+    index_archive = verify_raw_artifact_archive(
+        archive=snapshot_dir / "raw/index.zip",
+        expected_member="artifact-binding-index.json",
+        expected_digest=index_artifact["digest"],
+        extracted=snapshot_dir / "artifact-binding-index.json",
+        label="index",
+    )
+
     receipt_digest, verifier_sha, verifier_blob_sha = verify_receipt(
         receipt=receipt,
         expected_trusted_run_id=trusted_run["id"],
@@ -726,11 +845,17 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         "receipt_artifact_digest": primary_artifact["digest"],
         "receipt_artifact_created_at": primary_artifact["created_at"],
         "receipt_artifact_expires_at": primary_artifact["expires_at"],
+        "receipt_artifact_archive_sha256": receipt_archive["archive_sha256"],
+        "receipt_artifact_member_set_sha256": receipt_archive["member_set_sha256"],
+        "receipt_artifact_member_sha256": receipt_archive["member_sha256"],
         "index_content_sha256": index_digest,
         "index_artifact_id": index_artifact["id"],
         "index_artifact_digest": index_artifact["digest"],
         "index_artifact_created_at": index_artifact["created_at"],
         "index_artifact_expires_at": index_artifact["expires_at"],
+        "index_artifact_archive_sha256": index_archive["archive_sha256"],
+        "index_artifact_member_set_sha256": index_archive["member_set_sha256"],
+        "index_artifact_member_sha256": index_archive["member_sha256"],
         "trusted_policy_sha": receipt["trusted_policy_sha"],
         "trusted_policy_blob_sha": receipt["trusted_policy_blob_sha"],
         "independent_verifier_workflow_sha": verifier_sha,
