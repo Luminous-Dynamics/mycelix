@@ -188,7 +188,8 @@ export type ProposalStatus =
   | 'Rejected'
   | 'Executed'
   | 'Cancelled'
-  | 'Failed';
+  | 'Failed'
+  | 'Vetoed';
 
 /**
  * Governance proposal
@@ -681,6 +682,7 @@ export interface ProposeAllocationInput {
 export type TimelockStatus =
   | 'Pending'
   | 'Ready'
+  | 'Prepared'
   | 'Executed'
   | 'Cancelled'
   | 'Failed';
@@ -689,6 +691,7 @@ export type TimelockStatus =
  * Execution result status
  */
 export type ExecutionStatus =
+  | 'Prepared'
   | 'Success'
   | 'PartialSuccess'
   | 'Failed';
@@ -793,6 +796,34 @@ export interface CreateTimelockInput {
 export interface ExecuteTimelockInput {
   /** Timelock identifier */
   timelockId: string;
+}
+
+/**
+ * Terminal outcome asserted by the host-side execution boundary.
+ */
+export type ExecutionResolutionOutcome = 'Executed' | 'Failed';
+
+/**
+ * Host-side attestation references for a prepared execution.
+ *
+ * Each array must contain exactly one canonical digest per action in the
+ * prepared timelock. The host must independently authenticate the referenced
+ * receipts; this input type only transports those references.
+ */
+export interface ExecutionResolutionBindingV1 {
+  attemptIdentity: string;
+  actionKeyDigest: string;
+  terminalEvidenceDigest: string;
+  authorizationAdmissionProofDigest: string;
+  finalProviderEntryProofDigest: string;
+}
+
+export interface RecordPreparedExecutionResolutionInput {
+  executionId: string;
+  timelockId: string;
+  executorDid: string;
+  bindings: ExecutionResolutionBindingV1[];
+  outcome: ExecutionResolutionOutcome;
 }
 
 /**

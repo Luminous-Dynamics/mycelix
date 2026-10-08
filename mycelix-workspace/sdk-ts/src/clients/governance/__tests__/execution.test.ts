@@ -206,6 +206,66 @@ describe('ExecutionClient', () => {
     });
   });
 
+  describe('recordPreparedExecutionResolution', () => {
+    const binding = {
+      attemptIdentity: 'constitutional-attempt-identity-v1:' + 'a'.repeat(64),
+      actionKeyDigest: 'constitutional-action-key-v1:' + 'b'.repeat(64),
+      terminalEvidenceDigest: 'constitutional-terminal-evidence-v3:' + 'c'.repeat(64),
+      authorizationAdmissionProofDigest:
+        'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
+      finalProviderEntryProofDigest:
+        'constitutional-final-provider-entry-proof-v1:' + 'e'.repeat(64),
+    };
+    const input = {
+      executionId: 'execution-1',
+      timelockId: 'timelock-1',
+      executorDid: 'did:mycelix:executor',
+      bindings: [binding],
+      outcome: 'Executed' as const,
+    };
+
+    it('should submit typed proof-root bindings as one tuple per action', async () => {
+      const record = mockRecord({ id: 'resolution:execution-1' });
+      (mockAppClient.callZome as ReturnType<typeof vi.fn>).mockResolvedValueOnce(record);
+
+      const result = await client.recordPreparedExecutionResolution(input);
+
+      expect(result).toBe(record);
+      expect(mockAppClient.callZome).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fn_name: 'record_prepared_execution_resolution',
+          payload: {
+            execution_id: 'execution-1',
+            timelock_id: 'timelock-1',
+            executor_did: 'did:mycelix:executor',
+            bindings: [
+              {
+                attempt_identity: binding.attemptIdentity,
+                action_key_digest: binding.actionKeyDigest,
+                terminal_evidence_digest: binding.terminalEvidenceDigest,
+                authorization_admission_proof_digest:
+                  binding.authorizationAdmissionProofDigest,
+                final_provider_entry_proof_digest:
+                  binding.finalProviderEntryProofDigest,
+              },
+            ],
+            outcome: 'Executed',
+          },
+        })
+      );
+    });
+
+    it('should reject empty binding lists before calling the zome', async () => {
+      await expect(
+        client.recordPreparedExecutionResolution({
+          ...input,
+          bindings: [],
+        })
+      ).rejects.toThrow('1–256 typed attempt/action/evidence proof bindings');
+      expect(mockAppClient.callZome).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getPendingTimelocks', () => {
     it('should return array of pending timelocks', async () => {
       (mockAppClient.callZome as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
@@ -358,9 +418,11 @@ describe('ExecutionClient', () => {
     it('should return description for each status', () => {
       expect(client.getStatusDescription('Pending')).toContain('delay');
       expect(client.getStatusDescription('Ready')).toContain('ready');
+      expect(client.getStatusDescription('Prepared')).toContain('prepared');
       expect(client.getStatusDescription('Executed')).toContain('executed');
       expect(client.getStatusDescription('Cancelled')).toContain('cancelled');
       expect(client.getStatusDescription('Failed')).toContain('failed');
+      expect(client.getStatusDescription('Vetoed')).toContain('veto');
     });
   });
 

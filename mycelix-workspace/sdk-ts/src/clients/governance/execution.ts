@@ -18,6 +18,7 @@ import type {
   TimelockStatus,
   CreateTimelockInput,
   ExecuteTimelockInput,
+  RecordPreparedExecutionResolutionInput,
   VetoTimelockInput,
 } from './types';
 import type { AppClient, Record as HolochainRecord } from '@holochain/client';
@@ -38,7 +39,7 @@ const DEFAULT_CONFIG: ExecutionClientConfig = {
  * Client for Execution operations
  *
  * Manages the timelock-based execution of passed proposals, including:
- * - Timelock creation and lifecycle (Pending → Ready → Executed/Cancelled/Failed)
+ * - Timelock lifecycle (Pending → Ready → Prepared; terminal outcomes are host-attested)
  * - Guardian vetoes during timelock period
  * - Fund allocation and release
  *
@@ -112,14 +113,49 @@ export class ExecutionClient extends ZomeClient {
   }
 
   /**
-   * Execute a ready timelock
+   * Prepare a ready timelock for host-side effect execution
    *
-   * @param input - Execution parameters
-   * @returns The execution result record
+   * The coordinator intentionally stops at Prepared; this call does not perform
+   * provider effects.
+   *
+   * @param input - Execution preparation parameters
+   * @returns The prepared execution record
    */
   async executeTimelock(input: ExecuteTimelockInput): Promise<HolochainRecord> {
     return this.callZomeOnce<HolochainRecord>('execute_timelock', {
       timelock_id: input.timelockId,
+    });
+  }
+
+  /**
+   * Record host-side evidence references for a prepared execution.
+   *
+   * The coordinator checks that there is exactly one aligned proof tuple per
+   * prepared action. This method performs basic vector validation only; the
+   * host effect boundary remains responsible for authenticating each receipt.
+   */
+  async recordPreparedExecutionResolution(
+    input: RecordPreparedExecutionResolutionInput
+  ): Promise<HolochainRecord> {
+    const bindingCount = input.bindings.length;
+    if (bindingCount < 1 || bindingCount > 256) {
+      throw new Error(
+        'Execution resolution requires 1–256 typed attempt/action/evidence proof bindings'
+      );
+    }
+
+    return this.callZomeOnce<HolochainRecord>('record_prepared_execution_resolution', {
+      execution_id: input.executionId,
+      timelock_id: input.timelockId,
+      executor_did: input.executorDid,
+      bindings: input.bindings.map(binding => ({
+        attempt_identity: binding.attemptIdentity,
+        action_key_digest: binding.actionKeyDigest,
+        terminal_evidence_digest: binding.terminalEvidenceDigest,
+        authorization_admission_proof_digest: binding.authorizationAdmissionProofDigest,
+        final_provider_entry_proof_digest: binding.finalProviderEntryProofDigest,
+      })),
+      outcome: input.outcome,
     });
   }
 
@@ -230,9 +266,11 @@ export class ExecutionClient extends ZomeClient {
     const descriptions: Record<TimelockStatus, string> = {
       Pending: 'Timelock delay period is active',
       Ready: 'Timelock delay expired, ready for execution',
+      Prepared: 'Execution is prepared for host-side effect handling',
       Executed: 'Proposal actions have been executed',
       Cancelled: 'Timelock was cancelled (e.g., via veto)',
       Failed: 'Execution failed',
+      Vetoed: 'A guardian veto is active',
     };
     return descriptions[status];
   }

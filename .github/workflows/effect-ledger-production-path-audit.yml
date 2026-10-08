@@ -115,6 +115,61 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'authorization_admission_proof_digest' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: execution resolution does not bind admission proof roots."
+            exit 1
+          }
+
+          grep -Fq 'final_provider_entry_proof_digest' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: execution resolution does not bind final-entry proof roots."
+            exit 1
+          }
+
+          grep -Fq 'EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: admission proof roots are not namespace-validated."
+            exit 1
+          }
+
+          grep -Fq 'EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: final-entry proof roots are not namespace-validated."
+            exit 1
+          }
+
+          grep -Fq 'check_prepared_resolution_action_count' "$executor" || {
+            echo "NOT QUALIFIED: resolution proof tuples are not cardinality-bound to prepared actions."
+            exit 1
+          }
+
+          grep -Fq 'test_resolution_must_bind_every_prepared_action_exactly_once' "$executor" || {
+            echo "NOT QUALIFIED: exact prepared-action cardinality has no regression test."
+            exit 1
+          }
+
+          grep -Fq 'ExecutionResolutionBindingV1' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: proof roots are not grouped into typed per-action bindings."
+            exit 1
+          }
+
+          grep -Fq 'bindings: Vec<ExecutionResolutionBindingV1>' "$executor" || {
+            echo "NOT QUALIFIED: coordinator input does not use typed per-action bindings."
+            exit 1
+          }
+
+          grep -Fq 'recordPreparedExecutionResolution' 'mycelix-workspace/sdk-ts/src/clients/governance/execution.ts' || {
+            echo "NOT QUALIFIED: SDK has no typed prepared-resolution API."
+            exit 1
+          }
+
+          grep -Fq 'should submit typed proof-root bindings as one tuple per action' 'mycelix-workspace/sdk-ts/src/clients/governance/__tests__/execution.test.ts' || {
+            echo "NOT QUALIFIED: SDK typed proof-root serialization lacks regression coverage."
+            exit 1
+          }
+
+          grep -Fq 'test_validate_actions_reports_exact_action_count_and_rejects_empty_batches' "$executor" || {
+            echo "NOT QUALIFIED: action parser lacks empty-batch/cardinality coverage."
+            exit 1
+          }
+
           if grep -Fq 'pub fn store_mut' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
             echo "NOT QUALIFIED: mutable durable-store escape hatch remains exposed."
             exit 1
