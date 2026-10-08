@@ -68,6 +68,11 @@ on:
       - "docs/research/verify_censoring_classification_anchor_audit_bundle.py"
       - "docs/research/verify_censoring_classification_anchor_audit_bundle.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_audit_bundle_v2.py"
+      - "docs/research/verify_censoring_classification_anchor_audit_bundle_v2.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2.md"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_TS_REGISTRY.json"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_FIXTURE.json"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_CAMPAIGN.json"
@@ -148,6 +153,11 @@ on:
       - "docs/research/verify_censoring_classification_anchor_audit_bundle.py"
       - "docs/research/verify_censoring_classification_anchor_audit_bundle.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2_CAMPAIGN.json"
+      - "docs/research/verify_censoring_classification_anchor_audit_bundle_v2.py"
+      - "docs/research/verify_censoring_classification_anchor_audit_bundle_v2.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2.md"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_TS_REGISTRY.json"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_FIXTURE.json"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_CAMPAIGN.json"
@@ -454,6 +464,22 @@ jobs:
             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_WITNESS_VDS_TREE_HEAD.json \
             gossip-simulation-node.json
           diff -u gossip-simulation-python.json gossip-simulation-node.json
+
+      - name: Run v2 exact-input and verifier audit campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_censoring_classification_anchor_audit_bundle_v2.py \
+            "$GITHUB_WORKSPACE" \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2_CAMPAIGN.json \
+            audit-bundle-v2-python.json
+          node docs/research/verify_censoring_classification_anchor_audit_bundle_v2.mjs \
+            "$GITHUB_WORKSPACE" \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2.json \
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2_CAMPAIGN.json \
+            audit-bundle-v2-node.json
+          diff -u audit-bundle-v2-python.json audit-bundle-v2-node.json
 
       - name: Emit exact-head receipt
         shell: bash
