@@ -799,7 +799,15 @@ pub fn select_live_capability(
             machine_id: machine_id.clone(),
             profile,
         });
-        candidate_meta.push((machine_id, machine_hash, contract_hash, status, head_action, attestation_hashes));
+        candidate_meta.push((
+            machine_id,
+            machine_hash,
+            contract_hash,
+            status,
+            head_action,
+            attestation_hashes,
+            authority_hash,
+        ));
     }
 
     let selection = select_capable_machine(&input.requirement, candidates);
@@ -850,6 +858,7 @@ pub fn select_live_capability(
     });
 
     Ok(CapabilityPlanSelection {
+        observed_at,
         selected_machine_hash,
         selected_capability_contract_hash,
         selected_machine_state_authority_hash: selected_machine_hash.as_ref().and_then(|hash| {
