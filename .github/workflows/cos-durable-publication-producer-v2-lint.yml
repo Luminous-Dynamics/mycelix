@@ -58,6 +58,12 @@ jobs:
           assert 'gh release verify-asset' in publish
           assert 'candidate_not_authoritative_until_protected_adoption' in text
           assert 'ReferenceModelOnly' in text
+          assert 'requires_durable_subject_publication' in text
+          assert 'transient_actions_artifacts_are_insufficient' in text
+          assert 'required_durability_profile' in text
+          assert 'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1' in text
+          assert 'activation_rule' in text
+          assert 'Reconcile candidate trust root and signer workflow' in text
           assert 'build_asset asset-a.tar.gz' in publish
           assert 'build_asset asset-b.tar.gz' in publish
           assert 'sha256sum --check --strict SHA256SUMS' in publish
