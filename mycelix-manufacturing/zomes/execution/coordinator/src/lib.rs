@@ -175,6 +175,14 @@ pub fn record_measurement(input: CreateMeasurementInput) -> ExternResult<ActionH
     }))?;
 
     link_from("all_measurements", LinkTypes::AllMeasurements, hash.clone())?;
+    if let Some(criterion_hash) = input.criterion_hash {
+        create_link(
+            hash.clone(),
+            criterion_hash,
+            LinkTypes::MeasurementToInspectionCriterion,
+            (),
+        )?;
+    }
     Ok(hash)
 }
 
@@ -317,6 +325,14 @@ pub fn record_execution(input: CreateExecutionInput) -> ExternResult<ActionHash>
             hash.clone(),
             measurement,
             LinkTypes::ExecutionToMeasurements,
+            (),
+        )?;
+    }
+    if let Some(attestation_hash) = input.qualification_attestation_hash {
+        create_link(
+            hash.clone(),
+            attestation_hash,
+            LinkTypes::ExecutionToQualificationAttestation,
             (),
         )?;
     }
