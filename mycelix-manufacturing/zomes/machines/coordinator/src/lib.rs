@@ -34,82 +34,110 @@ pub struct GetMachinesByTypeInput {
     pub machine_type: MachineType,
 }
 
-// ============================================================================
-// Extern functions
-// ============================================================================
-
-/// Register a new machine in the manufacturing cell.
-#[hdk_extern]
-pub fn register_machine(input: RegisterMachineInput) -> ExternResult<ActionHash> {
-    if input.name.is_empty() || input.name.len() > 200 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "machine name must be 1-200 characters".to_string()
-        )));
-    }
-    if input.location.is_empty() {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "location is required".to_string()
-        )));
-    }
-    if input.max_throughput_per_hour == 0 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "max_throughput_per_hour must be > 0".to_string()
-        )));
-    }
-
-    let now = sys_time()?;
-    let type_tag = machine_type_tag(&input.machine_type);
-    let entry = MachineEntry {
-        name: input.name,
-        machine_type: input.machine_type,
-        capabilities: input.capabilities,
-        location: input.location.clone(),
-        max_throughput_per_hour: input.max_throughput_per_hour,
-        status: MachineStatus::Available,
-        current_work_order: None,
-        registered_at: now,
-    };
-
-    let action_hash = create_entry(EntryTypes::Machine(entry))?;
-
-    // Link from "all_machines" anchor
-    let all_path = Path::from("all_machines").typed(LinkTypes::AllMachines)?;
-    all_path.ensure()?;
-    create_link(
-        all_path.path_entry_hash()?,
-        action_hash.clone(),
-        LinkTypes::AllMachines,
-        (),
-    )?;
-
-    // Link from machine type
-    let type_path = Path::from(format!("machine_type/{type_tag}")).typed(LinkTypes::TypeToMachines)?;
-    type_path.ensure()?;
-    create_link(
-        type_path.path_entry_hash()?,
-        action_hash.clone(),
-        LinkTypes::TypeToMachines,
-        (),
-    )?;
-
-    // Link from location
-    let loc_path =
-        Path::from(format!("location/{}", input.location)).typed(LinkTypes::LocationToMachines)?;
-    loc_path.ensure()?;
-    create_link(
-        loc_path.path_entry_hash()?,
-        action_hash.clone(),
-        LinkTypes::LocationToMachines,
-        (),
-    )?;
-
-    Ok(action_hash)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MachineStateResolution {
+    NotFound,
+    InvalidRecord,
+    Resolved {
+        status: MachineStatus,
+        head_action: ActionHash,
+    },
+    Ambiguous {
+        statuses: Vec<MachineStatus>,
+        head_actions: Vec<ActionHash>,
+    },
+    Deleted,
 }
 
-/// Get a machine by its action hash.
+/// Resolve the machine's current state from the full update graph rooted at
+/// the original machine action.
+///
+/// Holochain does not define a global "latest" record. An action-addressed
+/// get_details call exposes direct updates, while entry-level metadata exposes
+/// the relationships for the entry. We therefore walk update edges to terminal
+/// live heads and refuse to select among multiple heads.
+fn resolve_machine_state_from_action(
+    root: ActionHash,
+) -> ExternResult<MachineStateResolution> {
+    let mut pending = vec![root];
+    let mut visited = std::collections::HashSet::new();
+    let mut heads: Vec<(ActionHash, MachineStatus)> = Vec::new();
+    let mut saw_deleted = false;
+
+    while let Some(action_hash) = pending.pop() {
+        if !visited.insert(action_hash.clone()) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "machine update graph contains a cycle".into(),
+            )));
+        }
+        if visited.len() > 4096 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "machine update graph exceeds safety bound".into(),
+            )));
+        }
+
+        let details = get_details(action_hash.clone(), GetOptions::default())?;
+        let Some(Details::Record(record_details)) = details else {
+            return Ok(MachineStateResolution::NotFound);
+        };
+
+        if record_details.validation_status != ValidationStatus::Valid {
+            return Ok(MachineStateResolution::InvalidRecord);
+        }
+
+        if !record_details.deletes.is_empty() {
+            saw_deleted = true;
+        }
+
+        if !record_details.updates.is_empty() {
+            for update in record_details.updates {
+                pending.push(update.as_hash().clone());
+            }
+            continue;
+        }
+
+        if !record_details.deletes.is_empty() {
+            continue;
+        }
+
+        let machine: MachineEntry = record_details
+            .record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "machine state head has no entry".into(),
+            )))?;
+
+        heads.push((action_hash, machine.status));
+    }
+
+    if heads.is_empty() {
+        return Ok(if saw_deleted {
+            MachineStateResolution::Deleted
+        } else {
+            MachineStateResolution::NotFound
+        });
+    }
+
+    if heads.len() == 1 {
+        let (head_action, status) = heads.remove(0);
+        return Ok(MachineStateResolution::Resolved {
+            status,
+            head_action,
+        });
+    }
+
+    heads.sort_by(|a, b| a.0.to_string().cmp(&b.0.to_string()));
+    Ok(MachineStateResolution::Ambiguous {
+        statuses: heads.iter().map(|(_, status)| status.clone()).collect(),
+        head_actions: heads.into_iter().map(|(hash, _)| hash).collect(),
+    })
+}
+
 #[hdk_extern]
-pub fn get_machine(hash: ActionHash) -> ExternResult<Option<Record>> {
-    get(hash, GetOptions::default())
+pub fn get_current_machine_state(machine_hash: ActionHash) -> ExternResult<MachineStateResolution> {
+    resolve_machine_state_from_action(machine_hash)
 }
 
 /// Update machine status (e.g., Available -> Running).
@@ -247,6 +275,33 @@ mod tests {
             machine_type_tag(&MachineType::Custom("Waterjet".to_string())),
             "custom_Waterjet"
         );
+    }
+
+    #[test]
+    fn test_machine_state_resolution_serde() {
+        let resolved = MachineStateResolution::Resolved {
+            status: MachineStatus::Available,
+            head_action: ActionHash::from_raw_36(vec![3; 36]),
+        };
+        let json = serde_json::to_string(&resolved).unwrap();
+        let back: MachineStateResolution = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, resolved);
+
+        let invalid = MachineStateResolution::InvalidRecord;
+        let json = serde_json::to_string(&invalid).unwrap();
+        let back: MachineStateResolution = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, invalid);
+
+        let ambiguous = MachineStateResolution::Ambiguous {
+            statuses: vec![MachineStatus::Available, MachineStatus::Running],
+            head_actions: vec![
+                ActionHash::from_raw_36(vec![4; 36]),
+                ActionHash::from_raw_36(vec![5; 36]),
+            ],
+        };
+        let json = serde_json::to_string(&ambiguous).unwrap();
+        let back: MachineStateResolution = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, ambiguous);
     }
 
     #[test]
