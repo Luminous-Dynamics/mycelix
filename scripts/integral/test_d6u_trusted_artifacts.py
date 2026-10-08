@@ -575,6 +575,20 @@ def test_record_metadata_is_canonicalized() -> None:
     )
 
     tampered = dict(record)
+    tampered["trigger_workflow_run_id"] = "0100"
+    assert_rejected(
+        lambda: verify_record_metadata(tampered, policy),
+        "noncanonical trigger workflow run ID was accepted",
+    )
+
+    tampered = dict(record)
+    tampered["trigger_workflow_run_attempt"] = "01"
+    assert_rejected(
+        lambda: verify_record_metadata(tampered, policy),
+        "noncanonical trigger workflow run attempt was accepted",
+    )
+
+    tampered = dict(record)
     tampered["case_coverage"] = "13-of-14"
     assert_rejected(
         lambda: verify_record_metadata(tampered, policy),
