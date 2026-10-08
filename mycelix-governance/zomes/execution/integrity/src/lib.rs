@@ -415,8 +415,13 @@ pub fn check_create_execution(execution: &Execution) -> Result<(), String> {
 
 /// Check that a host-side execution resolution is structurally complete.
 pub fn check_create_execution_resolution(
+    action: &Create,
     resolution: &ExecutionResolution,
 ) -> Result<(), String> {
+    let author_did = did_for_author(&action.author);
+    if resolution.executor != author_did {
+        return Err("Resolution executor must match the committing agent".into());
+    }
     if !resolution.executor.starts_with("did:") {
         return Err("Resolution executor must be a valid DID".into());
     }
@@ -679,6 +684,16 @@ fn validate_update_timelock(
 }
 
 /// Validate execution creation
+fn validate_create_execution_resolution(
+    action: Create,
+    resolution: ExecutionResolution,
+) -> ExternResult<ValidateCallbackResult> {
+    match check_create_execution_resolution(&action, &resolution) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    }
+}
+
 fn validate_create_execution(
     action: Create,
     execution: Execution,
