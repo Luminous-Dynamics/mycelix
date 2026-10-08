@@ -436,6 +436,14 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
 
     flush()
 
+def require_no_forbidden_github_command_files(lines_: list[str], description: str) -> None:
+    """Reject trusted workflow writes to mutable GitHub runner command files outside GITHUB_OUTPUT."""
+    forbidden = ("GITHUB_ENV", "GITHUB_PATH", "GITHUB_STATE", "GITHUB_STEP_SUMMARY", "::set-output")
+    for line in lines_:
+        if any(fragment in line for fragment in forbidden):
+            fail(f"{description}: forbidden GitHub command-file/control primitive {line!r}")
+
+
 def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
     current_name = None
     counts = {}
@@ -615,6 +623,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_explicit_bash_for_run_steps(l, S0)
     require_no_duplicate_step_keys(l, S0)
     require_no_duplicate_github_output_keys(l, S0)
+    require_no_forbidden_github_command_files(l, "S0")
     require_step_execution_modes(l, S0)
     require_no_escalation(l, "S0")
     if any("git fetch " in x or "git checkout " in x or "actions/checkout@" in x for x in l):
@@ -855,6 +864,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_explicit_bash_for_run_steps(l, S1)
     require_no_duplicate_step_keys(l, S1)
     require_no_duplicate_github_output_keys(l, S1)
+    require_no_forbidden_github_command_files(l, "S1")
     require_step_execution_modes(l, S1)
     for required in (
         "--network=bridge",
@@ -946,6 +956,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_explicit_bash_for_run_steps(l, S2)
     require_no_duplicate_step_keys(l, S2)
     require_no_duplicate_github_output_keys(l, S2)
+    require_no_forbidden_github_command_files(l, "S2")
     require_step_execution_modes(l, S2)
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
@@ -1348,6 +1359,15 @@ def main() -> None:
         ),
         "duplicate GITHUB_OUTPUT key introduced within one S1 step",
     )
+
+    for primitive in (b"GITHUB_ENV", b"GITHUB_PATH", b"GITHUB_STATE", b"GITHUB_STEP_SUMMARY", b"::set-output"):
+        expect_rejection(
+            lambda primitive=primitive: verify_s1(
+                raw["s1"] + b"\n# forbidden command-file regression: " + primitive + b"\n",
+                s1_sha,
+            ),
+            f"forbidden GitHub command-file primitive injected into S1: {primitive.decode()}",
+        )
 
     expect_rejection(
         lambda: verify_s0(
