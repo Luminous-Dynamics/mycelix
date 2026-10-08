@@ -203,7 +203,7 @@ pub fn grant_machine_controller(
         requires_transition_approval: true,
         issuer_signature: None,
     };
-    let issuer_signature = sign(issuer, authority.signed_payload())?;
+    let issuer_signature = sign(issuer, authority.signed_payload_v2())?;
     let authority = MachineControllerAuthorityEntry {
         issuer_signature: Some(issuer_signature),
         ..authority
