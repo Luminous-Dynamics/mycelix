@@ -1,16 +1,16 @@
 {
-  "schema":"mycelix.evidence-attestation-capability-constraint-algebra-control-matrix.v1",
-  "controls":[
-    {"id":"interval-widening","kind":"negative","obligation":"allow-denotation-subset","marker":"INTERVAL WIDENING NEGATIVE PASS"},
-    {"id":"interval-hole-filling","kind":"negative","obligation":"effective-denotation-subset","marker":"INTERVAL HOLE FILLING NEGATIVE PASS"},
-    {"id":"wildcard-expansion","kind":"negative","obligation":"allow-denotation-subset","marker":"WILDCARD EXPANSION NEGATIVE PASS"},
-    {"id":"temporal-window-widening","kind":"negative","obligation":"allow-denotation-subset","marker":"TEMPORAL WINDOW WIDENING NEGATIVE PASS"},
-    {"id":"context-weakening","kind":"negative","obligation":"allow-denotation-subset","marker":"CONTEXT WEAKENING NEGATIVE PASS"},
-    {"id":"normalization-equivalence","kind":"positive","obligation":"semantic-equivalence","marker":"NORMALIZATION PASS: syntax differs while denotation is preserved for canonical aliases"},
-    {"id":"non-equivalent-normalization","kind":"negative","obligation":"semantic-equivalence-rejection","marker":"NON EQUIVALENT NORMALIZATION NEGATIVE PASS"},
-    {"id":"deny-set-deletion","kind":"negative","obligation":"deny-preservation","marker":"DENY SET DELETION NEGATIVE PASS"},
-    {"id":"conflict-rule-substitution","kind":"negative","obligation":"deny-overrides-preservation","marker":"CONFLICT RULE SUBSTITUTION NEGATIVE PASS"},
-    {"id":"unknown-extension-treated-as-subsumed","kind":"negative","obligation":"fail-closed-unhandled-extension","marker":"UNKNOWN EXTENSION TREATED AS SUBSUMED NEGATIVE PASS"},
-    {"id":"unsupported-compound-extension","kind":"negative","obligation":"fail-closed-extension","marker":"UNSUPPORTED COMPOUND EXTENSION NEGATIVE PASS"}
-  ]
+ "schema":"mycelix.evidence-attestation-capability-constraint-algebra-control-matrix.v1",
+ "controls":[
+  {"id":"interval-widening","kind":"negative","tla_invariant":"IntervalWideningRejected","alloy_assertion":"IntervalWideningRejected","marker":"INTERVAL WIDENING NEGATIVE PASS"},
+  {"id":"interval-hole-filling","kind":"negative","tla_invariant":"IntervalHoleFillingRejected","alloy_assertion":"HoleFillingRejected","marker":"INTERVAL HOLE FILLING NEGATIVE PASS"},
+  {"id":"wildcard-expansion","kind":"negative","tla_invariant":"WildcardExpansionRejected","alloy_assertion":"WildcardExpansionRejected","marker":"WILDCARD EXPANSION NEGATIVE PASS"},
+  {"id":"temporal-window-widening","kind":"negative","tla_invariant":"TemporalWideningRejected","alloy_assertion":"TemporalWideningRejected","marker":"TEMPORAL WINDOW WIDENING NEGATIVE PASS"},
+  {"id":"context-weakening","kind":"negative","tla_invariant":"ContextWeakeningRejected","alloy_assertion":"ContextWeakeningRejected","marker":"CONTEXT WEAKENING NEGATIVE PASS"},
+  {"id":"normalization-equivalence","kind":"positive","tla_invariant":"NormalizationEquivalenceAccepted","alloy_assertion":"CanonicalAggregate","marker":"NORMALIZATION PASS: syntax differs while denotation is preserved for canonical aliases"},
+  {"id":"non-equivalent-normalization","kind":"negative","tla_invariant":"NormalizationNonEquivalentRejected","alloy_assertion":"NormalizationNonEquivalentRejected","marker":"NON EQUIVALENT NORMALIZATION NEGATIVE PASS"},
+  {"id":"deny-set-deletion","kind":"negative","tla_invariant":"DenyDeletionRejected","alloy_assertion":"DenyDeletionRejected","marker":"DENY SET DELETION NEGATIVE PASS"},
+  {"id":"conflict-rule-substitution","kind":"negative","tla_invariant":"ConflictRuleSubstitutionRejected","alloy_assertion":"ConflictSubstitutionRejected","marker":"CONFLICT RULE SUBSTITUTION NEGATIVE PASS"},
+  {"id":"unknown-extension-treated-as-subsumed","kind":"negative","tla_invariant":"UnknownExtensionRejected","alloy_assertion":"UnknownExtensionRejected","marker":"UNKNOWN EXTENSION TREATED AS SUBSUMED NEGATIVE PASS"},
+  {"id":"unsupported-compound-extension","kind":"negative","tla_invariant":"CompoundExtensionRejected","alloy_assertion":"CompoundExtensionRejected","marker":"UNSUPPORTED COMPOUND EXTENSION NEGATIVE PASS"}
+ ]
 }
