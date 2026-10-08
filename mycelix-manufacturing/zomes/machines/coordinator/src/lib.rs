@@ -304,8 +304,8 @@ pub fn create_machine_transition_approval(
         authority_hash: input.authority_hash.clone(),
         controller_agent: authority.controller_agent.clone(),
         predecessor_action: head_action.clone(),
-        new_status: input.new_status,
-        work_order_hash: input.work_order_hash,
+        new_status: input.new_status.clone(),
+        work_order_hash: input.work_order_hash.clone(),
         valid_from: input.valid_from,
         valid_until: input.valid_until,
         issuer_signature: sign(
