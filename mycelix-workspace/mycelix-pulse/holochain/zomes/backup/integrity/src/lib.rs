@@ -371,7 +371,7 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
             // No entry type in this zome has a real update_entry call anywhere in the
             // coordinator (confirmed via direct grep) -- reject outright rather than leave
@@ -382,7 +382,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
             "Backup entries cannot be updated".to_string(),
         )),
         _ => Ok(ValidateCallbackResult::Valid),
@@ -391,11 +391,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<CreateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::BackupManifest(manifest) => {
-            if manifest.agent != action.author {
+            if manifest.agent != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Backup agent must match author".to_string(),
                 ));
@@ -431,7 +431,7 @@ fn validate_create_entry(
                     "manifest_hash entry must decode as BackupManifest".to_string()
                 )))?;
 
-            if manifest.agent != action.author {
+            if manifest.agent != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "BackupChunk's manifest is not owned by the chunk's committer".to_string(),
                 ));
@@ -445,7 +445,7 @@ fn validate_create_entry(
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::RestoreOperation(restore) => {
-            if restore.agent != action.author {
+            if restore.agent != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Restore agent must match author".to_string(),
                 ));
@@ -456,7 +456,7 @@ fn validate_create_entry(
             // Bind to its committer -- set_backup_schedule already overrides `.agent` from
             // agent_info() coordinator-side despite taking the whole struct as raw input,
             // so this never rejects a legitimate schedule (P0 author-binding gap).
-            if schedule.agent != action.author {
+            if schedule.agent != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Backup schedule agent must match author".to_string(),
                 ));
