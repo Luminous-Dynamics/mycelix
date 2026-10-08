@@ -507,7 +507,7 @@ def main() -> int:
         "qualified",
     ))
 
-    node = anchored_c02(classification_epoch="t2") if False else anchored_c02()
+    node = anchored_c02()
     node["classification_epoch"] = "t2"
     node["commitment"] = classification_commitment(node)
     identity_cases.append((
