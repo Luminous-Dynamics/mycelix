@@ -163,7 +163,7 @@ fn validate_create_status_log(
             "machine status action author is not an authorized controller".into(),
         ));
     }
-    if action.timestamp() < authority.valid_from || action.timestamp() > authority.valid_until {
+    if !authority_valid_at(&authority, action.timestamp()) {
         return Ok(ValidateCallbackResult::Invalid(
             "machine status action falls outside controller authority validity".into(),
         ));
@@ -254,6 +254,13 @@ fn machine_control_fields_changed(
         || original.last_status_authority_hash != updated.last_status_authority_hash
 }
 
+fn authority_valid_at(
+    authority: &MachineControllerAuthorityEntry,
+    timestamp: Timestamp,
+) -> bool {
+    authority.valid_from <= timestamp && timestamp <= authority.valid_until
+}
+
 fn validate_update_entry(
     original_action_hash: ActionHash,
     action: TypedAction<UpdateData>,
@@ -312,9 +319,7 @@ fn validate_update_entry(
                         "machine update author is not an authorized controller".into(),
                     ));
                 }
-                if action.timestamp() < authority.valid_from
-                    || action.timestamp() > authority.valid_until
-                {
+                if !authority_valid_at(&authority, action.timestamp()) {
                     return Ok(ValidateCallbackResult::Invalid(
                         "machine update falls outside controller authority validity".into(),
                     ));
@@ -356,6 +361,21 @@ mod content_restriction_tests {
             last_status_authority_hash: None,
             registered_at: Timestamp::from_micros(0),
         }
+    }
+
+    #[test]
+    fn authority_validity_is_inclusive() {
+        let authority = MachineControllerAuthorityEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            controller_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            valid_from: Timestamp::from_micros(100),
+            valid_until: Timestamp::from_micros(200),
+        };
+
+        assert!(authority_valid_at(&authority, Timestamp::from_micros(100)));
+        assert!(authority_valid_at(&authority, Timestamp::from_micros(200)));
+        assert!(!authority_valid_at(&authority, Timestamp::from_micros(99)));
+        assert!(!authority_valid_at(&authority, Timestamp::from_micros(201)));
     }
 
     #[test]
