@@ -151,6 +151,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "require_signed_predicate_subject_binding": True,
         "require_verified_timestamp": True,
         "require_verified_tlog": True,
+        "max_report_bytes": 4194304,
     }
     assert policy["lock_graph"] == {
         "required_registry_source": "registry+https://github.com/rust-lang/crates.io-index",
