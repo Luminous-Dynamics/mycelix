@@ -310,43 +310,132 @@ def require_step_execution_modes(lines_: list[str], description: str) -> None:
 
 
 def require_no_duplicate_github_output_keys(lines_: list[str], description: str) -> None:
-    """Reject duplicate literal output keys within a single step's GITHUB_OUTPUT sink."""
+    """Reject duplicate or statically-unbound keys written to a GITHUB_OUTPUT sink."""
     current_name = None
     counts = {}
+    python_output_var = None
+    heredoc_delimiter = None
+    heredoc_body = []
+    sink_seen = False
+
+    def reset_state() -> None:
+        nonlocal counts, python_output_var, heredoc_delimiter, heredoc_body, sink_seen
+        counts = {}
+        python_output_var = None
+        heredoc_delimiter = None
+        heredoc_body = []
+        sink_seen = False
+
+    def record_key(key: str) -> None:
+        counts[key] = counts.get(key, 0) + 1
+
+    def record_literal_keys(text: str) -> int:
+        found = 0
+        literals = re.findall(r'"(.*?)"', text) + re.findall(r"'(.*?)'", text)
+        for literal in literals:
+            for key in re.findall(r'(?:^|\\n)([A-Za-z0-9_-]+)(?:=|<<[A-Za-z0-9_-]+)', literal):
+                record_key(key)
+                found += 1
+        return found
+
+    def record_plain_key(text: str) -> int:
+        matches = re.findall(r'^(?:\\s*)([A-Za-z0-9_-]+)(?:=|<<[A-Za-z0-9_-]+)', text)
+        for key in matches:
+            record_key(key)
+        return len(matches)
+
+    def finish_heredoc() -> None:
+        nonlocal heredoc_delimiter, heredoc_body
+        literal_keys = sum(record_plain_key(body_line.strip()) for body_line in heredoc_body)
+        if literal_keys == 0:
+            fail(f"{description}: GITHUB_OUTPUT heredoc under {current_name!r} contains no statically visible output key")
+        heredoc_delimiter = None
+        heredoc_body = []
 
     def flush() -> None:
+        nonlocal current_name
         if current_name is None:
             return
+        if heredoc_delimiter is not None:
+            fail(f"{description}: unterminated GITHUB_OUTPUT heredoc under {current_name!r}")
+        if python_output_var is not None:
+            fail(f"{description}: unterminated Python GITHUB_OUTPUT sink under {current_name!r}")
+        if sink_seen and not counts:
+            fail(f"{description}: GITHUB_OUTPUT sink under {current_name!r} has no statically visible output key")
         duplicates = sorted(key for key, count in counts.items() if count > 1)
         if duplicates:
             fail(f"{description}: duplicate GITHUB_OUTPUT keys under {current_name!r}: {duplicates!r}")
 
-    def record_literals(line: str) -> None:
-        literals = re.findall(r'"(.*?)"', line) + re.findall(r"'(.*?)'", line)
-        for literal in literals:
-            for key in re.findall(r'(?:^|\\n)([A-Za-z0-9_-]+)=', literal):
-                counts[key] = counts.get(key, 0) + 1
-
+    reset_state()
     for line in lines_:
-        step_match = re.match(r"^\s{6}- name: (.+)$", line)
+        step_match = re.match(r"^\\s{6}- name: (.+)$", line)
         if step_match:
             flush()
             current_name = step_match.group(1)
-            counts = {}
+            reset_state()
             continue
-        if re.match(r"^\s{6}- ", line):
+        if re.match(r"^\\s{6}- ", line):
             flush()
             current_name = None
-            counts = {}
+            reset_state()
             continue
         if current_name is None:
             continue
-        if "GITHUB_OUTPUT" in line and "printf " in line:
-            record_literals(line)
-        elif "output.write(" in line:
-            record_literals(line)
+
+        stripped = line.strip()
+
+        if heredoc_delimiter is not None:
+            if stripped == heredoc_delimiter:
+                finish_heredoc()
+            else:
+                heredoc_body.append(line)
+            continue
+
+        if python_output_var is not None:
+            if stripped == "PY":
+                python_output_var = None
+                continue
+            if re.search(rf"\\b{re.escape(python_output_var)}\\.write\\(", stripped):
+                sink_seen = True
+                if record_literal_keys(stripped) == 0:
+                    fail(f"{description}: Python GITHUB_OUTPUT writer under {current_name!r} has no statically visible output key")
+            continue
+
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        if "GITHUB_OUTPUT" not in line:
+            continue
+
+        python_match = re.search(
+            r'open\\(\\s*os\\.environ\\["GITHUB_OUTPUT"\\]\\s*,\\s*["\'](?:a|ab)["\'][^)]*\\)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:',
+            stripped,
+        )
+        if python_match:
+            sink_seen = True
+            python_output_var = python_match.group(1)
+            continue
+
+        shell_command_match = re.search(r"\\b(printf|echo|cat)\\b", stripped)
+        if shell_command_match:
+            heredoc_match = re.search(
+                r'<<-?\\s*["\']?([A-Za-z_][A-Za-z0-9_]*)["\']?\\s+.*\\$GITHUB_OUTPUT',
+                stripped,
+            )
+            if heredoc_match and shell_command_match.group(1) == "cat":
+                sink_seen = True
+                heredoc_delimiter = heredoc_match.group(1)
+                heredoc_body = []
+                continue
+            sink_seen = True
+            if record_literal_keys(stripped) == 0:
+                fail(f"{description}: {shell_command_match.group(1)} GITHUB_OUTPUT writer under {current_name!r} has no statically visible output key")
+            continue
+
+        fail(f"{description}: unrecognized GITHUB_OUTPUT sink under {current_name!r}: {stripped!r}")
 
     flush()
+
 def require_no_duplicate_step_keys(lines_: list[str], description: str) -> None:
     current_name = None
     counts = {}
@@ -1258,6 +1347,42 @@ def main() -> None:
             s1_sha,
         ),
         "duplicate GITHUB_OUTPUT key introduced within one S1 step",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'              output.write(f"candidate_pr={pr_number}\\n")\\n',
+                b'              output.write(f"candidate_pr={pr_number}\\n")\\n              output.write(f"candidate_pr={pr_number}\\n")\\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "duplicate GITHUB_OUTPUT key hidden in a multiline Python writer",
+    )
+    expect_rejection(
+        lambda: require_no_duplicate_github_output_keys(
+            [
+                "      - name: heredoc output sink",
+                "          cat <<'EOF' >> \\"$GITHUB_OUTPUT\\"",
+                "          result=one",
+                "          result=two",
+                "          EOF",
+            ],
+            "synthetic heredoc regression",
+        ),
+        "duplicate GITHUB_OUTPUT key hidden in a shell heredoc",
+    )
+    expect_rejection(
+        lambda: require_no_duplicate_github_output_keys(
+            [
+                "      - name: dynamic output sink",
+                "          value='result=one'",
+                "          echo \\"$value\\" >> \\"$GITHUB_OUTPUT\\"",
+            ],
+            "synthetic dynamic-sink regression",
+        ),
+        "dynamic GITHUB_OUTPUT sink without statically visible key",
     )
 
     expect_rejection(
