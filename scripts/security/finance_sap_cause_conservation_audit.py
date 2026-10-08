@@ -51,6 +51,9 @@ for tree in TREES:
         if "initialize_sap_balance(input.member_did" in body:
             errors.append(f"{coord}: credit_sap still auto-creates recipient balance roots")
 
+    if "follow_update_chain_strict" not in csrc:
+        errors.append(f"{coord}: SAP balance lookup must use strict conflict-free update traversal")
+
     if not re.search(
         r"pub fn transfer_sap\([\s\S]*?credit_sap\(CreditSapInput\{?[\s\S]{0,1200}?justified_by\s*:\s*Some\(",
         csrc,
