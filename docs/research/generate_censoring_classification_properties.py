@@ -65,6 +65,14 @@ def revision_node(policy_sha: str, revision: str = "1", classification_epoch: st
     return node
 
 
+def foreign_revision_node(policy_sha: str, revision: str = "1") -> dict:
+    node = revision_node(policy_sha, revision=revision)
+    node["id"] = "c99"
+    node["claim_scope_anchor"] = FOREIGN_SCOPE_ANCHOR
+    node["commitment"] = classification_commitment(node)
+    return node
+
+
 def add_valid_revision(policy_sha: str) -> list[list[object]]:
     return [
         ["add_node", revision_node(policy_sha)],
@@ -232,7 +240,7 @@ def main() -> int:
         ["set_node", "c01", "commitment", altered_c01["commitment"]],
     ], "unresolved"))
     scope_identity_mutations.append(([
-        ["add_node", revision_node(policy_sha, revision="1") | {"id": "c99", "claim_scope_anchor": FOREIGN_SCOPE_ANCHOR}],
+        ["add_node", foreign_revision_node(policy_sha)],
         ["add_edge", ["attempts", "c99", "uses"]],
         ["add_edge", ["c99", "a01", "classifies"]],
         ["add_edge", ["c99", "p01", "frozen_by"]],
@@ -248,7 +256,7 @@ def main() -> int:
         ["reverse_collection", "nodes"], ["reverse_collection", "edges"],
     ], "unresolved"))
     scope_identity_mutations.append(([
-        ["add_node", revision_node(policy_sha, revision="1", classification_epoch="t0", frozen_epoch="t0") | {"id": "c99", "claim_scope_anchor": FOREIGN_SCOPE_ANCHOR}],
+        ["add_node", foreign_revision_node(policy_sha)],
         ["add_edge", ["attempts", "c99", "uses"]],
         ["add_edge", ["c99", "a01", "classifies"]],
         ["add_edge", ["c99", "p01", "frozen_by"]],
