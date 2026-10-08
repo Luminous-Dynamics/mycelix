@@ -90,3 +90,59 @@ jobs:
             "$image" \
             python3 scripts/integral/evaluate_d6u_trusted_verifier_independently.py \
               --candidate-root /candidate
+
+      - name: Write attempt-bound evaluation receipt
+        if: success()
+        env:
+          EXPECTED_CANDIDATE_SHA: ${{ steps.validate.outputs.sha }}
+          EXPECTED_EVALUATOR_BLOB: f34fa20c118e391d42c80cda3b24ba050576e412
+          EXPECTED_TRUSTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "Luminous-Dynamics/mycelix"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TRUSTED_SHA"
+          [[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          observed_evaluator_blob="$(git rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
+          test "$observed_evaluator_blob" = "$EXPECTED_EVALUATOR_BLOB"
+          observed_candidate_sha="$(git -C _candidate rev-parse HEAD)"
+          test "$observed_candidate_sha" = "$EXPECTED_CANDIDATE_SHA"
+          candidate_verifier_blob="$(git -C _candidate rev-parse HEAD:scripts/integral/verify_d6u_trusted_artifacts.py)"
+          candidate_policy_blob="$(git -C _candidate rev-parse HEAD:docs/integral/d6u-trusted-builder-policy.json)"
+          {
+            printf '%s\n' "record_schema=d6u-independent-verifier-evaluation/v1"
+            printf '%s\n' "status=passed"
+            printf 'repository=%s\n' "$GITHUB_REPOSITORY"
+            printf 'candidate_sha=%s\n' "$observed_candidate_sha"
+            printf 'candidate_verifier_blob_sha=%s\n' "$candidate_verifier_blob"
+            printf 'candidate_policy_blob_sha=%s\n' "$candidate_policy_blob"
+            printf 'trusted_evaluator_blob_sha=%s\n' "$observed_evaluator_blob"
+            printf 'trusted_source_commit_sha=%s\n' "$EXPECTED_TRUSTED_SHA"
+            printf 'workflow_file_commit_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+            printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+            printf 'run_attempt=%s\n' "$GITHUB_RUN_ATTEMPT"
+            printf '%s\n' "claim_ceiling=ReferenceModelOnly"
+            printf '%s\n' "evaluation_scope=policy-schema-and-trigger-executor-run-binding"
+            printf '%s\n' "container_image=python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4"
+          } > d6u-independent-verifier-result.txt
+          receipt_sha256="$(sha256sum d6u-independent-verifier-result.txt | cut -d ' ' -f 1)"
+          {
+            echo "### D6U independent verifier evaluation"
+            echo
+            echo "- Candidate SHA: `$observed_candidate_sha`"
+            echo "- Candidate verifier blob: `$candidate_verifier_blob`"
+            echo "- Candidate policy blob: `$candidate_policy_blob`"
+            echo "- Trusted evaluator blob: `$observed_evaluator_blob`"
+            echo "- Workflow file commit: `$GITHUB_WORKFLOW_SHA`"
+            echo "- Run: `$GITHUB_RUN_ID`, attempt `$GITHUB_RUN_ATTEMPT`"
+            echo "- Claim ceiling: `ReferenceModelOnly`"
+            echo "- Receipt SHA-256: `$receipt_sha256`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload attempt-bound evaluation receipt
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6u-independent-verifier-${{ steps.validate.outputs.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: d6u-independent-verifier-result.txt
+          if-no-files-found: error
+          retention-days: 30
