@@ -154,6 +154,16 @@ pub enum ExecutionStatus {
     Failed,
 }
 
+/// The proof/evidence references for one exact prepared action.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionResolutionBindingV1 {
+    pub attempt_identity: String,
+    pub action_key_digest: String,
+    pub terminal_evidence_digest: String,
+    pub authorization_admission_proof_digest: String,
+    pub final_provider_entry_proof_digest: String,
+}
+
 /// Immutable host-side terminal resolution attestation.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -163,13 +173,8 @@ pub struct ExecutionResolution {
     pub timelock_id: String,
     pub proposal_id: String,
     pub executor: String,
-    pub attempt_identities: Vec<String>,
-    pub action_key_digests: Vec<String>,
-    pub terminal_evidence_digests: Vec<String>,
     #[serde(default)]
-    pub authorization_admission_proof_digests: Vec<String>,
-    #[serde(default)]
-    pub final_provider_entry_proof_digests: Vec<String>,
+    pub bindings: Vec<ExecutionResolutionBindingV1>,
     pub outcome: ExecutionResolutionOutcome,
     pub resolved_at: Timestamp,
 }
@@ -446,48 +451,37 @@ fn is_tagged_digest(value: &str, prefix: &str) -> bool {
 }
 
 pub fn check_execution_resolution_bindings(
-    attempt_identities: &[String],
-    action_key_digests: &[String],
-    terminal_evidence_digests: &[String],
-    authorization_admission_proof_digests: &[String],
-    final_provider_entry_proof_digests: &[String],
+    bindings: &[ExecutionResolutionBindingV1],
 ) -> Result<(), String> {
-    if attempt_identities.is_empty()
-        || action_key_digests.is_empty()
-        || terminal_evidence_digests.is_empty()
-    {
-        return Err("Resolution requires attempt and terminal evidence bindings".into());
+    if bindings.is_empty() {
+        return Err("Resolution requires at least one action/evidence binding".into());
     }
-    if attempt_identities.len() > MAX_EXECUTION_RESOLUTION_BINDINGS {
+    if bindings.len() > MAX_EXECUTION_RESOLUTION_BINDINGS {
         return Err(format!(
             "Resolution exceeds maximum binding count of {}",
             MAX_EXECUTION_RESOLUTION_BINDINGS
         ));
     }
-    if attempt_identities.len() != action_key_digests.len()
-        || attempt_identities.len() != terminal_evidence_digests.len()
-        || attempt_identities.len() != authorization_admission_proof_digests.len()
-        || attempt_identities.len() != final_provider_entry_proof_digests.len()
-    {
-        return Err("Resolution binding vectors must have equal lengths".into());
-    }
-    if attempt_identities
-        .iter()
-        .any(|v| !is_tagged_digest(v, EXECUTION_ATTEMPT_IDENTITY_PREFIX))
-        || action_key_digests
-            .iter()
-            .any(|v| !is_tagged_digest(v, EXECUTION_ACTION_KEY_PREFIX))
-        || terminal_evidence_digests
-            .iter()
-            .any(|v| !is_tagged_digest(v, EXECUTION_TERMINAL_EVIDENCE_PREFIX))
-        || authorization_admission_proof_digests
-            .iter()
-            .any(|v| !is_tagged_digest(v, EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX))
-        || final_provider_entry_proof_digests
-            .iter()
-            .any(|v| !is_tagged_digest(v, EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX))
-    {
-        return Err("Resolution bindings must use canonical digest namespaces".into());
+
+    for binding in bindings {
+        if !is_tagged_digest(
+            &binding.attempt_identity,
+            EXECUTION_ATTEMPT_IDENTITY_PREFIX,
+        ) || !is_tagged_digest(
+            &binding.action_key_digest,
+            EXECUTION_ACTION_KEY_PREFIX,
+        ) || !is_tagged_digest(
+            &binding.terminal_evidence_digest,
+            EXECUTION_TERMINAL_EVIDENCE_PREFIX,
+        ) || !is_tagged_digest(
+            &binding.authorization_admission_proof_digest,
+            EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX,
+        ) || !is_tagged_digest(
+            &binding.final_provider_entry_proof_digest,
+            EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX,
+        ) {
+            return Err("Resolution binding fields must use canonical digest namespaces".into());
+        }
     }
     Ok(())
 }
@@ -510,13 +504,7 @@ pub fn check_create_execution_resolution(
     {
         return Err("Resolution identifiers are required".into());
     }
-    check_execution_resolution_bindings(
-        &resolution.attempt_identities,
-        &resolution.action_key_digests,
-        &resolution.terminal_evidence_digests,
-        &resolution.authorization_admission_proof_digests,
-        &resolution.final_provider_entry_proof_digests,
-    )?;
+    check_execution_resolution_bindings(&resolution.bindings)?;
     Ok(())
 }
 
@@ -1173,79 +1161,57 @@ mod tests {
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
             executor: "did:key:z6Mk".into(),
-            attempt_identities: vec![format!(
-                "{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}",
-                "e".repeat(64)
-            )],
-            action_key_digests: vec![format!(
-                "{EXECUTION_ACTION_KEY_PREFIX}{}",
-                "a".repeat(64)
-            )],
-            terminal_evidence_digests: vec![format!(
-                "{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}",
-                "b".repeat(64)
-            )],
-            authorization_admission_proof_digests: vec![format!(
-                "{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}",
-                "c".repeat(64)
-            )],
-            final_provider_entry_proof_digests: vec![format!(
-                "{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}",
-                "d".repeat(64)
-            )],
+            bindings: vec![ExecutionResolutionBindingV1 {
+                attempt_identity: format!(
+                    "{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}",
+                    "e".repeat(64)
+                ),
+                action_key_digest: format!(
+                    "{EXECUTION_ACTION_KEY_PREFIX}{}",
+                    "a".repeat(64)
+                ),
+                terminal_evidence_digest: format!(
+                    "{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}",
+                    "b".repeat(64)
+                ),
+                authorization_admission_proof_digest: format!(
+                    "{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}",
+                    "c".repeat(64)
+                ),
+                final_provider_entry_proof_digest: format!(
+                    "{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}",
+                    "d".repeat(64)
+                ),
+            }],
             outcome: ExecutionResolutionOutcome::Executed,
             resolved_at: ts(4_000_000),
         };
         assert!(check_create_execution_resolution(&valid).is_ok());
 
-        let mut bad = valid.clone();
-        bad.terminal_evidence_digests.clear();
-        assert!(check_create_execution_resolution(&bad).is_err());
+        let mut missing_bindings = valid.clone();
+        missing_bindings.bindings.clear();
+        assert!(check_create_execution_resolution(&missing_bindings).is_err());
 
         let mut bad_auth_root = valid.clone();
-        bad_auth_root.authorization_admission_proof_digests[0] =
+        bad_auth_root.bindings[0].authorization_admission_proof_digest =
             "not-a-canonical-root".into();
         assert!(check_create_execution_resolution(&bad_auth_root).is_err());
 
         let mut bad_final_root = valid.clone();
-        bad_final_root.final_provider_entry_proof_digests[0] =
+        bad_final_root.bindings[0].final_provider_entry_proof_digest =
             "not-a-canonical-root".into();
         assert!(check_create_execution_resolution(&bad_final_root).is_err());
 
         let mut uppercase_digest = valid.clone();
-        uppercase_digest.action_key_digests[0] =
+        uppercase_digest.bindings[0].action_key_digest =
             format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "A".repeat(64));
         assert!(check_create_execution_resolution(&uppercase_digest).is_err());
 
-        let binding_count = MAX_EXECUTION_RESOLUTION_BINDINGS + 1;
-        let action_roots = vec![
-            format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "a".repeat(64));
-            binding_count
+        let too_many_bindings = vec![
+            valid.bindings[0].clone();
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
         ];
-        let attempt_roots = vec![
-            format!("{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}", "b".repeat(64));
-            binding_count
-        ];
-        let terminal_roots = vec![
-            format!("{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}", "c".repeat(64));
-            binding_count
-        ];
-        let authorization_roots = vec![
-            format!("{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}", "d".repeat(64));
-            binding_count
-        ];
-        let final_entry_roots = vec![
-            format!("{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}", "e".repeat(64));
-            binding_count
-        ];
-        assert!(check_execution_resolution_bindings(
-            &attempt_roots,
-            &action_roots,
-            &terminal_roots,
-            &authorization_roots,
-            &final_entry_roots,
-        )
-        .is_err());
+        assert!(check_execution_resolution_bindings(&too_many_bindings).is_err());
     }
 
     // ---- Veto override result tests ----
