@@ -745,7 +745,12 @@ pub trait DurableActionFenceStore {
         owner_token_digest: &str,
         claim_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError> {
-        self.mark_invoked(action_key, attempt_identity, owner_token_digest, claim_token_digest)
+        self.mark_invoked_with_claim(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+        )
     }
 
     fn atomically_release_after_failed(
@@ -1192,6 +1197,20 @@ impl AtomicActionFenceModelV1 {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.transition_state(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            AttemptRecordState::Invoked,
+        )
+    }
+
+    pub fn mark_invoked_with_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
         claim_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError> {
         let claim = self
@@ -1220,6 +1239,9 @@ impl AtomicActionFenceModelV1 {
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
     ) -> Result<String, ActionFenceMutationError> {
+        if self.provider_entry_claims.contains_key(attempt_identity.digest()) {
+            return Err(ActionFenceMutationError::ProviderEntryClaimed);
+        }
         self.transition_state(
             action_key,
             attempt_identity,
