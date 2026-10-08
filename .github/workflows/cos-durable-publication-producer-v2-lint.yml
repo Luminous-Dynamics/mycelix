@@ -63,6 +63,12 @@ jobs:
           assert 'required_durability_profile' in text
           assert 'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1' in text
           assert 'activation_rule' in text
+          assert 'expected_handoff' in text
+          assert 'verifier_run_attempt' in text
+          assert 'attestor_run_attempt' in text
+          assert 'publication_handoff_sha256' in text
+          assert 'cancel-in-progress: false' in text
+          assert 'concurrency:' in text
           assert 'Reconcile candidate trust root and signer workflow' in text
           assert 'build_asset asset-a.tar.gz' in publish
           assert 'build_asset asset-b.tar.gz' in publish
