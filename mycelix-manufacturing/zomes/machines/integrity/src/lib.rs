@@ -49,7 +49,12 @@ pub enum MachineTemporalEvidenceResolution {
 pub fn resolve_temporal_evidence(
     mut evidence: Vec<MachineTemporalEvidenceObservation>,
 ) -> MachineTemporalEvidenceResolution {
-    evidence.sort_by_key(|observation| observation.attested_at.as_micros());
+    evidence.sort_by(|left, right| {
+        left.attested_at
+            .as_micros()
+            .cmp(&right.attested_at.as_micros())
+            .then_with(|| left.attestation_hash.get_raw_36().cmp(right.attestation_hash.get_raw_36()))
+    });
     match evidence.as_slice() {
         [] => MachineTemporalEvidenceResolution::NoEvidence,
         [first, rest @ ..]
@@ -1132,7 +1137,7 @@ mod content_restriction_tests {
         let a = temporal_observation(1, 7, 100);
         let b = temporal_observation(2, 8, 100);
         assert_eq!(
-            resolve_temporal_evidence(vec![a.clone(), b.clone()]),
+            resolve_temporal_evidence(vec![b.clone(), a.clone()]),
             MachineTemporalEvidenceResolution::Unique {
                 time: Timestamp::from_micros(100),
                 evidence: vec![a, b],
