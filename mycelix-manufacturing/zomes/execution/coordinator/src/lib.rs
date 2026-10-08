@@ -379,6 +379,12 @@ pub fn get_execution(hash: ActionHash) -> ExternResult<Option<Record>> {
     get(hash, GetOptions::default())
 }
 
+/// Get an inspection criterion by action hash.
+#[hdk_extern]
+pub fn get_inspection_criterion(hash: ActionHash) -> ExternResult<Option<Record>> {
+    get(hash, GetOptions::default())
+}
+
 /// Get a capability contract by action hash.
 #[hdk_extern]
 pub fn get_capability_contract(hash: ActionHash) -> ExternResult<Option<Record>> {
