@@ -22,6 +22,7 @@ TW_PATH = ".github/workflows/fpm-trusted-qualification.yml"
 IW_PATH = ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
 WORKFLOW_PATH = Path(__file__).parents[2] / ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
 COLLECTOR = Path(__file__).with_name("collect_fpm_trusted_artifacts.py")
+COLLECTOR_MODULE = "collect_fpm_trusted_artifacts"
 MANIFEST = "crates/fpm-wasm-artifact-identity/Cargo.toml"
 MANIFEST_SHA = "c94b53f61ed8a9bfb6249b1b339550dddd074d6c"
 
@@ -131,6 +132,10 @@ def snapshot(root: Path) -> None:
         "terminal_page": 1,
         "artifact_identity_sha256": hashlib.sha256(cjson(identities)).hexdigest(),
         "complete": True,
+        "repeat_enumeration_verified": True,
+        "repeat_total_count_reported": 2,
+        "repeat_page_counts": [2],
+        "repeat_artifact_identity_sha256": hashlib.sha256(cjson(identities)).hexdigest(),
     }
     write(root / "artifact-enumeration.json", enumeration)
 
@@ -299,6 +304,43 @@ def main() -> None:
             text=True, capture_output=True, check=False,
         )
         assert result.returncode != 0, "duplicate artifact identity crossed pages without rejection"
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(COLLECTOR_MODULE, COLLECTOR)
+    assert spec and spec.loader
+    collector = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(collector)
+
+    calls = 0
+    def dynamic_page(page):
+        nonlocal_calls = None
+        return (2, [
+            {"id": 1, "name": "artifact-a"},
+            {"id": 2 if calls < 2 else 3, "name": "artifact-b"},
+        ]) if page == 1 else (2, [])
+
+    class Counter:
+        value = 0
+
+    counter = Counter()
+    def divergent_page(page):
+        counter.value += 1
+        second_pass = counter.value > 1
+        item_id = 2 if not second_pass else 3
+        if page == 1:
+            return 2, [
+                {"id": 1, "name": "artifact-a"},
+                {"id": item_id, "name": "artifact-b"},
+            ]
+        return 2, []
+
+    try:
+        collector.enumerate_consistent_artifacts(divergent_page)
+    except SystemExit as exc:
+        assert "identity sequence changed" in str(exc)
+    else:
+        raise AssertionError("divergent repeat enumeration was accepted")
 
 
     print("FPM reference-verifier adversarial corpus: PASS")
