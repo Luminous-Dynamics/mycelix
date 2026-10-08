@@ -1,0 +1,515 @@
+name: COS Durable Publication Producer
+
+on:
+  workflow_dispatch:
+    inputs:
+      attestor_run_id:
+        description: Exact successful COS qualification attestor run to publish
+        required: true
+        type: string
+      expected_main_sha:
+        description: Exact main revision the attestor run must represent
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  prepare:
+    name: Prepare deterministic durable publication
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      release_tag: ${{ steps.publish_prep.outputs.release_tag }}
+      release_id: ${{ steps.publish_prep.outputs.release_id }}
+      asset_name: ${{ steps.publish_prep.outputs.asset_name }}
+      asset_sha256: ${{ steps.publish_prep.outputs.asset_sha256 }}
+      claim_id: ${{ steps.publish_prep.outputs.claim_id }}
+    steps:
+      - name: Checkout exact producer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Validate repository identity and inputs
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${EXPECTED_MAIN_SHA}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${EXPECTED_REPOSITORY_ID}" = "1176351975"
+
+      - name: Verify immutable-release capability
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${COS_RELEASE_ADMIN_TOKEN}" || {
+            echo "COS_RELEASE_ADMIN_TOKEN is required for immutable-release administration read/write" >&2
+            exit 1
+          }
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/immutable-releases" > immutable-release-capability.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('immutable-release-capability.json').read_text())
+          assert data.get('enabled') is True
+          PY
+
+      - name: Read attestor run and exact artifact
+        id: source
+        env:
+          RUN_ID: ${{ inputs.attestor_run_id }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${RUN_ID}" | grep -Eq '^[0-9]+$'
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > attestor-run.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" > attestor-artifacts.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          run=json.loads(Path('attestor-run.json').read_text())
+          assert run['id'] == int(os.environ['RUN_ID'])
+          assert run['status'] == 'completed'
+          assert run['conclusion'] == 'success'
+          assert run['path'] == '.github/workflows/cos-conformance-qualification-attestor.yml'
+          assert run['head_sha'] == os.environ['EXPECTED_MAIN_SHA']
+          artifact_name=f"cos-conformance-qualification-attestation-{run['head_sha']}"
+          data=json.loads(Path('attestor-artifacts.json').read_text())
+          matches=[a for a in data['artifacts'] if a.get('name') == artifact_name]
+          assert len(matches) == 1
+          artifact=matches[0]
+          assert artifact['expired'] is False
+          assert artifact['size_in_bytes'] > 0
+          assert isinstance(artifact.get('digest'), str) and artifact['digest'].startswith('sha256:')
+          Path('attestor-source.json').write_text(json.dumps({
+              'run_id': run['id'],
+              'run_attempt': run['run_attempt'],
+              'head_sha': run['head_sha'],
+              'workflow_path': run['path'],
+              'artifact_name': artifact_name,
+              'artifact_id': artifact['id'],
+              'artifact_digest': artifact['digest'],
+          },indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Download exact attestor artifact
+        env:
+          RUN_ID: ${{ inputs.attestor_run_id }}
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          rm -rf source-artifact
+          mkdir -p source-artifact
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh run download "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --name "$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('attestor-source.json').read_text())['artifact_name'])
+          PY
+          )" --dir source-artifact
+
+      - name: Extract and validate source evidence
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          rm -rf durable-source
+          mkdir -p durable-source
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          source=Path('source-artifact')
+          names=[
+              'qualification-manifest-v1.json',
+              'qualification-attestation-predicate-v3.json',
+              'attestor-run-receipt.json',
+              'qualification-attestation-bundle.json',
+          ]
+          for name in names:
+              matches=list(source.rglob(name))
+              assert len(matches) == 1, (name, [str(p) for p in matches])
+              shutil.copyfile(matches[0], Path('durable-source')/name)
+
+          def strict(path):
+              def reject(pairs):
+                  out={}
+                  for key,value in pairs:
+                      if key in out:
+                          raise ValueError(f'duplicate JSON key: {key}')
+                      out[key]=value
+                  return out
+              return json.loads(path.read_text(), object_pairs_hook=reject, parse_constant=lambda v: (_ for _ in ()).throw(ValueError(v)))
+
+          receipt=strict(Path('durable-source/attestor-run-receipt.json'))
+          predicate=strict(Path('durable-source/qualification-attestation-predicate-v3.json'))
+          manifest_raw=Path('durable-source/qualification-manifest-v1.json').read_bytes()
+          manifest=strict(Path('durable-source/qualification-manifest-v1.json'))
+          bundle=Path('durable-source/qualification-attestation-bundle.json')
+          bundle_sha=hashlib.sha256(bundle.read_bytes()).hexdigest()
+          manifest_sha=hashlib.sha256(manifest_raw).hexdigest()
+          predicate_sha=hashlib.sha256(Path('durable-source/qualification-attestation-predicate-v3.json').read_bytes()).hexdigest()
+          assert predicate['schema'] == 'MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3'
+          assert predicate['qualification_manifest_sha256'] == manifest_sha
+          assert receipt['schema'] == 'MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3'
+          assert receipt['qualification_manifest_sha256'] == manifest_sha
+          assert receipt['predicate_sha256'] == predicate_sha
+          assert receipt['attestation']['bundle_sha256'] == bundle_sha
+          assert receipt['repository'] == os.environ['GITHUB_REPOSITORY']
+          assert receipt['repository_id'] == 1176351975
+          assert receipt['qualification_topology']['head_sha'] == os.environ['EXPECTED_MAIN_SHA']
+          assert receipt['trust_root']['status'] == 'candidate_not_authoritative_until_protected_adoption'
+          assert receipt['attestor']['workflow_ref'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
+          assert len(receipt['qualification_claim_id']) == 64
+          Path('source-facts.json').write_text(json.dumps({
+              'claim_id': receipt['qualification_claim_id'],
+              'manifest_sha256': manifest_sha,
+              'predicate_sha256': predicate_sha,
+              'bundle_sha256': bundle_sha,
+              'attestor_workflow_sha': receipt['attestor']['workflow_sha'],
+              'attestor_workflow_ref': receipt['attestor']['workflow_ref'],
+              'trust_root_manifest_sha256': receipt['trust_root']['manifest_sha256'],
+              'trust_root_manifest_blob_sha1': receipt['trust_root']['manifest_blob_sha1'],
+          },indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Reconcile signer workflow with exact trust root
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          signer_sha="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('source-facts.json').read_text())['attestor_workflow_sha'])
+          PY
+          )"
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=${signer_sha}" > signer-workflow.json
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          def strict(path):
+              data=json.loads(Path(path).read_text())
+              return data
+          root_api=strict('trust-root.json')
+          signer_api=strict('signer-workflow.json')
+          root=base64.b64decode(''.join(root_api['content'].splitlines()),validate=True)
+          signer=base64.b64decode(''.join(signer_api['content'].splitlines()),validate=True)
+          Path('expected-trust-root.json').write_bytes(root)
+          Path('attestor-workflow.yml').write_bytes(signer)
+          root_obj=json.loads(root.decode('utf-8'))
+          component=root_obj['components']['qualification_attestor_workflow']
+          blob_sha1=subprocess.check_output(['git','hash-object','--stdin'],input=signer).decode().strip()
+          content_sha256=hashlib.sha256(signer).hexdigest()
+          assert component['path'] == '.github/workflows/cos-conformance-qualification-attestor.yml'
+          assert component['git_blob_sha1'] == blob_sha1
+          assert component['content_sha256'] == content_sha256
+          facts=json.loads(Path('source-facts.json').read_text())
+          Path('source-facts.json').write_text(json.dumps({**facts,'attestor_workflow_git_blob_sha1':blob_sha1,'attestor_workflow_content_sha256':content_sha256},indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Create immutable-release draft
+        id: draft
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          claim_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('source-facts.json').read_text())['claim_id'])
+          PY
+          )"
+          release_tag="cos-qualification-${claim_id}"
+          if git ls-remote --exit-code --refs origin "refs/tags/${release_tag}" >/dev/null 2>&1; then
+            echo "release tag already exists: ${release_tag}" >&2
+            exit 1
+          fi
+          if GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "release already exists: ${release_tag}" >&2
+            exit 1
+          fi
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release create "${release_tag}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${EXPECTED_MAIN_SHA}" \
+            --title "COS Qualification ${claim_id}" \
+            --notes "Candidate-only content-addressed COS publication. Claim ceiling remains ReferenceModelOnly; no authority is granted by publication alone." \
+            --draft
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,targetCommitish > draft-release.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          data=json.loads(Path('draft-release.json').read_text())
+          assert data['tagName'].startswith('cos-qualification-')
+          assert data['isDraft'] is True
+          assert data['targetCommitish'] == os.environ['EXPECTED_MAIN_SHA']
+          print(f"release_id={data['id']}")
+          print(f"release_tag={data['tagName']}")
+          PY
+
+      - name: Build deterministic durable asset
+        id: package
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          claim_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('source-facts.json').read_text())['claim_id'])
+          PY
+          )"
+          release_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('draft-release.json').read_text())['id'])
+          PY
+          )"
+          release_tag="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('draft-release.json').read_text())['tagName'])
+          PY
+          )"
+          asset_name="cos-durable-${claim_id}.tar.gz"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          facts=json.loads(Path('source-facts.json').read_text())
+          files={name:hashlib.sha256((Path('durable-source')/name).read_bytes()).hexdigest() for name in [
+              'qualification-manifest-v1.json',
+              'qualification-attestation-predicate-v3.json',
+              'attestor-run-receipt.json',
+              'qualification-attestation-bundle.json',
+          ]}
+          release=json.loads(Path('draft-release.json').read_text())
+          manifest={
+              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1',
+              'repository':os.environ['GITHUB_REPOSITORY'],
+              'repository_id':1176351975,
+              'release_tag':release['tagName'],
+              'release_id':release['id'],
+              'asset_name':os.environ['ASSET_NAME'] if 'ASSET_NAME' in os.environ else '',
+              'expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],
+              'qualification_claim_id':facts['claim_id'],
+              'qualification_manifest_sha256':facts['manifest_sha256'],
+              'predicate_type':'https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1',
+              'publication_profile':'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1',
+              'claim_ceiling':'ReferenceModelOnly',
+              'trust_root_manifest_blob_sha1':facts['trust_root_manifest_blob_sha1'],
+              'trust_root_manifest_sha256':facts['trust_root_manifest_sha256'],
+              'attestor_workflow_path':facts['attestor_workflow_ref'],
+              'attestor_workflow_sha':facts['attestor_workflow_sha'],
+              'signed_attestation_bundle_sha256':facts['bundle_sha256'],
+              'files':files,
+          }
+          Path('durable-source/durable-publication-manifest-v1.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          PY
+          ASSET_NAME="${asset_name}" python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          path=Path('durable-source/durable-publication-manifest-v1.json')
+          data=json.loads(path.read_text())
+          expected='cos-durable-'+data['qualification_claim_id']+'.tar.gz'
+          assert os.environ['ASSET_NAME'] == expected
+          assert data['asset_name'] == '' or data['asset_name'] == expected
+          data['asset_name']=expected
+          path.write_text(json.dumps(data,indent=2,sort_keys=True)+'\n')
+          PY
+          chmod 0644 durable-source/*.json
+          LC_ALL=C sha256sum \
+            durable-source/qualification-manifest-v1.json \
+            durable-source/qualification-attestation-predicate-v3.json \
+            durable-source/attestor-run-receipt.json \
+            durable-source/qualification-attestation-bundle.json \
+            durable-source/durable-publication-manifest-v1.json \
+            > durable-source/SHA256SUMS
+          asset_name="${asset_name}" tar -C durable-source --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - \
+            durable-publication-manifest-v1.json \
+            qualification-manifest-v1.json \
+            qualification-attestation-predicate-v3.json \
+            attestor-run-receipt.json \
+            qualification-attestation-bundle.json \
+            SHA256SUMS | gzip -n > "${asset_name}"
+          sha256sum "${asset_name}" | awk '{print $1}' > asset.sha256
+          test "$(gzip -t "${asset_name}"; echo $?)" = 0
+          ASSET_NAME="${asset_name}" RELEASE_TAG="${release_tag}" RELEASE_ID="${release_id}" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          print(f"asset_name={os.environ['ASSET_NAME']}")
+          print(f"release_tag={os.environ['RELEASE_TAG']}")
+          print(f"release_id={os.environ['RELEASE_ID']}")
+          PY
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release upload "${release_tag}" "${asset_name}" --repo "${GITHUB_REPOSITORY}"
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json assets > draft-release-with-asset.json
+          ASSET_NAME="${asset_name}" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          data=json.loads(Path('draft-release-with-asset.json').read_text())
+          matches=[a for a in data['assets'] if a.get('name')==os.environ['ASSET_NAME']]
+          assert len(matches)==1
+          assert matches[0].get('state')=='uploaded'
+          assert matches[0].get('digest','').startswith('sha256:')
+          PY
+          echo "${asset_name}" > prepared-asset-name.txt
+          cat asset.sha256 > prepared-asset-sha256.txt
+
+      - name: Export publication outputs
+        id: publish_prep
+        env:
+          ASSET_NAME: ${{ steps.package.outputs.asset_name }}
+        run: |
+          set -euo pipefail
+          claim_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('source-facts.json').read_text())['claim_id'])
+          PY
+          )"
+          release_tag="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('draft-release.json').read_text())['tagName'])
+          PY
+          )"
+          release_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('draft-release.json').read_text())['id'])
+          PY
+          )"
+          asset_name="$(cat prepared-asset-name.txt)"
+          asset_sha256="$(cat prepared-asset-sha256.txt)"
+          echo "claim_id=${claim_id}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${release_tag}" >> "$GITHUB_OUTPUT"
+          echo "release_id=${release_id}" >> "$GITHUB_OUTPUT"
+          echo "asset_name=${asset_name}" >> "$GITHUB_OUTPUT"
+          echo "asset_sha256=${asset_sha256}" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish and prove immutable release
+    needs: prepare
+    runs-on: ubuntu-24.04
+    environment: cos-durable-publication
+    timeout-minutes: 15
+    steps:
+      - name: Validate immutable-release capability again
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/immutable-releases" > immutable-release-capability.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          assert json.loads(Path('immutable-release-capability.json').read_text()).get('enabled') is True
+          PY
+
+      - name: Revalidate draft release and asset before publish
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_ASSET_NAME: ${{ needs.prepare.outputs.asset_name }}
+          EXPECTED_ASSET_SHA256: ${{ needs.prepare.outputs.asset_sha256 }}
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,targetCommitish,assets > draft-release-final-check.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          data=json.loads(Path('draft-release-final-check.json').read_text())
+          assert data['tagName']==os.environ['RELEASE_TAG']
+          assert data['isDraft'] is True
+          assert data['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
+          matches=[a for a in data['assets'] if a.get('name')==os.environ['EXPECTED_ASSET_NAME'] and a.get('state')=='uploaded']
+          assert len(matches)==1
+          expected='sha256:'+os.environ['EXPECTED_ASSET_SHA256']
+          assert matches[0]['digest']==expected
+          PY
+
+      - name: Publish release
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false
+
+      - name: Prove immutable release and release attestation
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,publishedAt > published-release.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('published-release.json').read_text())
+          assert data['isDraft'] is False
+          assert data['isImmutable'] is True
+          assert data['publishedAt']
+          PY
+          status=1
+          for _ in 1 2 3 4 5; do
+            if GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release verify "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --format json > release-attestation-verification.json; then
+              status=0
+              break
+            fi
+            sleep 5
+          done
+          test "${status}" = 0
+
+      - name: Prove final release asset
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          ASSET_NAME: ${{ needs.prepare.outputs.asset_name }}
+        run: |
+          set -euo pipefail
+          rm -rf final-asset
+          mkdir final-asset
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --pattern "${ASSET_NAME}" --dir final-asset
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release verify-asset "${RELEASE_TAG}" "final-asset/${ASSET_NAME}" --repo "${GITHUB_REPOSITORY}" --format json > release-asset-attestation-verification.json
+          final_sha256="$(sha256sum "final-asset/${ASSET_NAME}" | awk '{print $1}')"
+          test "${final_sha256}" = "${{ needs.prepare.outputs.asset_sha256 }}"
+
+      - name: Preserve final publication receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a0 # v7.0.1
+        with:
+          name: cos-durable-publication-receipt-${{ needs.prepare.outputs.claim_id }}
+          path: |
+            published-release.json
+            release-attestation-verification.json
+            release-asset-attestation-verification.json
+          if-no-files-found: error
+          retention-days: 30
