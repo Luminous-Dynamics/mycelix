@@ -98,7 +98,6 @@ jobs:
           CALLED_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
           CALLED_WORKFLOW_FILE_PATH: ${{ job.workflow_file_path }}
           TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}
-          INVOCATION_SOURCE: ${{ inputs.invocation_source }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
         shell: bash
         run: |
