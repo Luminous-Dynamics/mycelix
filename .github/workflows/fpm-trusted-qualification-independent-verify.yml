@@ -248,6 +248,50 @@ jobs:
           )
           PY
 
+      - name: Validate and materialize raw evidence members
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          import json
+          from pathlib import Path
+
+          verifier_path = Path("scripts/integral/verify_fpm_trusted_qualification.py")
+          spec = importlib.util.spec_from_file_location("fpm_reference_verifier", verifier_path)
+          if not spec or not spec.loader:
+              raise SystemExit("unable to load reference verifier")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          artifacts = json.loads(Path("snapshot/artifacts.json").read_text(encoding="utf-8"))["artifacts"]
+          receipt = next(
+              item for item in artifacts
+              if item.get("name", "").startswith("fpm-trusted-qualification-")
+              and not item.get("name", "").startswith("fpm-trusted-qualification-index-")
+          )
+          index = next(
+              item for item in artifacts
+              if item.get("name", "").startswith("fpm-trusted-qualification-index-")
+          )
+
+          module.verify_raw_artifact_archive(
+              Path("snapshot/raw/receipt.zip"),
+              "qualification-receipt.json",
+              receipt["digest"],
+              receipt["size_in_bytes"],
+              Path("snapshot/qualification-receipt.json"),
+              "receipt",
+          )
+          module.verify_raw_artifact_archive(
+              Path("snapshot/raw/index.zip"),
+              "artifact-binding-index.json",
+              index["digest"],
+              index["size_in_bytes"],
+              Path("snapshot/artifact-binding-index.json"),
+              "index",
+          )
+          PY
+
       - name: Extract evidence targets with strict JSON parser
       - name: Extract evidence targets with strict JSON parser
         id: target
