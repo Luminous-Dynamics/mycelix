@@ -44,7 +44,8 @@ sig EffectContext {
 sig EffectAdmission {
   decision: one Decision,
   context: one EffectContext,
-  authorized: one Bit
+  authorized: one Bit,
+  recordedDecisionId: one DecisionId
 }
 
 pred basicDecision[dec: Decision, ctx: EffectContext] {
@@ -56,7 +57,8 @@ fun matchingDecision[c: EffectContext, d: Decision]: one Decision { d }
 
 fact DecisionIdentityBound {
   all e: EffectAdmission |
-    e.decision.id = e.decision.id
+    e.authorized = On implies
+      e.recordedDecisionId = e.decision.id
 }
 
 fact AuthorityEpochBound {
@@ -116,6 +118,7 @@ pred ValidEffectAdmissionWitness {
   some e: EffectAdmission, d: Decision, c: EffectContext |
     e.decision = d and
     e.context = c and
+    e.recordedDecisionId = d.id and
     e.authorized = On and
     d.authorityEpoch = c.authorityEpoch and
     d.requestCommitment = c.requestCommitment and
@@ -126,6 +129,21 @@ pred ValidEffectAdmissionWitness {
     TimeOrder/lte[d.issuedAt, c.now] and
     TimeOrder/lt[c.now, d.capability.expiry] and
     TimeOrder/lt[c.now, d.validityUntil]
+}
+
+pred DecisionIdentitySubstitutionWitness {
+  some e: EffectAdmission |
+    e.authorized = On and
+    e.recordedDecisionId != e.decision.id and
+    e.context.authorityEpoch = e.decision.authorityEpoch and
+    e.context.requestCommitment = e.decision.requestCommitment and
+    e.context.target = e.decision.target and
+    e.context.policyEpoch = e.decision.policyEpoch and
+    e.context.adapter = e.decision.adapter and
+    e.context.invocation = e.decision.invocation and
+    TimeOrder/lte[e.decision.issuedAt, e.context.now] and
+    TimeOrder/lt[e.context.now, e.decision.capability.expiry] and
+    TimeOrder/lt[e.context.now, e.decision.validityUntil]
 }
 
 pred AuthorityEpochSubstitutionWitness {
@@ -243,6 +261,7 @@ pred DecisionHorizonWitness {
 assert DecisionToEffectAuthorityStillBound {
   all e: EffectAdmission |
     e.authorized = On implies
+      e.recordedDecisionId = e.decision.id and
       e.context.authorityEpoch = e.decision.authorityEpoch and
       e.context.requestCommitment = e.decision.requestCommitment and
       e.context.target = e.decision.target and
@@ -254,6 +273,9 @@ assert DecisionToEffectAuthorityStillBound {
       TimeOrder/lt[e.context.now, e.decision.validityUntil]
 }
 
+assert DecisionIdentityBound {
+  all e: EffectAdmission | e.authorized = On implies e.recordedDecisionId = e.decision.id
+}
 assert AuthorityEpochBound {
   all e: EffectAdmission | e.authorized = On implies e.context.authorityEpoch = e.decision.authorityEpoch
 }
@@ -280,6 +302,11 @@ assert DecisionHorizonCurrentAtEffect {
 }
 
 run ValidEffectAdmissionWitness
+  for 12 but 2 Resource, 2 Action, 2 Audience, 6 Time,
+  2 Capability, 4 Decision, 4 EffectContext, 4 EffectAdmission,
+  4 DecisionId, 4 Epoch, 4 RequestCommitment, 4 Target, 4 PolicyEpoch, 4 Adapter, 4 Invocation, 4 Agent
+
+run DecisionIdentitySubstitutionWitness
   for 12 but 2 Resource, 2 Action, 2 Audience, 6 Time,
   2 Capability, 4 Decision, 4 EffectContext, 4 EffectAdmission,
   4 DecisionId, 4 Epoch, 4 RequestCommitment, 4 Target, 4 PolicyEpoch, 4 Adapter, 4 Invocation, 4 Agent
@@ -325,6 +352,11 @@ run DecisionHorizonWitness
   4 DecisionId, 4 Epoch, 4 RequestCommitment, 4 Target, 4 PolicyEpoch, 4 Adapter, 4 Invocation, 4 Agent
 
 check DecisionToEffectAuthorityStillBound
+  for 12 but 2 Resource, 2 Action, 2 Audience, 6 Time,
+  2 Capability, 4 Decision, 4 EffectContext, 4 EffectAdmission,
+  4 DecisionId, 4 Epoch, 4 RequestCommitment, 4 Target, 4 PolicyEpoch, 4 Adapter, 4 Invocation, 4 Agent
+
+check DecisionIdentityBound
   for 12 but 2 Resource, 2 Action, 2 Audience, 6 Time,
   2 Capability, 4 Decision, 4 EffectContext, 4 EffectAdmission,
   4 DecisionId, 4 Epoch, 4 RequestCommitment, 4 Target, 4 PolicyEpoch, 4 Adapter, 4 Invocation, 4 Agent
