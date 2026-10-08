@@ -394,9 +394,9 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
                                 ))));
                             }
 
-                            // Defense-in-depth: verify committee scope covers this proposal type.
-                            // Fetch the committee to check its scope against the proposal.
-                            if let Ok(ZomeCallResponse::Ok(committee_io)) = call(
+                            // Committee scope is part of authorization. Retrieval,
+                            // decoding, and an unknown/custom scope therefore fail closed.
+                            let committee_response = call(
                                 CallTargetCell::Local,
                                 ZomeName::from("threshold_signing"),
                                 FunctionName::from("get_committee"),
@@ -404,46 +404,61 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
                                 ExternIO::encode(sig.committee_id.clone()).map_err(|e| {
                                     wasm_error!(WasmErrorInner::Guest(e.to_string()))
                                 })?,
-                            ) {
-                                if let Ok(Some(committee_record)) =
-                                    committee_io.decode::<Option<Record>>()
-                                {
-                                    // Decode scope from committee via mirror struct
-                                    if let Ok(Some(committee_mirror)) = committee_record
-                                        .entry()
-                                        .to_app_option::<CommitteeScopeMirror>(
-                                    ) {
-                                        // Infer proposal type from signed_content_description
-                                        // Format: "proposal:MIP-001" or "constitutional:CA-001" etc.
-                                        let proposal_type = sig
-                                            .signed_content_description
-                                            .split(':')
-                                            .next()
-                                            .unwrap_or("unknown");
+                            )?;
 
-                                        let scope_name =
-                                            extract_scope_name(&committee_mirror.scope);
-
-                                        let scope_allows = match scope_name {
-                                            "All" => true,
-                                            "Constitutional" => proposal_type == "constitutional",
-                                            "Treasury" => proposal_type == "treasury",
-                                            "Protocol" => proposal_type == "protocol",
-                                            _ => true, // Custom or unknown — permissive
-                                        };
-
-                                        if !scope_allows {
-                                            return Err(wasm_error!(WasmErrorInner::Guest(
-                                                format!(
-                                                    "Committee '{}' scope '{}' does not authorize signing '{}' proposals",
-                                                    sig.committee_id, scope_name, proposal_type
-                                                )
-                                            )));
-                                        }
-                                    }
+                            let committee_io = match committee_response {
+                                ZomeCallResponse::Ok(io) => io,
+                                other => {
+                                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                                        "Committee lookup failed for '{}': {:?}; execution withheld",
+                                        sig.committee_id, other
+                                    ))));
                                 }
+                            };
+
+                            let committee_record: Option<Record> = committee_io
+                                .decode()
+                                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                                    "Failed to decode committee '{}': {}; execution withheld",
+                                    sig.committee_id, e
+                                ))))?
+                                .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+                                    "Committee '{}' not found; execution withheld",
+                                    sig.committee_id
+                                ))))?;
+
+                            let committee_mirror = committee_record
+                                .entry()
+                                .to_app_option::<CommitteeScopeMirror>()
+                                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                                    "Failed to decode committee scope '{}': {}; execution withheld",
+                                    sig.committee_id, e
+                                ))))?
+                                .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+                                    "Committee '{}' has no decodable scope; execution withheld",
+                                    sig.committee_id
+                                ))))?;
+
+                            let proposal_type = sig
+                                .signed_content_description
+                                .split(':')
+                                .next()
+                                .unwrap_or("unknown");
+                            let scope_name = extract_scope_name(&committee_mirror.scope);
+                            let scope_allows = match scope_name {
+                                "All" => true,
+                                "Constitutional" => proposal_type == "constitutional",
+                                "Treasury" => proposal_type == "treasury",
+                                "Protocol" => proposal_type == "protocol",
+                                _ => false,
+                            };
+
+                            if !scope_allows {
+                                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                                    "Committee '{}' scope '{}' does not authorize signing '{}' proposals",
+                                    sig.committee_id, scope_name, proposal_type
+                                ))));
                             }
-                            // Committee lookup and scope decoding are required authorization inputs; failure is fail-closed.
 
                             // Emit audit signal with signature details
                             let _ = emit_signal(serde_json::json!({
