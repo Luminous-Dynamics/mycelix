@@ -145,6 +145,26 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'ExecutionResolutionBindingV1' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: proof roots are not grouped into typed per-action bindings."
+            exit 1
+          }
+
+          grep -Fq 'bindings: Vec<ExecutionResolutionBindingV1>' "$executor" || {
+            echo "NOT QUALIFIED: coordinator input does not use typed per-action bindings."
+            exit 1
+          }
+
+          grep -Fq 'recordPreparedExecutionResolution' 'mycelix-workspace/sdk-ts/src/clients/governance/execution.ts' || {
+            echo "NOT QUALIFIED: SDK has no typed prepared-resolution API."
+            exit 1
+          }
+
+          grep -Fq 'should submit typed proof-root bindings as one tuple per action' 'mycelix-workspace/sdk-ts/src/clients/governance/__tests__/execution.test.ts' || {
+            echo "NOT QUALIFIED: SDK typed proof-root serialization lacks regression coverage."
+            exit 1
+          }
+
           grep -Fq 'test_validate_actions_reports_exact_action_count_and_rejects_empty_batches' "$executor" || {
             echo "NOT QUALIFIED: action parser lacks empty-batch/cardinality coverage."
             exit 1
