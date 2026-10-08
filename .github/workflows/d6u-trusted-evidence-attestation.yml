@@ -58,7 +58,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "59"
+          TRUSTED_POLICY_VERSION: "61"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -324,7 +324,7 @@ EOF
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "59"
+          TRUSTED_POLICY_VERSION: "61"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
