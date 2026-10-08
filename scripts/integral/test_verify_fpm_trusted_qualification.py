@@ -325,8 +325,14 @@ def assert_evidence_archive_contract() -> None:
     assert "--mount type=bind,src=\"${TARGET_CLOSURE_FILE}\",dst=/tmp/fpm-target-closure.tsv,readonly" in workflow
     assert workflow.count("- name: Extract evidence targets with strict JSON parser") == 1
     assert "root_config_hits=\"$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)\"" in workflow
-    assert "test ! -e .cargo/config" in workflow
-    assert "test ! -e .cargo/config.toml" in workflow
+    assert "test ! -L .cargo" in workflow
+    assert "test ! -L ../.cargo" in workflow
+    assert "for config_path in .cargo/config .cargo/config.toml ../.cargo/config ../.cargo/config.toml; do" in workflow
+    assert 'test ! -e "$config_path"' in workflow
+    assert 'test ! -L "$config_path"' in workflow
+    assert 'if "patch" in lock or "replace" in lock:' in workflow
+    assert 'test ! -e "$CARGO_HOME/config"' in workflow
+    assert 'test ! -L "$CARGO_HOME/config.toml"' in workflow
     assert "config_hit=\"$(git ls-files | grep -E" not in workflow
     
 
