@@ -38,6 +38,7 @@ pub struct CapabilityContractEntry {
     pub tolerance_um: Option<u32>,
     pub supported_protocols: Vec<String>,
     pub qualification: CapabilityQualification,
+    pub qualification_evidence_hashes: Vec<ActionHash>,
     pub created_at: Timestamp,
 }
 
@@ -210,6 +211,16 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                     "envelope and tolerance values must be > 0 when provided".into(),
                 ));
             }
+            if matches!(c.qualification, CapabilityQualification::Qualified)
+                && c.qualification_evidence_hashes.is_empty()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Qualified capability requires qualification evidence".into(),
+                ));
+            }
+            for hash in &c.qualification_evidence_hashes {
+                must_get_valid_record(hash.clone())?;
+            }
         }
         EntryTypes::ExecutionReceipt(e) => {
             if e.operation_sequence == 0 {
@@ -250,6 +261,20 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 ));
             }
             if matches!(e.disposition, Disposition::Accepted)
+                && e.process_parameters_hash.is_none()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "accepted execution requires a process-parameter hash".into(),
+                ));
+            }
+            if matches!(e.disposition, Disposition::Accepted)
+                && (e.bom_hash.is_none() || e.routing_hash.is_none())
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "accepted execution requires BOM and routing references".into(),
+                ));
+            }
+            if matches!(e.disposition, Disposition::Accepted)
                 && e.measurement_hashes.is_empty()
             {
                 return Ok(ValidateCallbackResult::Invalid(
@@ -286,10 +311,11 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                     ));
                 }
                 if matches!(e.disposition, Disposition::Accepted)
-                    && !matches!(contract.qualification, CapabilityQualification::Qualified)
+                    && (!matches!(contract.qualification, CapabilityQualification::Qualified)
+                        || contract.qualification_evidence_hashes.is_empty())
                 {
                     return Ok(ValidateCallbackResult::Invalid(
-                        "accepted execution requires a Qualified capability contract".into(),
+                        "accepted execution requires a Qualified capability contract with evidence".into(),
                     ));
                 }
             }
@@ -332,10 +358,24 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                     .entry()
                     .to_app_option()
                     .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
-                if measurement.is_none() {
+                let Some(measurement) = measurement else {
                     return Ok(ValidateCallbackResult::Invalid(
                         "execution measurement reference is not a measurement record".into(),
                     ));
+                };
+                if let Some(lower) = measurement.lower_bound {
+                    if measurement.value < lower {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "execution measurement is below its declared lower bound".into(),
+                        ));
+                    }
+                }
+                if let Some(upper) = measurement.upper_bound {
+                    if measurement.value > upper {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "execution measurement is above its declared upper bound".into(),
+                        ));
+                    }
                 }
             }
 
