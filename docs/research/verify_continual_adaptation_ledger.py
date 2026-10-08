@@ -73,6 +73,19 @@ def contains_non_ascii(value: object) -> bool:
     return False
 
 
+def edge_schema_valid(edge: list[object], nodes: dict[str, dict], policy: dict) -> bool:
+    constraints = [
+        rule
+        for rule in policy.get("edge_schema_constraints", [])
+        if rule["relation"] == edge[2]
+    ]
+    return any(
+        nodes[edge[0]].get("type") in rule["source_types"]
+        and nodes[edge[1]].get("type") in rule["target_types"]
+        for rule in constraints
+    )
+
+
 def semantic_normalize(graph: dict, policy: dict) -> dict | None:
     if policy["graph_canonicalization"].get("string_policy") == "ASCII-only" and contains_non_ascii(graph):
         return None
@@ -88,6 +101,8 @@ def semantic_normalize(graph: dict, policy: dict) -> dict | None:
             or edge[0] not in nodes
             or edge[1] not in nodes
         ):
+            return None
+        if not edge_schema_valid(edge, nodes, policy):
             return None
         if not edge_schema_valid(edge, nodes, policy):
             return None
@@ -163,6 +178,8 @@ def validate_graph_structure(graph: dict, policy: dict) -> bool:
             or edge[0] not in nodes
             or edge[1] not in nodes
         ):
+            return False
+        if not edge_schema_valid(edge, nodes, policy):
             return False
         key = tuple(edge)
         if policy["graph_canonicalization"]["reject_duplicate_edges"] and key in seen_edges:
