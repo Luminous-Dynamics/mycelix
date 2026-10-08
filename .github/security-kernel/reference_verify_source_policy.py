@@ -22,6 +22,8 @@ S2 = ".github/workflows/security-kernel-trusted-result-verifier.yml"
 RETENTION = ".github/security-kernel/reference_verify_evidence_retention_binding.py"
 EXECUTION = ".github/security-kernel/reference_verify_execution_binding.py"
 POLICY = ".github/security-kernel/reference_verify_source_policy.py"
+EGRESS_BROKER = ".github/security-kernel/github_egress_proxy.py"
+EGRESS_BROKER_BLOB_SHA = "b288278af2e2c821eda8acb52c705229b97a0d84"
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 UPLOAD = "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
@@ -55,6 +57,7 @@ TARGET_TMPFS_PROFILE = "--tmpfs /target:rw,nosuid,nodev,size=8g,nr_inodes=600000
 S1_STEPS = (
     "Checkout trusted qualification root",
     "Verify trusted pull-request-target invocation",
+    "Prepare trusted GitHub egress broker",
     "Resolve exact candidate source",
     "Static trust-surface audit",
     "Snapshot exact candidate source identity",
@@ -887,10 +890,10 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
             fail(f"S1 candidate source resource ceiling missing: {required!r}")
     if "source_copy_pipeline_status" in joined or "bounded_source_archive" in joined:
         fail("S1 obsolete host archive/staging pipeline residue detected")
-    if exact_count(l, '--label "security-kernel.run=$GITHUB_RUN_ID"') != 6:
-        fail("S1 every Docker container creation must carry an exact run ownership label")
-    if exact_count(l, '--label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT"') != 6:
-        fail("S1 every Docker container creation must carry an exact attempt ownership label")
+    if exact_count(l, '--label "security-kernel.run=$GITHUB_RUN_ID"') != 11:
+        fail("S1 trusted Docker/network ownership label census mismatch")
+    if exact_count(l, '--label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT"') != 11:
+        fail("S1 trusted Docker/network ownership label census mismatch")
     if exact_count(l, VENDOR_VOLUME_CREATE) != 1:
         fail("S1 vendor resource volume create profile mismatch")
     if exact_count(l, VENDOR_VOLUME_RW) != 1:
@@ -963,6 +966,22 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 negative-control transcript capture must declare a 64 KiB host-storage ceiling")
     if 'git config --global http.followRedirects false' not in joined:
         fail("S1 hostile Git transport must disable HTTP redirects")
+    if 'EGRESS_BROKER_BLOB_SHA: "b288278af2e2c821eda8acb52c705229b97a0d84"' not in joined:
+        fail("S1 trusted egress broker blob pin missing")
+    for required in (
+        'docker network create --driver bridge --internal --ipv6=false',
+        'docker network create --driver bridge --ipv6=false',
+        'docker network connect --alias egress-broker "$EGRESS_INTERNAL_NETWORK" "$EGRESS_BROKER_NAME"',
+        '--network "$EGRESS_INTERNAL_NETWORK"',
+        '-c http.proxy=http://egress-broker:$EGRESS_BROKER_PORT',
+        '-c https.proxy=http://egress-broker:$EGRESS_BROKER_PORT',
+        'probe("example.com:443").startswith(b"HTTP/1.1 403")',
+        'probe("github.com:444").startswith(b"HTTP/1.1 403")',
+        'probe("github.com:443").startswith(b"HTTP/1.1 200")',
+        'security-kernel final teardown network removal failed',
+    ):
+        if required not in joined:
+            fail(f"S1 trusted egress broker control missing: {required!r}")
     if 'qualification_invocation_source=$INVOCATION_SOURCE' not in joined:
         fail("S1 receipt invocation-source binding missing")
     if "capture_negative_controls_output() {" not in joined:
@@ -1190,7 +1209,7 @@ def main() -> None:
     if set(snapshot) != {"schema", "files"} or snapshot["schema"] != SCHEMA:
         fail("source-policy snapshot schema mismatch")
     files = snapshot["files"]
-    expected = {"s0": S0, "s1": S1, "s2": S2, "retention": RETENTION, "execution": EXECUTION, "policy": POLICY}
+    expected = {"s0": S0, "s1": S1, "s2": S2, "retention": RETENTION, "execution": EXECUTION, "policy": POLICY, "egress_broker": EGRESS_BROKER}
     if set(files) != set(expected):
         fail("source-policy file census mismatch")
     raw = {
@@ -1203,6 +1222,8 @@ def main() -> None:
     execution_sha = files["execution"]["sha"]
     verify_s0(raw["s0"], s1_sha)
     verify_s1(raw["s1"], s1_sha)
+    if files["egress_broker"]["sha"] != EGRESS_BROKER_BLOB_SHA:
+        fail("egress broker blob is outside the registered trusted profile")
     verify_s2(raw["s2"], s0_sha, s1_sha, retention_sha, execution_sha, files["policy"]["sha"])
     verify_execution(raw["execution"])
     verify_retention(raw["retention"])
@@ -2075,7 +2096,7 @@ def main() -> None:
         "schema": SCHEMA,
         "policy_result": "verified",
         "workflow_file_count": 3,
-        "reference_file_count": 3,
+        "reference_file_count": 4,
         "action_pins_verified": 3,
         "exact_job_topologies_verified": 3,
         "exact_trigger_topologies_verified": 3,
