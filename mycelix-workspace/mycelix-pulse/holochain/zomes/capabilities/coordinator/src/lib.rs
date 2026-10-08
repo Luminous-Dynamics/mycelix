@@ -67,8 +67,27 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
     // Use secret bytes directly as the hash (32 bytes from random source is sufficient)
     let secret_hash = secret.to_vec();
 
+    // Create the conductor-level grant first and retain its exact action hash.
+    // The enclosing zome call is transactional, so a later application-entry
+    // failure cannot leave an orphaned grant behind.
+    let functions = determine_granted_functions(&input.access_type)?;
+    let secret_arr: [u8; 64] = {
+        let mut arr = [0u8; 64];
+        let bytes = secret.clone().into_vec();
+        arr[..bytes.len().min(64)].copy_from_slice(&bytes[..bytes.len().min(64)]);
+        arr
+    };
+    let system_grant_action_hash = create_cap_grant(CapGrantEntry {
+        tag: id.clone(),
+        access: CapAccess::Assigned {
+            secret: CapSecret::from(secret_arr),
+            assignees: BTreeSet::from([input.grantee.clone()]),
+        },
+        functions,
+    })?;
+
     let capability = MailboxCapability {
-        id: id.clone(),
+        id,
         grantor: my_agent.clone(),
         grantee: input.grantee.clone(),
         access_type: input.access_type.clone(),
@@ -78,6 +97,7 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         expires_at: input.expires_at,
         revoked: false,
         revocation_reason: None,
+        system_grant_action_hash: Some(system_grant_action_hash),
         secret_hash,
     };
 
@@ -98,23 +118,6 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         LinkTypes::AgentToReceivedCapabilities,
         LinkTag::new(format!("from:{}", my_agent)),
     )?;
-
-    // Also create Holochain capability grant for zome function access
-    let functions = determine_granted_functions(&input.access_type)?;
-    let secret_arr: [u8; 64] = {
-        let mut arr = [0u8; 64];
-        let bytes = secret.into_vec();
-        arr[..bytes.len().min(64)].copy_from_slice(&bytes[..bytes.len().min(64)]);
-        arr
-    };
-    create_cap_grant(CapGrantEntry {
-        tag: id,
-        access: CapAccess::Assigned {
-            secret: CapSecret::from(secret_arr),
-            assignees: BTreeSet::from([input.grantee.clone()]),
-        },
-        functions,
-    })?;
 
     // Signal to grantee
     let signal = CapabilitySignal::CapabilityGranted {
@@ -179,7 +182,28 @@ pub fn revoke_capability(input: (ActionHash, Option<String>)) -> ExternResult<Ac
         )));
     }
 
-    // Mark as revoked
+    // Idempotent revoke: once both layers are revoked there is nothing
+    // further to do. Returning the existing app-entry hash also avoids attempting
+    // to delete the same system grant twice.
+    if capability.revoked {
+        return Ok(cap_hash);
+    }
+
+    let system_grant_action_hash = capability.system_grant_action_hash.clone().ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Capability has no bound Holochain grant; refusing to claim conductor-level revocation for a legacy record"
+                .to_string(),
+        )),
+    )?;
+
+    // Revoke the actual conductor-level grant before updating application state.
+    // delete_cap_grant is the authoritative operation that makes subsequent
+    // capability-authenticated zome calls fail.
+    delete_cap_grant(system_grant_action_hash)?;
+
+    // Mark the application capability revoked only after the system grant has
+    // successfully been deleted. If either operation fails, the enclosing zome
+    // call rolls back rather than leaving the two security layers inconsistent.
     capability.revoked = true;
     capability.revocation_reason = reason.clone();
 
@@ -187,10 +211,6 @@ pub fn revoke_capability(input: (ActionHash, Option<String>)) -> ExternResult<Ac
         cap_hash.clone(),
         EntryTypes::MailboxCapability(capability.clone()),
     )?;
-
-    // NOTE: delete_cap_grant in HDK 0.6 takes ActionHash, not CapSecret.
-    // The capability is already marked revoked=true above, which is the authoritative check.
-    // TODO: Track cap grant ActionHash at creation time to enable proper deletion here.
 
     // Signal to grantee
     let signal = CapabilitySignal::CapabilityRevoked {
@@ -245,21 +265,55 @@ pub fn verify_capability(input: (ActionHash, AuditAction)) -> ExternResult<bool>
         }
     }
 
-    // Check if action is permitted
-    let permitted = match action {
-        AuditAction::ReadEmail => capability.permissions.can_read,
-        AuditAction::SendEmail => capability.permissions.can_send,
-        AuditAction::DeleteEmail => capability.permissions.can_delete,
-        AuditAction::MoveEmail => capability.permissions.can_move,
-        AuditAction::CreateFolder => capability.permissions.can_create_folders,
-        AuditAction::AccessAttachment => capability.permissions.can_view_attachments,
-        AuditAction::ModifySettings => capability.permissions.can_modify_settings,
-        AuditAction::GrantCapability => capability.permissions.can_delegate,
-        AuditAction::ModifyTrust => capability.permissions.can_modify_trust,
-        _ => true, // Default allow for non-specific actions
-    };
+    Ok(is_action_permitted(&capability.permissions, &action))
+}
 
-    Ok(permitted)
+fn is_action_permitted(permissions: &MailboxPermissions, action: &AuditAction) -> bool {
+    match action {
+        AuditAction::ReadEmail => permissions.can_read,
+        AuditAction::SendEmail => permissions.can_send,
+        AuditAction::DeleteEmail => permissions.can_delete,
+        AuditAction::MoveEmail => permissions.can_move,
+        AuditAction::CreateFolder => permissions.can_create_folders,
+        AuditAction::AccessAttachment => permissions.can_view_attachments,
+        AuditAction::ModifySettings => permissions.can_modify_settings,
+        AuditAction::GrantCapability => permissions.can_delegate,
+        AuditAction::ModifyTrust => permissions.can_modify_trust,
+        // Fail closed for actions not explicitly modeled by the capability
+        // permission set. Adding a new AuditAction therefore cannot silently
+        // become an authorization bypass.
+        _ => false,
+    }
+}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unmodeled_actions_fail_closed() {
+        let permissions = MailboxPermissions::default();
+        assert!(!is_action_permitted(
+            &permissions,
+            &AuditAction::Custom("future-action".to_string()),
+        ));
+    }
+
+    #[test]
+    fn modeled_permission_still_requires_explicit_grant() {
+        let mut permissions = MailboxPermissions::default();
+        assert!(!is_action_permitted(
+            &permissions,
+            &AuditAction::ReadEmail,
+        ));
+
+        permissions.can_read = true;
+        assert!(is_action_permitted(
+            &permissions,
+            &AuditAction::ReadEmail,
+        ));
+    }
 }
 
 // ==================== SHARED MAILBOXES ====================
