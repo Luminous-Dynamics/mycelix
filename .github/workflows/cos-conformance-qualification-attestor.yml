@@ -301,6 +301,7 @@ jobs:
           post_attestation = scanned[attest_start:]
           for post_name in (
               "Observe published attestation discoverability",
+              "Verify indexed attestation bundle",
               "Revalidate trust-root after signing",
               "Preserve attestation bundle",
               "Verify exact preserved attestation bundle",
@@ -313,6 +314,12 @@ jobs:
               step_text = post_attestation[step_start:] if step_end < 0 else post_attestation[step_start:step_end]
               assert "        continue-on-error: true" in step_text
           assert "MYCELIX-COS-ATTESTATION-DISCOVERABILITY-V1" in scanned
+          assert "MYCELIX-COS-ATTESTATION-BUNDLE-VERIFICATION-V1" in scanned
+          assert "DiscoverableAndVerifiable" in scanned
+          assert "DiscoverableButBundleInvalid" in scanned
+          assert "gh attestation verify" in scanned
+          assert "bundle_url" in scanned
+          assert "strict_json_loads" in scanned
           assert "Discoverable" in scanned
           assert "SignedButNotDiscoverable" in scanned
           assert "DiscoverabilityMismatch" in scanned
@@ -438,7 +445,7 @@ jobs:
 
           # The construction-audit step is excluded above, leaving 23 executable
           # steps in the actual trusted workflow graph.
-          assert len(step_blocks) == 25, f"unexpected step count: {len(step_blocks)}"
+          assert len(step_blocks) == 26, f"unexpected step count: {len(step_blocks)}"
           step_names = [block[0].split(" - name: ", 1)[1] for block in step_blocks]
           assert len(set(step_names)) == len(step_names), "duplicate workflow step name"
 
@@ -1396,6 +1403,175 @@ jobs:
           assert isinstance(observation["lookup_status"], int) and observation["lookup_status"] >= 0
           summary_path.write_text(json.dumps(observation, indent=2, sort_keys=True) + "\n")
           if state != "Discoverable":
+              raise SystemExit(2)
+          PY
+
+      - name: Verify indexed attestation bundle
+        continue-on-error: true
+        env:
+          SUBJECT_FILE: signing-input/qualification-manifest-v1.json
+          SUBJECT_SHA256: sha256:${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_TYPE: ${{ env.PREDICATE_TYPE }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
+          SIGNER_DIGEST: ${{ github.workflow_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p attestor-evidence/indexed-bundles
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f'duplicate JSON key: {key}')
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f'non-standard JSON constant: {value}')
+
+          def strict_json_loads(text):
+              return json.loads(text, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_nonstandard_constant)
+
+          raw = strict_json_loads(Path('attestor-evidence/attestation-publication-discovery-raw.json').read_text())
+          discovery = strict_json_loads(Path('attestor-evidence/attestation-publication-discovery.json').read_text())
+          assert set(raw) == {'attestations'}
+          assert set(discovery) == {
+              "schema", "repository", "repository_id", "subject_digest",
+              "predicate_type", "attestation_count", "repository_ids",
+              "lookup_status", "state",
+          }
+          assert discovery["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert discovery["repository_id"] == int(os.environ["EXPECTED_REPOSITORY_ID"])
+          assert discovery["subject_digest"] == os.environ["SUBJECT_SHA256"].removeprefix("sha256:")
+          assert discovery["predicate_type"] == os.environ["EXPECTED_PREDICATE_TYPE"]
+          assert discovery["state"] in {"Discoverable", "SignedButNotDiscoverable", "DiscoverabilityMismatch", "LookupFailed"}
+          urls = []
+          if discovery["state"] == "Discoverable":
+              rows = []
+              for item in raw["attestations"]:
+                  assert set(item) >= {"repository_id", "bundle_url", "initiator"}
+                  assert item["repository_id"] == discovery["repository_id"]
+                  url = item["bundle_url"]
+                  assert isinstance(url, str) and url.startswith("https://")
+                  rows.append((hashlib.sha256(url.encode("utf-8")).hexdigest(), url))
+              seen = set()
+              for url_hash, url in sorted(rows):
+                  if url_hash in seen:
+                      continue
+                  seen.add(url_hash)
+                  urls.append(url)
+                  if len(urls) == 10:
+                      break
+          Path("attestor-evidence/indexed-bundle-urls.txt").write_text("\n".join(urls) + ("\n" if urls else ""))
+          PY
+
+          : > attestor-evidence/indexed-bundles/verification-results.jsonl
+          indexed_state="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path("attestor-evidence/attestation-publication-discovery.json").read_text())["state"])
+          PY
+          )"
+          candidate_count=0
+          verified_count=0
+          verified_bundle_sha256=""
+          while IFS= read -r bundle_url; do
+            [[ -n "${bundle_url}" ]] || continue
+            candidate_count=$((candidate_count + 1))
+            bundle_path="attestor-evidence/indexed-bundles/candidate-${candidate_count}.jsonl"
+            verification_path="attestor-evidence/indexed-bundles/candidate-${candidate_count}-verification.json"
+            bundle_url_sha256="$(printf "%s" "${bundle_url}" | sha256sum | awk '{print $1}')"
+            if ! curl --fail --show-error --silent --location --max-redirs 5 --proto "=https" --tlsv1.2 --compressed --output "${bundle_path}" "${bundle_url}"; then
+              printf '%s\n' "{\"status\":\"download_failed\",\"bundle_url_sha256\":\"${bundle_url_sha256}\"}" >> attestor-evidence/indexed-bundles/verification-results.jsonl
+              continue
+            fi
+            if ! gh attestation verify "${SUBJECT_FILE}" --repo "${GITHUB_REPOSITORY}" --bundle "${bundle_path}" --predicate-type "${EXPECTED_PREDICATE_TYPE}" --signer-workflow "${SIGNER_WORKFLOW}" --signer-digest "${SIGNER_DIGEST}" --deny-self-hosted-runners --format json > "${verification_path}"; then
+              printf '%s\n' "{\"status\":\"verification_failed\",\"bundle_url_sha256\":\"${bundle_url_sha256}\"}" >> attestor-evidence/indexed-bundles/verification-results.jsonl
+              continue
+            fi
+            VERIFY_PATH="${verification_path}" EXPECTED_PREDICATE_TYPE="${EXPECTED_PREDICATE_TYPE}" EXPECTED_SUBJECT_SHA256="${SUBJECT_SHA256}" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f'duplicate JSON key: {key}')
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f'non-standard JSON constant: {value}')
+
+          verification = json.loads(Path(os.environ['VERIFY_PATH']).read_text(), object_pairs_hook=reject_duplicate_keys, parse_constant=reject_nonstandard_constant)
+          expected_predicate = json.loads(Path('signing-input/qualification-attestation-predicate-v3.json').read_text(), object_pairs_hook=reject_duplicate_keys, parse_constant=reject_nonstandard_constant)
+          assert isinstance(verification, list) and verification
+          exact = 0
+          for item in verification:
+              result = item["verificationResult"]
+              statement = result["statement"]
+              assert statement["predicateType"] == os.environ["EXPECTED_PREDICATE_TYPE"]
+              assert any(subject.get("name") == "qualification-manifest-v1.json" and subject.get("digest", {}).get("sha256") == os.environ["EXPECTED_SUBJECT_SHA256"].removeprefix("sha256:") for subject in statement["subject"])
+              assert statement["predicate"] == expected_predicate
+              certificate = result.get("signature", {}).get("certificate")
+              timestamps = result.get("verifiedTimestamps")
+              assert isinstance(certificate, dict) and certificate
+              assert isinstance(timestamps, list) and timestamps
+              exact += 1
+          assert exact > 0
+          PY
+            bundle_sha256="$(sha256sum "${bundle_path}" | awk '{print $1}')"
+            verified_count=$((verified_count + 1))
+            [[ -n "${verified_bundle_sha256}" ]] || verified_bundle_sha256="${bundle_sha256}"
+            printf '%s\n' "{\"status\":\"verified\",\"bundle_url_sha256\":\"${bundle_url_sha256}\",\"bundle_sha256\":\"${bundle_sha256}\"}" >> attestor-evidence/indexed-bundles/verification-results.jsonl
+          done < attestor-evidence/indexed-bundle-urls.txt
+
+          INDEXED_STATE="${indexed_state}" CANDIDATE_COUNT="${candidate_count}" VERIFIED_COUNT="${verified_count}" VERIFIED_BUNDLE_SHA256="${verified_bundle_sha256}" SUBJECT_SHA256="${SUBJECT_SHA256}" EXPECTED_PREDICATE_TYPE="${EXPECTED_PREDICATE_TYPE}" EXPECTED_REPOSITORY_ID="${EXPECTED_REPOSITORY_ID}" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          prior = json.loads(Path("attestor-evidence/attestation-publication-discovery.json").read_text())
+          indexed_state = os.environ["INDEXED_STATE"]
+          candidate_count = int(os.environ["CANDIDATE_COUNT"])
+          verified_count = int(os.environ["VERIFIED_COUNT"])
+          if indexed_state != "Discoverable":
+              state = indexed_state
+          elif verified_count > 0:
+              state = "DiscoverableAndVerifiable"
+          else:
+              state = "DiscoverableButBundleInvalid"
+          observation = {
+              "schema": "MYCELIX-COS-ATTESTATION-BUNDLE-VERIFICATION-V1",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "repository_id": int(os.environ["EXPECTED_REPOSITORY_ID"]),
+              "subject_digest": os.environ["SUBJECT_SHA256"],
+              "predicate_type": os.environ["EXPECTED_PREDICATE_TYPE"],
+              "discovery_state": indexed_state,
+              "attestation_count": prior["attestation_count"],
+              "candidate_bundle_count": candidate_count,
+              "verified_bundle_count": verified_count,
+              "verified_bundle_sha256": os.environ["VERIFIED_BUNDLE_SHA256"],
+              "state": state,
+          }
+          assert set(observation) == {
+              "schema", "repository", "repository_id", "subject_digest",
+              "predicate_type", "discovery_state", "attestation_count",
+              "candidate_bundle_count", "verified_bundle_count",
+              "verified_bundle_sha256", "state",
+          }
+          Path("attestor-evidence/attestation-bundle-publication-verification.json").write_text(json.dumps(observation, indent=2, sort_keys=True) + "\n")
+          if state == "DiscoverableButBundleInvalid":
+              raise SystemExit(3)
+          if state in {"LookupFailed", "DiscoverabilityMismatch"}:
               raise SystemExit(2)
           PY
 
