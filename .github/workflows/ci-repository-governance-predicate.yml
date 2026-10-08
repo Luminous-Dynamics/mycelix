@@ -33,8 +33,16 @@ jobs:
       - name: Checkout exact workflow revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           clean: true
           persist-credentials: false
+
+      - name: Assert exact workflow revision
+        env:
+          EXPECTED_WORKFLOW_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test -n "$EXPECTED_WORKFLOW_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_WORKFLOW_SHA"
 
       - name: Validate immutable action pins
         run: |
@@ -65,6 +73,9 @@ jobs:
           assert "cancel-in-progress: true" in text
           assert "repository-governance-predicate-${{ github.event.pull_request.number || github.ref }}" in text
           assert "persist-credentials: false" in text
+          assert "ref: ${{ github.event.pull_request.head.sha || github.sha }}" in text
+          assert "git rev-parse HEAD" in text
+          assert "EXPECTED_WORKFLOW_SHA" in text
           PY
 
       - name: Validate governance policy JSON
