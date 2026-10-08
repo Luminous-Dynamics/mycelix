@@ -20,7 +20,7 @@ use crate::{ActionKeyV1, AttemptIdentityV1};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const ATTEMPT_RECORD_SCHEMA_VERSION: u16 = 3;
+pub const ATTEMPT_RECORD_SCHEMA_VERSION: u16 = 4;
 pub const ACTION_FENCE_SCHEMA_VERSION: u16 = 1;
 pub const ATTEMPT_RECORD_PREFIX: &str = "constitutional-attempt-record-v1:";
 pub const ACTION_FENCE_RECORD_PREFIX: &str = "constitutional-action-fence-v1:";
@@ -363,6 +363,7 @@ pub struct AttemptRecordV1 {
     pub provider_audience: String,
     pub adapter_identity: String,
     pub provider_idempotency_key: String,
+    pub entry_admission_proof_digest: Option<String>,
     pub ownership_token_digest: String,
     pub reconciliation_token_digest: Option<String>,
     pub terminal_evidence_digest: Option<String>,
@@ -448,6 +449,7 @@ impl AttemptRecordV1 {
             provider_audience,
             adapter_identity,
             provider_idempotency_key,
+            entry_admission_proof_digest: None,
             ownership_token_digest,
             reconciliation_token_digest: None,
             terminal_evidence_digest: None,
@@ -491,6 +493,21 @@ impl AttemptRecordV1 {
         )?;
         require_opaque("provider_audience", &self.provider_audience, MAX_REF_LEN)?;
         require_opaque("adapter_identity", &self.adapter_identity, MAX_REF_LEN)?;
+        if let Some(proof) = &self.entry_admission_proof_digest {
+            require_opaque("entry_admission_proof_digest", proof, MAX_REF_LEN)?;
+        }
+        if matches!(
+            self.state,
+            AttemptRecordState::Consumed
+                | AttemptRecordState::Reserved
+                | AttemptRecordState::NotEntered
+        ) && self.entry_admission_proof_digest.is_some()
+        {
+            return Err(
+                "entry_admission_proof_digest is invalid before provider-entry admission"
+                    .into(),
+            );
+        }
         require_opaque(
             "provider_idempotency_key",
             &self.provider_idempotency_key,
@@ -588,6 +605,10 @@ impl AttemptRecordV1 {
         &self.provider_idempotency_key
     }
 
+    pub fn entry_admission_proof_digest(&self) -> Option<&str> {
+        self.entry_admission_proof_digest.as_deref()
+    }
+
     pub fn reconciliation_token_digest(&self) -> String {
         reconciliation_token(
             &self.ownership_token_digest,
@@ -619,6 +640,10 @@ impl AttemptRecordV1 {
         push_str(&mut hasher, &self.provider_environment);
         push_str(&mut hasher, &self.provider_audience);
         push_str(&mut hasher, &self.adapter_identity);
+        push_str(
+            &mut hasher,
+            self.entry_admission_proof_digest.as_deref().unwrap_or(""),
+        );
         push_str(&mut hasher, &self.provider_idempotency_key);
         push_str(&mut hasher, &self.ownership_token_digest);
         push_str(
@@ -746,6 +771,7 @@ pub enum ActionFenceMutationError {
     InvalidTransition,
     TerminalEvidenceMismatch,
     ProviderEntryClaimed,
+    ProviderEntryProofAlreadyRecorded,
     ProviderEntryClaimMismatch,
     /// The durable storage layer failed. This is deliberately distinct from a
     /// semantic denial so callers cannot reinterpret infrastructure failure as a
@@ -801,6 +827,26 @@ pub trait DurableActionFenceStore {
         claim_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError>;
 
+    /// Persist the exact final-entry proof digest while the provider-entry claim
+    /// remains held.
+    fn atomically_record_provider_entry_proof(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        proof_digest: String,
+    ) -> Result<(), ActionFenceMutationError>;
+
+    /// Atomically release a still-held provider-entry claim as NotEntered.
+    fn atomically_release_provider_entry_claim_not_entered(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+        marker: String,
+    ) -> Result<(), ActionFenceMutationError>;
+
     /// Explicitly abandon a stranded provider-entry claim and atomically move
     /// the attempt to INDETERMINATE. This is a recovery operation, not a lease
     /// timeout: callers must supply externally authenticated recovery authority.
@@ -818,51 +864,6 @@ pub trait DurableActionFenceStore {
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
     ) -> Result<String, ActionFenceMutationError>;
-
-    fn atomically_claim_provider_entry(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-    ) -> Result<ProviderEntryClaimV1, ActionFenceMutationError> {
-        self.claim_provider_entry(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-        )
-    }
-
-    fn atomically_mark_invoked(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-    ) -> Result<(), ActionFenceMutationError> {
-        self.mark_invoked_with_claim(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-        )
-    }
-
-    fn atomically_recover_provider_entry_claim(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-    ) -> Result<String, ActionFenceMutationError> {
-        self.recover_provider_entry_claim(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-        )
-    }
 
     fn atomically_release_after_failed(
         &mut self,
@@ -1259,6 +1260,38 @@ impl AtomicActionFenceModelV1 {
         )
     }
 
+    pub fn record_provider_entry_proof(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        proof_digest: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        if proof_digest.trim().is_empty() || proof_digest.len() > MAX_REF_LEN {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+
+        let current = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+        if current.state != AttemptRecordState::DispatchPending
+            || current.action_key_digest != action_key.digest()
+            || current.ownership_token_digest != owner_token_digest
+        {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+        if !self.provider_entry_claims.contains_key(attempt_identity.digest()) {
+            return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+        }
+        if current.entry_admission_proof_digest.is_some() {
+            return Err(ActionFenceMutationError::ProviderEntryClaimed);
+        }
+
+        current.entry_admission_proof_digest = Some(proof_digest);
+        Ok(())
+    }
+
     pub fn mark_dispatch_pending(
         &mut self,
         action_key: &ActionKeyV1,
@@ -1349,6 +1382,79 @@ impl AtomicActionFenceModelV1 {
             AttemptRecordState::Invoked,
         )?;
         self.provider_entry_claims.remove(attempt_identity.digest());
+        Ok(())
+    }
+
+    pub fn record_provider_entry_proof(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        proof_digest: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        if proof_digest.trim().is_empty() || proof_digest.len() > MAX_REF_LEN {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+        let has_claim = self.provider_entry_claims.contains_key(attempt_identity.digest());
+        let current = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+        if current.state != AttemptRecordState::DispatchPending
+            || current.action_key_digest != action_key.digest()
+            || current.ownership_token_digest != owner_token_digest
+        {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+        if !has_claim {
+            return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+        }
+        if current.entry_admission_proof_digest.is_some() {
+            return Err(ActionFenceMutationError::ProviderEntryProofAlreadyRecorded);
+        }
+        current.entry_admission_proof_digest = Some(proof_digest);
+        Ok(())
+    }
+
+    pub fn release_provider_entry_claim_not_entered(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+        marker: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        if marker.trim().is_empty() || marker.len() > MAX_REF_LEN {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+
+        let claim = self
+            .provider_entry_claims
+            .get(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::ProviderEntryClaimMismatch)?;
+        if claim.action_key_digest != action_key.digest()
+            || claim.owner_token_digest != owner_token_digest
+            || claim.claim_token_digest != claim_token_digest
+        {
+            return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+        }
+
+        let current = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+        if current.state != AttemptRecordState::DispatchPending
+            || current.action_key_digest != action_key.digest()
+            || current.ownership_token_digest != owner_token_digest
+        {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+
+        current.state = AttemptRecordState::NotEntered;
+        current.not_entered_marker = Some(marker);
+        current.entry_admission_proof_digest = None;
+        self.provider_entry_claims.remove(attempt_identity.digest());
+        self.fences.remove(action_key.digest());
         Ok(())
     }
 
@@ -1675,6 +1781,20 @@ impl AtomicActionFenceModelV1 {
             {
                 return Err("provider entry claim does not match attempt owner/action".into());
             }
+            if let Some(proof_digest) = attempt.entry_admission_proof_digest.as_deref() {
+                if proof_digest.trim().is_empty() {
+                    return Err("provider entry proof digest is empty".into());
+                }
+            }
+            if attempt.state == AttemptRecordState::DispatchPending
+                && attempt.entry_admission_proof_digest.is_some()
+                && !self.provider_entry_claims.contains_key(&attempt.attempt_identity)
+            {
+                return Err(
+                    "DISPATCH_PENDING attempt with entry proof is missing its provider entry claim"
+                        .into(),
+                );
+            }
             let fence = self
                 .fences
                 .get(&claim.action_key_digest)
@@ -1726,6 +1846,21 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         self.admit(action_key, attempt_identity, record)
     }
 
+    fn atomically_record_provider_entry_proof(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        proof_digest: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.record_provider_entry_proof(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            proof_digest,
+        )
+    }
+
     fn atomically_mark_dispatch_pending(
         &mut self,
         action_key: &ActionKeyV1,
@@ -1766,6 +1901,23 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
             attempt_identity,
             owner_token_digest,
             claim_token_digest,
+        )
+    }
+
+    fn atomically_release_provider_entry_claim_not_entered(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+        marker: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.release_provider_entry_claim_not_entered(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+            marker,
         )
     }
 

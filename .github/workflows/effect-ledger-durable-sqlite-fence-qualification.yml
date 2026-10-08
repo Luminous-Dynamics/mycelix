@@ -8,6 +8,7 @@ on:
       - hardening/effect-ledger-verifier-affirmation-v1
       - hardening/effect-ledger-provider-context-v1
       - hardening/effect-ledger-persisted-idempotency-v1
+      - hardening/effect-ledger-final-entry-gate-v1
   pull_request:
   workflow_dispatch:
 
@@ -68,8 +69,8 @@ jobs:
 
           grep -Fq 'constitutional-effect-ledger = { path = "../../mycelix-governance/crates/constitutional-effect-ledger" }' "$manifest"
           grep -Fq 'rusqlite = { version = "0.32", features = ["bundled"] }' "$manifest"
-          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 4' "$source"
-          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v4' "$source"
+          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 5' "$source"
+          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v5' "$source"
           grep -Fq 'transaction_with_behavior(TransactionBehavior::Immediate)' "$source"
           grep -Fq 'PRIMARY KEY NOT NULL' "$source"
           grep -Fq 'UNIQUE' "$source"
@@ -102,6 +103,19 @@ jobs:
           grep -Fq 'provider_idempotency_key' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'provider_idempotency_key does not match versioned derivation' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'persisted_provider_idempotency_key_is_versioned_and_fail_closed' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
+          grep -Fq 'FinalProviderEntryProofV1' "$boundary"
+          grep -Fq 'FinalProviderEntryVerifier' "$boundary"
+          grep -Fq 'FinalEntryRejectedNotEntered' "$boundary"
+          grep -Fq 'atomically_release_provider_entry_claim_not_entered' "$source"
+          grep -Fq 'atomically_record_provider_entry_proof' "$source"
+          grep -Fq 'entry_admission_proof_digest' "$source"
+          grep -Fq 'provider entry claim/proof does not exactly bind the durable attempt' "$boundary"
+          grep -Fq 'expired_final_entry_proof_cannot_reach_provider' "$boundary"
+          grep -Fq 'final_entry_proof_is_rechecked_after_verifier_returns' "$boundary"
+          grep -Fq 'provider_entry_permit_requires_durable_entry_proof' "$boundary"
+          grep -Fq 'entry_admission_proof_survives_restart' "$source"
+          grep -Fq 'persisted_entry_proof_without_claim_fails_closed_on_restart' "$source"
+          grep -Fq 'DISPATCH_PENDING attempt with entry proof is missing its provider entry claim' "$source"
           grep -Fq 'VerifiedTerminalOutcomeV1::new' "$boundary"
           grep -Fq 'terminal verification proof is not bound to the exact attempt' "$boundary"
           grep -Fq 'VerificationPurpose::InitialInvocation' "$boundary"

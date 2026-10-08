@@ -198,6 +198,128 @@ impl ProviderActionContextV1 {
     }
 }
 
+/// Final pre-entry authorization/freshness proof.
+///
+/// The verifier is responsible for checking the configured authority/policy
+/// snapshot and current provider/status state. The boundary binds the returned
+/// proof to the exact durable attempt and persisted provider idempotency key,
+/// and refuses an expired or otherwise mismatched proof.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FinalProviderEntryProofV1 {
+    attempt_identity: String,
+    action_key_digest: String,
+    operation_id: String,
+    native_replay_identity: String,
+    provider_idempotency_key: String,
+    authorization_snapshot_digest: String,
+    status_snapshot_digest: String,
+    checked_at_unix_ms: u64,
+    valid_until_unix_ms: u64,
+    verifier_identity: String,
+    digest: String,
+}
+
+impl FinalProviderEntryProofV1 {
+    pub fn new(
+        attempt: &AttemptRecordV1,
+        context: &ProviderActionContextV1,
+        checked_at_unix_ms: u64,
+        valid_until_unix_ms: u64,
+        authorization_snapshot_digest: impl Into<String>,
+        status_snapshot_digest: impl Into<String>,
+        verifier_identity: impl Into<String>,
+    ) -> Result<Self, String> {
+        let authorization_snapshot_digest = authorization_snapshot_digest.into();
+        let status_snapshot_digest = status_snapshot_digest.into();
+        let verifier_identity = verifier_identity.into();
+
+        if valid_until_unix_ms <= checked_at_unix_ms {
+            return Err("final provider-entry proof validity window is empty".into());
+        }
+        for (label, value) in [
+            ("authorization_snapshot_digest", authorization_snapshot_digest.as_str()),
+            ("status_snapshot_digest", status_snapshot_digest.as_str()),
+            ("verifier_identity", verifier_identity.as_str()),
+        ] {
+            if value.trim().is_empty() || value.len() > 512 {
+                return Err(format!("{label} must be non-empty and <= 512 bytes"));
+            }
+        }
+
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-FINAL-PROVIDER-ENTRY-PROOF\0V1\0");
+        push_digest_string(&mut hasher, &attempt.attempt_identity);
+        push_digest_string(&mut hasher, &context.action_key_digest);
+        push_digest_string(&mut hasher, &attempt.operation_id);
+        push_digest_string(&mut hasher, &attempt.native_replay_identity);
+        push_digest_string(&mut hasher, &context.provider_idempotency_key);
+        push_digest_string(&mut hasher, &authorization_snapshot_digest);
+        push_digest_string(&mut hasher, &status_snapshot_digest);
+        hasher.update(&checked_at_unix_ms.to_be_bytes());
+        hasher.update(&valid_until_unix_ms.to_be_bytes());
+        push_digest_string(&mut hasher, &verifier_identity);
+
+        Ok(Self {
+            attempt_identity: attempt.attempt_identity.clone(),
+            action_key_digest: context.action_key_digest.clone(),
+            operation_id: attempt.operation_id.clone(),
+            native_replay_identity: attempt.native_replay_identity.clone(),
+            provider_idempotency_key: context.provider_idempotency_key.clone(),
+            authorization_snapshot_digest,
+            status_snapshot_digest,
+            checked_at_unix_ms,
+            valid_until_unix_ms,
+            verifier_identity,
+            digest: format!(
+                "constitutional-final-provider-entry-proof-v1:{}",
+                hasher.finalize().to_hex()
+            ),
+        })
+    }
+
+    fn matches(
+        &self,
+        attempt: &AttemptRecordV1,
+        context: &ProviderActionContextV1,
+    ) -> bool {
+        self.attempt_identity == attempt.attempt_identity
+            && self.action_key_digest == context.action_key_digest
+            && self.operation_id == attempt.operation_id
+            && self.native_replay_identity == attempt.native_replay_identity
+            && self.provider_idempotency_key == context.provider_idempotency_key
+            && self.valid_until_unix_ms > self.checked_at_unix_ms
+    }
+
+    fn is_fresh(&self, now_unix_ms: u64) -> bool {
+        self.checked_at_unix_ms <= now_unix_ms && now_unix_ms < self.valid_until_unix_ms
+    }
+
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+
+    pub fn authorization_snapshot_digest(&self) -> &str {
+        &self.authorization_snapshot_digest
+    }
+
+    pub fn status_snapshot_digest(&self) -> &str {
+        &self.status_snapshot_digest
+    }
+
+    pub fn verifier_identity(&self) -> &str {
+        &self.verifier_identity
+    }
+}
+
+pub trait FinalProviderEntryVerifier {
+    fn verify(
+        &self,
+        attempt: &AttemptRecordV1,
+        context: &ProviderActionContextV1,
+        now_unix_ms: u64,
+    ) -> Result<FinalProviderEntryProofV1, String>;
+}
+
 /// Final provider-entry capability.
 ///
 /// This object can only be constructed from a durably confirmed
@@ -207,6 +329,7 @@ impl ProviderActionContextV1 {
 pub struct ProviderEntryPermitV1 {
     context: ProviderActionContextV1,
     claim: ProviderEntryClaimV1,
+    final_entry_proof: FinalProviderEntryProofV1,
 }
 
 impl ProviderEntryPermitV1 {
@@ -214,6 +337,8 @@ impl ProviderEntryPermitV1 {
         attempt: AttemptRecordV1,
         action_key: &ActionKeyV1,
         claim: ProviderEntryClaimV1,
+        final_entry_proof: FinalProviderEntryProofV1,
+        now_unix_ms: u64,
     ) -> Result<Self, BoundaryError> {
         if attempt.state != AttemptRecordState::DispatchPending {
             return Err(BoundaryError::Semantic(
@@ -224,14 +349,28 @@ impl ProviderEntryPermitV1 {
             || attempt.action_key_digest != claim.action_key_digest
             || attempt.ownership_token_digest != claim.owner_token_digest
             || action_key.digest() != claim.action_key_digest
+            || attempt.entry_admission_proof_digest.as_deref()
+                != Some(final_entry_proof.digest())
         {
             return Err(BoundaryError::Semantic(
-                "provider entry claim does not exactly bind the attempt and action".into(),
+                "provider entry claim/proof does not exactly bind the durable attempt".into(),
             ));
         }
 
         let context = ProviderActionContextV1::from_attempt(&attempt, action_key)?;
-        Ok(Self { context, claim })
+        if !final_entry_proof.matches(&attempt, &context)
+            || !final_entry_proof.is_fresh(now_unix_ms)
+        {
+            return Err(BoundaryError::Semantic(
+                "final provider-entry proof is stale or not bound to the exact attempt"
+                    .into(),
+            ));
+        }
+        Ok(Self {
+            context,
+            claim,
+            final_entry_proof,
+        })
     }
 
     pub fn context(&self) -> &ProviderActionContextV1 {
@@ -242,6 +381,10 @@ impl ProviderEntryPermitV1 {
         self.context.provider_idempotency_key()
     }
 
+    pub fn final_entry_proof_digest(&self) -> &str {
+        self.final_entry_proof.digest()
+    }
+
     fn claim_token_digest(&self) -> &str {
         &self.claim.claim_token_digest
     }
@@ -250,6 +393,14 @@ impl ProviderEntryPermitV1 {
 fn push_digest_string(hasher: &mut blake3::Hasher, value: &str) {
     hasher.update(&(value.len() as u64).to_be_bytes());
     hasher.update(value.as_bytes());
+}
+
+fn current_unix_ms() -> Result<u64, String> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .map_err(|error| format!("trusted clock unavailable: {error}"))
 }
 
 fn derive_entry_claim_token(
@@ -430,6 +581,7 @@ pub enum BoundaryOutcome {
     RecoveryHeld { reason: String },
     TerminalAlreadyReached(AttemptRecordState),
     PreEntryStopRequired,
+    FinalEntryRejectedNotEntered { reason: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -515,13 +667,18 @@ impl EffectBoundaryHostV1 {
 
     /// Provider invocation is reachable only after a durable read confirms
     /// DISPATCH_PENDING for the exact attempt owner.
-    pub fn dispatch<P: ProviderAdapter, V: OutcomeVerifier>(
+    pub fn dispatch<
+        P: ProviderAdapter,
+        V: OutcomeVerifier,
+        G: FinalProviderEntryVerifier,
+    >(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
         provider: &mut P,
         verifier: &V,
+        entry_verifier: &G,
     ) -> Result<BoundaryOutcome, BoundaryError> {
         let current = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
         if current.state.is_terminal() {
@@ -558,7 +715,112 @@ impl EffectBoundaryHostV1 {
             )
             .map_err(BoundaryError::Mutation)?;
 
-        let permit = ProviderEntryPermitV1::new(pending, action_key, claim)?;
+        let verifier_now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
+        let context = ProviderActionContextV1::from_attempt(&pending, action_key)?;
+        let final_entry_proof = match entry_verifier.verify(
+            &pending,
+            &context,
+            verifier_now_unix_ms,
+        ) {
+            Ok(proof) => proof,
+            Err(error) => {
+                let marker = format!("final provider-entry gate rejected: {error}");
+                match self.store.atomically_release_provider_entry_claim_not_entered(
+                    action_key,
+                    attempt_identity,
+                    owner_token_digest,
+                    &claim_token,
+                    marker.clone(),
+                ) {
+                    Ok(()) => return Ok(BoundaryOutcome::FinalEntryRejectedNotEntered {
+                        reason: marker,
+                    }),
+                    Err(release_error) => {
+                        return Ok(BoundaryOutcome::IndeterminateHeld {
+                            reason: format!(
+                                "final-entry gate rejected dispatch and claim release was not confirmed: {release_error:?}"
+                            ),
+                        });
+                    }
+                }
+            }
+        };
+
+        let pre_entry_now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
+        if !final_entry_proof.matches(&pending, &context)
+            || !final_entry_proof.is_fresh(pre_entry_now_unix_ms)
+        {
+            let marker = "final provider-entry proof expired before provider entry".to_owned();
+            match self.store.atomically_release_provider_entry_claim_not_entered(
+                action_key,
+                attempt_identity,
+                owner_token_digest,
+                &claim_token,
+                marker.clone(),
+            ) {
+                Ok(()) => return Ok(BoundaryOutcome::FinalEntryRejectedNotEntered {
+                    reason: marker,
+                }),
+                Err(release_error) => {
+                    return Ok(BoundaryOutcome::IndeterminateHeld {
+                        reason: format!(
+                            "final-entry proof expired and claim release was not confirmed: {release_error:?}"
+                        ),
+                    });
+                }
+            }
+        }
+
+        if let Err(error) = self.store.atomically_record_provider_entry_proof(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            final_entry_proof.digest().to_owned(),
+        ) {
+            return Ok(BoundaryOutcome::IndeterminateHeld {
+                reason: format!(
+                    "final-entry proof could not be durably recorded; claim remains held: {error:?}"
+                ),
+            });
+        }
+
+        let persisted_pending = self.owned_attempt(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+        )?;
+        let pre_entry_now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
+        if !final_entry_proof.matches(&persisted_pending, &context)
+            || !final_entry_proof.is_fresh(pre_entry_now_unix_ms)
+        {
+            let marker = "final provider-entry proof expired after durable recording".to_owned();
+            match self.store.atomically_release_provider_entry_claim_not_entered(
+                action_key,
+                attempt_identity,
+                owner_token_digest,
+                &claim_token,
+                marker.clone(),
+            ) {
+                Ok(()) => return Ok(BoundaryOutcome::FinalEntryRejectedNotEntered {
+                    reason: marker,
+                }),
+                Err(release_error) => {
+                    return Ok(BoundaryOutcome::IndeterminateHeld {
+                        reason: format!(
+                            "final-entry proof expired after durable recording and claim release was not confirmed: {release_error:?}"
+                        ),
+                    });
+                }
+            }
+        }
+
+        let permit = ProviderEntryPermitV1::new(
+            persisted_pending,
+            action_key,
+            claim,
+            final_entry_proof,
+            pre_entry_now_unix_ms,
+        )?;
         let observation = match provider.invoke(&permit) {
             Ok(value) => value,
             Err(error) => {
@@ -1026,6 +1288,84 @@ mod tests {
         }
     }
 
+    struct AllowFinalEntry;
+
+    impl FinalProviderEntryVerifier for AllowFinalEntry {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            context: &ProviderActionContextV1,
+            now_unix_ms: u64,
+        ) -> Result<FinalProviderEntryProofV1, String> {
+            FinalProviderEntryProofV1::new(
+                attempt,
+                context,
+                now_unix_ms,
+                now_unix_ms.saturating_add(60_000),
+                "authorization-snapshot-v1",
+                "status-snapshot-v1",
+                "final-entry-verifier-v1",
+            )
+        }
+    }
+
+    struct ExpiredFinalEntry;
+
+    impl FinalProviderEntryVerifier for ExpiredFinalEntry {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            context: &ProviderActionContextV1,
+            now_unix_ms: u64,
+        ) -> Result<FinalProviderEntryProofV1, String> {
+            FinalProviderEntryProofV1::new(
+                attempt,
+                context,
+                now_unix_ms.saturating_sub(60_000),
+                now_unix_ms.saturating_sub(1),
+                "authorization-snapshot-v1",
+                "status-snapshot-v1",
+                "expired-entry-verifier-v1",
+            )
+        }
+    }
+
+    struct SlowExpiryFinalEntry;
+
+    impl FinalProviderEntryVerifier for SlowExpiryFinalEntry {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            context: &ProviderActionContextV1,
+            now_unix_ms: u64,
+        ) -> Result<FinalProviderEntryProofV1, String> {
+            let proof = FinalProviderEntryProofV1::new(
+                attempt,
+                context,
+                now_unix_ms,
+                now_unix_ms.saturating_add(1),
+                "authorization-snapshot-v1",
+                "status-snapshot-v1",
+                "slow-final-entry-verifier-v1",
+            )?;
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            Ok(proof)
+        }
+    }
+
+    struct RejectFinalEntry;
+
+    impl FinalProviderEntryVerifier for RejectFinalEntry {
+        fn verify(
+            &self,
+            _attempt: &AttemptRecordV1,
+            _context: &ProviderActionContextV1,
+            _now_unix_ms: u64,
+        ) -> Result<FinalProviderEntryProofV1, String> {
+            Err("authorization/status is stale".into())
+        }
+    }
+
     struct Verifier;
 
     impl OutcomeVerifier for Verifier {
@@ -1188,6 +1528,7 @@ mod tests {
                     "owner-attempt-1",
                     &mut provider,
                     &Verifier,
+                    &AllowFinalEntry,
                 )
                 .unwrap(),
             BoundaryOutcome::ExecutedConfirmed
@@ -1223,7 +1564,7 @@ mod tests {
         let mut provider = ErrorProvider;
         assert!(matches!(
             boundary
-                .dispatch(&action, &owner, "owner-attempt-ambiguous", &mut provider, &Verifier)
+                .dispatch(&action, &owner, "owner-attempt-ambiguous", &mut provider, &Verifier, &AllowFinalEntry)
                 .unwrap(),
             BoundaryOutcome::IndeterminateHeld { .. }
         ));
@@ -1300,6 +1641,270 @@ mod tests {
     }
 
     #[test]
+    fn provider_entry_permit_requires_durable_entry_proof() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("permit-proof.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-permit-proof");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-permit-proof",
+                    "operation-permit-proof",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        boundary
+            .store
+            .atomically_mark_dispatch_pending(
+                &action_key,
+                &owner,
+                "owner-attempt-permit-proof",
+            )
+            .unwrap();
+        let claim = boundary
+            .store
+            .atomically_claim_provider_entry(
+                &action_key,
+                &owner,
+                "owner-attempt-permit-proof",
+                "constitutional-provider-entry-claim-token-v1:permit-proof",
+            )
+            .unwrap();
+        let pending = boundary
+            .store
+            .durably_read_attempt(&owner)
+            .unwrap()
+            .unwrap();
+        let context = ProviderActionContextV1::from_attempt(&pending, &action_key).unwrap();
+        let now = current_unix_ms().unwrap();
+        let proof = FinalProviderEntryProofV1::new(
+            &pending,
+            &context,
+            now,
+            now.saturating_add(60_000),
+            "authorization-snapshot-v1",
+            "status-snapshot-v1",
+            "final-entry-verifier-v1",
+        )
+        .unwrap();
+
+        let result = ProviderEntryPermitV1::new(
+            pending,
+            &action_key,
+            claim,
+            proof,
+            now,
+        );
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("provider entry claim/proof does not exactly bind")
+        ));
+    }
+
+    #[test]
+    fn final_entry_gate_rejection_cannot_reach_provider() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("final-gate-rejected.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-final-gate-rejected");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-final-gate-rejected",
+                    "operation-final-gate-rejected",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        struct MustNotInvoke;
+        impl ProviderAdapter for MustNotInvoke {
+            fn invoke(
+                &mut self,
+                _permit: &ProviderEntryPermitV1,
+            ) -> Result<ProviderObservation, String> {
+                panic!("final-entry rejection must prevent provider invocation");
+            }
+
+            fn reconcile(
+                &mut self,
+                _context: &ProviderActionContextV1,
+            ) -> Result<ProviderObservation, String> {
+                unreachable!()
+            }
+        }
+
+        let result = boundary
+            .dispatch(
+                &action_key,
+                &owner,
+                "owner-attempt-final-gate-rejected",
+                &mut MustNotInvoke,
+                &Verifier,
+                &RejectFinalEntry,
+            )
+            .unwrap();
+
+        assert!(matches!(
+            result,
+            BoundaryOutcome::FinalEntryRejectedNotEntered { reason }
+                if reason.contains("authorization/status is stale")
+        ));
+        let attempt = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
+        assert_eq!(attempt.state, AttemptRecordState::NotEntered);
+        assert!(attempt.not_entered_marker.is_some());
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
+        assert!(boundary
+            .store
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn expired_final_entry_proof_cannot_reach_provider() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("final-gate-expired.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-final-gate-expired");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-final-gate-expired",
+                    "operation-final-gate-expired",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        struct MustNotInvoke;
+        impl ProviderAdapter for MustNotInvoke {
+            fn invoke(
+                &mut self,
+                _permit: &ProviderEntryPermitV1,
+            ) -> Result<ProviderObservation, String> {
+                panic!("expired final-entry proof must prevent provider invocation");
+            }
+
+            fn reconcile(
+                &mut self,
+                _context: &ProviderActionContextV1,
+            ) -> Result<ProviderObservation, String> {
+                unreachable!()
+            }
+        }
+
+        let result = boundary
+            .dispatch(
+                &action_key,
+                &owner,
+                "owner-attempt-final-gate-expired",
+                &mut MustNotInvoke,
+                &Verifier,
+                &ExpiredFinalEntry,
+            )
+            .unwrap();
+
+        assert!(matches!(
+            result,
+            BoundaryOutcome::FinalEntryRejectedNotEntered { reason }
+                if reason.contains("stale or not bound")
+        ));
+        assert_eq!(
+            boundary.store.durably_read_attempt(&owner).unwrap().unwrap().state,
+            AttemptRecordState::NotEntered
+        );
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
+        assert!(boundary
+            .store
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn final_entry_proof_is_rechecked_after_verifier_returns() {
+        let dir = tempdir().unwrap();
+        let store =
+            SqliteActionFenceStore::open(dir.path().join("final-gate-post-verify.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-final-gate-post-verify");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-final-gate-post-verify",
+                    "operation-final-gate-post-verify",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        struct MustNotInvoke;
+        impl ProviderAdapter for MustNotInvoke {
+            fn invoke(
+                &mut self,
+                _permit: &ProviderEntryPermitV1,
+            ) -> Result<ProviderObservation, String> {
+                panic!("post-verifier expiry must prevent provider invocation");
+            }
+
+            fn reconcile(
+                &mut self,
+                _context: &ProviderActionContextV1,
+            ) -> Result<ProviderObservation, String> {
+                unreachable!()
+            }
+        }
+
+        let result = boundary
+            .dispatch(
+                &action_key,
+                &owner,
+                "owner-attempt-final-gate-post-verify",
+                &mut MustNotInvoke,
+                &Verifier,
+                &SlowExpiryFinalEntry,
+            )
+            .unwrap();
+
+        assert!(matches!(
+            result,
+            BoundaryOutcome::FinalEntryRejectedNotEntered { reason }
+                if reason.contains("expired before provider entry")
+        ));
+        assert_eq!(
+            boundary
+                .store
+                .durably_read_attempt(&owner)
+                .unwrap()
+                .unwrap()
+                .state,
+            AttemptRecordState::NotEntered
+        );
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
+        assert!(boundary
+            .store
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
     fn mismatched_provider_idempotency_proof_holds_the_fence() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("mismatch-idempotency.db")).unwrap();
@@ -1330,6 +1935,7 @@ mod tests {
             "owner-attempt-mismatch-idempotency",
             &mut provider,
             &MismatchedIdempotencyVerifier,
+            &AllowFinalEntry,
         );
         assert!(matches!(
             result,
@@ -1380,6 +1986,7 @@ mod tests {
             "owner-attempt-mismatch",
             &mut provider,
             &MismatchedVerifier,
+            &AllowFinalEntry,
         );
         assert!(matches!(
             result,

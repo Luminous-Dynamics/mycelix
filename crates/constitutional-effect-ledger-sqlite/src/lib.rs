@@ -27,9 +27,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 4;
+pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 5;
 pub const SQLITE_FENCE_STORE_PROFILE: &str =
-    "constitutional-effect-ledger/sqlite-fence-store-v4";
+    "constitutional-effect-ledger/sqlite-fence-store-v5";
 pub const SQLITE_FENCE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 const META_TABLE: &str = "effect_fence_store_meta";
@@ -386,6 +386,43 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
         Ok(AtomicAdmissionDecision::Admitted)
     }
 
+    fn atomically_record_provider_entry_proof(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        proof_digest: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.with_transaction(|tx| {
+            if proof_digest.trim().is_empty() || proof_digest.len() > 512 {
+                return Err(ActionFenceMutationError::InvalidTransition);
+            }
+            let current = load_attempt_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::NotOwner)?;
+            verify_owner_and_key(&current, action_key, attempt_identity, owner_token_digest)?;
+            if current.state != AttemptRecordState::DispatchPending {
+                return Err(ActionFenceMutationError::InvalidTransition);
+            }
+            if current.entry_admission_proof_digest.is_some() {
+                return Err(ActionFenceMutationError::ProviderEntryProofAlreadyRecorded);
+            }
+            let claim = load_provider_entry_claim_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::ProviderEntryClaimMismatch)?;
+            if claim.action_key_digest != action_key.digest()
+                || claim.owner_token_digest != owner_token_digest
+            {
+                return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+
+            let mut updated = current.clone();
+            updated.entry_admission_proof_digest = Some(proof_digest);
+            update_attempt_tx(tx, &current, &updated)?;
+            Ok(())
+        })
+    }
+
     fn atomically_mark_dispatch_pending(
         &mut self,
         action_key: &ActionKeyV1,
@@ -476,6 +513,92 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
             ).map_err(storage_error)?;
             if changed != 1 {
                 return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+            Ok(())
+        })
+    }
+
+    fn atomically_release_provider_entry_claim_not_entered(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+        marker: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        if marker.trim().is_empty() || marker.len() > 512 {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+
+        self.with_transaction(|tx| {
+            let current = load_attempt_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::NotOwner)?;
+            verify_owner_and_key(&current, action_key, attempt_identity, owner_token_digest)?;
+            if current.state != AttemptRecordState::DispatchPending {
+                return Err(ActionFenceMutationError::InvalidTransition);
+            }
+
+            let claim = load_provider_entry_claim_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::ProviderEntryClaimMismatch)?;
+            if claim.action_key_digest != action_key.digest()
+                || claim.owner_token_digest != owner_token_digest
+                || claim.claim_token_digest != claim_token_digest
+            {
+                return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+
+            let fence = load_fence_tx(tx, action_key.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::NotOccupied)?;
+            verify_fence_owner(&fence, attempt_identity, owner_token_digest)?;
+
+            let mut updated = current.clone();
+            updated.state = AttemptRecordState::NotEntered;
+            updated.not_entered_marker = Some(marker);
+            updated.entry_admission_proof_digest = None;
+            updated.validate().map_err(storage_error)?;
+            update_attempt_tx(tx, &current, &updated)?;
+
+            let claim_deleted = tx
+                .execute(
+                    "DELETE FROM effect_provider_entry_claims
+                     WHERE attempt_identity = ?1
+                       AND action_key_digest = ?2
+                       AND owner_token_digest = ?3
+                       AND claim_token_digest = ?4
+                       AND record_digest = ?5",
+                    params![
+                        attempt_identity.digest(),
+                        action_key.digest(),
+                        owner_token_digest,
+                        claim_token_digest,
+                        claim.record_digest()
+                    ],
+                )
+                .map_err(storage_error)?;
+            if claim_deleted != 1 {
+                return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+
+            let fence_deleted = tx
+                .execute(
+                    "DELETE FROM effect_action_fences
+                     WHERE action_key_digest = ?1
+                       AND state = ?2
+                       AND owner_attempt_identity = ?3
+                       AND owner_token_digest = ?4",
+                    params![
+                        action_key.digest(),
+                        ActionFenceState::Occupied.storage_tag(),
+                        attempt_identity.digest(),
+                        owner_token_digest
+                    ],
+                )
+                .map_err(storage_error)?;
+            if fence_deleted != 1 {
+                return Err(ActionFenceMutationError::NotOccupied);
             }
             Ok(())
         })
@@ -865,6 +988,7 @@ fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
                 ("provider_audience", "TEXT", 1, 0),
                 ("adapter_identity", "TEXT", 1, 0),
                 ("provider_idempotency_key", "TEXT", 1, 0),
+                ("entry_admission_proof_digest", "TEXT", 0, 0),
                 ("ownership_token_digest", "TEXT", 1, 0),
                 ("reconciliation_token_digest", "TEXT", 0, 0),
                 ("terminal_evidence_digest", "TEXT", 0, 0),
@@ -997,7 +1121,8 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
                     action_digest, action_key_digest, effecting_target_identity,
                     provider_reference_seed_digest, provider_reference_descriptor_digest,
                     provider_environment, provider_audience, adapter_identity,
-                    provider_idempotency_key, ownership_token_digest, reconciliation_token_digest,
+                    provider_idempotency_key, entry_admission_proof_digest, ownership_token_digest,
+                    reconciliation_token_digest,
                     terminal_evidence_digest, state,
                     not_entered_marker, record_digest
              FROM {ATTEMPT_TABLE}
@@ -1059,6 +1184,34 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
     for row in rows {
         let claim = row.map_err(|e| e.to_string())?;
         claims.insert(claim.attempt_identity.clone(), claim);
+    }
+
+    for record in attempts.values() {
+        if let Some(proof_digest) = record.entry_admission_proof_digest.as_deref() {
+            if proof_digest.trim().is_empty() {
+                return Err(format!(
+                    "attempt {} has an empty entry admission proof digest",
+                    record.attempt_identity
+                ));
+            }
+            if record.state == AttemptRecordState::NotEntered
+                || record.state == AttemptRecordState::Consumed
+                || record.state == AttemptRecordState::Reserved
+            {
+                return Err(format!(
+                    "attempt {} retains an entry admission proof before provider entry",
+                    record.attempt_identity
+                ));
+            }
+            if record.state == AttemptRecordState::DispatchPending
+                && !claims.contains_key(&record.attempt_identity)
+            {
+                return Err(format!(
+                    "DISPATCH_PENDING attempt {} has an entry proof but no active provider entry claim",
+                    record.attempt_identity
+                ));
+            }
+        }
     }
 
     for claim in claims.values() {
@@ -1303,6 +1456,7 @@ CREATE TABLE effect_attempts (
     provider_audience TEXT NOT NULL,
     adapter_identity TEXT NOT NULL,
     provider_idempotency_key TEXT NOT NULL,
+    entry_admission_proof_digest TEXT,
     ownership_token_digest TEXT NOT NULL,
     reconciliation_token_digest TEXT,
     terminal_evidence_digest TEXT,
@@ -1356,11 +1510,11 @@ fn insert_attempt_tx(tx: &Transaction<'_>, record: &AttemptRecordV1) -> Result<(
             action_digest, action_key_digest, effecting_target_identity,
             provider_reference_seed_digest, provider_reference_descriptor_digest,
             provider_environment, provider_audience, adapter_identity,
-            provider_idempotency_key, ownership_token_digest, reconciliation_token_digest, terminal_evidence_digest, state,
-            not_entered_marker, record_digest
+            provider_idempotency_key, entry_admission_proof_digest, ownership_token_digest,
+            reconciliation_token_digest, terminal_evidence_digest, state, not_entered_marker, record_digest
         ) VALUES (
             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-            ?15, ?16, ?17, ?18, ?19
+            ?15, ?16, ?17, ?18, ?19, ?20
         )",
         params![
             record.attempt_identity,
@@ -1376,6 +1530,7 @@ fn insert_attempt_tx(tx: &Transaction<'_>, record: &AttemptRecordV1) -> Result<(
             record.provider_audience,
             record.adapter_identity,
             record.provider_idempotency_key,
+            record.entry_admission_proof_digest,
             record.ownership_token_digest,
             record.reconciliation_token_digest,
             record.terminal_evidence_digest,
@@ -1398,17 +1553,19 @@ fn update_attempt_tx(
         .execute(
             "UPDATE effect_attempts
              SET state = ?1,
-                 reconciliation_token_digest = ?2,
-                 terminal_evidence_digest = ?3,
-                 not_entered_marker = ?4,
-                 record_digest = ?5
-             WHERE attempt_identity = ?6
-               AND state = ?7
-               AND action_key_digest = ?8
-               AND ownership_token_digest = ?9
-               AND record_digest = ?10",
+                 entry_admission_proof_digest = ?2,
+                 reconciliation_token_digest = ?3,
+                 terminal_evidence_digest = ?4,
+                 not_entered_marker = ?5,
+                 record_digest = ?6
+             WHERE attempt_identity = ?7
+               AND state = ?8
+               AND action_key_digest = ?9
+               AND ownership_token_digest = ?10
+               AND record_digest = ?11",
             params![
                 updated.state.storage_tag(),
+                updated.entry_admission_proof_digest,
                 updated.reconciliation_token_digest,
                 updated.terminal_evidence_digest,
                 updated.not_entered_marker,
@@ -1437,7 +1594,8 @@ fn load_attempt_tx(
                     action_digest, action_key_digest, effecting_target_identity,
                     provider_reference_seed_digest, provider_reference_descriptor_digest,
                     provider_environment, provider_audience, adapter_identity,
-                    provider_idempotency_key, ownership_token_digest, reconciliation_token_digest,
+                    provider_idempotency_key, entry_admission_proof_digest, ownership_token_digest,
+                    reconciliation_token_digest,
                     terminal_evidence_digest, state,
                     not_entered_marker, record_digest
              FROM {ATTEMPT_TABLE}
@@ -1461,7 +1619,8 @@ fn load_attempt_txless(
                     action_digest, action_key_digest, effecting_target_identity,
                     provider_reference_seed_digest, provider_reference_descriptor_digest,
                     provider_environment, provider_audience, adapter_identity,
-                    provider_idempotency_key, ownership_token_digest, reconciliation_token_digest,
+                    provider_idempotency_key, entry_admission_proof_digest, ownership_token_digest,
+                    reconciliation_token_digest,
                     terminal_evidence_digest, state,
                     not_entered_marker, record_digest
              FROM {ATTEMPT_TABLE}
@@ -1476,7 +1635,7 @@ fn load_attempt_txless(
 }
 
 fn map_attempt_row(row: &rusqlite::Row<'_>) -> Result<AttemptRecordV1, rusqlite::Error> {
-    let state_tag: i64 = row.get(16)?;
+    let state_tag: i64 = row.get(17)?;
     let state = AttemptRecordState::from_storage_tag(state_tag).ok_or_else(|| {
         rusqlite::Error::InvalidParameterName("invalid attempt state tag".to_owned())
     })?;
@@ -1495,14 +1654,15 @@ fn map_attempt_row(row: &rusqlite::Row<'_>) -> Result<AttemptRecordV1, rusqlite:
         provider_audience: row.get(10)?,
         adapter_identity: row.get(11)?,
         provider_idempotency_key: row.get(12)?,
-        ownership_token_digest: row.get(13)?,
-        reconciliation_token_digest: row.get(14)?,
-        terminal_evidence_digest: row.get(15)?,
+        entry_admission_proof_digest: row.get(13)?,
+        ownership_token_digest: row.get(14)?,
+        reconciliation_token_digest: row.get(15)?,
+        terminal_evidence_digest: row.get(16)?,
         state,
-        not_entered_marker: row.get(17)?,
+        not_entered_marker: row.get(18)?,
     };
 
-    let stored_digest: String = row.get(18)?;
+    let stored_digest: String = row.get(19)?;
     record.validate().map_err(|e| {
         rusqlite::Error::InvalidParameterName(format!("invalid persisted attempt: {e}"))
     })?;
@@ -2415,6 +2575,124 @@ mod tests {
     }
 
     #[test]
+    fn entry_admission_proof_survives_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("entry-proof-restart.db");
+        let action = key("entry-proof-restart");
+        let owner = attempt("attempt-entry-proof-restart");
+
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            store
+                .atomically_admit(
+                    &action,
+                    &owner,
+                    record(
+                        "attempt-entry-proof-restart",
+                        "operation-entry-proof-restart",
+                        "native-entry-proof-restart",
+                        &action,
+                        AttemptRecordState::Consumed,
+                    ),
+                )
+                .unwrap();
+            store
+                .atomically_mark_dispatch_pending(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-restart",
+                )
+                .unwrap();
+            store
+                .atomically_claim_provider_entry(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-restart",
+                    "constitutional-provider-entry-claim-token-v1:entry-proof-restart",
+                )
+                .unwrap();
+            store
+                .atomically_record_provider_entry_proof(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-restart",
+                    "constitutional-final-provider-entry-proof-v1:test-proof",
+                )
+                .unwrap();
+        }
+
+        let reopened = SqliteActionFenceStore::open(&path).unwrap();
+        let attempt = reopened.durably_read_attempt(&owner).unwrap().unwrap();
+        assert_eq!(
+            attempt.entry_admission_proof_digest(),
+            Some("constitutional-final-provider-entry-proof-v1:test-proof")
+        );
+        assert!(reopened
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn persisted_entry_proof_without_claim_fails_closed_on_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("entry-proof-orphan.db");
+        let action = key("entry-proof-orphan");
+        let owner = attempt("attempt-entry-proof-orphan");
+
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            store
+                .atomically_admit(
+                    &action,
+                    &owner,
+                    record(
+                        "attempt-entry-proof-orphan",
+                        "operation-entry-proof-orphan",
+                        "native-entry-proof-orphan",
+                        &action,
+                        AttemptRecordState::Consumed,
+                    ),
+                )
+                .unwrap();
+            store
+                .atomically_mark_dispatch_pending(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-orphan",
+                )
+                .unwrap();
+            store
+                .atomically_claim_provider_entry(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-orphan",
+                    "constitutional-provider-entry-claim-token-v1:entry-proof-orphan",
+                )
+                .unwrap();
+            store
+                .atomically_record_provider_entry_proof(
+                    &action,
+                    &owner,
+                    "owner-token-entry-proof-orphan",
+                    "constitutional-final-provider-entry-proof-v1:orphan",
+                )
+                .unwrap();
+        }
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "DELETE FROM effect_provider_entry_claims WHERE attempt_identity = ?1",
+            params![owner.digest()],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert!(SqliteActionFenceStore::open(&path).is_err());
+    }
+
+    #[test]
+    fn second_boundary_cannot_claim_an_already_claimed_provider_entry() {    #[test]
     fn second_boundary_cannot_claim_an_already_claimed_provider_entry() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("claim-collision.db");
