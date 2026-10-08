@@ -1828,7 +1828,6 @@ mod tests {
 
     struct TestTrustRoot {
         admission_authorizer: Box<dyn AdmissionAuthorizer>,
-        provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_identity: String,
         final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -1852,15 +1851,6 @@ mod tests {
                 .verify(attempt, action_key, now_unix_ms)
         }
 
-        fn authorize_provider_adapter(
-            &self,
-            provider: &dyn ProviderAdapter,
-            attempt: &AttemptRecordV1,
-            action_key: &ActionKeyV1,
-        ) -> Result<(), String> {
-            self.provider_adapter_authorizer
-                .verify(provider, attempt, action_key)
-        }
 
         fn outcome_verifier(&self) -> &dyn OutcomeVerifier {
             self.outcome_verifier.as_ref()
@@ -1894,9 +1884,6 @@ mod tests {
     ) -> Box<dyn BoundaryTrustRoot> {
         Box::new(TestTrustRoot {
             admission_authorizer: admission,
-            provider_adapter_authorizer: Box::new(
-                PinnedProviderAdapterAuthorizer::new(["provider-adapter-v1"]).unwrap(),
-            ),
             outcome_verifier: Box::new(Verifier),
             outcome_identity: "verified-provider-v1".into(),
             final_entry_verifier: Box::new(AllowFinalEntry),
@@ -1923,9 +1910,6 @@ mod tests {
                 )
                 .unwrap(),
             ),
-            provider_adapter_authorizer: Box::new(
-                PinnedProviderAdapterAuthorizer::new(["provider-adapter-v1"]).unwrap(),
-            ),
             outcome_verifier: outcome,
             outcome_identity: outcome_identity.to_owned(),
             final_entry_verifier: final_entry,
@@ -1944,14 +1928,44 @@ mod tests {
         )
     }
 
+    fn default_test_provider() -> Box<dyn ProviderAdapter> {
+        Box::new(FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "default-provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "default-reconcile-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        })
+    }
+
     fn test_host(store: SqliteActionFenceStore) -> EffectBoundaryHostV1 {
-        EffectBoundaryHostV1::new(store, test_root()).unwrap()
+        EffectBoundaryHostV1::new(
+            store,
+            test_root(),
+            PinnedProviderAdapterRegistry::new([default_test_provider()]).unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn test_host_with_provider(
+        store: SqliteActionFenceStore,
+        provider: Box<dyn ProviderAdapter>,
+    ) -> EffectBoundaryHostV1 {
+        EffectBoundaryHostV1::new(
+            store,
+            test_root(),
+            PinnedProviderAdapterRegistry::new([provider]).unwrap(),
+        )
+        .unwrap()
     }
 
     fn test_host_with_outcome(
         store: SqliteActionFenceStore,
         outcome: Box<dyn OutcomeVerifier>,
         outcome_identity: &str,
+        provider: Box<dyn ProviderAdapter>,
     ) -> EffectBoundaryHostV1 {
         EffectBoundaryHostV1::new(
             store,
@@ -1961,6 +1975,7 @@ mod tests {
                 Box::new(AllowFinalEntry),
                 "final-entry-verifier-v1",
             ),
+            PinnedProviderAdapterRegistry::new([provider]).unwrap(),
         )
         .unwrap()
     }
@@ -1969,6 +1984,7 @@ mod tests {
         store: SqliteActionFenceStore,
         final_entry: Box<dyn FinalProviderEntryVerifier>,
         final_entry_identity: &str,
+        provider: Box<dyn ProviderAdapter>,
     ) -> EffectBoundaryHostV1 {
         EffectBoundaryHostV1::new(
             store,
@@ -1978,10 +1994,10 @@ mod tests {
                 final_entry,
                 final_entry_identity,
             ),
+            PinnedProviderAdapterRegistry::new([provider]).unwrap(),
         )
         .unwrap()
     }
-
     fn action() -> ActionKeyV1 {
         ActionKeyV1::new("rp-test", "provider-target", "material-action-1").unwrap()
     }
@@ -2012,7 +2028,12 @@ mod tests {
         }
     }
 
-    fn attempt_record(id: &str, op: &str, state: AttemptRecordState) -> AttemptRecordV1 {
+    fn attempt_record_with_adapter(
+        id: &str,
+        op: &str,
+        adapter_identity: &str,
+        state: AttemptRecordState,
+    ) -> AttemptRecordV1 {
         let action = action();
         AttemptRecordV1::new(
             &identity(id),
@@ -2024,13 +2045,16 @@ mod tests {
             Some("provider-descriptor".into()),
             "provider-env",
             "provider-audience",
-            "provider-adapter-v1",
+            adapter_identity,
             format!("owner-{id}"),
             state,
         )
         .unwrap()
     }
 
+    fn attempt_record(id: &str, op: &str, state: AttemptRecordState) -> AttemptRecordV1 {
+        attempt_record_with_adapter(id, op, "provider-adapter-v1", state)
+    }
     #[test]
     fn provider_idempotency_key_excludes_operation_identifier() {
         let action_key = action();
