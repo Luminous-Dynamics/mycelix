@@ -221,6 +221,7 @@ def verify_raw_artifact_archive(
     archive: Path,
     expected_member: str,
     expected_digest: str,
+    expected_size_bytes: int,
     extracted: Path,
     label: str,
 ) -> dict[str, Any]:
@@ -229,6 +230,8 @@ def verify_raw_artifact_archive(
     archive_size = archive.stat().st_size
     if archive_size <= 0 or archive_size > MAX_ARTIFACT_ARCHIVE_BYTES:
         fail(f"{label} artifact archive size exceeds the closed-world bound")
+    if archive_size != expected_size_bytes:
+        fail(f"{label} artifact archive size does not match API metadata")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", expected_digest):
         fail(f"{label} artifact digest is malformed")
     archive_bytes = archive.read_bytes()
@@ -305,6 +308,8 @@ def verify_raw_artifact_archive(
             return {
                 "archive_sha256": archive_sha256,
                 "archive_size_bytes": archive_size,
+                "member_count": len(names),
+                "member_names": names,
                 "member_name": info.filename,
                 "member_set_sha256": member_set_sha256,
                 "member_size_bytes": len(member),
@@ -783,6 +788,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         archive=snapshot_dir / "raw/receipt.zip",
         expected_member="qualification-receipt.json",
         expected_digest=primary_artifact["digest"],
+        expected_size_bytes=primary_artifact["size_in_bytes"],
         extracted=snapshot_dir / "qualification-receipt.json",
         label="receipt",
     )
@@ -790,6 +796,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         archive=snapshot_dir / "raw/index.zip",
         expected_member="artifact-binding-index.json",
         expected_digest=index_artifact["digest"],
+        expected_size_bytes=index_artifact["size_in_bytes"],
         extracted=snapshot_dir / "artifact-binding-index.json",
         label="index",
     )
@@ -846,6 +853,8 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         "receipt_artifact_created_at": primary_artifact["created_at"],
         "receipt_artifact_expires_at": primary_artifact["expires_at"],
         "receipt_artifact_archive_sha256": receipt_archive["archive_sha256"],
+        "receipt_artifact_member_count": receipt_archive["member_count"],
+        "receipt_artifact_member_names": receipt_archive["member_names"],
         "receipt_artifact_member_set_sha256": receipt_archive["member_set_sha256"],
         "receipt_artifact_member_sha256": receipt_archive["member_sha256"],
         "index_content_sha256": index_digest,
@@ -854,6 +863,8 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         "index_artifact_created_at": index_artifact["created_at"],
         "index_artifact_expires_at": index_artifact["expires_at"],
         "index_artifact_archive_sha256": index_archive["archive_sha256"],
+        "index_artifact_member_count": index_archive["member_count"],
+        "index_artifact_member_names": index_archive["member_names"],
         "index_artifact_member_set_sha256": index_archive["member_set_sha256"],
         "index_artifact_member_sha256": index_archive["member_sha256"],
         "trusted_policy_sha": receipt["trusted_policy_sha"],
