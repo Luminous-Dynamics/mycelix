@@ -6,14 +6,14 @@
   "subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v6-contestability-subject",
-    "head_sha": "925b4a2608b0f41c649b97d4be29917f6a345473",
-    "tree_sha": "b8ca595caa65ec7965cb6f694f1a063134cb9f1a",
+    "head_sha": "0ec459f0ddf83b9a42bd63da3411943824093eba",
+    "tree_sha": "af45f89488cc70392d391e0085ffbb952ffcbaea",
     "tree_binding": "verified-exact-tree; independently resolved from the exact subject commit"
   },
   "models": {
     "tla": {
       "path": "mycelix-governance/specs/EffectiveContestabilityV1.tla",
-      "git_blob_sha": "2ce2438a0ffdc82b905b98c3eb7503ee53595f86",
+      "git_blob_sha": "453343f98c47ccbca341146a89ff08fb8d2720bb",
       "config_path": "mycelix-governance/specs/EffectiveContestabilityV1.cfg",
       "config_git_blob_sha": "deafbd5e4719e7439d63d7b505e539aba17fcb5d",
       "invariants": [
@@ -123,7 +123,9 @@
       "exact solver/bitwidth/scopes",
       "exact JDK runtime metadata",
       "postflight immutability",
-      "bounded reference exploration"
+      "bounded reference exploration",
+      "independent verification that the named source branch points to the frozen subject head",
+      "independent verification that the frozen subject head resolves to the frozen subject tree"
     ],
     "bounded_result_is_not_unbounded_proof": true,
     "formal_result_is_not_runtime_qualification": true,
