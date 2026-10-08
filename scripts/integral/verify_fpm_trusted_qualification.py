@@ -539,7 +539,8 @@ def verify_sandbox_system_closure(closure: Any) -> None:
         fail("sandbox system closure libc version is malformed")
 
     commands = closure["commands"]
-    if not isinstance(commands, list) or [item.get("name") for item in commands if isinstance(item, dict)] != list(SANDBOX_SYSTEM_CLOSURE_COMMANDS):
+    expected_command_names = sorted(SANDBOX_SYSTEM_CLOSURE_COMMANDS)
+    if not isinstance(commands, list) or [item.get("name") for item in commands if isinstance(item, dict)] != expected_command_names:
         fail("sandbox system closure command set/order mismatch")
     seen_paths: set[str] = set()
     for item in commands:
