@@ -604,6 +604,20 @@ pub mod governance {
         if gov_links.is_empty() {
             return Ok(());
         }
+        verify_registered_governance_agent_from_links(gov_links)
+    }
+
+    /// Strict governance authorization for monetary or otherwise privileged
+    /// operations. Unlike the bootstrap verifier, an empty registry is never
+    /// treated as authorization.
+    pub fn verify_registered_governance_agent_from_links(
+        gov_links: Vec<Link>,
+    ) -> ExternResult<()> {
+        if gov_links.is_empty() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Governance authority is uninitialized; privileged operation is disabled".into(),
+            )));
+        }
 
         let caller = agent_info()?.agent_initial_pubkey;
         for link in gov_links {
