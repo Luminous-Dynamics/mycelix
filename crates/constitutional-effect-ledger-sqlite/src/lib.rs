@@ -27,9 +27,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 6;
+pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 7;
 pub const SQLITE_FENCE_STORE_PROFILE: &str =
-    "constitutional-effect-ledger/sqlite-fence-store-v6";
+    "constitutional-effect-ledger/sqlite-fence-store-v7";
 pub const SQLITE_FENCE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 const META_TABLE: &str = "effect_fence_store_meta";
@@ -37,6 +37,7 @@ const ATTEMPT_TABLE: &str = "effect_attempts";
 const FENCE_TABLE: &str = "effect_action_fences";
 const REPLAY_TABLE: &str = "effect_native_replay_bindings";
 const ENTRY_CLAIM_TABLE: &str = "effect_provider_entry_claims";
+const AUTHORIZATION_PROOF_TABLE: &str = "effect_authorization_admission_proofs";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqliteActionFenceStore {
@@ -287,6 +288,7 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
                     .into(),
             );
         }
+        authorization_proof.validate()?;
         if !authorization_proof.matches(&record, action_key) {
             return Err("authorization admission proof does not match exact attempt/action".into());
         }
@@ -312,6 +314,16 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
 
         if let Some(existing) = load_attempt_tx(&tx, attempt_identity.digest())? {
             if existing.record_digest() == record.record_digest() {
+                let existing_proof = load_authorization_admission_proof_tx(
+                    &tx,
+                    attempt_identity.digest(),
+                )?
+                .ok_or_else(|| "existing attempt is missing its authorization admission receipt".to_string())?;
+                if existing.authorization_admission_proof_digest.as_deref()
+                    != Some(existing_proof.digest())
+                {
+                    return Err("existing attempt authorization admission receipt does not match".into());
+                }
                 if existing.state.occupies_action_fence() {
                     match load_fence_tx(&tx, action_key.digest())? {
                         Some(fence)
@@ -369,6 +381,7 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
         .map_err(|e| e.to_string())?;
 
         insert_attempt_tx(&tx, &record)?;
+        insert_authorization_admission_proof_tx(&tx, &authorization_proof)?;
 
         let fence = ActionFenceRecordV1 {
             schema_version: ACTION_FENCE_SCHEMA_VERSION,
@@ -809,7 +822,16 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
     ) -> Result<Option<ProviderEntryClaimV1>, String> {
         let conn = open_connection(&self.path)?;
         load_provider_entry_claim_txless(&conn, attempt_identity.digest())
+    }    
+    fn durably_read_authorization_admission_proof(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<AuthorizationAdmissionProofV1>, String> {
+        let conn = open_connection(&self.path)?;
+        load_authorization_admission_proof_conn(&conn, attempt_identity.digest())
     }
+
+
 }
 
 fn storage_error(error: impl ToString) -> ActionFenceMutationError {
@@ -974,7 +996,7 @@ fn ensure_schema(conn: &mut Connection) -> Result<(), String> {
 }
 
 fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
-    let expectations: [(&str, &[(&str, &str, i64, i64)]); 5] = [
+    let expectations: [(&str, &[(&str, &str, i64, i64)]); 6] = [
         (
             META_TABLE,
             &[
@@ -1036,6 +1058,27 @@ fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
                 ("owner_token_digest", "TEXT", 1, 0),
                 ("claim_token_digest", "TEXT", 1, 0),
                 ("record_digest", "TEXT", 1, 0),
+            ],
+        ),
+        (
+            AUTHORIZATION_PROOF_TABLE,
+            &[
+                ("attempt_identity", "TEXT", 1, 1),
+                ("action_key_digest", "TEXT", 1, 0),
+                ("operation_id", "TEXT", 1, 0),
+                ("native_replay_identity", "TEXT", 1, 0),
+                ("action_digest", "TEXT", 1, 0),
+                ("effecting_target_identity", "TEXT", 1, 0),
+                ("provider_environment", "TEXT", 1, 0),
+                ("provider_audience", "TEXT", 1, 0),
+                ("adapter_identity", "TEXT", 1, 0),
+                ("authorization_snapshot_digest", "TEXT", 1, 0),
+                ("policy_snapshot_digest", "TEXT", 1, 0),
+                ("status_snapshot_digest", "TEXT", 1, 0),
+                ("checked_at_unix_ms", "INTEGER", 1, 0),
+                ("valid_until_unix_ms", "INTEGER", 1, 0),
+                ("verifier_identity", "TEXT", 1, 0),
+                ("digest", "TEXT", 1, 0),
             ],
         ),
     ];
@@ -1525,7 +1568,90 @@ CREATE TABLE effect_provider_entry_claims (
     FOREIGN KEY(attempt_identity) REFERENCES effect_attempts(attempt_identity),
     FOREIGN KEY(action_key_digest) REFERENCES effect_action_fences(action_key_digest)
 );
+
+CREATE TABLE effect_authorization_admission_proofs (
+    attempt_identity TEXT PRIMARY KEY NOT NULL,
+    action_key_digest TEXT NOT NULL,
+    operation_id TEXT NOT NULL,
+    native_replay_identity TEXT NOT NULL,
+    action_digest TEXT NOT NULL,
+    effecting_target_identity TEXT NOT NULL,
+    provider_environment TEXT NOT NULL,
+    provider_audience TEXT NOT NULL,
+    adapter_identity TEXT NOT NULL,
+    authorization_snapshot_digest TEXT NOT NULL,
+    policy_snapshot_digest TEXT NOT NULL,
+    status_snapshot_digest TEXT NOT NULL,
+    checked_at_unix_ms INTEGER NOT NULL,
+    valid_until_unix_ms INTEGER NOT NULL,
+    verifier_identity TEXT NOT NULL,
+    digest TEXT NOT NULL UNIQUE,
+    FOREIGN KEY(attempt_identity) REFERENCES effect_attempts(attempt_identity)
+);
 "#;
+
+fn insert_authorization_admission_proof_tx(
+    tx: &Transaction<'_>,
+    proof: &AuthorizationAdmissionProofV1,
+) -> Result<(), String> {
+    proof.validate()?;
+    tx.execute(
+        "INSERT INTO effect_authorization_admission_proofs (
+        attempt_identity, action_key_digest, operation_id, native_replay_identity,
+        action_digest, effecting_target_identity, provider_environment, provider_audience,
+        adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
+        status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms, verifier_identity, digest
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)"
+        ,
+        params![
+            proof.attempt_identity(),
+            proof.action_key_digest(),
+            proof.operation_id(),
+            proof.native_replay_identity(),
+            proof.action_digest(),
+            proof.effecting_target_identity(),
+            proof.provider_environment(),
+            proof.provider_audience(),
+            proof.adapter_identity(),
+            proof.authorization_snapshot_digest(),
+            proof.policy_snapshot_digest(),
+            proof.status_snapshot_digest(),
+            proof.checked_at_unix_ms() as i64,
+            proof.valid_until_unix_ms() as i64,
+            proof.verifier_identity(),
+            proof.digest(),
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn load_authorization_admission_proof_tx(
+    tx: &Transaction<'_>,
+    attempt_identity: &str,
+) -> Result<Option<AuthorizationAdmissionProofV1>, String> {
+    tx.query_row(
+        "SELECT attempt_identity, action_key_digest, operation_id, native_replay_identity,
+                action_digest, effecting_target_identity, provider_environment, provider_audience,
+                adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
+                status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms, verifier_identity, digest
+         FROM " + AUTHORIZATION_PROOF_TABLE + " WHERE attempt_identity = ?1",
+        params![attempt_identity],
+        |row| {
+            AuthorizationAdmissionProofV1::from_persisted(
+                row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,
+                row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?,
+                row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?,
+                row.get::<_, i64>(12)? as u64, row.get::<_, i64>(13)? as u64,
+                row.get(14)?, row.get(15)?,
+            )
+            .map_err(|e| rusqlite::Error::InvalidParameterName(e))
+        },
+    )
+    .optional()
+    .map_err(|e| e.to_string())?
+    .transpose()
+}
 
 fn insert_attempt_tx(tx: &Transaction<'_>, record: &AttemptRecordV1) -> Result<(), String> {
     tx.execute(
@@ -1658,6 +1784,34 @@ fn load_attempt_txless(
         ),
         params![attempt_identity],
         map_attempt_row,
+    )
+    .optional()
+    .map_err(|e| e.to_string())?
+    .transpose()
+}
+
+fn load_authorization_admission_proof_conn(
+    conn: &Connection,
+    attempt_identity: &str,
+) -> Result<Option<AuthorizationAdmissionProofV1>, String> {
+    conn.query_row(
+        &format!(
+            "SELECT attempt_identity, action_key_digest, operation_id, native_replay_identity,
+             action_digest, effecting_target_identity, provider_environment, provider_audience,
+             adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
+             status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms, verifier_identity, digest
+             FROM {AUTHORIZATION_PROOF_TABLE} WHERE attempt_identity = ?1"
+        ),
+        params![attempt_identity],
+        |row| {
+            AuthorizationAdmissionProofV1::from_persisted(
+                row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,
+                row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?,
+                row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?,
+                row.get::<_, i64>(12)? as u64, row.get::<_, i64>(13)? as u64,
+                row.get(14)?, row.get(15)?,
+            ).map_err(|e| rusqlite::Error::InvalidParameterName(e))
+        },
     )
     .optional()
     .map_err(|e| e.to_string())?
