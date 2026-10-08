@@ -120,6 +120,11 @@ jobs:
           }
 
           grep -Fq 'final_provider_entry_proof_digests' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+          grep -Fq 'constitutional-attempt-identity-v1:' 'mycelix-governance/zomes/execution/integrity/src/lib.rs'
+          grep -Fq 'constitutional-action-key-v1:' 'mycelix-governance/zomes/execution/integrity/src/lib.rs'
+          grep -Fq 'constitutional-terminal-evidence-v3:' 'mycelix-governance/zomes/execution/integrity/src/lib.rs'
+          grep -Fq 'constitutional-authorization-admission-proof-v1:' 'mycelix-governance/zomes/execution/integrity/src/lib.rs'
+          grep -Fq 'constitutional-final-provider-entry-proof-v1:' 'mycelix-governance/zomes/execution/integrity/src/lib.rs'
             echo "NOT QUALIFIED: execution resolution does not bind final-entry proof roots."
             exit 1
           }
