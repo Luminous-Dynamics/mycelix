@@ -24,21 +24,32 @@ def token(state: int, prefix: str) -> tuple[int, str]:
     return state, f"{prefix}{state:08x}"
 
 
+def git_blob_sha(path: Path) -> str:
+    data = path.read_bytes()
+    header = f"blob {len(data)}\\0".encode("ascii")
+    return __import__("hashlib").sha1(header + data).hexdigest()
+
+
 def main() -> int:
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         print(
             "usage: generate_continual_adaptation_ledger.py "
-            "EXPECTED_POLICY_BLOB_SHA FIXED_FIXTURES.json OUTPUT.json",
+            "EXPECTED_POLICY_BLOB_SHA POLICY.json FIXED_FIXTURES.json OUTPUT.json",
             file=sys.stderr,
         )
         return 2
 
     expected_policy_blob_sha = sys.argv[1]
-    fixed = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
-    output_path = Path(sys.argv[3])
+    policy_path = Path(sys.argv[2])
+    fixed = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+    output_path = Path(sys.argv[4])
 
+    actual_policy_blob_sha = git_blob_sha(policy_path)
     binding = fixed.get("policy_binding", {})
-    if binding.get("git_blob_sha") != expected_policy_blob_sha:
+    if (
+        expected_policy_blob_sha != actual_policy_blob_sha
+        or binding.get("git_blob_sha") != actual_policy_blob_sha
+    ):
         print("policy binding mismatch", file=sys.stderr)
         return 1
     base = fixed["base_graph"]
