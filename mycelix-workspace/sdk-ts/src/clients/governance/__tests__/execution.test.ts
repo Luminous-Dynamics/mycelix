@@ -207,21 +207,20 @@ describe('ExecutionClient', () => {
   });
 
   describe('recordPreparedExecutionResolution', () => {
+    const binding = {
+      attemptIdentity: 'constitutional-attempt-identity-v1:' + 'a'.repeat(64),
+      actionKeyDigest: 'constitutional-action-key-v1:' + 'b'.repeat(64),
+      terminalEvidenceDigest: 'constitutional-terminal-evidence-v3:' + 'c'.repeat(64),
+      authorizationAdmissionProofDigest:
+        'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
+      finalProviderEntryProofDigest:
+        'constitutional-final-provider-entry-proof-v1:' + 'e'.repeat(64),
+    };
     const input = {
       executionId: 'execution-1',
       timelockId: 'timelock-1',
       executorDid: 'did:mycelix:executor',
-      bindings: [
-        {
-          attemptIdentity: 'constitutional-attempt-identity-v1:' + 'a'.repeat(64),
-          actionKeyDigest: 'constitutional-action-key-v1:' + 'b'.repeat(64),
-          terminalEvidenceDigest: 'constitutional-terminal-evidence-v3:' + 'c'.repeat(64),
-          authorizationAdmissionProofDigest:
-            'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
-          finalProviderEntryProofDigest:
-            'constitutional-final-provider-entry-proof-v1:' + 'e'.repeat(64),
-        },
-      ],
+      bindings: [binding],
       outcome: 'Executed' as const,
     };
 
@@ -241,13 +240,13 @@ describe('ExecutionClient', () => {
             executor_did: 'did:mycelix:executor',
             bindings: [
               {
-                attempt_identity: input.bindings[0].attemptIdentity,
-                action_key_digest: input.bindings[0].actionKeyDigest,
-                terminal_evidence_digest: input.bindings[0].terminalEvidenceDigest,
+                attempt_identity: binding.attemptIdentity,
+                action_key_digest: binding.actionKeyDigest,
+                terminal_evidence_digest: binding.terminalEvidenceDigest,
                 authorization_admission_proof_digest:
-                  input.bindings[0].authorizationAdmissionProofDigest,
+                  binding.authorizationAdmissionProofDigest,
                 final_provider_entry_proof_digest:
-                  input.bindings[0].finalProviderEntryProofDigest,
+                  binding.finalProviderEntryProofDigest,
               },
             ],
             outcome: 'Executed',
