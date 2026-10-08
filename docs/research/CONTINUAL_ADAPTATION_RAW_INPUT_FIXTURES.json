@@ -1,0 +1,15 @@
+{
+  "schema":"mycelix.continual-adaptation.raw-input-fixtures.v1",
+  "status":"research-fixture-only",
+  "cases":[
+    {"case_id":"RAW-001-valid-unique","raw":"{\"a\":\"1\",\"b\":\"2\"}","expected":"accept"},
+    {"case_id":"RAW-002-duplicate-top-level","raw":"{\"a\":\"1\",\"a\":\"2\"}","expected":"reject"},
+    {"case_id":"RAW-003-duplicate-nested","raw":"{\"outer\":{\"a\":\"1\",\"a\":\"2\"}}","expected":"reject"},
+    {"case_id":"RAW-004-duplicate-whitespace","raw":"{\"a\":\"1\", \"\\u0061\":\"2\"}","expected":"reject"},
+    {"case_id":"RAW-005-trailing-comma","raw":"{\"a\":\"1\",}","expected":"reject"},
+    {"case_id":"RAW-006-unterminated-string","raw":"{\"a\":\"1}","expected":"reject"},
+    {"case_id":"RAW-007-invalid-escape","raw":"{\"a\":\"\\uZZZZ\"}","expected":"reject"},
+    {"case_id":"RAW-008-nonfinite-number","raw":"{\"a\":NaN}","expected":"reject"},
+    {"case_id":"RAW-009-negative-zero","raw":"{\"a\":-0}","expected":"reject"}
+  ]
+}
