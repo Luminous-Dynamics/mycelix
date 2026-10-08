@@ -142,6 +142,9 @@ def validate(binding: object) -> dict:
     if binding["verifier_workflow_path"] != ".github/workflows/security-kernel-trusted-result-verifier.yml":
         fail("verifier_workflow_path is not the registered S2 verifier path")
 
+    if binding["trigger_event"] not in {"pull_request_target", "schedule"}:
+        fail("trigger_event is outside the registered Security Kernel trigger witness set")
+
     if not isinstance(binding["artifact_digest"], str):
         fail("artifact_digest must be a string")
     if (
