@@ -118,10 +118,10 @@ def snapshot(root: Path) -> None:
     artifacts = {"artifacts": [
         {"id": RECEIPT_ARTIFACT, "name": f"fpm-trusted-qualification-{SUBJECT}",
          "expired": False, "created_at": "2026-10-07T20:00:00Z", "expires_at": "2027-01-05T20:00:00Z", "size_in_bytes": (root / "raw/receipt.zip").stat().st_size, "digest": f"sha256:{receipt_archive_digest}",
-         "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID}},
+         "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID, "head_sha": POLICY, "head_branch": "main"}},
         {"id": INDEX_ARTIFACT, "name": f"fpm-trusted-qualification-index-{SUBJECT}",
          "expired": False, "created_at": "2026-10-07T20:00:01Z", "expires_at": "2027-01-05T20:00:01Z", "size_in_bytes": (root / "raw/index.zip").stat().st_size, "digest": f"sha256:{index_archive_digest}",
-         "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID}},
+         "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID, "head_sha": POLICY, "head_branch": "main"}},
     ]}
     trusted = {"id": TRUSTED_RUN, "name": TW_NAME, "path": TW_PATH, "event": "workflow_run",
                "status": "completed", "conclusion": "success", "run_attempt": 1,
@@ -421,6 +421,14 @@ def main() -> None:
             lambda x: x["artifacts"][0].__setitem__(
                 "size_in_bytes", x["artifacts"][0]["size_in_bytes"] + 1
             ),
+        )
+        expect_failure(
+            root, "artifacts.json", "artifact-run-head-sha",
+            lambda x: x["artifacts"][0]["workflow_run"].__setitem__("head_sha", "a" * 40),
+        )
+        expect_failure(
+            root, "artifacts.json", "artifact-run-branch",
+            lambda x: x["artifacts"][0]["workflow_run"].__setitem__("head_branch", "feature"),
         )
         raw = (root / "qualification-receipt.json").read_bytes()
         duplicate = raw[:-1].replace(
