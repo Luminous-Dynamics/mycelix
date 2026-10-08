@@ -1,0 +1,91 @@
+{
+  "schema": "mycelix.effective-contestability-formal-crosswalk.v1",
+  "status": "candidate-verification",
+  "authority": "non-authoritative",
+  "subject_head": "3f55878096d5eafb63917421d1d4f07e2ffbbee0",
+  "subject_tree": null,
+  "relationship": "semantic-alignment map only; not a refinement proof",
+  "mappings": [
+    {
+      "id": "nominal-vs-effective",
+      "boundary": "nominal exit != effective exit",
+      "tla": [
+        "EffectiveExitRequiresPortability",
+        "NoEffectiveExitWithoutNominalExit"
+      ],
+      "alloy": [
+        "NominalExitWithoutEffective",
+        "EffectiveExitRequiresNominalAndPortability"
+      ],
+      "reference": [
+        "nominal-effective -> EffectiveExitRequiresPortability"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "root-independence",
+      "boundary": "multiple providers != independent alternatives",
+      "tla": [
+        "EffectiveExitIsIndependent",
+        "SharedRootsCannotBecomeEffectiveExit"
+      ],
+      "alloy": [
+        "EffectiveExitRequiresIndependentRoots"
+      ],
+      "reference": [
+        "shared-root -> SharedRootsCannotBecomeEffectiveExit:control"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "provider-failure",
+      "boundary": "provider failure != authority expansion",
+      "tla": [
+        "ProviderFailureDoesNotExpandAuthority"
+      ],
+      "alloy": [
+        "ProviderFailuresPreserveAuthority"
+      ],
+      "reference": [
+        "failure-authority -> ProviderFailureDoesNotExpandAuthority"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "migration-continuity",
+      "boundary": "portability != obligation/history erasure",
+      "tla": [
+        "MigrationPreservesObligationsAndHistory",
+        "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction"
+      ],
+      "alloy": [
+        "MigrationsPreserveObligationsHistoryAuthorityAndJurisdiction"
+      ],
+      "reference": [
+        "switch-obligation -> MigrationPreservesObligationsAndHistory",
+        "switch-jurisdiction -> ProviderSwitchDoesNotTransferAuthorityOrJurisdiction"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "switch-review",
+      "boundary": "high switching cost -> bounded review",
+      "tla": [
+        "HighSwitchingCostTriggersReview"
+      ],
+      "alloy": [
+        "ReviewIsRequiredAtHighSwitchingCost"
+      ],
+      "reference": [
+        "switch-review -> HighSwitchingCostTriggersReview"
+      ],
+      "coverage": "aligned"
+    }
+  ],
+  "nonclaims": [
+    "Finite model evidence is not proof of real-world market contestability.",
+    "No legal recognition or sovereignty is established.",
+    "No scalar contestability or power score is created.",
+    "No production equivalence is established."
+  ]
+}
