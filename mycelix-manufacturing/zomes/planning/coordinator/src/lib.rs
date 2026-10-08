@@ -70,8 +70,12 @@ pub struct CapabilityPlanInput {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CapabilityPlanRejection {
+    ContractNotFound,
     ContractMalformed,
+    ContractLookupFailed,
     MachineNotFound,
+    MachineMalformed,
+    MachineLookupFailed,
     MachineUnavailable,
     MultipleContractsForMachine,
 }
@@ -131,7 +135,8 @@ fn capability_profile(contract: &CapabilityContractProjection) -> CapabilityProf
 ///
 /// This is intentionally a resolver, not an execution authorization mechanism:
 /// capability qualification is consumed exactly as recorded, machine availability
-/// is evaluated separately, and ambiguous multiple contracts for one machine fail closed.
+/// is evaluated separately, lookup failures remain distinct from missing records,
+/// and ambiguous multiple contracts for one machine fail closed.
 #[hdk_extern]
 pub fn select_live_capability(
     input: CapabilityPlanInput,
@@ -179,23 +184,36 @@ pub fn select_live_capability(
             ExternIO::encode(contract_hash.clone())?,
         )?;
 
-        let Some(contract_record) = match contract_response {
-            ZomeCallResponse::Ok(data) => data.decode::<Option<Record>>().map_err(|e| {
+        let contract_record = match contract_response {
+            ZomeCallResponse::Ok(data) => match data.decode::<Option<Record>>().map_err(|e| {
                 wasm_error!(WasmErrorInner::Guest(format!(
                     "failed to decode capability contract: {e}"
                 )))
-            })?,
-            _ => None,
-        } else {
-            rejected.push(CapabilityPlanDecision {
-                machine_hash: None,
-                capability_contract_hash: contract_hash,
-                machine_status: None,
-                eligible: false,
-                mismatch: None,
-                rejection: Some(CapabilityPlanRejection::ContractMalformed),
-            });
-            continue;
+            })? {
+                Some(record) => record,
+                None => {
+                    rejected.push(CapabilityPlanDecision {
+                        machine_hash: None,
+                        capability_contract_hash: contract_hash,
+                        machine_status: None,
+                        eligible: false,
+                        mismatch: None,
+                        rejection: Some(CapabilityPlanRejection::ContractNotFound),
+                    });
+                    continue;
+                }
+            },
+            _ => {
+                rejected.push(CapabilityPlanDecision {
+                    machine_hash: None,
+                    capability_contract_hash: contract_hash,
+                    machine_status: None,
+                    eligible: false,
+                    mismatch: None,
+                    rejection: Some(CapabilityPlanRejection::ContractLookupFailed),
+                });
+                continue;
+            }
         };
 
         let contract: CapabilityContractProjection =
@@ -226,24 +244,35 @@ pub fn select_live_capability(
         )?;
 
         let machine_record = match machine_response {
-            ZomeCallResponse::Ok(data) => data.decode::<Option<Record>>().map_err(|e| {
+            ZomeCallResponse::Ok(data) => match data.decode::<Option<Record>>().map_err(|e| {
                 wasm_error!(WasmErrorInner::Guest(format!(
                     "failed to decode machine: {e}"
                 )))
-            })?,
-            _ => None,
-        };
-
-        let Some(machine_record) = machine_record else {
-            rejected.push(CapabilityPlanDecision {
-                machine_hash: Some(machine_hash),
-                capability_contract_hash: contract_hash,
-                machine_status: None,
-                eligible: false,
-                mismatch: None,
-                rejection: Some(CapabilityPlanRejection::MachineNotFound),
-            });
-            continue;
+            })? {
+                Some(record) => record,
+                None => {
+                    rejected.push(CapabilityPlanDecision {
+                        machine_hash: Some(machine_hash),
+                        capability_contract_hash: contract_hash,
+                        machine_status: None,
+                        eligible: false,
+                        mismatch: None,
+                        rejection: Some(CapabilityPlanRejection::MachineNotFound),
+                    });
+                    continue;
+                }
+            },
+            _ => {
+                rejected.push(CapabilityPlanDecision {
+                    machine_hash: Some(machine_hash),
+                    capability_contract_hash: contract_hash,
+                    machine_status: None,
+                    eligible: false,
+                    mismatch: None,
+                    rejection: Some(CapabilityPlanRejection::MachineLookupFailed),
+                });
+                continue;
+            }
         };
 
         let machine: MachineProjection = match machine_record.entry().to_app_option().map_err(|e| {
@@ -257,7 +286,7 @@ pub fn select_live_capability(
                     machine_status: None,
                     eligible: false,
                     mismatch: None,
-                    rejection: Some(CapabilityPlanRejection::MachineNotFound),
+                    rejection: Some(CapabilityPlanRejection::MachineMalformed),
                 });
                 continue;
             }
