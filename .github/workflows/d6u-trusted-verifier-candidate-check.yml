@@ -102,6 +102,8 @@ jobs:
           test "$GITHUB_REPOSITORY" = "Luminous-Dynamics/mycelix"
           test "$(git rev-parse HEAD)" = "$EXPECTED_TRUSTED_SHA"
           [[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           observed_evaluator_blob="$(git rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
           test "$observed_evaluator_blob" = "$EXPECTED_EVALUATOR_BLOB"
           observed_candidate_sha="$(git -C _candidate rev-parse HEAD)"
