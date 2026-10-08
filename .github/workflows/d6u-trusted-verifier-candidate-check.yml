@@ -1,0 +1,92 @@
+name: D6U Trusted Verifier Candidate Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact 40-character commit SHA to evaluate
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: d6u-trusted-verifier-candidate-${{ inputs.candidate_sha }}
+  cancel-in-progress: true
+
+jobs:
+  independent-verifier:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted default-branch source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert trusted source and evaluator blob
+        env:
+          EXPECTED_TRUSTED_SHA: ${{ github.sha }}
+          EXPECTED_EVALUATOR_BLOB: 6956e2b6f65cf8adda528514eeaefc55abc4516f
+        run: |
+          set -euo pipefail
+          observed_commit="$(git rev-parse HEAD)"
+          test "$observed_commit" = "$EXPECTED_TRUSTED_SHA"
+          observed_blob="$(git rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
+          test "$observed_blob" = "$EXPECTED_EVALUATOR_BLOB"
+
+      - name: Validate candidate SHA
+        id: validate
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          printf 'sha=%s\n' "$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact candidate as inert input
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ steps.validate.outputs.sha }}
+          path: _candidate
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert exact candidate subject
+        env:
+          EXPECTED_CANDIDATE_SHA: ${{ steps.validate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          observed_commit="$(git -C _candidate rev-parse HEAD)"
+          test "$observed_commit" = "$EXPECTED_CANDIDATE_SHA"
+
+      - name: Run evaluator in an isolated container
+        run: |
+          set -euo pipefail
+          image='python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker pull "$image"
+          docker image inspect "$image" --format '{{json .RepoDigests}}' | grep -Fq 'sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker run --rm \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=64 \
+            --memory=512m \
+            --cpus=1 \
+            --user 65534:65534 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=32m,mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/trusted,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/_candidate,dst=/candidate,readonly" \
+            --workdir /trusted \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env LANG=C.UTF-8 \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            "$image" \
+            python3 scripts/integral/evaluate_d6u_trusted_verifier_independently.py \
+              --candidate-root /candidate
