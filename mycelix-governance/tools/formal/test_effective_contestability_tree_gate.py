@@ -24,6 +24,11 @@ def main() -> int:
         shutil.copy2(RUNNER, runner)
         for src in (PROFILE, PINS, CROSSWALK):
             shutil.copy2(src, work / src.name)
+        profile_path = work / PROFILE.name
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        profile["subject"]["tree_sha"] = None
+        profile["subject"]["tree_binding"] = "required-exact-tree; intentionally missing in regression fixture"
+        profile_path.write_text(json.dumps(profile) + "\n", encoding="utf-8")
         runtime = {
             "schema": "mycelix.effective-contestability-formal-runtime.v1",
             "nixpkgs_rev": "a50bf0c1b07873c1a53892292017041a8f0a1288",
