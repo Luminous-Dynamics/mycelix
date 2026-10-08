@@ -582,20 +582,24 @@ fn machine_control_fields_changed(
         || original.last_status_transition_approval_hash != updated.last_status_transition_approval_hash
 }
 
-fn approval_valid_at(
+fn transition_approval_matches_update(
     approval: &MachineControllerTransitionApprovalEntry,
-    timestamp: Timestamp,
+    machine_root: &ActionHash,
+    authority_hash: &ActionHash,
+    controller_agent: &AgentPubKey,
+    predecessor_action: &ActionHash,
+    new_status: &MachineStatus,
+    work_order_hash: Option<&ActionHash>,
+    action_timestamp: Timestamp,
 ) -> bool {
-    approval.valid_from <= timestamp && timestamp <= approval.valid_until
+    approval.machine_hash == *machine_root
+        && approval.authority_hash == *authority_hash
+        && approval.controller_agent == *controller_agent
+        && approval.predecessor_action == *predecessor_action
+        && approval.new_status == *new_status
+        && approval.work_order_hash.as_ref() == work_order_hash
+        && approval_valid_at(approval, action_timestamp)
 }
-
-fn approval_valid_at(
-    approval: &MachineControllerTransitionApprovalEntry,
-    timestamp: Timestamp,
-) -> bool {
-    approval.valid_from <= timestamp && timestamp <= approval.valid_until
-}
-
 fn authority_valid_at(
     authority: &MachineControllerAuthorityEntry,
     timestamp: Timestamp,
@@ -696,15 +700,18 @@ fn validate_update_entry(
                             "transition approval reference is not an approval record".into(),
                         ));
                     };
-                    if approval.machine_hash != machine_root
-                        || approval.authority_hash != authority_hash
-                        || approval.controller_agent != action.author().clone()
-                        || approval.predecessor_action != original_action_hash
-                        || approval.new_status != m.status
-                        || approval.work_order_hash.as_ref() != m.current_work_order.as_ref()
-                        || approval.valid_from < authority.valid_from
+                    if approval.valid_from < authority.valid_from
                         || approval.valid_until > authority.valid_until
-                        || !approval_valid_at(&approval, action.timestamp())
+                        || !transition_approval_matches_update(
+                            &approval,
+                            &machine_root,
+                            &authority_hash,
+                            action.author(),
+                            &original_action_hash,
+                            &m.status,
+                            m.current_work_order.as_ref(),
+                            action.timestamp(),
+                        )
                     {
                         return Ok(ValidateCallbackResult::Invalid(
                             "transition approval does not exactly authorize this machine update".into(),
@@ -771,6 +778,56 @@ mod content_restriction_tests {
         }
     }
 
+    fn sample_approval() -> MachineControllerTransitionApprovalEntry {
+        let valid_from = Timestamp::from_micros(100);
+        MachineControllerTransitionApprovalEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_hash: ActionHash::from_raw_36(vec![2; 36]),
+            controller_agent: AgentPubKey::from_raw_32(vec![3; 32]),
+            predecessor_action: ActionHash::from_raw_36(vec![4; 36]),
+            new_status: MachineStatus::Running,
+            work_order_hash: Some(ActionHash::from_raw_36(vec![5; 36])),
+            valid_from,
+            valid_until: Timestamp::from_micros(200),
+            issuer_signature: Signature(vec![0; 64]),
+        }
+    }
+
+    #[test]
+    fn transition_approval_binds_exact_update_tuple() {
+        let approval = sample_approval();
+        let machine = ActionHash::from_raw_36(vec![1; 36]);
+        let authority = ActionHash::from_raw_36(vec![2; 36]);
+        let controller = AgentPubKey::from_raw_32(vec![3; 32]);
+        let predecessor = ActionHash::from_raw_36(vec![4; 36]);
+        let work_order = ActionHash::from_raw_36(vec![5; 36]);
+        assert!(transition_approval_matches_update(
+            &approval, &machine, &authority, &controller, &predecessor,
+            &MachineStatus::Running, Some(&work_order), Timestamp::from_micros(150)
+        ));
+
+        let wrong_machine = ActionHash::from_raw_36(vec![9; 36]);
+        assert!(!transition_approval_matches_update(
+            &approval, &wrong_machine, &authority, &controller, &predecessor,
+            &MachineStatus::Running, Some(&work_order), Timestamp::from_micros(150)
+        ));
+
+        let wrong_predecessor = ActionHash::from_raw_36(vec![8; 36]);
+        assert!(!transition_approval_matches_update(
+            &approval, &machine, &authority, &controller, &wrong_predecessor,
+            &MachineStatus::Running, Some(&work_order), Timestamp::from_micros(150)
+        ));
+
+        assert!(!transition_approval_matches_update(
+            &approval, &machine, &authority, &controller, &predecessor,
+            &MachineStatus::Maintenance, Some(&work_order), Timestamp::from_micros(150)
+        ));
+
+        assert!(!transition_approval_matches_update(
+            &approval, &machine, &authority, &controller, &predecessor,
+            &MachineStatus::Running, Some(&work_order), Timestamp::from_micros(201)
+        ));
+    }
     #[test]
     fn controller_lease_duration_is_bounded() {
         let start = Timestamp::from_micros(1_000_000);
