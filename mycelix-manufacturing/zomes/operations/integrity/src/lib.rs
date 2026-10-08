@@ -6,7 +6,7 @@
 //! Entry types and validation for manufacturing operations and routing sequences.
 
 use hdi::prelude::*;
-use manufacturing_common::CapabilityRequirement;
+use manufacturing_common::{CapabilityRequirement, PROCESS_RECIPE_SCHEMA_ID};
 use std::collections::HashSet;
 
 #[hdk_entry_helper]
@@ -101,7 +101,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::ProcessRecipe(recipe) => {
-                if recipe.schema_id != "mycelix-manufacturing-process-recipe-v1" {
+                if recipe.schema_id != PROCESS_RECIPE_SCHEMA_ID {
                     return Ok(ValidateCallbackResult::Invalid(
                         "process recipe schema_id is invalid".into(),
                     ));
