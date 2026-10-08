@@ -63,7 +63,7 @@ env:
   QUALIFICATION_RECEIPT_MAX_BYTES: "16384"
   SOURCE_AUDIT_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
   EGRESS_BROKER_PATH: ".github/security-kernel/github_egress_proxy.py"
-  EGRESS_BROKER_BLOB_SHA: "b288278af2e2c821eda8acb52c705229b97a0d84"
+  EGRESS_BROKER_BLOB_SHA: "65b140b0fbc2df0b457de46ba2b42f349629f543"
   EGRESS_BROKER_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
   EGRESS_BROKER_PORT: "3128"
   EGRESS_INTERNAL_NETWORK: "security-kernel-egress-internal-${{ github.run_id }}-${{ github.run_attempt }}"
@@ -177,6 +177,7 @@ jobs:
           set -euo pipefail
           test -f "$BROKER_SOURCE"
           test "$(git hash-object "$BROKER_SOURCE")" = "$EGRESS_BROKER_BLOB_SHA"
+          python3 "$BROKER_SOURCE" --self-test
           for network_name in "$EGRESS_INTERNAL_NETWORK" "$EGRESS_EXTERNAL_NETWORK"; do
             if ! existing_networks="$(docker network ls --format '{{.Name}}')"; then
               echo "security-kernel egress network inventory query failed" >&2
