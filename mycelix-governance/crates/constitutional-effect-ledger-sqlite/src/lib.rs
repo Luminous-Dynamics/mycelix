@@ -185,7 +185,8 @@ impl SqliteActionFenceStore {
                 let changed = tx
                     .execute(
                         "UPDATE effect_action_fences
-                         SET state = ?1
+                         SET state = ?1,
+                             record_digest = ?6
                          WHERE action_key_digest = ?2
                            AND state = ?3
                            AND owner_attempt_identity = ?4
@@ -915,6 +916,19 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
         }
     }
 
+    for replay in replays.values() {
+        if !attempts.values().any(|attempt| {
+            attempt.native_replay_identity == replay.native_replay_identity
+                && attempt.operation_id == replay.operation_id
+                && attempt.action_key_digest == replay.action_key_digest
+        }) {
+            return Err(format!(
+                "native replay binding {} has no matching attempt history",
+                replay.native_replay_identity
+            ));
+        }
+    }
+
     for fence in fences.values() {
         let attempt = attempts.get(&fence.owner_attempt_identity).ok_or_else(|| {
             format!(
@@ -1621,9 +1635,11 @@ mod tests {
 
         drop(store);
         let mut reopened = SqliteActionFenceStore::open(&path).unwrap();
+        let closed_fence = reopened.durably_read_fence(&action).unwrap().unwrap();
+        assert_eq!(closed_fence.state, ActionFenceState::Closed);
         assert_eq!(
-            reopened.durably_read_fence(&action).unwrap().unwrap().state,
-            ActionFenceState::Closed
+            closed_fence.record_digest(),
+            closed_fence.record_digest()
         );
         assert_eq!(
             reopened
