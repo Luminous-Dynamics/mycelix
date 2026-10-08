@@ -91,6 +91,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(OpUpdate::Entry {
             app_entry, action, ..
         }) => validate_update_entry(action.original_action_address, action, app_entry),
+        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine registry records are immutable".into(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
@@ -115,22 +118,16 @@ fn validate_create_authority(
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-    let Some(machine) = machine else {
+    if machine.is_none() {
         return Ok(ValidateCallbackResult::Invalid(
             "machine controller authority references a non-machine record".into(),
         ));
-    };
+    }
     if machine_record.action().author() != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "only the machine registrant may issue controller authority".into(),
         ));
     }
-    if authority.controller_agent == AgentPubKey::from_raw_32(vec![0; 32]) {
-        return Ok(ValidateCallbackResult::Invalid(
-            "controller_agent must be non-zero".into(),
-        ));
-    }
-    let _ = machine;
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -169,6 +166,11 @@ fn validate_create_status_log(
     if action.timestamp() < authority.valid_from || action.timestamp() > authority.valid_until {
         return Ok(ValidateCallbackResult::Invalid(
             "machine status action falls outside controller authority validity".into(),
+        ));
+    }
+    if log.changed_at != action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status changed_at must equal the action timestamp".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -231,7 +233,7 @@ fn validate_update_entry(
                 || m.registered_at != original.registered_at
             {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Only status/current_work_order can change on a machine update".into(),
+                    "Only status/current_work_order/last_status_authority_hash can change on a machine update".into(),
                 ));
             }
 
@@ -251,6 +253,11 @@ fn validate_update_entry(
                         "machine status authority reference is not an authority record".into(),
                     ));
                 };
+                if authority.machine_hash != original_action_hash {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "machine status authority is bound to a different machine".into(),
+                    ));
+                }
                 if action.author() != authority.controller_agent {
                     return Ok(ValidateCallbackResult::Invalid(
                         "machine update author is not an authorized controller".into(),
@@ -275,6 +282,9 @@ fn validate_update_entry(
         }
         EntryTypes::StatusLog(_) => Ok(ValidateCallbackResult::Invalid(
             "Status log records are immutable".into(),
+        )),
+        EntryTypes::MachineControllerAuthority(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine controller authorities are immutable".into(),
         )),
     }
 }
