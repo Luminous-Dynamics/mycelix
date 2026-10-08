@@ -453,29 +453,11 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
         );
     }
 
-    // Check if this member has no balance — if so, auto-initialize (no race concern for create)
+    // A positive credit must always be an update backed by an explicit cause.
+    // Initialize a zero balance separately so the credit update remains directly
+    // adjacent to its causative debit action.
     if find_sap_balance_record(&input.member_did)?.is_none() {
-        let now = sys_time()?;
-        let balance = SapBalance {
-            member_did: input.member_did.clone(),
-            balance: input.amount,
-            last_demurrage_at: now,
-            exemption: None,
-            justified_by: None,
-        };
-        let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
-        create_link(
-            anchor_hash(&format!("sap:{}", input.member_did))?,
-            action_hash.clone(),
-            LinkTypes::DidToSapBalance,
-            (),
-        )?;
-        return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-            format!(
-                "SAP balance record not found after credit_sap initialization for member {}",
-                input.member_did
-            )
-        )));
+        initialize_sap_balance(input.member_did.clone())?;
     }
 
     // Existing balance: optimistic-locking retry loop
@@ -504,9 +486,15 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
         };
 
         let expected_balance = post_demurrage + input.amount;
+        if input.amount == 0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "SAP credit amount must be positive".into()
+            )));
+        }
         let updated = SapBalance {
             balance: expected_balance,
             last_demurrage_at: now,
+            justified_by: input.justified_by.clone(),
             ..bal
         };
         let action_hash = update_entry(
@@ -552,6 +540,8 @@ pub struct CreditSapInput {
     pub member_did: String,
     pub amount: u64,
     pub reason: String,
+    #[serde(default)]
+    pub justified_by: Option<ActionHash>,
 }
 
 /// Debit SAP from a member's balance (enforces demurrage + sufficient balance).
@@ -690,16 +680,21 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
         )));
     }
     // Debit the sender (enforces caller==from, demurrage, sufficient balance).
-    debit_sap(DebitSapInput {
+    // Initialize the receiver before the debit so the causative debit remains
+    // the immediately preceding source-chain action for the credit update.
+    if find_sap_balance_record(&input.to_did)?.is_none() {
+        initialize_sap_balance(input.to_did.clone())?;
+    }
+    let debit_record = debit_sap(DebitSapInput {
         member_did: input.from_did.clone(),
         amount: input.amount,
         reason: format!("Transfer to {}", input.to_did),
     })?;
-    // Credit the receiver — backed by the debit above.
     credit_sap(CreditSapInput {
         member_did: input.to_did.clone(),
         amount: input.amount,
         reason: format!("Transfer from {}", input.from_did),
+        justified_by: Some(debit_record.action_address().clone()),
     })
 }
 
@@ -1214,17 +1209,21 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         let total_debit = input.amount + fee;
 
         // Debit sender's SAP balance (amount + fee, applies demurrage)
-        debit_sap(DebitSapInput {
+        if find_sap_balance_record(&input.to_did)?.is_none() {
+            initialize_sap_balance(input.to_did.clone())?;
+        }
+        let debit_record = debit_sap(DebitSapInput {
             member_did: input.from_did.clone(),
             amount: total_debit,
             reason: format!("Payment to {} (includes fee {})", input.to_did, fee),
         })?;
 
-        // Credit receiver's SAP balance (amount only, fee goes to commons)
+        // Credit receiver's SAP balance; the debit action is the direct cause.
         credit_sap(CreditSapInput {
             member_did: input.to_did.clone(),
             amount: input.amount,
             reason: format!("Payment from {}", input.from_did),
+            justified_by: Some(debit_record.action_address().clone()),
         })?;
 
         // Route fee to commons via treasury (if fee > 0)
