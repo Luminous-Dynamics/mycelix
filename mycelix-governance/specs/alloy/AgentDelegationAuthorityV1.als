@@ -75,6 +75,11 @@ fact RevocationPropagates {
       no h: Grant | h.active = On and (h = g or g in h.^parent)
 }
 
+fact EvidenceRecordingDoesNotChangeGrants {
+  all e: Evidence |
+    e.recorded = On implies e.grantsAfter = e.grantsBefore
+}
+
 fact EvidenceTransitionSnapshots {
   all e: Evidence |
     e.recorded = On implies
