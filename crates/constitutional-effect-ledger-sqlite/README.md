@@ -153,6 +153,8 @@ Evidence verification and recovery authority are now bound to the host boundary
 at construction rather than supplied by each dispatch or recovery call.
 
 The trust root pins:
+- initial admission authorizer + expected verifier identity
+- provider adapter authorizer
 - terminal outcome verifier + expected verifier identity
 - final provider-entry verifier + expected verifier identity
 - pre-entry recovery authority
