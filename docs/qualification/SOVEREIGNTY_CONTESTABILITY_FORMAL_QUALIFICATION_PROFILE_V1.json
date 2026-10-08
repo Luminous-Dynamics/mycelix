@@ -6,8 +6,8 @@
   "subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v6-contestability-subject",
-    "head_sha": "74c0932d804222533da221668653c76828ef8d2b",
-    "tree_sha": "301eed522e62fc8d014cda3733361580022cf71e",
+    "head_sha": "5a4a64349ceb59f68a956eb0cb97843cacb8cb32",
+    "tree_sha": "ad2a45543bbd2fe9ce559fa640f9d6c9d3005fef",
     "tree_binding": "verified-exact-tree; independently resolved from the exact subject commit"
   },
   "models": {
@@ -32,7 +32,7 @@
     },
     "negative_tla": {
       "path": "mycelix-governance/specs/EffectiveContestabilityV1NegativeControls.tla",
-      "git_blob_sha": "519b86d6696609b52b349a97b3016641b5b774ef",
+      "git_blob_sha": "797486c72949f3ab9566a807ef80c7f3a319d337",
       "controls": {
         "switch-stale-exit": "EffectiveExitContextIsFresh",
         "missing-nominal": "NoEffectiveExitWithoutNominalExit",
@@ -112,7 +112,7 @@
     "pins_path": "mycelix-governance/tools/formal/effective_contestability_pins.json",
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json",
     "tree_binding_required": true,
-    "crosswalk_git_blob_sha": "36b344cc570f306c907c21410c8d174184c67b2f",
+    "crosswalk_git_blob_sha": "965fd8846d3f666e8b71d64795404f6c17aabef8",
     "fixture_paths": {
       "tla": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla",
       "cfg": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.cfg",
@@ -122,7 +122,7 @@
       "alloy_runner": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityAlloyRunner.java"
     },
     "control_matrix_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CONTROL_MATRIX_V1.json",
-    "control_matrix_git_blob_sha": "bbaa242a6e5f83a4ec88a5ee49ec55994c3012f5"
+    "control_matrix_git_blob_sha": "9a6d1a15c8f6540f98d9a9fc3766783ca3d29795"
   },
   "runtime": {
     "jdk_package": "jdk17_headless",
