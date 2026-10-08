@@ -1141,6 +1141,20 @@ mod tests {
         let mut bad = valid.clone();
         bad.terminal_evidence_digests.clear();
         assert!(check_create_execution_resolution(&bad).is_err());
+
+        let mut missing_auth = valid.clone();
+        missing_auth.authorization_admission_proof_digests.clear();
+        assert!(check_create_execution_resolution(&missing_auth).is_err());
+
+        let mut missing_final_entry = valid.clone();
+        missing_final_entry.final_provider_entry_proof_digests.clear();
+        assert!(check_create_execution_resolution(&missing_final_entry).is_err());
+
+        let mut misaligned = valid.clone();
+        misaligned
+            .authorization_admission_proof_digests
+            .push("extra".into());
+        assert!(check_create_execution_resolution(&misaligned).is_err());
     }
 
     // ---- Veto override result tests ----
