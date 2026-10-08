@@ -107,11 +107,6 @@ fn validate_create_authority(
             "machine controller authority validity window is inverted".into(),
         ));
     }
-    if action.timestamp() < authority.valid_from || action.timestamp() > authority.valid_until {
-        return Ok(ValidateCallbackResult::Invalid(
-            "machine controller authority must be valid at issuance time".into(),
-        ));
-    }
 
     let machine_record = must_get_valid_record(authority.machine_hash.clone())?;
     let machine: Option<MachineEntry> = machine_record
@@ -121,6 +116,11 @@ fn validate_create_authority(
     if machine.is_none() {
         return Ok(ValidateCallbackResult::Invalid(
             "machine controller authority references a non-machine record".into(),
+        ));
+    }
+    if !matches!(machine_record.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine controller authority must bind to the machine's root creation action".into(),
         ));
     }
     if machine_record.action().author() != action.author() {
@@ -216,7 +216,19 @@ fn resolve_machine_root_action_hash(
     for _ in 0..4096 {
         let record = must_get_valid_record(current.clone())?;
         match record.action() {
-            Action::Create(_) => return Ok(current),
+            Action::Create(_) => {
+                let root_record = must_get_valid_record(current.clone())?;
+                let root_machine: Option<MachineEntry> = root_record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+                if root_machine.is_none() {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "machine update lineage terminates at a non-machine root".into(),
+                    )));
+                }
+                return Ok(current);
+            }
             Action::Update(update) => {
                 current = update.original_action_address.clone();
             }
