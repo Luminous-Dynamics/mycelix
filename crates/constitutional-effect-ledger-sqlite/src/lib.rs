@@ -28,7 +28,7 @@ use std::time::Duration;
 
 pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 2;
 pub const SQLITE_FENCE_STORE_PROFILE: &str =
-    "constitutional-effect-ledger/sqlite-fence-store-v1";
+    "constitutional-effect-ledger/sqlite-fence-store-v2";
 pub const SQLITE_FENCE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 const META_TABLE: &str = "effect_fence_store_meta";
