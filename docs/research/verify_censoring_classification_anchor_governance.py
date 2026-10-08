@@ -122,7 +122,8 @@ def evaluate(c: dict, fixture: dict, current: dict, previous: dict, base_root: d
     if validate_observed_state(observed, expected_observed): return "unresolved"
     if validate_root(root, manifest, expected): return "unresolved"
     subject_bytes = fixture_bytes + c.get("fixture_suffix","").encode("utf-8")
-    if validate_manifest(manifest, previous, subject_bytes, policy_sha, subject, root.get("current_epoch")): return "unresolved"
+    manifest_previous = current if c.get("previous_manifest_source") == "current" else previous
+    if validate_manifest(manifest, manifest_previous, subject_bytes, policy_sha, subject, root.get("current_epoch")): return "unresolved"
     nodes = node_index(subject)
     assert nodes is not None
     observed_version = observed["highest_manifest_version"]
@@ -165,6 +166,8 @@ def main() -> int:
     fixture = json.loads(fixture_bytes)
     if campaign.get("schema") != CAMPAIGN_SCHEMA or campaign.get("expected_trust_root_sha256") != expected or campaign.get("expected_observed_state_sha256") != expected_observed:
         print("campaign root/schema/observed pin mismatch", file=sys.stderr); return 1
+    if len(campaign.get("cases", [])) != 24:
+        print("unexpected governance campaign count", file=sys.stderr); return 1
     ids = [c.get("case_id") for c in campaign.get("cases", [])]
     fixed_ids = [c.get("case_id") for c in fixture.get("cases", [])]
     if len(ids) != len(set(ids)) or any(not isinstance(x, str) for x in ids) or len(fixed_ids) != len(set(fixed_ids)) or any(not isinstance(x, str) for x in fixed_ids):
