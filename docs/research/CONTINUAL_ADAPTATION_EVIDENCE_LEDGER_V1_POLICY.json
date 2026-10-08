@@ -230,5 +230,77 @@
         "outgoing"
       ]
     }
-  }
+  },
+  "edge_schema_constraints": [
+    {
+      "relation": "qualifies",
+      "source_types": [
+        "Result"
+      ],
+      "target_types": [
+        "Claim"
+      ]
+    },
+    {
+      "relation": "requires",
+      "source_types": [
+        "Claim"
+      ],
+      "target_types": [
+        "TransportAssessment",
+        "FreshnessAssessment"
+      ]
+    },
+    {
+      "relation": "applies_to",
+      "source_types": [
+        "Claim",
+        "CampaignPlan"
+      ],
+      "target_types": [
+        "Subject"
+      ]
+    },
+    {
+      "relation": "generated_by",
+      "source_types": [
+        "Result"
+      ],
+      "target_types": [
+        "EvaluationEvaluator"
+      ]
+    },
+    {
+      "relation": "uses",
+      "source_types": [
+        "EvaluationEvaluator"
+      ],
+      "target_types": [
+        "Reference",
+        "AttemptCensus"
+      ]
+    },
+    {
+      "relation": "uses",
+      "source_types": [
+        "CampaignPlan"
+      ],
+      "target_types": [
+        "Intervention",
+        "ObservationPolicy",
+        "Measurement"
+      ]
+    },
+    {
+      "relation": "derived_from",
+      "source_types": [
+        "AttemptCensus",
+        "Result"
+      ],
+      "target_types": [
+        "CampaignPlan",
+        "Result"
+      ]
+    }
+  ]
 }
