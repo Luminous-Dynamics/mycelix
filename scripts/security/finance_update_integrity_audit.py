@@ -126,6 +126,12 @@ for path in files:
             errors.append(f'{path}:{line}: {name}: missing must_get_valid_record predecessor binding')
         elif re.search(r'if\s+let\s+Ok\s*\([^)]*\)\s*=\s*must_get_valid_record', body):
             errors.append(f'{path}:{line}: {name}: swallowed must_get_valid_record predecessor dependency')
+        if name == 'validate_update_sap_balance':
+            for required in ('justified_by', 'action.prev_action', 'compute_demurrage_with_exemption'):
+                if required not in body:
+                    errors.append(
+                        f'{path}:{line}: {name}: missing SAP conservation requirement {required}'
+                    )
     try:
         arms = list(update_arms(source))
     except ValueError as exc:

@@ -5,6 +5,7 @@
 //! Payments Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
+use mycelix_finance_types::compute_demurrage_with_exemption;
 use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 pub use mycelix_finance_types::{
     AMBER_MAX_CAP_MICRO_SAP, AmberExemption, SapMintCapCounter, SapMintSource, SuccessionPreference,
@@ -301,7 +302,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::ExitRecord(exit) => {
                     validate_create_exit_record(EntryCreationAction::Create(action), exit)
                 }
-                EntryTypes::SapBalance(bal) => validate_sap_balance(&bal),
+                EntryTypes::SapBalance(bal) => validate_create_sap_balance(&bal),
                 EntryTypes::SapMintRecord(mint) => validate_create_sap_mint_record(&mint),
                 EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
                 EntryTypes::SapMintCapCounterEntry(counter) => {
@@ -452,19 +453,218 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+fn causative_debit_amount(
+    predecessor_balance: u64,
+    post_debit_balance: u64,
+    deterministic_demurrage: u64,
+) -> Option<u64> {
+    predecessor_balance
+        .checked_sub(deterministic_demurrage)?
+        .checked_sub(post_debit_balance)
+}
+
 fn validate_update_sap_balance(
     action: Update,
     bal: SapBalance,
 ) -> ExternResult<ValidateCallbackResult> {
     validate_sap_balance(&bal)?;
-    let r = must_get_valid_record(action.original_action_address.clone())?;
-    let o = r.entry().to_app_option::<SapBalance>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode SapBalance predecessor: {e:?}"))))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("SapBalance predecessor has wrong type".into())))?;
-    if o.member_did != bal.member_did || bal.last_demurrage_at < o.last_demurrage_at {
-        return Ok(ValidateCallbackResult::Invalid("SAP balance identity/demurrage provenance is inconsistent".into()));
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<SapBalance>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original SapBalance predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+        "SapBalance predecessor has wrong type".into()
+    )))?;
+
+    if original.member_did != bal.member_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP balance member identity is immutable across updates".into(),
+        ));
     }
+    if bal.last_demurrage_at < original.last_demurrage_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP balance demurrage timestamp cannot move backwards".into(),
+        ));
+    }
+
+    let author_did = did_for_author(&action.author);
+
+    if original.exemption != bal.exemption {
+        match (&original.exemption, &bal.exemption) {
+            (None, Some(exemption)) => {
+                if exemption.issuer != author_did || exemption.issuer == bal.member_did {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Amber exemption grant must be authored by a non-holder issuer".into(),
+                    ));
+                }
+            }
+            (Some(original_exemption), None) => {
+                if original_exemption.issuer != author_did {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Amber exemption revocation must be authored by its recorded issuer".into(),
+                    ));
+                }
+            }
+            (Some(original_exemption), Some(exemption)) => {
+                if exemption.issuer != author_did
+                    || exemption.issuer == bal.member_did
+                    || original_exemption.class != exemption.class
+                    || original_exemption.cap_micro_sap != exemption.cap_micro_sap
+                    || original_exemption.expires_at_secs != exemption.expires_at_secs
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Amber exemption replacement is not authorized or changes immutable terms".into(),
+                    ));
+                }
+            }
+            (None, None) => {}
+        }
+    }
+
+    let from = original.last_demurrage_at.as_micros();
+    let to = action.timestamp.as_micros();
+    let elapsed = if to > from {
+        ((to - from) / 1_000_000) as u64
+    } else {
+        0
+    };
+    let now_secs = (to / 1_000_000).max(0) as u64;
+    let deduction = compute_demurrage_with_exemption(
+        original.balance,
+        original.exemption.as_ref(),
+        now_secs,
+        DEMURRAGE_EXEMPT_FLOOR,
+        DEMURRAGE_RATE,
+        elapsed,
+    );
+    let effective_before_mutation = original.balance.saturating_sub(deduction);
+
+    if bal.balance != original.balance && bal.last_demurrage_at != action.timestamp {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP balance value mutations must set last_demurrage_at to the update action timestamp".into(),
+        ));
+    }
+
+    if bal.balance < effective_before_mutation && author_did != bal.member_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP balance decreases beyond deterministic demurrage must be authored by the balance owner".into(),
+        ));
+    }
+
+    if bal.balance > effective_before_mutation {
+        let credited_amount = bal.balance - effective_before_mutation;
+        let cause_hash = bal.justified_by.clone().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Positive SAP balance increases require a justified_by cause".into(),
+            ))
+        })?;
+
+        if action.prev_action != cause_hash {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP credit cause must be the immediately preceding source-chain action".into(),
+            ));
+        }
+
+        let cause_record = must_get_valid_record(cause_hash)?;
+        let cause_balance = cause_record.entry().to_app_option::<SapBalance>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP credit cause: {e:?}"
+            )))
+        })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "SAP credit cause is not a SapBalance entry".into()
+        )))?;
+
+        let (cause_predecessor_hash, cause_author, cause_timestamp) = match cause_record.action() {
+            Action::Update(update) => (
+                update.original_action_address.clone(),
+                update.author.clone(),
+                update.timestamp,
+            ),
+            _ => {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP credit cause must be a SapBalance Update action".into()
+                ))
+            }
+        };
+
+        if cause_author != action.author {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP credit and debit must share the same author".into()
+            ));
+        }
+
+        let cause_predecessor = must_get_valid_record(cause_predecessor_hash)?
+            .entry()
+            .to_app_option::<SapBalance>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP debit predecessor: {e:?}"
+            ))))?
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+                "SAP debit predecessor is not a SapBalance entry".into()
+            )))?;
+
+        if cause_predecessor.member_did != cause_balance.member_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP debit cause must update the same balance owner".into()
+            ));
+        }
+        if did_for_author(&cause_author) != cause_predecessor.member_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP debit cause must be authorized by the causative balance owner".into()
+            ));
+        }
+        if cause_balance.last_demurrage_at != cause_timestamp {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP debit cause timestamp must be recorded on the resulting balance".into()
+            ));
+        }
+        if cause_predecessor.member_did == bal.member_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP credit cause must debit a different balance owner".into()
+            ));
+        }
+
+        let from = cause_predecessor.last_demurrage_at.as_micros();
+        let to = cause_timestamp.as_micros();
+        let elapsed = if to > from {
+            ((to - from) / 1_000_000) as u64
+        } else {
+            0
+        };
+        let cause_now_secs = (to / 1_000_000).max(0) as u64;
+        let cause_deduction = compute_demurrage_with_exemption(
+            cause_predecessor.balance,
+            cause_predecessor.exemption.as_ref(),
+            cause_now_secs,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            elapsed,
+        );
+        let debited = causative_debit_amount(
+            cause_predecessor.balance,
+            cause_balance.balance,
+            cause_deduction,
+        )
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "SAP credit cause is not a balance decrease after deterministic demurrage".into()
+        )))?;
+        if debited < credited_amount {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "SAP credit {} exceeds causative debit {}",
+                credited_amount, debited
+            )));
+        }
+    } else if bal.justified_by != original.justified_by {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP justification may change only when establishing a positive credit".into()
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
+
+
 
 fn validate_update_hearth_sap_pool(
     action: Update,
@@ -679,24 +879,68 @@ fn validate_create_payment_channel(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn payment_channel_balances_conserved(
+    old_a: u64,
+    old_b: u64,
+    new_a: u64,
+    new_b: u64,
+) -> bool {
+    old_a.checked_add(old_b) == new_a.checked_add(new_b)
+}
+
 fn validate_update_payment_channel(
     action: Update,
     channel: PaymentChannel,
 ) -> ExternResult<ValidateCallbackResult> {
-    if channel.party_a == channel.party_b || (channel.currency != "SAP" && channel.currency != "TEND") {
-        return Ok(ValidateCallbackResult::Invalid("Invalid payment channel parties/currency".into()));
+    if channel.party_a == channel.party_b
+        || (channel.currency != "SAP" && channel.currency != "TEND")
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Invalid payment channel parties/currency".into(),
+        ));
     }
     let r = must_get_valid_record(action.original_action_address.clone())?;
-    let o = r.entry().to_app_option::<PaymentChannel>().map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("decode PaymentChannel predecessor: {e:?}"))))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("PaymentChannel predecessor has wrong type".into())))?;
-    if o.id != channel.id || o.party_a != channel.party_a || o.party_b != channel.party_b || o.currency != channel.currency || o.opened != channel.opened {
-        return Ok(ValidateCallbackResult::Invalid("PaymentChannel identity/configuration is immutable".into()));
+    let o = r.entry().to_app_option::<PaymentChannel>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "decode PaymentChannel predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+        "PaymentChannel predecessor has wrong type".into()
+    )))?;
+    let author_did = did_for_author(&action.author);
+    if author_did != channel.party_a && author_did != channel.party_b {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PaymentChannel updates must be authored by a participant".into(),
+        ));
     }
-    if channel.last_updated < o.last_updated || (o.closed.is_some() && channel.closed != o.closed) || (o.closed.is_some() && channel.closed.is_none()) {
-        return Ok(ValidateCallbackResult::Invalid("PaymentChannel timestamps/closure cannot move backwards".into()));
+    if o.id != channel.id || o.party_a != channel.party_a || o.party_b != channel.party_b
+        || o.currency != channel.currency || o.opened != channel.opened
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PaymentChannel identity/configuration is immutable".into(),
+        ));
+    }
+    if channel.last_updated < o.last_updated
+        || (o.closed.is_some() && channel.closed != o.closed)
+        || (o.closed.is_some() && channel.closed.is_none())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PaymentChannel timestamps/closure cannot move backwards".into(),
+        ));
+    }
+    if !payment_channel_balances_conserved(
+        o.balance_a,
+        o.balance_b,
+        channel.balance_a,
+        channel.balance_b,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PaymentChannel balance conservation invariant violated".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
+
 
 
 fn validate_create_receipt(
@@ -891,6 +1135,16 @@ fn validate_create_exit_record(
                 "Cannot designate yourself as successor".into(),
             ));
         }
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_sap_balance(bal: &SapBalance) -> ExternResult<ValidateCallbackResult> {
+    validate_sap_balance(bal)?;
+    if bal.balance != 0 || bal.justified_by.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP balances must be created at zero with no justification".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -1131,6 +1385,23 @@ mod tests {
         assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
+    // ---- 9a. PaymentChannel conservation ----
+
+    #[test]
+    fn test_payment_channel_balance_conservation_accepts() {
+        assert!(payment_channel_balances_conserved(500, 500, 700, 300));
+    }
+
+    #[test]
+    fn test_payment_channel_balance_conservation_rejects_inflation() {
+        assert!(!payment_channel_balances_conserved(500, 500, 700, 301));
+    }
+
+    #[test]
+    fn test_payment_channel_balance_conservation_rejects_overflow() {
+        assert!(!payment_channel_balances_conserved(u64::MAX, 1, u64::MAX, 1));
+    }
+
     // ---- 10. PaymentChannel with invalid party DID (must fail) ----
 
     #[test]
@@ -1229,6 +1500,35 @@ mod tests {
     fn test_valid_sap_balance() {
         let result = validate_sap_balance(&valid_sap_balance()).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    // ---- 18a. SAP balance creation must be zero-only ----
+
+    #[test]
+    fn test_sap_balance_nonzero_creation_is_rejected() {
+        let result = validate_create_sap_balance(&valid_sap_balance()).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("created at zero")));
+    }
+
+    #[test]
+    fn test_sap_balance_zero_creation_is_accepted() {
+        let mut bal = valid_sap_balance();
+        bal.balance = 0;
+        bal.justified_by = None;
+        let result = validate_create_sap_balance(&bal).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    // ---- 18b. Cause amount excludes deterministic demurrage ----
+
+    #[test]
+    fn test_causative_debit_excludes_demurrage() {
+        assert_eq!(causative_debit_amount(100, 60, 10), Some(30));
+    }
+
+    #[test]
+    fn test_causative_debit_rejects_non_decrease() {
+        assert_eq!(causative_debit_amount(100, 95, 10), None);
     }
 
     // ---- 19. SapBalance with invalid DID (must fail) ----

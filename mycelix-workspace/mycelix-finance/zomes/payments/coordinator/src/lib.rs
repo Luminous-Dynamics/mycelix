@@ -9,7 +9,7 @@ use finance_wire_types::{
 };
 use hdk::prelude::*;
 use mycelix_finance_shared::{
-    DEFAULT_RATE_LIMIT_PER_MINUTE, anchor_hash, follow_update_chain, links_to_records,
+    DEFAULT_RATE_LIMIT_PER_MINUTE, anchor_hash, follow_update_chain, follow_update_chain_strict, links_to_records,
     rate_limit_anchor_key, validate_did_format, validate_id, verify_caller_is_did,
     verify_citizen_tier, verify_participant_tier, verify_steward_tier,
 };
@@ -428,21 +428,17 @@ const MAX_SAP_RETRIES: usize = 3;
 /// risks double-application against a stale balance. Skip if < 60s elapsed.
 const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 
-/// Credit SAP to a member's balance (used by bridge deposits and community issuance).
-/// Auto-initializes the SapBalance entry if the member has none yet.
+/// Credit SAP to a member's balance only when an integrity-verifiable cause is supplied.
+/// A non-zero balance is never created through this path.
 ///
 /// Uses optimistic locking with retry: after updating, re-reads via
 /// `follow_update_chain` to verify our update won. If a concurrent update
 /// created a fork, retries up to `MAX_SAP_RETRIES` times.
 ///
-/// KNOWN HOLE (tracked, not yet closed): this is still a public extern that mints
-/// SAP into any DID. Unlike `debit_sap`, it can't be guarded with a caller==member
-/// check — legitimate credits target *other* members (payee in a transfer) AND the
-/// caller's own balance (bridge collateral deposit, pool withdrawal), so no single
-/// caller rule is correct. The proper fix is the transfer refactor: fold debit+credit
-/// into one conservation-preserving `transfer_sap`, make raw credit non-public, and
-/// route all issuance through authorized mints (`mint_sap_from_governance` already
-/// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
+/// Positive credits require an integrity-verifiable cause. Member-to-member
+/// transfers use the immediately preceding owner-authorized debit. Governance,
+/// bridge, and staking credits remain intentionally blocked until their cross-domain
+/// authorization proofs are implemented (AC-154).
 #[hdk_extern]
 pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
     // Opportunistically drain any pending compost deliveries
@@ -453,28 +449,19 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
         );
     }
 
-    // Check if this member has no balance — if so, auto-initialize (no race concern for create)
+    if input.amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "SAP credit amount must be positive".into()
+        )));
+    }
+    if input.justified_by.is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "SAP credit requires an explicit validated cause".into()
+        )));
+    }
     if find_sap_balance_record(&input.member_did)?.is_none() {
-        let now = sys_time()?;
-        let balance = SapBalance {
-            member_did: input.member_did.clone(),
-            balance: input.amount,
-            last_demurrage_at: now,
-            exemption: None,
-            justified_by: None,
-        };
-        let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
-        create_link(
-            anchor_hash(&format!("sap:{}", input.member_did))?,
-            action_hash.clone(),
-            LinkTypes::DidToSapBalance,
-            (),
-        )?;
-        return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-            format!(
-                "SAP balance record not found after credit_sap initialization for member {}",
-                input.member_did
-            )
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "SAP balance must be initialized at zero before a caused credit".into()
         )));
     }
 
@@ -507,6 +494,7 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
         let updated = SapBalance {
             balance: expected_balance,
             last_demurrage_at: now,
+            justified_by: input.justified_by.clone(),
             ..bal
         };
         let action_hash = update_entry(
@@ -552,6 +540,8 @@ pub struct CreditSapInput {
     pub member_did: String,
     pub amount: u64,
     pub reason: String,
+    #[serde(default)]
+    pub justified_by: Option<ActionHash>,
 }
 
 /// Debit SAP from a member's balance (enforces demurrage + sufficient balance).
@@ -690,16 +680,18 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
         )));
     }
     // Debit the sender (enforces caller==from, demurrage, sufficient balance).
-    debit_sap(DebitSapInput {
+    if find_sap_balance_record(&input.to_did)?.is_none() {
+        }
+    let debit_record = debit_sap(DebitSapInput {
         member_did: input.from_did.clone(),
         amount: input.amount,
         reason: format!("Transfer to {}", input.to_did),
     })?;
-    // Credit the receiver — backed by the debit above.
     credit_sap(CreditSapInput {
         member_did: input.to_did.clone(),
         amount: input.amount,
         reason: format!("Transfer from {}", input.from_did),
+        justified_by: Some(debit_record.action_address().clone()),
     })
 }
 
@@ -708,7 +700,8 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
 // ---------------------------------------------------------------------------
 
 /// Mint SAP from a governance proposal. Creates an immutable SapMintRecord
-/// and credits the recipient's balance.
+/// and attempts to credit the recipient. Cross-domain credit remains fail-closed
+/// until its typed authorization proof is implemented (AC-154).
 ///
 /// This is the ONLY way new SAP enters circulation outside of collateral deposits.
 /// Requires governance authorization (verified via cross-zome call).
@@ -1010,21 +1003,30 @@ fn find_sap_balance_record(member_did: &str) -> ExternResult<Option<(Record, Sap
         )?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.last() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        let record = follow_update_chain(hash)?;
-        let bal = record.entry().to_app_option::<SapBalance>().map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "SapBalance deserialization error: {:?}",
-                e
-            )))
-        })?;
-        if let Some(bal) = bal {
-            return Ok(Some((record, bal)));
+    match links.as_slice() {
+        [] => Ok(None),
+        [_] => {
+            let hash = ActionHash::try_from(links[0].target.clone())
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid SAP balance link target".into())))?;
+            let record = follow_update_chain_strict(hash)?;
+            let bal = record.entry().to_app_option::<SapBalance>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "SapBalance deserialization error: {:?}",
+                    e
+                )))
+            })?;
+            if let Some(bal) = bal {
+                Ok(Some((record, bal)))
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(
+                    "SAP balance anchor points to a non-SapBalance entry".into()
+                )))
+            }
         }
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "SAP balance has competing root records; lineage is frozen".into()
+        ))),
     }
-    Ok(None)
 }
 
 fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)> {
@@ -1214,17 +1216,20 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         let total_debit = input.amount + fee;
 
         // Debit sender's SAP balance (amount + fee, applies demurrage)
-        debit_sap(DebitSapInput {
+        if find_sap_balance_record(&input.to_did)?.is_none() {
+            initialize_sap_balance(input.to_did.clone())?;
+        }
+        let debit_record = debit_sap(DebitSapInput {
             member_did: input.from_did.clone(),
             amount: total_debit,
             reason: format!("Payment to {} (includes fee {})", input.to_did, fee),
         })?;
 
-        // Credit receiver's SAP balance (amount only, fee goes to commons)
         credit_sap(CreditSapInput {
             member_did: input.to_did.clone(),
             amount: input.amount,
             reason: format!("Payment from {}", input.from_did),
+            justified_by: Some(debit_record.action_address().clone()),
         })?;
 
         // Route fee to commons via treasury (if fee > 0)
