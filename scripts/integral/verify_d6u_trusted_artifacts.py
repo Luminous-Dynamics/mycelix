@@ -336,6 +336,7 @@ def verify_trigger_run_record(
     assert trigger["repository"]["full_name"] == repo
     assert int(trigger["repository"]["id"]) == expected_repository_id
     assert trigger["head_branch"] == policy["source_branch"]
+    assert trigger["id"] == int(record["trigger_workflow_run_id"])
     assert trigger["run_attempt"] == int(record["trigger_workflow_run_attempt"])
     assert trigger["head_sha"] == record["source_commit"]
     assert record["trigger_workflow_name"] == trigger["name"]
