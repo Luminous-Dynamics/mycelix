@@ -5,7 +5,7 @@
     "profile": "RFC8785-JCS",
     "hash": "SHA-256",
     "input_policy": "I-JSON; reject invalid numeric hazards before hashing",
-    "semantic_graph_digest": "unordered node/edge collections; semantic arrays preserve order"
+    "semantic_graph_digest": "unordered node/edge collections; semantic arrays preserve order; invalid graphs have no semantic identity"
   },
   "rules": {
     "unknown_is_not_compatible": true,
@@ -185,7 +185,8 @@
       "mutation": [],
       "expected_verdict": "qualified",
       "expected_graph_digest_sha256": "sha256:cb65ad3b53edba9d6479d9f9bdec218d8c7ea5ee5d48490b8688cedbce1249bf",
-      "expected_semantic_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
+      "expected_semantic_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b",
+      "expected_claim_local_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
     },
     {
       "case_id": "ACV-002",
@@ -200,7 +201,8 @@
       "expected_verdict": "unqualified",
       "reason": "subject identity mismatch",
       "expected_graph_digest_sha256": "sha256:83e1c4397ede6570ea5d489462826e4d6522230916c1aa78514dc0b264753353",
-      "expected_semantic_graph_digest_sha256": "sha256:d89d890fcc861ecd97f923228ca562567cfc8a91a869d229b70ea7d1f899462a"
+      "expected_semantic_graph_digest_sha256": "sha256:d89d890fcc861ecd97f923228ca562567cfc8a91a869d229b70ea7d1f899462a",
+      "expected_claim_local_graph_digest_sha256": "sha256:d89d890fcc861ecd97f923228ca562567cfc8a91a869d229b70ea7d1f899462a"
     },
     {
       "case_id": "ACV-003",
@@ -215,7 +217,8 @@
       "expected_verdict": "unqualified",
       "reason": "evaluator mismatch",
       "expected_graph_digest_sha256": "sha256:4e8ffc3a182ad73712cdfb7850bfef7256d82e5e7bf66e2987ab27c413014e65",
-      "expected_semantic_graph_digest_sha256": "sha256:0660faec14f4409a73d09a0ebae3e0c04d16b7caa890372169bbf257b85a869a"
+      "expected_semantic_graph_digest_sha256": "sha256:0660faec14f4409a73d09a0ebae3e0c04d16b7caa890372169bbf257b85a869a",
+      "expected_claim_local_graph_digest_sha256": "sha256:0660faec14f4409a73d09a0ebae3e0c04d16b7caa890372169bbf257b85a869a"
     },
     {
       "case_id": "ACV-004",
@@ -230,7 +233,8 @@
       "expected_verdict": "unqualified",
       "reason": "target regime mismatch",
       "expected_graph_digest_sha256": "sha256:da2b6afc1eebd2ea21c6e6e8ae2a69fee015ccfecc94fd52e74fd5b663286c9c",
-      "expected_semantic_graph_digest_sha256": "sha256:54c28bdaf53b526fa98326962edbac921b15bfddb91ec639e497b7d7fbbf428f"
+      "expected_semantic_graph_digest_sha256": "sha256:54c28bdaf53b526fa98326962edbac921b15bfddb91ec639e497b7d7fbbf428f",
+      "expected_claim_local_graph_digest_sha256": "sha256:54c28bdaf53b526fa98326962edbac921b15bfddb91ec639e497b7d7fbbf428f"
     },
     {
       "case_id": "ACV-005",
@@ -245,7 +249,8 @@
       "expected_verdict": "unqualified",
       "reason": "intervention semantic mismatch",
       "expected_graph_digest_sha256": "sha256:f8195ef1bafba874bf897876142e573c189037ee1922f6dea75edcc801211a82",
-      "expected_semantic_graph_digest_sha256": "sha256:588ccf4af6c158de0efa9bf2eb0a3078e99c1b8a3e00529b4c9e6c29a5f7a0dd"
+      "expected_semantic_graph_digest_sha256": "sha256:588ccf4af6c158de0efa9bf2eb0a3078e99c1b8a3e00529b4c9e6c29a5f7a0dd",
+      "expected_claim_local_graph_digest_sha256": "sha256:588ccf4af6c158de0efa9bf2eb0a3078e99c1b8a3e00529b4c9e6c29a5f7a0dd"
     },
     {
       "case_id": "ACV-006",
@@ -260,7 +265,8 @@
       "expected_verdict": "unqualified",
       "reason": "measurement identity mismatch",
       "expected_graph_digest_sha256": "sha256:195a910af5b8dc53c5f17fbde240159247a40e26c7f13be2a0c5a61ec87b32d2",
-      "expected_semantic_graph_digest_sha256": "sha256:5079ff41ce6c656f7937e866c9c174950041b7e345c2813b3995d72bedeb3fc2"
+      "expected_semantic_graph_digest_sha256": "sha256:5079ff41ce6c656f7937e866c9c174950041b7e345c2813b3995d72bedeb3fc2",
+      "expected_claim_local_graph_digest_sha256": "sha256:5079ff41ce6c656f7937e866c9c174950041b7e345c2813b3995d72bedeb3fc2"
     },
     {
       "case_id": "ACV-007",
@@ -277,7 +283,8 @@
       "expected_verdict": "unresolved",
       "reason": "missing required edge",
       "expected_graph_digest_sha256": "sha256:2694b12a90a9c101fb3ddc2cd6c8cfce43884ac039768c5936aefd3a19b606db",
-      "expected_semantic_graph_digest_sha256": "sha256:3fbb8fc707c38a2975bd2134631e6643e0c4197150979d124c04095e65744e67"
+      "expected_semantic_graph_digest_sha256": "sha256:3fbb8fc707c38a2975bd2134631e6643e0c4197150979d124c04095e65744e67",
+      "expected_claim_local_graph_digest_sha256": "sha256:c0f4efe603ffc8853ffdcd97d987b3bdcb0c02926f082285d8bc6d362f89859d"
     },
     {
       "case_id": "ACV-008",
@@ -302,7 +309,8 @@
       "expected_verdict": "unresolved",
       "reason": "contradictory results without reconciliation",
       "expected_graph_digest_sha256": "sha256:9910b1fc7b0ea7827c4d8f6c150a8b4a5d9c5ff583968969a3b586b0450a6510",
-      "expected_semantic_graph_digest_sha256": "sha256:b297ac9b4600e0d23fb01b07811ce61831bfb6daa39388e34a0b14dc36771482"
+      "expected_semantic_graph_digest_sha256": "sha256:b297ac9b4600e0d23fb01b07811ce61831bfb6daa39388e34a0b14dc36771482",
+      "expected_claim_local_graph_digest_sha256": "sha256:b297ac9b4600e0d23fb01b07811ce61831bfb6daa39388e34a0b14dc36771482"
     },
     {
       "case_id": "ACV-009",
@@ -312,15 +320,23 @@
           {
             "id": "result2",
             "type": "Result",
-            "commitment": "X1",
-            "derived_from": "result"
+            "commitment": "X1"
           }
+        ],
+        [
+          "add_edge",
+          [
+            "result2",
+            "result",
+            "derived_from"
+          ]
         ]
       ],
       "expected_verdict": "qualified-with-dependence",
       "reason": "derived copy shares ancestry",
-      "expected_graph_digest_sha256": "sha256:d3085565054c49a6ba3f86b6207ed792364df84dcfc8d4c05d29c28303aeb3d7",
-      "expected_semantic_graph_digest_sha256": "sha256:f259b33b97d3638b999167fe0fe6b89b8ca067733f6570aad0906105e51f5d21"
+      "expected_graph_digest_sha256": "sha256:603a32fcdbec8378565242f21590bac2f86eb1dc9959ee5cd72b3de62aef5338",
+      "expected_semantic_graph_digest_sha256": "sha256:da84a078f2f8032659f31f8ed1407659d0661813a83f6dd21d5a7f29f4f1b279",
+      "expected_claim_local_graph_digest_sha256": "sha256:da84a078f2f8032659f31f8ed1407659d0661813a83f6dd21d5a7f29f4f1b279"
     },
     {
       "case_id": "ACV-010",
@@ -335,7 +351,8 @@
       "expected_verdict": "unqualified",
       "reason": "evaluator state mismatch",
       "expected_graph_digest_sha256": "sha256:8798cabbc4a63208c4481d31394704654938eeff3130f91a945f8d3c3d8ebf7f",
-      "expected_semantic_graph_digest_sha256": "sha256:e884d75a64591d83d01be9c36116b9b7de4d72f7ac2af6738c27ab2487b4b3fe"
+      "expected_semantic_graph_digest_sha256": "sha256:e884d75a64591d83d01be9c36116b9b7de4d72f7ac2af6738c27ab2487b4b3fe",
+      "expected_claim_local_graph_digest_sha256": "sha256:e884d75a64591d83d01be9c36116b9b7de4d72f7ac2af6738c27ab2487b4b3fe"
     },
     {
       "case_id": "ACV-011",
@@ -347,7 +364,8 @@
       ],
       "expected_verdict": "qualified",
       "expected_graph_digest_sha256": "sha256:457229a15807402ca823e6ed673b8ad4f6bd3296856b789b5c6890ee653a11ba",
-      "expected_semantic_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
+      "expected_semantic_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b",
+      "expected_claim_local_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
     },
     {
       "case_id": "ACV-012",
@@ -359,7 +377,8 @@
       ],
       "expected_verdict": "qualified",
       "expected_graph_digest_sha256": "sha256:95839f56977732450504b0d924d25916f31560e561e6ba00b2f8026620a29faf",
-      "expected_semantic_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
+      "expected_semantic_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b",
+      "expected_claim_local_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
     },
     {
       "case_id": "ACV-013",
@@ -376,7 +395,8 @@
       "expected_verdict": "unresolved",
       "reason": "duplicate edge",
       "expected_graph_digest_sha256": "sha256:e832bc8fef3352da9208a348d4b9f1163c198ce817a95a6ea0c81eb611a82917",
-      "expected_semantic_graph_digest_sha256": "invalid"
+      "expected_semantic_graph_digest_sha256": "invalid",
+      "expected_claim_local_graph_digest_sha256": "invalid"
     },
     {
       "case_id": "ACV-014",
@@ -393,7 +413,8 @@
       "expected_verdict": "unresolved",
       "reason": "dangling edge",
       "expected_graph_digest_sha256": "sha256:7c407b4b1071814a0f4cdc65b57ee972aa0dcd483dbe75562181aba5097af70c",
-      "expected_semantic_graph_digest_sha256": "invalid"
+      "expected_semantic_graph_digest_sha256": "invalid",
+      "expected_claim_local_graph_digest_sha256": "invalid"
     },
     {
       "case_id": "ACV-015",
@@ -410,7 +431,8 @@
       ],
       "expected_verdict": "qualified",
       "expected_graph_digest_sha256": "sha256:dbd6b1bb5a3b009051f4567f0d239a176f01b242d0ec0eed52c8371302d7f8b4",
-      "expected_semantic_graph_digest_sha256": "sha256:0d9c128e9bf121c328fb49601c629979cf74535aef2e33ae54a0f61a9a7aa326"
+      "expected_semantic_graph_digest_sha256": "sha256:0d9c128e9bf121c328fb49601c629979cf74535aef2e33ae54a0f61a9a7aa326",
+      "expected_claim_local_graph_digest_sha256": "sha256:0d9c128e9bf121c328fb49601c629979cf74535aef2e33ae54a0f61a9a7aa326"
     },
     {
       "case_id": "ACV-016",
@@ -427,7 +449,94 @@
       ],
       "expected_verdict": "qualified",
       "expected_graph_digest_sha256": "sha256:4fb3243a8a9f96be27f7bbb7c5a6fc96964e10c1673918cf494d3e62a7d62bb3",
-      "expected_semantic_graph_digest_sha256": "sha256:794c8e2a54094d2e50b02dce568fdd465b3d257dd29b1f41010289f57c67d90b"
+      "expected_semantic_graph_digest_sha256": "sha256:794c8e2a54094d2e50b02dce568fdd465b3d257dd29b1f41010289f57c67d90b",
+      "expected_claim_local_graph_digest_sha256": "sha256:794c8e2a54094d2e50b02dce568fdd465b3d257dd29b1f41010289f57c67d90b"
+    },
+    {
+      "case_id": "ACV-017",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise",
+            "type": "UnrelatedEvidence",
+            "commitment": "N1"
+          }
+        ]
+      ],
+      "expected_verdict": "qualified",
+      "reason": "unrelated node",
+      "expected_graph_digest_sha256": "sha256:0439108ba4cfd732dd490cfbeca8c6f768ed1dc666faa57adb3b60476a987a36",
+      "expected_semantic_graph_digest_sha256": "sha256:29636ee7d733cd9dedb7bbc04037398dde65ad22b78017724ecc7c144c658912",
+      "expected_claim_local_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
+    },
+    {
+      "case_id": "ACV-018",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "noise1",
+            "type": "UnrelatedEvidence",
+            "commitment": "N1"
+          }
+        ],
+        [
+          "add_node",
+          {
+            "id": "noise2",
+            "type": "UnrelatedEvidence",
+            "commitment": "N2"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "noise1",
+            "noise2",
+            "uses"
+          ]
+        ]
+      ],
+      "expected_verdict": "qualified",
+      "reason": "unrelated disconnected subgraph",
+      "expected_graph_digest_sha256": "sha256:3f27506b8501a62fad1e7d26904c3d18c5c08b321a548b67da5b22e9d463cd9b",
+      "expected_semantic_graph_digest_sha256": "sha256:263ea8cb76c7c497ff04fd27e37b4442fde204927ce7288a38cad2d1afbc98ce",
+      "expected_claim_local_graph_digest_sha256": "sha256:6b7388978ca1582c830bdb24688489a15fddcc875e7bdbff18f7190f4463d69b"
+    },
+    {
+      "case_id": "ACV-019",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "result2",
+            "type": "Result",
+            "commitment": "X1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "result2",
+            "result",
+            "derived_from"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "result2",
+            "claim",
+            "qualifies"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "derived alternative also claims qualification",
+      "expected_graph_digest_sha256": "sha256:db34a1aa19df6bf09ae9bae52b0788f4bd50fe2f21672e8d4d59e811d8f6f7b4",
+      "expected_semantic_graph_digest_sha256": "sha256:733d40d84c954f0480a692472465539b05225d20452d2b7ca7d88f7ba1593ec6",
+      "expected_claim_local_graph_digest_sha256": "sha256:733d40d84c954f0480a692472465539b05225d20452d2b7ca7d88f7ba1593ec6"
     }
   ]
 }
