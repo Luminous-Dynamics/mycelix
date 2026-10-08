@@ -215,6 +215,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_capability_requirement_input_serde() {
+        let input = CreateCapabilityRequirementInput {
+            requirement_id: "CAPREQ-001".into(),
+            revision: "A".into(),
+            requirement: manufacturing_common::CapabilityRequirement {
+                process_family: "milling".into(),
+                material_class: "aluminum".into(),
+                envelope_x_mm: Some(400),
+                envelope_y_mm: Some(200),
+                envelope_z_mm: Some(100),
+                tolerance_um: Some(25),
+                required_protocols: vec!["opcua".into()],
+            },
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        let back: CreateCapabilityRequirementInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.requirement_id, "CAPREQ-001");
+        assert_eq!(back.revision, "A");
+        assert_eq!(back.requirement.process_family, "milling");
+    }
+
+    #[test]
     fn test_create_operation_input_serde() {
         let input = CreateOperationInput {
             name: "Mill profile".to_string(),
@@ -228,6 +250,22 @@ mod tests {
         let back: CreateOperationInput = serde_json::from_str(&json).unwrap();
         assert_eq!(back.name, "Mill profile");
         assert_eq!(back.cycle_time_min, 8);
+    }
+
+    #[test]
+    fn test_routing_step_supports_typed_capability_requirement() {
+        let input = RoutingStepInput {
+            sequence: 10,
+            capability_requirement_hash: Some(ActionHash::from_raw_36(vec![7; 36])),
+            operation_name: "Mill".to_string(),
+            machine_type: "CNC".to_string(),
+            setup_time_min: 15,
+            cycle_time_min: 8,
+            description: "Mill profile".to_string(),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        let back: RoutingStepInput = serde_json::from_str(&json).unwrap();
+        assert!(back.capability_requirement_hash.is_some());
     }
 
     #[test]
