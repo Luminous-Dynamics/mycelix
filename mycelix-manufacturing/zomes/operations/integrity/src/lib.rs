@@ -6,6 +6,16 @@
 //! Entry types and validation for manufacturing operations and routing sequences.
 
 use hdi::prelude::*;
+use manufacturing_common::CapabilityRequirement;
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct CapabilityRequirementEntry {
+    pub requirement_id: String,
+    pub revision: String,
+    pub requirement: CapabilityRequirement,
+    pub created_at: Timestamp,
+}
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -30,6 +40,9 @@ pub struct RoutingEntry {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, SerializedBytes)]
 pub struct RoutingStepEntry {
     pub sequence: u32,
+    /// Optional migration-era typed capability requirement.
+    #[serde(default)]
+    pub capability_requirement_hash: Option<ActionHash>,
     pub operation_name: String,
     pub machine_type: String,
     pub setup_time_min: u32,
@@ -40,6 +53,7 @@ pub struct RoutingStepEntry {
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
+    CapabilityRequirement(CapabilityRequirementEntry),
     Operation(OperationEntry),
     Routing(RoutingEntry),
 }
@@ -61,6 +75,21 @@ pub enum LinkTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::CapabilityRequirement(requirement) => {
+                if requirement.requirement_id.is_empty() || requirement.revision.is_empty() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "capability requirement requires requirement_id and revision".into(),
+                    ));
+                }
+                if requirement.requirement.process_family.is_empty()
+                    || requirement.requirement.material_class.is_empty()
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "capability requirement requires process_family and material_class".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
             EntryTypes::Operation(op_entry) => {
                 if op_entry.name.is_empty() {
                     return Ok(ValidateCallbackResult::Invalid(
