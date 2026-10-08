@@ -491,6 +491,19 @@ jobs:
           from pathlib import Path
           facts=json.loads(Path('handoff/source-facts.json').read_text())
           receipt=json.loads(Path('handoff/durable-source/attestor-run-receipt.json').read_text())
+          basis=facts['publication_handoff_basis']
+          assert basis['schema']=='MYCELIX-COS-DURABLE-PUBLICATION-HANDOFF-BASIS-V1'
+          assert basis['repository']==os.environ['GITHUB_REPOSITORY']
+          assert basis['repository_id']==int(os.environ['GITHUB_REPOSITORY_ID'])
+          assert basis['claim_id']==facts['claim_id']==os.environ['EXPECTED_CLAIM_ID']
+          assert basis['expected_main_sha']==facts['expected_main_sha']==os.environ['EXPECTED_MAIN_SHA']
+          assert basis['manifest_sha256']==facts['manifest_sha256'] and basis['predicate_sha256']==facts['predicate_sha256']
+          assert basis['bundle_sha256']==facts['bundle_sha256']
+          assert basis['release_tag']=='cos-qualification-'+facts['claim_id']
+          assert basis['asset_name']=='cos-durable-'+facts['claim_id']+'.tar.gz'
+          assert basis['environment_policy_sha256']==facts['environment_policy_sha256']
+          assert basis['effective_main_rules_sha256']==facts['effective_main_rules_sha256']
+          assert basis['trust_root_main_snapshot_sha']==facts['trust_root_main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']
           assert facts['claim_id']==os.environ['EXPECTED_CLAIM_ID']
           assert facts['expected_main_sha']==os.environ['EXPECTED_MAIN_SHA']
           assert receipt['qualification_claim_id']==facts['claim_id']
@@ -540,8 +553,8 @@ jobs:
           claim_id="${{ needs.prepare.outputs.claim_id }}"
           release_tag="cos-qualification-${claim_id}"
           cp -a handoff/durable-source durable-source
-          cp handoff/environment-policy-v1.json durable-source/environment-policy-v1.json
-          cp handoff/effective-main-rules-v1.json durable-source/effective-main-rules-v1.json
+          cp environment-policy-v1.json durable-source/environment-policy-v1.json
+          cp effective-main-rules-v1.json durable-source/effective-main-rules-v1.json
           cp main-branch-policy-v1.json durable-source/main-branch-policy-v1.json
           asset_name="cos-durable-${claim_id}.tar.gz"
           EXPECTED_MAIN_SHA="${{ inputs.expected_main_sha }}" CLAIM_ID="${claim_id}" RELEASE_TAG="${release_tag}" python - <<'PY'
