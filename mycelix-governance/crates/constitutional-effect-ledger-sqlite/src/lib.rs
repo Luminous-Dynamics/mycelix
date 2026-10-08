@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 1;
+pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 2;
 pub const SQLITE_FENCE_STORE_PROFILE: &str =
     "constitutional-effect-ledger/sqlite-fence-store-v1";
 pub const SQLITE_FENCE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
@@ -697,6 +697,7 @@ fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
                 ("provider_audience", "TEXT", 1, 0),
                 ("adapter_identity", "TEXT", 1, 0),
                 ("ownership_token_digest", "TEXT", 1, 0),
+                ("reconciliation_token_digest", "TEXT", 0, 0),
                 ("terminal_evidence_digest", "TEXT", 0, 0),
                 ("state", "INTEGER", 1, 0),
                 ("not_entered_marker", "TEXT", 0, 0),
@@ -817,7 +818,8 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
                     action_digest, action_key_digest, effecting_target_identity,
                     provider_reference_seed_digest, provider_reference_descriptor_digest,
                     provider_environment, provider_audience, adapter_identity,
-                    ownership_token_digest, terminal_evidence_digest, state,
+                    ownership_token_digest, reconciliation_token_digest,
+                    terminal_evidence_digest, state,
                     not_entered_marker, record_digest
              FROM {ATTEMPT_TABLE}
              ORDER BY attempt_identity"
@@ -1030,6 +1032,8 @@ CREATE TABLE effect_attempts (
     not_entered_marker TEXT,
     record_digest TEXT NOT NULL,
     CHECK((state IN (5,6)) OR terminal_evidence_digest IS NULL),
+    CHECK((state = 7) OR reconciliation_token_digest IS NULL),
+    CHECK((state != 7) OR reconciliation_token_digest IS NOT NULL),
     CHECK((state = 8) OR not_entered_marker IS NULL),
     CHECK((state != 8) OR not_entered_marker IS NOT NULL),
     CHECK(
@@ -1064,11 +1068,11 @@ fn insert_attempt_tx(tx: &Transaction<'_>, record: &AttemptRecordV1) -> Result<(
             action_digest, action_key_digest, effecting_target_identity,
             provider_reference_seed_digest, provider_reference_descriptor_digest,
             provider_environment, provider_audience, adapter_identity,
-            ownership_token_digest, terminal_evidence_digest, state,
+            ownership_token_digest, reconciliation_token_digest, terminal_evidence_digest, state,
             not_entered_marker, record_digest
         ) VALUES (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
-            ?14, ?15, ?16, ?17
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
+            ?15, ?16, ?17, ?18
         )",
         params![
             record.attempt_identity,
@@ -1084,6 +1088,7 @@ fn insert_attempt_tx(tx: &Transaction<'_>, record: &AttemptRecordV1) -> Result<(
             record.provider_audience,
             record.adapter_identity,
             record.ownership_token_digest,
+            record.reconciliation_token_digest,
             record.terminal_evidence_digest,
             record.state.storage_tag(),
             record.not_entered_marker,
@@ -1104,16 +1109,18 @@ fn update_attempt_tx(
         .execute(
             "UPDATE effect_attempts
              SET state = ?1,
-                 terminal_evidence_digest = ?2,
-                 not_entered_marker = ?3,
-                 record_digest = ?4
+                 reconciliation_token_digest = ?2,
+                 terminal_evidence_digest = ?3,
+                 not_entered_marker = ?4,
+                 record_digest = ?5
              WHERE attempt_identity = ?5
                AND state = ?6
                AND action_key_digest = ?7
                AND ownership_token_digest = ?8
-               AND record_digest = ?9",
+               AND record_digest = ?10",
             params![
                 updated.state.storage_tag(),
+                updated.reconciliation_token_digest,
                 updated.terminal_evidence_digest,
                 updated.not_entered_marker,
                 updated.record_digest(),
@@ -1141,7 +1148,8 @@ fn load_attempt_tx(
                     action_digest, action_key_digest, effecting_target_identity,
                     provider_reference_seed_digest, provider_reference_descriptor_digest,
                     provider_environment, provider_audience, adapter_identity,
-                    ownership_token_digest, terminal_evidence_digest, state,
+                    ownership_token_digest, reconciliation_token_digest,
+                    terminal_evidence_digest, state,
                     not_entered_marker, record_digest
              FROM {ATTEMPT_TABLE}
              WHERE attempt_identity = ?1"
