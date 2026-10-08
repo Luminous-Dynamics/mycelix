@@ -817,7 +817,7 @@ mod tests {
                 attempt.provider_audience.clone(),
                 attempt.adapter_identity.clone(),
                 attempt.ownership_token_digest.clone(),
-                AttemptRecordState::Executed,
+                AttemptRecordState::Invoked,
             )?;
             VerifiedTerminalOutcomeV1::new(
                 &wrong_attempt,
