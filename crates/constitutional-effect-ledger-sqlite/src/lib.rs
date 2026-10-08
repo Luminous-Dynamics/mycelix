@@ -1203,6 +1203,14 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
                     record.attempt_identity
                 ));
             }
+            if record.state == AttemptRecordState::DispatchPending
+                && !claims.contains_key(&record.attempt_identity)
+            {
+                return Err(format!(
+                    "DISPATCH_PENDING attempt {} has an entry proof but no active provider entry claim",
+                    record.attempt_identity
+                ));
+            }
         }
     }
 
