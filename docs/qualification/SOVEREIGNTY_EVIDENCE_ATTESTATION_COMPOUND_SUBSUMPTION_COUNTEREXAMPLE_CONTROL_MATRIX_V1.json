@@ -1,10 +1,24 @@
 {
   "schema": "mycelix.compound-subsumption-counterexample-control-matrix.v1",
   "finite_universe": {
-    "targets": ["alice", "bob"],
-    "purposes": ["business", "refund"],
-    "contexts": ["trusted", "untrusted"],
-    "amounts": [0, 1, 2, 3],
+    "targets": [
+      "alice",
+      "bob"
+    ],
+    "purposes": [
+      "business",
+      "refund"
+    ],
+    "contexts": [
+      "trusted",
+      "untrusted"
+    ],
+    "amounts": [
+      0,
+      1,
+      2,
+      3
+    ],
     "request_count": 32,
     "request_order": "declared array order for categorical dimensions, then declared amount order"
   },
@@ -50,6 +64,18 @@
       "expected_status": "EFFECTIVE_POLICY_CONTAINMENT_PASS",
       "kind": "positive",
       "marker": "DENY ADDITION RESTRICTION PASS"
+    },
+    {
+      "id": "deny-removal-no-effective-expansion",
+      "expected_status": "POLICY_ATTENUATION_VIOLATION",
+      "kind": "attenuation-component",
+      "marker": "DENY REMOVAL NO EFFECTIVE EXPANSION PASS"
+    },
+    {
+      "id": "allow-expansion-masked-by-deny",
+      "expected_status": "POLICY_ATTENUATION_VIOLATION",
+      "kind": "attenuation-component",
+      "marker": "ALLOW EXPANSION MASKED BY DENY PASS"
     },
     {
       "id": "conflict-rule-substitution",
