@@ -57,6 +57,7 @@ pub enum LinkTypes {
     TypeToMachines,
     MachineToStatusLog,
     MachineToAuthorities,
+    AllMachineControllerAuthorities,
     LocationToMachines,
 }
 
