@@ -7,7 +7,9 @@ BadUndelegatedChild ==
   /\ activeGrants' = activeGrants \cup {G2}
   /\ revokedGrants' = revokedGrants
   /\ authority' = [authority EXCEPT ![B] = @ \cup {P1}]
-  /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
+  /\ UNCHANGED <<evidenceRecorded, evidenceAuthorityBefore,
+                  evidenceAuthorityAfter, providerFailed,
+                  authorityBeforeFailure>>
 
 BadGrandchildExceedsAncestor ==
   /\ activeGrants' = {G1, G2, G3, G4}
@@ -16,7 +18,9 @@ BadGrandchildExceedsAncestor ==
        ![A] = {P1},
        ![B] = {P1},
        ![C] = {P1, P2}]
-  /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
+  /\ UNCHANGED <<evidenceRecorded, evidenceAuthorityBefore,
+                  evidenceAuthorityAfter, providerFailed,
+                  authorityBeforeFailure>>
 
 BadTransitivePower ==
   /\ activeGrants' = {G1, G2, G3, G4}
@@ -25,24 +29,39 @@ BadTransitivePower ==
        ![A] = {P1},
        ![B] = {P1, P2},
        ![C] = {P2}]
-  /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
+  /\ UNCHANGED <<evidenceRecorded, evidenceAuthorityBefore,
+                  evidenceAuthorityAfter, providerFailed,
+                  authorityBeforeFailure>>
 
 BadRevokedDescendant ==
   /\ revokedGrants' = revokedGrants \cup {G1}
   /\ activeGrants' = activeGrants \cup {G1, G2}
   /\ authority' = authority
-  /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
+  /\ UNCHANGED <<evidenceRecorded, evidenceAuthorityBefore,
+                  evidenceAuthorityAfter, providerFailed,
+                  authorityBeforeFailure>>
 
 BadEvidenceMint ==
+  /\ E1 \notin evidenceRecorded
+  /\ G4 \notin activeGrants
+  /\ G4 \notin revokedGrants
+  /\ grantPower[G4] \in authority[issuer[G4]]
   /\ evidenceRecorded' = evidenceRecorded \cup {E1}
-  /\ authority' = [authority EXCEPT ![B] = @ \cup {P2}]
-  /\ UNCHANGED <<activeGrants, revokedGrants, providerFailed, authorityBeforeFailure>>
+  /\ activeGrants' = activeGrants \cup {G4}
+  /\ authority' = AuthorityOf(activeGrants \cup {G4})
+  /\ evidenceAuthorityBefore' =
+       [evidenceAuthorityBefore EXCEPT ![E1] = authority]
+  /\ evidenceAuthorityAfter' =
+       [evidenceAuthorityAfter EXCEPT ![E1] = authority']
+  /\ UNCHANGED <<revokedGrants, providerFailed,
+                  authorityBeforeFailure>>
 
 BadFailureAuthority ==
   /\ providerFailed' = TRUE
   /\ authorityBeforeFailure' = authority
   /\ authority' = [authority EXCEPT ![A] = @ \cup {P2}]
-  /\ UNCHANGED <<activeGrants, revokedGrants, evidenceRecorded>>
+  /\ UNCHANGED <<activeGrants, revokedGrants, evidenceRecorded,
+                  evidenceAuthorityBefore, evidenceAuthorityAfter>>
 
 NegativeNext ==
   \/ IF Control = "transitive-power" THEN BadTransitivePower ELSE FALSE
