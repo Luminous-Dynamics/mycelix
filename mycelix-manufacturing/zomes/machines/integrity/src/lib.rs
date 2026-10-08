@@ -103,12 +103,38 @@ pub enum MachineTemporalCommitmentAlgorithm {
     ProfileDefined(String),
 }
 
+impl MachineTemporalCommitmentAlgorithm {
+    fn is_empty(&self) -> bool {
+        matches!(self, Self::ProfileDefined(value) if value.trim().is_empty())
+    }
+
+    fn text_len(&self) -> usize {
+        match self {
+            Self::ProfileDefined(value) => value.len(),
+            _ => 0,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum MachineTemporalAuthorityCommitmentTarget {
     CertificateDer,
     SubjectPublicKeyInfo,
     PublicKey,
     ProfileDefined(String),
+}
+
+impl MachineTemporalAuthorityCommitmentTarget {
+    fn is_empty(&self) -> bool {
+        matches!(self, Self::ProfileDefined(value) if value.trim().is_empty())
+    }
+
+    fn text_len(&self) -> usize {
+        match self {
+            Self::ProfileDefined(value) => value.len(),
+            _ => 0,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -211,20 +237,6 @@ pub struct MachineTimeAuthorityProfileEntry {
 }
 
 impl MachineTimeAuthorityProfileEntry {
-    fn authority_commitment_target_is_empty(&self) -> bool {
-        matches!(
-            &self.source_authority_commitment_target,
-            MachineTemporalAuthorityCommitmentTarget::ProfileDefined(value) if value.trim().is_empty()
-        )
-    }
-
-    fn authority_commitment_target_text_len(&self) -> usize {
-        match &self.source_authority_commitment_target {
-            MachineTemporalAuthorityCommitmentTarget::ProfileDefined(value) => value.len(),
-            _ => 0,
-        }
-    }
-
     pub fn signed_payload(&self) -> MachineTimeAuthorityProfilePayload {
         MachineTimeAuthorityProfilePayload {
             schema_id: MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID.to_string(),
@@ -259,20 +271,6 @@ pub struct MachineTemporalAttestationEntry {
 }
 
 impl MachineTemporalAttestationEntry {
-    fn source_commitment_algorithm_is_empty(&self) -> bool {
-        matches!(
-            &self.source_commitment_algorithm,
-            MachineTemporalCommitmentAlgorithm::ProfileDefined(value) if value.trim().is_empty()
-        )
-    }
-
-    fn source_commitment_algorithm_text_len(&self) -> usize {
-        match &self.source_commitment_algorithm {
-            MachineTemporalCommitmentAlgorithm::ProfileDefined(value) => value.len(),
-            _ => 0,
-        }
-    }
-
     pub fn signed_payload(&self) -> MachineTemporalAttestationPayload {
         MachineTemporalAttestationPayload {
             schema_id: MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID.to_string(),
@@ -509,9 +507,13 @@ fn validate_create_time_authority_profile(
         || profile.source_authority_commitment.is_empty()
         || profile.source_authority_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || profile.max_accuracy_micros < 0
-        || profile.authority_commitment_target_is_empty()
         || profile.max_accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
-        || profile.authority_commitment_target_text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || profile.source_authority_commitment_algorithm.is_empty()
+        || profile.source_authority_commitment_algorithm.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || profile.commitment_algorithm.is_empty()
+        || profile.commitment_algorithm.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || profile.source_authority_commitment_target.is_empty()
+        || profile.source_authority_commitment_target.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
     {
         return Ok(ValidateCallbackResult::Invalid(
             "time authority profile has invalid identity or accuracy bounds".into(),
@@ -551,8 +553,8 @@ fn validate_create_temporal_attestation(
 ) -> ExternResult<ValidateCallbackResult> {
     if attestation.source_reference.trim().is_empty()
         || attestation.source_reference.len() > MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES
-        || attestation.source_commitment_algorithm_is_empty()
-        || attestation.source_commitment_algorithm_text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || attestation.source_commitment_algorithm.is_empty()
+        || attestation.source_commitment_algorithm.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
         || attestation.source_commitment.is_empty()
         || attestation.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || attestation.accuracy_micros < 0
@@ -1344,6 +1346,14 @@ mod content_restriction_tests {
             source_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
             source_commitment: vec![attestation_byte; 32],
         }
+    }
+
+    #[test]
+    fn temporal_commitment_identifiers_reject_empty_profile_defined_values() {
+        assert!(MachineTemporalCommitmentAlgorithm::ProfileDefined("".into()).is_empty());
+        assert!(!MachineTemporalCommitmentAlgorithm::Sha256.is_empty());
+        assert!(MachineTemporalAuthorityCommitmentTarget::ProfileDefined("".into()).is_empty());
+        assert!(!MachineTemporalAuthorityCommitmentTarget::CertificateDer.is_empty());
     }
 
     #[test]
