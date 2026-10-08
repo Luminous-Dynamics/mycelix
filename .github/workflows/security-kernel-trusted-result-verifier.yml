@@ -27,7 +27,7 @@ env:
   EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
   EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "d13c37fdbffff3777f9619eb461c601c4c9abbd2"
   SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
-  SOURCE_POLICY_VERIFIER_BLOB_SHA: "03ced5ee3ea980bcbe7b470aa655bb29197a9833"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "7611e29884cae3ac37370a6595186ff1db5686e0"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -235,6 +235,54 @@ jobs:
           )
 
           trigger_event = run["event"]
+          jobs = get(
+              f"/repos/{repo}/actions/runs/{run_id}/attempts/{run_attempt}/jobs?per_page=100"
+          )["jobs"]
+          assert len(jobs) == 3, f"trusted dispatcher must have exactly three jobs: {len(jobs)}"
+          assert all(job["run_id"] == int(run_id) for job in jobs)
+          assert all(job["status"] == "completed" for job in jobs)
+          resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact pull request subject"]
+          assert len(resolver_jobs) == 1, f"expected one S0 resolver job, found {len(resolver_jobs)}"
+          resolver_job = resolver_jobs[0]
+          assert resolver_job["conclusion"] == "success"
+          assert resolver_job["id"] > 0
+          decision_jobs = [job for job in jobs if job["name"].startswith("Dispatch decision: ")]
+          assert len(decision_jobs) == 1, f"expected one S0 decision witness job, found {len(decision_jobs)}"
+          decision_job = decision_jobs[0]
+          decision_match = re.fullmatch(
+              r"Dispatch decision: (trusted-dispatch|scheduled-fallback)/(qualified|suppressed)/eligible=(event|[1-9][0-9]?|0)",
+              decision_job["name"],
+          )
+          assert decision_match, f"unexpected S0 decision witness job name: {decision_job['name']!r}"
+          dispatch_invocation_source, dispatch_decision, dispatch_eligible_count = decision_match.groups()
+          assert decision_job["conclusion"] == "success"
+          assert decision_job["id"] > 0
+          if trigger_event == "pull_request_target":
+              assert dispatch_invocation_source == "trusted-dispatch"
+              assert dispatch_decision == "qualified"
+              assert dispatch_eligible_count == "event"
+          elif trigger_event == "schedule":
+              assert dispatch_invocation_source == "scheduled-fallback"
+              if dispatch_decision == "suppressed":
+                  assert dispatch_eligible_count == "0"
+                  matching_s1_jobs = [
+                      job for job in jobs
+                      if job["name"] == os.environ["EXPECTED_JOB_NAME"]
+                      or job["name"].endswith(" / " + os.environ["EXPECTED_JOB_NAME"])
+                  ]
+                  assert len(matching_s1_jobs) == 1, f"expected one suppressed S1 job, found {len(matching_s1_jobs)}"
+                  assert matching_s1_jobs[0]["status"] == "completed"
+                  assert matching_s1_jobs[0]["conclusion"] == "skipped"
+                  with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                      output.write("dispatch_decision=suppressed\n")
+                      output.write("dispatch_invocation_source=scheduled-fallback\n")
+                      output.write("dispatch_eligible_count=0\n")
+                  print("SUPPRESSED: scheduled Security Kernel dispatcher completed with no eligible candidate in its bounded discovery window; no candidate qualification was executed")
+                  raise SystemExit(0)
+              assert dispatch_decision == "qualified"
+              assert re.fullmatch(r"[1-9][0-9]?", dispatch_eligible_count)
+          else:
+              raise AssertionError(f"unexpected trusted dispatcher workflow event: {trigger_event!r}")
           if trigger_event == "pull_request_target":
               title = run.get("display_title", "")
               match = re.fullmatch(
@@ -309,18 +357,6 @@ jobs:
               assert pr["head"]["sha"]==candidate_sha
               assert pr["head"]["repo"]["full_name"]==candidate_repository and pr["head"]["repo"]["id"]==candidate_repository_id
 
-          jobs = get(
-              f"/repos/{repo}/actions/runs/{run_id}/attempts/{run_attempt}/jobs?per_page=100"
-          )["jobs"]
-          assert len(jobs) == 2, f"trusted dispatcher must have exactly two jobs: {len(jobs)}"
-          assert all(job["run_id"] == int(run_id) for job in jobs)
-          assert all(job["status"] == "completed" for job in jobs)
-
-          resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact pull request subject"]
-          assert len(resolver_jobs) == 1, f"expected one S0 resolver job, found {len(resolver_jobs)}"
-          resolver_job = resolver_jobs[0]
-          assert resolver_job["conclusion"] == "success"
-          assert resolver_job["id"] > 0
           assert resolver_job["name"] == "Resolve exact pull request subject"
 
           matching = [
@@ -793,6 +829,9 @@ jobs:
           )
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"dispatch_decision={dispatch_decision}\n")
+              output.write(f"dispatch_invocation_source={dispatch_invocation_source}\n")
+              output.write(f"dispatch_eligible_count={dispatch_eligible_count}\n")
               output.write(f"candidate_sha={candidate_sha}\n")
               output.write(f"candidate_pr={candidate_pr}\n")
               output.write(f"candidate_repository={candidate_repository}\n")
@@ -893,7 +932,7 @@ jobs:
 
 
       - name: Verify retained negative-control evidence binding
-        if: success()
+        if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}
         id: verify_negative_controls_log
         env:
           TOKEN: ${{ github.token }}
@@ -1132,7 +1171,7 @@ jobs:
           PY
 
       - name: Download retained qualification receipt through official artifact client
-        if: success()
+        if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           artifact-ids: ${{ steps.verify_result.outputs.artifact_id }}
@@ -1143,7 +1182,7 @@ jobs:
           digest-mismatch: error
 
       - name: Download retained sandbox negative-control transcript through official artifact client
-        if: success()
+        if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           artifact-ids: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}
@@ -1162,6 +1201,9 @@ jobs:
           EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_digest }}
           EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_SIZE: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_size }}
           EXPECTED_NEGATIVE_CONTROLS_LOG_SHA256: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_content_sha256 }}
+          DISPATCH_DECISION: ${{ steps.verify_result.outputs.dispatch_decision }}
+          DISPATCH_INVOCATION_SOURCE: ${{ steps.verify_result.outputs.dispatch_invocation_source }}
+          DISPATCH_ELIGIBLE_COUNT: ${{ steps.verify_result.outputs.dispatch_eligible_count }}
           EVIDENCE_RETENTION_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.evidence_retention_binding_sha256 }}
           SOURCE_POLICY_REFERENCE_RESULT_SHA256: ${{ steps.verify_result.outputs.source_policy_reference_result_sha256 }}
           EXECUTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.execution_reference_binding_sha256 }}
@@ -1184,6 +1226,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [ "$DISPATCH_DECISION" = "suppressed" ]; then
+            test "$DISPATCH_INVOCATION_SOURCE" = "scheduled-fallback"
+            test "$DISPATCH_ELIGIBLE_COUNT" = "0"
+            echo "SUPPRESSED: trusted S0 decision witness verified; no candidate qualification or evidence-retention path was executed"
+            exit 0
+          fi
+          test "$DISPATCH_DECISION" = "qualified"
+          test "$DISPATCH_INVOCATION_SOURCE" = "trusted-dispatch" || test "$DISPATCH_INVOCATION_SOURCE" = "scheduled-fallback"
+          test "$DISPATCH_ELIGIBLE_COUNT" != "0"
           test -d "$RECEIPT_ROOT"
           mapfile -t receipt_files < <(find "$RECEIPT_ROOT" -type f -print)
           test "${#receipt_files[@]}" -eq 1
