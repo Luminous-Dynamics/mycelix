@@ -64,8 +64,8 @@ jobs:
 
           grep -Fq 'constitutional-effect-ledger = { path = "../../mycelix-governance/crates/constitutional-effect-ledger" }' "$manifest"
           grep -Fq 'rusqlite = { version = "0.32", features = ["bundled"] }' "$manifest"
-          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 6' "$source"
-          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v6' "$source"
+          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 7' "$source"
+          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v7' "$source"
           grep -Fq 'transaction_with_behavior(TransactionBehavior::Immediate)' "$source"
           grep -Fq 'PRIMARY KEY NOT NULL' "$source"
           grep -Fq 'UNIQUE' "$source"
@@ -87,6 +87,12 @@ jobs:
           grep -Fq 'provider_adapter_selection_requires_pinned_registry_entry' "$boundary"
           grep -Fq 'pinned_provider_registry_rejects_duplicate_identities' "$boundary"
           grep -Fq 'pinned_provider_registry_exposes_only_registered_identity' "$boundary"
+          grep -Fq 'AUTHORIZATION_PROOF_TABLE' "$source"
+          grep -Fq 'authorization_admission_receipt_survives_restart' "$source"
+          grep -Fq 'authorization_admission_receipt_tamper_fails_closed' "$source"
+          grep -Fq 'authorization_admission_proof_is_self_validating' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
+          grep -Fq 'durably_read_authorization_admission_proof' "$source"
+          grep -Fq 'authorization admission receipt digest mismatch' "$source"
           grep -Fq 'ProviderActionContextV1' "$boundary"
           grep -Fq 'fn reconcile(&mut self, context: &ProviderActionContextV1)' "$boundary"
           if grep -Fq 'fn reconcile(&mut self, attempt: &AttemptRecordV1)' "$boundary"; then

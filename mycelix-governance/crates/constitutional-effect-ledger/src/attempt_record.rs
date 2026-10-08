@@ -419,7 +419,7 @@ impl AuthorizationAdmissionProofV1 {
         hasher.update(&valid_until_unix_ms.to_be_bytes());
         push_str(&mut hasher, &verifier_identity);
 
-        Ok(Self {
+        let out = Self {
             attempt_identity: attempt.attempt_identity.clone(),
             action_key_digest: action_key.digest().to_owned(),
             operation_id: attempt.operation_id.clone(),
@@ -439,8 +439,121 @@ impl AuthorizationAdmissionProofV1 {
                 "constitutional-authorization-admission-proof-v1:{}",
                 hasher.finalize().to_hex()
             ),
-        })
+        };
+        out.validate()?;
+        Ok(out)
+    pub fn from_persisted(
+        attempt_identity: String,
+        action_key_digest: String,
+        operation_id: String,
+        native_replay_identity: String,
+        action_digest: String,
+        effecting_target_identity: String,
+        provider_environment: String,
+        provider_audience: String,
+        adapter_identity: String,
+        authorization_snapshot_digest: String,
+        policy_snapshot_digest: String,
+        status_snapshot_digest: String,
+        checked_at_unix_ms: u64,
+        valid_until_unix_ms: u64,
+        verifier_identity: String,
+        digest: String,
+    ) -> Result<Self, String> {
+        let out = Self {
+            attempt_identity,
+            action_key_digest,
+            operation_id,
+            native_replay_identity,
+            action_digest,
+            effecting_target_identity,
+            provider_environment,
+            provider_audience,
+            adapter_identity,
+            authorization_snapshot_digest,
+            policy_snapshot_digest,
+            status_snapshot_digest,
+            checked_at_unix_ms,
+            valid_until_unix_ms,
+            verifier_identity,
+            digest,
+        };
+        out.validate()?;
+        Ok(out)
     }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.valid_until_unix_ms <= self.checked_at_unix_ms {
+            return Err("authorization admission proof validity window is empty".into());
+        }
+        require_tagged_hash(
+            "attempt_identity",
+            &self.attempt_identity,
+            crate::ATTEMPT_IDENTITY_PREFIX,
+        )?;
+        require_tagged_hash(
+            "action_key_digest",
+            &self.action_key_digest,
+            crate::ACTION_KEY_PREFIX,
+        )?;
+        for (label, value) in [
+            ("operation_id", self.operation_id.as_str()),
+            ("native_replay_identity", self.native_replay_identity.as_str()),
+            ("action_digest", self.action_digest.as_str()),
+            ("effecting_target_identity", self.effecting_target_identity.as_str()),
+            ("provider_environment", self.provider_environment.as_str()),
+            ("provider_audience", self.provider_audience.as_str()),
+            ("adapter_identity", self.adapter_identity.as_str()),
+            ("authorization_snapshot_digest", self.authorization_snapshot_digest.as_str()),
+            ("policy_snapshot_digest", self.policy_snapshot_digest.as_str()),
+            ("status_snapshot_digest", self.status_snapshot_digest.as_str()),
+            ("verifier_identity", self.verifier_identity.as_str()),
+        ] {
+            require_opaque(label, value, MAX_REF_LEN)?;
+        }
+
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-AUTHORIZATION-ADMISSION-PROOF\0V1\0");
+        push_str(&mut hasher, &self.attempt_identity);
+        push_str(&mut hasher, &self.action_key_digest);
+        push_str(&mut hasher, &self.operation_id);
+        push_str(&mut hasher, &self.native_replay_identity);
+        push_str(&mut hasher, &self.action_digest);
+        push_str(&mut hasher, &self.effecting_target_identity);
+        push_str(&mut hasher, &self.provider_environment);
+        push_str(&mut hasher, &self.provider_audience);
+        push_str(&mut hasher, &self.adapter_identity);
+        push_str(&mut hasher, &self.authorization_snapshot_digest);
+        push_str(&mut hasher, &self.policy_snapshot_digest);
+        push_str(&mut hasher, &self.status_snapshot_digest);
+        hasher.update(&self.checked_at_unix_ms.to_be_bytes());
+        hasher.update(&self.valid_until_unix_ms.to_be_bytes());
+        push_str(&mut hasher, &self.verifier_identity);
+        let expected = format!(
+            "constitutional-authorization-admission-proof-v1:{}",
+            hasher.finalize().to_hex(),
+        );
+        if self.digest != expected {
+            return Err("authorization admission proof digest mismatch".into());
+        }
+        Ok(())
+    }
+
+    pub fn attempt_identity(&self) -> &str { &self.attempt_identity }
+    pub fn action_key_digest(&self) -> &str { &self.action_key_digest }
+    pub fn operation_id(&self) -> &str { &self.operation_id }
+    pub fn native_replay_identity(&self) -> &str { &self.native_replay_identity }
+    pub fn action_digest(&self) -> &str { &self.action_digest }
+    pub fn effecting_target_identity(&self) -> &str { &self.effecting_target_identity }
+    pub fn provider_environment(&self) -> &str { &self.provider_environment }
+    pub fn provider_audience(&self) -> &str { &self.provider_audience }
+    pub fn adapter_identity(&self) -> &str { &self.adapter_identity }
+
+    pub fn authorization_snapshot_digest(&self) -> &str { &self.authorization_snapshot_digest }
+    pub fn policy_snapshot_digest(&self) -> &str { &self.policy_snapshot_digest }
+    pub fn status_snapshot_digest(&self) -> &str { &self.status_snapshot_digest }
+    pub fn checked_at_unix_ms(&self) -> u64 { self.checked_at_unix_ms }
+    pub fn valid_until_unix_ms(&self) -> u64 { self.valid_until_unix_ms }
 
     pub fn matches(&self, attempt: &AttemptRecordV1, action_key: &ActionKeyV1) -> bool {
         self.attempt_identity == attempt.attempt_identity
@@ -1054,6 +1167,11 @@ pub trait DurableActionFenceStore {
         &self,
         attempt_identity: &AttemptIdentityV1,
     ) -> Result<Option<ProviderEntryClaimV1>, String>;
+
+    fn durably_read_authorization_admission_proof(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<AuthorizationAdmissionProofV1>, String>;
 }
 
 /// Durable binding for one native replay identity.
@@ -1194,6 +1312,7 @@ pub struct AtomicActionFenceModelV1 {
     fences: BTreeMap<String, ActionFenceRecordV1>,
     replay_bindings: BTreeMap<String, NativeReplayBindingV1>,
     provider_entry_claims: BTreeMap<String, ProviderEntryClaimV1>,
+    authorization_admission_proofs: BTreeMap<String, AuthorizationAdmissionProofV1>,
 }
 
 impl AtomicActionFenceModelV1 {
@@ -1312,6 +1431,10 @@ impl AtomicActionFenceModelV1 {
         // transaction/linearizable conflict-detecting write.
         self.replay_bindings
             .insert(replay_binding.native_replay_identity.clone(), replay_binding);
+        self.authorization_admission_proofs.insert(
+            authorization_proof.attempt_identity.clone(),
+            authorization_proof,
+        );
         self.attempts
             .insert(record.attempt_identity.clone(), record);
         self.fences.insert(fence.action_key_digest.clone(), fence);
@@ -1853,6 +1976,15 @@ impl AtomicActionFenceModelV1 {
                 return Err("attempt map key mismatch".into());
             }
 
+            let proof = self
+                .authorization_admission_proofs
+                .get(&record.attempt_identity)
+                .ok_or_else(|| "attempt is missing authorization admission proof".to_string())?;
+            proof.validate()?;
+            if record.authorization_admission_proof_digest.as_deref() != Some(proof.digest()) {
+                return Err("authorization admission proof digest mismatch".into());
+            }
+
             match record.state {
                 state if state.occupies_action_fence() => {
                     let fence = self
@@ -2182,6 +2314,16 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
     ) -> Result<Option<ProviderEntryClaimV1>, String> {
         Ok(self.provider_entry_claims.get(attempt_identity.digest()).cloned())
     }
+
+    fn durably_read_authorization_admission_proof(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<AuthorizationAdmissionProofV1>, String> {
+        Ok(self
+            .authorization_admission_proofs
+            .get(attempt_identity.digest())
+            .cloned())
+    }
 }
 
 #[cfg(test)]
@@ -2289,6 +2431,33 @@ mod tests {
         )
         .unwrap();
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn authorization_admission_proof_is_self_validating() {
+        let action = key();
+        let record = record(
+            "attempt-admission-proof",
+            "operation-admission-proof",
+            AttemptRecordState::Consumed,
+        );
+        let proof = AuthorizationAdmissionProofV1::new(
+            &record,
+            &action,
+            100,
+            200,
+            "authorization-snapshot-v1",
+            "policy-snapshot-v1",
+            "status-snapshot-v1",
+            "admission-verifier-v1",
+        )
+        .unwrap();
+
+        proof.validate().unwrap();
+
+        let mut tampered = proof.clone();
+        tampered.verifier_identity = "wrong-verifier".into();
+        assert!(tampered.validate().is_err());
     }
 
     #[test]

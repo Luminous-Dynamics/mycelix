@@ -27,9 +27,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 6;
+pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 7;
 pub const SQLITE_FENCE_STORE_PROFILE: &str =
-    "constitutional-effect-ledger/sqlite-fence-store-v6";
+    "constitutional-effect-ledger/sqlite-fence-store-v7";
 pub const SQLITE_FENCE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 const META_TABLE: &str = "effect_fence_store_meta";
@@ -37,6 +37,7 @@ const ATTEMPT_TABLE: &str = "effect_attempts";
 const FENCE_TABLE: &str = "effect_action_fences";
 const REPLAY_TABLE: &str = "effect_native_replay_bindings";
 const ENTRY_CLAIM_TABLE: &str = "effect_provider_entry_claims";
+const AUTHORIZATION_PROOF_TABLE: &str = "effect_authorization_admission_proofs";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqliteActionFenceStore {
@@ -287,6 +288,7 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
                     .into(),
             );
         }
+        authorization_proof.validate()?;
         if !authorization_proof.matches(&record, action_key) {
             return Err("authorization admission proof does not match exact attempt/action".into());
         }
@@ -312,6 +314,16 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
 
         if let Some(existing) = load_attempt_tx(&tx, attempt_identity.digest())? {
             if existing.record_digest() == record.record_digest() {
+                let existing_proof = load_authorization_admission_proof_tx(
+                    &tx,
+                    attempt_identity.digest(),
+                )?
+                .ok_or_else(|| "existing attempt is missing its authorization admission receipt".to_string())?;
+                if existing.authorization_admission_proof_digest.as_deref()
+                    != Some(existing_proof.digest())
+                {
+                    return Err("existing attempt authorization admission receipt does not match".into());
+                }
                 if existing.state.occupies_action_fence() {
                     match load_fence_tx(&tx, action_key.digest())? {
                         Some(fence)
@@ -369,6 +381,7 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
         .map_err(|e| e.to_string())?;
 
         insert_attempt_tx(&tx, &record)?;
+        insert_authorization_admission_proof_tx(&tx, &authorization_proof)?;
 
         let fence = ActionFenceRecordV1 {
             schema_version: ACTION_FENCE_SCHEMA_VERSION,
@@ -809,7 +822,29 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
     ) -> Result<Option<ProviderEntryClaimV1>, String> {
         let conn = open_connection(&self.path)?;
         load_provider_entry_claim_txless(&conn, attempt_identity.digest())
+    }    
+    fn durably_read_authorization_admission_proof(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<AuthorizationAdmissionProofV1>, String> {
+        let conn = open_connection(&self.path)?;
+        load_authorization_admission_proof_conn(&conn, attempt_identity.digest())
     }
+
+
+}
+
+fn read_nonnegative_unix_ms(value: i64, column: usize) -> Result<u64, rusqlite::Error> {
+    u64::try_from(value).map_err(|_| {
+        rusqlite::Error::FromSqlConversionFailure(
+            column,
+            rusqlite::types::Type::Integer,
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "negative authorization admission proof timestamp",
+            )),
+        )
+    })
 }
 
 fn storage_error(error: impl ToString) -> ActionFenceMutationError {
@@ -974,7 +1009,7 @@ fn ensure_schema(conn: &mut Connection) -> Result<(), String> {
 }
 
 fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
-    let expectations: [(&str, &[(&str, &str, i64, i64)]); 5] = [
+    let expectations: [(&str, &[(&str, &str, i64, i64)]); 6] = [
         (
             META_TABLE,
             &[
@@ -1038,6 +1073,27 @@ fn validate_schema_columns(conn: &Connection) -> Result<(), String> {
                 ("record_digest", "TEXT", 1, 0),
             ],
         ),
+        (
+            AUTHORIZATION_PROOF_TABLE,
+            &[
+                ("attempt_identity", "TEXT", 1, 1),
+                ("action_key_digest", "TEXT", 1, 0),
+                ("operation_id", "TEXT", 1, 0),
+                ("native_replay_identity", "TEXT", 1, 0),
+                ("action_digest", "TEXT", 1, 0),
+                ("effecting_target_identity", "TEXT", 1, 0),
+                ("provider_environment", "TEXT", 1, 0),
+                ("provider_audience", "TEXT", 1, 0),
+                ("adapter_identity", "TEXT", 1, 0),
+                ("authorization_snapshot_digest", "TEXT", 1, 0),
+                ("policy_snapshot_digest", "TEXT", 1, 0),
+                ("status_snapshot_digest", "TEXT", 1, 0),
+                ("checked_at_unix_ms", "INTEGER", 1, 0),
+                ("valid_until_unix_ms", "INTEGER", 1, 0),
+                ("verifier_identity", "TEXT", 1, 0),
+                ("digest", "TEXT", 1, 0),
+            ],
+        ),
     ];
 
     for (table, expected) in expectations {
@@ -1085,9 +1141,16 @@ fn validate_no_managed_triggers(conn: &Connection) -> Result<(), String> {
             "SELECT EXISTS(
                 SELECT 1 FROM sqlite_master
                 WHERE type = 'trigger'
-                  AND tbl_name IN (?1, ?2, ?3, ?4, ?5)
+                  AND tbl_name IN (?1, ?2, ?3, ?4, ?5, ?6)
             )",
-            params![META_TABLE, ATTEMPT_TABLE, FENCE_TABLE, REPLAY_TABLE, ENTRY_CLAIM_TABLE],
+            params![
+                META_TABLE,
+                ATTEMPT_TABLE,
+                FENCE_TABLE,
+                REPLAY_TABLE,
+                ENTRY_CLAIM_TABLE,
+                AUTHORIZATION_PROOF_TABLE,
+            ],
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
@@ -1199,6 +1262,51 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
         claims.insert(claim.attempt_identity.clone(), claim);
     }
 
+    let mut authorization_proofs = HashMap::new();
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT attempt_identity, action_key_digest, operation_id, native_replay_identity,
+                    action_digest, effecting_target_identity, provider_environment, provider_audience,
+                    adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
+                    status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms,
+                    verifier_identity, digest
+             FROM {AUTHORIZATION_PROOF_TABLE}
+             ORDER BY attempt_identity"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            AuthorizationAdmissionProofV1::from_persisted(
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+                row.get(9)?,
+                row.get(10)?,
+                row.get(11)?,
+                row.get::<_, i64>(12)? as u64,
+                row.get::<_, i64>(13)? as u64,
+                row.get(14)?,
+                row.get(15)?,
+            )
+            .map_err(|e| rusqlite::Error::InvalidParameterName(e))
+        })
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        let proof = row.map_err(|e| e.to_string())?;
+        if authorization_proofs
+            .insert(proof.attempt_identity().to_owned(), proof)
+            .is_some()
+        {
+            return Err("duplicate authorization admission proof attempt identity".into());
+        }
+    }
+
     for record in attempts.values() {
         if record
             .authorization_admission_proof_digest
@@ -1210,6 +1318,35 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
                 record.attempt_identity
             ));
         }
+        let authorization_proof = authorization_proofs
+            .get(&record.attempt_identity)
+            .ok_or_else(|| {
+                format!(
+                    "attempt {} has no durable authorization admission receipt",
+                    record.attempt_identity
+                )
+            })?;
+        if authorization_proof.digest() != record.authorization_admission_proof_digest.as_deref().unwrap() {
+            return Err(format!(
+                "attempt {} authorization admission receipt digest mismatch",
+                record.attempt_identity
+            ));
+        }
+        if authorization_proof.action_key_digest() != record.action_key_digest
+            || authorization_proof.operation_id() != record.operation_id
+            || authorization_proof.native_replay_identity() != record.native_replay_identity
+            || authorization_proof.action_digest() != record.action_digest
+            || authorization_proof.effecting_target_identity() != record.effecting_target_identity
+            || authorization_proof.provider_environment() != record.provider_environment
+            || authorization_proof.provider_audience() != record.provider_audience
+            || authorization_proof.adapter_identity() != record.adapter_identity
+        {
+            return Err(format!(
+                "attempt {} authorization admission receipt does not match attempt scope",
+                record.attempt_identity
+            ));
+        }
+
         if let Some(proof_digest) = record.entry_admission_proof_digest.as_deref() {
             if proof_digest.trim().is_empty() {
                 return Err(format!(
@@ -1234,6 +1371,15 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
                     record.attempt_identity
                 ));
             }
+        }
+    }
+
+    for proof in authorization_proofs.values() {
+        if !attempts.contains_key(proof.attempt_identity()) {
+            return Err(format!(
+                "authorization admission receipt {} references unknown attempt",
+                proof.attempt_identity()
+            ));
         }
     }
 
@@ -1450,6 +1596,34 @@ fn validate_foreign_keys(conn: &Connection) -> Result<(), String> {
             "NO ACTION".to_owned(),
         ),
     ];
+
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA foreign_key_list({AUTHORIZATION_PROOF_TABLE})"))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let actual = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    let expected = vec![(
+        ATTEMPT_TABLE.to_owned(),
+        "attempt_identity".to_owned(),
+        "attempt_identity".to_owned(),
+        "NO ACTION".to_owned(),
+    )];
+    if actual != expected {
+        return Err(format!(
+            "unexpected {AUTHORIZATION_PROOF_TABLE} foreign keys: {actual:?}"
+        ));
+    }
     if actual != expected {
         return Err(format!(
             "unexpected {ENTRY_CLAIM_TABLE} foreign keys: {actual:?}"
@@ -1525,7 +1699,93 @@ CREATE TABLE effect_provider_entry_claims (
     FOREIGN KEY(attempt_identity) REFERENCES effect_attempts(attempt_identity),
     FOREIGN KEY(action_key_digest) REFERENCES effect_action_fences(action_key_digest)
 );
+
+CREATE TABLE effect_authorization_admission_proofs (
+    attempt_identity TEXT PRIMARY KEY NOT NULL,
+    action_key_digest TEXT NOT NULL,
+    operation_id TEXT NOT NULL,
+    native_replay_identity TEXT NOT NULL,
+    action_digest TEXT NOT NULL,
+    effecting_target_identity TEXT NOT NULL,
+    provider_environment TEXT NOT NULL,
+    provider_audience TEXT NOT NULL,
+    adapter_identity TEXT NOT NULL,
+    authorization_snapshot_digest TEXT NOT NULL,
+    policy_snapshot_digest TEXT NOT NULL,
+    status_snapshot_digest TEXT NOT NULL,
+    checked_at_unix_ms INTEGER NOT NULL,
+    valid_until_unix_ms INTEGER NOT NULL,
+    verifier_identity TEXT NOT NULL,
+    digest TEXT NOT NULL UNIQUE,
+    FOREIGN KEY(attempt_identity) REFERENCES effect_attempts(attempt_identity)
+);
 "#;
+
+fn insert_authorization_admission_proof_tx(
+    tx: &Transaction<'_>,
+    proof: &AuthorizationAdmissionProofV1,
+) -> Result<(), String> {
+    proof.validate()?;
+    tx.execute(
+        "INSERT INTO effect_authorization_admission_proofs (
+        attempt_identity, action_key_digest, operation_id, native_replay_identity,
+        action_digest, effecting_target_identity, provider_environment, provider_audience,
+        adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
+        status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms, verifier_identity, digest
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)"
+        ,
+        params![
+            proof.attempt_identity(),
+            proof.action_key_digest(),
+            proof.operation_id(),
+            proof.native_replay_identity(),
+            proof.action_digest(),
+            proof.effecting_target_identity(),
+            proof.provider_environment(),
+            proof.provider_audience(),
+            proof.adapter_identity(),
+            proof.authorization_snapshot_digest(),
+            proof.policy_snapshot_digest(),
+            proof.status_snapshot_digest(),
+            proof.checked_at_unix_ms() as i64,
+            proof.valid_until_unix_ms() as i64,
+            proof.verifier_identity(),
+            proof.digest(),
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn load_authorization_admission_proof_tx(
+    tx: &Transaction<'_>,
+    attempt_identity: &str,
+) -> Result<Option<AuthorizationAdmissionProofV1>, String> {
+    tx.query_row(
+        &format!(
+            "SELECT attempt_identity, action_key_digest, operation_id, native_replay_identity,
+                    action_digest, effecting_target_identity, provider_environment, provider_audience,
+                    adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
+                    status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms, verifier_identity, digest
+             FROM {AUTHORIZATION_PROOF_TABLE} WHERE attempt_identity = ?1"
+        ),
+        params![attempt_identity],
+        |row| {
+            AuthorizationAdmissionProofV1::from_persisted(
+                row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,
+                row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?,
+                row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?,
+                read_nonnegative_unix_ms(row.get(12)?, 12)?,
+                read_nonnegative_unix_ms(row.get(13)?, 13)?,
+                row.get(14)?, row.get(15)?,
+            )
+            .map_err(|e| rusqlite::Error::InvalidParameterName(e))
+        },
+    )
+    .optional()
+    .map_err(|e| e.to_string())?
+    .transpose()
+}
 
 fn insert_attempt_tx(tx: &Transaction<'_>, record: &AttemptRecordV1) -> Result<(), String> {
     tx.execute(
@@ -1658,6 +1918,34 @@ fn load_attempt_txless(
         ),
         params![attempt_identity],
         map_attempt_row,
+    )
+    .optional()
+    .map_err(|e| e.to_string())?
+    .transpose()
+}
+
+fn load_authorization_admission_proof_conn(
+    conn: &Connection,
+    attempt_identity: &str,
+) -> Result<Option<AuthorizationAdmissionProofV1>, String> {
+    conn.query_row(
+        &format!(
+            "SELECT attempt_identity, action_key_digest, operation_id, native_replay_identity,
+             action_digest, effecting_target_identity, provider_environment, provider_audience,
+             adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
+             status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms, verifier_identity, digest
+             FROM {AUTHORIZATION_PROOF_TABLE} WHERE attempt_identity = ?1"
+        ),
+        params![attempt_identity],
+        |row| {
+            AuthorizationAdmissionProofV1::from_persisted(
+                row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,
+                row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?,
+                row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?,
+                row.get::<_, i64>(12)? as u64, row.get::<_, i64>(13)? as u64,
+                row.get(14)?, row.get(15)?,
+            ).map_err(|e| rusqlite::Error::InvalidParameterName(e))
+        },
     )
     .optional()
     .map_err(|e| e.to_string())?
@@ -2610,6 +2898,58 @@ mod tests {
     }
 
     #[test]
+    fn authorization_admission_receipt_survives_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("authorization-receipt-restart.db");
+        let action = key("authorization-receipt-restart");
+        let owner = attempt("attempt-authorization-receipt-restart");
+
+        let expected_digest;
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            let record = record(
+                "attempt-authorization-receipt-restart",
+                "operation-authorization-receipt-restart",
+                "native-authorization-receipt-restart",
+                &action,
+                AttemptRecordState::Consumed,
+            );
+            let proof = AuthorizationAdmissionProofV1::new(
+                &record,
+                &action,
+                100,
+                200,
+                "authorization-snapshot-v1",
+                "policy-snapshot-v1",
+                "status-snapshot-v1",
+                "test-admission-verifier-v1",
+            )
+            .unwrap();
+
+            expected_digest = proof.digest().to_owned();
+            store
+                .atomically_admit(&action, &owner, record, proof.clone())
+                .unwrap();
+            assert_eq!(
+                store
+                    .durably_read_authorization_admission_proof(&owner)
+                    .unwrap()
+                    .unwrap()
+                    .digest(),
+                proof.digest()
+            );
+        }
+
+        let reopened = SqliteActionFenceStore::open(&path).unwrap();
+        let restored = reopened
+            .durably_read_authorization_admission_proof(&owner)
+            .unwrap()
+            .unwrap();
+        assert!(restored.validate().is_ok());
+        assert_eq!(restored.digest(), expected_digest);
+    }
+
+    #[test]
     fn entry_admission_proof_survives_restart() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("entry-proof-restart.db");
@@ -2972,4 +3312,52 @@ mod tests {
         drop(conn);
         assert!(SqliteActionFenceStore::open(&path).is_err());
     }
+    #[test]
+    fn authorization_admission_receipt_tamper_fails_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("authorization-receipt-tamper.db");
+        let action = key("authorization-receipt-tamper");
+        let owner = attempt("attempt-authorization-receipt-tamper");
+        let record = record(
+            "attempt-authorization-receipt-tamper",
+            "operation-authorization-receipt-tamper",
+            "native-authorization-receipt-tamper",
+            &action,
+            AttemptRecordState::Consumed,
+        );
+        let proof = AuthorizationAdmissionProofV1::new(
+            &record,
+            &action,
+            100,
+            200,
+            "authorization-snapshot-v1",
+            "policy-snapshot-v1",
+            "status-snapshot-v1",
+            "test-admission-verifier-v1",
+        )
+        .unwrap();
+
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            store
+                .atomically_admit(&action, &owner, record, proof)
+                .unwrap();
+        }
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            &format!(
+                "UPDATE {AUTHORIZATION_PROOF_TABLE}
+                 SET verifier_identity = 'tampered-verifier'
+                 WHERE attempt_identity = ?1"
+            ),
+            params![owner.digest()],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert!(SqliteActionFenceStore::open(&path).is_err());
+    }
+
+
 }
