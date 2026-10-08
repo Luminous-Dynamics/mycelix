@@ -439,8 +439,73 @@ impl AuthorizationAdmissionProofV1 {
                 "constitutional-authorization-admission-proof-v1:{}",
                 hasher.finalize().to_hex()
             ),
-        })
+        };
+        out.validate()?;
+        Ok(out)
     }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.valid_until_unix_ms <= self.checked_at_unix_ms {
+            return Err("authorization admission proof validity window is empty".into());
+        }
+        require_tagged_hash(
+            "attempt_identity",
+            &self.attempt_identity,
+            crate::ATTEMPT_IDENTITY_PREFIX,
+        )?;
+        require_tagged_hash(
+            "action_key_digest",
+            &self.action_key_digest,
+            crate::ACTION_KEY_PREFIX,
+        )?;
+        for (label, value) in [
+            ("operation_id", self.operation_id.as_str()),
+            ("native_replay_identity", self.native_replay_identity.as_str()),
+            ("action_digest", self.action_digest.as_str()),
+            ("effecting_target_identity", self.effecting_target_identity.as_str()),
+            ("provider_environment", self.provider_environment.as_str()),
+            ("provider_audience", self.provider_audience.as_str()),
+            ("adapter_identity", self.adapter_identity.as_str()),
+            ("authorization_snapshot_digest", self.authorization_snapshot_digest.as_str()),
+            ("policy_snapshot_digest", self.policy_snapshot_digest.as_str()),
+            ("status_snapshot_digest", self.status_snapshot_digest.as_str()),
+            ("verifier_identity", self.verifier_identity.as_str()),
+        ] {
+            require_opaque(label, value, MAX_REF_LEN)?;
+        }
+
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-AUTHORIZATION-ADMISSION-PROOF\0V1\0");
+        push_str(&mut hasher, &self.attempt_identity);
+        push_str(&mut hasher, &self.action_key_digest);
+        push_str(&mut hasher, &self.operation_id);
+        push_str(&mut hasher, &self.native_replay_identity);
+        push_str(&mut hasher, &self.action_digest);
+        push_str(&mut hasher, &self.effecting_target_identity);
+        push_str(&mut hasher, &self.provider_environment);
+        push_str(&mut hasher, &self.provider_audience);
+        push_str(&mut hasher, &self.adapter_identity);
+        push_str(&mut hasher, &self.authorization_snapshot_digest);
+        push_str(&mut hasher, &self.policy_snapshot_digest);
+        push_str(&mut hasher, &self.status_snapshot_digest);
+        hasher.update(&self.checked_at_unix_ms.to_be_bytes());
+        hasher.update(&self.valid_until_unix_ms.to_be_bytes());
+        push_str(&mut hasher, &self.verifier_identity);
+        let expected = format!(
+            "constitutional-authorization-admission-proof-v1:{}",
+            hasher.finalize().to_hex(),
+        );
+        if self.digest != expected {
+            return Err("authorization admission proof digest mismatch".into());
+        }
+        Ok(())
+    }
+
+    pub fn authorization_snapshot_digest(&self) -> &str { &self.authorization_snapshot_digest }
+    pub fn policy_snapshot_digest(&self) -> &str { &self.policy_snapshot_digest }
+    pub fn status_snapshot_digest(&self) -> &str { &self.status_snapshot_digest }
+    pub fn checked_at_unix_ms(&self) -> u64 { self.checked_at_unix_ms }
+    pub fn valid_until_unix_ms(&self) -> u64 { self.valid_until_unix_ms }
 
     pub fn matches(&self, attempt: &AttemptRecordV1, action_key: &ActionKeyV1) -> bool {
         self.attempt_identity == attempt.attempt_identity
