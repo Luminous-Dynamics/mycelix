@@ -76,6 +76,11 @@ jobs:
           assert 'environments/cos-durable-publication' in text
           assert 'custom_branch_policies' in text
           assert 'protected_branches' in text
+          assert "required_conversation_resolution" in text
+          assert "required_linear_history" in text
+          assert "app_id':x.get('app_id')" in text
+          assert "fine_checks=list(checks.get('checks',[]))" in text
+          assert "checks=data.get('required_status_checks')" in text
           assert 'prevent_self_review' in text
           assert 'required_reviewers' in text
           assert 'environment_policy_sha256' in text
