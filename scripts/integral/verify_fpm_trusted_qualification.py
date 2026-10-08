@@ -219,6 +219,7 @@ def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: st
         "--user \"${CANDIDATE_UID}:${CANDIDATE_GID}\"",
         "CARGO_NET_OFFLINE=true",
         "cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml",
+        "cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml",
     )
     for token in required:
         if token not in raw.decode("utf-8"):
@@ -229,6 +230,7 @@ def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: st
         "--network host",
         "--cap-add",
         "docker.sock",
+        'sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"',
     )
     policy_text = raw.decode("utf-8")
     for token in forbidden:
