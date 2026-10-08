@@ -1199,6 +1199,18 @@ def main() -> None:
     expect_rejection(
         lambda: verify_s1(
             raw["s1"].replace(
+                b"/source/.cargo/config.toml /source/.cargo/config",
+                b"/source/.cargo/config.toml",
+                1,
+            ),
+            s1_sha,
+        ),
+        "Cargo project-level configuration closure weakened",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
                 b'              tree_entries="$(git -C /tmp/repository ls-tree -r "$resolved")"',
                 b'              if git -C /tmp/repository ls-tree -r "$resolved" | grep -q "^160000 "; then',
                 1,
