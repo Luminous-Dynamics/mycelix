@@ -241,7 +241,7 @@ jobs:
           docker pull --quiet "$FETCH_IMAGE"
           docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$FETCH_IMAGE" | grep -Fx "$FETCH_IMAGE"
           runner_uid="$(id -u)"; runner_gid="$(id -g)"
-          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never \
+          timeout --signal=TERM --kill-after=20s 10m docker run --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" --rm --platform=linux/amd64 --pull=never \
             --network=bridge --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --security-opt=seccomp=default \
             --pids-limit=512 --memory=2g --memory-swap=2g --cpus=2 --ulimit=nofile=4096:4096 --ulimit=core=0:0 \
             --user "$runner_uid:$runner_gid" --init --stop-timeout=5 --ipc=private --pid=private --cgroupns=private \
@@ -439,7 +439,7 @@ jobs:
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
           output="$RUNNER_TEMP/security-kernel-sandbox-preflight.txt"
-          docker run --rm --platform=linux/amd64 --pull=never \
+          docker run --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" --rm --platform=linux/amd64 --pull=never \
             --network=none \
             --read-only \
             --cap-drop=ALL \
@@ -569,7 +569,7 @@ jobs:
           test "$vendor_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=150000"
           test "$vendor_config_volume_spec" = "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=16m,nr_inodes=64"
           set +e
-          docker run --rm --platform=linux/amd64 --pull=never \
+          docker run --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" --rm --platform=linux/amd64 --pull=never \
             --network=bridge --read-only --cap-drop=ALL \
             --security-opt=no-new-privileges:true --security-opt=seccomp=default \
             --pids-limit=256 --memory=2g --memory-swap=2g --cpus=2 \
@@ -718,7 +718,7 @@ jobs:
           }
           set +e
           {
-          timeout --signal=TERM --kill-after=20s 3m docker run --name "$container_name" --rm --platform=linux/amd64 --pull=never \
+          timeout --signal=TERM --kill-after=20s 3m docker run --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" --name "$container_name" --rm --platform=linux/amd64 --pull=never \
             --network=none \
             --read-only \
             --cap-drop=ALL \
@@ -856,7 +856,7 @@ jobs:
               return 1
             fi
             set +e
-            timeout --signal=TERM --kill-after=30s "$wall" docker run --name "$name" --rm --platform=linux/amd64 --pull=never \
+            timeout --signal=TERM --kill-after=30s "$wall" docker run --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" --name "$name" --rm --platform=linux/amd64 --pull=never \
               --network=none \
               --read-only \
               --cap-drop=ALL \
@@ -1055,7 +1055,7 @@ jobs:
             exit "$status"
           }
           trap vendor_cleanup_on_failure EXIT
-          docker run --rm --platform=linux/amd64 --pull=never \
+          docker run --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" --rm --platform=linux/amd64 --pull=never \
             --network=none --read-only --cap-drop=ALL \
             --security-opt=no-new-privileges:true --security-opt=seccomp=default \
             --pids-limit=128 --memory=256m --memory-swap=256m --cpus=1 \
@@ -1313,13 +1313,31 @@ jobs:
           print("PASS: retained qualification receipt artifact is bound to this exact workflow run and upload digest")
           PY
       - name: Final teardown barrier
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
           candidate_volume_name="security-kernel-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           vendor_volume_name="security-kernel-vendor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           vendor_config_volume_name="security-kernel-vendor-config-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          if ! owned_containers="$(docker ps -aq --filter "label=security-kernel.run=$GITHUB_RUN_ID" --filter "label=security-kernel.attempt=$GITHUB_RUN_ATTEMPT")"; then
+            echo "security-kernel final teardown container inventory query failed" >&2
+            exit 1
+          fi
+          if [ -n "$owned_containers" ]; then
+            if ! docker rm -f $owned_containers >/dev/null 2>&1; then
+              echo "security-kernel final teardown owned container removal failed" >&2
+              exit 1
+            fi
+          fi
+          if ! remaining_owned_containers="$(docker ps -aq --filter "label=security-kernel.run=$GITHUB_RUN_ID" --filter "label=security-kernel.attempt=$GITHUB_RUN_ATTEMPT")"; then
+            echo "security-kernel final teardown container inventory query failed after removal" >&2
+            exit 1
+          fi
+          if [ -n "$remaining_owned_containers" ]; then
+            echo "security-kernel final teardown owned container remains" >&2
+            exit 1
+          fi
           for volume_name in "$candidate_volume_name" "$vendor_volume_name" "$vendor_config_volume_name"; do
             if ! existing_volumes="$(docker volume ls --format '{{.Name}}')"; then
               echo "security-kernel final teardown volume inventory query failed" >&2
