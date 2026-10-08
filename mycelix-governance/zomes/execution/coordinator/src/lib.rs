@@ -679,6 +679,8 @@ pub fn record_prepared_execution_resolution(
                         && existing.timelock_id == input.timelock_id
                         && existing.proposal_id == execution.proposal_id
                         && existing.executor == input.executor_did
+                        && existing.prepared_execution_action_hash.as_ref()
+                            == Some(execution_record.action_address())
                         && existing.prepared_timelock_action_hash.as_ref()
                             == Some(timelock_record.action_address())
                         && existing.attempt_identities == input.attempt_identities
@@ -711,6 +713,7 @@ pub fn record_prepared_execution_resolution(
         timelock_id: input.timelock_id,
         proposal_id: execution.proposal_id,
         executor: input.executor_did,
+        prepared_execution_action_hash: Some(execution_record.action_address().clone()),
         prepared_timelock_action_hash: Some(timelock_record.action_address().clone()),
         attempt_identities: input.attempt_identities,
         action_key_digests: input.action_key_digests,
