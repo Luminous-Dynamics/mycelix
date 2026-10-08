@@ -62,6 +62,18 @@ fact ChildAuthorityRequiresGrant {
         g.grantee = a and s in g.scope
 }
 
+fact ClaimAuthorizedGrantScopeBounded {
+  all e: Evidence, g: Grant |
+    e.recorded = On and
+    e.signatureValid = On and
+    e.signerTrusted = On and
+    e.claimAuthorized = On and
+    e.subject = e.target and
+    g in e.grantsAfter and
+    g not in e.grantsBefore implies
+      g.scope in e.claimScope
+}
+
 fact EvidenceSnapshots {
   all e: Evidence |
     e.recorded = On implies
