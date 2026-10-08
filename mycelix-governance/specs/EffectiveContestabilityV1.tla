@@ -174,8 +174,14 @@ TypeOK ==
   /\ authority \in [Subjects -> SUBSET Powers]
   /\ jurisdiction \in [Subjects -> SUBSET Jurisdictions]
   /\ providerFailed \subseteq Providers
+  /\ failureObserved \in BOOLEAN
+  /\ failureAuthority \in [Subjects -> SUBSET Powers]
+  /\ switchObserved \in [Subjects -> BOOLEAN]
+  /\ authorityBeforeSwitch \in [Subjects -> SUBSET Powers]
+  /\ jurisdictionBeforeSwitch \in [Subjects -> SUBSET Jurisdictions]
   /\ switchingCost \in [Subjects -> 0..MaxSwitchingCost]
   /\ reviewRequired \in [Subjects -> BOOLEAN]
+  /\ clock \in 0..MaxSwitchingCost
 
 EffectiveExitIsIndependent ==
   \A s \in Subjects, p \in effectiveExit[s] :
