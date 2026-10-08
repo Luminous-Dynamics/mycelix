@@ -536,7 +536,7 @@ fn require_admissible_proposal(
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
             "Refusing execution: proposal entry could not be decoded: {e}"
-        )))?
+        ))))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Refusing execution: proposal record has no entry.".into()
         )))?;
@@ -1042,7 +1042,7 @@ pub fn invoke_execution(input: InvokeExecutionInput) -> ExternResult<InvokeExecu
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Execution attempt must have a committed InvocationClaimed state before effect entry, current: {:?}",
             current_attempt.status
-        )));
+        ))));
     }
 
     let timelock_record = find_timelock_by_id(&input.timelock_id)?;
@@ -1157,7 +1157,7 @@ pub fn record_execution_observation(
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Execution attempt observation must follow InvocationClaimed, current: {:?}",
             current_attempt.status
-        )));
+        ))));
     }
     if input.attempt_identity != current_attempt.attempt_identity
         || input.action_key_digest != current_attempt.action_key_digest
