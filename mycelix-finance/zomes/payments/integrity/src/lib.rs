@@ -302,7 +302,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::ExitRecord(exit) => {
                     validate_create_exit_record(EntryCreationAction::Create(action), exit)
                 }
-                EntryTypes::SapBalance(bal) => validate_sap_balance(&bal),
+                EntryTypes::SapBalance(bal) => validate_create_sap_balance(&bal),
                 EntryTypes::SapMintRecord(mint) => validate_create_sap_mint_record(&mint),
                 EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
                 EntryTypes::SapMintCapCounterEntry(counter) => {
@@ -459,19 +459,13 @@ fn validate_update_sap_balance(
 ) -> ExternResult<ValidateCallbackResult> {
     validate_sap_balance(&bal)?;
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
-    let original = original_record
-        .entry()
-        .to_app_option::<SapBalance>()
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to decode original SapBalance predecessor: {e:?}"
-            )))
-        })?
-        .ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(
-                "SapBalance predecessor has wrong type".into()
-            ))
-        })?;
+    let original = original_record.entry().to_app_option::<SapBalance>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original SapBalance predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+        "SapBalance predecessor has wrong type".into()
+    )))?;
 
     if original.member_did != bal.member_did {
         return Ok(ValidateCallbackResult::Invalid(
@@ -518,40 +512,38 @@ fn validate_update_sap_balance(
         }
     }
 
-    if bal.balance < original.balance && author_did != bal.member_did {
+    let from = original.last_demurrage_at.as_micros();
+    let to = action.timestamp.as_micros();
+    let elapsed = if to > from {
+        ((to - from) / 1_000_000) as u64
+    } else {
+        0
+    };
+    let now_secs = (to / 1_000_000).max(0) as u64;
+    let deduction = compute_demurrage_with_exemption(
+        original.balance,
+        original.exemption.as_ref(),
+        now_secs,
+        DEMURRAGE_EXEMPT_FLOOR,
+        DEMURRAGE_RATE,
+        elapsed,
+    );
+    let effective_before_mutation = original.balance.saturating_sub(deduction);
+
+    if bal.balance != original.balance && bal.last_demurrage_at != action.timestamp {
         return Ok(ValidateCallbackResult::Invalid(
-            "SAP balance decreases must be authored by the balance owner".into(),
+            "SAP balance value mutations must set last_demurrage_at to the update action timestamp".into(),
         ));
     }
 
-    if bal.balance > original.balance {
-        let elapsed = {
-            let from = original.last_demurrage_at.as_micros();
-            let to = action.timestamp.as_micros();
-            if to > from {
-                ((to - from) / 1_000_000) as u64
-            } else {
-                0
-            }
-        };
-        let now_secs = (action.timestamp.as_micros() / 1_000_000).max(0) as u64;
-        let deduction = compute_demurrage_with_exemption(
-            original.balance,
-            original.exemption.as_ref(),
-            now_secs,
-            DEMURRAGE_EXEMPT_FLOOR,
-            DEMURRAGE_RATE,
-            elapsed,
-        );
-        let effective_before_credit = original.balance.saturating_sub(deduction);
-        let credited_amount = bal.balance.saturating_sub(effective_before_credit);
+    if bal.balance < effective_before_mutation && author_did != bal.member_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP balance decreases beyond deterministic demurrage must be authored by the balance owner".into(),
+        ));
+    }
 
-        if credited_amount == 0 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "SAP balance increase is inconsistent with its demurrage baseline".into(),
-            ));
-        }
-
+    if bal.balance > effective_before_mutation {
+        let credited_amount = bal.balance - effective_before_mutation;
         let cause_hash = bal.justified_by.clone().ok_or_else(|| {
             wasm_error!(WasmErrorInner::Guest(
                 "Positive SAP balance increases require a justified_by cause".into(),
@@ -564,20 +556,14 @@ fn validate_update_sap_balance(
             ));
         }
 
-        let cause_record = must_get_valid_record(cause_hash.clone())?;
-        let cause_balance = cause_record
-            .entry()
-            .to_app_option::<SapBalance>()
-            .map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode SAP credit cause: {e:?}"
-                )))
-            })?
-            .ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "SAP credit cause is not a SapBalance entry".into(),
-                ))
-            })?;
+        let cause_record = must_get_valid_record(cause_hash)?;
+        let cause_balance = cause_record.entry().to_app_option::<SapBalance>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP credit cause: {e:?}"
+            )))
+        })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "SAP credit cause is not a SapBalance entry".into()
+        )))?;
 
         let (cause_predecessor_hash, cause_author) = match cause_record.action() {
             Action::Update(update) => (
@@ -586,49 +572,41 @@ fn validate_update_sap_balance(
             ),
             _ => {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "SAP credit cause must be a SapBalance Update action".into(),
+                    "SAP credit cause must be a SapBalance Update action".into()
                 ))
             }
         };
 
         if cause_author != action.author {
             return Ok(ValidateCallbackResult::Invalid(
-                "SAP credit and debit must share the same author".into(),
+                "SAP credit and debit must share the same author".into()
             ));
         }
 
         let cause_predecessor = must_get_valid_record(cause_predecessor_hash)?
             .entry()
             .to_app_option::<SapBalance>()
-            .map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode SAP debit predecessor: {e:?}"
-                )))
-            })?
-            .ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "SAP debit predecessor is not a SapBalance entry".into(),
-                ))
-            })?;
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP debit predecessor: {e:?}"
+            ))))?
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+                "SAP debit predecessor is not a SapBalance entry".into()
+            )))?;
 
         if cause_predecessor.member_did == bal.member_did
             || cause_balance.member_did == bal.member_did
             || cause_balance.member_did == cause_predecessor.member_did
         {
             return Ok(ValidateCallbackResult::Invalid(
-                "SAP credit cause must debit a different balance owner".into(),
+                "SAP credit cause must debit a different balance owner".into()
             ));
         }
 
-        let debited = cause_predecessor
-            .balance
+        let debited = cause_predecessor.balance
             .checked_sub(cause_balance.balance)
-            .ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "SAP credit cause is not a balance decrease".into(),
-                ))
-            })?;
-
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+                "SAP credit cause is not a balance decrease".into()
+            )))?;
         if debited < credited_amount {
             return Ok(ValidateCallbackResult::Invalid(format!(
                 "SAP credit {} exceeds causative debit {}",
@@ -637,12 +615,13 @@ fn validate_update_sap_balance(
         }
     } else if bal.justified_by != original.justified_by {
         return Ok(ValidateCallbackResult::Invalid(
-            "SAP justification may change only when establishing a positive credit".into(),
+            "SAP justification may change only when establishing a positive credit".into()
         ));
     }
 
     Ok(ValidateCallbackResult::Valid)
 }
+
 
 
 fn validate_update_hearth_sap_pool(
@@ -991,12 +970,6 @@ fn validate_create_receipt(
 }
 
 fn validate_sap_balance(bal: &SapBalance) -> ExternResult<ValidateCallbackResult> {
-    if bal.balance != 0 || bal.justified_by.is_some() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "SAP balances must be created at zero; positive balances require a validated credit cause".into(),
-        ));
-    }
-
     // String length checks — prevent DHT bloat
     if bal.member_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1106,6 +1079,16 @@ fn validate_create_exit_record(
                 "Cannot designate yourself as successor".into(),
             ));
         }
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_sap_balance(bal: &SapBalance) -> ExternResult<ValidateCallbackResult> {
+    validate_sap_balance(bal)?;
+    if bal.balance != 0 || bal.justified_by.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP balances must be created at zero with no justification".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
