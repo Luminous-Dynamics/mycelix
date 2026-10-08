@@ -13,6 +13,13 @@ use operations_integrity::*;
 // ============================================================================
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct CreateCapabilityRequirementInput {
+    pub requirement_id: String,
+    pub revision: String,
+    pub requirement: manufacturing_common::CapabilityRequirement,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CreateOperationInput {
     pub name: String,
     pub description: String,
@@ -32,6 +39,7 @@ pub struct CreateRoutingInput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RoutingStepInput {
     pub sequence: u32,
+    pub capability_requirement_hash: Option<ActionHash>,
     pub operation_name: String,
     pub machine_type: String,
     pub setup_time_min: u32,
@@ -42,6 +50,42 @@ pub struct RoutingStepInput {
 // ============================================================================
 // Extern functions
 // ============================================================================
+
+/// Create an immutable typed capability requirement for routing references.
+#[hdk_extern]
+pub fn create_capability_requirement(
+    input: CreateCapabilityRequirementInput,
+) -> ExternResult<ActionHash> {
+    if input.requirement_id.is_empty() || input.requirement_id.len() > 200 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "requirement_id must be 1-200 characters".into(),
+        )));
+    }
+    if input.revision.is_empty() || input.revision.len() > 100 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "revision must be 1-100 characters".into(),
+        )));
+    }
+
+    let hash = create_entry(EntryTypes::CapabilityRequirement(
+        CapabilityRequirementEntry {
+            requirement_id: input.requirement_id,
+            revision: input.revision,
+            requirement: input.requirement,
+            created_at: sys_time()?,
+        },
+    ))?;
+
+    let path = Path::from("all_capability_requirements");
+    path.ensure()?;
+    create_link(
+        path.path_entry_hash()?,
+        hash.clone(),
+        LinkTypes::AllOperations,
+        (),
+    )?;
+    Ok(hash)
+}
 
 /// Create a standalone operation definition.
 #[hdk_extern]
@@ -103,6 +147,7 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
         .into_iter()
         .map(|s| RoutingStepEntry {
             sequence: s.sequence,
+            capability_requirement_hash: s.capability_requirement_hash,
             operation_name: s.operation_name,
             machine_type: s.machine_type,
             setup_time_min: s.setup_time_min,
@@ -169,6 +214,7 @@ mod tests {
         let steps = vec![
             RoutingStepInput {
                 sequence: 10,
+                capability_requirement_hash: None,
                 operation_name: "Cut".to_string(),
                 machine_type: "Saw".to_string(),
                 setup_time_min: 5,
@@ -177,6 +223,7 @@ mod tests {
             },
             RoutingStepInput {
                 sequence: 20,
+                capability_requirement_hash: None,
                 operation_name: "Mill".to_string(),
                 machine_type: "CNC".to_string(),
                 setup_time_min: 15,
@@ -197,6 +244,7 @@ mod tests {
             revision: "A".to_string(),
             steps: vec![RoutingStepInput {
                 sequence: 10,
+                capability_requirement_hash: None,
                 operation_name: "Cut".to_string(),
                 machine_type: "Saw".to_string(),
                 setup_time_min: 5,
