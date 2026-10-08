@@ -76,6 +76,8 @@ pub enum CapabilityPlanRejection {
     MachineNotFound,
     MachineMalformed,
     MachineLookupFailed,
+    MachineStateAmbiguous,
+    MachineDeleted,
     MachineUnavailable,
     MultipleContractsForMachine,
 }
@@ -110,9 +112,11 @@ struct CapabilityContractProjection {
     qualification: CapabilityQualification,
 }
 
-#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
-struct MachineProjection {
-    status: MachineStatus,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum MachineStateResolutionProjection {
+    Resolved { status: MachineStatus },
+    Ambiguous { statuses: Vec<MachineStatus> },
+    Deleted,
 }
 
 fn capability_profile(contract: &CapabilityContractProjection) -> CapabilityProfile {
@@ -236,30 +240,19 @@ pub fn select_live_capability(
         let machine_response = call(
             CallTargetCell::Local,
             ZomeName::from("machines"),
-            FunctionName::from("get_machine"),
+            FunctionName::from("get_current_machine_state"),
             None,
             ExternIO::encode(machine_hash.clone())?,
         )?;
 
-        let machine_record = match machine_response {
-            ZomeCallResponse::Ok(data) => match data.decode::<Option<Record>>().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "failed to decode machine: {e}"
-                )))
-            })? {
-                Some(record) => record,
-                None => {
-                    rejected.push(CapabilityPlanDecision {
-                        machine_hash: Some(machine_hash),
-                        capability_contract_hash: contract_hash,
-                        machine_status: None,
-                        eligible: false,
-                        mismatch: None,
-                        rejection: Some(CapabilityPlanRejection::MachineNotFound),
-                    });
-                    continue;
-                }
-            },
+        let resolution = match machine_response {
+            ZomeCallResponse::Ok(data) => data
+                .decode::<MachineStateResolutionProjection>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "failed to decode current machine state: {e}"
+                    )))
+                })?,
             _ => {
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
@@ -273,33 +266,43 @@ pub fn select_live_capability(
             }
         };
 
-        let machine: MachineProjection = match machine_record.entry().to_app_option().map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(e.to_string()))
-        })? {
-            Some(machine) => machine,
-            None => {
+        match resolution {
+            MachineStateResolutionProjection::Resolved {
+                status: MachineStatus::Available,
+            } => {}
+            MachineStateResolutionProjection::Resolved { status } => {
+                rejected.push(CapabilityPlanDecision {
+                    machine_hash: Some(machine_hash),
+                    capability_contract_hash: contract_hash,
+                    machine_status: Some(status),
+                    eligible: false,
+                    mismatch: None,
+                    rejection: Some(CapabilityPlanRejection::MachineUnavailable),
+                });
+                continue;
+            }
+            MachineStateResolutionProjection::Ambiguous { statuses } => {
+                rejected.push(CapabilityPlanDecision {
+                    machine_hash: Some(machine_hash),
+                    capability_contract_hash: contract_hash,
+                    machine_status: statuses.first().cloned(),
+                    eligible: false,
+                    mismatch: None,
+                    rejection: Some(CapabilityPlanRejection::MachineStateAmbiguous),
+                });
+                continue;
+            }
+            MachineStateResolutionProjection::Deleted => {
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
                     machine_status: None,
                     eligible: false,
                     mismatch: None,
-                    rejection: Some(CapabilityPlanRejection::MachineMalformed),
+                    rejection: Some(CapabilityPlanRejection::MachineDeleted),
                 });
                 continue;
             }
-        };
-
-        if machine.status != MachineStatus::Available {
-            rejected.push(CapabilityPlanDecision {
-                machine_hash: Some(machine_hash),
-                capability_contract_hash: contract_hash,
-                machine_status: Some(machine.status),
-                eligible: false,
-                mismatch: None,
-                rejection: Some(CapabilityPlanRejection::MachineUnavailable),
-            });
-            continue;
         }
 
         let profile = capability_profile(&contract);
