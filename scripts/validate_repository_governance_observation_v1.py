@@ -1612,7 +1612,6 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["governance_state"] == "MISMATCH"
     assert result["grants_trusted_verifier_root"] is False
 
-    x = copy.deepcopy(fixture_observation(policy))
     x = copy.deepcopy(fixture_observation(policy, protection_status=404))
     x["admin_capability_probe"]["http_status"] = 403
     x["admin_observation"]["status"] = "verified"
