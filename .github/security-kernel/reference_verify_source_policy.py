@@ -1004,6 +1004,8 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         fail("S2 source-policy verifier path mismatch")
     if exact_count(l, f'SOURCE_POLICY_VERIFIER_BLOB_SHA: "{expected_policy_sha}"') != 1:
         fail("S2 source-policy verifier self-pin mismatch")
+    if exact_count(l, 'TRUSTED_DISPATCHER_WORKFLOW_ID: "375560659"') != 1:
+        fail("S2 trusted dispatcher workflow ID pin mismatch")
     if exact_count(l, 'assert len(jobs) == 3, f"trusted dispatcher must have exactly three jobs: {len(jobs)}"') != 1:
         fail("S2 must require the resolver, decision witness, and qualification job topology")
     if exact_count(l, 'r"Dispatch decision: (trusted-dispatch|scheduled-fallback)/(qualified|suppressed)/eligible=(event|0|[1-9][0-9]?|1[0-9]{2})"') != 1:
@@ -1219,6 +1221,22 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 bash syntax audit removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'TRUSTED_DISPATCHER_WORKFLOW_ID: "375560659"\n',
+                b'TRUSTED_DISPATCHER_WORKFLOW_ID: "1"\n',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 dispatcher workflow ID pin weakened",
     )
 
     expect_rejection(
