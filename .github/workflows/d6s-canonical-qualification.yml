@@ -100,19 +100,21 @@ jobs:
       # corpus and independent CANON verifiers below.
 
       - name: Generate reference-test dependency lock
-        run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+        run: env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
 
       - name: Assert resolved reference-test dependency graph
-        run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
+        run: env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
 
       # D6S qualification is scoped to the D6S reference contracts. The
       # broader COS workspace contains unrelated suites whose baseline state
       # must not gate this specific reference qualification.
       - name: Run D6S canonical integration suites
         run: >-
+          env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY
           cargo test
           --manifest-path mycelix-manufacturing/Cargo.toml
           --locked
+          --offline
           -p cos_conformance
           --test d6s_canon_1_golden_vectors
           --test d6s_canon_2_authority_boundary
