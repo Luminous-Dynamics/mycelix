@@ -106,7 +106,7 @@ def assert_identity(event: dict, record: dict[str, str], repository: str) -> Non
 
     assert upstream["name"] == EXPECTED_TRIGGER_WORKFLOW_NAME
     assert upstream["path"] == EXPECTED_TRIGGER_WORKFLOW_PATH
-    assert upstream["event"] == "pull_request"
+    assert upstream["event"] == "push"
     assert upstream["conclusion"] == "success"
     assert upstream["head_repository"]["full_name"] == repository
     assert upstream["head_branch"] == EXPECTED_SOURCE_BRANCH
