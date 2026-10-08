@@ -39,12 +39,21 @@ function nodeIndex(graph) {
   return out;
 }
 
+function edgeSchemaValid(edge, nodes, policy) {
+  const constraints = (policy.edge_schema_constraints ?? []).filter(rule => rule.relation === edge[2]);
+  return constraints.some(rule =>
+    rule.source_types.includes(nodes.get(edge[0])?.type) &&
+    rule.target_types.includes(nodes.get(edge[1])?.type)
+  );
+}
+
 function normalize(graph, policy) {
   const nodes = nodeIndex(graph);
   if (!nodes) return null;
   const seen = new Set();
   for (const edge of graph.edges) {
     if (!Array.isArray(edge) || edge.length !== 3 || !nodes.has(edge[0]) || !nodes.has(edge[1])) return null;
+    if (!edgeSchemaValid(edge, nodes, policy)) return null;
     const key = edge.join("|");
     if (policy.graph_canonicalization.reject_duplicate_edges && seen.has(key)) return null;
     seen.add(key);
