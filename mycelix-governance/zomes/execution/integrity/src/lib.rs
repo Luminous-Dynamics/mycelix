@@ -623,8 +623,23 @@ pub fn check_update_fund_allocation(
     original: &FundAllocation,
     updated: &FundAllocation,
 ) -> Result<(), String> {
+    if updated.id != original.id {
+        return Err("Cannot change allocation ID".into());
+    }
     if updated.proposal_id != original.proposal_id {
         return Err("Cannot change allocation proposal ID".into());
+    }
+    if updated.timelock_id != original.timelock_id {
+        return Err("Cannot change allocation timelock ID".into());
+    }
+    if updated.source_account != original.source_account {
+        return Err("Cannot change allocation source account".into());
+    }
+    if updated.currency != original.currency {
+        return Err("Cannot change allocation currency".into());
+    }
+    if updated.locked_at != original.locked_at {
+        return Err("Cannot change allocation lock timestamp".into());
     }
     if (updated.amount - original.amount).abs() > f64::EPSILON {
         return Err("Cannot change allocation amount".into());
@@ -878,7 +893,7 @@ fn validate_create_fund_allocation(
 
 /// Validate fund allocation update (status transitions)
 fn validate_update_fund_allocation(
-    _action: Update,
+    action: Update,
     alloc: FundAllocation,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -890,6 +905,12 @@ fn validate_update_fund_allocation(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original fund allocation not found".into()
         )))?;
+
+    if action.author != *original_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the fund allocation creator can update the allocation".into(),
+        ));
+    }
 
     match check_update_fund_allocation(&original, &alloc) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
@@ -1538,6 +1559,36 @@ mod tests {
             check_create_fund_allocation(&fa).unwrap_err(),
             "Initial allocation status must be Locked"
         );
+    }
+
+    #[test]
+    fn test_fund_allocation_update_cannot_change_asset_identity() {
+        let original = make_fund_allocation();
+
+        let mut updated = original.clone();
+        updated.id = "allocation-tampered".into();
+        updated.status = AllocationStatus::Released;
+        assert!(check_update_fund_allocation(&original, &updated).is_err());
+
+        let mut updated = original.clone();
+        updated.timelock_id = "timelock-tampered".into();
+        updated.status = AllocationStatus::Released;
+        assert!(check_update_fund_allocation(&original, &updated).is_err());
+
+        let mut updated = original.clone();
+        updated.source_account = "other-account".into();
+        updated.status = AllocationStatus::Refunded;
+        assert!(check_update_fund_allocation(&original, &updated).is_err());
+
+        let mut updated = original.clone();
+        updated.currency = "OTHER".into();
+        updated.status = AllocationStatus::Released;
+        assert!(check_update_fund_allocation(&original, &updated).is_err());
+
+        let mut updated = original.clone();
+        updated.locked_at = ts(9_999_999);
+        updated.status = AllocationStatus::Refunded;
+        assert!(check_update_fund_allocation(&original, &updated).is_err());
     }
 
     #[test]

@@ -149,6 +149,31 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'Cannot change allocation ID' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: fund allocation identity is mutable."
+            exit 1
+          }
+
+          grep -Fq 'Cannot change allocation timelock ID' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: fund allocation timelock binding is mutable."
+            exit 1
+          }
+
+          grep -Fq 'Cannot change allocation source account' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: fund allocation source account is mutable."
+            exit 1
+          }
+
+          grep -Fq 'Cannot change allocation currency' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: fund allocation currency is mutable."
+            exit 1
+          }
+
+          grep -Fq 'Only the fund allocation creator can update the allocation' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: fund allocation updates are not author-bound."
+            exit 1
+          }
+
           grep -Fq 'multiple distinct terminal execution resolutions exist for the same timelock' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
             echo "NOT QUALIFIED: terminal-resolution ambiguity guard is missing."
             exit 1
