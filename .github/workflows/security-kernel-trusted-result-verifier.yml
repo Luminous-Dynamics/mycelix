@@ -377,10 +377,10 @@ jobs:
               repository_id, repository, workflow_id, candidate_repository_id, candidate_repository,
               candidate_pr, candidate_sha, dispatcher_workflow_path, dispatcher_workflow_sha,
               s1_workflow_path, s1_workflow_blob_sha, verifier_workflow_path, verifier_workflow_sha,
-              verifier_workflow_blob_sha, run_id, run_attempt, run_number, resolver_job_id, s1_job_id,
+              verifier_workflow_blob_sha, trigger_event, run_id, run_attempt, run_number, resolver_job_id, s1_job_id,
           ):
               return {
-                  "schema": "security-kernel-execution-binding-v3",
+                  "schema": "security-kernel-execution-binding-v4",
                   "repository_id": int(repository_id),
                   "repository": str(repository),
                   "workflow_id": int(workflow_id),
@@ -706,7 +706,7 @@ jobs:
               assert key not in execution_reference_fields
               execution_reference_fields[key] = value
           assert set(execution_reference_fields) == {"schema", "reference_digest", "mutations_verified"}
-          assert execution_reference_fields["schema"] == "security-kernel-execution-binding-v3"
+          assert execution_reference_fields["schema"] == "security-kernel-execution-binding-v4"
           assert re.fullmatch(r"[0-9a-f]{64}", execution_reference_fields["reference_digest"])
           assert execution_reference_fields["mutations_verified"] == str(len(evidence_binding) - 1)
           execution_reference_binding_sha256 = execution_reference_fields["reference_digest"]
