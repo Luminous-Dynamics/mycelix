@@ -1676,7 +1676,7 @@
     },
     {
       "case_id": "GEN-MISSING-000",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1690,7 +1690,7 @@
     },
     {
       "case_id": "GEN-MISSING-001",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1704,7 +1704,7 @@
     },
     {
       "case_id": "GEN-MISSING-002",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1718,7 +1718,7 @@
     },
     {
       "case_id": "GEN-MISSING-003",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1732,7 +1732,7 @@
     },
     {
       "case_id": "GEN-MISSING-004",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1746,7 +1746,7 @@
     },
     {
       "case_id": "GEN-MISSING-005",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1760,7 +1760,7 @@
     },
     {
       "case_id": "GEN-MISSING-006",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1774,7 +1774,7 @@
     },
     {
       "case_id": "GEN-MISSING-007",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1788,7 +1788,7 @@
     },
     {
       "case_id": "GEN-MISSING-008",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1802,7 +1802,7 @@
     },
     {
       "case_id": "GEN-MISSING-009",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1816,7 +1816,7 @@
     },
     {
       "case_id": "GEN-MISSING-010",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1830,7 +1830,7 @@
     },
     {
       "case_id": "GEN-MISSING-011",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1844,7 +1844,7 @@
     },
     {
       "case_id": "GEN-MISSING-012",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1858,7 +1858,7 @@
     },
     {
       "case_id": "GEN-MISSING-013",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1872,7 +1872,7 @@
     },
     {
       "case_id": "GEN-MISSING-014",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1886,7 +1886,7 @@
     },
     {
       "case_id": "GEN-MISSING-015",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1900,7 +1900,7 @@
     },
     {
       "case_id": "GEN-MISSING-016",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1914,7 +1914,7 @@
     },
     {
       "case_id": "GEN-MISSING-017",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1928,7 +1928,7 @@
     },
     {
       "case_id": "GEN-MISSING-018",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1942,7 +1942,7 @@
     },
     {
       "case_id": "GEN-MISSING-019",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1956,7 +1956,7 @@
     },
     {
       "case_id": "GEN-MISSING-020",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1970,7 +1970,7 @@
     },
     {
       "case_id": "GEN-MISSING-021",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1984,7 +1984,7 @@
     },
     {
       "case_id": "GEN-MISSING-022",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -1998,7 +1998,7 @@
     },
     {
       "case_id": "GEN-MISSING-023",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -2012,7 +2012,7 @@
     },
     {
       "case_id": "GEN-MISSING-024",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -2026,7 +2026,7 @@
     },
     {
       "case_id": "GEN-MISSING-025",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -2040,7 +2040,7 @@
     },
     {
       "case_id": "GEN-MISSING-026",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -2054,7 +2054,7 @@
     },
     {
       "case_id": "GEN-MISSING-027",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -2068,7 +2068,7 @@
     },
     {
       "case_id": "GEN-MISSING-028",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -2082,7 +2082,7 @@
     },
     {
       "case_id": "GEN-MISSING-029",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -2096,7 +2096,7 @@
     },
     {
       "case_id": "GEN-MISSING-030",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
@@ -2110,7 +2110,7 @@
     },
     {
       "case_id": "GEN-MISSING-031",
-      "property": "structural_rejection",
+      "property": "required_dependency_rejection",
       "mutation": [
         [
           "remove_edge",
