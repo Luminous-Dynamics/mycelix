@@ -1650,8 +1650,8 @@ pub fn refund_locked_funds(input: RefundFundsInput) -> ExternResult<Record> {
             )))?;
 
             // Re-validate the exact source anchors before mutating the economic record.
-            let execution = find_execution_by_id(&resolution.execution_id)?;
-            let execution: Execution = execution
+            let execution_record = find_execution_by_id(&resolution.execution_id)?;
+            let execution: Execution = execution_record
                 .entry()
                 .to_app_option()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
@@ -1662,7 +1662,7 @@ pub fn refund_locked_funds(input: RefundFundsInput) -> ExternResult<Record> {
             validate_execution_resolution_for_refund(
                 &resolution,
                 &execution,
-                execution.action_address(),
+                execution_record.action_address(),
                 &timelock,
                 timelock_record.action_address(),
             )
