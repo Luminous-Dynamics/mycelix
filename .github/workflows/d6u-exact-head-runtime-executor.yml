@@ -8,6 +8,7 @@ on:
       - myc-int-demo-d6u-holochain-07-runtime
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -56,6 +57,226 @@ jobs:
 
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
+      - name: Verify exact D6S qualification artifact provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          D6S_RUN_ID: ${{ github.event.workflow_run.id }}
+          D6S_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          D6S_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          D6S_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          D6S_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          EXPECTED_D6S_WORKFLOW_BLOB: e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4
+          EXPECTED_ARTIFACT_NAME: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import io
+          import json
+          import os
+          import re
+          import urllib.parse
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+
+          API_HOST = "api.github.com"
+          MAX_JSON_BYTES = 8 * 1024 * 1024
+          MAX_ARCHIVE_BYTES = 2 * 1024 * 1024
+          MAX_MEMBER_BYTES = 256 * 1024
+
+          class StripAuthorizationRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+                  if redirected is not None:
+                      parsed = urllib.parse.urlsplit(newurl)
+                      assert parsed.scheme == "https"
+                      assert parsed.username is None and parsed.password is None
+                      redirected.remove_header("Authorization")
+                  return redirected
+
+          OPENER = urllib.request.build_opener(StripAuthorizationRedirect())
+
+          def api_get(path: str) -> dict:
+              assert path.startswith("/")
+              url = f"https://{API_HOST}/repos/{os.environ['GITHUB_REPOSITORY']}{path}"
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                      "User-Agent": "mycelix-d6u-executor-provenance",
+                  },
+              )
+              with OPENER.open(req, timeout=30) as response:
+                  final = urllib.parse.urlsplit(response.geturl())
+                  assert final.scheme == "https"
+                  assert final.hostname == API_HOST
+                  assert final.username is None and final.password is None
+                  assert final.port in (None, 443)
+                  body = response.read(MAX_JSON_BYTES + 1)
+                  assert len(body) <= MAX_JSON_BYTES
+                  return json.loads(body)
+
+          def artifact_download(url: str) -> bytes:
+              parsed = urllib.parse.urlsplit(url)
+              assert parsed.scheme == "https"
+              assert parsed.hostname == API_HOST
+              assert parsed.username is None and parsed.password is None
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                      "User-Agent": "mycelix-d6u-executor-provenance",
+                  },
+              )
+              with OPENER.open(req, timeout=30) as response:
+                  body = response.read(MAX_ARCHIVE_BYTES + 1)
+                  assert len(body) <= MAX_ARCHIVE_BYTES
+                  return body
+
+          def sha256_bytes(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          def read_record(data: bytes) -> dict[str, str]:
+              assert data.startswith(b"D6S CANONICAL REFERENCE GATE\n")
+              text = data.decode("utf-8")
+              record: dict[str, str] = {}
+              for line in text.splitlines()[1:]:
+                  assert "=" in line, f"malformed record line: {line!r}"
+                  key, value = line.split("=", 1)
+                  assert re.fullmatch(r"[A-Za-z0-9_]+", key), f"invalid record key: {key!r}"
+                  assert key not in record, f"duplicate record key: {key!r}"
+                  record[key] = value
+              return record
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          run_id = int(os.environ["D6S_RUN_ID"])
+          run_attempt = int(os.environ["D6S_RUN_ATTEMPT"])
+          head_sha = os.environ["D6S_HEAD_SHA"]
+          head_branch = os.environ["D6S_HEAD_BRANCH"]
+          head_repository = os.environ["D6S_HEAD_REPOSITORY"]
+          expected_name = os.environ["EXPECTED_ARTIFACT_NAME"]
+          expected_workflow_blob = os.environ["EXPECTED_D6S_WORKFLOW_BLOB"]
+
+          assert head_repository == repo
+          assert head_branch == "myc-int-demo-d6u-holochain-07-runtime"
+          assert re.fullmatch(r"[0-9a-f]{40}", head_sha)
+          assert run_id > 0 and run_attempt > 0
+          assert re.fullmatch(r"[0-9a-f]{40}", expected_workflow_blob)
+
+          name_query = urllib.parse.quote(expected_name, safe="")
+          artifacts = api_get(
+              f"/actions/runs/{run_id}/artifacts?per_page=100&name={name_query}"
+          ).get("artifacts")
+          assert isinstance(artifacts, list)
+          assert len(artifacts) == 1, f"expected exactly one D6S artifact, observed {len(artifacts)}"
+          artifact = artifacts[0]
+
+          assert artifact["name"] == expected_name
+          assert artifact.get("expired") is False
+          assert int(artifact["size_in_bytes"]) <= MAX_MEMBER_BYTES
+          artifact_run = artifact.get("workflow_run") or {}
+          assert int(artifact_run["id"]) == run_id
+          assert int(artifact_run["repository_id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert int(artifact_run["head_repository_id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert artifact_run["head_branch"] == head_branch
+          assert artifact_run["head_sha"] == head_sha
+
+          digest = artifact.get("digest", "")
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
+          archive = artifact_download(artifact["archive_download_url"])
+          observed_digest = sha256_bytes(archive)
+          assert observed_digest == digest.split(":", 1)[1], (
+              f"artifact digest mismatch: expected={digest!r} observed=sha256:{observed_digest}"
+          )
+
+          with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+              infos = zf.infolist()
+              assert len(infos) == 1
+              info = infos[0]
+              assert info.filename == "d6s-canonical-reference-qualification.txt"
+              assert info.file_size <= MAX_MEMBER_BYTES
+              assert info.compress_type in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED)
+              assert (info.flag_bits & 0x1) == 0, "encrypted artifact members are forbidden"
+              unix_type = (info.external_attr >> 16) & 0o170000
+              assert unix_type != 0o120000, "symlink artifact member is forbidden"
+              data = zf.read(info)
+              assert len(data) == info.file_size
+
+          record = read_record(data)
+          required = {
+              "status",
+              "commit",
+              "workflow",
+              "workflow_file_commit_sha",
+              "workflow_file_blob_sha",
+              "run_id",
+              "run_attempt",
+              "event",
+              "claim_ceiling",
+          }
+          assert required <= set(record), (
+              f"D6S provenance fields missing: expected={sorted(required)!r}, observed={sorted(record)!r}"
+          )
+          assert record["status"] == "reference-gate-passed"
+          assert record["commit"] == head_sha
+          assert record["workflow"] == "D6S Canonical Qualification"
+          workflow_commit = record["workflow_file_commit_sha"]
+          assert re.fullmatch(r"[0-9a-f]{40}", workflow_commit)
+          assert workflow_commit == workflow_commit.lower()
+          assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_file_blob_sha"])
+          assert record["workflow_file_blob_sha"] == expected_workflow_blob
+          assert record["run_id"] == str(run_id)
+          assert record["run_attempt"] == str(run_attempt)
+          assert record["event"] == "pull_request"
+          assert record["claim_ceiling"] == "ReferenceModelOnly"
+
+          tree = api_get(
+              f"/git/trees/{urllib.parse.quote(workflow_commit, safe='')}?recursive=1"
+          )
+          assert tree.get("truncated") is False
+          entries = [
+              entry for entry in tree.get("tree", [])
+              if entry.get("path") == ".github/workflows/d6s-canonical-qualification.yml"
+          ]
+          assert len(entries) == 1
+          workflow_entry = entries[0]
+          assert workflow_entry.get("type") == "blob"
+          assert workflow_entry.get("sha") == expected_workflow_blob
+
+          provenance = Path(os.environ["RUNNER_TEMP"]) / "d6s-trigger-workflow-provenance.txt"
+          provenance.write_text(
+              "\n".join(
+                  [
+                      "D6S TRIGGER WORKFLOW PROVENANCE",
+                      f"trigger_run_id={run_id}",
+                      f"trigger_run_attempt={run_attempt}",
+                      f"trigger_head_sha={head_sha}",
+                      f"trigger_workflow_commit_sha={workflow_commit}",
+                      f"trigger_workflow_blob_sha={expected_workflow_blob}",
+                      f"artifact_id={artifact['id']}",
+                      f"artifact_digest=sha256:{observed_digest}",
+                  ]
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8").write(
+              f"trigger_workflow_commit_sha={workflow_commit}\n"
+              f"trigger_workflow_blob_sha={expected_workflow_blob}\n"
+              f"d6s_artifact_id={artifact['id']}\n"
+              f"d6s_artifact_digest_sha256={observed_digest}\n"
+          )
+          print(
+              "verified D6S workflow provenance: "
+              f"run={run_id} attempt={run_attempt} "
+              f"workflow_commit={workflow_commit} workflow_blob={expected_workflow_blob}"
+          )
+          PY
 
       - name: Isolate Rust and Cargo trust roots
         run: |
@@ -201,7 +422,7 @@ jobs:
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
           test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
-
+      - name: Generate dependency graph
         working-directory: ${{ runner.temp }}/d6u-cargo-cwd
         env:
           GIT_CONFIG_NOSYSTEM: 1
