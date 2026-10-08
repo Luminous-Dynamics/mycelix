@@ -114,3 +114,16 @@ The SQLite attempt row therefore preserves the exact downstream idempotency
 identity across restart and prevents a later binary from silently changing the
 key for an INDETERMINATE attempt. Changing the derivation requires a contract
 version/profile change rather than an implicit behavioral change.
+
+
+## Final provider-entry gate
+
+Provider entry requires a final, host-side verifier immediately before the
+durable single-winner claim is converted into a provider-entry permit. The
+verifier must affirm the exact attempt, persisted provider idempotency key, and
+current authorization/status snapshots through a bounded validity window.
+
+The claim is held while this gate runs. A rejected or expired proof is atomically
+converted to NotEntered and the action fence is released before any provider
+call. If that release cannot be confirmed, the attempt remains held rather than
+being reported as a clean refusal.
