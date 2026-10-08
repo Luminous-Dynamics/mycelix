@@ -179,6 +179,8 @@ jobs:
           assert 'envelope = json.loads(path.read_text())' not in scanned_text
           assert 'envelope = json.loads(envelope_bytes.decode("utf-8"))' not in scanned_text
           assert 'manifest = json.loads(path.read_text())' not in scanned_text
+          assert "json.load(" not in scanned_text
+          assert '"federation_semantic_manifest_outcome": "${{ steps.validate_federation_semantic_manifest.outcome || \'skipped\' }}"' in scanned_text
           # This trusted source profile deliberately forbids YAML anchors,
           # aliases, and merge keys. The self-audit reasons over literal
           # workflow structure, so YAML indirection must not change that graph.
@@ -1736,7 +1738,25 @@ jobs:
         run: |
           result="$(python - <<'PY'
           import json
-          print(json.load(open("evidence/independent-run-envelope.json"))["qualification_result"])
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          envelope = json.loads(
+              Path("evidence/independent-run-envelope.json").read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          print(envelope["qualification_result"])
           PY
           )"
           test "${result}" = "passed" || {
