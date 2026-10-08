@@ -389,6 +389,24 @@ demonstrated and exact-head qualified.
 This separation is intentional: a hardened boundary is a prerequisite for provider
 qualification, not evidence that the providers themselves satisfy the boundary.
 
+## Execution resolution proof-root semantics
+
+`ExecutionResolution` now carries one authorization-admission proof commitment and
+one final-provider-entry proof commitment per attempt/action tuple, alongside the
+terminal evidence commitment.
+
+The integrity zome validates canonical namespaces and digest shape, equal vector
+lengths, and a 256-tuple maximum. The coordinator validates the prepared timelock's
+action payload and requires exactly one tuple per prepared action; empty batches and
+mismatched cardinality are refused.
+
+These are coverage and structure checks, **not** authentication of the referenced host
+receipts. They do not prove that a same-index proof semantically corresponds to its
+action, or that the receipt exists and is valid in SQLite. The coordinator remains a
+prepare-only path. Provider execution is not qualified by the presence of these roots.
+A promotion gate must independently reconcile the host receipts and establish exact
+action correspondence before treating a resolution as fully evidenced.
+
 ## Adapter contract added by D1D0
 
 Every future provider adapter must establish all of the following before it is eligible for live D1C execution wiring:
