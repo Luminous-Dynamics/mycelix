@@ -362,7 +362,7 @@ fn validate_update_entry(
 
 fn validate_capability(
     cap: &MailboxCapability,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Grantor must be author
     if cap.grantor != action.author() {
@@ -399,7 +399,7 @@ fn validate_capability(
 
 fn validate_shared_mailbox(
     mailbox: &SharedMailbox,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
     if mailbox.owner != action.author() {
@@ -427,7 +427,7 @@ fn validate_shared_mailbox(
 
 fn validate_audit_log(
     _log: &CapabilityAuditLog,
-    _action: &Create,
+    _action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Audit logs have minimal validation - they're append-only
     Ok(ValidateCallbackResult::Valid)
@@ -435,7 +435,7 @@ fn validate_audit_log(
 
 fn validate_delegation_chain(
     chain: &DelegationChain,
-    _action: &Create,
+    _action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Chain must not exceed max depth
     if chain.chain.len() > chain.max_depth as usize {
