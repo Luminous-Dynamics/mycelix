@@ -400,6 +400,80 @@ jobs:
           Path('source-facts.json').write_text(json.dumps(facts,indent=2,sort_keys=True)+'\n')
           PY
 
+      - name: Recompute canonical qualification claim identity
+        env:
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def reject(pairs):
+              result={}
+              for key,value in pairs:
+                  if key in result:
+                      raise ValueError(f'duplicate JSON key: {key}')
+                  result[key]=value
+              return result
+
+          def reject_constant(value):
+              raise ValueError(f'non-standard JSON constant: {value}')
+
+          def strict(path):
+              return json.loads(path.read_text(),object_pairs_hook=reject,parse_constant=reject_constant)
+
+          predicate=strict(Path('durable-source/qualification-attestation-predicate-v3.json'))
+          receipt=strict(Path('durable-source/attestor-run-receipt.json'))
+          facts=strict(Path('source-facts.json'))
+          assert predicate['schema']=='MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3'
+          assert predicate['repository']==os.environ['GITHUB_REPOSITORY']
+          assert predicate['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert predicate['qualification_result']=='passed'
+          assert predicate['claim_ceiling']=='ReferenceModelOnly'
+          assert predicate['publication']=={
+              'profile':'COS-TERMINAL-ATTESTATION-V1',
+              'state':'preconditions_satisfied_terminal_side_effect',
+          }
+          assert predicate['qualification_manifest_sha256']==facts['manifest_sha256']
+          assert predicate['trust_root']['manifest_sha256']==facts['trust_root_manifest_sha256']
+          separator=bytes([0])
+          canonical=hashlib.sha256(
+              b'MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4'
+              + separator
+              + str(int(os.environ['EXPECTED_REPOSITORY_ID'])).encode('ascii')
+              + separator
+              + predicate['schema'].encode('utf-8')
+              + separator
+              + predicate['predicate_type'].encode('utf-8')
+              + separator
+              + predicate['publication']['profile'].encode('utf-8')
+              + separator
+              + predicate['claim_ceiling'].encode('utf-8')
+              + separator
+              + facts['manifest_sha256'].encode('ascii')
+              + separator
+              + facts['trust_root_manifest_sha256'].encode('ascii')
+          ).hexdigest()
+          assert canonical==predicate['qualification_claim_id']
+          assert canonical==receipt['qualification_claim_id']
+          changed_profile=hashlib.sha256(
+              b'MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4'+separator+
+              str(int(os.environ['EXPECTED_REPOSITORY_ID'])).encode('ascii')+separator+
+              predicate['schema'].encode('utf-8')+separator+
+              predicate['predicate_type'].encode('utf-8')+separator+
+              b'COS-ANOTHER-PUBLICATION-PROFILE-V1'+separator+
+              predicate['claim_ceiling'].encode('utf-8')+separator+
+              facts['manifest_sha256'].encode('ascii')+separator+
+              facts['trust_root_manifest_sha256'].encode('ascii')
+          ).hexdigest()
+          assert changed_profile!=canonical
+          replay=canonical
+          assert replay==receipt['qualification_claim_id']
+          PY
+
       - name: Verify signed qualification attestation before publication
         run: |
           set -euo pipefail
