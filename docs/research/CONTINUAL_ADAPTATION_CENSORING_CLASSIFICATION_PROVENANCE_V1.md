@@ -270,3 +270,12 @@ The closure therefore requires each declared base anchor to be both claim-local 
 This preserves the distinction between historical continuity and current reachability while preventing an unrelated revision-0 replacement from inheriting the anchor.
 
 The generated campaign now exercises 160 cases, including anchor-lineage and representation-composition mutations.
+
+
+## Claim-local supersession scope closure
+
+A second-order review found that an off-claim `supersedes` edge could still mutate the global superseded-ID set and therefore alter active state inside the claim. The verifier now requires every supersession edge to be claim-local before active-state evaluation.
+
+An off-claim superseder is unresolved rather than ignored. Valid historical supersession remains directional and local, preserving the base revision as claim-local history.
+
+Policy liveness covers this rule, and the generated campaign now contains 168 deterministic cases.
