@@ -473,6 +473,15 @@ jobs:
               assert repository_before.get(key) == repository_after.get(key), (
                   f"repository governance drift during observation: {key}"
               )
+          owner_before = repository_before.get("owner")
+          owner_after = repository_after.get("owner")
+          assert isinstance(owner_before, dict) and isinstance(owner_after, dict), (
+              "repository owner identity is not enumerated in both reads"
+          )
+          for key in ("id", "login", "type"):
+              assert owner_before.get(key) == owner_after.get(key), (
+                  f"repository owner governance drift during observation: {key}"
+              )
 
           branch_before = load("evidence/governance/branch-payload.json")
           branch_after = load("evidence/governance/branch-payload-after.json")
