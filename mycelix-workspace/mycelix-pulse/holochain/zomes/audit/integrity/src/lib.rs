@@ -123,7 +123,7 @@ pub enum LinkTypes {
 
 /// Validate audit entry - entries are append-only
 fn validate_create_audit_entry(
-    action: Create,
+    action: TypedAction<CreateData>,
     entry: AuditEntry,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate required fields
@@ -154,7 +154,7 @@ fn validate_create_audit_entry(
     // role exists anywhere in this hApp that would need to log an entry on another
     // agent's behalf.
     if let Some(agent) = &entry.actor.agent_pub_key {
-        if agent != &action.author {
+        if agent != &action.author() {
             return Ok(ValidateCallbackResult::Invalid(
                 "AuditEntry actor.agent_pub_key must match action author".to_string(),
             ));
@@ -171,7 +171,7 @@ fn validate_create_audit_entry(
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::AuditEntry(entry) => validate_create_audit_entry(action, entry),
                 EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
@@ -184,19 +184,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 /// Proves `validate_create_audit_entry`'s P0 author-binding fix: an AuditEntry claiming a
 /// different agent as `actor.agent_pub_key` than the entry's real committer is rejected
 /// (previously any agent could forge an entry blaming another agent). Host-independent --
-/// no HDI mocking needed, this check only compares against `action.author`.
+/// no HDI mocking needed, this check only compares against `action.author()`.
 #[cfg(test)]
 mod tests {
     use super::*;
