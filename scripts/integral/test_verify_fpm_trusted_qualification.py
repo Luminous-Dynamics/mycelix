@@ -64,9 +64,13 @@ def snapshot(root: Path) -> None:
         "rustc_version": "rustc 1.96.1",
         "rustc_commit": "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd",
         "cargo_version": "cargo 1.96.1", "candidate_uid": 10001,
-        "candidate_execution_profile": "fpm-untrusted.env-i.v2",
+        "candidate_gid": 10001,
+        "candidate_execution_profile": "fpm-docker-offline-v1",
+        "sandbox_image_digest": "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
+        "sandbox_probe": "passed",
+        "dependency_cache_sha256": "a" * 64,
         "steps": {k: "success" for k in
-                  ("preflight", "checkout", "source", "toolchain", "lock", "fmt", "tests", "postflight")},
+                  ("preflight", "checkout", "source", "toolchain", "lock", "dependencies", "sandbox_image", "fmt", "sandbox_probe", "tests", "postflight")},
         "execution_pass": True,
         "procedure_trust": "trusted_default_branch_snapshot",
         "promotion_authority": "pending_repository_governance_evidence",
@@ -167,6 +171,10 @@ def main() -> None:
             ("receipt.manifest_blob_sha", lambda x: x.__setitem__("manifest_blob_sha", "c" * 40)),
             ("receipt.lock_sha256", lambda x: x.__setitem__("lock_sha256", "d" * 64)),
             ("receipt.candidate_uid", lambda x: x.__setitem__("candidate_uid", 10002)),
+            ("receipt.candidate_gid", lambda x: x.__setitem__("candidate_gid", 10002)),
+            ("receipt.sandbox_image_digest", lambda x: x.__setitem__("sandbox_image_digest", "sha256:" + "b" * 64)),
+            ("receipt.sandbox_probe", lambda x: x.__setitem__("sandbox_probe", "failed")),
+            ("receipt.dependency_cache_sha256", lambda x: x.__setitem__("dependency_cache_sha256", "b" * 64)),
             ("receipt.execution_pass", lambda x: x.__setitem__("execution_pass", False)),
             ("receipt.promotion_authority", lambda x: x.__setitem__("promotion_authority", "authorized")),
         ]
@@ -218,6 +226,26 @@ def main() -> None:
         ) + b"\n"
         (root / "qualification-receipt.json").write_bytes(duplicate)
         assert run(root).returncode != 0, "duplicate JSON key accepted"
+
+        def expect_nonstandard_constant(value: str) -> None:
+            raw = (root / "qualification-receipt.json").read_bytes()
+            marker = b'"repository_id":1176351975'
+            assert marker in raw
+            mutated = raw.replace(marker, b'"repository_id":' + value.encode(), 1)
+            fresh_root = Path(tempfile.mkdtemp(prefix="fpm-ref-constant-"))
+            try:
+                for src in root.iterdir():
+                    (fresh_root / src.name).write_bytes(src.read_bytes())
+                (fresh_root / "qualification-receipt.json").write_bytes(mutated)
+                result = run(fresh_root)
+                assert result.returncode != 0, f"{value} was accepted"
+                assert "non-standard JSON constant" in result.stderr
+            finally:
+                shutil.rmtree(fresh_root)
+
+        expect_nonstandard_constant("NaN")
+        expect_nonstandard_constant("Infinity")
+        expect_nonstandard_constant("-Infinity")
 
         fresh = mutated_case(
             root,
