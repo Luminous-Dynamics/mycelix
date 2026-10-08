@@ -27,6 +27,7 @@ for tree in TREES:
         "justified_by",
         "compute_demurrage_with_exemption",
         "causative_debit_amount",
+        "payment_channel_balances_conserved",
     )
     for token in required_integrity:
         if token not in isrc:
