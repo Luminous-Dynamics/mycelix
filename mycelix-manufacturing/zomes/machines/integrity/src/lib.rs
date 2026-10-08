@@ -1273,6 +1273,7 @@ mod content_restriction_tests {
             authority_agent: AgentPubKey::from_raw_32(vec![2; 32]),
             profile_id: "profile-1".into(),
             source_profile: "rfc3161".into(),
+            source_authority_commitment: vec![9; 32],
             valid_from: Timestamp::from_micros(0),
             valid_until: Timestamp::from_micros(1_000),
             max_accuracy_micros: 5,
@@ -1295,6 +1296,7 @@ mod content_restriction_tests {
             subject_hash: ActionHash::from_raw_36(vec![3; 36]),
             evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
             attested_at: Timestamp::from_micros(100),
+            accuracy_micros: 5,
             source_reference: "tsa://example/1".into(),
             source_commitment: vec![7; 32],
             authority_signature: Signature(vec![0; 64]),
@@ -1315,6 +1317,17 @@ mod content_restriction_tests {
                 evidence: vec![a, b],
             }
         );
+    }
+
+    #[test]
+    fn temporal_evidence_accuracy_disagreement_fails_closed() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.accuracy_micros = 6;
+        assert!(matches!(
+            resolve_temporal_evidence(vec![a, b]),
+            MachineTemporalEvidenceResolution::Conflicting(_)
+        ));
     }
 
     #[test]
