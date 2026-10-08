@@ -444,6 +444,46 @@ impl AuthorizationAdmissionProofV1 {
         Ok(out)
     }
 
+    pub fn from_persisted(
+        attempt_identity: String,
+        action_key_digest: String,
+        operation_id: String,
+        native_replay_identity: String,
+        action_digest: String,
+        effecting_target_identity: String,
+        provider_environment: String,
+        provider_audience: String,
+        adapter_identity: String,
+        authorization_snapshot_digest: String,
+        policy_snapshot_digest: String,
+        status_snapshot_digest: String,
+        checked_at_unix_ms: u64,
+        valid_until_unix_ms: u64,
+        verifier_identity: String,
+        digest: String,
+    ) -> Result<Self, String> {
+        let out = Self {
+            attempt_identity,
+            action_key_digest,
+            operation_id,
+            native_replay_identity,
+            action_digest,
+            effecting_target_identity,
+            provider_environment,
+            provider_audience,
+            adapter_identity,
+            authorization_snapshot_digest,
+            policy_snapshot_digest,
+            status_snapshot_digest,
+            checked_at_unix_ms,
+            valid_until_unix_ms,
+            verifier_identity,
+            digest,
+        };
+        out.validate()?;
+        Ok(out)
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         if self.valid_until_unix_ms <= self.checked_at_unix_ms {
             return Err("authorization admission proof validity window is empty".into());
@@ -500,6 +540,16 @@ impl AuthorizationAdmissionProofV1 {
         }
         Ok(())
     }
+
+    pub fn attempt_identity(&self) -> &str { &self.attempt_identity }
+    pub fn action_key_digest(&self) -> &str { &self.action_key_digest }
+    pub fn operation_id(&self) -> &str { &self.operation_id }
+    pub fn native_replay_identity(&self) -> &str { &self.native_replay_identity }
+    pub fn action_digest(&self) -> &str { &self.action_digest }
+    pub fn effecting_target_identity(&self) -> &str { &self.effecting_target_identity }
+    pub fn provider_environment(&self) -> &str { &self.provider_environment }
+    pub fn provider_audience(&self) -> &str { &self.provider_audience }
+    pub fn adapter_identity(&self) -> &str { &self.adapter_identity }
 
     pub fn authorization_snapshot_digest(&self) -> &str { &self.authorization_snapshot_digest }
     pub fn policy_snapshot_digest(&self) -> &str { &self.policy_snapshot_digest }
