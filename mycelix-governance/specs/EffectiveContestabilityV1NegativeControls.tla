@@ -136,6 +136,9 @@ BadSwitchReview(s) ==
 
 NegativeNext ==
   \/ Next
+  \/ IF Control = "switch-stale-exit" THEN
+       \E s \in Subjects, p \in Providers : BadSwitchStaleExit(s, p)
+     ELSE FALSE
   \/ IF Control = "nonportable-effective" THEN
        \E s \in Subjects, p \in Providers : BadNominalPromotion(s, p)
      ELSE FALSE
