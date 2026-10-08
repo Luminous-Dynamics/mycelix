@@ -1296,7 +1296,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn test_material_success_is_not_full_schedule_feasible() {
         let feasibility = if Vec::<MaterialShortage>::new().is_empty() {
             MrpFeasibility::SchedulingNotEvaluated
@@ -1307,6 +1306,7 @@ mod tests {
         assert!(!matches!(feasibility, MrpFeasibility::Feasible));
     }
 
+    #[test]
     fn test_material_shortage_math() {
         let needed = 100u64;
         let available = 20u64;
