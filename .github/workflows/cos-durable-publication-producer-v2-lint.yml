@@ -47,6 +47,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           text=Path('.github/workflows/cos-durable-publication-producer-v2.yml').read_text()
+          verifier=Path('.github/workflows/cos-durable-publication-verify.yml').read_text()
           top=text.split('\njobs:',1)[0]
           assert 'permissions:\n  actions: read\n  contents: read' in top
           assert 'contents: write' not in top
@@ -114,6 +115,12 @@ jobs:
           assert "handoff_basis=manifest['publication_handoff_basis']" in text
           assert "handoff_basis=facts['publication_handoff_basis']" in text
           assert 'publication_handoff_basis' in text
+          assert "handoff_basis['predicate_sha256']==durable_manifest['predicate_sha256']" in verifier
+          assert "expected_handoff==durable_manifest['publication_handoff_sha256']" in verifier
+          assert "'qualification_manifest_sha256','predicate_sha256','predicate_type'" in verifier
+          assert "'publication_handoff_basis','files'" in verifier
+          assert 'expected_basis_keys={' in verifier
+          assert "handoff_basis=durable_manifest['publication_handoff_basis']" in verifier
           assert "predicate['attestor']['run_id']==receipt['attestor']['run_id']" in text
           assert "receipt['verifier_run']['attempt']==signing_meta['workflow_run_attempt']" in text
           assert "predicate['attestor']['workflow_sha']==receipt['attestor']['workflow_sha']" in text
