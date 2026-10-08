@@ -59,7 +59,8 @@ def validate_bundle(bundle, repo_root: Path):
     if topo != expected_topo:
         return "topology"
     req = bundle.get("decision_requires")
-    if not req or req.get("hosted_pass") is not False:
+    required = {"witness_crypto_verifier","vds_verifier","tree_head_verifier","receipt_verifier","observer_gossip_verifier"}
+    if not req or req.get("hosted_pass") is not False or any(req.get(k) is not True for k in required):
         return "decision-requirement"
     arts = bundle.get("artifacts", {})
     for name, pair in arts.items():
@@ -139,6 +140,16 @@ def apply_mutation(bundle, mutation):
         out["topology"][-1]["head"] = "0" * 40
     elif m == "decision_requirement":
         out["decision_requires"]["hosted_pass"] = True
+    elif m == "witness_crypto_verifier":
+        out["decision_requires"]["witness_crypto_verifier"] = False
+    elif m == "vds_verifier":
+        out["decision_requires"]["vds_verifier"] = False
+    elif m == "tree_head_verifier":
+        out["decision_requires"]["tree_head_verifier"] = False
+    elif m == "receipt_verifier":
+        out["decision_requires"]["receipt_verifier"] = False
+    elif m == "gossip_verifier":
+        out["decision_requires"]["observer_gossip_verifier"] = False
     elif m == "bundle_id":
         out["bundle_id"] = "mycelix.audit-bundle.v1@attacker"
     return out
@@ -150,7 +161,7 @@ def main():
     root, bundle_path, campaign_path, report_path = map(Path, sys.argv[1:])
     bundle = json.loads(bundle_path.read_text())
     campaign = json.loads(campaign_path.read_text())
-    if campaign.get("schema") != CAMPAIGN_SCHEMA or campaign.get("case_count") != 13 or len(campaign.get("cases", [])) != 13:
+    if campaign.get("schema") != CAMPAIGN_SCHEMA or campaign.get("case_count") != 18 or len(campaign.get("cases", [])) != 18:
         return 1
     rows, failures = [], []
     for case in campaign["cases"]:
