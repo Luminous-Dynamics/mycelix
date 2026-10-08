@@ -60,6 +60,9 @@ pred canonicalEnvironment {
 
 pred mutationEnvironment {
   Parent.allow = R1+R2+R3
+  CanonicalChild.allow = R1
+  CanonicalChild.deny = R2
+  CanonicalChild.rule = DenyOverrides
   Parent.deny = R2
   Parent.rule = DenyOverrides
   (RunState.control = IntervalWidening implies (Child.allow = R1+R2+R3+R4 and no Child.deny and RunState.childSupported=On))
