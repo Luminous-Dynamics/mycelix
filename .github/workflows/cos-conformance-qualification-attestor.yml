@@ -65,7 +65,7 @@ jobs:
             echo "trusted attestor workflow blob mismatch: API=${api_blob_sha} local=${checkout_blob_sha}" >&2
             exit 1
           }
-          printf '%s\n' "${TRUST_ROOT_REF}" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "${TRUST_ROOT_REF}" | grep -Eq '^[0-9a-f]{40}
           printf 'trusted_workflow_sha=%s\n' "${TRUSTED_WORKFLOW_SHA}" >> "${GITHUB_OUTPUT}"
           printf 'trusted_workflow_file_blob_sha=%s\n' "${api_blob_sha}" >> "${GITHUB_OUTPUT}"
 
@@ -489,7 +489,7 @@ jobs:
           test "${VERIFIER_HEAD_REPOSITORY}" = "${GITHUB_REPOSITORY}"
           printf '%s\n' "${VERIFIER_RUN_ID}" | grep -Eq '^[1-9][0-9]*$'
           printf '%s\n' "${VERIFIER_RUN_ATTEMPT}" | grep -Eq '^[1-9][0-9]*$'
-          printf '%s\n' "${VERIFIER_HEAD_SHA}" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "${VERIFIER_HEAD_SHA}" | grep -Eq '^[0-9a-f]{40}
 
           run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${VERIFIER_RUN_ID}")"
           test "$(jq -r '.id' <<<"${run_json}")" = "${VERIFIER_RUN_ID}"
@@ -1138,7 +1138,7 @@ jobs:
         run: |
           set -euo pipefail
           live_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
-          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}
           root_path=".github/cos/qualification-trust-root-v2.json"
           api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".sha")"
           test "${api_blob_sha}" = "${EXPECTED_ROOT_BLOB_SHA}" || {
@@ -1177,7 +1177,7 @@ jobs:
         run: |
           set -euo pipefail
           live_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
-          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}
           root_path=".github/cos/qualification-trust-root-v2.json"
           api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".sha")"
           test "${api_blob_sha}" = "${EXPECTED_ROOT_BLOB_SHA}" || {
@@ -1570,7 +1570,7 @@ jobs:
         run: |
           set -euo pipefail
           live_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
-          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}
           root_path=".github/cos/qualification-trust-root-v2.json"
           api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".sha")"
           test "${api_blob_sha}" = "${EXPECTED_ROOT_BLOB_SHA}" || {
@@ -1585,7 +1585,7 @@ jobs:
             exit 1
           }
           live_main_sha_after="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
-          printf '%s\n' "${live_main_sha_after}" | grep -Eq '^[0-9a-f]{40}          test "${live_main_sha_before}" = "${live_main_sha_after}" || {
+          printf '%s\n' "${live_main_sha_after}" | grep -Eq '^[0-9a-f]{40}
             echo "main moved during trust-root read after signing" >&2
             exit 1
           }
