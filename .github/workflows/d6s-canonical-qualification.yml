@@ -20,7 +20,9 @@ jobs:
     name: D6S canonical reference qualification
     if: >-
       github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/myc-int-demo-d6u-holochain-07-runtime' ||
-      github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'myc-int-demo-d6u-holochain-07-runtime'
+      github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'myc-int-demo-d6u-holochain-07-runtime' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.repo.id == github.repository_id
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
