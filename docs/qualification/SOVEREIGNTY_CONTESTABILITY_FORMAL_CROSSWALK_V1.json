@@ -2,8 +2,8 @@
   "schema": "mycelix.effective-contestability-formal-crosswalk.v1",
   "status": "candidate-verification",
   "authority": "non-authoritative",
-  "subject_head": "8b4b5f19b44ca7427ef70182b94c9c251d400a66",
-  "subject_tree": null,
+  "subject_head": "925b4a2608b0f41c649b97d4be29917f6a345473",
+  "subject_tree": "b8ca595caa65ec7965cb6f694f1a063134cb9f1a",
   "relationship": "semantic-alignment map only; not a refinement proof",
   "mappings": [
     {
@@ -63,6 +63,7 @@
       ],
       "reference": [
         "switch-obligation -> MigrationPreservesObligationsAndHistory",
+        "switch-authority -> ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority",
         "switch-jurisdiction -> ProviderSwitchDoesNotTransferAuthorityOrJurisdiction"
       ],
       "coverage": "aligned"
