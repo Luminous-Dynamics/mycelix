@@ -191,14 +191,60 @@ pub fn grant_machine_controller(
     ))?;
 
     create_link(
-        input.machine_hash,
+        input.machine_hash.clone(),
         hash.clone(),
         LinkTypes::MachineToAuthorities,
         (),
     )?;
 
+    let all_path = Path::from("all_machine_controller_authorities")
+        .typed(LinkTypes::AllMachineControllerAuthorities)?;
+    all_path.ensure()?;
+    create_link(
+        all_path.path_entry_hash()?,
+        hash.clone(),
+        LinkTypes::AllMachineControllerAuthorities,
+        (),
+    )?;
+
     let _ = machine;
     Ok(hash)
+}
+
+/// Get a controller authority by action hash.
+#[hdk_extern]
+pub fn get_machine_controller_authority(
+    hash: ActionHash,
+) -> ExternResult<Option<Record>> {
+    get(hash, GetOptions::default())
+}
+
+/// List controller authorities granted for a machine.
+#[hdk_extern]
+pub fn list_machine_controller_authorities(
+    machine_hash: ActionHash,
+) -> ExternResult<Vec<Link>> {
+    get_links(
+        GetLinksInputBuilder::try_new(
+            machine_hash,
+            LinkTypes::MachineToAuthorities,
+        )?
+        .build(),
+    )
+}
+
+/// List every controller authority in the machine registry.
+#[hdk_extern]
+pub fn list_all_machine_controller_authorities(_: ()) -> ExternResult<Vec<Link>> {
+    let path = Path::from("all_machine_controller_authorities")
+        .typed(LinkTypes::AllMachineControllerAuthorities)?;
+    get_links(
+        GetLinksInputBuilder::try_new(
+            path.path_entry_hash()?,
+            LinkTypes::AllMachineControllerAuthorities,
+        )?
+        .build(),
+    )
 }
 
 /// Update machine status (e.g., Available -> Running).
