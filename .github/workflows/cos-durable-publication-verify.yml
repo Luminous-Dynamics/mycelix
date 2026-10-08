@@ -180,7 +180,6 @@ jobs:
               "qualification-attestation-predicate-v3.json",
               "attestor-run-receipt.json",
               "qualification-attestation-bundle.json",
-              "attestation-bundle-publication-verification.json",
               "SHA256SUMS",
           }
           members={line.strip().rstrip('/') for line in Path("durable-members.txt").read_text().splitlines() if line.strip()}
@@ -349,17 +348,16 @@ jobs:
           manifest_path=root/'qualification-manifest-v1.json'
           predicate_path=root/'qualification-attestation-predicate-v3.json'
           receipt_path=root/'attestor-run-receipt.json'
-          publication_path=root/'attestation-bundle-publication-verification.json'
           manifest_raw=manifest_path.read_bytes()
           manifest=strict(manifest_raw.decode('utf-8'))
           predicate=strict(predicate_path.read_text())
           receipt=strict(receipt_path.read_text())
-          publication=strict(publication_path.read_text())
           assert receipt['attestation']['bundle_sha256'] == bundle_sha256
           assert set(durable_manifest) == {
               'schema','repository','repository_id','release_tag','release_id',
               'asset_name','expected_main_sha','qualification_claim_id',
               'qualification_manifest_sha256','predicate_type','publication_profile',
+              'claim_ceiling', 'trust_root_manifest_blob_sha1', 'trust_root_manifest_sha256',
               'attestor_workflow_path','attestor_workflow_sha',
               'signed_attestation_bundle_sha256','files'
           }
@@ -374,6 +372,9 @@ jobs:
           assert durable_manifest['qualification_manifest_sha256'] == os.environ['EXPECTED_MANIFEST_SHA256']
           assert durable_manifest['predicate_type'] == os.environ['EXPECTED_PREDICATE_TYPE']
           assert durable_manifest['publication_profile'] == 'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1'
+          assert durable_manifest['claim_ceiling'] == 'ReferenceModelOnly'
+          assert durable_manifest['trust_root_manifest_sha256'] == receipt['trust_root']['manifest_sha256']
+          assert durable_manifest['trust_root_manifest_blob_sha1'] == receipt['trust_root']['manifest_blob_sha1']
           assert durable_manifest['attestor_workflow_path'] == receipt['attestor']['workflow_ref']
           assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
           assert durable_manifest['signed_attestation_bundle_sha256'] == bundle_sha256
@@ -382,12 +383,10 @@ jobs:
               'qualification-attestation-predicate-v3.json': hashlib.sha256((root/'qualification-attestation-predicate-v3.json').read_bytes()).hexdigest(),
               'attestor-run-receipt.json': hashlib.sha256((root/'attestor-run-receipt.json').read_bytes()).hexdigest(),
               'qualification-attestation-bundle.json': bundle_sha256,
-              'attestation-bundle-publication-verification.json': hashlib.sha256((root/'attestation-bundle-publication-verification.json').read_bytes()).hexdigest(),
           }
           assert set(durable_manifest['files']) == {
               'qualification-manifest-v1.json','qualification-attestation-predicate-v3.json',
               'attestor-run-receipt.json','qualification-attestation-bundle.json',
-              'attestation-bundle-publication-verification.json'
           }
           assert durable_manifest['attestor_workflow_path'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
           assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
@@ -413,11 +412,6 @@ jobs:
           assert receipt['qualification_topology']['head_sha'] == os.environ['EXPECTED_MAIN_SHA']
           assert receipt['attestor']['workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
           assert receipt['attestor']['workflow_ref'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
-          assert publication['schema'] == 'MYCELIX-COS-ATTESTATION-BUNDLE-VERIFICATION-V1'
-          assert publication['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
-          assert publication['subject_digest'] == os.environ['EXPECTED_MANIFEST_SHA256']
-          assert publication['predicate_type'] == os.environ['EXPECTED_PREDICATE_TYPE']
-          assert publication['state'] in {'DiscoverableAndVerifiable', 'SignedButNotDiscoverable'}
           PY
 
       - name: Record durable verification state
