@@ -62,6 +62,13 @@ env:
   DEPENDENCY_LOCK_MAX_BYTES: "33554432"
   QUALIFICATION_RECEIPT_MAX_BYTES: "16384"
   SOURCE_AUDIT_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
+  EGRESS_BROKER_PATH: ".github/security-kernel/github_egress_proxy.py"
+  EGRESS_BROKER_BLOB_SHA: "b288278af2e2c821eda8acb52c705229b97a0d84"
+  EGRESS_BROKER_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
+  EGRESS_BROKER_PORT: "3128"
+  EGRESS_INTERNAL_NETWORK: "security-kernel-egress-internal-${{ github.run_id }}-${{ github.run_attempt }}"
+  EGRESS_EXTERNAL_NETWORK: "security-kernel-egress-external-${{ github.run_id }}-${{ github.run_attempt }}"
+  EGRESS_BROKER_NAME: "security-kernel-egress-broker-${{ github.run_id }}-${{ github.run_attempt }}"
 
 jobs:
   qualify:
@@ -155,6 +162,52 @@ jobs:
           assert workflow.get("sha")==os.environ["TRUSTED_WORKFLOW_BLOB_SHA"]
           print("PASS: S1 exact candidate tuple and trusted workflow identity validated")
           PY
+      - name: Prepare trusted GitHub egress broker
+        id: prepare_egress
+        env:
+          BROKER_SOURCE: ${{ github.workspace }}/${{ env.EGRESS_BROKER_PATH }}
+          EGRESS_BROKER_BLOB_SHA: ${{ env.EGRESS_BROKER_BLOB_SHA }}
+          EGRESS_BROKER_IMAGE: ${{ env.EGRESS_BROKER_IMAGE }}
+          EGRESS_BROKER_PORT: ${{ env.EGRESS_BROKER_PORT }}
+          EGRESS_INTERNAL_NETWORK: ${{ env.EGRESS_INTERNAL_NETWORK }}
+          EGRESS_EXTERNAL_NETWORK: ${{ env.EGRESS_EXTERNAL_NETWORK }}
+          EGRESS_BROKER_NAME: ${{ env.EGRESS_BROKER_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$BROKER_SOURCE"
+          test "$(git hash-object "$BROKER_SOURCE")" = "$EGRESS_BROKER_BLOB_SHA"
+          for network_name in "$EGRESS_INTERNAL_NETWORK" "$EGRESS_EXTERNAL_NETWORK"; do
+            if ! existing_networks="$(docker network ls --format '{{.Name}}')"; then
+              echo "security-kernel egress network inventory query failed" >&2
+              exit 1
+            fi
+            if printf "%s\n" "$existing_networks" | grep -Fxq "$network_name"; then
+              echo "security-kernel egress network name collision: $network_name" >&2
+              exit 1
+            fi
+          done
+          if docker ps -aq --filter "name=^/${EGRESS_BROKER_NAME}$" | grep -q .; then
+            echo "security-kernel egress broker name collision" >&2
+            exit 1
+          fi
+          docker network create --driver bridge --internal --ipv6=false --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" "$EGRESS_INTERNAL_NETWORK" >/dev/null
+          docker network create --driver bridge --ipv6=false --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" "$EGRESS_EXTERNAL_NETWORK" >/dev/null
+          docker pull --quiet "$EGRESS_BROKER_IMAGE"
+          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$EGRESS_BROKER_IMAGE" | grep -Fx "$EGRESS_BROKER_IMAGE"
+          runner_uid="$(id -u)"
+          runner_gid="$(id -g)"
+          docker run -d --label "security-kernel.run=$GITHUB_RUN_ID" --label "security-kernel.attempt=$GITHUB_RUN_ATTEMPT" --name "$EGRESS_BROKER_NAME" --platform=linux/amd64 --pull=never --network "$EGRESS_EXTERNAL_NETWORK" --network-alias egress-broker --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --security-opt=seccomp=default --pids-limit=32 --memory=128m --memory-swap=128m --cpus=1 --ulimit=nofile=1024:1024 --ulimit=core=0:0 --user "$runner_uid:$runner_gid" --init --stop-timeout=5 --ipc=private --pid=private --cgroupns=private --env PYTHONDONTWRITEBYTECODE=1 --env http_proxy= --env https_proxy= --env all_proxy= --env HTTP_PROXY= --env HTTPS_PROXY= --env ALL_PROXY= --env NO_PROXY= --volume "$BROKER_SOURCE:/trusted-egress/github_egress_proxy.py:ro" "$EGRESS_BROKER_IMAGE" python3 /trusted-egress/github_egress_proxy.py >/dev/null
+          docker network connect --alias egress-broker "$EGRESS_INTERNAL_NETWORK" "$EGRESS_BROKER_NAME"
+          test "$(docker inspect --format '{{.State.Running}}' "$EGRESS_BROKER_NAME")" = "true"
+          broker_networks="$(docker inspect --format '{{range $name,$conf := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$EGRESS_BROKER_NAME")"
+          printf "%s\n" "$broker_networks" | grep -Fxq "$EGRESS_INTERNAL_NETWORK"
+          printf "%s\n" "$broker_networks" | grep -Fxq "$EGRESS_EXTERNAL_NETWORK"
+          test "$(printf "%s\n" "$broker_networks" | sed '/^$/d' | wc -l)" -eq 2
+          test "$(docker network inspect --format '{{.Internal}}' "$EGRESS_INTERNAL_NETWORK")" = "true"
+          test "$(docker network inspect --format '{{.EnableIPv6}}' "$EGRESS_INTERNAL_NETWORK")" = "false"
+          test "$(docker network inspect --format '{{.EnableIPv6}}' "$EGRESS_EXTERNAL_NETWORK")" = "false"
+          echo "PASS: trusted fixed-destination GitHub egress broker is running on an internal-only fetch network and dedicated external network"
       - name: Resolve exact candidate source
         id: resolve_source
         env:
