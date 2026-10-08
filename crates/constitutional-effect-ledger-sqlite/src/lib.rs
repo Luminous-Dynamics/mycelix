@@ -2884,6 +2884,77 @@ mod tests {
     }
 
     #[test]
+    fn authorization_admission_receipt_survives_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("authorization-receipt-restart.db");
+        let action = key("authorization-receipt-restart");
+        let owner = attempt("attempt-authorization-receipt-restart");
+
+        let receipt;
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            let record = record(
+                "attempt-authorization-receipt-restart",
+                "operation-authorization-receipt-restart",
+                "native-authorization-receipt-restart",
+                &action,
+                AttemptRecordState::Consumed,
+            );
+            receipt = AuthorizationAdmissionProofV1::from_persisted(
+                owner.digest().to_owned(),
+                action.digest().to_owned(),
+                record.operation_id.clone(),
+                record.native_replay_identity.clone(),
+                record.action_digest.clone(),
+                record.effecting_target_identity.clone(),
+                record.provider_environment.clone(),
+                record.provider_audience.clone(),
+                record.adapter_identity.clone(),
+                "authorization-snapshot-v1".into(),
+                "policy-snapshot-v1".into(),
+                "status-snapshot-v1".into(),
+                100,
+                200,
+                "test-admission-verifier-v1".into(),
+                "constitutional-authorization-admission-proof-v1:test".into(),
+            )
+            .err();
+
+            let proof = AuthorizationAdmissionProofV1::new(
+                &record,
+                &action,
+                100,
+                200,
+                "authorization-snapshot-v1",
+                "policy-snapshot-v1",
+                "status-snapshot-v1",
+                "test-admission-verifier-v1",
+            )
+            .unwrap();
+
+            store
+                .atomically_admit(&action, &owner, record, proof.clone())
+                .unwrap();
+            assert_eq!(
+                store
+                    .durably_read_authorization_admission_proof(&owner)
+                    .unwrap()
+                    .unwrap()
+                    .digest(),
+                proof.digest()
+            );
+        }
+
+        let reopened = SqliteActionFenceStore::open(&path).unwrap();
+        let restored = reopened
+            .durably_read_authorization_admission_proof(&owner)
+            .unwrap()
+            .unwrap();
+        assert!(restored.validate().is_ok());
+        assert_eq!(restored.digest(), receipt.as_deref().unwrap_or(""));
+    }
+
+    #[test]
     fn entry_admission_proof_survives_restart() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("entry-proof-restart.db");
@@ -3246,4 +3317,52 @@ mod tests {
         drop(conn);
         assert!(SqliteActionFenceStore::open(&path).is_err());
     }
+    #[test]
+    fn authorization_admission_receipt_tamper_fails_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("authorization-receipt-tamper.db");
+        let action = key("authorization-receipt-tamper");
+        let owner = attempt("attempt-authorization-receipt-tamper");
+        let record = record(
+            "attempt-authorization-receipt-tamper",
+            "operation-authorization-receipt-tamper",
+            "native-authorization-receipt-tamper",
+            &action,
+            AttemptRecordState::Consumed,
+        );
+        let proof = AuthorizationAdmissionProofV1::new(
+            &record,
+            &action,
+            100,
+            200,
+            "authorization-snapshot-v1",
+            "policy-snapshot-v1",
+            "status-snapshot-v1",
+            "test-admission-verifier-v1",
+        )
+        .unwrap();
+
+        {
+            let mut store = SqliteActionFenceStore::open(&path).unwrap();
+            store
+                .atomically_admit(&action, &owner, record, proof)
+                .unwrap();
+        }
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            &format!(
+                "UPDATE {AUTHORIZATION_PROOF_TABLE}
+                 SET verifier_identity = 'tampered-verifier'
+                 WHERE attempt_identity = ?1"
+            ),
+            params![owner.digest()],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert!(SqliteActionFenceStore::open(&path).is_err());
+    }
+
+
 }
