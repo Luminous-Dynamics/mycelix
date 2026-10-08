@@ -300,6 +300,8 @@ jobs:
           assert "Revalidate trust-root after signing" in scanned
           assert "trust root rotated during attestation publication" in scanned
           assert "trust root content changed during attestation publication" in scanned
+          assert "main moved during trust-root read at signing time" in scanned
+          assert "main moved during trust-root read after signing" in scanned
           assert "live_main_head_sha" in scanned
           assert "TRUST_ROOT_CURRENT_MAIN_HEAD_SHA" in scanned
           assert "Validate attestor run receipt" in scanned
@@ -1146,7 +1148,14 @@ jobs:
             echo "trust root content changed after validation: expected ${EXPECTED_ROOT_SHA256}, got ${live_sha256}" >&2
             exit 1
           }
-          printf 'live_main_head_sha=%s\n' "${live_main_sha}" >> "${GITHUB_OUTPUT}"
+          live_main_sha_after="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
+          printf '%s\n' "${live_main_sha_after}" | grep -Eq '^[0-9a-f]{40}
+
+          test "${live_main_sha}" = "${live_main_sha_after}" || {
+            echo "main moved during trust-root read at signing time" >&2
+            exit 1
+          }
+          printf 'live_main_head_sha=%s\n' "${live_main_sha_after}" >> "${GITHUB_OUTPUT}"
 
       - name: Generate signed qualification attestation
         id: attest
@@ -1179,6 +1188,13 @@ jobs:
             echo "trust root content changed during attestation publication: expected ${EXPECTED_ROOT_SHA256}, got ${live_sha256}" >&2
             exit 1
           }
+          live_main_sha_after="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
+          printf '%s\n' "${live_main_sha_after}" | grep -Eq '^[0-9a-f]{40}
+          test "${live_main_sha_before}" = "${live_main_sha_after}" || {
+            echo "main moved during trust-root read after signing" >&2
+            exit 1
+          }
+          printf 'live_main_head_sha=%s\n' "${live_main_sha_after}" >> "${GITHUB_OUTPUT}"
       - name: Preserve attestation bundle
         run: |
           set -euo pipefail
