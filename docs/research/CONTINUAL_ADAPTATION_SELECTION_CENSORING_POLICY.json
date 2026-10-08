@@ -1,0 +1,70 @@
+{
+  "schema": "mycelix.continual-adaptation.selection-censoring-policy.v1",
+  "status": "research-policy-only",
+  "verdicts": {
+    "pass": "qualified",
+    "protocol_violation": "unqualified",
+    "identification_block": "unresolved"
+  },
+  "estimand_families": [
+    "FullEpisodeValue",
+    "DecisionPointValue",
+    "SurvivorConditionalValue",
+    "PerProtocolPolicyValue",
+    "CensoringAdjustedValue",
+    "CensoringUnresolved"
+  ],
+  "time_zero": {
+    "must_be_frozen_before_action": true,
+    "field": "protocol.time_zero_epoch"
+  },
+  "population": {
+    "full_episode_selection_rule": "AllEligibleAtTimeZero",
+    "survivor_selection_rule": "SurvivorsAtHorizon"
+  },
+  "attempt_completeness": {
+    "declared_id_field": "protocol.expected_attempt_ids",
+    "require_exact_id_set": true,
+    "one_record_per_attempt": true
+  },
+  "decision_completeness": {
+    "declared_id_field": "protocol.expected_decision_ids",
+    "require_exact_id_set": true,
+    "one_record_per_attempt": true,
+    "trigger_denominator_field": "analysis.trigger_denominator_ids",
+    "eligible_decisions_must_be_counted": true
+  },
+  "censoring": {
+    "non_informative_by_design": [
+      "None",
+      "AdministrativeCensoring"
+    ],
+    "requires_explicit_basis": [
+      "InfrastructureCensoring",
+      "ExogenousLoss"
+    ],
+    "always_requires_adjustment_or_block": [
+      "ActionInducedCensoring",
+      "OutcomeDependentCensoring",
+      "ObservationPolicyCensoring",
+      "CensoringUnknown"
+    ],
+    "adjustment_requirements": [
+      "method_id",
+      "weight_policy_id",
+      "pre_specified_before_outcomes",
+      "frozen"
+    ]
+  },
+  "analysis": {
+    "pre_outcome_classification_required": true,
+    "complete_case_filter_allowed_only": "SurvivorConditionalValue",
+    "survivor_selection_allowed_only": "SurvivorConditionalValue",
+    "full_population_estimands": [
+      "FullEpisodeValue",
+      "DecisionPointValue",
+      "PerProtocolPolicyValue",
+      "CensoringAdjustedValue"
+    ]
+  }
+}

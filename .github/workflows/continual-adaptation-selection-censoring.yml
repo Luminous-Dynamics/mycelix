@@ -1,0 +1,120 @@
+name: continual-adaptation-selection-censoring
+
+on:
+  push:
+    paths:
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_FIXTURES.json"
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_GENERATED_PROPERTIES_MANIFEST.json"
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY_LIVENESS_FIXTURES.json"
+      - "docs/research/generate_selection_censoring_properties.py"
+      - "docs/research/verify_selection_censoring.py"
+      - "docs/research/verify_selection_censoring.mjs"
+      - "docs/research/verify_selection_censoring_policy_liveness.py"
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_V1.md"
+      - ".github/workflows/continual-adaptation-selection-censoring.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_FIXTURES.json"
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_GENERATED_PROPERTIES_MANIFEST.json"
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY_LIVENESS_FIXTURES.json"
+      - "docs/research/generate_selection_censoring_properties.py"
+      - "docs/research/verify_selection_censoring.py"
+      - "docs/research/verify_selection_censoring.mjs"
+      - "docs/research/verify_selection_censoring_policy_liveness.py"
+      - "docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_V1.md"
+      - ".github/workflows/continual-adaptation-selection-censoring.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-regression:
+    name: Selection/censoring research regression (non-authoritative)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch exact event commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${{ github.repository }}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout --detach "${GITHUB_SHA}"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Run fixed corpus with Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json)"
+          python3 docs/research/verify_selection_censoring.py             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_FIXTURES.json             python-fixed-selection-report.json
+
+      - name: Run fixed corpus with Node
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json)"
+          node docs/research/verify_selection_censoring.mjs             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_FIXTURES.json             node-fixed-selection-report.json
+
+      - name: Differential-compare fixed reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u python-fixed-selection-report.json node-fixed-selection-report.json
+
+      - name: Verify policy substitution fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json)"
+          tmp_policy="$(mktemp)"
+          trap 'rm -f "$tmp_policy"' EXIT
+          cp docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json "$tmp_policy"
+          printf '\n' >> "$tmp_policy"
+          ! python3 docs/research/verify_selection_censoring.py             "$POLICY_BLOB_SHA"             "$tmp_policy"             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_FIXTURES.json             ignored.json
+          ! node docs/research/verify_selection_censoring.mjs             "$POLICY_BLOB_SHA"             "$tmp_policy"             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_FIXTURES.json             ignored.json
+
+      - name: Regenerate deterministic compositional corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/generate_selection_censoring_properties.py             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_FIXTURES.json             generated-selection-properties.json
+          expected_sha="$(python3 -c 'import json; print(json.load(open("docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_GENERATED_PROPERTIES_MANIFEST.json"))["serialized_sha256"].split(":",1)[1])')"
+          expected_bytes="$(python3 -c 'import json; print(json.load(open("docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_GENERATED_PROPERTIES_MANIFEST.json"))["serialized_bytes"])')"
+          test "$(sha256sum generated-selection-properties.json | cut -d' ' -f1)" = "$expected_sha"
+          test "$(wc -c < generated-selection-properties.json)" = "$expected_bytes"
+
+      - name: Run generated corpus with Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json)"
+          python3 docs/research/verify_selection_censoring.py             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json             generated-selection-properties.json             python-generated-selection-report.json
+
+      - name: Run generated corpus with Node
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json)"
+          node docs/research/verify_selection_censoring.mjs             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json             generated-selection-properties.json             node-generated-selection-report.json
+
+      - name: Differential-compare generated reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u python-generated-selection-report.json node-generated-selection-report.json
+
+      - name: Run policy-liveness campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_selection_censoring_policy_liveness.py             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY.json             docs/research/CONTINUAL_ADAPTATION_SELECTION_CENSORING_POLICY_LIVENESS_FIXTURES.json             docs/research/verify_selection_censoring.py             docs/research/verify_selection_censoring.mjs
+
+      - name: State non-authoritative boundary
+        run: |
+          echo "Selection/censoring fixture regression is research evidence only."
+          echo "This workflow is not the qualification authority."
