@@ -97,6 +97,7 @@ jobs:
           assert contract["unobserved_repository_selector_properties_must_fail_closed"] is True
           assert contract["repository_owner_identity_must_be_rechecked"] is True
           assert contract["live_main_tip_must_be_rechecked"] is True
+          assert contract["enterprise_ruleset_source_identity_must_be_observed"] is True
           assert contract["effective_rule_provenance_must_be_bound"] is True
           assert contract["effective_rule_definition_must_match_observed_ruleset"] is True
           assert contract["repository_subject_identity_must_be_bound"] is True
@@ -204,6 +205,8 @@ jobs:
           assert "main branch commit changed during governance observation" in scanned_text
           assert "main branch commit SHA is invalid" in scanned_text
           assert "live_main_sha = branch.get(\"commit\", {}).get(\"sha\")" in scanned_text
+          assert "source_type == \"Enterprise\"" in scanned_text
+          assert "no authoritative enterprise" in scanned_text
           assert "EXPECTED_LIVE_MAIN_SHA" in scanned_text
           assert "rulesets-payload-after.json" in scanned_text
           assert "rulesets-after/${ruleset_id}.json" in scanned_text
