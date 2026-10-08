@@ -211,6 +211,21 @@ fn all_unique<T: std::cmp::Eq + std::hash::Hash>(items: &[T]) -> bool {
     items.iter().all(|item| seen.insert(item))
 }
 
+fn measurement_matches_criterion(
+    measurement: &MeasurementEntry,
+    criterion: &InspectionCriterionEntry,
+) -> Result<(), &'static str> {
+    if measurement.kind != criterion.characteristic || measurement.unit != criterion.unit {
+        return Err("measurement does not match its inspection criterion");
+    }
+    if criterion.lower_bound.is_some_and(|lower| measurement.value < lower)
+        || criterion.upper_bound.is_some_and(|upper| measurement.value > upper)
+    {
+        return Err("measurement value is outside its authoritative inspection criterion");
+    }
+    Ok(())
+}
+
 fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::MaterialLot(lot) => {
@@ -259,17 +274,8 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                         "measurement criterion reference is not an inspection criterion".into(),
                     ));
                 };
-                if m.kind != criterion.characteristic || m.unit != criterion.unit {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "measurement does not match its inspection criterion".into(),
-                    ));
-                }
-                if criterion.lower_bound.is_some_and(|lower| m.value < lower)
-                    || criterion.upper_bound.is_some_and(|upper| m.value > upper)
-                {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "measurement value is outside its authoritative inspection criterion".into(),
-                    ));
+                if let Err(message) = measurement_matches_criterion(&m, &criterion) {
+                    return Ok(ValidateCallbackResult::Invalid(message.into()));
                 }
             }
         }
@@ -758,6 +764,38 @@ mod tests {
         };
         let result = validate_create(EntryTypes::InspectionCriterion(entry)).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn authoritative_criterion_overrides_permissive_measurement_bounds() {
+        let criterion = InspectionCriterionEntry {
+            requirement_id: "CRIT-1".into(),
+            revision: "A".into(),
+            characteristic: "length".into(),
+            unit: "mm".into(),
+            lower_bound: Some(10.0),
+            upper_bound: Some(15.0),
+            measurement_method: Some("CMM".into()),
+            required_instrument_class: Some("dimensional".into()),
+            specification_reference: None,
+            created_at: Timestamp::from_micros(0),
+        };
+        let measurement = MeasurementEntry {
+            measurement_id: "M-1".into(),
+            criterion_hash: Some(ActionHash::from_raw_36(vec![9; 36])),
+            kind: "length".into(),
+            value: 25.0,
+            unit: "mm".into(),
+            lower_bound: Some(0.0),
+            upper_bound: Some(100.0),
+            instrument_hash: None,
+            measured_at: Timestamp::from_micros(0),
+        };
+
+        assert_eq!(
+            measurement_matches_criterion(&measurement, &criterion),
+            Err("measurement value is outside its authoritative inspection criterion")
+        );
     }
 
     #[test]
