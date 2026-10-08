@@ -572,6 +572,8 @@ def verify_sandbox_system_closure(closure: Any) -> None:
         path, digest = item["path"], item["sha256"]
         if not isinstance(path, str) or not path.startswith("/") or "\n" in path or "\t" in path:
             fail("sandbox system closure library path is invalid")
+        if not path.startswith(("/lib/", "/lib64/", "/usr/lib/", "/usr/lib64/", "/opt/fpm-rust/")):
+            fail(f"sandbox system closure library escaped immutable roots: {path}")
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
             fail(f"sandbox system closure library digest is malformed: {path}")
         if path in library_paths:
