@@ -371,6 +371,16 @@ def verify_receipt(
     verifier_blob_sha = require_hex(
         verifier_control["workflow_blob_sha"], 40, "independent verifier workflow_blob_sha"
     )
+    if verifier_control["reference_verifier_path"] != "scripts/integral/verify_fpm_trusted_qualification.py":
+        fail("reference verifier path mismatch")
+    reference_verifier_blob_sha = require_hex(
+        verifier_control["reference_verifier_blob_sha"], 40, "reference verifier blob SHA"
+    )
+    if verifier_control["artifact_collector_path"] != "scripts/integral/collect_fpm_trusted_artifacts.py":
+        fail("artifact collector path mismatch")
+    artifact_collector_blob_sha = require_hex(
+        verifier_control["artifact_collector_blob_sha"], 40, "artifact collector blob SHA"
+    )
     expected_workflow_ref = f"{BASE_REPOSITORY}/{INDEPENDENT_WORKFLOW_PATH}@refs/heads/main"
     if verifier_control["workflow_ref"] != expected_workflow_ref:
         fail("independent verifier workflow_ref mismatch")
@@ -490,6 +500,10 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     manifest = json.loads((snapshot_dir / "manifest.json").read_text(encoding="utf-8"))
     policy_file = json.loads((snapshot_dir / "policy-file.json").read_text(encoding="utf-8"))
     verifier_control = json.loads((snapshot_dir / "verifier-control.json").read_text(encoding="utf-8"))
+    if verifier_control.get("reference_verifier_blob_sha") is None:
+        fail("reference verifier blob SHA is missing")
+    if verifier_control.get("artifact_collector_blob_sha") is None:
+        fail("artifact collector blob SHA is missing")
     candidate_lock = json.loads((snapshot_dir / "candidate-lock.json").read_text(encoding="utf-8"))
     main_ref = json.loads((snapshot_dir / "main-ref.json").read_text(encoding="utf-8"))
     artifacts = json.loads((snapshot_dir / "artifacts.json").read_text(encoding="utf-8"))
