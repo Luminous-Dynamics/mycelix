@@ -552,9 +552,71 @@ jobs:
             cd durable-source
             LC_ALL=C sha256sum qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json durable-publication-manifest-v1.json
           ) > durable-source/SHA256SUMS
-          tar -C durable-source --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - durable-publication-manifest-v1.json qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json SHA256SUMS | gzip -n > "${asset_name}"
+          build_asset() {
+            local output="$1"
+            tar -C durable-source --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - durable-publication-manifest-v1.json qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json SHA256SUMS | gzip -n > "${output}"
+          }
+          build_asset "asset-a.tar.gz"
+          build_asset "asset-b.tar.gz"
+          sha256_a="$(sha256sum asset-a.tar.gz | awk '{print $1}')"
+          sha256_b="$(sha256sum asset-b.tar.gz | awk '{print $1}')"
+          test "${sha256_a}" = "${sha256_b}" || {
+            echo "deterministic durable asset mismatch: ${sha256_a} != ${sha256_b}" >&2
+            exit 1
+          }
+          mv asset-a.tar.gz "${asset_name}"
+          rm -f asset-b.tar.gz
           gzip -t "${asset_name}"
           sha256sum "${asset_name}" | awk '{print $1}' > asset.sha256
+
+          rm -rf local-verify
+          mkdir local-verify
+          tar -xzf "${asset_name}" -C local-verify
+          (cd local-verify && sha256sum --check --strict SHA256SUMS)
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root=Path('local-verify')
+          members={p.name for p in root.iterdir() if p.is_file()}
+          assert members == {
+              'durable-publication-manifest-v1.json',
+              'qualification-manifest-v1.json',
+              'qualification-attestation-predicate-v3.json',
+              'attestor-run-receipt.json',
+              'qualification-attestation-bundle.json',
+              'SHA256SUMS',
+          }
+          def strict(path):
+              def reject(pairs):
+                  out={}
+                  for key,value in pairs:
+                      if key in out:
+                          raise ValueError(f'duplicate JSON key: {key}')
+                      out[key]=value
+                  return out
+              def reject_constant(value):
+                  raise ValueError(f'non-standard JSON constant: {value}')
+              return json.loads(path.read_text(),object_pairs_hook=reject,parse_constant=reject_constant)
+          manifest=strict(root/'durable-publication-manifest-v1.json')
+          receipt=strict(root/'attestor-run-receipt.json')
+          predicate=strict(root/'qualification-attestation-predicate-v3.json')
+          bundle_sha=hashlib.sha256((root/'qualification-attestation-bundle.json').read_bytes()).hexdigest()
+          assert manifest['schema']=='MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1'
+          assert manifest['claim_ceiling']=='ReferenceModelOnly'
+          assert manifest['signed_attestation_bundle_sha256']==bundle_sha
+          assert receipt['attestation']['bundle_sha256']==bundle_sha
+          assert manifest['qualification_claim_id']==receipt['qualification_claim_id']
+          assert manifest['qualification_manifest_sha256']==hashlib.sha256((root/'qualification-manifest-v1.json').read_bytes()).hexdigest()
+          assert manifest['predicate_type']==predicate['predicate_type']
+          expected_files={
+              name:hashlib.sha256((root/name).read_bytes()).hexdigest()
+              for name in ('qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json')
+          }
+          assert manifest['files']==expected_files
+          PY
+
           GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release upload "${release_tag}" "${asset_name}" --repo "${GITHUB_REPOSITORY}"
           GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json assets > draft-release-with-asset.json
           ASSET_NAME="${asset_name}" python - <<'PY'
