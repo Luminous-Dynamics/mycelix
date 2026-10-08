@@ -79,7 +79,6 @@
     "result_cannot_support_classification": true,
     "active_classification_required": true,
     "supersession_must_be_claim_local": true,
-    "claim_scope_binding_required": true,
-    "object_identity_anchor_required": true
+    "claim_scope_binding_required": true
   }
 }
