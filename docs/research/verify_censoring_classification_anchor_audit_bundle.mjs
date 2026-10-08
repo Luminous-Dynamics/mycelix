@@ -36,7 +36,8 @@ function validate(bundle,root){
     "4877|"+STACK_HEAD
   ]);
   if(topo.size!==expected.size||[...expected].some(x=>!topo.has(x)))return"topology";
-  if(!bundle.decision_requires||bundle.decision_requires.hosted_pass!==false)return"decision-requirement";
+  const required=["witness_crypto_verifier","vds_verifier","tree_head_verifier","receipt_verifier","observer_gossip_verifier"];
+  if(!bundle.decision_requires||bundle.decision_requires.hosted_pass!==false||required.some(k=>bundle.decision_requires[k]!==true))return"decision-requirement";
   for(const[name,pair]of Object.entries(bundle.artifacts||{})){
     if(!Array.isArray(pair)||pair.length!==2)return"artifact-record:"+name;
     const [rel,sha]=pair,p=rel;
@@ -82,7 +83,7 @@ function mutate(bundle,m){
     case"vds_id":b.bindings.vds_id="attacker.vds";break;
     case"hosted_status":b.hosted_status="success";break;
     case"topology_head":b.topology[b.topology.length-1].head="0".repeat(40);break;
-    case"decision_requirement":b.decision_requires.hosted_pass=true;break;
+    case"decision_requirement":b.decision_requires.hosted_pass=true;break;case"witness_crypto_verifier":b.decision_requires.witness_crypto_verifier=false;break;case"vds_verifier":b.decision_requires.vds_verifier=false;break;case"tree_head_verifier":b.decision_requires.tree_head_verifier=false;break;case"receipt_verifier":b.decision_requires.receipt_verifier=false;break;case"gossip_verifier":b.decision_requires.observer_gossip_verifier=false;break;
     case"bundle_id":b.bundle_id="mycelix.audit-bundle.v1@attacker";break;
   }
   return b;
@@ -92,7 +93,7 @@ const [rootDir,bundlePath,campaignPath]=process.argv.slice(2);
 if(!campaignPath)process.exit(2);
 const bundle=JSON.parse(fs.readFileSync(bundlePath,"utf8"));
 const campaign=JSON.parse(fs.readFileSync(campaignPath,"utf8"));
-if(campaign.schema!==CAMPAIGN_SCHEMA||campaign.case_count!==13||campaign.cases.length!==13)process.exit(1);
+if(campaign.schema!==CAMPAIGN_SCHEMA||campaign.case_count!==18||campaign.cases.length!==18)process.exit(1);
 
 const rows=[],failures=[];
 for(const c of campaign.cases){
