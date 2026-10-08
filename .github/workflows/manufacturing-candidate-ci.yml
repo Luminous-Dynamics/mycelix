@@ -1,0 +1,50 @@
+name: Manufacturing Candidate CI
+
+on:
+  push:
+    branches:
+      - 'feat/mfg*'
+
+permissions: {}
+
+concurrency:
+  group: manufacturing-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  manufacturing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Record exact candidate
+        run: git rev-parse HEAD
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Check formatting
+        working-directory: mycelix-manufacturing
+        run: cargo fmt --all --check
+
+      - name: Test workspace
+        working-directory: mycelix-manufacturing
+        run: cargo test --workspace --locked
+
+      - name: Clippy
+        working-directory: mycelix-manufacturing
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Build WASM workspace
+        working-directory: mycelix-manufacturing
+        run: cargo build --release --target wasm32-unknown-unknown --workspace --locked
