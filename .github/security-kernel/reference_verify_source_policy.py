@@ -592,6 +592,10 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 must declare exactly one cache-mode: none gate")
     if exact_count(l, 'test "$GITHUB_REF_PROTECTED" = "true"') != 1:
         fail("S0 must contain exactly one protected-ref runtime guard")
+    if exact_count(l, '  group: security-kernel-trusted-dispatch-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}') != 1:
+        fail("S0 concurrency group must distinguish events and scheduled run IDs")
+    if exact_count(l, "        id: resolve") != 1:
+        fail("S0 resolver step must have the explicit id: resolve required by job outputs")
     if exact_count(l, 'pull_request_target)') != 1:
         fail("S0 trusted trigger branch missing")
     if exact_count(l, 'schedule)') != 1:
@@ -1170,6 +1174,31 @@ def main() -> None:
         ),
         "scheduled invocation source binding weakened",
     )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b"        id: resolve\n",
+                b"        id: resolver\n",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 resolver output-producing step ID changed",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b"  group: security-kernel-trusted-dispatch-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}",
+                b"  group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}",
+                1,
+            ),
+            s1_sha,
+        ),
+        "S0 scheduled concurrency collapsed onto the pull-request group",
+    )
+
 
     expect_rejection(
         lambda: verify_s1(
