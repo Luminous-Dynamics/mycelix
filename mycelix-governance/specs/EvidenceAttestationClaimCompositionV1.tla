@@ -13,16 +13,15 @@ Capability1 == [resource |-> R1, action |-> Read]
 Capability2 == [resource |-> R2, action |-> Write]
 
 ClaimCapabilities ==
-  [Claim1 |-> {Capability1},
-   Claim2 |-> {Capability2}]
+  [c \in Claims |-> CASE
+    c = Claim1 -> {Capability1}
+    [] c = Claim2 -> {Capability2}]
 
 ClaimAuthorized ==
-  [Claim1 |-> TRUE,
-   Claim2 |-> TRUE]
+  [c \in Claims |-> TRUE]
 
 ClaimGrantBacked ==
-  [Claim1 |-> TRUE,
-   Claim2 |-> TRUE]
+  [c \in Claims |-> TRUE]
 
 VARIABLES authorizedClaims, composedAuthority
 
