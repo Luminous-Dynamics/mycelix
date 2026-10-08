@@ -49,12 +49,14 @@ impl MutationClass {
 
 /// Canonical semantic identity of one economic effect.
 ///
-/// This is deliberately derived from immutable economic references and the
-/// mutation class rather than supplied as a free-form caller label. One exact
-/// predecessor + one exact cause cannot silently authorize two independent
-/// effects just by choosing different presentation IDs.
+/// Physical Holochain/source-chain references and the economic identity are
+/// deliberately separate. The former establish provenance and lineage; the
+/// latter is the idempotency key for the underlying economic event. A source
+/// theorem must define that key (for collateral issuance, FIN-SAFE-014 uses
+/// the canonical mint_id).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EconomicEffectIdentityV1 {
+    pub economic_identity: String,
     pub predecessor_action_reference: String,
     pub cause_action_reference: String,
     pub asset: String,
@@ -64,6 +66,7 @@ pub struct EconomicEffectIdentityV1 {
 
 impl EconomicEffectIdentityV1 {
     fn validate(&self) -> Result<(), EconomicEffectError> {
+        validate_id(&self.economic_identity, EconomicEffectError::InvalidEconomicIdentity)?;
         validate_id(
             &self.predecessor_action_reference,
             EconomicEffectError::InvalidPredecessorReference,
@@ -238,6 +241,13 @@ impl EconomicEffectV1 {
         {
             return Err(EconomicEffectError::CauseReplay);
         }
+        if context
+            .seen_economic_identities
+            .iter()
+            .any(|identity| identity == &self.identity.economic_identity)
+        {
+            return Err(EconomicEffectError::EconomicReplay);
+        }
 
         let debit_total = checked_total(&self.debits)?;
         let credit_total = checked_total(&self.credits)?;
@@ -350,6 +360,7 @@ impl EconomicEffectV1 {
 pub struct EffectValidationContext<'a> {
     pub seen_effect_identities: &'a [EconomicEffectIdentityV1],
     pub seen_cause_action_references: &'a [String],
+    pub seen_economic_identities: &'a [String],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -513,6 +524,7 @@ fn validate_id(value: &str, error: EconomicEffectError) -> Result<(), EconomicEf
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EconomicEffectError {
     UnsupportedSchema,
+    InvalidEconomicIdentity,
     InvalidPredecessorReference,
     InvalidCauseReference,
     InvalidSuccessorReference,
@@ -566,6 +578,7 @@ mod tests {
         EconomicEffectV1 {
             schema_version: ECONOMIC_EFFECT_V1_SCHEMA_VERSION,
             identity: EconomicEffectIdentityV1 {
+                economic_identity: "transfer-1".into(),
                 predecessor_action_reference: "prev-1".into(),
                 cause_action_reference: "cause-1".into(),
                 asset: "SAP".into(),
@@ -581,6 +594,7 @@ mod tests {
         effect.validate(EffectValidationContext {
             seen_effect_identities: &[],
             seen_cause_action_references: &[],
+            seen_economic_identities: &[],
         })
     }
 
@@ -618,7 +632,7 @@ mod tests {
             Err(EconomicEffectError::WrongLegStructure)
         );
 
-        effect.mutation_class = MutationClass::Fee;
+        effect.identity.mutation_class = MutationClass::Fee;
         effect.credits = vec![allocation("treasury", AllocationRole::Treasury, 100)];
         effect.debits[0].amount = 50;
         assert_eq!(
@@ -635,7 +649,7 @@ mod tests {
     #[test]
     fn self_burn_requires_typed_burn_sink() {
         let mut effect = base_transfer();
-        effect.mutation_class = MutationClass::Burn;
+        effect.identity.mutation_class = MutationClass::Burn;
         effect.credits = vec![allocation("alice", AllocationRole::Account, 100)];
         assert_eq!(
             validate(&effect),
@@ -672,8 +686,25 @@ mod tests {
             effect.validate(EffectValidationContext {
                 seen_effect_identities: &[effect.identity.clone()],
                 seen_cause_action_references: &[],
+                seen_economic_identities: &[],
             }),
             Err(EconomicEffectError::EffectReplay)
+        );
+    }
+
+    #[test]
+    fn same_economic_identity_is_rejected_even_when_physical_provenance_differs() {
+        let mut effect = base_transfer();
+        let seen = vec!["mint-or-operation-1".to_string()];
+        effect.identity.predecessor_action_reference = "different-prev".into();
+        effect.identity.cause_action_reference = "different-cause".into();
+        assert_eq!(
+            effect.validate(EffectValidationContext {
+                seen_effect_identities: &[],
+                seen_cause_action_references: &[],
+                seen_economic_identities: &seen,
+            }),
+            Err(EconomicEffectError::EconomicReplay)
         );
     }
 
@@ -689,19 +720,21 @@ mod tests {
             fee.validate(EffectValidationContext {
                 seen_effect_identities: &[],
                 seen_cause_action_references: &seen_cause,
+                seen_economic_identities: &[],
             }),
             Err(EconomicEffectError::CauseReplay)
         );
         assert!(transfer.validate(EffectValidationContext {
             seen_effect_identities: &[],
             seen_cause_action_references: &[],
+            seen_economic_identities: &[],
         }).is_ok());
     }
 
     #[test]
     fn mint_is_explicitly_typed_not_an_unbalanced_transfer() {
         let mut effect = base_transfer();
-        effect.mutation_class = MutationClass::Mint;
+        effect.identity.mutation_class = MutationClass::Mint;
         effect.debits.clear();
         effect.credits = vec![allocation("alice", AllocationRole::Account, 100)];
         assert!(validate(&effect).is_ok());
@@ -717,7 +750,7 @@ mod tests {
     #[test]
     fn demurrage_requires_full_typed_routing() {
         let mut effect = base_transfer();
-        effect.mutation_class = MutationClass::Demurrage;
+        effect.identity.mutation_class = MutationClass::Demurrage;
         effect.debits = vec![allocation("alice", AllocationRole::Account, 70)];
         effect.credits = vec![
             allocation("local", AllocationRole::Commons, 49),
@@ -871,6 +904,7 @@ mod tests {
             EconomicEffectObservation {
                 successor_action_reference: "succ-b".into(),
                 effect_identity: EconomicEffectIdentityV1 {
+                    economic_identity: "transfer-b".into(),
                     predecessor_action_reference: "prev-1".into(),
                     cause_action_reference: "cause-b".into(),
                     asset: "SAP".into(),
@@ -888,12 +922,10 @@ mod tests {
     fn repeated_same_action_is_only_deduped_when_effect_identity_matches() {
         let observations = vec![
             EconomicEffectObservation {
-                predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: base_transfer().identity.clone(),
             },
             EconomicEffectObservation {
-                predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: base_transfer().identity.clone(),
             },
@@ -913,12 +945,13 @@ mod tests {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: EconomicEffectIdentityV1 {
-                predecessor_action_reference: "prev-1".into(),
-                cause_action_reference: "cause-b".into(),
-                asset: "SAP".into(),
-                mutation_class: MutationClass::Transfer,
-                source_owner: "alice".into(),
-            },
+                    economic_identity: "transfer-b".into(),
+                    predecessor_action_reference: "prev-1".into(),
+                    cause_action_reference: "cause-b".into(),
+                    asset: "SAP".into(),
+                    mutation_class: MutationClass::Transfer,
+                    source_owner: "alice".into(),
+                },
             },
         ];
         assert_eq!(
