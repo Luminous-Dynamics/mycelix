@@ -3655,6 +3655,6 @@
   ],
   "policy_binding": {
     "path": "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json",
-    "git_blob_sha": "5e742d7c04f3144192011a4ea5b969247d9d531f"
+    "git_blob_sha": "13b1d18c485920c2f904acce769f7e37d673019f"
   }
 }
