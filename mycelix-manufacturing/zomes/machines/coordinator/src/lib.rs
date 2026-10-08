@@ -461,28 +461,35 @@ pub fn get_machine_temporal_attestation(hash: ActionHash) -> ExternResult<Option
 
 /// Resolve all valid temporal attestations for an exact subject.
 ///
-/// Multiple distinct attested times are never collapsed to a latest-wins answer.
+/// Resolution is fail-closed and provenance-preserving: agreeing authorities remain
+/// visible in a Unique result, while distinct attested times remain Conflicting.
 #[hdk_extern]
 pub fn resolve_machine_temporal_attestations(
     subject_hash: ActionHash,
 ) -> ExternResult<MachineTemporalEvidenceResolution> {
     let links = get_links(
-        GetLinksInputBuilder::try_new(subject_hash.clone(), LinkTypes::SubjectToTemporalAttestations)?.build(),
+        GetLinksInputBuilder::try_new(
+            subject_hash.clone(),
+            LinkTypes::SubjectToTemporalAttestations,
+        )?
+        .build(),
     )?;
-    let mut times = Vec::with_capacity(links.len());
+    let mut evidence = Vec::with_capacity(links.len());
     for link in links {
         let Some(hash) = link.target.into_action_hash() else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
-        let Some(Details::Record(record_details)) = get_details(hash, GetOptions::default())? else {
+        let Some(Details::Record(record_details)) = get_details(hash.clone(), GetOptions::default())? else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
         if record_details.validation_status != ValidationStatus::Valid {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         }
+
         let record = record_details.record;
         let Some(attestation): Option<MachineTemporalAttestationEntry> = record
-            .entry().to_app_option()
+            .entry()
+            .to_app_option()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
@@ -490,9 +497,44 @@ pub fn resolve_machine_temporal_attestations(
         if attestation.subject_hash != subject_hash {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         }
-        times.push(attestation.attested_at);
+
+        let Some(Details::Record(profile_details)) =
+            get_details(attestation.profile_hash.clone(), GetOptions::default())?
+        else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        if profile_details.validation_status != ValidationStatus::Valid {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+        let Some(profile_record) = profile_details.record.entry().to_app_option::<MachineTimeAuthorityProfileEntry>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+
+        if profile_record.machine_hash != attestation.machine_hash
+            || profile_record.authority_agent != record.action().author()
+            || !temporal_interval_contains(
+                profile_record.valid_from,
+                profile_record.valid_until,
+                attestation.attested_at,
+            )
+        {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+
+        evidence.push(MachineTemporalEvidenceObservation {
+            attestation_hash: hash,
+            authority_agent: profile_record.authority_agent,
+            profile_hash: attestation.profile_hash,
+            subject_hash: attestation.subject_hash,
+            evidence_kind: attestation.evidence_kind,
+            attested_at: attestation.attested_at,
+            source_reference: attestation.source_reference,
+        });
     }
-    Ok(resolve_temporal_times(times))
+
+    Ok(resolve_temporal_evidence(evidence))
 }
 
 /// Get a controller authority by action hash.
