@@ -1602,6 +1602,19 @@ mod tests {
         }
     }
 
+    struct RejectAdmission;
+
+    impl AdmissionAuthorizer for RejectAdmission {
+        fn verify(
+            &self,
+            _attempt: &AttemptRecordV1,
+            _action_key: &ActionKeyV1,
+            _now_unix_ms: u64,
+        ) -> Result<AuthorizationAdmissionProofV1, String> {
+            Err("authorization admission rejected".into())
+        }
+    }
+
     struct AllowFinalEntry;
 
     impl FinalProviderEntryVerifier for AllowFinalEntry {
@@ -1811,6 +1824,23 @@ mod tests {
         }
     }
 
+    fn test_root_with_admission(
+        admission: Box<dyn AdmissionAuthorizer>,
+    ) -> Box<dyn BoundaryTrustRoot> {
+        Box::new(TestTrustRoot {
+            admission_authorizer: admission,
+            provider_adapter_authorizer: Box::new(
+                PinnedProviderAdapterAuthorizer::new(["provider-adapter-v1"]).unwrap(),
+            ),
+            outcome_verifier: Box::new(Verifier),
+            outcome_identity: "verified-provider-v1".into(),
+            final_entry_verifier: Box::new(AllowFinalEntry),
+            final_entry_identity: "final-entry-verifier-v1".into(),
+            recovery_authorizer: Box::new(AllowRecovery),
+            claim_recovery_authorizer: Box::new(AllowClaimRecovery),
+        })
+    }
+
     fn test_root_with(
         outcome: Box<dyn OutcomeVerifier>,
         outcome_identity: &str,
@@ -2004,6 +2034,43 @@ mod tests {
             .durably_read_provider_entry_claim(&owner)
             .unwrap()
             .is_none());
+    }
+
+    #[test]
+    fn rejected_admission_cannot_consume_or_fence() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("admission-rejected.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(
+            store,
+            test_root_with_admission(Box::new(RejectAdmission)),
+        )
+        .unwrap();
+        let action_key = action();
+        let owner = identity("attempt-admission-rejected");
+
+        let result = boundary.admit(
+            &action_key,
+            &owner,
+            attempt_record(
+                "attempt-admission-rejected",
+                "operation-admission-rejected",
+                AttemptRecordState::Consumed,
+            ),
+        );
+
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("authorization admission rejected")
+        ));
+        assert!(
+            boundary.store.durably_read_attempt(&owner).unwrap().is_none(),
+            "rejected authorization must not create a durable attempt"
+        );
+        assert!(
+            boundary.store.durably_read_fence(&action_key).unwrap().is_none(),
+            "rejected authorization must not consume the action fence"
+        );
     }
 
     #[test]
