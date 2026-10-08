@@ -145,3 +145,20 @@ An orphaned proof on a DISPATCH_PENDING attempt is treated as corrupted durable
 state and fails closed on restart. A rejected final-entry check clears the proof,
 claim, and action fence atomically as NotEntered; if that cleanup cannot be
 confirmed, the attempt remains held.
+
+
+## Constructor-bound trust root
+
+Evidence verification and recovery authority are now bound to the host boundary
+at construction rather than supplied by each dispatch or recovery call.
+
+The trust root pins:
+- terminal outcome verifier + expected verifier identity
+- final provider-entry verifier + expected verifier identity
+- pre-entry recovery authority
+- stranded provider-entry claim recovery authority
+
+This prevents a caller that can reach the host API from selecting a weaker
+verifier or recovery authority for one attempt while using a stronger verifier
+for another. The provider adapter remains a separate deployment concern; this
+trust root does not claim to authenticate executable code.
