@@ -9,7 +9,8 @@
 use crate::SqliteActionFenceStore;
 use constitutional_effect_ledger::{
     ActionFenceMutationError, ActionFenceState, ActionKeyV1, AtomicAdmissionDecision,
-    AttemptIdentityV1, AttemptRecordState, AttemptRecordV1, DurableActionFenceStore,
+    AttemptIdentityV1, AttemptRecordState, AttemptRecordV1, AuthorizationAdmissionProofV1,
+    DurableActionFenceStore,
     ProviderEntryClaimV1, TerminalEvidenceV1, TerminalOutcomeV1,
 };
 
@@ -581,6 +582,87 @@ pub trait ProviderEntryClaimRecoveryAuthorizer {
 }
 
 /// Host-side authorization for selecting a provider adapter for an exact attempt.
+/// Constructor-bound authorizer for the initial effect admission.
+///
+/// This runs before durable consumption/reservation and must return a proof
+/// covering the exact action/attempt plus the authority/policy/status snapshots
+/// used for the decision.
+pub trait AdmissionAuthorizer {
+    fn verify(
+        &self,
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+        now_unix_ms: u64,
+    ) -> Result<AuthorizationAdmissionProofV1, String>;
+}
+
+/// Minimal pinned admission verifier used by deployments that already perform
+/// authorization elsewhere and can supply the resulting snapshot digests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PinnedAdmissionAuthorizer {
+    verifier_identity: String,
+    authorization_snapshot_digest: String,
+    policy_snapshot_digest: String,
+    status_snapshot_digest: String,
+    validity_ms: u64,
+}
+
+impl PinnedAdmissionAuthorizer {
+    pub fn new(
+        verifier_identity: impl Into<String>,
+        authorization_snapshot_digest: impl Into<String>,
+        policy_snapshot_digest: impl Into<String>,
+        status_snapshot_digest: impl Into<String>,
+        validity_ms: u64,
+    ) -> Result<Self, String> {
+        let verifier_identity = verifier_identity.into();
+        let authorization_snapshot_digest = authorization_snapshot_digest.into();
+        let policy_snapshot_digest = policy_snapshot_digest.into();
+        let status_snapshot_digest = status_snapshot_digest.into();
+        if verifier_identity.trim().is_empty()
+            || authorization_snapshot_digest.trim().is_empty()
+            || policy_snapshot_digest.trim().is_empty()
+            || status_snapshot_digest.trim().is_empty()
+            || validity_ms == 0
+        {
+            return Err("pinned admission authorizer configuration must be non-empty with positive validity".into());
+        }
+        Ok(Self {
+            verifier_identity,
+            authorization_snapshot_digest,
+            policy_snapshot_digest,
+            status_snapshot_digest,
+            validity_ms,
+        })
+    }
+}
+
+impl PinnedAdmissionAuthorizer {
+    pub fn verifier_identity(&self) -> &str {
+        &self.verifier_identity
+    }
+}
+
+impl AdmissionAuthorizer for PinnedAdmissionAuthorizer {
+    fn verify(
+        &self,
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+        now_unix_ms: u64,
+    ) -> Result<AuthorizationAdmissionProofV1, String> {
+        AuthorizationAdmissionProofV1::new(
+            attempt,
+            action_key,
+            now_unix_ms,
+            now_unix_ms.saturating_add(self.validity_ms),
+            self.authorization_snapshot_digest.clone(),
+            self.policy_snapshot_digest.clone(),
+            self.status_snapshot_digest.clone(),
+            self.verifier_identity.clone(),
+        )
+    }
+}
+
 pub trait ProviderAdapterAuthorizer {
     fn verify(
         &self,
@@ -645,9 +727,18 @@ impl ProviderAdapterAuthorizer for PinnedProviderAdapterAuthorizer {
 
 /// Constructor-bound authority/evidence trust root.
 ///
-/// Provider adapters may still vary by invocation, but the concrete adapter must
-/// be authorized by this root before any provider-entry transition is acquired.
+/// Admission authority, provider-adapter selection, terminal evidence
+/// verification, final-entry freshness verification, and both recovery
+/// authorities are pinned when the boundary is constructed.
 pub trait BoundaryTrustRoot {
+    fn admission_verifier_identity(&self) -> &str;
+    fn authorize_admission(
+        &self,
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+        now_unix_ms: u64,
+    ) -> Result<AuthorizationAdmissionProofV1, String>;
+
     fn authorize_provider_adapter(
         &self,
         provider: &dyn ProviderAdapter,
@@ -664,9 +755,11 @@ pub trait BoundaryTrustRoot {
     ) -> &dyn ProviderEntryClaimRecoveryAuthorizer;
 }
 
-/// Concrete trust-root container for deployments that pin four independent
-/// authorities while keeping their identities explicit.
+/// Concrete trust-root container for deployments that pin all effect-boundary
+/// authorities while keeping verifier identities explicit.
 pub struct PinnedBoundaryTrustRoot {
+    admission_authorizer: Box<dyn AdmissionAuthorizer>,
+    admission_verifier_identity: String,
     provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
     outcome_verifier: Box<dyn OutcomeVerifier>,
     outcome_verifier_identity: String,
@@ -678,6 +771,8 @@ pub struct PinnedBoundaryTrustRoot {
 
 impl PinnedBoundaryTrustRoot {
     pub fn new(
+        admission_authorizer: Box<dyn AdmissionAuthorizer>,
+        admission_verifier_identity: impl Into<String>,
         provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_verifier_identity: impl Into<String>,
@@ -686,14 +781,18 @@ impl PinnedBoundaryTrustRoot {
         recovery_authorizer: Box<dyn RecoveryAuthorizer>,
         claim_recovery_authorizer: Box<dyn ProviderEntryClaimRecoveryAuthorizer>,
     ) -> Result<Self, String> {
+        let admission_verifier_identity = admission_verifier_identity.into();
         let outcome_verifier_identity = outcome_verifier_identity.into();
         let final_entry_verifier_identity = final_entry_verifier_identity.into();
-        if outcome_verifier_identity.trim().is_empty()
+        if admission_verifier_identity.trim().is_empty()
+            || outcome_verifier_identity.trim().is_empty()
             || final_entry_verifier_identity.trim().is_empty()
         {
             return Err("pinned verifier identities must be non-empty".into());
         }
         Ok(Self {
+            admission_authorizer,
+            admission_verifier_identity,
             provider_adapter_authorizer,
             outcome_verifier,
             outcome_verifier_identity,
@@ -706,6 +805,20 @@ impl PinnedBoundaryTrustRoot {
 }
 
 impl BoundaryTrustRoot for PinnedBoundaryTrustRoot {
+    fn admission_verifier_identity(&self) -> &str {
+        &self.admission_verifier_identity
+    }
+
+    fn authorize_admission(
+        &self,
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+        now_unix_ms: u64,
+    ) -> Result<AuthorizationAdmissionProofV1, String> {
+        self.admission_authorizer
+            .verify(attempt, action_key, now_unix_ms)
+    }
+
     fn authorize_provider_adapter(
         &self,
         provider: &dyn ProviderAdapter,
@@ -804,8 +917,47 @@ impl EffectBoundaryHostV1 {
         attempt_identity: &AttemptIdentityV1,
         record: AttemptRecordV1,
     ) -> Result<BoundaryOutcome, BoundaryError> {
+        // Admission is idempotent for an already materialized exact attempt.
+        // Do this read before issuing a new time-bound authorization proof so
+        // replaying the same logical admission does not become an ownership
+        // conflict merely because the proof timestamp changed.
+        if let Some(existing) = self
+            .store
+            .durably_read_attempt(attempt_identity)
+            .map_err(BoundaryError::Store)?
+        {
+            if existing.attempt_identity != attempt_identity.digest()
+                || existing.action_key_digest != action_key.digest()
+            {
+                return Err(BoundaryError::Semantic(
+                    "existing attempt/action-key identity mismatch".into(),
+                ));
+            }
+            return Ok(BoundaryOutcome::Admitted(
+                AtomicAdmissionDecision::DuplicateAttempt,
+            ));
+        }
+
+        let now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
+        let proof = self
+            .trust_root
+            .authorize_admission(&record, action_key, now_unix_ms)
+            .map_err(BoundaryError::Semantic)?;
+        if proof.verifier_identity() != self.trust_root.admission_verifier_identity() {
+            return Err(BoundaryError::Semantic(
+                "authorization admission verifier identity does not match pinned trust root"
+                    .into(),
+            ));
+        }
+        if !proof.matches(&record, action_key) || !proof.is_fresh(now_unix_ms) {
+            return Err(BoundaryError::Semantic(
+                "authorization admission proof is stale or not bound to exact action"
+                    .into(),
+            ));
+        }
+
         self.store
-            .atomically_admit(action_key, attempt_identity, record)
+            .atomically_admit(action_key, attempt_identity, record, proof)
             .map(BoundaryOutcome::Admitted)
             .map_err(BoundaryError::Semantic)
     }
@@ -1494,6 +1646,41 @@ mod tests {
         }
     }
 
+    struct RejectAdmission;
+
+    impl AdmissionAuthorizer for RejectAdmission {
+        fn verify(
+            &self,
+            _attempt: &AttemptRecordV1,
+            _action_key: &ActionKeyV1,
+            _now_unix_ms: u64,
+        ) -> Result<AuthorizationAdmissionProofV1, String> {
+            Err("authorization admission rejected".into())
+        }
+    }
+
+    struct MismatchedAdmissionIdentity;
+
+    impl AdmissionAuthorizer for MismatchedAdmissionIdentity {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            action_key: &ActionKeyV1,
+            now_unix_ms: u64,
+        ) -> Result<AuthorizationAdmissionProofV1, String> {
+            AuthorizationAdmissionProofV1::new(
+                attempt,
+                action_key,
+                now_unix_ms,
+                now_unix_ms.saturating_add(60_000),
+                "authorization-snapshot-v1",
+                "policy-snapshot-v1",
+                "status-snapshot-v1",
+                "wrong-admission-verifier-v1",
+            )
+        }
+    }
+
     struct AllowFinalEntry;
 
     impl FinalProviderEntryVerifier for AllowFinalEntry {
@@ -1645,6 +1832,7 @@ mod tests {
     }
 
     struct TestTrustRoot {
+        admission_authorizer: Box<dyn AdmissionAuthorizer>,
         provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_identity: String,
@@ -1655,6 +1843,20 @@ mod tests {
     }
 
     impl BoundaryTrustRoot for TestTrustRoot {
+        fn admission_verifier_identity(&self) -> &str {
+            "admission-verifier-v1"
+        }
+
+        fn authorize_admission(
+            &self,
+            attempt: &AttemptRecordV1,
+            action_key: &ActionKeyV1,
+            now_unix_ms: u64,
+        ) -> Result<AuthorizationAdmissionProofV1, String> {
+            self.admission_authorizer
+                .verify(attempt, action_key, now_unix_ms)
+        }
+
         fn authorize_provider_adapter(
             &self,
             provider: &dyn ProviderAdapter,
@@ -1692,6 +1894,23 @@ mod tests {
         }
     }
 
+    fn test_root_with_admission(
+        admission: Box<dyn AdmissionAuthorizer>,
+    ) -> Box<dyn BoundaryTrustRoot> {
+        Box::new(TestTrustRoot {
+            admission_authorizer: admission,
+            provider_adapter_authorizer: Box::new(
+                PinnedProviderAdapterAuthorizer::new(["provider-adapter-v1"]).unwrap(),
+            ),
+            outcome_verifier: Box::new(Verifier),
+            outcome_identity: "verified-provider-v1".into(),
+            final_entry_verifier: Box::new(AllowFinalEntry),
+            final_entry_identity: "final-entry-verifier-v1".into(),
+            recovery_authorizer: Box::new(AllowRecovery),
+            claim_recovery_authorizer: Box::new(AllowClaimRecovery),
+        })
+    }
+
     fn test_root_with(
         outcome: Box<dyn OutcomeVerifier>,
         outcome_identity: &str,
@@ -1699,6 +1918,16 @@ mod tests {
         final_entry_identity: &str,
     ) -> Box<dyn BoundaryTrustRoot> {
         Box::new(TestTrustRoot {
+            admission_authorizer: Box::new(
+                PinnedAdmissionAuthorizer::new(
+                    "admission-verifier-v1",
+                    "authorization-snapshot-v1",
+                    "policy-snapshot-v1",
+                    "status-snapshot-v1",
+                    60_000,
+                )
+                .unwrap(),
+            ),
             provider_adapter_authorizer: Box::new(
                 PinnedProviderAdapterAuthorizer::new(["provider-adapter-v1"]).unwrap(),
             ),
@@ -1875,6 +2104,99 @@ mod tests {
             .durably_read_provider_entry_claim(&owner)
             .unwrap()
             .is_none());
+    }
+
+    #[test]
+    fn admission_proof_identity_must_match_pinned_trust_root() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("admission-identity.db")).unwrap();
+        let mut boundary =
+            EffectBoundaryHostV1::new(store, test_root_with_admission(Box::new(MismatchedAdmissionIdentity))).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-admission-identity");
+
+        let result = boundary.admit(
+            &action_key,
+            &owner,
+            attempt_record(
+                "attempt-admission-identity",
+                "operation-admission-identity",
+                AttemptRecordState::Consumed,
+            ),
+        );
+
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("admission verifier identity does not match pinned trust root")
+        ));
+        assert!(boundary.store.durably_read_attempt(&owner).unwrap().is_none());
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
+    }
+
+    #[test]
+    fn duplicate_admission_remains_idempotent_with_new_proof_timestamp() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("admission-duplicate.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store, test_root()).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-admission-duplicate");
+        let record = attempt_record(
+            "attempt-admission-duplicate",
+            "operation-admission-duplicate",
+            AttemptRecordState::Consumed,
+        );
+
+        assert!(matches!(
+            boundary.admit(&action_key, &owner, record.clone()).unwrap(),
+            BoundaryOutcome::Admitted(AtomicAdmissionDecision::Admitted)
+        ));
+
+        assert!(matches!(
+            boundary.admit(&action_key, &owner, record).unwrap(),
+            BoundaryOutcome::Admitted(AtomicAdmissionDecision::DuplicateAttempt)
+        ));
+
+        let persisted = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
+        assert!(persisted.authorization_admission_proof_digest().is_some());
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_some());
+    }
+
+    #[test]
+    fn rejected_admission_cannot_consume_or_fence() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("admission-rejected.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(
+            store,
+            test_root_with_admission(Box::new(RejectAdmission)),
+        )
+        .unwrap();
+        let action_key = action();
+        let owner = identity("attempt-admission-rejected");
+
+        let result = boundary.admit(
+            &action_key,
+            &owner,
+            attempt_record(
+                "attempt-admission-rejected",
+                "operation-admission-rejected",
+                AttemptRecordState::Consumed,
+            ),
+        );
+
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("authorization admission rejected")
+        ));
+        assert!(
+            boundary.store.durably_read_attempt(&owner).unwrap().is_none(),
+            "rejected authorization must not create a durable attempt"
+        );
+        assert!(
+            boundary.store.durably_read_fence(&action_key).unwrap().is_none(),
+            "rejected authorization must not consume the action fence"
+        );
     }
 
     #[test]

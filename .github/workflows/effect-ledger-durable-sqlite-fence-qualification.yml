@@ -1,16 +1,9 @@
 name: Effect Ledger Durable SQLite Qualification
 
 on:
-  push:
-    branches:
-      - hardening/effect-ledger-durable-sqlite-fence-v1
-      - hardening/effect-ledger-entry-claim-v1
-      - hardening/effect-ledger-verifier-affirmation-v1
-      - hardening/effect-ledger-provider-context-v1
-      - hardening/effect-ledger-persisted-idempotency-v1
-      - hardening/effect-ledger-final-entry-gate-v1
-      - hardening/effect-ledger-pinned-trust-root-v1
-      - hardening/effect-ledger-provider-binding-v1
+  # Qualification is authoritative per pull-request head. We intentionally
+  # omit the redundant push trigger because push + pull_request share the
+  # same concurrency group and can cancel each other before execution.
   pull_request:
   workflow_dispatch:
 
@@ -110,6 +103,7 @@ jobs:
           grep -Fq 'provider_idempotency_key' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'provider_idempotency_key does not match versioned derivation' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'persisted_provider_idempotency_key_is_versioned_and_fail_closed' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
+          grep -Fq 'provider_idempotency_key_is_bound_to_action_payload_and_scope' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'FinalProviderEntryProofV1' "$boundary"
           grep -Fq 'FinalProviderEntryVerifier' "$boundary"
           grep -Fq 'BoundaryTrustRoot' "$boundary"
@@ -139,6 +133,15 @@ jobs:
           grep -Fq 'expired_final_entry_proof_cannot_reach_provider' "$boundary"
           grep -Fq 'final_entry_proof_is_rechecked_after_verifier_returns' "$boundary"
           grep -Fq 'provider_entry_permit_requires_durable_entry_proof' "$boundary"
+          grep -Fq 'AuthorizationAdmissionProofV1' "$boundary"
+          grep -Fq 'AdmissionAuthorizer' "$boundary"
+          grep -Fq 'admission_verifier_identity' "$boundary"
+          grep -Fq 'rejected_admission_cannot_consume_or_fence' "$boundary"
+          grep -Fq 'admission_proof_identity_must_match_pinned_trust_root' "$boundary"
+          grep -Fq 'duplicate_admission_remains_idempotent_with_new_proof_timestamp' "$boundary"
+          grep -Fq 'authorization_admission_proof_digest' "$boundary"
+          grep -Fq 'authorization_admission_proof_digest' "$source"
+          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 6' "$source"
           grep -Fq 'entry_admission_proof_survives_restart' "$source"
           grep -Fq 'persisted_entry_proof_without_claim_fails_closed_on_restart' "$source"
           grep -Fq 'DISPATCH_PENDING attempt with entry proof is missing its provider entry claim' "$source"
