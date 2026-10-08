@@ -8,6 +8,10 @@
 use hdi::prelude::*;
 use manufacturing_common::{MachineStatus, MachineType};
 
+/// Maximum controller lease duration for the initial deterministic authority model.
+pub const MAX_MACHINE_CONTROLLER_LEASE_MICROS: i64 = 86_400_000_000;
+
+
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct MachineEntry {
@@ -108,6 +112,11 @@ fn validate_create_authority(
     if authority.valid_until < authority.valid_from {
         return Ok(ValidateCallbackResult::Invalid(
             "machine controller authority validity window is inverted".into(),
+        ));
+    }
+    if !authority_duration_is_bounded(&authority) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine controller authority exceeds the maximum 24-hour lease duration".into(),
         ));
     }
 
@@ -306,6 +315,19 @@ fn authority_valid_at(
     authority.valid_from <= timestamp && timestamp <= authority.valid_until
 }
 
+fn authority_duration_is_bounded(
+    authority: &MachineControllerAuthorityEntry,
+) -> bool {
+    let Some(duration) = authority
+        .valid_until
+        .as_micros()
+        .checked_sub(authority.valid_from.as_micros())
+    else {
+        return false;
+    };
+    duration <= MAX_MACHINE_CONTROLLER_LEASE_MICROS
+}
+
 fn validate_update_entry(
     original_action_hash: ActionHash,
     action: TypedAction<UpdateData>,
@@ -406,6 +428,28 @@ mod content_restriction_tests {
             last_status_authority_hash: None,
             registered_at: Timestamp::from_micros(0),
         }
+    }
+
+    #[test]
+    fn controller_lease_duration_is_bounded() {
+        let start = Timestamp::from_micros(1_000_000);
+        let within = MachineControllerAuthorityEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            controller_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            valid_from: start,
+            valid_until: Timestamp::from_micros(
+                start.as_micros() + MAX_MACHINE_CONTROLLER_LEASE_MICROS,
+            ),
+        };
+        assert!(authority_duration_is_bounded(&within));
+
+        let beyond = MachineControllerAuthorityEntry {
+            valid_until: Timestamp::from_micros(
+                start.as_micros() + MAX_MACHINE_CONTROLLER_LEASE_MICROS + 1,
+            ),
+            ..within.clone()
+        };
+        assert!(!authority_duration_is_bounded(&beyond));
     }
 
     #[test]
