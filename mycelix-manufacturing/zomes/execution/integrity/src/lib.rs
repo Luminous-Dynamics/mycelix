@@ -188,6 +188,97 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                     "at least one evidence reference is required".into(),
                 ));
             }
+
+            // A claim of accepted production requires measured and calibrated
+            // execution evidence. Rejected/rework/quarantined executions may
+            // legitimately lack one or both categories while still being
+            // recorded as observed events.
+            if matches!(e.disposition, Disposition::Accepted)
+                && e.measurement_hashes.is_empty()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "accepted execution requires at least one measurement".into(),
+                ));
+            }
+            if matches!(e.disposition, Disposition::Accepted)
+                && e.calibration_hashes.is_empty()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "accepted execution requires at least one calibration record".into(),
+                ));
+            }
+
+            // Require every referenced action to be present in the DHT.
+            // The stricter type checks below keep the local execution graph
+            // from being populated with hashes for unrelated records.
+            must_get_valid_record(e.work_order_hash.clone())?;
+            must_get_valid_record(e.machine_hash.clone())?;
+            if let Some(hash) = e.bom_hash.clone() {
+                must_get_valid_record(hash)?;
+            }
+            if let Some(hash) = e.routing_hash.clone() {
+                must_get_valid_record(hash)?;
+            }
+
+            for hash in &e.input_lot_hashes {
+                let record = must_get_valid_record(hash.clone())?;
+                let lot: Option<MaterialLotEntry> = record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                if lot.is_none() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution input references a non-material-lot record".into(),
+                    ));
+                }
+            }
+
+            for hash in &e.output_lot_hashes {
+                let record = must_get_valid_record(hash.clone())?;
+                let lot: Option<MaterialLotEntry> = record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                if lot.is_none() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution output references a non-material-lot record".into(),
+                    ));
+                }
+            }
+
+            for hash in &e.measurement_hashes {
+                let record = must_get_valid_record(hash.clone())?;
+                let measurement: Option<MeasurementEntry> = record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                if measurement.is_none() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution measurement reference is not a measurement record".into(),
+                    ));
+                }
+            }
+
+            for hash in &e.calibration_hashes {
+                let record = must_get_valid_record(hash.clone())?;
+                let calibration: Option<CalibrationEntry> = record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                let Some(calibration) = calibration else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution calibration reference is not a calibration record".into(),
+                    ));
+                };
+                if calibration.asset_hash != e.machine_hash
+                    || calibration.valid_from > e.started_at
+                    || calibration.valid_until < e.completed_at
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution calibration does not cover the declared machine and execution interval".into(),
+                    ));
+                }
+            }
         }
     }
 
@@ -237,14 +328,37 @@ mod tests {
             operation_sequence: 1,
             machine_hash: ActionHash::from_raw_36(vec![1; 36]),
             process_parameters_hash: None,
-            input_lot_hashes: vec![],
-            output_lot_hashes: vec![],
+            input_lot_hashes: vec![ActionHash::from_raw_36(vec![2; 36])],
+            output_lot_hashes: vec![ActionHash::from_raw_36(vec![3; 36])],
             measurement_hashes: vec![],
             calibration_hashes: vec![],
             started_at: Timestamp::from_micros(0),
             completed_at: Timestamp::from_micros(1),
             disposition: Disposition::Accepted,
-            evidence_references: vec![],
+            evidence_references: vec!["evidence".into()],
+            notes: None,
+        };
+        let result = validate_create(EntryTypes::ExecutionReceipt(entry)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn accepted_execution_requires_measurement_and_calibration() {
+        let entry = ExecutionReceiptEntry {
+            work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
+            bom_hash: None,
+            routing_hash: None,
+            operation_sequence: 1,
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            process_parameters_hash: None,
+            input_lot_hashes: vec![ActionHash::from_raw_36(vec![2; 36])],
+            output_lot_hashes: vec![ActionHash::from_raw_36(vec![3; 36])],
+            measurement_hashes: vec![],
+            calibration_hashes: vec![],
+            started_at: Timestamp::from_micros(0),
+            completed_at: Timestamp::from_micros(1),
+            disposition: Disposition::Accepted,
+            evidence_references: vec!["evidence".into()],
             notes: None,
         };
         let result = validate_create(EntryTypes::ExecutionReceipt(entry)).unwrap();
