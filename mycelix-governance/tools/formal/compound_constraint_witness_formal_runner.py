@@ -119,7 +119,7 @@ def main() -> int:
         evidence["source_head"] = head
 
         # The finite reference oracle must emit each frozen marker exactly at least once.
-        reference = args.matrix.parent.parent / "tools" / "formal" / "compound_constraint_witness_reference.py"
+        reference = Path(__file__).with_name("compound_constraint_witness_reference.py")
         require(reference.is_file(), f"reference oracle missing: {reference}")
         evidence["inputs"][str(reference)] = sha256_file(reference)
         ref_result = run([sys.executable, str(reference)], args.evidence_dir / "reference.stdout.txt")
