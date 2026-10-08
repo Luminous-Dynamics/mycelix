@@ -750,6 +750,8 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
     joined = "\n".join(l)
+    if 'test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"' not in joined:
+        fail("S1 must bind called workflow commit to caller workflow commit")
     if "CANDIDATE_ROOT" in joined or "candidate_root" in joined or "security-kernel-candidate-root" in joined:
         fail("S1 must not contain a runner-backed candidate staging root")
     if 'test "$(stat -f -c \'%T\' "$candidate_volume_mountpoint")" = "tmpfs"' not in joined:
@@ -1260,6 +1262,18 @@ def main() -> None:
             s1_sha,
         ),
         "duplicate S1 env mapping key",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
+                b'          test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"\\n',
+                b'          test "$CALLED_WORKFLOW_SHA" = "$GITHUB_WORKFLOW_SHA"\\n',
+                1,
+            ),
+            s1_sha,
+        ),
+        "S1 called workflow commit binding weakened",
     )
 
     expect_rejection(
