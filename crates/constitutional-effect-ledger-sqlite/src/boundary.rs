@@ -13,6 +13,8 @@ use constitutional_effect_ledger::{
     ProviderEntryClaimV1, TerminalEvidenceV1, TerminalOutcomeV1,
 };
 
+use std::collections::BTreeSet;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProviderObservation {
     Executed { evidence_commitment: String },
@@ -98,6 +100,9 @@ impl VerifiedTerminalOutcomeV1 {
 /// downstream interface. Boundary custody, owner tokens, reconciliation tokens,
 /// and lifecycle state are intentionally not exposed to the adapter.
 pub trait ProviderAdapter {
+    /// Stable deployment identity for the provider adapter implementation.
+    fn adapter_identity(&self) -> &str;
+
     /// Provider entry is only exposed through a durable, single-winner permit.
     fn invoke(&mut self, permit: &ProviderEntryPermitV1) -> Result<ProviderObservation, String>;
     fn reconcile(&mut self, context: &ProviderActionContextV1) -> Result<ProviderObservation, String>;
@@ -575,11 +580,80 @@ pub trait ProviderEntryClaimRecoveryAuthorizer {
     ) -> Result<(), String>;
 }
 
+/// Host-side authorization for selecting a provider adapter for an exact attempt.
+pub trait ProviderAdapterAuthorizer {
+    fn verify(
+        &self,
+        provider: &dyn ProviderAdapter,
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+    ) -> Result<(), String>;
+}
+
+/// Deployment configuration that pins which provider adapter identities may cross
+/// the effect boundary. This validates identity binding, not executable-code
+/// authenticity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PinnedProviderAdapterAuthorizer {
+    allowed_adapter_identities: BTreeSet<String>,
+}
+
+impl PinnedProviderAdapterAuthorizer {
+    pub fn new<I, S>(identities: I) -> Result<Self, String>
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        let allowed_adapter_identities = identities
+            .into_iter()
+            .map(Into::into)
+            .filter(|identity| !identity.trim().is_empty())
+            .collect::<BTreeSet<_>>();
+        if allowed_adapter_identities.is_empty() {
+            return Err("at least one provider adapter identity must be pinned".into());
+        }
+        Ok(Self {
+            allowed_adapter_identities,
+        })
+    }
+}
+
+impl ProviderAdapterAuthorizer for PinnedProviderAdapterAuthorizer {
+    fn verify(
+        &self,
+        provider: &dyn ProviderAdapter,
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+    ) -> Result<(), String> {
+        if action_key.digest() != attempt.action_key_digest
+            || action_key.effecting_target_identity() != attempt.effecting_target_identity
+        {
+            return Err("provider adapter authorization action scope mismatch".into());
+        }
+        if provider.adapter_identity() != attempt.adapter_identity {
+            return Err("provider adapter identity does not match the attempt".into());
+        }
+        if !self
+            .allowed_adapter_identities
+            .contains(provider.adapter_identity())
+        {
+            return Err("provider adapter identity is not pinned by the trust root".into());
+        }
+        Ok(())
+    }
+}
+
 /// Constructor-bound authority/evidence trust root.
 ///
-/// Provider adapters may still vary by invocation, but evidence verification and
-/// recovery authority cannot be replaced after the host boundary is constructed.
+/// Provider adapters may still vary by invocation, but the concrete adapter must
+/// be authorized by this root before any provider-entry transition is acquired.
 pub trait BoundaryTrustRoot {
+    fn authorize_provider_adapter(
+        &self,
+        provider: &dyn ProviderAdapter,
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+    ) -> Result<(), String>;
     fn outcome_verifier(&self) -> &dyn OutcomeVerifier;
     fn outcome_verifier_identity(&self) -> &str;
     fn final_entry_verifier(&self) -> &dyn FinalProviderEntryVerifier;
@@ -593,6 +667,7 @@ pub trait BoundaryTrustRoot {
 /// Concrete trust-root container for deployments that pin four independent
 /// authorities while keeping their identities explicit.
 pub struct PinnedBoundaryTrustRoot {
+    provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
     outcome_verifier: Box<dyn OutcomeVerifier>,
     outcome_verifier_identity: String,
     final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -603,6 +678,7 @@ pub struct PinnedBoundaryTrustRoot {
 
 impl PinnedBoundaryTrustRoot {
     pub fn new(
+        provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_verifier_identity: impl Into<String>,
         final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -618,6 +694,7 @@ impl PinnedBoundaryTrustRoot {
             return Err("pinned verifier identities must be non-empty".into());
         }
         Ok(Self {
+            provider_adapter_authorizer,
             outcome_verifier,
             outcome_verifier_identity,
             final_entry_verifier,
@@ -629,6 +706,16 @@ impl PinnedBoundaryTrustRoot {
 }
 
 impl BoundaryTrustRoot for PinnedBoundaryTrustRoot {
+    fn authorize_provider_adapter(
+        &self,
+        provider: &dyn ProviderAdapter,
+        attempt: &AttemptRecordV1,
+        action_key: &ActionKeyV1,
+    ) -> Result<(), String> {
+        self.provider_adapter_authorizer
+            .verify(provider, attempt, action_key)
+    }
+
     fn outcome_verifier(&self) -> &dyn OutcomeVerifier {
         self.outcome_verifier.as_ref()
     }
@@ -766,6 +853,10 @@ impl EffectBoundaryHostV1 {
         if !matches!(current.state, AttemptRecordState::Consumed | AttemptRecordState::Reserved) {
             return Ok(BoundaryOutcome::PreEntryStopRequired);
         }
+
+        self.trust_root
+            .authorize_provider_adapter(provider, &current, action_key)
+            .map_err(BoundaryError::Semantic)?;
 
         self.store
             .atomically_mark_dispatch_pending(action_key, attempt_identity, owner_token_digest)
@@ -1130,6 +1221,11 @@ impl EffectBoundaryHostV1 {
         if matches!(current.state, AttemptRecordState::Consumed | AttemptRecordState::Reserved) {
             return Ok(BoundaryOutcome::PreEntryStopRequired);
         }
+
+        self.trust_root
+            .authorize_provider_adapter(provider, &current, action_key)
+            .map_err(BoundaryError::Semantic)?;
+
         if current.state == AttemptRecordState::DispatchPending {
             if self
                 .store
@@ -1375,6 +1471,10 @@ mod tests {
     }
 
     impl ProviderAdapter for FakeProvider {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
         fn invoke(&mut self, permit: &ProviderEntryPermitV1) -> Result<ProviderObservation, String> {
             assert!(permit
                 .provider_idempotency_key()
@@ -1545,6 +1645,7 @@ mod tests {
     }
 
     struct TestTrustRoot {
+        provider_adapter_authorizer: Box<dyn ProviderAdapterAuthorizer>,
         outcome_verifier: Box<dyn OutcomeVerifier>,
         outcome_identity: String,
         final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
@@ -1554,6 +1655,16 @@ mod tests {
     }
 
     impl BoundaryTrustRoot for TestTrustRoot {
+        fn authorize_provider_adapter(
+            &self,
+            provider: &dyn ProviderAdapter,
+            attempt: &AttemptRecordV1,
+            action_key: &ActionKeyV1,
+        ) -> Result<(), String> {
+            self.provider_adapter_authorizer
+                .verify(provider, attempt, action_key)
+        }
+
         fn outcome_verifier(&self) -> &dyn OutcomeVerifier {
             self.outcome_verifier.as_ref()
         }
@@ -1588,6 +1699,9 @@ mod tests {
         final_entry_identity: &str,
     ) -> Box<dyn BoundaryTrustRoot> {
         Box::new(TestTrustRoot {
+            provider_adapter_authorizer: Box::new(
+                PinnedProviderAdapterAuthorizer::new(["provider-adapter-v1"]).unwrap(),
+            ),
             outcome_verifier: outcome,
             outcome_identity: outcome_identity.to_owned(),
             final_entry_verifier: final_entry,
@@ -1652,6 +1766,28 @@ mod tests {
         AttemptIdentityV1::new("governance", "host-1", id).unwrap()
     }
 
+    struct WrongAdapter;
+
+    impl ProviderAdapter for WrongAdapter {
+        fn adapter_identity(&self) -> &str {
+            "wrong-provider-adapter-v1"
+        }
+
+        fn invoke(
+            &mut self,
+            _permit: &ProviderEntryPermitV1,
+        ) -> Result<ProviderObservation, String> {
+            panic!("wrong provider adapter must be rejected before provider entry");
+        }
+
+        fn reconcile(
+            &mut self,
+            _context: &ProviderActionContextV1,
+        ) -> Result<ProviderObservation, String> {
+            panic!("wrong provider adapter must be rejected before reconciliation");
+        }
+    }
+
     fn attempt_record(id: &str, op: &str, state: AttemptRecordState) -> AttemptRecordV1 {
         let action = action();
         AttemptRecordV1::new(
@@ -1701,6 +1837,47 @@ mod tests {
     }
 
     #[test]
+    fn provider_adapter_must_match_pinned_attempt_identity() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("adapter-identity.db")).unwrap();
+        let mut boundary = test_host(store);
+        let action_key = action();
+        let owner = identity("attempt-adapter-identity");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-adapter-identity",
+                    "operation-adapter-identity",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        let result = boundary.dispatch(
+            &action_key,
+            &owner,
+            "owner-attempt-adapter-identity",
+            &mut WrongAdapter,
+        );
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("provider adapter identity does not match the attempt")
+        ));
+
+        let attempt = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
+        assert_eq!(attempt.state, AttemptRecordState::Consumed);
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_some());
+        assert!(boundary
+            .store
+            .durably_read_provider_entry_claim(&owner)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
     fn provider_is_not_called_before_confirmed_dispatch_pending() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("dispatch.db")).unwrap();
@@ -1744,6 +1921,10 @@ mod tests {
     fn invocation_error_holds_fence_as_indeterminate() {
         struct ErrorProvider;
         impl ProviderAdapter for ErrorProvider {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(&mut self, _permit: &ProviderEntryPermitV1) -> Result<ProviderObservation, String> {
                 Err("timeout after send".into())
             }
@@ -1941,6 +2122,10 @@ mod tests {
 
         struct MustNotInvoke;
         impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
@@ -1998,6 +2183,10 @@ mod tests {
 
         struct MustNotInvoke;
         impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
@@ -2060,6 +2249,10 @@ mod tests {
 
         struct MustNotInvoke;
         impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
@@ -2124,6 +2317,10 @@ mod tests {
 
         struct MustNotInvoke;
         impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
@@ -2372,6 +2569,10 @@ mod tests {
 
         struct MustNotRun;
         impl ProviderAdapter for MustNotRun {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
             fn invoke(
                 &mut self,
                 _permit: &ProviderEntryPermitV1,
