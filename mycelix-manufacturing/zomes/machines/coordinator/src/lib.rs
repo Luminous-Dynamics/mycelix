@@ -324,6 +324,7 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
     }
 
     let authority_hash = input.authority_hash.clone();
+    let previous_status = machine.status.clone();
     let updated = MachineEntry {
         status: input.new_status,
         current_work_order: input.work_order_hash.clone(),
@@ -336,7 +337,7 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
         machine_hash: input.machine_hash.clone(),
         machine_update_hash: update_hash.clone(),
         authority_hash,
-        previous_status: machine.status,
+        previous_status,
         new_status: input.new_status.clone(),
         work_order_hash: input.work_order_hash.clone(),
         changed_at: now,
