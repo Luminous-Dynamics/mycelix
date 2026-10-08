@@ -476,6 +476,7 @@ jobs:
           RUSTC_COMMIT: ${{ steps.toolchain.outputs.rustc_commit || '' }}
           CARGO_VERSION: ${{ steps.toolchain.outputs.cargo_version || '' }}
           CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid || '' }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid || '' }}
           CANDIDATE_EXECUTION_PROFILE: ${{ steps.sandbox.outputs.candidate_execution_profile || '' }}
           SANDBOX_IMAGE_DIGEST: ${{ steps.sandbox_image.outputs.sandbox_image_digest || '' }}
           SANDBOX_PROBE: ${{ steps.sandbox_probe.outputs.sandbox_probe || '' }}
@@ -487,8 +488,14 @@ jobs:
           import json
           import os
 
-          outcomes = {
-              "preflight": os.environ["PREFLIGHT_OUTCOME"],
+          def integer_or_zero(name: str) -> int:
+              value = os.environ.get(name, "")
+              try:
+                  return int(value) if value else 0
+              except ValueError:
+                  return 0
+
+          outcomes = {              "preflight": os.environ["PREFLIGHT_OUTCOME"],
               "checkout": os.environ["CHECKOUT_OUTCOME"],
               "source": os.environ["SOURCE_OUTCOME"],
               "toolchain": os.environ["TOOLCHAIN_OUTCOME"],
@@ -529,8 +536,8 @@ jobs:
               "rustc_version": os.environ["RUSTC_VERSION"],
               "rustc_commit": os.environ["RUSTC_COMMIT"],
               "cargo_version": os.environ["CARGO_VERSION"],
-              "candidate_uid": int(os.environ["CANDIDATE_UID"]),
-              "candidate_gid": int(os.environ["CANDIDATE_GID"]),
+              "candidate_uid": integer_or_zero("CANDIDATE_UID"),
+              "candidate_gid": integer_or_zero("CANDIDATE_GID"),
               "candidate_execution_profile": os.environ["CANDIDATE_EXECUTION_PROFILE"],
               "sandbox_image_digest": os.environ["SANDBOX_IMAGE_DIGEST"],
               "sandbox_probe": os.environ["SANDBOX_PROBE"],
