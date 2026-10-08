@@ -57,7 +57,6 @@ BadSameRoleReviewFullControl(subject, reviewer) ==
     /\ conflictFinding' = [conflictFinding EXCEPT ![subject] = TRUE]
     /\ activeReviewers' = [activeReviewers EXCEPT ![subject] = {reviewer}]
     /\ reviewHistory' = [reviewHistory EXCEPT ![subject] = @ \cup {reviewer}]
-    /\ UNCHANGED clock
     /\ clock' = NextTime
 
 BadReviewerRoleDrift(subject, reviewer, role) ==
