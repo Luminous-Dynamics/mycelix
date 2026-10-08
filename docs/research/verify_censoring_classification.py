@@ -319,6 +319,7 @@ def verify(
     policy: dict,
     actual_policy_sha: str,
     history_anchors: dict,
+    object_identity_anchors: dict,
 ) -> str:
     ok, reason = validate_structure(graph, policy)
     if not ok:
@@ -339,6 +340,22 @@ def verify(
 
     nodes = node_index(graph)
     assert nodes is not None
+
+    # Object identity is supplied separately from the semantic graph. In this
+    # fixture dialect the anchor is co-versioned with the fixture, so it proves
+    # consistency with the supplied anchor but not independent anchor custody.
+    object_anchors = object_identity_anchors
+    if isinstance(object_anchors, dict):
+        for node_id, anchor in object_anchors.items():
+            node = nodes.get(node_id)
+            if node is None:
+                continue
+            if node.get("commitment") is None:
+                return "unresolved"
+            identity = digest({"id": node_id, "type": node.get("type"), "commitment": node["commitment"]})
+            if identity != anchor:
+                return "unqualified"
+
     claim_nodes = claim_local_nodes(graph, policy)
 
     if policy["classification"].get("supersession_must_be_claim_local", True):
@@ -478,7 +495,7 @@ def main() -> int:
     for case in fixture["cases"]:
         graph = apply_mutations(fixture["base_graph"], case["mutation"])
         verdict = verify(
-            graph, policy, actual_sha, fixture["history_anchors"]
+            graph, policy, actual_sha, fixture["history_anchors"], fixture.get("object_identity_anchors", {})
         )
         rows.append({
             "actual_verdict": verdict,

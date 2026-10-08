@@ -130,11 +130,21 @@ jobs:
 
       - name: Emit exact-head receipt
         shell: bash
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            expected_head="${PR_HEAD_SHA}"
+          else
+            expected_head="${EVENT_SHA}"
+          fi
           actual_head="$(git rev-parse HEAD)"
-          test "$actual_head" = "$GITHUB_SHA"
-          printf 'exact_head=%s\n' "$actual_head"
+          test -n "${expected_head}"
+          test "${actual_head}" = "${expected_head}"
+          printf 'exact_head=%s\n' "${actual_head}"
 
       - name: State non-authoritative boundary
         shell: bash

@@ -89,6 +89,32 @@ The remaining claim is bounded: the scope anchor proves consistency with the dec
 
 Base-revision history is additionally anchored by an immutable fixture-level commitment. Thus changing the historical class, basis, or policy identity without creating a new revision fails closed.
 
+## Object identity continuity
+
+Content commitments prove that a current classification record matches the bytes represented by its semantic fields. They do not by themselves prove that a logical identifier refers to the same object across successive observations.
+
+The research dialect therefore supports a separate external object-identity anchor:
+
+    logical object ID
+        +
+    exact semantic commitment
+        ↓
+    immutable object-identity anchor
+
+For an anchored object, the verifier recomputes:
+
+    H({id, type, commitment})
+
+and compares it with the supplied anchor. The node type is included so an identifier cannot be rebound while changing its semantic kind. A mismatch is unqualified: the current object is internally well-formed but no longer represents the anchored object.
+
+A genuinely new identifier may remain unanchored and can qualify when all other provenance rules hold. This distinction prevents the rule from confusing legitimate new materialization with identifier rebinding.
+
+Base revision anchors remain a separate mechanism because they additionally enforce historical presence and claim-local lineage. Object-identity anchors instead protect continuity of known non-base identifiers.
+
+This separation is consistent with SCITT's distinction between an identifiable signed statement, its subject identity, and independent registration/receipt history. A transparency receipt proves registration of a particular statement; it does not make the issuer truthful.
+
+W3C PROV likewise models revision as a relation between distinct entities rather than silently mutating one entity in place.
+
 ## Temporal boundary
 
 The fixture uses a frozen logical epoch order:
@@ -300,3 +326,15 @@ Policy liveness covers this rule, and the generated campaign now contains 168 de
 ## Scope-identity closure follow-up
 
 A composition review found that claim-local membership was partly a reachability property. Without an explicit scope binding, a foreign classification could become claim-local merely by adding a lineage path from the local claim. The dialect now anchors the claim scope and includes that anchor in classification commitments. Scope mismatches are unresolved, while the policy-liveness campaign confirms that disabling the scope rule changes the verdict as expected.
+
+
+## Object-identity closure follow-up
+
+The object-identity closure adds eight fixed cases for known non-base identifier continuity, including valid anchored materialization, semantic rebinding with valid topology, revision rebinding, target rebinding, foreign scope, valid new identifiers, representation reordering, and late classification. The external anchor deliberately binds the identifier together with the exact semantic commitment so a recomputed commitment cannot silently legitimize reuse of the same historical ID.
+
+
+## Independent-anchor ceiling
+
+In the current fixture dialect, `object_identity_anchors` are supplied alongside the fixture and therefore are not an independent custody system. They establish a stronger relation than self-consistency—known identifier to known commitment—but they do not establish who originally controlled the anchor or prevent the anchor source itself from being rewritten in a later fixture. Independent anchor governance is therefore explicitly left to #4829.
+
+TUF provides a useful analogous separation: trusted roles sign metadata, Snapshot binds a consistent view, and Timestamp supplies freshness information; rollback and freeze are treated as distinct attacks. CT likewise relies on append-only Merkle histories and consistency proofs to compare later log states with earlier ones. 

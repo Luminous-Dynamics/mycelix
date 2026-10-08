@@ -1,5 +1,5 @@
 {
-  "schema": "mycelix.continual-adaptation.censoring-classification-fixtures.v2",
+  "schema": "mycelix.continual-adaptation.censoring-classification-fixtures.v3",
   "status": "research-fixture-only",
   "policy_binding": {
     "git_blob_sha": "5ce9d28fa3e615a12aaabc4ad246ad1ae0af8655"
@@ -1837,6 +1837,521 @@
       ],
       "expected_verdict": "unresolved",
       "reason": "attempt census scope identity diverges from the anchored claim"
+    },
+    {
+      "case_id": "CCP-041",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:77551e754cd4ed5c05764fd22c13444b39d46626230dd0be0094f266ca4f44d9",
+            "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "qualified",
+      "reason": "known non-base object identity matches its external anchor"
+    },
+    {
+      "case_id": "CCP-042",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "InfrastructureCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:b03d1db2d295e8235cad59d120647ac6b8e63a259ad54bb7866414adcca97cce",
+            "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "unqualified",
+      "reason": "known object c02 is rebound by changing censoring_reason while preserving its logical identifier"
+    },
+    {
+      "case_id": "CCP-043",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B2",
+            "revision": "1",
+            "commitment": "sha256:5fae1227e46d4094e1e2eb9b5b91a98069ed741341bedd963676facee0bf01a4",
+            "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "unqualified",
+      "reason": "known object c02 is rebound by changing basis_id while preserving its logical identifier"
+    },
+    {
+      "case_id": "CCP-044",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "2",
+            "commitment": "sha256:fa6007b2c2b78d3126b4248b6ad4dd6ee820ed54c8151a289c792f13dc53b347",
+            "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "unqualified",
+      "reason": "known object c02 is rebound by changing revision while preserving its logical identifier"
+    },
+    {
+      "case_id": "CCP-045",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:07022b2d6b25e2f89948ed41ad044d5267729617210876800d12352b924a6265",
+            "claim_scope_anchor": "sha256:1415e536f9e5bab08514ba2451fa63f044b5273a51f37f0d26813931ad8365c7"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "unqualified",
+      "reason": "known object c02 is rebound by changing claim_scope_anchor while preserving its logical identifier"
+    },
+    {
+      "case_id": "CCP-046",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t2",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:bf7bcfe671f3220d225b897d7b38ec0818a5a722e9d94e6e395fd39b11496284",
+            "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "unqualified",
+      "reason": "known object c02 is rebound by changing classification_epoch while preserving its logical identifier"
+    },
+    {
+      "case_id": "CCP-047",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c03",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:77551e754cd4ed5c05764fd22c13444b39d46626230dd0be0094f266ca4f44d9",
+            "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c03",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c03",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c03",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c03",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c03",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "qualified",
+      "reason": "genuinely new unanchored object ID is not an identity-rebinding violation"
+    },
+    {
+      "case_id": "CCP-048",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:440d7081662c8ae7efa6897955ddc0765c56d76a543aacd7d3c749b655b608ab",
+            "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "unqualified",
+      "reason": "same known object ID is rebound to a different committed content under a valid topology"
     }
-  ]
+  ],
+  "object_identity_anchors": {
+    "c02": "sha256:817e8a4cfc81838087f92401035e18b5e5cf7d007715d2e40e11c39824dd398d"
+  }
 }
