@@ -1616,6 +1616,35 @@ pub fn refund_locked_funds(input: RefundFundsInput) -> ExternResult<Record> {
 /// execution attached to this timelock. This checks source ActionHash anchors and
 /// the immutable resolution outcome, but deliberately does not claim that the
 /// proof roots themselves have been externally verified by this zome.
+fn validate_execution_resolution_for_release(
+    resolution: &ExecutionResolution,
+    execution: &Execution,
+    execution_action_hash: &ActionHash,
+    timelock: &Timelock,
+    timelock_action_hash: &ActionHash,
+) -> Result<(), String> {
+    if resolution.outcome != ExecutionResolutionOutcome::Executed {
+        return Err("execution resolution is not terminally Executed".into());
+    }
+    if resolution.execution_id != execution.id
+        || resolution.timelock_id != timelock.id
+        || resolution.proposal_id != timelock.proposal_id
+        || execution.timelock_id != timelock.id
+        || execution.proposal_id != timelock.proposal_id
+    {
+        return Err("execution resolution does not match timelock/execution scope".into());
+    }
+    if resolution.executor != execution.executor {
+        return Err("execution resolution executor does not match prepared execution".into());
+    }
+    if resolution.execution_action_hash.as_ref() != Some(execution_action_hash)
+        || resolution.timelock_action_hash.as_ref() != Some(timelock_action_hash)
+    {
+        return Err("execution resolution source ActionHash anchors do not match".into());
+    }
+    Ok(())
+}
+
 fn find_executed_resolution_for_prepared_execution(
     timelock_record: &Record,
     timelock: &Timelock,
@@ -1675,20 +1704,17 @@ fn find_executed_resolution_for_prepared_execution(
                 continue;
             };
 
-            if resolution.outcome != ExecutionResolutionOutcome::Executed
-                || resolution.execution_id != execution.id
-                || resolution.timelock_id != timelock.id
-                || resolution.proposal_id != timelock.proposal_id
-                || resolution.executor != execution.executor
-                || resolution.execution_action_hash.as_ref()
-                    != Some(execution_record.action_address())
-                || resolution.timelock_action_hash.as_ref()
-                    != Some(timelock_record.action_address())
+            if validate_execution_resolution_for_release(
+                &resolution,
+                &execution,
+                execution_record.action_address(),
+                timelock,
+                timelock_record.action_address(),
+            )
+            .is_ok()
             {
-                continue;
+                return Ok(Some(resolution));
             }
-
-            return Ok(Some(resolution));
         }
     }
 
@@ -1781,6 +1807,66 @@ mod tests {
     // =========================================================================
 
     // --- TransferCredits ---
+
+    #[test]
+    fn execution_resolution_for_release_requires_exact_source_anchors() {
+        let timelock_hash = ActionHash::from_raw_36(vec![1; 36]);
+        let execution_hash = ActionHash::from_raw_36(vec![2; 36]);
+        let timelock = Timelock {
+            id: "tl-1".into(),
+            proposal_id: "prop-1".into(),
+            actions: "[]".into(),
+            started: ts(1_000_000),
+            expires: ts(2_000_000),
+            status: TimelockStatus::Prepared,
+            cancellation_reason: None,
+        };
+        let execution = Execution {
+            id: "execution-1".into(),
+            timelock_id: "tl-1".into(),
+            proposal_id: "prop-1".into(),
+            executor: "did:mycelix:test".into(),
+            status: ExecutionStatus::Prepared,
+            result: None,
+            error: None,
+            executed_at: ts(2_000_001),
+        };
+        let mut resolution = ExecutionResolution {
+            id: "resolution:execution-1".into(),
+            execution_id: "execution-1".into(),
+            timelock_id: "tl-1".into(),
+            proposal_id: "prop-1".into(),
+            executor: "did:mycelix:test".into(),
+            execution_action_hash: Some(execution_hash.clone()),
+            timelock_action_hash: Some(timelock_hash.clone()),
+            attempt_identities: vec![],
+            action_key_digests: vec![],
+            terminal_evidence_digests: vec![],
+            authorization_admission_proof_digests: vec![],
+            final_provider_entry_proof_digests: vec![],
+            outcome: ExecutionResolutionOutcome::Executed,
+            resolved_at: ts(2_000_010),
+        };
+
+        assert!(validate_execution_resolution_for_release(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_ok());
+
+        resolution.execution_action_hash = None;
+        assert!(validate_execution_resolution_for_release(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_err());
+    }
 
     #[test]
     fn test_transfer_credits_valid() {
