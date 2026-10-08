@@ -78,6 +78,7 @@ jobs:
           assert "EXPECTED_WORKFLOW_SHA" in text
           assert "Differential-test GitHub ref matcher" in text
           assert "File::FNM_PATHNAME" in text
+          assert "character class" in text
           PY
 
       - name: Validate governance policy JSON
@@ -314,6 +315,14 @@ jobs:
               ("refs/heads/qa**/**/*", "refs/heads/qafoo/bar/hello-world"),
               ("refs/*/*", "refs/main"),
               ("refs/*/*", "refs/heads/main"),
+              # Ruby-compatible character class and leading-dot regressions.
+              ("refs/heads/[!a]ain", "refs/heads/main"),
+              ("refs/heads/[!m]ain", "refs/heads/main"),
+              ("refs/heads/[!]ain", "refs/heads/main"),
+              ("refs/heads/[[]ain", "refs/heads/[ain"),
+              ("refs/heads/*", "refs/heads/.hidden"),
+              ("refs/heads/.hidden", "refs/heads/.hidden"),
+              ("refs/**/main", "refs/.hidden/main"),
           ]
 
           for pattern, value in corpus:
@@ -336,6 +345,11 @@ jobs:
               "refs/heads/+(main|develop)",
               "refs/heads/?(main|develop)",
               "refs/heads/!(develop)",
+              "refs/heads/a[",
+              "refs/heads/[",
+              "refs/heads/[]",
+              "refs/heads/[]a]",
+              "refs/heads/[a/b]",
           ]
           for pattern in unsupported:
               assert module._github_ref_pattern_matches("refs/heads/main", pattern) is False

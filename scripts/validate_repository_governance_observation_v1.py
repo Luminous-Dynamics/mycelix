@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 import copy
-import fnmatch
+from functools import lru_cache
 import hashlib
 import json
 import re
@@ -368,7 +368,58 @@ def validate_observation_shape(observation: Any) -> None:
         )
 
 
-def _github_fnmatch_pattern_supported(pattern: str) -> bool:
+def _github_character_class_end(
+    pattern: str,
+    start: int,
+    *,
+    pathname: bool,
+) -> int | None:
+    """Return the index after a Ruby-compatible bracket expression."""
+    index = start + 1
+    if index >= len(pattern):
+        return None
+    negated = pattern[index] == "!"
+    if negated:
+        index += 1
+    if index >= len(pattern):
+        return None
+    # Ruby's matcher treats [!] as a negated empty set, which matches any
+    # single character. A non-negated empty set is outside our accepted
+    # fail-closed syntax language.
+    if pattern[index] == "]":
+        return index + 1 if negated else None
+
+    while index < len(pattern):
+        current = pattern[index]
+        if current == "]":
+            return index + 1
+        if pathname and current == "/":
+            return None
+        if current == "\\":
+            return None
+        index += 1
+        if index >= len(pattern):
+            return None
+        # A hyphen immediately before the closing bracket is literal;
+        # otherwise Ruby consumes a range endpoint as one class atom.
+        if (
+            pattern[index] == "-"
+            and index + 1 < len(pattern)
+            and pattern[index + 1] != "]"
+        ):
+            if pathname and pattern[index + 1] == "/":
+                return None
+            if pattern[index + 1] == "\\":
+                return None
+            index += 2
+    return None
+
+
+def _github_fnmatch_pattern_supported(
+    pattern: str,
+    *,
+    pathname: bool = False,
+) -> bool:
     if not isinstance(pattern, str) or not pattern:
         return False
     if "\\" in pattern:
@@ -379,37 +430,168 @@ def _github_fnmatch_pattern_supported(pattern: str) -> bool:
     # extglob operators instead of inheriting a different glob dialect.
     if re.search(r"[!?+*@]\(", pattern):
         return False
+
+    index = 0
+    while index < len(pattern):
+        if pattern[index] != "[":
+            index += 1
+            continue
+        end = _github_character_class_end(pattern, index, pathname=pathname)
+        if end is None:
+            return False
+        index = end
     return True
 
-def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
-    """Match GitHub ruleset ref patterns with pathname-aware fnmatch semantics."""
+
+def _github_character_class_matches(
+    pattern: str,
+    start: int,
+    candidate: str,
+    *,
+    pathname: bool,
+) -> int | None:
+    """Return the index after a matching Ruby-style bracket expression."""
+    index = _github_character_class_end(pattern, start, pathname=pathname)
+    if index is None:
+        return None
+
+    scan = start + 1
+    negated = scan < len(pattern) and pattern[scan] == "!"
+    if negated:
+        scan += 1
+
+    matched = False
+    if scan < len(pattern) and pattern[scan] == "]":
+        matched = False
+    else:
+        while scan < index - 1:
+            first = pattern[scan]
+            scan += 1
+            if scan >= index - 1:
+                return None
+            if (
+                pattern[scan] == "-"
+                and scan + 1 < index
+                and pattern[scan + 1] != "]"
+            ):
+                second = pattern[scan + 1]
+                scan += 2
+                if first <= candidate <= second:
+                    matched = True
+                continue
+            if first == candidate:
+                matched = True
+
+    return index if matched != negated else None
+
+
+def _github_fnmatch_matches(
+    value: str,
+    pattern: str,
+    *,
+    pathname: bool,
+) -> bool:
     if not isinstance(value, str) or not isinstance(pattern, str) or not pattern:
         return False
-    if not _github_fnmatch_pattern_supported(pattern):
+    if not _github_fnmatch_pattern_supported(pattern, pathname=pathname):
         return False
-    value_parts = value.split("/")
-    pattern_parts = pattern.split("/")
 
-    def segment_matches(segment: str, candidate: str) -> bool:
-        return fnmatch.fnmatchcase(candidate, segment)
+    value_len = len(value)
+    pattern_len = len(pattern)
 
-    def match(parts: list[str], candidates: list[str]) -> bool:
-        if not parts:
-            return not candidates
-        head, *tail = parts
-        if head == "**" and tail:
-            return match(tail, candidates) or (
-                bool(candidates) and match(parts, candidates[1:])
-            )
-        return bool(candidates) and segment_matches(head, candidates[0]) and match(
-            tail, candidates[1:]
+    @lru_cache(maxsize=None)
+    def match(pattern_index: int, value_index: int) -> bool:
+        if pattern_index == pattern_len:
+            return value_index == value_len
+
+        # Ruby handles **/ outside its component matcher. It can consume zero
+        # or more complete path components, but without FNM_DOTMATCH it cannot
+        # recurse through a leading-dot component.
+        if (
+            pathname
+            and pattern_index + 2 < pattern_len
+            and pattern[pattern_index : pattern_index + 3] == "**/"
+        ):
+            next_index = pattern_index
+            while (
+                next_index + 2 < pattern_len
+                and pattern[next_index : next_index + 3] == "**/"
+            ):
+                next_index += 3
+
+            if match(next_index, value_index):
+                return True
+
+            scan = value_index
+            while scan < value_len:
+                separator = value.find("/", scan)
+                if separator < 0:
+                    break
+                if value[scan] == ".":
+                    break
+                if match(next_index, separator + 1):
+                    return True
+                scan = separator + 1
+            return False
+
+        component_start = value_index == 0 or (
+            value_index > 0 and value[value_index - 1] == "/"
         )
+        if (
+            component_start
+            and value_index < value_len
+            and value[value_index] == "."
+            and pattern[pattern_index] != "."
+        ):
+            return False
 
-    return match(pattern_parts, value_parts)
+        token = pattern[pattern_index]
+        if token == "*":
+            next_index = pattern_index
+            while next_index < pattern_len and pattern[next_index] == "*":
+                next_index += 1
+            if match(next_index, value_index):
+                return True
+            scan = value_index
+            while scan < value_len and (not pathname or value[scan] != "/"):
+                scan += 1
+                if match(next_index, scan):
+                    return True
+            return False
 
+        if token == "?":
+            if value_index >= value_len or (
+                pathname and value[value_index] == "/"
+            ):
+                return False
+            return match(pattern_index + 1, value_index + 1)
+
+        if token == "[":
+            if value_index >= value_len or (
+                pathname and value[value_index] == "/"
+            ):
+                return False
+            end = _github_character_class_matches(
+                pattern,
+                pattern_index,
+                value[value_index],
+                pathname=pathname,
+            )
+            return end is not None and match(end, value_index + 1)
+
+        if value_index >= value_len or token != value[value_index]:
+            return False
+        return match(pattern_index + 1, value_index + 1)
+
+    return match(0, 0)
+
+
+def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
+    """Match GitHub ruleset ref patterns with Ruby FNM_PATHNAME semantics."""
+    return _github_fnmatch_matches(value, pattern, pathname=True)
 
 def _validate_ref_pattern_lists(includes: list[str], excludes: list[str]) -> bool:
-    if any(not _github_fnmatch_pattern_supported(pattern)
+    if any(not _github_fnmatch_pattern_supported(pattern, pathname=True)
            for pattern in includes + excludes
            if pattern not in {"~ALL", "~DEFAULT_BRANCH", "~EMUS"}):
         return False
@@ -434,9 +616,13 @@ def _ref_pattern_matches_main(pattern: Any, default_branch: str) -> bool:
 
 
 def _scope_pattern_matches(value: str, pattern: str) -> bool:
-    # GitHub account/repository names are case-insensitive; preserve fnmatch
-    # semantics while normalizing only the compared name operands.
-    return pattern == "~ALL" or fnmatch.fnmatchcase(value.casefold(), pattern.casefold())
+    # GitHub account/repository names are case-insensitive; preserve Ruby
+    # fnmatch semantics while normalizing only the compared name operands.
+    return pattern == "~ALL" or _github_fnmatch_matches(
+        value.casefold(),
+        pattern.casefold(),
+        pathname=False,
+    )
 
 
 def _validate_special_selector_patterns(
@@ -1514,6 +1700,32 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
 
 
 def self_test(policy: dict[str, Any]) -> None:
+    # Ruby/FNM_PATHNAME character-class, globstar, leading-dot, and malformed
+    # syntax regressions are executable evaluator invariants.
+    assert _github_ref_pattern_matches("refs/heads/main", "refs/heads/[!a]ain")
+    assert not _github_ref_pattern_matches("refs/heads/main", "refs/heads/[!m]ain")
+    assert _github_ref_pattern_matches("refs/heads/main", "refs/heads/[!]ain")
+    assert _github_ref_pattern_matches("refs/heads/[ain", "refs/heads/[[]ain")
+    assert not _github_ref_pattern_matches("refs/heads/.main", "refs/heads/*")
+    assert _github_ref_pattern_matches("refs/heads/.main", "refs/heads/.main")
+    assert not _github_ref_pattern_matches("refs/.hidden/main", "refs/**/main")
+    assert _scope_pattern_matches("mycelix", "my[!]elix")
+    for malformed_ref_pattern in (
+        "refs/heads/a[",
+        "refs/heads/[",
+        "refs/heads/[]",
+        "refs/heads/[]a]",
+        "refs/heads/[a/b]",
+    ):
+        assert not _github_fnmatch_pattern_supported(
+            malformed_ref_pattern,
+            pathname=True,
+        )
+        assert not _github_ref_pattern_matches(
+            "refs/heads/main",
+            malformed_ref_pattern,
+        )
+
     fixture = fixture_policy()
     require(
         policy.get("repository") == fixture["repository"]
@@ -1648,12 +1860,31 @@ def self_test(policy: dict[str, Any]) -> None:
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
 
+    for supported_ref_pattern, supported_ref_value in (
+        ("refs/heads/[!a]ain", "refs/heads/main"),
+        ("refs/heads/[!]ain", "refs/heads/main"),
+        ("refs/heads/[[]ain", "refs/heads/[ain"),
+    ):
+        assert _github_fnmatch_pattern_supported(
+            supported_ref_pattern,
+            pathname=True,
+        )
+        assert _github_ref_pattern_matches(
+            supported_ref_value,
+            supported_ref_pattern,
+        )
+
     for unsupported_ref_pattern in (
         "refs/heads/@(main|develop)",
         "refs/heads/+(main|develop)",
         "refs/heads/?(main|develop)",
         "refs/heads/!(develop)",
         "refs/heads/main@(develop|main)",
+        "refs/heads/a[",
+        "refs/heads/[",
+        "refs/heads/[]",
+        "refs/heads/[]a]",
+        "refs/heads/[a/b]",
     ):
         x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
         x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = [unsupported_ref_pattern]
