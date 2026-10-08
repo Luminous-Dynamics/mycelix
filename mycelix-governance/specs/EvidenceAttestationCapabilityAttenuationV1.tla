@@ -23,7 +23,6 @@ Evidence == {E1}
 
 issuer == [G1 |-> Root, G2 |-> Root]
 grantee == [G1 |-> Alice, G2 |-> Alice]
-
 TimeRank == [T1 |-> 1, T2 |-> 2]
 
 Capability(g) ==
@@ -31,6 +30,10 @@ Capability(g) ==
    action |-> GrantAction[g],
    audience |-> GrantAudience[g],
    expiry |-> GrantExpiry[g]]
+
+CapabilityUniverse ==
+  { [resource |-> r, action |-> a, audience |-> u, expiry |-> t] :
+      r \in Resources, a \in Actions, u \in Audiences, t \in Times }
 
 VARIABLES activeGrants, revokedGrants, authority, evidenceRecorded,
           evidenceAuthorityBefore, evidenceAuthorityAfter
@@ -40,7 +43,7 @@ vars == <<activeGrants, revokedGrants, authority, evidenceRecorded,
 
 AuthorityOf(active) ==
   [a \in Agents |-> IF a = Root
-                    THEN {Capability(g) : g \in Grants}
+                    THEN CapabilityUniverse
                     ELSE {Capability(g) :
                             g \in active /\ grantee[g] = a}]
 
@@ -75,18 +78,11 @@ ApplyEvidenceBackedGrant(e, g) ==
   /\ g \notin activeGrants
   /\ g \notin revokedGrants
   /\ grantee[g] = EvidenceSubject[e]
-  /\ GrantResource[g] \in Resources
-  /\ GrantAction[g] \in Actions
-  /\ GrantAudience[g] \in Audiences
-  /\ GrantExpiry[g] \in Times
-  /\ GrantResource[g] \in Resources
-  /\ GrantAction[g] \in Actions
-  /\ GrantAudience[g] \in Audiences
-  /\ TimeRank[GrantExpiry[g]] <= TimeRank[ClaimExpiry[e]]
+  /\ Capability(g) \in authority[issuer[g]]
   /\ GrantResource[g] \in ClaimResources[e]
   /\ GrantAction[g] \in ClaimActions[e]
   /\ GrantAudience[g] \in ClaimAudiences[e]
-  /\ GrantResource[g] \in authority[issuer[g]]
+  /\ TimeRank[GrantExpiry[g]] <= TimeRank[ClaimExpiry[e]]
   /\ evidenceRecorded' = evidenceRecorded \cup {e}
   /\ activeGrants' = activeGrants \cup {g}
   /\ revokedGrants' = revokedGrants
@@ -104,30 +100,16 @@ TypeOK ==
   /\ activeGrants \subseteq Grants
   /\ revokedGrants \subseteq Grants
   /\ activeGrants \cap revokedGrants = {}
-  /\ authority \in [Agents -> SUBSET (Resources \X Actions \X Audiences \X Times)]
+  /\ authority \in [Agents -> SUBSET CapabilityUniverse]
   /\ evidenceRecorded \subseteq Evidence
-  /\ evidenceAuthorityBefore \in
-       [Evidence -> [Agents -> SUBSET (Resources \X Actions \X Audiences \X Times)]]
-  /\ evidenceAuthorityAfter \in
-       [Evidence -> [Agents -> SUBSET (Resources \X Actions \X Audiences \X Times)]]
+  /\ evidenceAuthorityBefore \in [Evidence -> [Agents -> SUBSET CapabilityUniverse]]
+  /\ evidenceAuthorityAfter \in [Evidence -> [Agents -> SUBSET CapabilityUniverse]]
 
-AuthorityMatchesCurrentGrants == authority = AuthorityOf(activeGrants)
+AuthorityMatchesCurrentGrants ==
+  authority = AuthorityOf(activeGrants)
 
-GrantResourceWithinIssuerAuthority ==
-  \A g \in activeGrants :
-    GrantResource[g] \in Resources
-
-GrantActionWithinIssuerAuthority ==
-  \A g \in activeGrants :
-    GrantAction[g] \in Actions
-
-GrantAudienceWithinIssuerAuthority ==
-  \A g \in activeGrants :
-    GrantAudience[g] \in Audiences
-
-GrantExpiryValid ==
-  \A g \in activeGrants :
-    GrantExpiry[g] \in Times
+GrantCapabilitiesWithinIssuerAuthority ==
+  \A g \in activeGrants : Capability(g) \in authority[issuer[g]]
 
 NoAuthorityWithoutCurrentGrant ==
   \A a \in Agents \ {Root}, c \in authority[a] :
