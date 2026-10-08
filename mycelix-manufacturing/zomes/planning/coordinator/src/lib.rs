@@ -143,6 +143,15 @@ enum MachineStateResolutionProjection {
     Deleted,
 }
 
+fn qualification_attestation_is_current(
+    attestation: &QualificationAttestationProjection,
+    observed_at: Timestamp,
+) -> bool {
+    matches!(attestation.outcome, CapabilityQualification::Qualified)
+        && attestation.valid_from <= observed_at
+        && observed_at <= attestation.valid_until
+}
+
 fn capability_profile(contract: &CapabilityContractProjection) -> CapabilityProfile {
     CapabilityProfile {
         process_family: contract.process_family.clone(),
@@ -402,7 +411,7 @@ pub fn select_live_capability(
                     continue;
                 }
 
-                if attestation.valid_from <= observed_at && observed_at <= attestation.valid_until {
+                if qualification_attestation_is_current(&attestation, observed_at) {
                     current_attestations.push(attestation_hash);
                 }
             }
@@ -898,6 +907,53 @@ pub fn list_mrp_runs(_: ()) -> ExternResult<Vec<Link>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn qualification_currentness_is_inclusive() {
+        let at = Timestamp::from_micros(100);
+        let attestation = QualificationAttestationProjection {
+            capability_contract_hash: ActionHash::from_raw_36(vec![1; 36]),
+            outcome: CapabilityQualification::Qualified,
+            valid_from: Timestamp::from_micros(100),
+            valid_until: Timestamp::from_micros(200),
+        };
+
+        assert!(qualification_attestation_is_current(&attestation, at));
+        assert!(qualification_attestation_is_current(
+            &attestation,
+            Timestamp::from_micros(200)
+        ));
+    }
+
+    #[test]
+    fn expired_qualification_is_not_current() {
+        let attestation = QualificationAttestationProjection {
+            capability_contract_hash: ActionHash::from_raw_36(vec![1; 36]),
+            outcome: CapabilityQualification::Qualified,
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(99),
+        };
+
+        assert!(!qualification_attestation_is_current(
+            &attestation,
+            Timestamp::from_micros(100)
+        ));
+    }
+
+    #[test]
+    fn nonqualified_attestation_is_not_current() {
+        let attestation = QualificationAttestationProjection {
+            capability_contract_hash: ActionHash::from_raw_36(vec![1; 36]),
+            outcome: CapabilityQualification::Verified,
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(200),
+        };
+
+        assert!(!qualification_attestation_is_current(
+            &attestation,
+            Timestamp::from_micros(100)
+        ));
+    }
 
     #[test]
     fn test_run_mrp_input_serde() {
