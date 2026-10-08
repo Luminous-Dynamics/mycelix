@@ -1,0 +1,122 @@
+{
+  "schema": "mycelix.effective-contestability-formal-qualification-profile.v1",
+  "profile_id": "SOV-AI-CONTESTABILITY-FORMAL-QUAL-001-V1",
+  "status": "candidate-verification-profile",
+  "authority": "non-authoritative",
+  "subject": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "source_branch": "sov-ai-formal-v6-contestability-subject",
+    "head_sha": "3f55878096d5eafb63917421d1d4f07e2ffbbee0",
+    "tree_sha": null,
+    "tree_binding": "required-exact-tree; qualification must fail closed until resolved"
+  },
+  "models": {
+    "tla": {
+      "path": "mycelix-governance/specs/EffectiveContestabilityV1.tla",
+      "git_blob_sha": "4469ce066173b846e6e95d1cf10a49e4edcbb87b",
+      "config_path": "mycelix-governance/specs/EffectiveContestabilityV1.cfg",
+      "config_git_blob_sha": "deafbd5e4719e7439d63d7b505e539aba17fcb5d",
+      "invariants": [
+        "TypeOK",
+        "EffectiveExitIsIndependent",
+        "EffectiveExitRequiresPortability",
+        "SharedRootsCannotBecomeEffectiveExit",
+        "ProviderFailureDoesNotExpandAuthority",
+        "MigrationPreservesObligationsAndHistory",
+        "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction",
+        "HighSwitchingCostTriggersReview",
+        "NoEffectiveExitWithoutNominalExit"
+      ]
+    },
+    "negative_tla": {
+      "path": "mycelix-governance/specs/EffectiveContestabilityV1NegativeControls.tla",
+      "git_blob_sha": "37ea5de70631a096a4f2362c6348011a8f6a252c",
+      "controls": {
+        "nominal-effective": "EffectiveExitRequiresPortability",
+        "shared-root": "SharedRootsCannotBecomeEffectiveExit",
+        "failure-authority": "ProviderFailureDoesNotExpandAuthority",
+        "switch-obligation": "MigrationPreservesObligationsAndHistory",
+        "switch-jurisdiction": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction",
+        "switch-review": "HighSwitchingCostTriggersReview"
+      }
+    },
+    "alloy": {
+      "path": "mycelix-governance/specs/alloy/EffectiveContestabilityV1.als",
+      "git_blob_sha": "0a00b3dbc2376182d1df3c29fabf06c62595e224",
+      "runner_path": "mycelix-governance/tools/formal/EffectiveContestabilityAlloyRunner.java",
+      "runner_git_blob_sha": "8376243468c8560f8e9f9baacf51ae3b38d2c284",
+      "solver": "SAT4J",
+      "bitwidth": 4,
+      "scope": {
+        "overall": 4,
+        "int": 4,
+        "Subject": 4,
+        "Provider": 4,
+        "Migration": 4,
+        "Power": 4,
+        "Jurisdiction": 4
+      },
+      "expected_sat": [
+        "NominalExitWithoutEffective",
+        "EffectiveIndependentAlternative",
+        "MigrationContinuityWitness",
+        "ProviderFailureNoAuthorityChangeWitness",
+        "HighSwitchingCostReviewWitness"
+      ],
+      "expected_unsat": [
+        "EffectiveAlternativesHaveIndependentRoots",
+        "MigrationsPreserveObligationsHistoryAuthorityAndJurisdiction",
+        "ProviderFailuresPreserveAuthority",
+        "ReviewIsRequiredAtHighSwitchingCost"
+      ]
+    },
+    "reference": {
+      "path": "mycelix-governance/tools/formal/effective_contestability_reference_explorer.py",
+      "git_blob_sha": "b36515a84daed286654fe5b93383f08aad78fa75",
+      "controls": {
+        "nominal-effective": "EffectiveExitRequiresPortability",
+        "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
+        "failure-authority": "ProviderFailureDoesNotExpandAuthority",
+        "switch-obligation": "MigrationPreservesObligationsAndHistory",
+        "switch-jurisdiction": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction",
+        "switch-review": "HighSwitchingCostTriggersReview"
+      }
+    }
+  },
+  "verifier": {
+    "profile_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_QUALIFICATION_PROFILE_V1.json",
+    "pins_path": "mycelix-governance/tools/formal/effective_contestability_pins.json",
+    "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json",
+    "tree_binding_required": true
+  },
+  "runtime": {
+    "jdk_package": "jdk17_headless",
+    "java_major": 17
+  },
+  "claim_contract": {
+    "candidate_only": true,
+    "requires": [
+      "exact subject head and tree",
+      "exact detached model/config/negative-control/runner/reference fixture blobs",
+      "pinned TLA+/Alloy tool bytes",
+      "canonical TLA clean result with no invariant violations",
+      "each TLA negative control isolates exactly one intended invariant violation",
+      "all expected Alloy SAT witnesses are SAT",
+      "all expected Alloy UNSAT assertions are UNSAT",
+      "each Alloy negative control changes only its intended canonical outcome",
+      "exact solver/bitwidth/scopes",
+      "exact JDK runtime metadata",
+      "postflight immutability",
+      "bounded reference exploration"
+    ],
+    "bounded_result_is_not_unbounded_proof": true,
+    "formal_result_is_not_runtime_qualification": true,
+    "qualification_is_not_external_recognition": true
+  },
+  "nonclaims": [
+    "Finite model evidence is not proof of real-world market contestability.",
+    "No legal recognition or sovereignty is established.",
+    "No scalar contestability or power score is created.",
+    "No production equivalence is established."
+  ]
+}
