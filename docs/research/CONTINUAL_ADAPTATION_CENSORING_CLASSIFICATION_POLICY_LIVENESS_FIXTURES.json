@@ -1,5 +1,5 @@
 {
-  "schema": "mycelix.continual-adaptation.censoring-classification-policy-liveness.v1",
+  "schema": "mycelix.continual-adaptation.censoring-classification-policy-liveness.v2",
   "status": "research-fixture-only",
   "mutations": [
     {
