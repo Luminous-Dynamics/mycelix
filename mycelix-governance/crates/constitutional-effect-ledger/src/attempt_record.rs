@@ -1119,6 +1119,11 @@ pub trait DurableActionFenceStore {
         &self,
         attempt_identity: &AttemptIdentityV1,
     ) -> Result<Option<ProviderEntryClaimV1>, String>;
+
+    fn durably_read_authorization_admission_proof(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<AuthorizationAdmissionProofV1>, String>;
 }
 
 /// Durable binding for one native replay identity.
@@ -1259,6 +1264,7 @@ pub struct AtomicActionFenceModelV1 {
     fences: BTreeMap<String, ActionFenceRecordV1>,
     replay_bindings: BTreeMap<String, NativeReplayBindingV1>,
     provider_entry_claims: BTreeMap<String, ProviderEntryClaimV1>,
+    authorization_admission_proofs: BTreeMap<String, AuthorizationAdmissionProofV1>,
 }
 
 impl AtomicActionFenceModelV1 {
@@ -1377,6 +1383,10 @@ impl AtomicActionFenceModelV1 {
         // transaction/linearizable conflict-detecting write.
         self.replay_bindings
             .insert(replay_binding.native_replay_identity.clone(), replay_binding);
+        self.authorization_admission_proofs.insert(
+            authorization_proof.attempt_identity.clone(),
+            authorization_proof,
+        );
         self.attempts
             .insert(record.attempt_identity.clone(), record);
         self.fences.insert(fence.action_key_digest.clone(), fence);
@@ -1918,6 +1928,15 @@ impl AtomicActionFenceModelV1 {
                 return Err("attempt map key mismatch".into());
             }
 
+            let proof = self
+                .authorization_admission_proofs
+                .get(&record.attempt_identity)
+                .ok_or_else(|| "attempt is missing authorization admission proof".to_string())?;
+            proof.validate()?;
+            if record.authorization_admission_proof_digest.as_deref() != Some(proof.digest()) {
+                return Err("authorization admission proof digest mismatch".into());
+            }
+
             match record.state {
                 state if state.occupies_action_fence() => {
                     let fence = self
@@ -2246,6 +2265,16 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         attempt_identity: &AttemptIdentityV1,
     ) -> Result<Option<ProviderEntryClaimV1>, String> {
         Ok(self.provider_entry_claims.get(attempt_identity.digest()).cloned())
+    }
+
+    fn durably_read_authorization_admission_proof(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<AuthorizationAdmissionProofV1>, String> {
+        Ok(self
+            .authorization_admission_proofs
+            .get(attempt_identity.digest())
+            .cloned())
     }
 }
 
