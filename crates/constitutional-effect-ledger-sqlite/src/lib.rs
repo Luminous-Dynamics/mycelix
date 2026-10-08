@@ -481,6 +481,91 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
         })
     }
 
+    fn atomically_release_provider_entry_claim_not_entered(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+        marker: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        if marker.trim().is_empty() || marker.len() > 512 {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+
+        self.with_transaction(|tx| {
+            let current = load_attempt_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::NotOwner)?;
+            verify_owner_and_key(&current, action_key, attempt_identity, owner_token_digest)?;
+            if current.state != AttemptRecordState::DispatchPending {
+                return Err(ActionFenceMutationError::InvalidTransition);
+            }
+
+            let claim = load_provider_entry_claim_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::ProviderEntryClaimMismatch)?;
+            if claim.action_key_digest != action_key.digest()
+                || claim.owner_token_digest != owner_token_digest
+                || claim.claim_token_digest != claim_token_digest
+            {
+                return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+
+            let fence = load_fence_tx(tx, action_key.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::NotOccupied)?;
+            verify_fence_owner(&fence, attempt_identity, owner_token_digest)?;
+
+            let mut updated = current.clone();
+            updated.state = AttemptRecordState::NotEntered;
+            updated.not_entered_marker = Some(marker);
+            updated.validate().map_err(storage_error)?;
+            update_attempt_tx(tx, &current, &updated)?;
+
+            let claim_deleted = tx
+                .execute(
+                    "DELETE FROM effect_provider_entry_claims
+                     WHERE attempt_identity = ?1
+                       AND action_key_digest = ?2
+                       AND owner_token_digest = ?3
+                       AND claim_token_digest = ?4
+                       AND record_digest = ?5",
+                    params![
+                        attempt_identity.digest(),
+                        action_key.digest(),
+                        owner_token_digest,
+                        claim_token_digest,
+                        claim.record_digest()
+                    ],
+                )
+                .map_err(storage_error)?;
+            if claim_deleted != 1 {
+                return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+
+            let fence_deleted = tx
+                .execute(
+                    "DELETE FROM effect_action_fences
+                     WHERE action_key_digest = ?1
+                       AND state = ?2
+                       AND owner_attempt_identity = ?3
+                       AND owner_token_digest = ?4",
+                    params![
+                        action_key.digest(),
+                        ActionFenceState::Occupied.storage_tag(),
+                        attempt_identity.digest(),
+                        owner_token_digest
+                    ],
+                )
+                .map_err(storage_error)?;
+            if fence_deleted != 1 {
+                return Err(ActionFenceMutationError::NotOccupied);
+            }
+            Ok(())
+        })
+    }
+
     fn atomically_recover_provider_entry_claim(
         &mut self,
         action_key: &ActionKeyV1,
