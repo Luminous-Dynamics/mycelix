@@ -2,8 +2,8 @@
   "schema": "mycelix.effective-contestability-formal-crosswalk.v1",
   "status": "candidate-verification",
   "authority": "non-authoritative",
-  "subject_head": "5a4a64349ceb59f68a956eb0cb97843cacb8cb32",
-  "subject_tree": "ad2a45543bbd2fe9ce559fa640f9d6c9d3005fef",
+  "subject_head": "09283f2d44e7608aebc4b2e6c6870d25ca5a84da",
+  "subject_tree": "802d6141cde139e7cebc0a4a594032341cc1fa07",
   "relationship": "semantic-alignment map only; not a refinement proof",
   "mappings": [
     {
