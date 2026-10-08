@@ -56,6 +56,7 @@ pub struct CreateMachineTimeAuthorityProfileInput {
     pub authority_agent: AgentPubKey,
     pub profile_id: String,
     pub source_profile: String,
+    pub source_authority_commitment: Vec<u8>,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
     pub max_accuracy_micros: i64,
@@ -373,6 +374,8 @@ pub fn create_machine_time_authority_profile(
     if input.valid_until < input.valid_from
         || input.profile_id.is_empty()
         || input.source_profile.is_empty()
+        || input.source_authority_commitment.is_empty()
+        || input.source_authority_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || input.max_accuracy_micros < 0
         || input.max_accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
     {
@@ -386,6 +389,7 @@ pub fn create_machine_time_authority_profile(
         authority_agent: input.authority_agent.clone(),
         profile_id: input.profile_id.clone(),
         source_profile: input.source_profile.clone(),
+        source_authority_commitment: input.source_authority_commitment.clone(),
         valid_from: input.valid_from,
         valid_until: input.valid_until,
         max_accuracy_micros: input.max_accuracy_micros,
@@ -396,6 +400,7 @@ pub fn create_machine_time_authority_profile(
         authority_agent: input.authority_agent,
         profile_id: input.profile_id,
         source_profile: input.source_profile,
+        source_authority_commitment: input.source_authority_commitment,
         valid_from: input.valid_from,
         valid_until: input.valid_until,
         max_accuracy_micros: input.max_accuracy_micros,
