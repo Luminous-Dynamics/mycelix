@@ -1,0 +1,221 @@
+-------------------- MODULE EffectiveContestabilityV1 --------------------
+EXTENDS Naturals, FiniteSets
+
+(*
+Bounded temporal model for effective contestability.
+
+This model deliberately separates:
+  nominal exit from effective exit;
+  provider count from control-root independence;
+  portability from obligation/history continuity;
+  provider failure from authority mutation;
+  provider choice from jurisdiction;
+  switching cost from a scalar sovereignty score.
+
+It does not model real-world market structure or legal recognition.
+*)
+
+CONSTANTS S1, S2, P1, P2,
+          C1, C2, I1, I2, E1, E2, V1, V2, M1, M2,
+          PowerA, PowerB, J1, J2,
+          MaxSwitchingCost, ReviewThreshold
+
+Subjects == {S1, S2}
+Providers == {P1, P2}
+Powers == {PowerA, PowerB}
+Jurisdictions == {J1, J2}
+Times == 0..MaxSwitchingCost
+
+controlRoot ==
+  [P1 |-> C1, P2 |-> C2]
+
+identityRoot ==
+  [P1 |-> I1, P2 |-> I2]
+
+evidenceRoot ==
+  [P1 |-> E1, P2 |-> E2]
+
+evaluatorRoot ==
+  [P1 |-> V1, P2 |-> V2]
+
+economicRoot ==
+  [P1 |-> M1, P2 |-> M2]
+
+VARIABLES currentProvider,
+          viableProviders,
+          nominalExit,
+          effectiveExit,
+          portable,
+          obligationsPreserved,
+          historyPreserved,
+          authority,
+          jurisdiction,
+          switchingCost,
+          reviewRequired,
+          providerFailed,
+          failureObserved,
+          failureAuthority,
+          switchObserved,
+          authorityBeforeSwitch,
+          jurisdictionBeforeSwitch,
+          clock
+
+vars ==
+  <<currentProvider, viableProviders, nominalExit, effectiveExit, portable,
+     obligationsPreserved, historyPreserved, authority, jurisdiction,
+     switchingCost, reviewRequired, providerFailed, failureObserved,
+     failureAuthority, switchObserved, authorityBeforeSwitch,
+     jurisdictionBeforeSwitch, clock>>
+
+Init ==
+  / currentProvider = [S1 |-> P1, S2 |-> P1]
+  / viableProviders = [s in Subjects |-> {P1, P2}]
+  / nominalExit = [s in Subjects |-> {}]
+  / effectiveExit = [s in Subjects |-> {}]
+  / portable = [s in Subjects |-> TRUE]
+  / obligationsPreserved = [s in Subjects |-> TRUE]
+  / historyPreserved = [s in Subjects |-> TRUE]
+  / authority = [s in Subjects |-> {}]
+  / jurisdiction = [s in Subjects |-> {J1}]
+  / switchingCost = [s in Subjects |-> 0]
+  / reviewRequired = [s in Subjects |-> FALSE]
+  / providerFailed = {}
+  / failureObserved = FALSE
+  / failureAuthority = [s in Subjects |-> {}]
+  / switchObserved = [s in Subjects |-> FALSE]
+  / authorityBeforeSwitch = [s in Subjects |-> {}]
+  / jurisdictionBeforeSwitch = [s in Subjects |-> {J1}]
+  / clock = 0
+
+Advanceable == clock < MaxSwitchingCost
+NextTime == clock + 1
+
+NominalAlternative(s, p) ==
+  / s in Subjects
+  / p in viableProviders[s]
+  / p # currentProvider[s]
+  / p in Providers
+
+IndependentAlternative(s, p) ==
+  / NominalAlternative(s, p)
+  / portable[s]
+  / controlRoot[p] # controlRoot[currentProvider[s]]
+  / identityRoot[p] # identityRoot[currentProvider[s]]
+  / evidenceRoot[p] # evidenceRoot[currentProvider[s]]
+  / evaluatorRoot[p] # evaluatorRoot[currentProvider[s]]
+  / economicRoot[p] # economicRoot[currentProvider[s]]
+
+MarkNominalExit(s, p) ==
+  / Advanceable
+  / NominalAlternative(s, p)
+  / nominalExit' = [nominalExit EXCEPT ![s] = @ cup {p}]
+  / UNCHANGED <<currentProvider, viableProviders, effectiveExit, portable,
+                  obligationsPreserved, historyPreserved, authority, jurisdiction,
+                  switchingCost, reviewRequired, providerFailed, failureObserved,
+                  failureAuthority, switchObserved, authorityBeforeSwitch,
+                  jurisdictionBeforeSwitch>>
+  / clock' = NextTime
+
+MarkEffectiveExit(s, p) ==
+  / Advanceable
+  / IndependentAlternative(s, p)
+  / p in nominalExit[s]
+  / effectiveExit' = [effectiveExit EXCEPT ![s] = @ cup {p}]
+  / UNCHANGED <<currentProvider, viableProviders, nominalExit, portable,
+                  obligationsPreserved, historyPreserved, authority, jurisdiction,
+                  switchingCost, reviewRequired, providerFailed, failureObserved,
+                  failureAuthority, switchObserved, authorityBeforeSwitch,
+                  jurisdictionBeforeSwitch>>
+  / clock' = NextTime
+
+SwitchProvider(s, p) ==
+  / Advanceable
+  / p in effectiveExit[s]
+  / portable[s]
+  / currentProvider' = [currentProvider EXCEPT ![s] = p]
+  / switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
+  / authorityBeforeSwitch' = [authorityBeforeSwitch EXCEPT ![s] = @]
+  / jurisdictionBeforeSwitch' = [jurisdictionBeforeSwitch EXCEPT ![s] = @]
+  / UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
+                  obligationsPreserved, historyPreserved, authority, jurisdiction,
+                  switchingCost, reviewRequired, providerFailed, failureObserved,
+                  failureAuthority>>
+  / clock' = NextTime
+
+ProviderFailure(p) ==
+  / Advanceable
+  / p in Providers
+  / p 
+otin providerFailed
+  / providerFailed' = providerFailed cup {p}
+  / failureObserved' = TRUE
+  / failureAuthority' = authority
+  / UNCHANGED <<currentProvider, viableProviders, nominalExit, effectiveExit, portable,
+                  obligationsPreserved, historyPreserved, authority, jurisdiction,
+                  switchingCost, reviewRequired, failureObserved, switchObserved,
+                  authorityBeforeSwitch, jurisdictionBeforeSwitch>>
+  / clock' = NextTime
+
+RequireReview(s) ==
+  / Advanceable
+  / s in Subjects
+  / switchingCost[s] < MaxSwitchingCost
+  / switchingCost' = [switchingCost EXCEPT ![s] = @ + 1]
+  / reviewRequired' =
+       [reviewRequired EXCEPT ![s] = IF @ THEN @ ELSE (@ / ((@ + 0) >= ReviewThreshold))]
+  / UNCHANGED <<currentProvider, viableProviders, nominalExit, effectiveExit, portable,
+                  obligationsPreserved, historyPreserved, authority, jurisdiction,
+                  providerFailed, failureObserved, failureAuthority, switchObserved,
+                  authorityBeforeSwitch, jurisdictionBeforeSwitch>>
+  / clock' = NextTime
+
+Next ==
+  / \E s in Subjects, p in Providers : MarkNominalExit(s, p)
+  / \E s in Subjects, p in Providers : MarkEffectiveExit(s, p)
+  / \E s in Subjects, p in Providers : SwitchProvider(s, p)
+  / \E p in Providers : ProviderFailure(p)
+  / \E s in Subjects : RequireReview(s)
+
+TypeOK ==
+  /\ currentProvider in [Subjects -> Providers]
+  /\ portable in [Subjects -> BOOLEAN]
+  /\ obligationsPreserved in [Subjects -> BOOLEAN]
+  /\ historyPreserved in [Subjects -> BOOLEAN]
+  /\ authority in [Subjects -> SUBSET Powers]
+  /\ jurisdiction in [Subjects -> SUBSET Jurisdictions]
+  /\ providerFailed subseteq Providers
+
+EffectiveExitIsIndependent ==
+  \A s in Subjects, p in effectiveExit[s] : IndependentAlternative(s, p)
+
+EffectiveExitRequiresPortability ==
+  \A s in Subjects, p in effectiveExit[s] : portable[s]
+
+SharedRootsCannotBecomeEffectiveExit ==
+  \A s in Subjects, p in effectiveExit[s] :
+    /\ controlRoot[p] # controlRoot[currentProvider[s]]
+    /\ identityRoot[p] # identityRoot[currentProvider[s]]
+    /\ evidenceRoot[p] # evidenceRoot[currentProvider[s]]
+    /\ evaluatorRoot[p] # evaluatorRoot[currentProvider[s]]
+    /\ economicRoot[p] # economicRoot[currentProvider[s]]
+
+ProviderFailureDoesNotExpandAuthority ==
+  failureObserved => authority = failureAuthority
+
+MigrationPreservesObligationsAndHistory ==
+  \A s in Subjects, switchObserved[s] =>
+    /\ obligationsPreserved[s]
+    /\ historyPreserved[s]
+
+ProviderSwitchDoesNotTransferAuthorityOrJurisdiction ==
+  \A s in Subjects, switchObserved[s] =>
+    /\ authority[s] = authorityBeforeSwitch[s]
+    /\ jurisdiction[s] = jurisdictionBeforeSwitch[s]
+
+HighSwitchingCostTriggersReview ==
+  \A s in Subjects : switchingCost[s] >= ReviewThreshold => reviewRequired[s]
+
+NoEffectiveExitWithoutNominalExit ==
+  \A s in Subjects, p in effectiveExit[s] : p in nominalExit[s]
+
+=========================================================================
