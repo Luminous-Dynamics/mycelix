@@ -90,6 +90,9 @@ jobs:
           grep -Fq 'AUTHORIZATION_PROOF_TABLE' "$source"
           grep -Fq 'authorization_admission_receipt_survives_restart' "$source"
           grep -Fq 'authorization_admission_receipt_tamper_fails_closed' "$source"
+          grep -Fq 'expired_authorization_admission_proof_is_rejected_at_durable_boundary' "$source"
+          grep -Fq 'same_attempt_id_with_changed_semantics_is_not_duplicate' "$boundary"
+          grep -Fq 'authorization admission proof expired before durable admission' "$source"
           grep -Fq 'authorization_admission_proof_is_self_validating' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'durably_read_authorization_admission_proof' "$source"
           grep -Fq 'authorization admission receipt digest mismatch' "$source"
