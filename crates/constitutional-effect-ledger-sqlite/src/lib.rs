@@ -2030,8 +2030,7 @@ mod tests {
         let a = attempt("attempt-1");
         let b = attempt("attempt-2");
 
-        first
-            .atomically_admit(
+        authorized_admit(&mut first, 
                 &action,
                 &a,
                 record(
@@ -2045,8 +2044,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            second
-                .atomically_admit(
+            authorized_admit(&mut second, 
                     &action,
                     &b,
                     record(
@@ -2082,8 +2080,7 @@ mod tests {
                 let action = key("race-action");
                 let owner = attempt(id);
                 barrier.wait();
-                store
-                    .atomically_admit(
+                authorized_admit(&mut store, 
                         &action,
                         &owner,
                         record(
@@ -2126,8 +2123,7 @@ mod tests {
         let first = attempt("attempt-1");
         let second = attempt("attempt-2");
 
-        store
-            .atomically_admit(
+        authorized_admit(&mut store, 
                 &first_key,
                 &first,
                 record(
@@ -2141,8 +2137,7 @@ mod tests {
             .unwrap();
 
         assert!(matches!(
-            store
-                .atomically_admit(
+            authorized_admit(&mut store, 
                     &second_key,
                     &second,
                     record(
@@ -2179,8 +2174,7 @@ mod tests {
 
         let action = key("rollback-action");
         let owner = attempt("rollback-attempt");
-        assert!(store
-            .atomically_admit(
+        assert!(authorized_admit(&mut store, 
                 &action,
                 &owner,
                 record(
@@ -2215,8 +2209,7 @@ mod tests {
         let action = key("terminal-action");
         let owner = attempt("attempt-1");
 
-        store
-            .atomically_admit(
+        authorized_admit(&mut store, 
                 &action,
                 &owner,
                 record(
@@ -2272,8 +2265,7 @@ mod tests {
         };
         assert_eq!(closed_fence.record_digest(), expected_closed.record_digest());
         assert_eq!(
-            reopened
-                .atomically_admit(
+            authorized_admit(&mut reopened, 
                     &action,
                     &attempt("attempt-2"),
                     record(
@@ -2297,8 +2289,7 @@ mod tests {
         let action = key("failed-action");
         let owner = attempt("attempt-1");
 
-        store
-            .atomically_admit(
+        authorized_admit(&mut store, 
                 &action,
                 &owner,
                 record(
@@ -2353,8 +2344,7 @@ mod tests {
         );
 
         assert_eq!(
-            store
-                .atomically_admit(
+            authorized_admit(&mut store, 
                     &action,
                     &attempt("attempt-2"),
                     record(
@@ -2378,8 +2368,7 @@ mod tests {
         let action = key("owner-action");
         let owner = attempt("attempt-1");
 
-        store
-            .atomically_admit(
+        authorized_admit(&mut store, 
                 &action,
                 &owner,
                 record(
@@ -2451,8 +2440,7 @@ mod tests {
         let action = key("not-entered-action");
         let owner = attempt("attempt-1");
 
-        store
-            .atomically_admit(
+        authorized_admit(&mut store, 
                 &action,
                 &owner,
                 record(
@@ -2491,8 +2479,7 @@ mod tests {
         let mut store = SqliteActionFenceStore::open(&path).unwrap();
         let action = key("fence-digest-action");
         let owner = attempt("attempt-1");
-        store
-            .atomically_admit(
+        authorized_admit(&mut store, 
                 &action,
                 &owner,
                 record(
@@ -2526,8 +2513,7 @@ mod tests {
         let mut store = SqliteActionFenceStore::open(&path).unwrap();
         let action = key("replay-digest-action");
         let owner = attempt("attempt-1");
-        store
-            .atomically_admit(
+        authorized_admit(&mut store, 
                 &action,
                 &owner,
                 record(
@@ -2563,8 +2549,7 @@ mod tests {
 
         {
             let mut store = SqliteActionFenceStore::open(&path).unwrap();
-            store
-                .atomically_admit(
+            authorized_admit(&mut store, 
                     &action,
                     &owner,
                     record(
@@ -2623,8 +2608,7 @@ mod tests {
 
         {
             let mut store = SqliteActionFenceStore::open(&path).unwrap();
-            store
-                .atomically_admit(
+            authorized_admit(&mut store, 
                     &action,
                     &owner,
                     record(
@@ -2682,8 +2666,7 @@ mod tests {
 
         {
             let mut store = SqliteActionFenceStore::open(&path).unwrap();
-            store
-                .atomically_admit(
+            authorized_admit(&mut store, 
                     &action,
                     &owner,
                     record(
@@ -2741,8 +2724,7 @@ mod tests {
         let action = key("claim-collision-action");
         let owner = attempt("attempt-claim-collision");
 
-        first
-            .atomically_admit(
+        authorized_admit(&mut first, 
                 &action,
                 &owner,
                 record(
@@ -2906,8 +2888,7 @@ mod tests {
         let mut store = SqliteActionFenceStore::open(&path).unwrap();
         let action = key("tamper-action");
         let owner = attempt("attempt-1");
-        store
-            .atomically_admit(
+        authorized_admit(&mut store, 
                 &action,
                 &owner,
                 record(
@@ -2939,8 +2920,7 @@ mod tests {
         let mut store = SqliteActionFenceStore::open(&path).unwrap();
         let action = key("fence-tamper-action");
         let owner = attempt("attempt-1");
-        store
-            .atomically_admit(
+        authorized_admit(&mut store, 
                 &action,
                 &owner,
                 record(
