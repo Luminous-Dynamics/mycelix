@@ -2436,6 +2436,33 @@ mod tests {
     }
 
     #[test]
+    fn authorization_admission_proof_is_self_validating() {
+        let action = key();
+        let record = record(
+            "attempt-admission-proof",
+            "operation-admission-proof",
+            AttemptRecordState::Consumed,
+        );
+        let proof = AuthorizationAdmissionProofV1::new(
+            &record,
+            &action,
+            100,
+            200,
+            "authorization-snapshot-v1",
+            "policy-snapshot-v1",
+            "status-snapshot-v1",
+            "admission-verifier-v1",
+        )
+        .unwrap();
+
+        proof.validate().unwrap();
+
+        let mut tampered = proof.clone();
+        tampered.verifier_identity = "wrong-verifier".into();
+        assert!(tampered.validate().is_err());
+    }
+
+    #[test]
     fn persisted_provider_idempotency_key_is_versioned_and_fail_closed() {
         let action = key();
         let record = record(
