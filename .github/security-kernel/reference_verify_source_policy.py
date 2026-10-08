@@ -624,8 +624,8 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail(f"S0 external action census mismatch: {external_uses(l)!r}")
     if exact_count(l, "  decision:") != 1:
         fail("S0 decision witness job missing")
-    if exact_count(l, "    name: Dispatch decision: ${{ needs.resolve.outputs.invocation_source }}/${{ needs.resolve.outputs.dispatch_decision }}/eligible=${{ needs.resolve.outputs.eligible_count }}") != 1:
-        fail("S0 decision witness job name must expose invocation, decision, and bounded eligible count")
+    if exact_count(l, '    name: "Dispatch decision: ${{ needs.resolve.outputs.invocation_source }}/${{ needs.resolve.outputs.dispatch_decision }}/eligible=${{ needs.resolve.outputs.eligible_count }}"') != 1:
+        fail("S0 decision witness job name must remain YAML-quoted because it contains a mapping colon")
     if exact_count(l, "      - name: Verify dispatch decision witness") != 1:
         fail("S0 decision witness step missing")
     if exact_count(l, '          case "$INVOCATION_SOURCE:$DISPATCH_DECISION" in') != 1:
