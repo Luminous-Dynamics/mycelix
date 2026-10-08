@@ -309,7 +309,7 @@ def require_step_execution_modes(lines_: list[str], description: str) -> None:
             current["shell"].append(re.fullmatch(r"\s{8}shell:\s+(.+)\s*", line).group(1))
 
 
-def require_no_duplicate_github_output_keys(lines_: list[str], description: str) -> None:
+def require_no_duplicate_github_output_keys(lines_: list[str], description: str) -> dict[str, set[str]]:
     """Reject duplicate or statically-unbound keys written to a GITHUB_OUTPUT sink."""
     current_name = None
     counts = {}
@@ -365,6 +365,7 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
         duplicates = sorted(key for key, count in counts.items() if count > 1)
         if duplicates:
             fail(f"{description}: duplicate GITHUB_OUTPUT keys under {current_name!r}: {duplicates!r}")
+        keys_by_step[current_name] = set(counts)
 
     reset_state()
     for line in lines_:
@@ -435,6 +436,7 @@ def require_no_duplicate_github_output_keys(lines_: list[str], description: str)
         fail(f"{description}: unrecognized GITHUB_OUTPUT sink under {current_name!r}: {stripped!r}")
 
     flush()
+    return keys_by_step
 
 def require_no_duplicate_env_keys(lines_: list[str], description: str) -> None:
     """Reject duplicate immediate keys inside every env: mapping."""
@@ -752,18 +754,11 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
     require_no_fail_open_controls(l, "S1")
     require_no_fail_open_probe_conditions(l, "S1")
     joined = "\n".join(l)
+    output_keys_by_step = require_no_duplicate_github_output_keys(l, "S1")
     resolve_source_output_refs = set(re.findall(r"steps\.resolve_source\.outputs\.([A-Za-z0-9_-]+)", joined))
-    allowed_resolve_source_outputs = {
-        "source_volume_name", "source_volume_spec", "source_copy_bytes", "source_copy_files",
-        "source_copy_inodes", "candidate_tree", "source_tree_entry_count", "source_file_count",
-        "source_total_path_bytes", "source_total_bytes", "source_max_blob_bytes", "fetch_image",
-        "source_staging_digest", "executed_source_digest", "source_digest",
-    }
-    if not resolve_source_output_refs <= allowed_resolve_source_outputs:
-        fail(f"S1 resolve_source output reference is not emitted by the acquisition step: {sorted(resolve_source_output_refs - allowed_resolve_source_outputs)!r}")
-    for required_output in allowed_resolve_source_outputs:
-        if not re.search(rf"\b{re.escape(required_output)}=", joined):
-            fail(f"S1 resolve_source output field missing from the workflow: {required_output}")
+    resolve_source_output_keys = output_keys_by_step.get("Resolve exact candidate source", set())
+    if not resolve_source_output_refs <= resolve_source_output_keys:
+        fail(f"S1 resolve_source output reference is not emitted by its own GITHUB_OUTPUT sink: {sorted(resolve_source_output_refs - resolve_source_output_keys)!r}")
     if 'test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"' not in joined:
         fail("S1 must bind called workflow commit to caller workflow commit")
     if "CANDIDATE_ROOT" in joined or "candidate_root" in joined or "security-kernel-candidate-root" in joined:
@@ -1084,6 +1079,8 @@ def verify_execution(raw: bytes) -> None:
         fail("execution oracle unexpectedly contains network imports")
     if "repository-local" not in text:
         fail("execution oracle self-containment marker missing")
+    if 'frame(b"security-kernel-execution-reference-v4")' not in text:
+        fail("execution oracle commitment namespace must match execution-binding v4")
     if 'struct.pack(">Q"' not in text:
         fail("execution oracle must use the registered length-framed encoding")
 
@@ -1612,6 +1609,18 @@ def main() -> None:
     expect_rejection(
         lambda: verify_s1(
             raw["s1"].replace(
+                b'source_volume_name=%s\\nsource_volume_spec=%s\\n',
+                b'source_volume_spec=%s\\n',
+                1,
+            ) + b"\\n# spoofed source_volume_name=comment\\n",
+            s1_sha,
+        ),
+        "resolve_source output key spoofed outside its GITHUB_OUTPUT sink",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(
+            raw["s1"].replace(
                 b"source_staging_digest=%s\\nexecuted_source_digest=%s\\nsource_digest=%s\\n",
                 b"source_staging_digest=%s\\nexecuted_source_digest=%s\\nsource_digest=%s\\nsource_digest=%s\\n",
                 1,
@@ -1619,6 +1628,17 @@ def main() -> None:
             s1_sha,
         ),
         "duplicate GITHUB_OUTPUT key introduced within one S1 step",
+    )
+
+    expect_rejection(
+        lambda: verify_execution(
+            raw["execution"].replace(
+                b"security-kernel-execution-reference-v4",
+                b"security-kernel-execution-reference-v3",
+                1,
+            )
+        ),
+        "execution reference commitment namespace regressed to v3",
     )
 
     for primitive in (b"GITHUB_ENV", b"GITHUB_PATH", b"GITHUB_STATE", b"GITHUB_STEP_SUMMARY", b"::set-output"):
