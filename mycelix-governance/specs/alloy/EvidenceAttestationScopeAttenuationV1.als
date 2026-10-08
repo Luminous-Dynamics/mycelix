@@ -92,7 +92,6 @@ pred ValidAuthorizedNarrowDeltaWitness {
     g.revoked = Off and
     g.grantee = e.subject and
     g.scope in e.claimScope and
-    g.scope not in e.grantsBefore.scope and
     e.authorityBefore != e.authorityAfter
 }
 
