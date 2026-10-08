@@ -384,7 +384,6 @@ jobs:
       - name: Export publication outputs
         id: publish_prep
         env:
-          ASSET_NAME: ${{ steps.package.outputs.asset_name }}
         run: |
           set -euo pipefail
           claim_id="$(python - <<'PY'
