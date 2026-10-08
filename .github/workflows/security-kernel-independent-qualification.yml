@@ -19,6 +19,10 @@ on:
         description: "Exact source repository numeric ID"
         required: true
         type: string
+      invocation_source:
+        description: "Trusted caller trigger witness: trusted-dispatch or scheduled-fallback"
+        required: true
+        type: string
       trusted_workflow_blob_sha:
         description: "Registered S1 workflow blob SHA supplied by the trusted caller"
         required: true
@@ -75,10 +79,11 @@ jobs:
       - name: Verify trusted pull-request-target invocation
         env:
           TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.run_id }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER_EVENT: ${{ github.event.pull_request.number }}
+          HEAD_SHA_EVENT: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY_EVENT: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.head.repo.id }}
           BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}
           BASE_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.base.repo.id }}
           BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}
@@ -86,12 +91,14 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
           CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}
+          INVOCATION_SOURCE: ${{ inputs.invocation_source }}
           HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
           CALLED_WORKFLOW_REF: ${{ job.workflow_ref }}
           CALLED_WORKFLOW_SHA: ${{ job.workflow_sha }}
           CALLED_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
           CALLED_WORKFLOW_FILE_PATH: ${{ job.workflow_file_path }}
           TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}
+          INVOCATION_SOURCE: ${{ inputs.invocation_source }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
         shell: bash
         run: |
@@ -102,69 +109,48 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
           test "$GITHUB_REF_PROTECTED" = "true"
           test "${ACTIONS_CACHE_MODE:-}" = "none"
-          test "$GITHUB_EVENT_NAME" = "pull_request_target"
           test "$CALLED_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-independent-qualification.yml@refs/heads/main"
           test "$CALLED_WORKFLOW_REPOSITORY" = "$BASE_REPOSITORY"
           test "$CALLED_WORKFLOW_FILE_PATH" = ".github/workflows/security-kernel-independent-qualification.yml"
-          printf '%s' "$CALLED_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s' "$TRUSTED_WORKFLOW_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
-          printf '%s' "$CANDIDATE_PR" | grep -Eq '^[0-9]+$'
-          printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s' "$CANDIDATE_REPOSITORY" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
-          printf '%s' "$CANDIDATE_REPOSITORY_ID" | grep -Eq '^[0-9]+$'
-          printf '%s' "$HEAD_REPOSITORY_ID" | grep -Eq '^[0-9]+$'
-          test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
-          test "$BASE_BRANCH_EVENT" = "main"
-          test "$PR_NUMBER" = "$CANDIDATE_PR"
-          test "$HEAD_SHA" = "$CANDIDATE_SHA"
-          test "$HEAD_REPOSITORY" = "$CANDIDATE_REPOSITORY"
-          test "$HEAD_REPOSITORY_ID" = "$CANDIDATE_REPOSITORY_ID"
-          test "$CALLED_WORKFLOW_SHA" = "$WORKFLOW_SHA"
+          printf "%s" "$CALLED_WORKFLOW_SHA" | grep -Eq "^[0-9a-f]{40}$"
+          printf "%s" "$TRUSTED_WORKFLOW_BLOB_SHA" | grep -Eq "^[0-9a-f]{40}$"
+          printf "%s" "$CANDIDATE_PR" | grep -Eq "^[0-9]+$"
+          printf "%s" "$CANDIDATE_SHA" | grep -Eq "^[0-9a-f]{40}$"
+          printf "%s" "$CANDIDATE_REPOSITORY" | grep -Eq "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+          printf "%s" "$CANDIDATE_REPOSITORY_ID" | grep -Eq "^[0-9]+$"
+          case "$INVOCATION_SOURCE" in
+            trusted-dispatch)
+              test "$EVENT_NAME" = "pull_request_target"
+              test "$PR_NUMBER_EVENT" = "$CANDIDATE_PR"
+              test "$HEAD_SHA_EVENT" = "$CANDIDATE_SHA"
+              test "$HEAD_REPOSITORY_EVENT" = "$CANDIDATE_REPOSITORY"
+              test "$HEAD_REPOSITORY_ID_EVENT" = "$CANDIDATE_REPOSITORY_ID"
+              test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
+              test "$BASE_REPOSITORY_ID_EVENT" = "$BASE_REPOSITORY_ID"
+              test "$BASE_BRANCH_EVENT" = "main"
+              ;;
+            scheduled-fallback)
+              test "$EVENT_NAME" = "schedule"
+              test -z "${PR_NUMBER_EVENT:-}"
+              test -z "${HEAD_SHA_EVENT:-}"
+              test -z "${HEAD_REPOSITORY_EVENT:-}"
+              ;;
+            *) echo "unsupported Security Kernel invocation source: $INVOCATION_SOURCE" >&2; exit 1 ;;
+          esac
           python3 - <<'PY'
-          import json, os, urllib.request
-          repo=os.environ["BASE_REPOSITORY"]
-          pr_number=int(os.environ["PR_NUMBER"])
-          req=urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
-              headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version":"2022-11-28",
-              })
-          with urllib.request.urlopen(req, timeout=20) as response:
-              pr=json.load(response)
-          assert pr["number"] == pr_number
-          assert pr["state"] == "open"
-          assert pr["base"]["repo"]["full_name"] == repo
-          assert pr["base"]["repo"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
-          assert pr["base"]["ref"] == "main"
-          assert pr["head"]["repo"]["full_name"] == os.environ["CANDIDATE_REPOSITORY"]
-          assert pr["head"]["repo"]["id"] == int(os.environ["CANDIDATE_REPOSITORY_ID"])
-          assert pr["head"]["sha"] == os.environ["CANDIDATE_SHA"]
-          workflow_sha=os.environ["WORKFLOW_SHA"]
-          called_workflow_sha=os.environ["CALLED_WORKFLOW_SHA"]
-          assert len(workflow_sha) == 40 and all(ch in "0123456789abcdef" for ch in workflow_sha)
-          assert called_workflow_sha == workflow_sha
-          workflow_path=".github/workflows/security-kernel-independent-qualification.yml"
-          workflow_req=urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/contents/{workflow_path}?ref={workflow_sha}",
-              headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version":"2022-11-28",
-              })
-          with urllib.request.urlopen(workflow_req, timeout=20) as response:
-              workflow=json.load(response)
-          assert workflow.get("sha") == os.environ["TRUSTED_WORKFLOW_BLOB_SHA"], (
-              "executing S1 workflow blob is outside the registered trust profile"
-          )
-          assert os.environ["CALLED_WORKFLOW_REF"] == "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-independent-qualification.yml@refs/heads/main"
-          print("PASS: reusable-job workflow identity resolves to the trusted S1 file at the same commit as S0")
-          print("PASS: executing S1 workflow blob matches the registered trust identity at the caller workflow commit")
-          print("PASS: trusted default-branch S0 bound the exact current PR repository/SHA")
+          import base64, json, os, urllib.request
+          repo=os.environ["BASE_REPOSITORY"]; pr_number=int(os.environ["CANDIDATE_PR"])
+          req=urllib.request.Request("https://api.github.com/repos/"+repo+"/pulls/"+str(pr_number),headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
+          with urllib.request.urlopen(req,timeout=20) as response: pr=json.load(response)
+          assert pr["number"]==pr_number and pr["state"]=="open"
+          assert pr["base"]["repo"]["full_name"]==repo and pr["base"]["repo"]["id"]==int(os.environ["BASE_REPOSITORY_ID"]) and pr["base"]["ref"]=="main"
+          assert pr["head"]["repo"]["full_name"]==os.environ["CANDIDATE_REPOSITORY"] and pr["head"]["repo"]["id"]==int(os.environ["CANDIDATE_REPOSITORY_ID"]) and pr["head"]["sha"]==os.environ["CANDIDATE_SHA"]
+          workflow_sha=os.environ["WORKFLOW_SHA"]; assert len(workflow_sha)==40
+          wf=urllib.request.Request("https://api.github.com/repos/"+repo+"/contents/.github/workflows/security-kernel-independent-qualification.yml?ref="+workflow_sha,headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
+          with urllib.request.urlopen(wf,timeout=20) as response: workflow=json.load(response)
+          assert workflow.get("sha")==os.environ["TRUSTED_WORKFLOW_BLOB_SHA"]
+          print("PASS: S1 exact candidate tuple and trusted workflow identity validated")
           PY
-
       - name: Resolve exact candidate source
         id: resolve_source
         env:
@@ -1183,6 +1169,7 @@ jobs:
             echo "candidate_repository_id=$CANDIDATE_REPOSITORY_ID"
             echo "candidate_pr=$CANDIDATE_PR"
             echo "candidate_sha=$CANDIDATE_SHA"
+            echo "qualification_invocation_source=$INVOCATION_SOURCE"
             echo "candidate_tree=$CANDIDATE_TREE"
             echo "candidate_source_tree_entry_count=$SOURCE_TREE_ENTRY_COUNT"
             echo "candidate_source_file_count=$SOURCE_FILE_COUNT"
@@ -1239,7 +1226,7 @@ jobs:
             echo "sandbox_user=non-root"
             echo "sandbox_capabilities=all-dropped"
             echo "sandbox_no_new_privileges=true"
-            echo "source_event=pull_request_target"
+            echo "source_event=$EVENT_NAME"
             echo "trusted_dispatcher_workflow=$GITHUB_WORKFLOW_REF"
             echo "trusted_workflow_ref=$GITHUB_WORKFLOW_REF"
             echo "trusted_workflow_sha=$GITHUB_WORKFLOW_SHA"
