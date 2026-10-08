@@ -210,7 +210,7 @@ function verify(graph, policy, actualPolicySha, historyAnchors, objectIdentityAn
     const node = nodes.get(nodeId);
     if (!node) continue;
     if (node.commitment === undefined) return "unresolved";
-    const identity = digest({id: nodeId, commitment: node.commitment});
+    const identity = digest({id: nodeId, type: node.type, commitment: node.commitment});
     if (identity !== anchor) return "unqualified";
   }
   const local = claimLocalNodes(graph, policy);
