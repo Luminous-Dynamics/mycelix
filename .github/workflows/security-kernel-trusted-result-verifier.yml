@@ -815,7 +815,7 @@ jobs:
           assert 0 < int(receipt["vendor_observed_inodes"]) <= int(receipt["vendor_max_inodes"])
           assert re.fullmatch(r"[0-9a-f]{64}", receipt["vendor_config_digest"])
 
-          assert receipt["source_event"] == "pull_request_target"
+          assert receipt["source_event"] == trigger_event
           assert receipt["trusted_dispatcher_workflow"] == run["workflow_ref"]
           assert receipt["trusted_workflow_ref"] == run["workflow_ref"]
           assert receipt["trusted_workflow_sha"] == workflow_sha
