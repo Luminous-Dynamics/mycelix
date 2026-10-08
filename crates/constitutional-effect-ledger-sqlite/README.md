@@ -76,3 +76,14 @@ fails after claim creation, the claim remains durable and reconciliation cannot
 guess that provider entry did not occur. An explicitly authorized claim
 recovery moves the attempt to INDETERMINATE and removes the claim in one durable
 transaction; there is no unsafe lease timeout.
+
+
+## Idempotency affirmation
+
+Terminal verification now receives the exact provider idempotency key that the
+provider-entry permit exposed. The returned verification proof repeats that key,
+and the boundary requires it to match before terminal evidence is constructed.
+
+Terminal evidence uses the idempotency key in its v3 digest domain as well.
+Consequently, changing the downstream idempotency identity changes the
+terminal-evidence commitment rather than leaving it as an unbound adapter detail.

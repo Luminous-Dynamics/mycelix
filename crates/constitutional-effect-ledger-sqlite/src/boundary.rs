@@ -35,6 +35,7 @@ pub struct VerifiedTerminalOutcomeV1 {
     operation_id: String,
     native_replay_identity: String,
     action_key_digest: String,
+    provider_idempotency_key: String,
     purpose: VerificationPurpose,
 }
 
@@ -46,13 +47,18 @@ impl VerifiedTerminalOutcomeV1 {
     pub fn new(
         attempt: &AttemptRecordV1,
         purpose: VerificationPurpose,
+        provider_idempotency_key: impl Into<String>,
         outcome: TerminalOutcomeV1,
         evidence_commitment: impl Into<String>,
         verifier_identity: impl Into<String>,
     ) -> Result<Self, String> {
+        let provider_idempotency_key = provider_idempotency_key.into();
         let evidence_commitment = evidence_commitment.into();
         let verifier_identity = verifier_identity.into();
-        if evidence_commitment.trim().is_empty() || verifier_identity.trim().is_empty() {
+        if provider_idempotency_key.trim().is_empty()
+            || evidence_commitment.trim().is_empty()
+            || verifier_identity.trim().is_empty()
+        {
             return Err("verification proof commitments must be non-empty".into());
         }
         Ok(Self {
@@ -63,6 +69,7 @@ impl VerifiedTerminalOutcomeV1 {
             operation_id: attempt.operation_id.clone(),
             native_replay_identity: attempt.native_replay_identity.clone(),
             action_key_digest: attempt.action_key_digest.clone(),
+            provider_idempotency_key,
             purpose,
         })
     }
@@ -72,11 +79,13 @@ impl VerifiedTerminalOutcomeV1 {
         attempt: &AttemptRecordV1,
         action_key: &ActionKeyV1,
         purpose: VerificationPurpose,
+        provider_idempotency_key: &str,
     ) -> bool {
         self.attempt_identity == attempt.attempt_identity
             && self.operation_id == attempt.operation_id
             && self.native_replay_identity == attempt.native_replay_identity
             && self.action_key_digest == action_key.digest()
+            && self.provider_idempotency_key == provider_idempotency_key
             && self.purpose == purpose
     }
 }
@@ -185,6 +194,7 @@ pub trait OutcomeVerifier {
     fn verify(
         &self,
         attempt: &AttemptRecordV1,
+        provider_idempotency_key: &str,
         observation: &ProviderObservation,
         purpose: VerificationPurpose,
     ) -> Result<VerifiedTerminalOutcomeV1, String>;
@@ -511,6 +521,7 @@ impl EffectBoundaryHostV1 {
             ProviderObservation::Executed { .. } | ProviderObservation::Failed { .. } => {
                 match verifier.verify(
                     &invoked,
+                    permit.provider_idempotency_key(),
                     &observation,
                     VerificationPurpose::InitialInvocation,
                 ) {
@@ -519,6 +530,7 @@ impl EffectBoundaryHostV1 {
                         attempt_identity,
                         owner_token_digest,
                         &invoked,
+                        permit.provider_idempotency_key(),
                         VerificationPurpose::InitialInvocation,
                         verified,
                     ),
@@ -539,10 +551,11 @@ impl EffectBoundaryHostV1 {
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
         attempt: &AttemptRecordV1,
+        provider_idempotency_key: &str,
         purpose: VerificationPurpose,
         verified: VerifiedTerminalOutcomeV1,
     ) -> Result<BoundaryOutcome, BoundaryError> {
-        if !verified.matches(attempt, action_key, purpose) {
+        if !verified.matches(attempt, action_key, purpose, provider_idempotency_key) {
             return Err(BoundaryError::Semantic(
                 "terminal verification proof is not bound to the exact attempt, action, or purpose"
                     .into(),
@@ -553,6 +566,7 @@ impl EffectBoundaryHostV1 {
             action_key,
             attempt,
             verified.outcome,
+            provider_idempotency_key,
             verified.evidence_commitment,
             verified.verifier_identity,
         )
@@ -703,8 +717,11 @@ impl EffectBoundaryHostV1 {
                 reason: "authoritative reconciliation remains indeterminate".into(),
             }),
             ProviderObservation::Executed { .. } | ProviderObservation::Failed { .. } => {
+                let provider_idempotency_key =
+                    derive_provider_idempotency_key(&indeterminate, action_key);
                 match verifier.verify(
                     &indeterminate,
+                    &provider_idempotency_key,
                     &observation,
                     VerificationPurpose::Reconciliation,
                 ) {
@@ -713,6 +730,7 @@ impl EffectBoundaryHostV1 {
                         attempt_identity,
                         owner_token_digest,
                         &indeterminate,
+                        &provider_idempotency_key,
                         VerificationPurpose::Reconciliation,
                         verified,
                     ),
@@ -929,6 +947,7 @@ mod tests {
         fn verify(
             &self,
             _attempt: &AttemptRecordV1,
+            _provider_idempotency_key: &str,
             observation: &ProviderObservation,
             _purpose: VerificationPurpose,
         ) -> Result<VerifiedTerminalOutcomeV1, String> {
@@ -937,6 +956,7 @@ mod tests {
                     VerifiedTerminalOutcomeV1::new(
                         _attempt,
                         _purpose,
+                        _provider_idempotency_key,
                         TerminalOutcomeV1::Executed,
                         evidence_commitment.clone(),
                         "verified-provider-v1",
@@ -945,6 +965,7 @@ mod tests {
                     VerifiedTerminalOutcomeV1::new(
                         _attempt,
                         _purpose,
+                        _provider_idempotency_key,
                         TerminalOutcomeV1::Failed,
                         evidence_commitment.clone(),
                         "verified-provider-v1",
@@ -1135,12 +1156,34 @@ mod tests {
         );
     }
 
+    struct MismatchedIdempotencyVerifier;
+
+    impl OutcomeVerifier for MismatchedIdempotencyVerifier {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            _provider_idempotency_key: &str,
+            _observation: &ProviderObservation,
+            purpose: VerificationPurpose,
+        ) -> Result<VerifiedTerminalOutcomeV1, String> {
+            VerifiedTerminalOutcomeV1::new(
+                attempt,
+                purpose,
+                "constitutional-provider-idempotency-v1:wrong-key",
+                TerminalOutcomeV1::Executed,
+                "wrong-idempotency-proof",
+                "malbound-verifier",
+            )
+        }
+    }
+
     struct MismatchedVerifier;
 
     impl OutcomeVerifier for MismatchedVerifier {
         fn verify(
             &self,
             attempt: &AttemptRecordV1,
+            _provider_idempotency_key: &str,
             _observation: &ProviderObservation,
             _purpose: VerificationPurpose,
         ) -> Result<VerifiedTerminalOutcomeV1, String> {
@@ -1166,11 +1209,63 @@ mod tests {
             VerifiedTerminalOutcomeV1::new(
                 &wrong_attempt,
                 VerificationPurpose::Reconciliation,
+                "constitutional-provider-idempotency-v1:mismatched",
                 TerminalOutcomeV1::Executed,
                 "mismatched-proof",
                 "malbound-verifier",
             )
         }
+    }
+
+    #[test]
+    fn mismatched_provider_idempotency_proof_holds_the_fence() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("mismatch-idempotency.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-mismatch-idempotency");
+        let record = attempt_record(
+            "attempt-mismatch-idempotency",
+            "operation-mismatch-idempotency",
+            AttemptRecordState::Consumed,
+        );
+
+        boundary.admit(&action_key, &owner, record).unwrap();
+
+        let mut provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
+
+        let result = boundary.dispatch(
+            &action_key,
+            &owner,
+            "owner-attempt-mismatch-idempotency",
+            &mut provider,
+            &MismatchedIdempotencyVerifier,
+        );
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("not bound to the exact attempt, action, or purpose")
+        ));
+
+        let attempt = boundary
+            .store
+            .durably_read_attempt(&owner)
+            .unwrap()
+            .unwrap();
+        assert_eq!(attempt.state, AttemptRecordState::Invoked);
+        assert!(boundary
+            .store
+            .durably_read_fence(&action_key)
+            .unwrap()
+            .is_some());
     }
 
     #[test]
