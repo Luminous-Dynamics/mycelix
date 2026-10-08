@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 SEED = 0x43505601
-VERSION = "censoring-classification-provenance-v1"
+VERSION = "censoring-classification-provenance-v2"
 
 FIELDS = (
     "attempt_id",
@@ -102,6 +102,39 @@ def main() -> int:
             "property": "representation_invariance",
             "mutation": mutation,
             "expected_verdict": "qualified",
+        })
+
+    omission_mutations = [
+        [["remove_node", "c01"]],
+        [["remove_node", "c01"], ["add_node", revision_node(policy_sha, revision="0")],
+         ["add_edge", ["attempts", "c02", "uses"]],
+         ["add_edge", ["c02", "a01", "classifies"]],
+         ["add_edge", ["c02", "p01", "frozen_by"]],
+         ["add_edge", ["c02", "b01", "supported_by"]]],
+        [["remove_node", "claim"]],
+        [["remove_node", "claim"], ["add_node", {"id": "claim", "type": "Result"}]],
+        [["remove_node", "claim"], ["add_node", {"id": "claim", "type": "Claim"}]],
+        [["remove_node", "attempts"]],
+        [["remove_node", "p01"]],
+        [["remove_node", "b01"]],
+        [["remove_node", "a01"]],
+        [["remove_node", "c01"], ["add_node", revision_node(policy_sha, revision="1")]],
+        [["remove_node", "c01"], ["add_node", revision_node(policy_sha, revision="1")],
+         ["add_edge", ["attempts", "c02", "uses"]],
+         ["add_edge", ["c02", "a01", "classifies"]],
+         ["add_edge", ["c02", "p01", "frozen_by"]],
+         ["add_edge", ["c02", "b01", "supported_by"]]],
+        [["remove_node", "claim"], ["remove_node", "c01"]],
+        [["remove_node", "p01"], ["remove_node", "b01"]],
+        [["remove_node", "a01"], ["remove_node", "c01"]],
+        [["remove_node", "c01"], ["remove_node", "claim"], ["add_node", {"id": "claim", "type": "Claim"}]],
+    ]
+    for i, mutation in enumerate(omission_mutations):
+        cases.append({
+            "case_id": f"CPV-GEN-OMIT-{i:03d}",
+            "property": "omission_and_anchor_presence",
+            "mutation": mutation,
+            "expected_verdict": "unresolved",
         })
 
     for i in range(24):
@@ -264,7 +297,7 @@ def main() -> int:
             "expected_verdict": expected,
         })
 
-    assert len(cases) == 128
+    assert len(cases) == 144
 
     corpus = {
         "schema": "mycelix.continual-adaptation.censoring-classification-provenance-generated-properties.v1",
