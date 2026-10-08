@@ -484,6 +484,7 @@ jobs:
 
           python - <<'PY'
           import json
+          import re
           from pathlib import Path
 
           def load(path):
