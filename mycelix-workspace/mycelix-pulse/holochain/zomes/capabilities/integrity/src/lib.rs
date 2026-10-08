@@ -32,6 +32,13 @@ pub struct MailboxCapability {
     pub revoked: bool,
     /// Revocation reason if revoked
     pub revocation_reason: Option<String>,
+    /// Action hash of the corresponding Holochain system capability grant.
+    ///
+    /// `None` is retained for legacy records created before this binding was
+    /// introduced. Such records must not claim successful conductor-level
+    /// revocation until an explicit migration establishes the binding.
+    #[serde(default)]
+    pub system_grant_action_hash: Option<ActionHash>,
     /// Secret for capability verification
     pub secret_hash: Vec<u8>,
 }
