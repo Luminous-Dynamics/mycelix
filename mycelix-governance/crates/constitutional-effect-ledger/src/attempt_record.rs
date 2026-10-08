@@ -2159,7 +2159,11 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         attempt_identity: &AttemptIdentityV1,
         record: AttemptRecordV1,
         authorization_proof: AuthorizationAdmissionProofV1,
+        admission_now_unix_ms: u64,
     ) -> Result<AtomicAdmissionDecision, String> {
+        if !authorization_proof.is_fresh(admission_now_unix_ms) {
+            return Err("authorization admission proof expired before durable admission".into());
+        }
         self.admit(
             action_key,
             attempt_identity,
