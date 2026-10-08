@@ -25,6 +25,7 @@
     "raw_payloads_required": true,
     "raw_payload_sha256_required": true,
     "admin_observation_required_for_verified": true,
+    "admin_capability_probe_required_when_branch_protection_unavailable": true,
     "public_observation_may_establish": [
       "target_ref_identity",
       "branch_protected_boolean",
