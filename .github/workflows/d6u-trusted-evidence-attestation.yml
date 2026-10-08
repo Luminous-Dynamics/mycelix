@@ -251,7 +251,7 @@ EOF
   "schema": "d6u-trusted-runtime-evidence-attestation/v2",
   "attestation_kind": "verified-runtime-evidence",
   "claim_ceiling": "ReferenceModelOnly",
-  "policy_version": 49,
+  "policy_version": 61,
   "canonical_predicate_sha256": "$CANONICAL_PREDICATE_SHA256"
 }
 EOF
