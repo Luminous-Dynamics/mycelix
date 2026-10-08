@@ -391,21 +391,24 @@ qualification, not evidence that the providers themselves satisfy the boundary.
 
 ## Execution resolution proof-root semantics
 
-`ExecutionResolution` now carries one authorization-admission proof commitment and
-one final-provider-entry proof commitment per attempt/action tuple, alongside the
-terminal evidence commitment.
+`ExecutionResolution` now carries a typed `ExecutionResolutionBindingV1` record
+for each prepared action. Each record groups exactly one attempt identity, action-key
+digest, terminal-evidence digest, admission-proof digest, and final-entry-proof digest.
+This removes independent parallel vectors, so a producer cannot accidentally align
+the wrong proof columns by separately reordering five arrays.
 
-The integrity zome validates canonical namespaces and digest shape, equal vector
-lengths, and a 256-tuple maximum. The coordinator validates the prepared timelock's
-action payload and requires exactly one tuple per prepared action; empty batches and
+The integrity zome validates canonical namespaces and lowercase digest shape and caps
+the binding set at 256 entries. The coordinator validates the prepared timelock's
+action payload and requires exactly one binding per prepared action; empty batches and
 mismatched cardinality are refused.
 
 These are coverage and structure checks, **not** authentication of the referenced host
-receipts. They do not prove that a same-index proof semantically corresponds to its
-action, or that the receipt exists and is valid in SQLite. The coordinator remains a
-prepare-only path. Provider execution is not qualified by the presence of these roots.
-A promotion gate must independently reconcile the host receipts and establish exact
-action correspondence before treating a resolution as fully evidenced.
+receipts. Grouping fields in one record does not prove that the proof semantically
+corresponds to its action, or that the receipt exists and is valid in SQLite. The
+coordinator remains a prepare-only path. Provider execution is not qualified by the
+presence of these roots. A promotion gate must independently reconcile host receipts
+and establish exact-action correspondence before treating a resolution as fully
+evidenced.
 
 ## Adapter contract added by D1D0
 
