@@ -212,15 +212,20 @@ function verify(graph, policy) {
   return "qualified";
 }
 
-const policyPath = process.argv[2];
-const corpusPath = process.argv[3];
-if (!policyPath || !corpusPath) {
-  console.error("usage: verify_continual_adaptation_ledger.mjs POLICY.json CORPUS.json");
+const expectedPolicyBlobSha = process.argv[2];
+const policyPath = process.argv[3];
+const corpusPath = process.argv[4];
+if (!expectedPolicyBlobSha || !policyPath || !corpusPath) {
+  console.error("usage: verify_continual_adaptation_ledger.mjs EXPECTED_POLICY_BLOB_SHA POLICY.json CORPUS.json");
   process.exit(2);
 }
 
 const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
 const corpus = JSON.parse(fs.readFileSync(corpusPath, "utf8"));
+if (corpus.policy_binding?.git_blob_sha !== expectedPolicyBlobSha) {
+  console.error("policy binding mismatch");
+  process.exit(1);
+}
 const failures = [];
 
 for (const testCase of corpus.cases) {
