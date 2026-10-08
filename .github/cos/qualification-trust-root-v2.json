@@ -24,8 +24,8 @@
     },
     "qualification_attestor_workflow": {
       "path": ".github/workflows/cos-conformance-qualification-attestor.yml",
-      "git_blob_sha1": "aa48e04a0dc0b8d486b4437bb9fdcf60b0a67f3f",
-      "content_sha256": "0848f6db0732e5c8de5266de48b6cb3cc6fb3ff814541451887f5b98123d6dfd"
+      "git_blob_sha1": "42e865ce7a4ab54a827b4f3d5fc0e165d5748343",
+      "content_sha256": "76163d9bdd10c50ed063a27390f54f1f030e5933b4f70b4b43c261b88441badf"
     },
     "federation_semantic_manifest": {
       "path": ".github/cos/federation-semantic-manifest-v1.json",
