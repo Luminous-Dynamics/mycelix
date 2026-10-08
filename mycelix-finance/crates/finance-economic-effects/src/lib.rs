@@ -261,6 +261,24 @@ pub fn validate_account_balance_projection(
 }
 
 impl EconomicEffectV1 {
+    /// Validate the effect and additionally bind it to an identity derived by
+    /// the source-specific authority theorem.
+    ///
+    /// The expected identity must be constructed from authenticated domain
+    /// evidence outside this generic kernel. For collateral issuance, this is
+    /// the canonical FIN-SAFE-010 mint_id; for transfers, the canonical
+    /// transfer ID derived by the value-note theorem.
+    pub fn validate_against_economic_identity(
+        &self,
+        expected: &EconomicIdentityV1,
+        context: EffectValidationContext<'_>,
+    ) -> Result<ValidatedEconomicEffect<'_>, EconomicEffectError> {
+        if &self.identity.economic_identity != expected {
+            return Err(EconomicEffectError::IdentityBindingMismatch);
+        }
+        self.validate(context)
+    }
+
     pub fn validate(
         &self,
         context: EffectValidationContext<'_>,
@@ -557,6 +575,7 @@ pub enum EconomicEffectError {
     UnsupportedSchema,
     InvalidEconomicIdentity,
     IdentityNamespaceMismatch,
+    IdentityBindingMismatch,
     InvalidPredecessorReference,
     InvalidCauseReference,
     InvalidSuccessorReference,
@@ -766,6 +785,69 @@ mod tests {
                 seen_economic_identities: &[],
             })
             .is_ok());
+    }
+
+    #[test]
+    fn source_derived_identity_binding_is_explicit() {
+        let effect = base_transfer();
+        let expected = EconomicIdentityV1 {
+            namespace: EconomicIdentityNamespaceV1::Transfer,
+            key: "transfer-1".into(),
+        };
+        assert!(effect
+            .validate_against_economic_identity(
+                &expected,
+                EffectValidationContext {
+                    seen_effect_identities: &[],
+                    seen_economic_identities: &[],
+                },
+            )
+            .is_ok());
+
+        let wrong = EconomicIdentityV1 {
+            namespace: EconomicIdentityNamespaceV1::Transfer,
+            key: "transfer-2".into(),
+        };
+        assert_eq!(
+            effect.validate_against_economic_identity(
+                &wrong,
+                EffectValidationContext {
+                    seen_effect_identities: &[],
+                    seen_economic_identities: &[],
+                },
+            ),
+            Err(EconomicEffectError::IdentityBindingMismatch)
+        );
+    }
+
+    #[test]
+    fn economic_identity_namespace_prevents_cross_class_key_collision() {
+        let transfer = EconomicIdentityV1 {
+            namespace: EconomicIdentityNamespaceV1::Transfer,
+            key: "same-key".into(),
+        };
+        let fee = EconomicIdentityV1 {
+            namespace: EconomicIdentityNamespaceV1::Fee,
+            key: "same-key".into(),
+        };
+
+        let mut effect = base_transfer();
+        effect.identity.economic_identity = transfer.clone();
+
+        assert!(effect
+            .validate(EffectValidationContext {
+                seen_effect_identities: &[],
+                seen_economic_identities: &[fee],
+            })
+            .is_ok());
+
+        assert_eq!(
+            effect.validate(EffectValidationContext {
+                seen_effect_identities: &[],
+                seen_economic_identities: &[transfer],
+            }),
+            Err(EconomicEffectError::EconomicReplay)
+        );
     }
 
     #[test]
