@@ -1846,6 +1846,21 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         self.admit(action_key, attempt_identity, record)
     }
 
+    fn atomically_record_provider_entry_proof(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        proof_digest: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.record_provider_entry_proof(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            proof_digest,
+        )
+    }
+
     fn atomically_mark_dispatch_pending(
         &mut self,
         action_key: &ActionKeyV1,
@@ -1886,6 +1901,23 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
             attempt_identity,
             owner_token_digest,
             claim_token_digest,
+        )
+    }
+
+    fn atomically_release_provider_entry_claim_not_entered(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+        marker: String,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.release_provider_entry_claim_not_entered(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+            marker,
         )
     }
 
