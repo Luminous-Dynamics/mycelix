@@ -113,7 +113,7 @@
   ],
   "verifier": {
     "qualifier_path": "mycelix-governance/tools/formal/qualify_sovereignty_role_concentration_formal.py",
-    "qualifier_blob_sha": "c4d209322a1460e6061743ef5f3425e24eaea702",
+    "qualifier_blob_sha": "b61a93d4f9f6875c6c4caccdde510406d4bcd12a",
     "pins_path": "mycelix-governance/tools/formal/role_concentration_pins.json",
     "pins_blob_sha": "f744bacb0934ce064323378dcc7376bd7c1603d1",
     "alloy_runner_path": "mycelix-governance/tools/formal/SovereigntyRoleConcentrationAlloyQualificationRunner.java",
@@ -121,7 +121,7 @@
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_ROLE_CONCENTRATION_FORMAL_CROSSWALK_V2.json",
     "crosswalk_blob_sha": "ed03122f18d64beee81ecfcfb908933b0f6e52aa",
     "workflow_path": ".github/workflows/sovereignty-role-concentration-formal-candidate.yml",
-    "workflow_git_blob_sha": "c8bf53ac83b90f966ed942543b11b1e2cb488e2a",
+    "workflow_git_blob_sha": "4facfaf587a7268fac6664d457186f1a324aaa95",
     "linter_path": "mycelix-governance/tools/formal/lint_sovereignty_role_concentration.py",
     "linter_blob_sha": "6d7d0b49890cfa3878aa1cb6353b0568b9b4925a"
   }
