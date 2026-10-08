@@ -88,6 +88,7 @@ pub fn create_process_recipe(input: CreateProcessRecipeInput) -> ExternResult<Ac
     }
 
     let hash = create_entry(EntryTypes::ProcessRecipe(ProcessRecipeEntry {
+        schema_id: "mycelix-manufacturing-process-recipe-v1".into(),
         recipe_id: input.recipe_id,
         revision: input.revision,
         process_family: input.process_family,
@@ -203,31 +204,19 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
 
     for step in &input.steps {
         if let Some(recipe_hash) = step.process_recipe_hash.clone() {
-            let response = call(
-                CallTargetCell::Local,
-                ZomeName::from("execution"),
-                FunctionName::from("get_process_recipe"),
-                None,
-                ExternIO::encode(recipe_hash)?,
-            )?;
-            match response {
-                ZomeCallResponse::Ok(data) => {
-                    let recipe: Option<serde_json::Value> = data.decode().map_err(|e| {
-                        wasm_error!(WasmErrorInner::Guest(format!(
-                            "failed to decode process recipe: {e}"
-                        )))
-                    })?;
-                    if recipe.is_none() {
-                        return Err(wasm_error!(WasmErrorInner::Guest(
-                            "routing process recipe not found or is not a process recipe".to_string()
-                        )));
-                    }
-                }
-                _ => {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "routing process recipe lookup failed".to_string()
-                    )));
-                }
+            let Some(record) = get(recipe_hash, GetOptions::default())? else {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "routing process recipe not found".to_string()
+                )));
+            };
+            let recipe: Option<ProcessRecipeEntry> = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if recipe.is_none() {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "routing process recipe reference is not a process recipe".to_string()
+                )));
             }
         }
 
@@ -429,6 +418,7 @@ mod tests {
         let steps = vec![
             RoutingStepInput {
                 sequence: 10,
+                process_recipe_hash: None,
                 process_recipe_hash: None,
                 capability_requirement_hash: None,
                 required_inspection_criterion_hashes: vec![],
