@@ -8,7 +8,10 @@ import datetime as dt
 import hashlib
 import json
 import re
+import stat
 import sys
+import tomllib
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +30,13 @@ MANIFEST_BLOB_SHA = "c94b53f61ed8a9bfb6249b1b339550dddd074d6c"
 
 RUSTC_VERSION = "rustc 1.96.1"
 RUSTC_COMMIT = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+
+MAX_ARTIFACT_ARCHIVE_BYTES = 8 * 1024 * 1024
+MAX_ARTIFACT_ARCHIVE_MEMBERS = 8
+MAX_ARTIFACT_MEMBER_BYTES = 2 * 1024 * 1024
+ALLOWED_ARTIFACT_COMPRESSION = frozenset({zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED})
+CRATES_IO_REGISTRY_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
+LOCK_ROOT_PACKAGE = "fpm-wasm-artifact-identity"
 
 RECEIPT_KEYS = frozenset(
     {
@@ -57,7 +67,12 @@ RECEIPT_KEYS = frozenset(
         "rustc_commit",
         "cargo_version",
         "candidate_uid",
+        "candidate_gid",
         "candidate_execution_profile",
+        "sandbox_image_digest",
+        "sandbox_probe",
+        "dependency_cache_sha256",
+        "dependency_source_policy",
         "steps",
         "execution_pass",
         "procedure_trust",
@@ -66,7 +81,19 @@ RECEIPT_KEYS = frozenset(
 )
 
 STEP_KEYS = frozenset(
-    {"preflight", "checkout", "source", "toolchain", "lock", "fmt", "tests", "postflight"}
+    {
+        "preflight",
+        "checkout",
+        "source",
+        "toolchain",
+        "lock",
+        "dependencies",
+        "sandbox_image",
+        "fmt",
+        "sandbox_probe",
+        "tests",
+        "postflight",
+    }
 )
 
 INDEX_KEYS = frozenset(
@@ -148,6 +175,10 @@ def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def reject_nonstandard_constant(value: str) -> Any:
+    fail(f"non-standard JSON constant is forbidden: {value}")
+
+
 def load_canonical_json(path: Path) -> dict[str, Any]:
     raw = path.read_bytes()
     if not raw.endswith(b"\n"):
@@ -157,7 +188,11 @@ def load_canonical_json(path: Path) -> dict[str, Any]:
         fail(f"{path} has more than one trailing LF")
     try:
         text = canonical_bytes.decode("utf-8")
-        value = json.loads(text, object_pairs_hook=reject_duplicate_keys)
+        value = json.loads(
+            text,
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_nonstandard_constant,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         fail(f"{path} is not valid UTF-8 JSON: {exc}")
     if not isinstance(value, dict):
@@ -186,6 +221,113 @@ def require_sha256_prefixed(value: Any, field: str) -> str:
     return value
 
 
+def verify_raw_artifact_archive(
+    archive: Path,
+    expected_member: str,
+    expected_digest: str,
+    expected_size_bytes: int,
+    extracted: Path,
+    label: str,
+) -> dict[str, Any]:
+    if not archive.is_file() or archive.is_symlink():
+        fail(f"{label} artifact archive is not a regular file")
+    archive_size = archive.stat().st_size
+    if archive_size <= 0 or archive_size > MAX_ARTIFACT_ARCHIVE_BYTES:
+        fail(f"{label} artifact archive size exceeds the closed-world bound")
+    if archive_size != expected_size_bytes:
+        fail(f"{label} artifact archive size does not match API metadata")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", expected_digest):
+        fail(f"{label} artifact digest is malformed")
+    archive_bytes = archive.read_bytes()
+    archive_sha256 = hashlib.sha256(archive_bytes).hexdigest()
+    if f"sha256:{archive_sha256}" != expected_digest:
+        fail(f"{label} artifact archive digest mismatch")
+    if extracted.exists() and (not extracted.is_file() or extracted.is_symlink()):
+        fail(f"{label} extracted evidence is not a regular file")
+
+    try:
+        with zipfile.ZipFile(archive) as bundle:
+            infos = bundle.infolist()
+            if not infos:
+                fail(f"{label} artifact archive is empty")
+            if len(infos) > MAX_ARTIFACT_ARCHIVE_MEMBERS:
+                fail(f"{label} artifact archive has too many members")
+
+            names = [info.filename for info in infos]
+            if len(names) != len(set(names)):
+                fail(f"{label} artifact archive contains duplicate member names")
+            if names != [expected_member]:
+                fail(
+                    f"{label} artifact archive member set mismatch: "
+                    f"expected={[expected_member]!r} actual={names!r}"
+                )
+
+            info = infos[0]
+            if (
+                not expected_member
+                or "\x00" in info.filename
+                or "\\" in info.filename
+                or info.filename.startswith("/")
+            ):
+                fail(f"{label} artifact archive member path is unsafe")
+            parts = info.filename.split("/")
+            if any(part in {"", ".", ".."} for part in parts):
+                fail(f"{label} artifact archive member path is unsafe")
+            if len(info.filename.encode("utf-8")) > 512:
+                fail(f"{label} artifact archive member name is too long")
+            if info.is_dir():
+                fail(f"{label} artifact archive member is a directory")
+            if info.flag_bits & 0x1:
+                fail(f"{label} artifact archive member is encrypted")
+            if info.compress_type not in ALLOWED_ARTIFACT_COMPRESSION:
+                fail(f"{label} artifact archive uses an unsupported compression method")
+            if info.file_size > MAX_ARTIFACT_MEMBER_BYTES:
+                fail(f"{label} artifact archive member is too large")
+            if info.compress_size > MAX_ARTIFACT_ARCHIVE_BYTES:
+                fail(f"{label} artifact archive compressed member is too large")
+
+            unix_mode = (info.external_attr >> 16) & 0xFFFF
+            file_type = stat.S_IFMT(unix_mode)
+            if file_type not in {0, stat.S_IFREG}:
+                fail(f"{label} artifact archive member is not a regular file")
+            if info.create_system == 0 and info.external_attr & 0x10:
+                fail(f"{label} artifact archive member has directory attributes")
+
+            try:
+                with bundle.open(info, "r") as source:
+                    member = source.read(MAX_ARTIFACT_MEMBER_BYTES + 1)
+            except (OSError, RuntimeError, ValueError, zipfile.BadZipFile) as exc:
+                fail(f"{label} artifact archive member could not be read: {exc}")
+            if len(member) > MAX_ARTIFACT_MEMBER_BYTES:
+                fail(f"{label} artifact archive member exceeds size bound")
+            member_sha256 = hashlib.sha256(member).hexdigest()
+
+            if extracted.exists():
+                extracted_bytes = extracted.read_bytes()
+                if extracted_bytes != member:
+                    fail(f"{label} extracted evidence does not match raw archive member")
+            else:
+                extracted.parent.mkdir(parents=True, exist_ok=True)
+                extracted.write_bytes(member)
+                extracted.chmod(0o400)
+
+            member_set_sha256 = hashlib.sha256(
+                json.dumps([info.filename], separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+            ).hexdigest()
+            return {
+                "archive_sha256": archive_sha256,
+                "archive_size_bytes": archive_size,
+                "member_count": len(names),
+                "member_names": names,
+                "member_name": info.filename,
+                "member_set_sha256": member_set_sha256,
+                "member_size_bytes": len(member),
+                "member_sha256": member_sha256,
+                "compression_method": info.compress_type,
+            }
+    except zipfile.BadZipFile as exc:
+        fail(f"{label} artifact archive is not a valid ZIP: {exc}")
+
 def validate_artifact_lifetime(item: dict[str, Any], label: str) -> tuple[str, str]:
     created = item.get("created_at")
     expires = item.get("expires_at")
@@ -202,6 +344,176 @@ def validate_artifact_lifetime(item: dict[str, Any], label: str) -> tuple[str, s
         fail(f"{label} artifact expires_at is not after created_at")
     return created, expires
 
+
+def verify_tracked_lock_source_policy(lock_bytes: bytes) -> None:
+    try:
+        lock = tomllib.loads(lock_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        fail(f"tracked Cargo.lock is not valid TOML: {exc}")
+    if not isinstance(lock, dict):
+        fail("tracked Cargo.lock top level is not a table")
+
+    packages = lock.get("package")
+    if not isinstance(packages, list) or not packages:
+        fail("tracked Cargo.lock does not contain package entries")
+
+    if "patch" in lock or "replace" in lock:
+        fail("tracked Cargo.lock contains unsupported patch/replace policy")
+
+    source_free: list[str] = []
+    for package in packages:
+        if not isinstance(package, dict):
+            fail("tracked Cargo.lock package entry is malformed")
+        name = package.get("name")
+        version = package.get("version")
+        source = package.get("source")
+        if not isinstance(name, str) or not name:
+            fail("tracked Cargo.lock package name is malformed")
+        if not isinstance(version, str) or not version:
+            fail(f"tracked Cargo.lock package version is malformed: {name}")
+        if source is None:
+            source_free.append(name)
+            continue
+        if source != CRATES_IO_REGISTRY_SOURCE:
+            fail(f"tracked Cargo.lock package uses unapproved source: {name}")
+        checksum = package.get("checksum")
+        if not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum):
+            fail(f"tracked Cargo.lock registry package lacks canonical checksum: {name}")
+
+    if source_free != [LOCK_ROOT_PACKAGE]:
+        fail(
+            "tracked Cargo.lock source-free package set is not exactly the workspace root: "
+            f"{source_free!r}"
+        )
+
+
+def verify_sandbox_invocations(policy_text: str) -> None:
+    lines = policy_text.splitlines()
+    invocations: list[tuple[str, str]] = []
+    for index, line in enumerate(lines):
+        if "docker run --rm" not in line:
+            continue
+        step = "unknown"
+        for prior in reversed(lines[: index + 1]):
+            if prior.startswith("      - name: "):
+                step = prior.removeprefix("      - name: ").strip()
+                break
+
+        command_parts = [line.rstrip().rstrip("\\").strip()]
+        cursor = index + 1
+        while cursor < len(lines):
+            part = lines[cursor].rstrip()
+            command_parts.append(part.rstrip("\\").strip())
+            if "${SANDBOX_IMAGE}" in part:
+                break
+            cursor += 1
+        else:
+            fail(f"sandbox docker invocation in {step} has no pinned image terminator")
+        invocations.append((step, " ".join(command_parts)))
+
+    expected_steps = {
+        "Cargo fmt inside immutable sandbox",
+        "Probe hostile-code sandbox boundary",
+        "Cargo test inside immutable offline sandbox",
+    }
+    actual_steps = {step for step, _ in invocations}
+    if len(invocations) != 3 or actual_steps != expected_steps:
+        fail(f"unexpected sandbox invocation set: {sorted(actual_steps)!r}")
+
+    common = (
+        "--pull=never",
+        "--network none",
+        "--read-only",
+        "--cap-drop ALL",
+        "--security-opt no-new-privileges",
+        '--mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly',
+        '--mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly',
+        '--user "${CANDIDATE_UID}:${CANDIDATE_GID}"',
+    )
+    expected_by_step = {
+        "Cargo fmt inside immutable sandbox": (
+            "--pids-limit 256",
+            "--memory 2g",
+            "--memory-swap 2g",
+            "--cpus 1",
+        ),
+        "Probe hostile-code sandbox boundary": (
+            "--pids-limit 256",
+            "--memory 6g",
+            "--memory-swap 6g",
+            "--cpus 2",
+            '--mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly',
+            '--mount type=bind,src="${FPM_TARGET_DIR}",dst=/target',
+        ),
+        "Cargo test inside immutable offline sandbox": (
+            "--pids-limit 512",
+            "--memory 6g",
+            "--memory-swap 6g",
+            "--cpus 2",
+            '--mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly',
+            '--mount type=bind,src="${FPM_TARGET_DIR}",dst=/target',
+        ),
+    }
+    for step, command in invocations:
+        for token in common:
+            if token not in command:
+                fail(f"{step} sandbox invocation is missing required control: {token}")
+        for token in expected_by_step[step]:
+            if token not in command:
+                fail(f"{step} sandbox invocation is missing exact profile control: {token}")
+        if "--privileged" in command or "--pid=host" in command or "--network host" in command:
+            fail(f"{step} sandbox invocation contains forbidden namespace broadening")
+        if "--cap-add" in command or "docker.sock" in command:
+            fail(f"{step} sandbox invocation contains forbidden privilege broadening")
+
+
+def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: str) -> None:
+    if policy_file.get("encoding") != "base64":
+        fail("trusted policy file is not represented as base64 content")
+    encoded = policy_file.get("content")
+    if not isinstance(encoded, str) or not encoded:
+        fail("trusted policy file content is missing")
+    try:
+        raw = base64.b64decode("".join(encoded.split()), validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        fail(f"trusted policy file base64 is invalid: {exc}")
+    policy_text = raw.decode("utf-8")
+    required = (
+        f"FPM_SANDBOX_IMAGE: ubuntu@{expected_image_digest}",
+        "--network none",
+        "--read-only",
+        "--cap-drop ALL",
+        "--security-opt no-new-privileges",
+        "--pids-limit 512",
+        "--memory 6g",
+        "--memory-swap 6g",
+        "--cpus 2",
+        "--mount type=bind,src=\"${GITHUB_WORKSPACE}/candidate\",dst=/candidate,readonly",
+        "--mount type=bind,src=\"${FPM_TOOLCHAIN_ROOT}\",dst=/opt/fpm-rust,readonly",
+        "--mount type=bind,src=\"${FPM_CARGO_HOME}\",dst=/cargo-ro,readonly",
+        "--mount type=bind,src=\"${FPM_TARGET_DIR}\",dst=/target",
+        "--user \"${CANDIDATE_UID}:${CANDIDATE_GID}\"",
+        "CARGO_NET_OFFLINE=true",
+        "cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml",
+        "cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml",
+    )
+    for token in required:
+        if token not in policy_text:
+            fail(f"trusted sandbox policy is missing required invariant: {token}")
+    forbidden = (
+        "--privileged",
+        "--pid=host",
+        "--network host",
+        "--cap-add",
+        "docker.sock",
+        'sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"',
+    )
+    for token in forbidden:
+        if token in policy_text:
+            fail(f"trusted sandbox policy contains forbidden broadening: {token}")
+
+    verify_sandbox_invocations(policy_text)
+    return policy_text
 
 def verify_receipt(
     receipt: dict[str, Any],
@@ -266,6 +578,10 @@ def verify_receipt(
         fail("receipt trusted policy blob mismatch")
     if policy_file.get("path") != TRUSTED_WORKFLOW_PATH:
         fail("policy file path mismatch")
+    policy_text = verify_sandbox_policy(
+        policy_file,
+        "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
+    )
 
     trusted_run_id = int(receipt["trusted_workflow_run_id"])
     if trusted_run_id != expected_trusted_run_id:
@@ -354,6 +670,7 @@ def verify_receipt(
             fail(f"tracked candidate lockfile base64 invalid: {exc}")
         if hashlib.sha256(lock_bytes).hexdigest() != lock_sha:
             fail("tracked candidate lockfile digest mismatch")
+        verify_tracked_lock_source_policy(lock_bytes)
     else:
         if candidate_lock.get("mode") != "generated_for_run":
             fail("unexpected generated lockfile marker")
@@ -364,10 +681,20 @@ def verify_receipt(
         fail("rustc commit mismatch")
     if not isinstance(receipt["cargo_version"], str) or not receipt["cargo_version"].startswith("cargo 1.96.1"):
         fail("cargo version mismatch")
-    if receipt["candidate_execution_profile"] != "fpm-untrusted.env-i.v2":
+    if receipt["candidate_execution_profile"] != "fpm-docker-offline-v1":
         fail("unexpected candidate execution profile")
     if not isinstance(receipt["candidate_uid"], int) or receipt["candidate_uid"] <= 0:
         fail("invalid candidate UID")
+    if not isinstance(receipt["candidate_gid"], int) or receipt["candidate_gid"] <= 0:
+        fail("invalid candidate GID")
+    require_sha256_prefixed(receipt["sandbox_image_digest"], "sandbox_image_digest")
+    if receipt["sandbox_image_digest"] != "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b":
+        fail("unexpected sandbox image digest")
+    if receipt["sandbox_probe"] != "passed":
+        fail("sandbox boundary probe did not pass")
+    require_sha256(receipt["dependency_cache_sha256"], "dependency_cache_sha256")
+    if receipt["dependency_source_policy"] != "crates-io-registry-only-v1":
+        fail("unexpected dependency source policy")
 
     steps = receipt["steps"]
     if not isinstance(steps, dict) or set(steps) != STEP_KEYS:
@@ -514,6 +841,22 @@ def verify_index(
         fail("index trusted run ID mismatch")
 
 
+def is_current_promotion_eligible(
+    pr: dict[str, Any],
+    receipt: dict[str, Any],
+    trusted_run: dict[str, Any],
+    main_sha: str,
+) -> bool:
+    return (
+        receipt["lock_mode"] == "tracked"
+        and pr["state"] == "open"
+        and pr["draft"] is False
+        and pr["head"]["sha"] == receipt["subject_sha"]
+        and pr["base"]["sha"] == main_sha
+        and trusted_run["head_sha"] == main_sha
+    )
+
+
 def verify(snapshot_dir: Path) -> dict[str, Any]:
     receipt = load_canonical_json(snapshot_dir / "qualification-receipt.json")
     index = load_canonical_json(snapshot_dir / "artifact-binding-index.json")
@@ -532,6 +875,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         )
     candidate_lock = json.loads((snapshot_dir / "candidate-lock.json").read_text(encoding="utf-8"))
     main_ref = json.loads((snapshot_dir / "main-ref.json").read_text(encoding="utf-8"))
+    main_sha = require_hex(main_ref.get("object", {}).get("sha"), 40, "live main ref SHA")
     artifacts = json.loads((snapshot_dir / "artifacts.json").read_text(encoding="utf-8"))
     enumeration = load_canonical_json(snapshot_dir / "artifact-enumeration.json")
 
@@ -591,7 +935,28 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
             fail(f"{label} artifact repository mismatch")
         if item["workflow_run"]["head_repository_id"] != BASE_REPOSITORY_ID:
             fail(f"{label} artifact head repository mismatch")
+        if item["workflow_run"]["head_sha"] != trusted_run["head_sha"]:
+            fail(f"{label} artifact trusted-run head SHA mismatch")
+        if item["workflow_run"]["head_branch"] != BASE_BRANCH:
+            fail(f"{label} artifact trusted-run branch mismatch")
         require_sha256_prefixed(item["digest"], f"{label} artifact digest")
+
+    receipt_archive = verify_raw_artifact_archive(
+        archive=snapshot_dir / "raw/receipt.zip",
+        expected_member="qualification-receipt.json",
+        expected_digest=primary_artifact["digest"],
+        expected_size_bytes=primary_artifact["size_in_bytes"],
+        extracted=snapshot_dir / "qualification-receipt.json",
+        label="receipt",
+    )
+    index_archive = verify_raw_artifact_archive(
+        archive=snapshot_dir / "raw/index.zip",
+        expected_member="artifact-binding-index.json",
+        expected_digest=index_artifact["digest"],
+        expected_size_bytes=index_artifact["size_in_bytes"],
+        extracted=snapshot_dir / "artifact-binding-index.json",
+        label="index",
+    )
 
     receipt_digest, verifier_sha, verifier_blob_sha = verify_receipt(
         receipt=receipt,
@@ -621,11 +986,11 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     ).encode("utf-8")
     index_digest = hashlib.sha256(index_canonical).hexdigest()
 
-    current_promotion_eligible = (
-        pr["state"] == "open"
-        and pr["draft"] is False
-        and pr["head"]["sha"] == receipt_subject
-        and pr["base"]["sha"] == main_sha
+    current_promotion_eligible = is_current_promotion_eligible(
+        pr=pr,
+        receipt=receipt,
+        trusted_run=trusted_run,
+        main_sha=main_sha,
     )
 
     return {
@@ -643,11 +1008,21 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         "receipt_artifact_digest": primary_artifact["digest"],
         "receipt_artifact_created_at": primary_artifact["created_at"],
         "receipt_artifact_expires_at": primary_artifact["expires_at"],
+        "receipt_artifact_archive_sha256": receipt_archive["archive_sha256"],
+        "receipt_artifact_member_count": receipt_archive["member_count"],
+        "receipt_artifact_member_names": receipt_archive["member_names"],
+        "receipt_artifact_member_set_sha256": receipt_archive["member_set_sha256"],
+        "receipt_artifact_member_sha256": receipt_archive["member_sha256"],
         "index_content_sha256": index_digest,
         "index_artifact_id": index_artifact["id"],
         "index_artifact_digest": index_artifact["digest"],
         "index_artifact_created_at": index_artifact["created_at"],
         "index_artifact_expires_at": index_artifact["expires_at"],
+        "index_artifact_archive_sha256": index_archive["archive_sha256"],
+        "index_artifact_member_count": index_archive["member_count"],
+        "index_artifact_member_names": index_archive["member_names"],
+        "index_artifact_member_set_sha256": index_archive["member_set_sha256"],
+        "index_artifact_member_sha256": index_archive["member_sha256"],
         "trusted_policy_sha": receipt["trusted_policy_sha"],
         "trusted_policy_blob_sha": receipt["trusted_policy_blob_sha"],
         "independent_verifier_workflow_sha": verifier_sha,

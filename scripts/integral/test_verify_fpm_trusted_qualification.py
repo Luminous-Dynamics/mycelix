@@ -3,13 +3,16 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import json
 import shutil
 import subprocess
 import sys
+import stat
 import tempfile
+import zipfile
 from pathlib import Path
 
 SCRIPT = Path(__file__).with_name("verify_fpm_trusted_qualification.py")
@@ -29,7 +32,7 @@ MANIFEST_SHA = "c94b53f61ed8a9bfb6249b1b339550dddd074d6c"
 SUBJECT, TREE, BASE = "1" * 40, "2" * 40, "3" * 40
 POLICY, POLICY_BLOB = "4" * 40, "5" * 40
 IVERIFY, IVERIFY_BLOB = "6" * 40, "7" * 40
-LOCK_SHA, ARTIFACT_SHA = "8" * 64, "9" * 64
+LOCK_SHA = "8" * 64
 CANDIDATE_RUN, TRUSTED_RUN = 1001, 2002
 RECEIPT_ARTIFACT, INDEX_ARTIFACT = 3003, 4004
 PR = 123
@@ -46,6 +49,15 @@ def write(path: Path, obj: object) -> None:
 def run(root: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run([sys.executable, str(SCRIPT), str(root)],
                           text=True, capture_output=True, check=False)
+
+
+def write_artifact_zip(path: Path, member_name: str, data: bytes, duplicate: bool = False) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(member_name, data)
+        if duplicate:
+            archive.writestr(member_name, data)
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def snapshot(root: Path) -> None:
@@ -66,19 +78,30 @@ def snapshot(root: Path) -> None:
         "rustc_version": "rustc 1.96.1",
         "rustc_commit": "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd",
         "cargo_version": "cargo 1.96.1", "candidate_uid": 10001,
-        "candidate_execution_profile": "fpm-untrusted.env-i.v2",
+        "candidate_gid": 10001,
+        "candidate_execution_profile": "fpm-docker-offline-v1",
+        "sandbox_image_digest": "sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
+        "sandbox_probe": "passed",
+        "dependency_cache_sha256": "a" * 64,
+        "dependency_source_policy": "crates-io-registry-only-v1",
         "steps": {k: "success" for k in
-                  ("preflight", "checkout", "source", "toolchain", "lock", "fmt", "tests", "postflight")},
+                  ("preflight", "checkout", "source", "toolchain", "lock", "dependencies", "sandbox_image", "fmt", "sandbox_probe", "tests", "postflight")},
         "execution_pass": True,
         "procedure_trust": "trusted_default_branch_snapshot",
         "promotion_authority": "pending_repository_governance_evidence",
     }
+    receipt_bytes = cjson(receipt) + b"\n"
+    receipt_archive_digest = write_artifact_zip(
+        root / "raw/receipt.zip",
+        "qualification-receipt.json",
+        receipt_bytes,
+    )
     receipt_digest = hashlib.sha256(cjson(receipt)).hexdigest()
     index = {
         "schema": "mycelix.fpm.trusted-qualification-artifact-index.v1",
         "receipt_sha256": receipt_digest,
         "artifact": {
-            "id": RECEIPT_ARTIFACT, "sha256_hex": ARTIFACT_SHA,
+            "id": RECEIPT_ARTIFACT, "sha256_hex": receipt_archive_digest,
             "url": f"https://github.com/{REPO}/actions/runs/{TRUSTED_RUN}/artifacts/{RECEIPT_ARTIFACT}",
             "retention_days": 90, "immutable_after_upload": True,
             "deletion_by_repository_writer_possible": True,
@@ -87,13 +110,19 @@ def snapshot(root: Path) -> None:
         "trusted_policy_sha": POLICY, "trusted_policy_blob_sha": POLICY_BLOB,
         "trusted_workflow_run_id": TRUSTED_RUN,
     }
+    index_bytes = cjson(index) + b"\n"
+    index_archive_digest = write_artifact_zip(
+        root / "raw/index.zip",
+        "artifact-binding-index.json",
+        index_bytes,
+    )
     artifacts = {"artifacts": [
         {"id": RECEIPT_ARTIFACT, "name": f"fpm-trusted-qualification-{SUBJECT}",
-         "expired": False, "created_at": "2026-10-07T20:00:00Z", "expires_at": "2027-01-05T20:00:00Z", "size_in_bytes": 1, "digest": f"sha256:{ARTIFACT_SHA}",
-         "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID}},
+         "expired": False, "created_at": "2026-10-07T20:00:00Z", "expires_at": "2027-01-05T20:00:00Z", "size_in_bytes": (root / "raw/receipt.zip").stat().st_size, "digest": f"sha256:{receipt_archive_digest}",
+         "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID, "head_sha": POLICY, "head_branch": "main"}},
         {"id": INDEX_ARTIFACT, "name": f"fpm-trusted-qualification-index-{SUBJECT}",
-         "expired": False, "created_at": "2026-10-07T20:00:01Z", "expires_at": "2027-01-05T20:00:01Z", "size_in_bytes": 1, "digest": f"sha256:{ARTIFACT_SHA}",
-         "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID}},
+         "expired": False, "created_at": "2026-10-07T20:00:01Z", "expires_at": "2027-01-05T20:00:01Z", "size_in_bytes": (root / "raw/index.zip").stat().st_size, "digest": f"sha256:{index_archive_digest}",
+         "workflow_run": {"id": TRUSTED_RUN, "repository_id": REPO_ID, "head_repository_id": REPO_ID, "head_sha": POLICY, "head_branch": "main"}},
     ]}
     trusted = {"id": TRUSTED_RUN, "name": TW_NAME, "path": TW_PATH, "event": "workflow_run",
                "status": "completed", "conclusion": "success", "run_attempt": 1,
@@ -105,7 +134,13 @@ def snapshot(root: Path) -> None:
           "base": {"ref": "main", "sha": BASE, "repo": {"id": REPO_ID}},
           "head": {"sha": SUBJECT, "repo": {"id": REPO_ID, "full_name": REPO}}}
     commit = {"sha": SUBJECT, "commit": {"tree": {"sha": TREE}}}
-    policy = {"path": TW_PATH, "sha": POLICY_BLOB}
+    policy_text = "FPM_SANDBOX_IMAGE: ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b\n--network none\n--read-only\n--cap-drop ALL\n--security-opt no-new-privileges\n--pids-limit 512\n--memory 6g\n--memory-swap 6g\n--cpus 2\n--mount type=bind,src=\"${GITHUB_WORKSPACE}/candidate\",dst=/candidate,readonly\n--mount type=bind,src=\"${FPM_TOOLCHAIN_ROOT}\",dst=/opt/fpm-rust,readonly\n--mount type=bind,src=\"${FPM_CARGO_HOME}\",dst=/cargo-ro,readonly\n--mount type=bind,src=\"${FPM_TARGET_DIR}\",dst=/target\n--user \"${CANDIDATE_UID}:${CANDIDATE_GID}\"\nCARGO_NET_OFFLINE=true\ncargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml\ncargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml\n"
+    policy = {
+        "path": TW_PATH,
+        "sha": POLICY_BLOB,
+        "encoding": "base64",
+        "content": base64.b64encode(policy_text.encode()).decode(),
+    }
     manifest = {"path": MANIFEST, "sha": MANIFEST_SHA}
     control = {"repository": REPO, "repository_id": REPO_ID, "path": IW_PATH,
                "ref": "refs/heads/main",
@@ -150,7 +185,10 @@ def snapshot(root: Path) -> None:
 def mutated_case(base: Path, target: str, mutator) -> Path:
     td = Path(tempfile.mkdtemp(prefix="fpm-ref-negative-"))
     for src in base.iterdir():
-        (td / src.name).write_bytes(src.read_bytes())
+        if src.is_dir():
+            shutil.copytree(src, td / src.name)
+        else:
+            (td / src.name).write_bytes(src.read_bytes())
     value = json.loads((td / target).read_text(encoding="utf-8"))
     mutator(value)
     write(td / target, value)
@@ -164,6 +202,33 @@ def expect_failure(base: Path, target: str, label: str, mutator) -> None:
         assert result.returncode != 0, f"mutation unexpectedly verified: {label}"
     finally:
         shutil.rmtree(root)
+
+
+def assert_evidence_archive_contract() -> None:
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    marker = "      - name: Normalize downloaded raw evidence archives\n"
+    next_marker = "      - name: Extract evidence targets with strict JSON parser\n"
+    assert marker in workflow and next_marker in workflow
+    block = workflow.split(marker, 1)[1].split(next_marker, 1)[0]
+    assert "root.iterdir()" in block
+    assert "members != [expected_name]" in block
+    assert "source.is_file()" in block
+    assert "source.is_symlink()" in block
+    assert "skip-decompress: true" in workflow
+    assert "Validate and materialize raw evidence members" in workflow
+    assert "verify_raw_artifact_archive" in workflow
+    verifier = Path(__file__).with_name("verify_fpm_trusted_qualification.py").read_text(encoding="utf-8")
+    assert "actual_steps = {step for step, _ in invocations}" in verifier
+    assert "Cargo fmt inside immutable sandbox" in verifier
+    assert "Cargo test inside immutable offline sandbox" in verifier
+    assert "selection[\"receipt_artifact_id\"]" in workflow
+    assert "selection[\"index_artifact_id\"]" in workflow
+    assert "snapshot/raw/receipt.zip" in workflow
+    assert block.index("verify_raw_artifact_archive") < block.index("Path(\"snapshot/qualification-receipt.json\")")
+    assert "find snapshot/download" not in workflow
+    assert "-print -quit" not in workflow
+
+
 
 
 def assert_artifact_collector_http_contract() -> None:
@@ -185,12 +250,155 @@ def assert_workflow_target_extractor_dependencies() -> None:
 
 def main() -> None:
     assert_artifact_collector_http_contract()
+    assert_evidence_archive_contract()
     assert_workflow_target_extractor_dependencies()
     with tempfile.TemporaryDirectory(prefix="fpm-ref-corpus-") as td:
         root = Path(td)
         snapshot(root)
         baseline = run(root)
         assert baseline.returncode == 0, baseline.stderr + baseline.stdout
+
+        import importlib.util
+
+        verifier_spec = importlib.util.spec_from_file_location("fpm_reference_verifier", SCRIPT)
+        assert verifier_spec and verifier_spec.loader
+        verifier = importlib.util.module_from_spec(verifier_spec)
+        verifier_spec.loader.exec_module(verifier)
+
+        promotion_pr = {
+            "state": "open",
+            "draft": False,
+            "head": {"sha": SUBJECT},
+            "base": {"sha": BASE},
+        }
+        promotion_receipt = {"subject_sha": SUBJECT, "lock_mode": "generated_for_run"}
+        promotion_trusted_run = {"head_sha": BASE}
+        assert verifier.is_current_promotion_eligible(
+            promotion_pr, promotion_receipt, promotion_trusted_run, BASE
+        ) is False
+        promotion_receipt["lock_mode"] = "tracked"
+        assert verifier.is_current_promotion_eligible(
+            promotion_pr, promotion_receipt, promotion_trusted_run, BASE
+        ) is True
+
+        lock_base = b"""version = 4
+
+[[package]]
+name = "fpm-wasm-artifact-identity"
+version = "0.1.0"
+dependencies = ["holo_hash"]
+
+[[package]]
+name = "holo_hash"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+[[package]]
+name = "serde"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+"""
+        verifier.verify_tracked_lock_source_policy(lock_base)
+        lock_mutations = [
+            ("git-source", lock_base.replace(
+                b'registry+https://github.com/rust-lang/crates.io-index',
+                b'git+https://example.invalid/repository#abcdef',
+                1,
+            )),
+            ("alternate-registry", lock_base.replace(
+                b'registry+https://github.com/rust-lang/crates.io-index',
+                b'registry+https://registry.example.invalid/index',
+                1,
+            )),
+            ("missing-checksum", lock_base.replace(
+                b'checksum = "' + b'b' * 64 + b'"',
+                b'checksum = "not-a-checksum"',
+                1,
+            )),
+            ("extra-source-free", lock_base + b'''
+[[package]]
+name = "local-helper"
+version = "1.0.0"
+'''),
+        ]
+        for label, lock_bytes in lock_mutations:
+            try:
+                verifier.verify_tracked_lock_source_policy(lock_bytes)
+            except SystemExit:
+                pass
+            else:
+                raise AssertionError(f"tracked Cargo.lock mutation was accepted: {label}")
+
+        with tempfile.TemporaryDirectory(prefix="fpm-zip-corpus-") as zip_td:
+            zroot = Path(zip_td)
+            good_data = b'{"qualification":"ok"}\n'
+            good_zip = zroot / "good.zip"
+            good_digest = write_artifact_zip(good_zip, "qualification-receipt.json", good_data)
+            extracted = zroot / "qualification-receipt.json"
+            extracted.write_bytes(good_data)
+            verified_archive = verifier.verify_raw_artifact_archive(
+                good_zip, "qualification-receipt.json", f"sha256:{good_digest}", good_zip.stat().st_size, extracted, "receipt"
+            )
+            assert verified_archive["member_count"] == 1
+            assert verified_archive["member_names"] == ["qualification-receipt.json"]
+            assert verified_archive["member_sha256"] == hashlib.sha256(good_data).hexdigest()
+            assert verified_archive["member_set_sha256"] == hashlib.sha256(
+                b'["qualification-receipt.json"]'
+            ).hexdigest()
+
+            bad_cases = [
+                ("duplicate-member", lambda p: write_artifact_zip(p, "qualification-receipt.json", good_data, duplicate=True)),
+            ]
+
+            unexpected = zroot / "unexpected.zip"
+            with zipfile.ZipFile(unexpected, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("qualification-receipt.json", good_data)
+                archive.writestr("unexpected.json", b"{}")
+            bad_cases.append(("unexpected-member", lambda p: None))
+
+            traversal = zroot / "traversal.zip"
+            traversal.parent.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(traversal, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("../qualification-receipt.json", good_data)
+            bad_cases.append(("traversal-member", lambda p: None))
+
+            symlink = zroot / "symlink.zip"
+            info = zipfile.ZipInfo("qualification-receipt.json")
+            info.external_attr = (stat.S_IFLNK | 0o777) << 16
+            with zipfile.ZipFile(symlink, "w") as archive:
+                archive.writestr(info, good_data)
+            bad_cases.append(("symlink-member", lambda p: None))
+
+            for label, make_case in bad_cases:
+                if label == "duplicate-member":
+                    archive_path = zroot / "duplicate.zip"
+                    digest = make_case(archive_path)  # type: ignore[misc]
+                elif label == "unexpected-member":
+                    archive_path = unexpected
+                    digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+                else:
+                    archive_path = traversal if label == "traversal-member" else symlink
+                    digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+                try:
+                    verifier.verify_raw_artifact_archive(
+                        archive_path, "qualification-receipt.json", f"sha256:{digest}", archive_path.stat().st_size, extracted, "receipt"
+                    )
+                except SystemExit:
+                    pass
+                else:
+                    raise AssertionError(f"raw archive mutation was accepted: {label}")
+
+            extracted.write_bytes(b"tampered\n")
+            try:
+                verifier.verify_raw_artifact_archive(
+                    good_zip, "qualification-receipt.json", f"sha256:{good_digest}", good_zip.stat().st_size, extracted, "receipt"
+                )
+            except SystemExit:
+                pass
+            else:
+                raise AssertionError("materialized evidence mismatch was accepted")
 
         receipt = [
             ("receipt.repository_id", lambda x: x.__setitem__("repository_id", REPO_ID + 1)),
@@ -200,6 +408,11 @@ def main() -> None:
             ("receipt.manifest_blob_sha", lambda x: x.__setitem__("manifest_blob_sha", "c" * 40)),
             ("receipt.lock_sha256", lambda x: x.__setitem__("lock_sha256", "d" * 64)),
             ("receipt.candidate_uid", lambda x: x.__setitem__("candidate_uid", 10002)),
+            ("receipt.candidate_gid", lambda x: x.__setitem__("candidate_gid", 10002)),
+            ("receipt.sandbox_image_digest", lambda x: x.__setitem__("sandbox_image_digest", "sha256:" + "b" * 64)),
+            ("receipt.sandbox_probe", lambda x: x.__setitem__("sandbox_probe", "failed")),
+            ("receipt.dependency_cache_sha256", lambda x: x.__setitem__("dependency_cache_sha256", "b" * 64)),
+            ("receipt.dependency_source_policy", lambda x: x.__setitem__("dependency_source_policy", "unrestricted")),
             ("receipt.execution_pass", lambda x: x.__setitem__("execution_pass", False)),
             ("receipt.promotion_authority", lambda x: x.__setitem__("promotion_authority", "authorized")),
         ]
@@ -225,6 +438,37 @@ def main() -> None:
         ]
         for file_name, label, fn in external:
             expect_failure(root, file_name, label, fn)
+
+        def mutate_only_fmt_network(value):
+            decoded = base64.b64decode(value["content"]).decode("utf-8")
+            start = decoded.index("      - name: Cargo fmt inside immutable sandbox")
+            end = decoded.index("      - name: Probe hostile-code sandbox boundary", start)
+            block = decoded[start:end]
+            assert "--network none" in block
+            block = block.replace("--network none", "--network host", 1)
+            decoded = decoded[:start] + block + decoded[end:]
+            value["content"] = base64.b64encode(decoded.encode("utf-8")).decode("ascii")
+
+        expect_failure(root, "policy-file.json", "policy.fmt-network-only", mutate_only_fmt_network)
+
+        policy_cases = [
+            ("--network none", "--network host", "policy.network"),
+            ("--read-only", "--security-opt no-new-privileges", "policy.read-only"),
+            ("--cap-drop ALL", "--cap-drop NET_RAW", "policy.cap-drop"),
+            ("--security-opt no-new-privileges", "--privileged", "policy.no-new-privileges"),
+            ("--pids-limit 512", "--pids-limit 4096", "policy.pids-limit"),
+            ("--memory 6g", "--memory 64g", "policy.memory"),
+            ("--cpus 2", "--cpus 64", "policy.cpus"),
+            ("CARGO_NET_OFFLINE=true", "CARGO_NET_OFFLINE=false", "policy.offline"),
+            ("cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo test --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.cargo-offline"),
+            ("cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo fmt --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.rustfmt"),
+        ]
+        for old, new, label in policy_cases:
+            def mutate_policy(value, old=old, new=new):
+                decoded = base64.b64decode(value["content"], validate=True).decode()
+                assert old in decoded
+                value["content"] = base64.b64encode(decoded.replace(old, new, 1).encode()).decode()
+            expect_failure(root, "policy-file.json", label, mutate_policy)
 
         expect_failure(
             root, "verifier-control.json", "control.reference-verifier-blob",
@@ -256,6 +500,20 @@ def main() -> None:
             lambda x: x["artifacts"][0].__setitem__("expires_at", "2026-10-07T19:59:59Z"),
         )
 
+        expect_failure(
+            root, "artifacts.json", "artifact-size-mismatch",
+            lambda x: x["artifacts"][0].__setitem__(
+                "size_in_bytes", x["artifacts"][0]["size_in_bytes"] + 1
+            ),
+        )
+        expect_failure(
+            root, "artifacts.json", "artifact-run-head-sha",
+            lambda x: x["artifacts"][0]["workflow_run"].__setitem__("head_sha", "a" * 40),
+        )
+        expect_failure(
+            root, "artifacts.json", "artifact-run-branch",
+            lambda x: x["artifacts"][0]["workflow_run"].__setitem__("head_branch", "feature"),
+        )
         raw = (root / "qualification-receipt.json").read_bytes()
         duplicate = raw[:-1].replace(
             b',"subject_sha":"' + SUBJECT.encode() + b'"',
@@ -265,6 +523,26 @@ def main() -> None:
         (root / "qualification-receipt.json").write_bytes(duplicate)
         assert run(root).returncode != 0, "duplicate JSON key accepted"
 
+        def expect_nonstandard_constant(value: str) -> None:
+            raw = (root / "qualification-receipt.json").read_bytes()
+            marker = b'"repository_id":1176351975'
+            assert marker in raw
+            mutated = raw.replace(marker, b'"repository_id":' + value.encode(), 1)
+            fresh_root = Path(tempfile.mkdtemp(prefix="fpm-ref-constant-"))
+            try:
+                for src in root.iterdir():
+                    (fresh_root / src.name).write_bytes(src.read_bytes())
+                (fresh_root / "qualification-receipt.json").write_bytes(mutated)
+                result = run(fresh_root)
+                assert result.returncode != 0, f"{value} was accepted"
+                assert "non-standard JSON constant" in result.stderr
+            finally:
+                shutil.rmtree(fresh_root)
+
+        expect_nonstandard_constant("NaN")
+        expect_nonstandard_constant("Infinity")
+        expect_nonstandard_constant("-Infinity")
+
         fresh = mutated_case(
             root,
             "pull-request.json",
@@ -272,13 +550,15 @@ def main() -> None:
         )
         try:
             (fresh / "main-ref.json").write_bytes(
-                cjson({"ref": "refs/heads/main", "object": {"sha": "a" * 40}}) + b"\n"
+                cjson({"ref": "refs/heads/main", "object": {"sha": BASE}}) + b"\n"
             )
             result = run(fresh)
             assert result.returncode == 0, result.stderr + result.stdout
             verified = json.loads(result.stdout)
             assert verified["historical_qualification_valid"] is True
-            assert verified["current_promotion_eligible"] is False
+            assert verified["current_promotion_eligible"] is False, (
+                "stale trusted-policy revision must not make a current open PR eligible"
+            )
         finally:
             shutil.rmtree(fresh)
 

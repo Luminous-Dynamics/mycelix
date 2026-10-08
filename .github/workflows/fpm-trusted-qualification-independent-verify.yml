@@ -127,7 +127,7 @@ jobs:
           EXPECTED_PATH: .github/workflows/fpm-trusted-qualification.yml
         run: |
           set -euo pipefail
-          mkdir -p snapshot/download/receipt snapshot/download/index
+          mkdir -p snapshot/raw/receipt-download snapshot/raw/index-download
           gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > snapshot/trusted-run.json
           python3 - <<'PY'
           import json
@@ -202,7 +202,8 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ github.event.workflow_run.id }}
           artifact-ids: ${{ steps.upstream.outputs.receipt_artifact_id }}
-          path: snapshot/download/receipt
+          path: snapshot/raw/receipt-download
+          skip-decompress: true
           digest-mismatch: error
 
       - name: Download exact upstream binding index
@@ -212,19 +213,85 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ github.event.workflow_run.id }}
           artifact-ids: ${{ steps.upstream.outputs.index_artifact_id }}
-          path: snapshot/download/index
+          path: snapshot/raw/index-download
+          skip-decompress: true
           digest-mismatch: error
 
-      - name: Normalize downloaded evidence
+      - name: Normalize downloaded raw evidence archives
         run: |
           set -euo pipefail
-          receipt_file="$(find snapshot/download/receipt -type f -name 'qualification-receipt.json' -print -quit)"
-          index_file="$(find snapshot/download/index -type f -name 'artifact-binding-index.json' -print -quit)"
-          test -n "$receipt_file"
-          test -n "$index_file"
-          cp "$receipt_file" snapshot/qualification-receipt.json
-          cp "$index_file" snapshot/artifact-binding-index.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
 
+          def normalize(root: Path, expected_name: str, output: Path) -> None:
+              members = sorted(root.iterdir(), key=lambda path: path.name)
+              if len(members) != 1:
+                  raise SystemExit(
+                      f"raw artifact download must contain exactly one archive: {root}: {members!r}"
+                  )
+              source = members[0]
+              if not source.is_file() or source.is_symlink():
+                  raise SystemExit(f"raw artifact download is not a regular file: {source}")
+              output.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, output)
+
+          normalize(
+              Path("snapshot/raw/receipt-download"),
+              "qualification-receipt.json",
+              Path("snapshot/raw/receipt.zip"),
+          )
+          normalize(
+              Path("snapshot/raw/index-download"),
+              "artifact-binding-index.json",
+              Path("snapshot/raw/index.zip"),
+          )
+          PY
+
+      - name: Validate and materialize raw evidence members
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          import json
+          from pathlib import Path
+
+          verifier_path = Path("scripts/integral/verify_fpm_trusted_qualification.py")
+          spec = importlib.util.spec_from_file_location("fpm_reference_verifier", verifier_path)
+          if not spec or not spec.loader:
+              raise SystemExit("unable to load reference verifier")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          selection = json.loads(
+              Path("upstream-artifact-selection.json").read_text(encoding="utf-8")
+          )
+          artifacts = json.loads(
+              Path("snapshot/artifacts.json").read_text(encoding="utf-8")
+          )["artifacts"]
+          by_id = {item["id"]: item for item in artifacts}
+          receipt = by_id[selection["receipt_artifact_id"]]
+          index = by_id[selection["index_artifact_id"]]
+
+          module.verify_raw_artifact_archive(
+              Path("snapshot/raw/receipt.zip"),
+              "qualification-receipt.json",
+              receipt["digest"],
+              receipt["size_in_bytes"],
+              Path("snapshot/qualification-receipt.json"),
+              "receipt",
+          )
+          module.verify_raw_artifact_archive(
+              Path("snapshot/raw/index.zip"),
+              "artifact-binding-index.json",
+              index["digest"],
+              index["size_in_bytes"],
+              Path("snapshot/artifact-binding-index.json"),
+              "index",
+          )
+          PY
+
+      - name: Extract evidence targets with strict JSON parser
       - name: Extract evidence targets with strict JSON parser
         id: target
         run: |
@@ -243,10 +310,17 @@ jobs:
                   result[key] = value
               return result
 
+          def reject_nonstandard_constant(value):
+              raise SystemExit(f"non-standard JSON constant is forbidden: {value}")
+
           raw = Path("snapshot/qualification-receipt.json").read_bytes()
           if not raw.endswith(b"\n") or raw[:-1].endswith(b"\n"):
               raise SystemExit("receipt must have exactly one trailing LF")
-          receipt = json.loads(raw[:-1].decode("utf-8"), object_pairs_hook=reject_duplicates)
+          receipt = json.loads(
+              raw[:-1].decode("utf-8"),
+              object_pairs_hook=reject_duplicates,
+              parse_constant=reject_nonstandard_constant,
+          )
           canonical = json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
           if canonical != raw[:-1]:
               raise SystemExit("receipt is not canonical JSON")
