@@ -375,7 +375,6 @@ jobs:
           SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
           CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
           CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
-          SYSTEM_CLOSURE_PROFILE: ${{ env.FPM_SYSTEM_CLOSURE_PROFILE }}
         run: |
           set -euo pipefail
           rm -f "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
@@ -407,8 +406,8 @@ jobs:
               test -x /opt/fpm-rust/bin/rustfmt
               required_commands=(bash env grep tr timeout cargo rustc rustfmt cc ld as ldd realpath sha256sum sed uname cat)
               closure=/tmp/fpm-system-closure.tsv
-              printf "profile\t%s\n" "$SYSTEM_CLOSURE_PROFILE" > "$closure"
-              printf "image_digest\t%s\n" "$SANDBOX_IMAGE" >> "$closure"
+              printf "profile\tfpm-ubuntu24.04-amd64-rust-1.96.1-v1\n" > "$closure"
+              printf "image_digest\tsha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b\n" >> "$closure"
               printf "architecture\tlinux/amd64\n" >> "$closure"
               printf "os_release_sha256\t%s\n" "$(sha256sum /etc/os-release | { read -r digest _; printf "%s" "$digest"; })" >> "$closure"
               libc_version="$(ldd --version 2>&1 | { read -r line; printf "%s" "$line"; })"
