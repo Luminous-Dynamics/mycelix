@@ -101,6 +101,14 @@ fact DimensionSourcesMatchCapabilities {
       c.capability.expiry = cap.expiry
 }
 
+fact DimensionSourcesAreExact {
+  all comp: Composition |
+    comp.resourceContributors = expectedResourceContributors[comp] and
+    comp.actionContributors = expectedActionContributors[comp] and
+    comp.audienceContributors = expectedAudienceContributors[comp] and
+    comp.expiryContributors = expectedExpiryContributors[comp]
+}
+
 fact CompositionAtomicAndProvenance {
   all comp: Composition |
     comp.authority in expectedAuthority[comp] and
@@ -142,7 +150,7 @@ pred HybridSynthesisWitness {
     comp.inputClaims = c1 + c2 + c3 + c4 and
     comp.authority = c1.capability + c2.capability + c3.capability + c4.capability + hybrid and
 
-    hybrid -> c1 + c2 + c3 + c4 in comp.contributorClaims and
+    hybrid -> (c1 + c2 + c3 + c4) in comp.contributorClaims and
     hybrid -> (c1 + c3) in comp.resourceContributors and
     hybrid -> (c2 + c3) in comp.actionContributors and
     hybrid -> (c3 + c4) in comp.audienceContributors and
@@ -158,10 +166,10 @@ assert CompositionAtomAndProvenanceExact {
 
 assert DimensionSourcesRemainValid {
   all comp: Composition |
-    comp.resourceContributors in expectedResourceContributors[comp] and
-    comp.actionContributors in expectedActionContributors[comp] and
-    comp.audienceContributors in expectedAudienceContributors[comp] and
-    comp.expiryContributors in expectedExpiryContributors[comp]
+    comp.resourceContributors = expectedResourceContributors[comp] and
+    comp.actionContributors = expectedActionContributors[comp] and
+    comp.audienceContributors = expectedAudienceContributors[comp] and
+    comp.expiryContributors = expectedExpiryContributors[comp]
 }
 
 run ValidFourDimensionalCompositionWitness
