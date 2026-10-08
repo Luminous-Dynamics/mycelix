@@ -625,8 +625,10 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_permissions(l, 2)
     if exact_count(l, "cache-mode: none") != 1:
         fail("S0 must declare exactly one cache-mode: none gate")
-    if exact_count(l, "RATE_LIMIT_MIN_REMAINING=400") != 1:
+    if exact_count(l, "SCHEDULE_RATE_LIMIT_MIN_REMAINING=400") != 1:
         fail("S0 schedule must reserve a deterministic GitHub API rate-limit floor")
+    if exact_count(l, 'if event=="schedule":') != 1:
+        fail("S0 schedule rate-limit guard must not affect immediate pull_request_target dispatch")
     if exact_count(l, 'remaining=response.headers.get("x-ratelimit-remaining")') != 1:
         fail("S0 schedule API wrapper must inspect the authoritative rate-limit remaining header")
     if exact_count(l, 'if remaining is None:') != 1:
@@ -1198,7 +1200,7 @@ def main() -> None:
     )
     expect_rejection(
         lambda: verify_s0(raw["s0"].replace(
-            b'RATE_LIMIT_MIN_REMAINING=400',
+            b'SCHEDULE_RATE_LIMIT_MIN_REMAINING=400',
             b'# schedule rate-limit reserve removed',
             1,
         ), s1_sha),
