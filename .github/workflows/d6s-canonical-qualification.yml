@@ -4,15 +4,13 @@ on:
   push:
     branches:
       - myc-int-demo-d6u-holochain-07-runtime
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: d6s-canon-reference-${{ github.workflow_ref }}-${{ github.event.pull_request.number || github.ref }}
+  group: d6s-canon-reference-${{ github.workflow_ref }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -22,13 +20,11 @@ jobs:
 
   d6s-canon-reference:
     name: D6S canonical reference qualification
-    if: >-
-      github.ref == 'refs/heads/myc-int-demo-d6u-holochain-07-runtime' ||
-      github.event.pull_request.head.ref == 'myc-int-demo-d6u-holochain-07-runtime'
+    if: github.ref == 'refs/heads/myc-int-demo-d6u-holochain-07-runtime'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      QUALIFIED_SHA: ${{ github.sha }}
       CARGO_HOME: ${{ runner.temp }}/d6s-cargo-home
       RUSTUP_HOME: ${{ runner.temp }}/d6s-rustup-home
     steps:
