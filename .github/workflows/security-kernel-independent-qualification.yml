@@ -646,7 +646,7 @@ jobs:
       - name: Execute sandbox negative controls
         id: sandbox_negative_controls
         env:
-          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
           VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
           VENDOR_CONFIG_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_name }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
@@ -812,7 +812,7 @@ jobs:
       - name: Execute candidate qualification in disposable networkless sandbox
         shell: bash
         env:
-          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
           VENDOR_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_volume_name }}
           VENDOR_CONFIG_VOLUME_NAME: ${{ steps.vendor_dependencies.outputs.vendor_config_volume_name }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
@@ -1007,7 +1007,7 @@ jobs:
       - name: Cleanup candidate source substrate
         if: ${{ !cancelled() && steps.resolve_source.outcome == 'success' }}
         env:
-          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.candidate_volume_name }}
+          CANDIDATE_VOLUME_NAME: ${{ steps.resolve_source.outputs.source_volume_name }}
         shell: bash
         run: |
           set -euo pipefail
