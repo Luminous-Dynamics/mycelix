@@ -329,8 +329,6 @@ fn validate_update_entry(
                 }
             }
 
-            }
-
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::StatusLog(_) => Ok(ValidateCallbackResult::Invalid(
