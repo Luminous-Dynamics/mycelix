@@ -42,7 +42,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             // Profile entry (P0 author-binding gap). Mirrors the identical pattern already
             // established in this cluster's messages zome.
             LinkTypes::AgentToProfile => {
-                let author_hash: AnyLinkableHash = action.author.into();
+                let author_hash: AnyLinkableHash = action.author().into();
                 if base_address != author_hash {
                     return Ok(ValidateCallbackResult::Invalid(
                         "Agent link base must match action author".to_string(),
