@@ -1,7 +1,5 @@
 #![deny(unsafe_code)]
 
-pub mod boundary;
-
 //! SQLite-backed durable implementation of the constitutional same-action fence.
 //!
 //! This crate is host-side infrastructure. It is deliberately not a Holochain
@@ -13,6 +11,8 @@ pub mod boundary;
 //! Every mutating operation uses one BEGIN IMMEDIATE transaction. SQLite permits
 //! only one simultaneous write transaction per database; primary-key/UNIQUE
 //! constraints provide the durable collision namespaces.
+
+pub mod boundary;
 
 use constitutional_effect_ledger::{
     ActionFenceMutationError, ActionFenceRecordV1, ActionFenceState, ActionKeyV1,
