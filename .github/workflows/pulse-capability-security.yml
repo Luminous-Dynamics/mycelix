@@ -1,0 +1,50 @@
+name: Pulse Capability Security
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/capabilities/**"
+      - ".github/workflows/pulse-capability-security.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/capabilities/**"
+      - ".github/workflows/pulse-capability-security.yml"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  capability-security:
+    name: Capability grant/revocation boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-pulse/holochain
+
+      - name: Format integrity zome
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/holochain/zomes/capabilities/integrity/Cargo.toml -- --check
+
+      - name: Format coordinator zome
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/holochain/zomes/capabilities/coordinator/Cargo.toml -- --check
+
+      - name: Test integrity zome
+        run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/holochain/zomes/capabilities/integrity/Cargo.toml --lib
+
+      - name: Test coordinator zome
+        run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/holochain/zomes/capabilities/coordinator/Cargo.toml --lib
+
+      - name: Clippy coordinator zome
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-pulse/holochain/zomes/capabilities/coordinator/Cargo.toml --all-targets -- -D warnings
