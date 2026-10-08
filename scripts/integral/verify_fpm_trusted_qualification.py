@@ -709,7 +709,7 @@ def verify_index(
         fail("index trusted run ID mismatch")
 
 
-def current_promotion_eligible(
+def is_current_promotion_eligible(
     pr: dict[str, Any],
     receipt: dict[str, Any],
     trusted_run: dict[str, Any],
@@ -854,7 +854,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     ).encode("utf-8")
     index_digest = hashlib.sha256(index_canonical).hexdigest()
 
-    current_promotion_eligible = current_promotion_eligible(
+    current_promotion_eligible = is_current_promotion_eligible(
         pr=pr,
         receipt=receipt,
         trusted_run=trusted_run,
