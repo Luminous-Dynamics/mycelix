@@ -217,6 +217,10 @@ def assert_evidence_archive_contract() -> None:
     assert "skip-decompress: true" in workflow
     assert "Validate and materialize raw evidence members" in workflow
     assert "verify_raw_artifact_archive" in workflow
+    verifier = Path(__file__).with_name("verify_fpm_trusted_qualification.py").read_text(encoding="utf-8")
+    assert "actual_steps = {step for step, _ in invocations}" in verifier
+    assert "Cargo fmt inside immutable sandbox" in verifier
+    assert "Cargo test inside immutable offline sandbox" in verifier
     assert "selection[\"receipt_artifact_id\"]" in workflow
     assert "selection[\"index_artifact_id\"]" in workflow
     assert "snapshot/raw/receipt.zip" in workflow
@@ -434,6 +438,18 @@ version = "1.0.0"
         ]
         for file_name, label, fn in external:
             expect_failure(root, file_name, label, fn)
+
+        def mutate_only_fmt_network(value):
+            decoded = base64.b64decode(value["content"]).decode("utf-8")
+            start = decoded.index("      - name: Cargo fmt inside immutable sandbox")
+            end = decoded.index("      - name: Probe hostile-code sandbox boundary", start)
+            block = decoded[start:end]
+            assert "--network none" in block
+            block = block.replace("--network none", "--network host", 1)
+            decoded = decoded[:start] + block + decoded[end:]
+            value["content"] = base64.b64encode(decoded.encode("utf-8")).decode("ascii")
+
+        expect_failure(root, "policy-file.json", "policy.fmt-network-only", mutate_only_fmt_network)
 
         policy_cases = [
             ("--network none", "--network host", "policy.network"),
