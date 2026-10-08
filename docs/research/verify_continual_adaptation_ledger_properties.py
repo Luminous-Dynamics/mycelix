@@ -45,6 +45,19 @@ def node_index(graph: dict) -> dict[str, dict] | None:
     return out
 
 
+def edge_schema_valid(edge: list[object], nodes: dict[str, dict], policy: dict) -> bool:
+    constraints = [
+        rule
+        for rule in policy.get("edge_schema_constraints", [])
+        if rule["relation"] == edge[2]
+    ]
+    return any(
+        nodes[edge[0]].get("type") in rule["source_types"]
+        and nodes[edge[1]].get("type") in rule["target_types"]
+        for rule in constraints
+    )
+
+
 def normalize(graph: dict, policy: dict) -> dict | None:
     nodes = node_index(graph)
     if nodes is None:
@@ -52,6 +65,8 @@ def normalize(graph: dict, policy: dict) -> dict | None:
     seen: set[tuple[str, str, str]] = set()
     for edge in graph["edges"]:
         if not isinstance(edge, list) or len(edge) != 3 or edge[0] not in nodes or edge[1] not in nodes:
+            return None
+        if not edge_schema_valid(edge, nodes, policy):
             return None
         key = tuple(edge)
         if policy["graph_canonicalization"]["reject_duplicate_edges"] and key in seen:
