@@ -1,0 +1,54 @@
+name: Sovereignty semantic counterexamples candidate
+on:
+  push:
+    branches:
+      - sov-ai-auth-v20-semantic-counterexamples
+  pull_request:
+    branches:
+      - sov-ai-auth-v19-compound-constraint-witness-matching
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  semantic-counterexamples:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: \${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Assert exact head
+        env:
+          EXPECTED_SHA: \${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Compile and validate exact oracle
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            mycelix-governance/tools/formal/compound_subsumption_counterexamples.py \
+            mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
+      - name: Execute controls and independently replay witnesses
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/auth-v20-evidence"
+          python3 mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py \
+            --evidence-dir "$RUNNER_TEMP/auth-v20-evidence"
+      - name: Verify repository postflight
+        if: always()
+        run: |
+          set -euo pipefail
+          test "$(git status --porcelain)" = ""
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sovereignty-semantic-counterexamples-\${{ github.sha }}
+          path: \${{ runner.temp }}/auth-v20-evidence
+          if-no-files-found: warn
+          retention-days: 30
