@@ -39,10 +39,10 @@ def remove_named_fact(source,name):
 
 def main() -> int:
     p=argparse.ArgumentParser()
-    for n in ("profile","pins","tla","cfg","negative-tla","alloy","alloy-runner-java","alloy-runner-class","alloy-runner-class-dir","tla-jar","alloy-jar","evidence-dir","workflow","crosswalk","reference-explorer","runtime-metadata"):
+    for n in ("profile","pins","control-matrix","tla","cfg","negative-tla","alloy","alloy-runner-java","alloy-runner-class","alloy-runner-class-dir","tla-jar","alloy-jar","evidence-dir","workflow","crosswalk","reference-explorer","runtime-metadata"):
         p.add_argument("--"+n,type=Path,required=True)
     a=p.parse_args(); a.evidence_dir.mkdir(parents=True,exist_ok=True)
-    profile,pb=load_json(a.profile); pins,_=load_json(a.pins); crosswalk,cwb=load_json(a.crosswalk); runtime,rmb=load_json(a.runtime_metadata)
+    profile,pb=load_json(a.profile); pins,_=load_json(a.pins); matrix,mb=load_json(a.control_matrix); crosswalk,cwb=load_json(a.crosswalk); runtime,rmb=load_json(a.runtime_metadata)
 
     subject=profile.get("subject",{})
     if profile.get("authority")!="non-authoritative" or profile.get("status")!="candidate-verification-profile": fail("profile authority/status mismatch")
@@ -55,6 +55,12 @@ def main() -> int:
         print(json.dumps(receipt,sort_keys=True)); return 2
 
     if pins.get("schema")!="mycelix.effective-contestability-formal-tool-pins.v1": fail("pin schema mismatch")
+    if matrix.get("schema")!="mycelix.effective-contestability-control-matrix.v1": fail("control matrix schema mismatch")
+    matrix_ids={x.get("id") for x in matrix.get("controls",[])}
+    if matrix_ids != set(TLA_CONTROLS): fail("control matrix coverage mismatch")
+    if any(x.get("tla_invariant") not in TLA_INVARIANTS or x.get("tla_control") not in TLA_CONTROLS or x.get("alloy_witness") not in ALLOY_UNSAT_WITNESSES for x in matrix.get("controls",[])): fail("control matrix contains unknown target")
+    if profile["verifier"].get("control_matrix_path")!=a.control_matrix.as_posix(): fail("control matrix path mismatch")
+    if git_blob_sha1(a.control_matrix.read_bytes())!=profile["verifier"]["control_matrix_git_blob_sha"]: fail("control matrix blob mismatch")
     head=subject["head_sha"]; branch_name=subject["source_branch"]
     fetched=run(["git","fetch","--no-tags","--depth","1","origin",head])
     if fetched.returncode!=0: fail("unable to fetch exact subject commit")
@@ -84,7 +90,7 @@ def main() -> int:
         if git_blob_sha1(path.read_bytes())!=expected: fail("frozen byte mismatch: "+str(path))
     if sha256_file(a.tla_jar)!=pins["tools"]["tla2tools"]["sha256"]: fail("TLA+ tool hash mismatch")
     if sha256_file(a.alloy_jar)!=pins["tools"]["alloy"]["sha256"]: fail("Alloy tool hash mismatch")
-    baseline={str(x):sha256_file(x) for x in (a.profile,a.pins,a.tla,a.cfg,a.negative_tla,a.alloy,a.alloy_runner_java,a.crosswalk,a.reference_explorer,a.runtime_metadata,a.workflow)}
+    baseline={str(x):sha256_file(x) for x in (a.profile,a.pins,a.control_matrix,a.tla,a.cfg,a.negative_tla,a.alloy,a.alloy_runner_java,a.crosswalk,a.reference_explorer,a.runtime_metadata,a.workflow)}
     if a.workflow.as_posix()!=".github/workflows/sovereignty-contestability-formal-candidate.yml": fail("workflow path mismatch")
     receipt={"receipt_schema":"effective-contestability-formal-receipt-v1","result":"ExecutedFail","claim_scope":"candidate bounded formal qualification only","subject":subject,
              "verifier":{"profile_sha256":hashlib.sha256(pb).hexdigest(),"crosswalk_sha256":hashlib.sha256(cwb).hexdigest(),"implementation_sha256":sha256_file(Path(__file__)),"alloy_runner_java_sha256":sha256_file(a.alloy_runner_java),"alloy_runner_class_sha256":sha256_file(a.alloy_runner_class),"runtime_metadata_sha256":hashlib.sha256(rmb).hexdigest()},
@@ -131,6 +137,8 @@ def main() -> int:
             if by[label]["actual"]!="SAT" or by[label]["check"] or by[label]["expects"]!=1: fail("Alloy SAT mismatch: "+label)
         for label in ALLOY_UNSAT:
             if by[label]["actual"]!="UNSAT" or not by[label]["check"] or by[label]["expects"]!=0: fail("Alloy UNSAT mismatch: "+label)
+        for label in ALLOY_UNSAT_WITNESSES:
+            if label not in by or by[label]["actual"]!="UNSAT" or by[label]["check"]: fail("Alloy negative witness not UNSAT canonically: "+label)
         canonical_alloy={r["label"]:r["actual"] for r in rows}; receipt["alloy"]["canonical"]={"commands":rows}
         source=a.alloy.read_text(encoding="utf-8")
         for fact,target in ALLOY_NEGATIVE_FACTS.items():
