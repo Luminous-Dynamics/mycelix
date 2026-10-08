@@ -63,12 +63,13 @@ struct WorkOrderFabricationProjection {
 }
 
 fn is_active_work_order(status: Option<&manufacturing_common::WorkOrderStatus>) -> bool {
-    !matches!(
+    matches!(
         status,
         Some(
-            manufacturing_common::WorkOrderStatus::Completed
-                | manufacturing_common::WorkOrderStatus::Closed
-                | manufacturing_common::WorkOrderStatus::Cancelled
+            manufacturing_common::WorkOrderStatus::Draft
+                | manufacturing_common::WorkOrderStatus::Released
+                | manufacturing_common::WorkOrderStatus::InProgress
+                | manufacturing_common::WorkOrderStatus::OnHold
         )
     )
 }
@@ -408,7 +409,7 @@ pub fn query_commons_inventory(
 pub struct LocalPreferenceResult {
     /// Quantity sourced from commons (0 if unavailable or insufficient).
     pub from_commons: u64,
-    /// Quantity that must come from supplychain.
+    /// Quantity actually available/sourced from supplychain for the deficit.
     pub from_supplychain: u64,
     /// Whether commons was reachable.
     pub commons_available: bool,
@@ -629,6 +630,21 @@ mod tests {
         assert!(back2.available_quantity.is_none());
         assert!(!back2.commons_available);
         assert!(back2.error.is_some());
+    }
+
+    #[test]
+    #[test]
+    fn test_active_work_order_requires_known_non_terminal_status() {
+        use manufacturing_common::WorkOrderStatus;
+
+        assert!(is_active_work_order(Some(&WorkOrderStatus::Draft)));
+        assert!(is_active_work_order(Some(&WorkOrderStatus::Released)));
+        assert!(is_active_work_order(Some(&WorkOrderStatus::InProgress)));
+        assert!(is_active_work_order(Some(&WorkOrderStatus::OnHold)));
+        assert!(!is_active_work_order(Some(&WorkOrderStatus::Completed)));
+        assert!(!is_active_work_order(Some(&WorkOrderStatus::Closed)));
+        assert!(!is_active_work_order(Some(&WorkOrderStatus::Cancelled)));
+        assert!(!is_active_work_order(None));
     }
 
     #[test]
