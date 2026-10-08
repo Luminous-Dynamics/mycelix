@@ -205,6 +205,14 @@ function verify(graph, policy, actualPolicySha, anchors) {
   }
 
   const nodes = nodeIndex(graph);
+  const objectAnchors = anchors.__object_identity__ || {};
+  for (const [nodeId, anchor] of Object.entries(objectAnchors)) {
+    const node = nodes.get(nodeId);
+    if (!node) continue;
+    if (node.commitment === undefined) return "unresolved";
+    const identity = digest({id: nodeId, commitment: node.commitment});
+    if (identity !== anchor) return "unqualified";
+  }
   const local = claimLocalNodes(graph, policy);
   if (policy.classification.supersession_must_be_claim_local ?? true) {
     for (const edge of graph.edges) {
