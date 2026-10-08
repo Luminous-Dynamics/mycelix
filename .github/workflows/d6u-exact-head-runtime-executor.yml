@@ -274,11 +274,12 @@ jobs:
             test -x "$TOOLCHAIN_ROOT/bin/$tool"
           done
           toolchain_manifest="$RUNNER_TEMP/d6u-toolchain-manifest.sha256"
+          test -z "$(find "$TOOLCHAIN_ROOT" -type l -print -quit)"
           (
-            cd "$TOOLCHAIN_ROOT/bin"
-            sha256sum cargo cargo-clippy clippy-driver rustc rustfmt
+            cd "$TOOLCHAIN_ROOT"
+            find . -type f -print0 | sort -z | xargs -0 sha256sum
           ) > "$toolchain_manifest"
-          test "$(wc -l < "$toolchain_manifest")" -eq 5
+          test -s "$toolchain_manifest"
           docker --context default pull --platform linux/amd64 "$D6U_COMPILER_IMAGE"
           observed="$(docker --context default image inspect "$D6U_COMPILER_IMAGE" --format '{{index .RepoDigests 0}}')"
           test "$observed" = "$D6U_COMPILER_IMAGE"
@@ -300,6 +301,9 @@ jobs:
               cd /toolchain/bin; sha256sum -c /toolchain-manifest;
               test ! -e /var/run/docker.sock;
               test "$(grep -E "^CapEff:" /proc/self/status | awk "{print \$2}")" = "0000000000000000";
+              test "$(grep -E "^CapBnd:" /proc/self/status | awk "{print \$2}")" = "0000000000000000";
+              test "$(grep -E "^NoNewPrivs:" /proc/self/status | awk "{print \$2}")" = "1";
+              test "$(grep -E "^Seccomp:" /proc/self/status | awk "{print \$2}")" = "2";
             '
           mkdir -m 700 "$RUNNER_TEMP/d6u-container-target"
           mkdir -m 700 "$RUNNER_TEMP/d6u-container-output"
@@ -365,6 +369,8 @@ jobs:
               assert_eq!(field("NoNewPrivs").as_deref(), Some("1"));
               assert_eq!(field("CapEff").as_deref(), Some("0000000000000000"));
               assert_eq!(field("CapBnd").as_deref(), Some("0000000000000000"));
+              assert_eq!(field("NoNewPrivs").as_deref(), Some("1"));
+              assert_eq!(field("Seccomp").as_deref(), Some("2"));
               let workspace = env::var("GITHUB_WORKSPACE").expect("workspace");
               assert!(OpenOptions::new().create(true).write(true).open(Path::new(&workspace).join("d6u-host-boundary-write-probe")).is_err());
               for name in ["GITHUB_TOKEN", "GH_TOKEN", "ACTIONS_RUNTIME_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN"] {
