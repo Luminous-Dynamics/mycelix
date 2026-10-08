@@ -24,22 +24,9 @@ one sig RunState {
  greedyOutcome: one Bit,
  childDenotation: set Request
 }
+one sig Matcher { witness: ParentClause -> ChildClause }
 
-one sig Matcher {
- witness: ParentClause -> ChildClause
-}
-
-fun parentDenotation: set Request {
-  AliceBusiness + AliceRefund
-}
-fun atomDen[c:ChildClause]: set Request {
-  c = ChildNarrow implies AliceBusiness
-  c = ChildBroad implies AliceBusiness + BobBusiness + BobRefund + AliceRefund
-  c = ChildBob implies BobBusiness + BobRefund
-  c = ChildExtra implies AliceBusiness
-  c = ChildUnsupported implies AliceBusiness
-  else none
-}
+fun parentDenotation: set Request { AliceBusiness + AliceRefund }
 
 pred atomSubsumes[c:ChildClause,p:ParentClause] {
   (c = ChildNarrow and (p = ParentNarrow or p = ParentBroad))
@@ -91,18 +78,27 @@ fact Environment { canonicalEnvironment or mutationEnvironment }
 assert WitnessSound { all p: ParentClause | all c: p.Matcher.witness | atomSubsumes[c,p] }
 assert WitnessInjective { all c: ChildClause | lone Matcher.witness.c }
 assert CanonicalAggregate {
-  RunState.control = Canonical implies (hasInjectiveMatching and RunState.childDenotation = parentDenotation and RunState.childSupported = On)
+  RunState.control = Canonical implies
+    (hasInjectiveMatching and RunState.childDenotation = parentDenotation and RunState.childSupported = On)
 }
 assert ParentClauseDeletionSafe { RunState.control = ParentClauseDeletion implies #RunState.childActive >= #ParentClause }
 assert DuplicateWitnessReuseSafe { RunState.control = DuplicateWitnessReuse implies #RunState.childActive >= #ParentClause }
 assert GreedyDeadEndSafe { RunState.control = GreedyDeadEnd implies RunState.greedyOutcome = On }
 assert ClauseOrderPermutationSafe { RunState.control = ClauseOrderPermutation implies hasInjectiveMatching }
-assert SemanticEquivalentSafe { RunState.control = SemanticEquivalent implies RunState.childDenotation = parentDenotation and RunState.childSyntax = AliasSyntax }
-assert SemanticNonEquivalentNormalizationSafe { RunState.control = SemanticNonEquivalentNormalization implies RunState.childDenotation = parentDenotation }
+assert SemanticEquivalentSafe {
+  RunState.control = SemanticEquivalent implies
+    RunState.childDenotation = parentDenotation and RunState.childSyntax = AliasSyntax
+}
+assert SemanticNonEquivalentNormalizationSafe {
+  RunState.control = SemanticNonEquivalentNormalization implies RunState.childDenotation = parentDenotation
+}
 assert CrossTypeSafe { RunState.control = CrossTypeSubstitution implies RunState.childSupported = On }
 assert UnsupportedCompoundSafe { RunState.control = UnsupportedExtensionInsideCompound implies RunState.childSupported = On }
 assert DisjunctExpansionSafe { RunState.control = DisjunctExpansion implies RunState.childDenotation in parentDenotation }
-assert AdditionalRestrictiveSafe { RunState.control = AdditionalRestrictiveClause implies RunState.childDenotation in parentDenotation }
+assert AdditionalRestrictiveSafe {
+  RunState.control = AdditionalRestrictiveClause implies
+    (hasInjectiveMatching and RunState.childDenotation in parentDenotation)
+}
 
 check WitnessSound for 8
 check WitnessInjective for 8
