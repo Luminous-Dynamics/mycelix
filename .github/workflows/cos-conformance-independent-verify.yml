@@ -342,6 +342,25 @@ jobs:
           PY
           )"
 
+          if [[ -n "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
+            set +e
+            curl -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
+              -o evidence/governance/admin-capability-probe-payload.json \
+              -w "%{http_code}" \
+              "https://api.github.com/orgs/Luminous-Dynamics/rulesets?per_page=1" \
+              > evidence/governance/admin-capability-probe-http-status.txt
+            capability_probe_curl_status=$?
+            set -e
+            test "${capability_probe_curl_status}" -eq 0
+          else
+            printf '[]\n' > evidence/governance/admin-capability-probe-payload.json
+            printf '0\n' > evidence/governance/admin-capability-probe-http-status.txt
+          fi
+
+
           ruleset_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
           mkdir -p evidence/governance/rulesets
           GH_TOKEN="${ruleset_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" \
