@@ -111,6 +111,10 @@ def validate_policy(policy: Any) -> None:
         "admin observation requirement drift",
     )
     require(
+        observation_contract.get("admin_capability_probe_required_for_verified") is True,
+        "admin capability probe requirement drift",
+    )
+    require(
         observation_contract.get("secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists") is True,
         "secondary observation precedence drift",
     )
@@ -247,6 +251,17 @@ def validate_observation_shape(observation: Any) -> None:
         observation.get("effective_rules", {}).get("entries") == effective_rules_raw,
         "normalized effective rules observation does not match raw effective rules payload",
     )
+    capability_probe = observation.get("admin_capability_probe")
+    require(isinstance(capability_probe, dict), "admin capability probe observation missing")
+    capability_status = capability_probe.get("http_status")
+    require(isinstance(capability_status, int), "admin capability probe http_status must be integer")
+    capability_raw = validate_bound_raw_payload(observation, "admin_capability")
+    require(isinstance(capability_raw, list), "admin capability probe raw payload must be a list")
+    require(
+        observation.get("admin_capability_probe", {}).get("http_status") == capability_status,
+        "normalized admin capability probe status is inconsistent",
+    )
+
     protection_api = observation.get("branch_protection_api")
     require(isinstance(protection_api, dict), "branch protection API observation missing")
     protection_status = protection_api.get("http_status")
@@ -861,6 +876,11 @@ def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
             admin_source == "repository_administration_secret",
             "verified administration observation requires an external administration credential",
         )
+        capability_probe = observation.get("admin_capability_probe")
+        require(
+            isinstance(capability_probe, dict) and capability_probe.get("http_status") == 200,
+            "verified administration observation requires a successful admin capability probe",
+        )
 
     default_branch = observation.get("default_branch")
     require(
@@ -1038,6 +1058,7 @@ def fixture_policy() -> dict[str, Any]:
             "raw_payloads_required": True,
             "raw_payload_sha256_required": True,
             "admin_observation_required_for_verified": True,
+            "admin_capability_probe_required_for_verified": True,
             "secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists": True,
             "applicable_rulesets_must_be_aggregated": True,
             "ruleset_repository_targeting_must_be_evaluated": True,
@@ -1150,6 +1171,7 @@ def fixture_observation(
         separators=(",", ":"),
         sort_keys=True,
     ).encode()
+    capability_raw = json.dumps([], separators=(",", ":"), sort_keys=True).encode()
     return {
         "schema": SCHEMA,
         "version": 1,
@@ -1158,6 +1180,9 @@ def fixture_observation(
         "target_ref": TARGET_REF,
         "observed_at_utc": "2026-10-07T00:00:00Z",
         "default_branch": "main",
+        "admin_capability_probe": {"http_status": 200},
+        "admin_capability_payload_base64": base64.b64encode(capability_raw).decode(),
+        "admin_capability_payload_sha256": hashlib.sha256(capability_raw).hexdigest(),
         "repository_payload_base64": base64.b64encode(repository_raw).decode(),
         "repository_payload_sha256": hashlib.sha256(repository_raw).hexdigest(),
         "policy_sha256": hashlib.sha256(
@@ -1576,6 +1601,16 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "MISMATCH"
     assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["admin_capability_probe"]["http_status"] = 403
+    x["admin_observation"]["status"] = "verified"
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("verified administration must require a successful capability probe")
 
     x = copy.deepcopy(fixture_observation(policy))
     x["policy_sha256"] = "f" * 64
