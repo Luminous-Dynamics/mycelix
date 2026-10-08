@@ -80,12 +80,17 @@ pub enum CapabilityPlanRejection {
     MachineDeleted,
     MachineUnavailable,
     MultipleContractsForMachine,
+    QualificationLookupFailed,
+    QualificationMissing,
+    QualificationMalformed,
+    QualificationNotCurrent,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CapabilityPlanDecision {
     pub machine_hash: Option<ActionHash>,
     pub capability_contract_hash: ActionHash,
+    pub qualification_attestation_hashes: Vec<ActionHash>,
     pub machine_status: Option<MachineStatus>,
     pub machine_state_head: Option<ActionHash>,
     pub eligible: bool,
@@ -111,6 +116,14 @@ struct CapabilityContractProjection {
     tolerance_um: Option<u32>,
     supported_protocols: Vec<String>,
     qualification: CapabilityQualification,
+}
+
+#[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
+struct QualificationAttestationProjection {
+    capability_contract_hash: ActionHash,
+    outcome: CapabilityQualification,
+    valid_from: Timestamp,
+    valid_until: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -141,6 +154,27 @@ fn capability_profile(contract: &CapabilityContractProjection) -> CapabilityProf
     }
 }
 
+fn push_rejection(
+    rejected: &mut Vec<CapabilityPlanDecision>,
+    contract_hash: ActionHash,
+    machine_hash: Option<ActionHash>,
+    reason: CapabilityPlanRejection,
+    attestation_hashes: Vec<ActionHash>,
+    machine_status: Option<MachineStatus>,
+    machine_state_head: Option<ActionHash>,
+) {
+    rejected.push(CapabilityPlanDecision {
+        machine_hash,
+        capability_contract_hash: contract_hash,
+        qualification_attestation_hashes: attestation_hashes,
+        machine_status,
+        machine_state_head,
+        eligible: false,
+        mismatch: None,
+        rejection: Some(reason),
+    });
+}
+
 /// Resolve a manufacturing capability requirement against live capability contracts
 /// and the full machine update graph.
 ///
@@ -153,6 +187,7 @@ fn capability_profile(contract: &CapabilityContractProjection) -> CapabilityProf
 pub fn select_live_capability(
     input: CapabilityPlanInput,
 ) -> ExternResult<CapabilityPlanSelection> {
+    let observed_at = sys_time()?;
     let response = call(
         CallTargetCell::Local,
         ZomeName::from("execution"),
@@ -181,6 +216,7 @@ pub fn select_live_capability(
         CapabilityProfile,
         MachineStatus,
         ActionHash,
+        Vec<ActionHash>,
     )> = Vec::new();
     let mut rejected: Vec<CapabilityPlanDecision> = Vec::new();
 
@@ -208,6 +244,7 @@ pub fn select_live_capability(
                     rejected.push(CapabilityPlanDecision {
                         machine_hash: None,
                         capability_contract_hash: contract_hash,
+                        qualification_attestation_hashes: Vec::new(),
                         machine_status: None,
                         machine_state_head: None,
                         eligible: false,
@@ -221,6 +258,7 @@ pub fn select_live_capability(
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: None,
                     capability_contract_hash: contract_hash,
+                    qualification_attestation_hashes: Vec::new(),
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -240,6 +278,7 @@ pub fn select_live_capability(
                     rejected.push(CapabilityPlanDecision {
                         machine_hash: None,
                         capability_contract_hash: contract_hash,
+                        qualification_attestation_hashes: Vec::new(),
                         machine_status: None,
                         machine_state_head: None,
                         eligible: false,
@@ -250,6 +289,133 @@ pub fn select_live_capability(
                 }
             };
 
+        let mut current_attestations = Vec::new();
+        if matches!(contract.qualification, CapabilityQualification::Qualified) {
+            let attestation_response = call(
+                CallTargetCell::Local,
+                ZomeName::from("execution"),
+                FunctionName::from("list_qualification_attestations_for_contract"),
+                None,
+                ExternIO::encode(contract_hash.clone())?,
+            )?;
+
+            let attestation_links = match attestation_response {
+                ZomeCallResponse::Ok(data) => data.decode::<Vec<Link>>().map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "failed to decode qualification attestation links: {e}"
+                    )))
+                })?,
+                _ => {
+                    push_rejection(
+                        &mut rejected,
+                        contract_hash,
+                        Some(contract.machine_hash.clone()),
+                        CapabilityPlanRejection::QualificationLookupFailed,
+                        Vec::new(),
+                        None,
+                        None,
+                    );
+                    continue;
+                }
+            };
+
+            for link in attestation_links {
+                let Some(attestation_hash) = link.target.clone().into_action_hash() else {
+                    continue;
+                };
+                let response = call(
+                    CallTargetCell::Local,
+                    ZomeName::from("execution"),
+                    FunctionName::from("get_qualification_attestation"),
+                    None,
+                    ExternIO::encode(attestation_hash.clone())?,
+                )?;
+                let attestation_record = match response {
+                    ZomeCallResponse::Ok(data) => match data.decode::<Option<Record>>().map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "failed to decode qualification attestation: {e}"
+                        )))
+                    })? {
+                        Some(record) => record,
+                        None => {
+                            push_rejection(
+                                &mut rejected,
+                                contract_hash.clone(),
+                                Some(contract.machine_hash.clone()),
+                                CapabilityPlanRejection::QualificationMalformed,
+                                Vec::new(),
+                                None,
+                                None,
+                            );
+                            continue;
+                        }
+                    },
+                    _ => {
+                        push_rejection(
+                            &mut rejected,
+                            contract_hash.clone(),
+                            Some(contract.machine_hash.clone()),
+                            CapabilityPlanRejection::QualificationLookupFailed,
+                            Vec::new(),
+                            None,
+                            None,
+                        );
+                        continue;
+                    }
+                };
+
+                let attestation: QualificationAttestationProjection =
+                    match attestation_record.entry().to_app_option().map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(e.to_string()))
+                    })? {
+                        Some(value) => value,
+                        None => {
+                            push_rejection(
+                                &mut rejected,
+                                contract_hash.clone(),
+                                Some(contract.machine_hash.clone()),
+                                CapabilityPlanRejection::QualificationMalformed,
+                                Vec::new(),
+                                None,
+                                None,
+                            );
+                            continue;
+                        }
+                    };
+
+                if attestation.capability_contract_hash != contract_hash
+                    || !matches!(attestation.outcome, CapabilityQualification::Qualified)
+                {
+                    push_rejection(
+                        &mut rejected,
+                        contract_hash.clone(),
+                        Some(contract.machine_hash.clone()),
+                        CapabilityPlanRejection::QualificationMalformed,
+                        Vec::new(),
+                        None,
+                        None,
+                    );
+                    continue;
+                }
+
+                if attestation.valid_from <= observed_at && observed_at <= attestation.valid_until {
+                    current_attestations.push(attestation_hash);
+                }
+            }
+
+            if current_attestations.is_empty() {
+                push_rejection(
+                    &mut rejected,
+                    contract_hash,
+                    Some(contract.machine_hash.clone()),
+                    CapabilityPlanRejection::QualificationNotCurrent,
+                    Vec::new(),
+                    None,
+                    None,
+                );
+                continue;
+            }
+        }
         let machine_hash = contract.machine_hash.clone();
         let machine_response = call(
             CallTargetCell::Local,
@@ -271,6 +437,7 @@ pub fn select_live_capability(
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
+                    qualification_attestation_hashes: Vec::new(),
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -294,6 +461,7 @@ pub fn select_live_capability(
                     profile,
                     MachineStatus::Available,
                     head_action,
+                    current_attestations,
                 ));
                 continue;
             }
@@ -301,6 +469,7 @@ pub fn select_live_capability(
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
+                    qualification_attestation_hashes: Vec::new(),
                     machine_status: Some(status),
                     machine_state_head: Some(head_action),
                     eligible: false,
@@ -313,6 +482,7 @@ pub fn select_live_capability(
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
+                    qualification_attestation_hashes: Vec::new(),
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -325,6 +495,7 @@ pub fn select_live_capability(
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
+                    qualification_attestation_hashes: Vec::new(),
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -337,6 +508,7 @@ pub fn select_live_capability(
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
+                    qualification_attestation_hashes: Vec::new(),
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -349,6 +521,7 @@ pub fn select_live_capability(
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
+                    qualification_attestation_hashes: Vec::new(),
                     machine_status: None,
                     machine_state_head: None,
                     eligible: false,
@@ -368,20 +541,22 @@ pub fn select_live_capability(
     });
 
     let mut machine_contract_counts = std::collections::HashMap::new();
-    for (machine_id, _, _, _, _, _) in &raw {
+    for (machine_id, _, _, _, _, _, _) in &raw {
         *machine_contract_counts.entry(machine_id.clone()).or_insert(0usize) += 1;
     }
 
     let mut candidates = Vec::new();
     let mut candidate_meta = Vec::new();
 
-    for (machine_id, machine_hash, contract_hash, profile, status, head_action) in raw {
+    for (machine_id, machine_hash, contract_hash, profile, status, head_action, attestation_hashes) in raw {
         if machine_contract_counts.get(&machine_id).copied().unwrap_or(0) != 1 {
             rejected.push(CapabilityPlanDecision {
                 machine_hash: Some(machine_hash),
                 capability_contract_hash: contract_hash,
+                qualification_attestation_hashes: Vec::new(),
                 machine_status: Some(status),
                 machine_state_head: Some(head_action),
+                qualification_attestation_hashes: attestation_hashes,
                 eligible: false,
                 mismatch: None,
                 rejection: Some(CapabilityPlanRejection::MultipleContractsForMachine),
@@ -393,14 +568,14 @@ pub fn select_live_capability(
             machine_id: machine_id.clone(),
             profile,
         });
-        candidate_meta.push((machine_id, machine_hash, contract_hash, status, head_action));
+        candidate_meta.push((machine_id, machine_hash, contract_hash, status, head_action, attestation_hashes));
     }
 
     let selection = select_capable_machine(&input.requirement, candidates);
 
     let mut decisions = rejected;
     for decision in selection.decisions {
-        if let Some((_, machine_hash, contract_hash, status, head_action)) = candidate_meta
+        if let Some((_, machine_hash, contract_hash, status, head_action, attestation_hashes)) = candidate_meta
             .iter()
             .find(|(id, _, _, _, _)| *id == decision.machine_id)
         {
@@ -431,14 +606,14 @@ pub fn select_live_capability(
     let selected_machine_hash = selection.selected_machine_id.and_then(|id| {
         candidate_meta
             .iter()
-            .find(|(machine_id, _, _, _, _)| *machine_id == id)
-            .map(|(_, hash, _, _, _)| hash.clone())
+            .find(|(machine_id, _, _, _, _, _)| *machine_id == id)
+            .map(|(_, hash, _, _, _, _)| hash.clone())
     });
     let selected_capability_contract_hash = selected_machine_hash.as_ref().and_then(|hash| {
         candidate_meta
             .iter()
-            .find(|(_, machine_hash, _, _, _)| machine_hash == hash)
-            .map(|(_, _, contract_hash, _, _)| contract_hash.clone())
+            .find(|(_, machine_hash, _, _, _, _)| machine_hash == hash)
+            .map(|(_, _, contract_hash, _, _, _)| contract_hash.clone())
     });
 
     Ok(CapabilityPlanSelection {
