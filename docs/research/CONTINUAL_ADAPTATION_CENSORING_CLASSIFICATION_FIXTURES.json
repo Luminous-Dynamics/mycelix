@@ -2,10 +2,10 @@
   "schema": "mycelix.continual-adaptation.censoring-classification-fixtures.v1",
   "status": "research-fixture-only",
   "policy_binding": {
-    "git_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a"
+    "git_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c"
   },
   "history_anchors": {
-    "c01": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+    "c01": "sha256:2917b161833c4b69a2df6ce09c45d75e3e338e1c85ace02035e22ab996cb764d"
   },
   "base_graph": {
     "nodes": [
@@ -31,15 +31,15 @@
         "censoring_reason": "ActionInducedCensoring",
         "classification_epoch": "t0",
         "frozen_epoch": "t0",
-        "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+        "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
         "basis_id": "B1",
         "revision": "0",
-        "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+        "commitment": "sha256:2917b161833c4b69a2df6ce09c45d75e3e338e1c85ace02035e22ab996cb764d"
       },
       {
         "id": "p01",
         "type": "ClassificationPolicy",
-        "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+        "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
         "frozen_epoch": "t0"
       },
       {
@@ -269,10 +269,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
@@ -331,10 +331,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t2",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:773e9813a42456b1b1f2c695ebfabebb02851050fdecace8adb501ed4c91b5a3"
+            "commitment": "sha256:e2c542f41ad7534640bab043fd65c203748fcd4ce50489a099e2c5e28ebfa4d8"
           }
         ],
         [
@@ -393,10 +393,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
@@ -528,10 +528,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t1",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:c98fabdf9bcf93de254b6d622a61b1fbd4f33bb47fdbb50541fe752d9afbbcc5"
+            "commitment": "sha256:8771c353717e6231b1fb126798ddaa1b6b83c91672932a91f7237363e8b98821"
           }
         ],
         [
@@ -590,10 +590,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t2",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:773e9813a42456b1b1f2c695ebfabebb02851050fdecace8adb501ed4c91b5a3"
+            "commitment": "sha256:e2c542f41ad7534640bab043fd65c203748fcd4ce50489a099e2c5e28ebfa4d8"
           }
         ],
         [
@@ -652,10 +652,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
@@ -719,10 +719,10 @@
             "censoring_reason": "InfrastructureCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:b4d9ed99b48ef2bd160d5267743ac86da74d851b3142227eab6ac464ffc62879"
+            "commitment": "sha256:0e66c62c25719d290ab12110216d012e1a431f6c5ad4bf24ad3bec5b464ecaeb"
           }
         ],
         [
@@ -796,10 +796,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "0",
-            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+            "commitment": "sha256:2917b161833c4b69a2df6ce09c45d75e3e338e1c85ace02035e22ab996cb764d"
           }
         ],
         [
@@ -938,10 +938,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "0",
-            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+            "commitment": "sha256:2917b161833c4b69a2df6ce09c45d75e3e338e1c85ace02035e22ab996cb764d"
           }
         ],
         [
@@ -1000,10 +1000,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "0",
-            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+            "commitment": "sha256:2917b161833c4b69a2df6ce09c45d75e3e338e1c85ace02035e22ab996cb764d"
           }
         ],
         [
@@ -1062,10 +1062,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
@@ -1155,10 +1155,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "0",
-            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+            "commitment": "sha256:2917b161833c4b69a2df6ce09c45d75e3e338e1c85ace02035e22ab996cb764d"
           }
         ],
         [
@@ -1217,10 +1217,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
@@ -1279,10 +1279,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "0",
-            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+            "commitment": "sha256:2917b161833c4b69a2df6ce09c45d75e3e338e1c85ace02035e22ab996cb764d"
           }
         ],
         [
@@ -1326,10 +1326,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
@@ -1380,10 +1380,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
@@ -1435,10 +1435,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
@@ -1489,10 +1489,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "0",
-            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+            "commitment": "sha256:2917b161833c4b69a2df6ce09c45d75e3e338e1c85ace02035e22ab996cb764d"
           }
         ],
         [
@@ -1536,10 +1536,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
@@ -1598,10 +1598,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "0",
-            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+            "commitment": "sha256:2917b161833c4b69a2df6ce09c45d75e3e338e1c85ace02035e22ab996cb764d"
           }
         ],
         [
@@ -1645,10 +1645,10 @@
             "censoring_reason": "ActionInducedCensoring",
             "classification_epoch": "t0",
             "frozen_epoch": "t0",
-            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "policy_blob_sha": "e74da66e8080d0ff0de187a65d53e2ec2e6d8a9c",
             "basis_id": "B1",
             "revision": "1",
-            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+            "commitment": "sha256:cad668a6f86875d691a66cedc50da08e6aa34f7cd6bfffdfea03cc74fd0882c0"
           }
         ],
         [
