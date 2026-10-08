@@ -742,7 +742,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::ProposalToTimelock => Ok(ValidateCallbackResult::Valid),
             LinkTypes::TimelockToExecution => Ok(ValidateCallbackResult::Valid),
             LinkTypes::TimelockToExecutionAttempt => {
-                validate_execution_index_target(action, target_address, ExecutionIndexTargetKind::Attempt)
+                validate_execution_index_target(
+                    action,
+                    target_address,
+                    ExecutionIndexTargetKind::Attempt,
+                )
+            }
+            LinkTypes::ActionKeyToExecutionAttempt => {
+                validate_execution_index_target(
+                    action,
+                    target_address,
+                    ExecutionIndexTargetKind::Attempt,
+                )
             }
             LinkTypes::PendingTimelocks => Ok(ValidateCallbackResult::Valid),
             LinkTypes::GuardianToVeto => Ok(ValidateCallbackResult::Valid),
