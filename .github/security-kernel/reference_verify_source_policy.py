@@ -1023,7 +1023,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
     require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
     require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}", "S2 transcript download gate")
-    require_following(l, "Verify official receipt transport and publish verified result", "if: success()", "S2 final witness gate")
+    require_following(l, "Verify official receipt transport and publish verified result", "if: ${{ !cancelled() && (steps.verify_result.outputs.dispatch_decision == 'qualified' || steps.verify_result.outputs.dispatch_decision == 'suppressed') }}", "S2 final witness gate")
     require_no_escalation(l, "S2")
 
 
