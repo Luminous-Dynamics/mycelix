@@ -1127,7 +1127,7 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
         "name": "D6S Canonical Qualification",
         "path": ".github/workflows/d6s-canonical-qualification.yml",
         "workflow_id": 371215723,
-        "event": "pull_request",
+        "event": "push",
         "conclusion": "success",
         "id": 11,
         "head_repository": {"id": 9002, "full_name": "Luminous-Dynamics/mycelix"},
