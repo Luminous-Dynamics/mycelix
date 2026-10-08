@@ -319,6 +319,7 @@ def verify(
     policy: dict,
     actual_policy_sha: str,
     history_anchors: dict,
+    object_identity_anchors: dict,
 ) -> str:
     ok, reason = validate_structure(graph, policy)
     if not ok:
@@ -342,7 +343,7 @@ def verify(
 
     # Object identity is anchored outside the mutable graph. The anchor binds
     # the logical object identifier to the exact semantic commitment.
-    object_anchors = history_anchors.get("__object_identity__", {})
+    object_anchors = object_identity_anchors
     if isinstance(object_anchors, dict):
         for node_id, anchor in object_anchors.items():
             node = nodes.get(node_id)
@@ -493,7 +494,7 @@ def main() -> int:
     for case in fixture["cases"]:
         graph = apply_mutations(fixture["base_graph"], case["mutation"])
         verdict = verify(
-            graph, policy, actual_sha, fixture["history_anchors"]
+            graph, policy, actual_sha, fixture["history_anchors"], fixture.get("object_identity_anchors", {})
         )
         rows.append({
             "actual_verdict": verdict,
