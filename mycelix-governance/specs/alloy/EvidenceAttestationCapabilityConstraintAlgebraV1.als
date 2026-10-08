@@ -28,6 +28,13 @@ pred semEquivalent[a,b:Policy] {
 
 pred syntacticEqualChildCanonical { RunState.childSyntax = CanonicalSyntax }
 
+pred naiveAttenuation {
+  Parent.rule = DenyOverrides
+  Child.allow in Parent.allow
+  Parent.deny in Child.deny
+  all r:Request | effective[Child,r] implies effective[Parent,r]
+}
+
 pred attenuation {
   Parent.rule = DenyOverrides
   RunState.childSupported = On
@@ -60,7 +67,7 @@ pred mutationEnvironment {
   (RunState.control = NormalizationEquivalent implies (Child.allow = R1 and Child.deny = R2 and Child.rule = DenyOverrides and RunState.childSupported=On and RunState.childSyntax=AliasSyntax))
   (RunState.control = NormalizationNonEquivalent implies (Child.allow = R3 and Child.deny = R2 and Child.rule = DenyOverrides and RunState.childSupported=On and RunState.childSyntax=WrongAliasSyntax))
   (RunState.control = DenyDeletion implies (Child.allow = R1 and no Child.deny and Child.rule = DenyOverrides and RunState.childSupported=On))
-  (RunState.control = ConflictSubstitution implies (Child.allow = R1 and Child.deny = R2 and Child.rule = AllowOverrides and RunState.childSupported=On))
+  (RunState.control = ConflictSubstitution implies (Child.allow = R1+R2 and Child.deny = R2 and Child.rule = AllowOverrides and RunState.childSupported=On))
   (RunState.control = UnknownExtension implies (Child.allow = R1 and Child.deny = R2 and Child.rule = DenyOverrides and RunState.childSupported=Off))
   (RunState.control = CompoundExtension implies (Child.allow = R1 and Child.deny = R2 and Child.rule = DenyOverrides and RunState.childSupported=Off))
   RunState.control != Canonical implies RunState.childSyntax != CanonicalSyntax
@@ -98,11 +105,11 @@ assert DenyDeletionRejected { RunState.control = DenyDeletion implies not attenu
 assert ConflictSubstitutionRejected { RunState.control = ConflictSubstitution implies not attenuation }
 assert UnknownExtensionRejected {
   RunState.control = UnknownExtension implies
-    (RunState.childSupported = Off and not attenuation)
+    (RunState.childSupported = Off and not naiveAttenuation)
 }
 assert CompoundExtensionRejected {
   RunState.control = CompoundExtension implies
-    (RunState.childSupported = Off and not attenuation)
+    (RunState.childSupported = Off and not naiveAttenuation)
 }
 
 check PolicyOrderReflexive for 8
