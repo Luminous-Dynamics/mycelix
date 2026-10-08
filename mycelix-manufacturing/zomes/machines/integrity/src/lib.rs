@@ -114,6 +114,15 @@ impl MachineTemporalCommitmentAlgorithm {
             _ => 0,
         }
     }
+
+    fn expected_digest_len(&self) -> Option<usize> {
+        match self {
+            Self::Sha256 | Self::Sha3_256 | Self::Blake3_256 => Some(32),
+            Self::Sha384 | Self::Sha3_384 => Some(48),
+            Self::Sha512 | Self::Sha3_512 => Some(64),
+            Self::ProfileDefined(_) => None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -510,6 +519,10 @@ fn validate_create_time_authority_profile(
         || profile.max_accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
         || profile.source_authority_commitment_algorithm.is_empty()
         || profile.source_authority_commitment_algorithm.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || !digest_length_matches(
+            &profile.source_authority_commitment_algorithm,
+            profile.source_authority_commitment.len(),
+        )
         || profile.commitment_algorithm.is_empty()
         || profile.commitment_algorithm.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
         || profile.source_authority_commitment_target.is_empty()
@@ -555,6 +568,10 @@ fn validate_create_temporal_attestation(
         || attestation.source_reference.len() > MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES
         || attestation.source_commitment_algorithm.is_empty()
         || attestation.source_commitment_algorithm.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || !digest_length_matches(
+            &attestation.source_commitment_algorithm,
+            attestation.source_commitment.len(),
+        )
         || attestation.source_commitment.is_empty()
         || attestation.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || attestation.accuracy_micros < 0
@@ -1034,6 +1051,16 @@ fn temporal_interval_contains(
     valid_from <= timestamp && timestamp <= valid_until
 }
 
+fn digest_length_matches(
+    algorithm: &MachineTemporalCommitmentAlgorithm,
+    digest_len: usize,
+) -> bool {
+    algorithm
+        .expected_digest_len()
+        .map(|expected| expected == digest_len)
+        .unwrap_or(true)
+}
+
 fn temporal_interval_bounds(
     timestamp: Timestamp,
     accuracy_micros: i64,
@@ -1354,6 +1381,18 @@ mod content_restriction_tests {
         assert!(!MachineTemporalCommitmentAlgorithm::Sha256.is_empty());
         assert!(MachineTemporalAuthorityCommitmentTarget::ProfileDefined("".into()).is_empty());
         assert!(!MachineTemporalAuthorityCommitmentTarget::CertificateDer.is_empty());
+    }
+
+    #[test]
+    fn temporal_digest_lengths_match_known_algorithms() {
+        assert!(digest_length_matches(&MachineTemporalCommitmentAlgorithm::Sha256, 32));
+        assert!(!digest_length_matches(&MachineTemporalCommitmentAlgorithm::Sha256, 31));
+        assert!(digest_length_matches(&MachineTemporalCommitmentAlgorithm::Sha384, 48));
+        assert!(digest_length_matches(&MachineTemporalCommitmentAlgorithm::Sha512, 64));
+        assert!(digest_length_matches(
+            &MachineTemporalCommitmentAlgorithm::ProfileDefined("future".into()),
+            17,
+        ));
     }
 
     #[test]
