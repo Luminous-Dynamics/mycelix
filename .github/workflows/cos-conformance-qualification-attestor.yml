@@ -533,11 +533,12 @@ jobs:
         id: locate_artifact
         env:
           VERIFIER_RUN_ID: ${{ steps.bind.outputs.verifier_run_id }}
+          VERIFIER_RUN_ATTEMPT: ${{ steps.bind.outputs.verifier_run_attempt }}
           EXPECTED_HEAD_SHA: ${{ steps.bind.outputs.expected_head_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          expected_name="cos-conformance-independent-evidence-${EXPECTED_HEAD_SHA}"
+          expected_name="cos-conformance-independent-evidence-${EXPECTED_HEAD_SHA}-attempt-${VERIFIER_RUN_ATTEMPT}"
           : > artifacts.jsonl
           for page in 1 2 3 4 5 6 7 8 9 10; do
             page_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${VERIFIER_RUN_ID}/artifacts?per_page=100&page=${page}")"
