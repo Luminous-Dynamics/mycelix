@@ -1,0 +1,13 @@
+[package]
+name = "finance-collateral-auth"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Trusted policy roots and Holochain-authored collateral evidence semantics"
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-settlement = { path = "../finance-collateral-settlement" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
