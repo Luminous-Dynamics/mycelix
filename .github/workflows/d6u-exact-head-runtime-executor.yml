@@ -21,7 +21,7 @@ jobs:
       github.event.workflow_run.name == 'D6S Canonical Qualification' &&
       github.event.workflow_run.path == '.github/workflows/d6s-canonical-qualification.yml' &&
       github.event.workflow_run.workflow_id == 371215723 &&
-      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.repository.full_name == github.repository &&
       github.event.repository.id == github.repository_id &&
@@ -51,7 +51,7 @@ jobs:
           test "${{ github.event.workflow_run.head_repository.id }}" = "${{ github.repository_id }}"
           test "${{ github.event.workflow_run.head_repository.full_name }}" = "${{ github.repository }}"
           test "${{ github.event.workflow_run.head_branch }}" = "myc-int-demo-d6u-holochain-07-runtime"
-          test "${{ github.event.workflow_run.event }}" = "push"
+          test "${{ github.event.workflow_run.event }}" = "pull_request"
           test "${{ github.event.workflow_run.conclusion }}" = "success"
 
       - name: Assert exact qualification subject
