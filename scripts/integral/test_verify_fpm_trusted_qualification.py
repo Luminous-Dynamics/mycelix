@@ -216,7 +216,10 @@ def assert_evidence_archive_contract() -> None:
     assert "skip-decompress: true" in workflow
     assert "Validate and materialize raw evidence members" in workflow
     assert "verify_raw_artifact_archive" in workflow
+    assert "selection[\"receipt_artifact_id\"]" in workflow
+    assert "selection[\"index_artifact_id\"]" in workflow
     assert "snapshot/raw/receipt.zip" in workflow
+    assert block.index("verify_raw_artifact_archive") < block.index("Path(\"snapshot/qualification-receipt.json\")")
     assert "find snapshot/download" not in workflow
     assert "-print -quit" not in workflow
 
