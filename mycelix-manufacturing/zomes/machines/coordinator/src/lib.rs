@@ -446,12 +446,51 @@ pub fn create_machine_temporal_attestation(
     };
     let hash = create_entry(EntryTypes::MachineTemporalAttestation(attestation))?;
     create_link(input.machine_hash.clone(), hash.clone(), LinkTypes::MachineToTemporalAttestations, ())?;
+    create_link(input.subject_hash.clone(), hash.clone(), LinkTypes::SubjectToTemporalAttestations, ())?;
     let path = Path::from("all_machine_temporal_attestations")
         .typed(LinkTypes::AllMachineTemporalAttestations)?;
     path.ensure()?;
     create_link(path.path_entry_hash()?, hash.clone(), LinkTypes::AllMachineTemporalAttestations, ())?;
     Ok(hash)
 }
+/// Fetch one temporal attestation by action hash.
+#[hdk_extern]
+pub fn get_machine_temporal_attestation(hash: ActionHash) -> ExternResult<Option<Record>> {
+    get(hash, GetOptions::default())
+}
+
+/// Resolve all valid temporal attestations for an exact subject.
+///
+/// Multiple distinct attested times are never collapsed to a latest-wins answer.
+#[hdk_extern]
+pub fn resolve_machine_temporal_attestations(
+    subject_hash: ActionHash,
+) -> ExternResult<MachineTemporalEvidenceResolution> {
+    let links = get_links(
+        GetLinksInputBuilder::try_new(subject_hash, LinkTypes::SubjectToTemporalAttestations)?.build(),
+    )?;
+    let mut times = Vec::with_capacity(links.len());
+    for link in links {
+        let Some(hash) = link.target.into_action_hash() else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        let Some(record) = get(hash, GetOptions::default())? else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        let Some(attestation): Option<MachineTemporalAttestationEntry> = record
+            .entry().to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        if attestation.subject_hash != subject_hash {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+        times.push(attestation.attested_at);
+    }
+    Ok(resolve_temporal_times(times))
+}
+
 /// Get a controller authority by action hash.
 #[hdk_extern]
 pub fn get_machine_controller_authority(
