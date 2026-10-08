@@ -239,6 +239,8 @@ def check_case(base: dict, policy: dict, case: dict) -> dict:
             actual["verdict"] == "unresolved"
             and actual["semantic_digest"] != "invalid"
         )
+    elif prop == "endpoint_rejection":
+        ok = actual["verdict"] == "unresolved" and actual["semantic_digest"] == "invalid"
     elif prop == "structural_rejection":
         ok = actual["verdict"] == "unresolved" and actual["semantic_digest"] == "invalid"
     elif prop == "ordered_array_sensitivity":
