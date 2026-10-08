@@ -834,6 +834,19 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
 
 }
 
+fn read_nonnegative_unix_ms(value: i64, column: usize) -> Result<u64, rusqlite::Error> {
+    u64::try_from(value).map_err(|_| {
+        rusqlite::Error::FromSqlConversionFailure(
+            column,
+            rusqlite::types::Type::Integer,
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "negative authorization admission proof timestamp",
+            )),
+        )
+    })
+}
+
 fn storage_error(error: impl ToString) -> ActionFenceMutationError {
     ActionFenceMutationError::StorageFailure(error.to_string())
 }
@@ -1762,7 +1775,8 @@ fn load_authorization_admission_proof_tx(
                 row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,
                 row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?,
                 row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?,
-                row.get::<_, i64>(12)? as u64, row.get::<_, i64>(13)? as u64,
+                read_nonnegative_unix_ms(row.get(12)?, 12)?,
+                read_nonnegative_unix_ms(row.get(13)?, 13)?,
                 row.get(14)?, row.get(15)?,
             )
             .map_err(|e| rusqlite::Error::InvalidParameterName(e))
