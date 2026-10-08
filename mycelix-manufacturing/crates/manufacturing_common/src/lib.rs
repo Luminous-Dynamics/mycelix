@@ -762,6 +762,27 @@ mod tests {
     }
 
     #[test]
+    fn test_mrp_feasibility_default_is_not_full_feasible() {
+        let status = MrpFeasibility::default();
+        assert_eq!(status, MrpFeasibility::SchedulingNotEvaluated);
+        assert!(!matches!(status, MrpFeasibility::Feasible));
+    }
+
+    #[test]
+    fn test_mrp_feasibility_serde_roundtrip() {
+        for status in [
+            MrpFeasibility::MaterialInfeasible,
+            MrpFeasibility::SchedulingNotEvaluated,
+            MrpFeasibility::SchedulingInfeasible,
+            MrpFeasibility::Feasible,
+        ] {
+            let json = serde_json::to_string(&status).unwrap();
+            let back: MrpFeasibility = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, status);
+        }
+    }
+
+    #[test]
     fn test_mrp_result_construction() {
         let result = MrpResult {
             planned_orders: vec![],
@@ -779,4 +800,21 @@ mod tests {
         assert!(!result.feasible);
         assert_eq!(result.material_shortages[0].short_quantity, 80);
     }
+    }
+
+    #[test]
+    fn test_mrp_result_constructs_material_infeasible() {
+        let result = MrpResult {
+            planned_orders: vec![],
+            scheduled_operations: vec![],
+            capacity_warnings: vec![],
+            material_shortages: vec![],
+            feasibility: MrpFeasibility::SchedulingNotEvaluated,
+            feasible: false,
+        };
+        assert_eq!(result.feasibility, MrpFeasibility::SchedulingNotEvaluated);
+        assert!(!result.feasible);
+    }
+
+
 }
