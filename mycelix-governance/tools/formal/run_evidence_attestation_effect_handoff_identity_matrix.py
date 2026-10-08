@@ -76,9 +76,14 @@ for c in controls:
  (a.evidence_dir/("alloy-negative-"+c["id"]+".log")).write_text(mr.stdout)
  if mr.returncode: raise RuntimeError("Alloy mutant failed "+c["id"])
  rr=rows(mr.stdout)
- if rr.get(c["alloy_witness"])!="SAT" or rr.get(c["alloy_assertion"])!="SAT": raise RuntimeError("Alloy negative mismatch "+c["id"]+": "+repr(rr))
+ if rr.get(c["alloy_witness"])!="SAT" or rr.get(c["alloy_assertion"])!="SAT":
+  raise RuntimeError("Alloy negative mismatch "+c["id"]+": "+repr(rr))
+ other_witnesses=[x["alloy_witness"] for x in controls if x["id"]!=c["id"]]
+ if any(rr.get(w)!="UNSAT" for w in other_witnesses):
+  raise RuntimeError("other Alloy witnesses became SAT for "+c["id"]+": "+repr({w:rr.get(w) for w in other_witnesses}))
  changed={k for k in set(cr)|set(rr) if cr.get(k)!=rr.get(k)}
- if changed != {c["alloy_witness"],"IdentityConservation"}: raise RuntimeError("unrelated Alloy outcomes "+c["id"]+": "+repr(sorted(changed)))
+ if changed != {c["alloy_witness"],"IdentityConservation"}:
+  raise RuntimeError("unrelated Alloy outcomes "+c["id"]+": "+repr(sorted(changed)))
  receipt["alloy"]["mutations"][c["id"]]={"removed_fact":c["alloy_mutant_fact"],"changed_outcomes":sorted(changed),"outcomes":rr}
 receipt["result"]="ExecutedPass"
 (a.evidence_dir/"evidence-attestation-effect-handoff-identity-formal-receipt-v1.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
