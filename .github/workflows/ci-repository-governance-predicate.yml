@@ -352,6 +352,7 @@ jobs:
               "refs/heads/[a/b]",
           ]
           for pattern in unsupported:
+              assert module._github_fnmatch_pattern_supported(pattern, pathname=True) is False
               assert module._github_ref_pattern_matches("refs/heads/main", pattern) is False
 
           print(f"GitHub FNM_PATHNAME parity PASS: {len(corpus)} supported cases")
