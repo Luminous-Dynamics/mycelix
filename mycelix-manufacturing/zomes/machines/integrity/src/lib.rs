@@ -27,6 +27,10 @@ pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
 pub const MAX_MACHINE_TEMPORAL_ACCURACY_MICROS: i64 = 86_400_000_000;
 /// Maximum encoded size for the opaque external evidence commitment.
 pub const MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES: usize = 128;
+/// Bounded textual identifiers carried by temporal profiles.
+pub const MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES: usize = 128;
+/// Bounded external evidence locator size.
+pub const MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES: usize = 512;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineTemporalEvidenceObservation {
@@ -435,8 +439,10 @@ fn validate_create_time_authority_profile(
     action: TypedAction<CreateData>,
     profile: MachineTimeAuthorityProfileEntry,
 ) -> ExternResult<ValidateCallbackResult> {
-    if profile.profile_id.is_empty()
-        || profile.source_profile.is_empty()
+    if profile.profile_id.trim().is_empty()
+        || profile.profile_id.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || profile.source_profile.trim().is_empty()
+        || profile.source_profile.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
         || profile.source_authority_commitment.is_empty()
         || profile.source_authority_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || profile.max_accuracy_micros < 0
@@ -478,7 +484,8 @@ fn validate_create_temporal_attestation(
     action: TypedAction<CreateData>,
     attestation: MachineTemporalAttestationEntry,
 ) -> ExternResult<ValidateCallbackResult> {
-    if attestation.source_reference.is_empty()
+    if attestation.source_reference.trim().is_empty()
+        || attestation.source_reference.len() > MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES
         || attestation.source_commitment.is_empty()
         || attestation.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
         || attestation.accuracy_micros < 0
@@ -1288,6 +1295,9 @@ mod content_restriction_tests {
         let before_source = profile.signed_payload();
         profile.source_authority_commitment[0] ^= 1;
         assert_ne!(profile.signed_payload(), before_source);
+
+        let encoded_profile_id = "p".repeat(MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES + 1);
+        assert!(encoded_profile_id.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES);
     }
 
     #[test]
