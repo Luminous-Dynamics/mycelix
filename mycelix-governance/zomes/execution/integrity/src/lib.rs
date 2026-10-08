@@ -90,6 +90,10 @@ pub const OVERRIDE_THRESHOLD_FLOOR: f64 = 0.60;
 /// Aligned with Constitution Art. III, Sec. 5.4.
 pub const VETO_YEARLY_LIMIT: u32 = 3;
 
+/// Maximum number of action/evidence tuples carried by one execution resolution.
+/// The limit applies jointly to all parallel vectors and bounds DHT entry size.
+pub const MAX_EXECUTION_RESOLUTION_BINDINGS: usize = 256;
+
 /// Rolling year window for veto limit enforcement (microseconds).
 /// 12 months ≈ 365.25 days.
 pub const ROLLING_YEAR_US: i64 = 365 * 24 * 3600 * 1_000_000 + 6 * 3600 * 1_000_000;
@@ -102,6 +106,17 @@ pub const STRATEGIC_OVERRIDE_SUNSET_US: i64 = 36 * 30 * 24 * 3600 * 1_000_000_i6
 /// Threat categories that constitute valid constitutional justification
 /// for Charter Guardian Authority vetoes (post-sunset period).
 /// Non-charter vetoes are rejected after the sunset.
+pub const EXECUTION_ATTEMPT_IDENTITY_PREFIX: &str =
+    "constitutional-attempt-identity-v1:";
+pub const EXECUTION_ACTION_KEY_PREFIX: &str =
+    "constitutional-action-key-v1:";
+pub const EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX: &str =
+    "constitutional-authorization-admission-proof-v1:";
+pub const EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX: &str =
+    "constitutional-final-provider-entry-proof-v1:";
+pub const EXECUTION_TERMINAL_EVIDENCE_PREFIX: &str =
+    "constitutional-terminal-evidence-v3:";
+
 pub const CHARTER_THREAT_CATEGORIES: &[&str] = &[
     "constitutional_violation",
     "core_principle_violation",
@@ -154,7 +169,12 @@ pub enum ExecutionStatus {
     Failed,
 }
 
-/// Immutable host-side terminal resolution attestation.
+/// Immutable host-side execution-resolution receipt.
+///
+/// The receipt records the parallel roots for the authorization decision, action
+/// identity, provider-entry authorization, and terminal evidence that together
+/// describe the external-effect lifecycle. It is an evidence binding, not itself
+/// a provider-effect authorization or runtime qualification claim.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ExecutionResolution {
@@ -163,9 +183,21 @@ pub struct ExecutionResolution {
     pub timelock_id: String,
     pub proposal_id: String,
     pub executor: String,
+    /// Exact source-chain action hash of the Prepared Execution record being resolved.
+    /// None is legacy-only; new receipts must set it.
+    #[serde(default)]
+    pub prepared_execution_action_hash: Option<ActionHash>,
+    /// Exact source-chain action hash of the Prepared timelock record used to
+    /// authorize this resolution. None is legacy-only; new receipts must set it.
+    #[serde(default)]
+    pub prepared_timelock_action_hash: Option<ActionHash>,
     pub attempt_identities: Vec<String>,
     pub action_key_digests: Vec<String>,
     pub terminal_evidence_digests: Vec<String>,
+    #[serde(default)]
+    pub authorization_admission_proof_digests: Vec<String>,
+    #[serde(default)]
+    pub final_provider_entry_proof_digests: Vec<String>,
     pub outcome: ExecutionResolutionOutcome,
     pub resolved_at: Timestamp,
 }
@@ -421,6 +453,16 @@ pub fn check_create_execution(execution: &Execution) -> Result<(), String> {
 }
 
 /// Check that a host-side execution resolution is structurally complete.
+fn is_tagged_digest(value: &str, prefix: &str) -> bool {
+    let Some(hex) = value.strip_prefix(prefix) else {
+        return false;
+    };
+    hex.len() == 64
+        && hex
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 pub fn check_create_execution_resolution(
     action: &Create,
     resolution: &ExecutionResolution,
@@ -439,22 +481,124 @@ pub fn check_create_execution_resolution(
     {
         return Err("Resolution identifiers are required".into());
     }
-    if resolution.attempt_identities.is_empty()
-        || resolution.action_key_digests.is_empty()
-        || resolution.terminal_evidence_digests.is_empty()
+    if resolution.prepared_execution_action_hash.is_none()
+        || resolution.prepared_timelock_action_hash.is_none()
+    {
+        return Err("Resolution must bind exact prepared execution and timelock action hashes".into());
+    }
+    check_execution_resolution_bindings(
+        &resolution.attempt_identities,
+        &resolution.action_key_digests,
+        &resolution.terminal_evidence_digests,
+        &resolution.authorization_admission_proof_digests,
+        &resolution.final_provider_entry_proof_digests,
+    )?;
+    Ok(())
+}
+
+/// Validate that the action-addressed execution is the exact Prepared
+/// execution named by a resolution.
+pub fn check_resolution_prepared_execution_scope(
+    resolution: &ExecutionResolution,
+    prepared_execution: &Execution,
+) -> Result<(), String> {
+    if resolution.prepared_execution_action_hash.is_none() {
+        return Err("Resolution must bind the exact prepared execution action hash".into());
+    }
+    if prepared_execution.status != ExecutionStatus::Prepared
+        || prepared_execution.id != resolution.execution_id
+        || prepared_execution.timelock_id != resolution.timelock_id
+        || prepared_execution.proposal_id != resolution.proposal_id
+        || prepared_execution.executor != resolution.executor
+    {
+        return Err(
+            "Resolution prepared-execution action does not match execution/timelock/proposal/executor scope"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+/// Validate that the action-addressed timelock is the exact prepared
+/// authority context named by a resolution.
+pub fn check_resolution_prepared_timelock_scope(
+    resolution: &ExecutionResolution,
+    prepared_timelock: &Timelock,
+) -> Result<(), String> {
+    if resolution.prepared_timelock_action_hash.is_none() {
+        return Err("Resolution must bind the exact prepared timelock action hash".into());
+    }
+    if prepared_timelock.status != TimelockStatus::Prepared
+        || prepared_timelock.id != resolution.timelock_id
+        || prepared_timelock.proposal_id != resolution.proposal_id
+    {
+        return Err(
+            "Resolution prepared-timelock action does not match its timelock/proposal scope"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+/// Validate the parallel proof/action binding vectors carried by an execution
+/// resolution. Shared by coordinator and integrity validation paths.
+pub fn check_execution_resolution_bindings(
+    attempt_identities: &[String],
+    action_key_digests: &[String],
+    terminal_evidence_digests: &[String],
+    authorization_admission_proof_digests: &[String],
+    final_provider_entry_proof_digests: &[String],
+) -> Result<(), String> {
+    if attempt_identities.is_empty()
+        || action_key_digests.is_empty()
+        || terminal_evidence_digests.is_empty()
     {
         return Err("Resolution requires attempt and terminal evidence bindings".into());
     }
-    if resolution.attempt_identities.len() != resolution.action_key_digests.len()
-        || resolution.attempt_identities.len() != resolution.terminal_evidence_digests.len()
+    if attempt_identities.len() > MAX_EXECUTION_RESOLUTION_BINDINGS {
+        return Err(format!(
+            "Resolution exceeds maximum binding count of {}",
+            MAX_EXECUTION_RESOLUTION_BINDINGS
+        ));
+    }
+    if attempt_identities.len() != action_key_digests.len()
+        || attempt_identities.len() != terminal_evidence_digests.len()
+        || attempt_identities.len() != authorization_admission_proof_digests.len()
+        || attempt_identities.len() != final_provider_entry_proof_digests.len()
     {
         return Err("Resolution binding vectors must have equal lengths".into());
     }
-    if resolution.attempt_identities.iter().any(|v| v.is_empty())
-        || resolution.action_key_digests.iter().any(|v| v.is_empty())
-        || resolution.terminal_evidence_digests.iter().any(|v| v.is_empty())
+    let has_duplicates = |values: &[String]| {
+        values
+            .iter()
+            .enumerate()
+            .any(|(index, value)| values[..index].contains(value))
+    };
+    if has_duplicates(attempt_identities)
+        || has_duplicates(action_key_digests)
+        || has_duplicates(terminal_evidence_digests)
+        || has_duplicates(authorization_admission_proof_digests)
+        || has_duplicates(final_provider_entry_proof_digests)
     {
-        return Err("Resolution bindings must be non-empty".into());
+        return Err("Resolution binding vectors must not reuse a tuple root".into());
+    }
+    if attempt_identities
+        .iter()
+        .any(|v| !is_tagged_digest(v, EXECUTION_ATTEMPT_IDENTITY_PREFIX))
+        || action_key_digests
+            .iter()
+            .any(|v| !is_tagged_digest(v, EXECUTION_ACTION_KEY_PREFIX))
+        || terminal_evidence_digests
+            .iter()
+            .any(|v| !is_tagged_digest(v, EXECUTION_TERMINAL_EVIDENCE_PREFIX))
+        || authorization_admission_proof_digests
+            .iter()
+            .any(|v| !is_tagged_digest(v, EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX))
+        || final_provider_entry_proof_digests
+            .iter()
+            .any(|v| !is_tagged_digest(v, EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX))
+    {
+        return Err("Resolution bindings must use canonical digest namespaces".into());
     }
     Ok(())
 }
@@ -695,7 +839,53 @@ fn validate_create_execution_resolution(
     action: Create,
     resolution: ExecutionResolution,
 ) -> ExternResult<ValidateCallbackResult> {
-    match check_create_execution_resolution(&action, &resolution) {
+    if let Err(reason) = check_create_execution_resolution(&action, &resolution) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    let Some(execution_hash) = resolution.prepared_execution_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution must bind the exact prepared execution action hash".into(),
+        ));
+    };
+    let execution_record = must_get_valid_record(execution_hash)?;
+    let prepared_execution: Execution = execution_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Prepared execution action hash does not reference an Execution entry".into()
+        )))?;
+    if execution_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution and prepared execution must share the executor source-chain author".into(),
+        ));
+    }
+    if let Err(reason) =
+        check_resolution_prepared_execution_scope(&resolution, &prepared_execution)
+    {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+
+    let Some(prepared_hash) = resolution.prepared_timelock_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution must bind the exact prepared timelock action hash".into(),
+        ));
+    };
+
+    let prepared_record = must_get_valid_record(prepared_hash)?;
+    if prepared_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution and prepared timelock must share the executor source-chain author".into(),
+        ));
+    }
+    let prepared_timelock: Timelock = prepared_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Prepared timelock action hash does not reference a Timelock entry".into()
+        )))?;
+    match check_resolution_prepared_timelock_scope(&resolution, &prepared_timelock) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
     }
@@ -1112,9 +1302,19 @@ mod tests {
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
             executor: "did:key:z6Mk".into(),
-            attempt_identities: vec!["attempt-1".into()],
-            action_key_digests: vec!["action-key-1".into()],
-            terminal_evidence_digests: vec!["evidence-1".into()],
+            prepared_execution_action_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
+            prepared_timelock_action_hash: Some(ActionHash::from_raw_36(vec![0; 36])),
+            attempt_identities: vec![format!(
+                "{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}",
+                "e".repeat(64)
+            )],
+            action_key_digests: vec![format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "a".repeat(64))],
+            terminal_evidence_digests: vec![format!(
+                "{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}",
+                "b".repeat(64)
+            )],
+            authorization_admission_proof_digests: vec![format!("{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}", "c".repeat(64))],
+            final_provider_entry_proof_digests: vec![format!("{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}", "d".repeat(64))],
             outcome: ExecutionResolutionOutcome::Executed,
             resolved_at: ts(4_000_000),
         };
@@ -1123,6 +1323,117 @@ mod tests {
         let mut bad = valid.clone();
         bad.terminal_evidence_digests.clear();
         assert!(check_create_execution_resolution(&bad).is_err());
+
+        let mut bad_action_root = valid.clone();
+        bad_action_root.action_key_digests[0] = "not-a-canonical-action-root".into();
+        assert!(check_create_execution_resolution(&bad_action_root).is_err());
+
+        let mut bad_auth_root = valid.clone();
+        bad_auth_root.authorization_admission_proof_digests[0] =
+            "not-a-canonical-admission-root".into();
+        assert!(check_create_execution_resolution(&bad_auth_root).is_err());
+
+        let mut bad_terminal_root = valid.clone();
+        bad_terminal_root.terminal_evidence_digests[0] =
+            "not-a-canonical-terminal-evidence-root".into();
+        assert!(check_create_execution_resolution(&bad_terminal_root).is_err());
+
+        let mut bad_final_root = valid.clone();
+        bad_final_root.final_provider_entry_proof_digests[0] =
+            "not-a-canonical-final-entry-root".into();
+        assert!(check_create_execution_resolution(&bad_final_root).is_err());
+
+        let mut missing_auth = valid.clone();
+        missing_auth.authorization_admission_proof_digests.clear();
+        assert!(check_create_execution_resolution(&missing_auth).is_err());
+
+        let mut missing_final_entry = valid.clone();
+        missing_final_entry.final_provider_entry_proof_digests.clear();
+        assert!(check_create_execution_resolution(&missing_final_entry).is_err());
+
+        let mut too_many = valid.clone();
+        too_many.attempt_identities = vec![
+            format!("{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}", "a".repeat(64));
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        too_many.action_key_digests = vec![
+            format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "b".repeat(64));
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        too_many.terminal_evidence_digests = vec![
+            format!("{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}", "c".repeat(64));
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        too_many.authorization_admission_proof_digests = vec![
+            format!(
+                "{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}",
+                "d".repeat(64)
+            );
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        too_many.final_provider_entry_proof_digests = vec![
+            format!(
+                "{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}",
+                "e".repeat(64)
+            );
+            MAX_EXECUTION_RESOLUTION_BINDINGS + 1
+        ];
+        assert!(check_create_execution_resolution(&too_many).is_err());
+
+        let mut prepared_execution = make_execution();
+        assert!(check_resolution_prepared_execution_scope(&valid, &prepared_execution).is_ok());
+
+        let mut wrong_execution_status = prepared_execution.clone();
+        wrong_execution_status.status = ExecutionStatus::Failed;
+        assert!(check_resolution_prepared_execution_scope(&valid, &wrong_execution_status).is_err());
+
+        let mut wrong_execution_executor = prepared_execution.clone();
+        wrong_execution_executor.executor = "did:key:other".into();
+        assert!(check_resolution_prepared_execution_scope(&valid, &wrong_execution_executor).is_err());
+
+        let mut missing_execution_root = valid.clone();
+        missing_execution_root.prepared_execution_action_hash = None;
+        assert!(check_create_execution_resolution(&missing_execution_root).is_err());
+
+        let mut prepared_timelock = make_timelock();
+        prepared_timelock.status = TimelockStatus::Prepared;
+        assert!(check_resolution_prepared_timelock_scope(&valid, &prepared_timelock).is_ok());
+
+        let mut wrong_status = prepared_timelock.clone();
+        wrong_status.status = TimelockStatus::Cancelled;
+        assert!(check_resolution_prepared_timelock_scope(&valid, &wrong_status).is_err());
+
+        let mut wrong_proposal = prepared_timelock.clone();
+        wrong_proposal.proposal_id = "another-proposal".into();
+        assert!(check_resolution_prepared_timelock_scope(&valid, &wrong_proposal).is_err());
+
+        let mut missing_timelock_root = valid.clone();
+        missing_timelock_root.prepared_timelock_action_hash = None;
+        assert!(check_create_execution_resolution(&missing_timelock_root).is_err());
+
+        let mut reused_attempt = valid.clone();
+        reused_attempt.attempt_identities.push(reused_attempt.attempt_identities[0].clone());
+        reused_attempt.action_key_digests.push(reused_attempt.action_key_digests[0].clone());
+        reused_attempt.terminal_evidence_digests.push(reused_attempt.terminal_evidence_digests[0].clone());
+        reused_attempt.authorization_admission_proof_digests.push(
+            reused_attempt.authorization_admission_proof_digests[0].clone()
+        );
+        reused_attempt.final_provider_entry_proof_digests.push(
+            reused_attempt.final_provider_entry_proof_digests[0].clone()
+        );
+        assert!(check_execution_resolution_bindings(
+            &reused_attempt.attempt_identities,
+            &reused_attempt.action_key_digests,
+            &reused_attempt.terminal_evidence_digests,
+            &reused_attempt.authorization_admission_proof_digests,
+            &reused_attempt.final_provider_entry_proof_digests,
+        ).is_err());
+
+        let mut misaligned = valid.clone();
+        misaligned
+            .authorization_admission_proof_digests
+            .push("extra".into());
+        assert!(check_create_execution_resolution(&misaligned).is_err());
     }
 
     // ---- Veto override result tests ----

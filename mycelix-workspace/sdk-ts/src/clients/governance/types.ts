@@ -796,6 +796,43 @@ export interface ExecuteTimelockInput {
 }
 
 /**
+ * Execution resolution evidence roots.
+ */
+export interface ExecutionResolution {
+  id: string;
+  executionId: string;
+  timelockId: string;
+  proposalId: string;
+  executor: string;
+  /** Exact prepared Execution source-chain action; absent only on legacy receipts. */
+  preparedExecutionActionHash?: string | null;
+  /** Exact prepared Timelock update source-chain action; absent only on legacy receipts. */
+  preparedTimelockActionHash?: string | null;
+  attemptIdentities: string[];
+  actionKeyDigests: string[];
+  terminalEvidenceDigests: string[];
+  authorizationAdmissionProofDigests: string[];
+  finalProviderEntryProofDigests: string[];
+  outcome: 'Executed' | 'Failed';
+  resolvedAt: Timestamp;
+}
+
+/**
+ * Input for recording an execution resolution.
+ */
+export interface RecordPreparedExecutionResolutionInput {
+  executionId: string;
+  timelockId: string;
+  executorDid: string;
+  attemptIdentities: string[];
+  actionKeyDigests: string[];
+  terminalEvidenceDigests: string[];
+  authorizationAdmissionProofDigests: string[];
+  finalProviderEntryProofDigests: string[];
+  outcome: 'Executed' | 'Failed';
+}
+
+/**
  * Input for vetoing a timelock
  */
 export interface VetoTimelockInput {

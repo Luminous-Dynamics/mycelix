@@ -18,6 +18,7 @@ import type {
   TimelockStatus,
   CreateTimelockInput,
   ExecuteTimelockInput,
+  RecordPreparedExecutionResolutionInput,
   VetoTimelockInput,
 } from './types';
 import type { AppClient, Record as HolochainRecord } from '@holochain/client';
@@ -128,6 +129,29 @@ export class ExecutionClient extends ZomeClient {
    *
    * @returns Array of pending timelocks
    */
+  /**
+   * Record the host-side evidence roots for a prepared execution.
+   *
+   * This records evidence commitments only; it does not execute provider effects.
+   */
+  async recordPreparedExecutionResolution(
+    input: RecordPreparedExecutionResolutionInput,
+  ): Promise<HolochainRecord> {
+    return this.callZomeOnce<HolochainRecord>('record_prepared_execution_resolution', {
+      execution_id: input.executionId,
+      timelock_id: input.timelockId,
+      executor_did: input.executorDid,
+      attempt_identities: input.attemptIdentities,
+      action_key_digests: input.actionKeyDigests,
+      terminal_evidence_digests: input.terminalEvidenceDigests,
+      authorization_admission_proof_digests:
+        input.authorizationAdmissionProofDigests,
+      final_provider_entry_proof_digests:
+        input.finalProviderEntryProofDigests,
+      outcome: input.outcome,
+    });
+  }
+
   async getPendingTimelocks(): Promise<Timelock[]> {
     const records = await this.callZome<HolochainRecord[]>('get_pending_timelocks', null);
     return records.map(r => this.mapTimelock(r));

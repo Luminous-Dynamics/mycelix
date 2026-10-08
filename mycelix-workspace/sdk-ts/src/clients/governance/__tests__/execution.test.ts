@@ -206,6 +206,53 @@ describe('ExecutionClient', () => {
     });
   });
 
+  describe('recordPreparedExecutionResolution', () => {
+    it('should forward all five evidence vectors in snake_case', async () => {
+      (mockAppClient.callZome as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        mockRecord({ id: 'resolution-1' })
+      );
+
+      await client.recordPreparedExecutionResolution({
+        executionId: 'execution-1',
+        timelockId: 'timelock-1',
+        executorDid: 'did:mycelix:test',
+        attemptIdentities: ['constitutional-attempt-identity-v1:' + 'a'.repeat(64)],
+        actionKeyDigests: ['constitutional-action-key-v1:' + 'b'.repeat(64)],
+        terminalEvidenceDigests: ['constitutional-terminal-evidence-v3:' + 'c'.repeat(64)],
+        authorizationAdmissionProofDigests: [
+          'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
+        ],
+        finalProviderEntryProofDigests: [
+          'constitutional-final-provider-entry-proof-v1:' + 'e'.repeat(64),
+        ],
+        outcome: 'Executed',
+      });
+
+      expect(mockAppClient.callZome).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fn_name: 'record_prepared_execution_resolution',
+          payload: {
+            execution_id: 'execution-1',
+            timelock_id: 'timelock-1',
+            executor_did: 'did:mycelix:test',
+            attempt_identities: ['constitutional-attempt-identity-v1:' + 'a'.repeat(64)],
+            action_key_digests: ['constitutional-action-key-v1:' + 'b'.repeat(64)],
+            terminal_evidence_digests: [
+              'constitutional-terminal-evidence-v3:' + 'c'.repeat(64),
+            ],
+            authorization_admission_proof_digests: [
+              'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
+            ],
+            final_provider_entry_proof_digests: [
+              'constitutional-final-provider-entry-proof-v1:' + 'e'.repeat(64),
+            ],
+            outcome: 'Executed',
+          },
+        })
+      );
+    });
+  });
+
   describe('getPendingTimelocks', () => {
     it('should return array of pending timelocks', async () => {
       (mockAppClient.callZome as ReturnType<typeof vi.fn>).mockResolvedValueOnce([

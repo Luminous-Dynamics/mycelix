@@ -330,6 +330,7 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         )));
     }
 
+
     // Find the timelock via O(1) link-based lookup
     let current_record = find_timelock_by_id(&input.timelock_id)?;
 
@@ -502,7 +503,7 @@ impl GovernanceAction {
 }
 
 /// Parse and validate actions without executing them.
-fn validate_actions(actions_json: &str) -> ExternResult<()> {
+fn validate_actions(actions_json: &str) -> ExternResult<usize> {
     let actions: Vec<GovernanceAction> = match serde_json::from_str(actions_json) {
         Ok(actions) => actions,
         Err(_) => match serde_json::from_str::<GovernanceAction>(actions_json) {
@@ -516,6 +517,17 @@ fn validate_actions(actions_json: &str) -> ExternResult<()> {
         },
     };
 
+    if actions.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Governance action payload must contain at least one action".into()
+        )));
+    }
+    if actions.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Governance action payload exceeds the 256-action limit".into()
+        )));
+    }
+
     for (index, action) in actions.iter().enumerate() {
         if let Err(error) = action.validate() {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -525,6 +537,20 @@ fn validate_actions(actions_json: &str) -> ExternResult<()> {
         }
     }
 
+    Ok(actions.len())
+}
+
+fn check_prepared_resolution_action_count(
+    prepared_action_count: usize,
+    binding_count: usize,
+) -> Result<(), String> {
+    if prepared_action_count == 0 || binding_count != prepared_action_count {
+        return Err(format!(
+            "Execution resolution must bind exactly one attempt/proof tuple per prepared action: expected {}, got {}",
+            prepared_action_count,
+            binding_count
+        ));
+    }
     Ok(())
 }
 
@@ -541,6 +567,10 @@ pub struct RecordPreparedExecutionResolutionInput {
     pub attempt_identities: Vec<String>,
     pub action_key_digests: Vec<String>,
     pub terminal_evidence_digests: Vec<String>,
+    #[serde(default)]
+    pub authorization_admission_proof_digests: Vec<String>,
+    #[serde(default)]
+    pub final_provider_entry_proof_digests: Vec<String>,
     pub outcome: ExecutionResolutionOutcome,
 }
 
@@ -609,6 +639,22 @@ pub fn record_prepared_execution_resolution(
         )));
     }
 
+    let prepared_action_count = validate_actions(&timelock.actions)?;
+    check_prepared_resolution_action_count(
+        prepared_action_count,
+        input.attempt_identities.len(),
+    )
+    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
+
+    check_execution_resolution_bindings(
+        &input.attempt_identities,
+        &input.action_key_digests,
+        &input.terminal_evidence_digests,
+        &input.authorization_admission_proof_digests,
+        &input.final_provider_entry_proof_digests,
+    )
+    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
+
     // Resolution is source-chain scoped to the single executor identity.
     // Re-submit of the same resolution returns the existing record; a different
     // resolution for the same execution is rejected.
@@ -633,10 +679,18 @@ pub fn record_prepared_execution_resolution(
                         && existing.timelock_id == input.timelock_id
                         && existing.proposal_id == execution.proposal_id
                         && existing.executor == input.executor_did
+                        && existing.prepared_execution_action_hash.as_ref()
+                            == Some(execution_record.action_address())
+                        && existing.prepared_timelock_action_hash.as_ref()
+                            == Some(timelock_record.action_address())
                         && existing.attempt_identities == input.attempt_identities
                         && existing.action_key_digests == input.action_key_digests
                         && existing.terminal_evidence_digests
                             == input.terminal_evidence_digests
+                        && existing.authorization_admission_proof_digests
+                            == input.authorization_admission_proof_digests
+                        && existing.final_provider_entry_proof_digests
+                            == input.final_provider_entry_proof_digests
                         && existing.outcome == input.outcome;
 
                     if same {
@@ -659,9 +713,13 @@ pub fn record_prepared_execution_resolution(
         timelock_id: input.timelock_id,
         proposal_id: execution.proposal_id,
         executor: input.executor_did,
+        prepared_execution_action_hash: Some(execution_record.action_address().clone()),
+        prepared_timelock_action_hash: Some(timelock_record.action_address().clone()),
         attempt_identities: input.attempt_identities,
         action_key_digests: input.action_key_digests,
         terminal_evidence_digests: input.terminal_evidence_digests,
+        authorization_admission_proof_digests: input.authorization_admission_proof_digests,
+        final_provider_entry_proof_digests: input.final_provider_entry_proof_digests,
         outcome: input.outcome,
         resolved_at: sys_time()?,
     };
@@ -1622,6 +1680,27 @@ pub fn get_pending_timelocks(_: ()) -> ExternResult<Vec<Record>> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_resolution_must_bind_every_prepared_action_exactly_once() {
+        assert!(check_prepared_resolution_action_count(1, 1).is_ok());
+        assert!(check_prepared_resolution_action_count(256, 256).is_ok());
+        assert!(check_prepared_resolution_action_count(2, 1).is_err());
+        assert!(check_prepared_resolution_action_count(1, 2).is_err());
+        assert!(check_prepared_resolution_action_count(0, 0).is_err());
+    }
+
+    #[test]
+    fn test_validate_actions_reports_exact_action_count_and_rejects_empty_batches() {
+        let single = r#"{"type":"EmitEvent","event":"hello"}"#;
+        assert_eq!(validate_actions(single).unwrap(), 1);
+
+        let batch = r#"[{"type":"EmitEvent","event":"a"},{"type":"EmitEvent","event":"b"}]"#;
+        assert_eq!(validate_actions(batch).unwrap(), 2);
+
+        assert!(validate_actions("[]").is_err());
+    }
+
+
     use super::*;
 
     // =========================================================================

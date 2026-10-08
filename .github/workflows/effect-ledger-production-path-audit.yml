@@ -114,6 +114,88 @@ jobs:
             echo "NOT QUALIFIED: prepared execution has no explicit host-resolution attestation handoff."
             exit 1
           }
+          grep -Fq 'authorization_admission_proof_digests' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: execution resolution does not bind admission proof roots."
+            exit 1
+          }
+
+          grep -Fq 'final_provider_entry_proof_digests' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: execution resolution does not bind final-entry proof roots."
+            exit 1
+          }
+
+          grep -Fq 'prepared_timelock_action_hash' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution receipt is not bound to an exact prepared timelock action."
+            exit 1
+          }
+
+          grep -Fq 'must_get_valid_record(prepared_hash)' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution integrity does not resolve its prepared timelock action dependency."
+            exit 1
+          }
+
+          grep -Fq 'check_resolution_prepared_timelock_scope' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: prepared timelock ID/status/proposal scope is not checked."
+            exit 1
+          }
+
+          grep -Fq 'Resolution binding vectors must not reuse a tuple root' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution permits duplicate attempt/proof roots across prepared actions."
+            exit 1
+          }
+
+          grep -Fq 'prepared_timelock_action_hash: Some(timelock_record.action_address().clone())' "$executor" || {
+            echo "NOT QUALIFIED: resolution action hash is not sourced from the canonical prepared timelock record."
+            exit 1
+          }
+          grep -Fq 'prepared_execution_action_hash' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution receipt is not bound to an exact prepared execution action."
+            exit 1
+          }
+
+          grep -Fq 'must_get_valid_record(execution_hash)' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution integrity does not resolve its prepared execution action dependency."
+            exit 1
+          }
+
+          grep -Fq 'check_resolution_prepared_execution_scope' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: prepared execution status and scope are not checked."
+            exit 1
+          }
+
+          grep -Fq 'prepared_execution_action_hash: Some(execution_record.action_address().clone())' "$executor" || {
+            echo "NOT QUALIFIED: resolution execution action root is not sourced from the canonical execution record."
+            exit 1
+          }
+
+          grep -Fq 'Resolution binding vectors must not reuse a tuple root' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution permits duplicate attempt/proof roots across prepared actions."
+            exit 1
+          }
+          grep -Fq 'EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: admission proof roots are not namespace-validated."
+            exit 1
+          }
+
+          grep -Fq 'EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: final-entry proof roots are not namespace-validated."
+            exit 1
+          }
+
+          grep -Fq 'check_prepared_resolution_action_count' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution proof tuples are not cardinality-bound to prepared actions."
+            exit 1
+          }
+
+          grep -Fq 'test_resolution_must_bind_every_prepared_action_exactly_once' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: exact prepared-action resolution cardinality has no regression test."
+            exit 1
+          }
+
+          grep -Fq 'test_validate_actions_reports_exact_action_count_and_rejects_empty_batches' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: action cardinality parser lacks empty-batch coverage."
+            exit 1
+          }
 
           if grep -Fq 'pub fn store_mut' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
             echo "NOT QUALIFIED: mutable durable-store escape hatch remains exposed."
