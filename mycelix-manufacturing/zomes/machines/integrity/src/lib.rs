@@ -413,6 +413,15 @@ fn validate_create_temporal_attestation(
                     "temporal approval evidence subject belongs to a different machine".into(),
                 ));
             }
+            if !temporal_interval_contains(
+                approval.valid_from,
+                approval.valid_until,
+                attestation.attested_at,
+            ) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "temporal approval evidence falls outside approval validity".into(),
+                ));
+            }
         }
         MachineTemporalEvidenceKind::MachineActionExistence => {
             let machine: Option<MachineEntry> = subject_record
@@ -1073,6 +1082,29 @@ mod content_restriction_tests {
         assert_eq!(resolve_temporal_times(vec![]), MachineTemporalEvidenceResolution::NoEvidence);
         assert_eq!(resolve_temporal_times(vec![Timestamp::from_micros(100), Timestamp::from_micros(100)]), MachineTemporalEvidenceResolution::Unique(Timestamp::from_micros(100)));
         assert_eq!(resolve_temporal_times(vec![Timestamp::from_micros(100), Timestamp::from_micros(200)]), MachineTemporalEvidenceResolution::Conflicting(vec![Timestamp::from_micros(100), Timestamp::from_micros(200)]));
+    }
+    #[test]
+    fn temporal_approval_evidence_must_overlap_approval_window() {
+        assert!(temporal_interval_contains(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(100),
+        ));
+        assert!(temporal_interval_contains(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(200),
+        ));
+        assert!(!temporal_interval_contains(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(99),
+        ));
+        assert!(!temporal_interval_contains(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(201),
+        ));
     }
     #[test]
     fn temporal_profile_boundaries_are_inclusive() {
