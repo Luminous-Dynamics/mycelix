@@ -441,6 +441,8 @@ def record_metadata_policy() -> dict:
     return {
         "record_fields": [
             "status",
+            "workflow_run_id",
+            "workflow_run_attempt",
             "source_commit",
             "source_branch",
             "source_repository",
@@ -516,6 +518,8 @@ def valid_record_metadata() -> dict:
     policy = record_metadata_policy()
     return {
         "status": "passed",
+        "workflow_run_id": "200",
+        "workflow_run_attempt": "1",
         "source_commit": "a" * 40,
         "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
         "source_repository": "Luminous-Dynamics/mycelix",
@@ -562,6 +566,13 @@ def test_record_metadata_is_canonicalized() -> None:
     policy = record_metadata_policy()
     record = valid_record_metadata()
     verify_record_metadata(record, policy)
+
+    tampered = dict(record)
+    tampered["workflow_run_id"] = "201"
+    assert_rejected(
+        lambda: verify_record_metadata(tampered, policy),
+        "workflow run identity aliasing was accepted",
+    )
 
     tampered = dict(record)
     tampered["case_coverage"] = "13-of-14"
