@@ -201,6 +201,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             "routing step inspection criterion hashes must be unique".into(),
                         ));
                     }
+                    if let Some(recipe_hash) = step.process_recipe_hash.clone() {
+                        let record = must_get_valid_record(recipe_hash)?;
+                        let recipe: Option<ProcessRecipeEntry> = record
+                            .entry()
+                            .to_app_option()
+                            .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                        if recipe.is_none() {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "routing process recipe reference is not a process recipe record".into(),
+                            ));
+                        }
+                    }
                     if let Some(requirement_hash) = step.capability_requirement_hash.clone() {
                         let record = must_get_valid_record(requirement_hash)?;
                         let requirement: Option<CapabilityRequirementEntry> = record
