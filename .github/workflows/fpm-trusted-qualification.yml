@@ -307,6 +307,7 @@ jobs:
           SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
           CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
           CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
         run: |
           set -euo pipefail
           docker run --rm --pull=never --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
@@ -449,7 +450,9 @@ jobs:
           SOURCE_OUTCOME: ${{ steps.source.outcome }}
           TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
           LOCK_OUTCOME: ${{ steps.lock.outcome }}
-          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          DEPENDENCIES_OUTCOME: ${{ steps.dependencies.outcome }}
+          SANDBOX_IMAGE_OUTCOME: ${{ steps.sandbox_image.outcome }}
+          SANDBOX_PROBE_OUTCOME: ${{ steps.sandbox_probe.outcome }}          FMT_OUTCOME: ${{ steps.fmt.outcome }}
           TESTS_OUTCOME: ${{ steps.tests.outcome }}
           POSTFLIGHT_OUTCOME: ${{ steps.postflight.outcome }}
           PR_NUMBER: ${{ steps.preflight.outputs.pr_number || '' }}
@@ -490,7 +493,10 @@ jobs:
               "source": os.environ["SOURCE_OUTCOME"],
               "toolchain": os.environ["TOOLCHAIN_OUTCOME"],
               "lock": os.environ["LOCK_OUTCOME"],
+              "dependencies": os.environ["DEPENDENCIES_OUTCOME"],
+              "sandbox_image": os.environ["SANDBOX_IMAGE_OUTCOME"],
               "fmt": os.environ["FMT_OUTCOME"],
+              "sandbox_probe": os.environ["SANDBOX_PROBE_OUTCOME"],
               "tests": os.environ["TESTS_OUTCOME"],
               "postflight": os.environ["POSTFLIGHT_OUTCOME"],
           }
@@ -524,7 +530,11 @@ jobs:
               "rustc_commit": os.environ["RUSTC_COMMIT"],
               "cargo_version": os.environ["CARGO_VERSION"],
               "candidate_uid": int(os.environ["CANDIDATE_UID"]),
+              "candidate_gid": int(os.environ["CANDIDATE_GID"]),
               "candidate_execution_profile": os.environ["CANDIDATE_EXECUTION_PROFILE"],
+              "sandbox_image_digest": os.environ["SANDBOX_IMAGE_DIGEST"],
+              "sandbox_probe": os.environ["SANDBOX_PROBE"],
+              "dependency_cache_sha256": os.environ["DEPENDENCY_CACHE_SHA256"],
               "sandbox_image_digest": os.environ["SANDBOX_IMAGE_DIGEST"],
               "sandbox_probe": os.environ["SANDBOX_PROBE"],
               "dependency_cache_sha256": os.environ["DEPENDENCY_CACHE_SHA256"],
