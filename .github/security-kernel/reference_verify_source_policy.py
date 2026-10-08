@@ -604,12 +604,40 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 trusted invocation source missing")
     if exact_count(l, 'invocation_source="scheduled-fallback"') != 1:
         fail("S0 scheduled invocation source missing")
-    if job_keys(l) != ("resolve", "qualify"):
+    if exact_count(l, 'dispatch_decision="qualified"; eligible_count="event"') != 1:
+        fail("S0 immediate dispatch decision initialization missing")
+    if exact_count(l, 'dispatch_decision="suppressed"; eligible_count="0"') != 1:
+        fail("S0 scheduled suppression decision initialization missing")
+    if exact_count(l, 'output.write(f"dispatch_decision={dispatch_decision}\\n")') != 1:
+        fail("S0 dispatch decision output binding missing")
+    if exact_count(l, 'output.write(f"eligible_count={eligible_count}\\n")') != 1:
+        fail("S0 eligible-count output binding missing")
+    if exact_count(l, "if dispatch_decision==\"qualified\":") != 1:
+        fail("S0 candidate revalidation must be conditional on a qualified dispatch decision")
+    if 'if not eligible: raise SystemExit("no eligible Security Kernel PR found by scheduled bounded discovery")' in "\\n".join(l):
+        fail("S0 must emit a bounded suppression witness rather than fail when no eligible candidate exists")
+    if job_keys(l) != ("resolve", "decision", "qualify"):
         fail("S0 job topology mismatch")
-    if step_names(l) != ("Verify trusted dispatcher context and exact PR identity",):
+    if step_names(l) != ("Verify trusted dispatcher context and exact PR identity", "Verify dispatch decision witness"):
         fail("S0 step topology mismatch")
     if external_uses(l) != ():
         fail(f"S0 external action census mismatch: {external_uses(l)!r}")
+    if exact_count(l, "  decision:") != 1:
+        fail("S0 decision witness job missing")
+    if exact_count(l, "    name: Dispatch decision: ${{ needs.resolve.outputs.invocation_source }}/${{ needs.resolve.outputs.dispatch_decision }}/eligible=${{ needs.resolve.outputs.eligible_count }}") != 1:
+        fail("S0 decision witness job name must expose invocation, decision, and bounded eligible count")
+    if exact_count(l, "      - name: Verify dispatch decision witness") != 1:
+        fail("S0 decision witness step missing")
+    if exact_count(l, '          case "$INVOCATION_SOURCE:$DISPATCH_DECISION" in') != 1:
+        fail("S0 decision witness case gate missing")
+    if exact_count(l, '            trusted-dispatch:qualified)') != 1:
+        fail("S0 immediate decision witness branch missing")
+    if exact_count(l, '            scheduled-fallback:qualified)') != 1:
+        fail("S0 scheduled qualification witness branch missing")
+    if exact_count(l, '            scheduled-fallback:suppressed)') != 1:
+        fail("S0 scheduled suppression witness branch missing")
+    if exact_count(l, "    if: ${{ needs.resolve.outputs.dispatch_decision == 'qualified' }}") != 1:
+        fail("S0 qualification job must be conditional on a qualified decision")
     if local_uses(l) != ("./.github/workflows/security-kernel-independent-qualification.yml",):
         fail("S0 local reusable workflow census mismatch")
     if exact_count(l, f'TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "{expected_s1_sha}"') != 1:
@@ -1173,6 +1201,42 @@ def main() -> None:
             s1_sha,
         ),
         "scheduled invocation source binding weakened",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'dispatch_decision="qualified"; eligible_count="event"',
+                b'dispatch_decision="uninitialized"; eligible_count="event"',
+                1,
+            ),
+            s1_sha,
+        ),
+        "immediate dispatch decision initialization removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'dispatch_decision="suppressed"; eligible_count="0"',
+                b'dispatch_decision="suppressed"; eligible_count="1"',
+                1,
+            ),
+            s1_sha,
+        ),
+        "scheduled suppression witness count weakened",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'    if: ${{ needs.resolve.outputs.dispatch_decision == \'qualified\' }}',
+                b'    if: ${{ true }}',
+                1,
+            ),
+            s1_sha,
+        ),
+        "qualification job suppression gate removed",
     )
 
     expect_rejection(
