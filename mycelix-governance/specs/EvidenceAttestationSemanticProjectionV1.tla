@@ -51,6 +51,7 @@ SemanticProjectionExact ==
     /\ EffectFieldsKnown
     /\ EffectFieldsAuthorized
     /\ RequiredFieldsPresent
+    /\ EffectFieldsDecisionBacked
     /\ ProjectionSourcesExact
     /\ ProjectedValuesConserved
     /\ NoImplicitDefaultAuthority
