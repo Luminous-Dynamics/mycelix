@@ -6,6 +6,7 @@
 //! Entry types for MRP planning runs and results.
 
 use hdi::prelude::*;
+use manufacturing_common::MrpFeasibility;
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -13,7 +14,11 @@ pub struct MrpRunEntry {
     pub work_order_hashes: Vec<ActionHash>,
     pub horizon_days: u32,
     pub run_at: Timestamp,
-    pub feasible: bool,
+    /// Full manufacturing feasibility. Material-only success is not sufficient.
+    /// Defaults conservatively for older records that only carried the legacy
+    /// boolean feasibility field.
+    #[serde(default)]
+    pub feasibility: MrpFeasibility,
 }
 
 #[hdk_entry_helper]
