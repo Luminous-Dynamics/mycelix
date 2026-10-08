@@ -188,7 +188,8 @@ export type ProposalStatus =
   | 'Rejected'
   | 'Executed'
   | 'Cancelled'
-  | 'Failed';
+  | 'Failed'
+  | 'Vetoed';
 
 /**
  * Governance proposal
