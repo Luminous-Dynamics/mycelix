@@ -8,6 +8,7 @@
 //! Entries are immutable: corrections are new records, never in-place edits.
 
 use hdi::prelude::*;
+use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Disposition {
@@ -166,6 +167,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+fn all_unique<T: std::cmp::Eq + std::hash::Hash>(items: &[T]) -> bool {
+    let mut seen = HashSet::with_capacity(items.len());
+    items.iter().all(|item| seen.insert(item))
+}
+
 fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::MaterialLot(lot) => {
@@ -241,6 +247,11 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                     "Qualified capability requires qualification evidence".into(),
                 ));
             }
+            if !all_unique(&c.qualification_evidence_hashes) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "capability qualification evidence hashes must be unique".into(),
+                ));
+            }
             for hash in &c.qualification_evidence_hashes {
                 let record = must_get_valid_record(hash.clone())?;
                 let evidence: Option<EvidenceEntry> = record
@@ -288,6 +299,11 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                     "at least one input lot is required".into(),
                 ));
             }
+            if !all_unique(&e.input_lot_hashes) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "execution input lot hashes must be unique".into(),
+                ));
+            }
             if e.output_lot_hashes.is_empty() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "at least one output lot is required".into(),
@@ -296,6 +312,26 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
             if e.evidence_hashes.is_empty() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "at least one evidence hash is required".into(),
+                ));
+            }
+            if !all_unique(&e.output_lot_hashes) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "execution output lot hashes must be unique".into(),
+                ));
+            }
+            if !all_unique(&e.evidence_hashes) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "execution evidence hashes must be unique".into(),
+                ));
+            }
+            if !all_unique(&e.measurement_hashes) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "execution measurement hashes must be unique".into(),
+                ));
+            }
+            if !all_unique(&e.calibration_hashes) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "execution calibration hashes must be unique".into(),
                 ));
             }
             if e.execution_id.is_empty() {
@@ -431,6 +467,7 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 }
             }
 
+            let mut measurement_instruments = HashSet::new();
             for hash in &e.measurement_hashes {
                 let record = must_get_valid_record(hash.clone())?;
                 let measurement: Option<MeasurementEntry> = record
@@ -442,6 +479,16 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                         "execution measurement reference is not a measurement record".into(),
                     ));
                 };
+                if measurement.measured_at < e.started_at
+                    || measurement.measured_at > e.completed_at
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution measurement must fall within the execution interval".into(),
+                    ));
+                }
+                if let Some(instrument_hash) = measurement.instrument_hash.clone() {
+                    measurement_instruments.insert(instrument_hash);
+                }
                 if let Some(lower) = measurement.lower_bound {
                     if measurement.value < lower {
                         return Ok(ValidateCallbackResult::Invalid(
@@ -458,6 +505,7 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 }
             }
 
+            let mut calibrated_assets = HashSet::new();
             for hash in &e.calibration_hashes {
                 let record = must_get_valid_record(hash.clone())?;
                 let calibration: Option<CalibrationEntry> = record
@@ -469,12 +517,33 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                         "execution calibration reference is not a calibration record".into(),
                     ));
                 };
-                if calibration.asset_hash != e.machine_hash
-                    || calibration.valid_from > e.started_at
+                if calibration.valid_from <= e.started_at
+                    && calibration.valid_until >= e.completed_at
+                {
+                    calibrated_assets.insert(calibration.asset_hash.clone());
+                }
+                if calibration.valid_from > e.started_at
                     || calibration.valid_until < e.completed_at
                 {
                     return Ok(ValidateCallbackResult::Invalid(
                         "execution calibration does not cover the declared machine and execution interval".into(),
+                    ));
+                }
+            }
+
+            if matches!(e.disposition, Disposition::Accepted)
+                && !calibrated_assets.contains(&e.machine_hash)
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "accepted execution requires machine calibration covering the execution interval".into(),
+                ));
+            }
+            for instrument_hash in &measurement_instruments {
+                if matches!(e.disposition, Disposition::Accepted)
+                    && !calibrated_assets.contains(instrument_hash)
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "accepted execution measurement instrument lacks calibration covering the execution interval".into(),
                     ));
                 }
             }
