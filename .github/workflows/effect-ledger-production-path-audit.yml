@@ -9,6 +9,7 @@ on:
       - hardening/effect-ledger-provider-context-v1
       - hardening/effect-ledger-persisted-idempotency-v1
       - hardening/effect-ledger-final-entry-gate-v1
+      - hardening/effect-ledger-pinned-trust-root-v1
   pull_request:
   workflow_dispatch:
 
@@ -119,5 +120,30 @@ jobs:
             echo "NOT QUALIFIED: prepared execution has no explicit host-resolution attestation handoff."
             exit 1
           }
+
+          if grep -Fq 'pub fn store_mut' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
+            echo "NOT QUALIFIED: mutable durable-store escape hatch remains exposed."
+            exit 1
+          fi
+
+          grep -Fq 'BoundaryTrustRoot' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs' || {
+            echo "NOT QUALIFIED: provider boundary has no constructor-bound trust root."
+            exit 1
+          }
+
+          grep -Fq 'PinnedBoundaryTrustRoot' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs' || {
+            echo "NOT QUALIFIED: concrete pinned trust-root container is missing."
+            exit 1
+          }
+
+          if grep -Fq 'verifier: &V' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
+            echo "NOT QUALIFIED: per-call terminal verifier injection remains exposed."
+            exit 1
+          fi
+
+          if grep -Fq 'entry_verifier: &G' 'crates/constitutional-effect-ledger-sqlite/src/boundary.rs'; then
+            echo "NOT QUALIFIED: per-call final-entry verifier injection remains exposed."
+            exit 1
+          fi
 
           echo "PASS: coordinator is prepare-only; provider effects are outside the WASM execution path."
