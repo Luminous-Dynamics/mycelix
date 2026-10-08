@@ -2,8 +2,8 @@
   "schema": "mycelix.effective-contestability-formal-crosswalk.v1",
   "status": "candidate-verification",
   "authority": "non-authoritative",
-  "subject_head": "42e0e4944554cae6b1acf2b3db69f5e9b19991e7",
-  "subject_tree": "eab0224b2388d985f7ecfffaeeff0d54e260c160",
+  "subject_head": "1e127739e1ca7efdd89c4aaf774679d47c479c99",
+  "subject_tree": "9db2883fd5f19eb8efe722fa05f1072c1250eee5",
   "relationship": "semantic-alignment map only; not a refinement proof",
   "mappings": [
     {
@@ -79,6 +79,20 @@
       ],
       "reference": [
         "switch-review -> HighSwitchingCostTriggersReview"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "effective-exit-context-freshness",
+      "boundary": "provider switch invalidates stale effective-exit state",
+      "tla": [
+        "EffectiveExitIsIndependent"
+      ],
+      "alloy": [
+        "EffectiveExitRequiresIndependentRoots"
+      ],
+      "reference": [
+        "switch-stale-exit -> EffectiveExitIsIndependent"
       ],
       "coverage": "aligned"
     }
