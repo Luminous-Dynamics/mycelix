@@ -2196,6 +2196,25 @@ mod tests {
         AttemptIdentityV1::new("payments", "boundary-1", id).unwrap()
     }
 
+    fn model_admit(
+        model: &mut AtomicActionFenceModelV1,
+        action: &ActionKeyV1,
+        owner: &AttemptIdentityV1,
+        record: AttemptRecordV1,
+    ) -> Result<AtomicAdmissionDecision, String> {
+        let proof = AuthorizationAdmissionProofV1::new(
+            &record,
+            action,
+            0,
+            u64::MAX,
+            "test-authorization-snapshot",
+            "test-policy-snapshot",
+            "test-status-snapshot",
+            "test-admission-verifier-v1",
+        )?;
+        model_admit(&mut model, action, owner, record, proof)
+    }
+
     fn terminal_evidence(outcome: TerminalOutcomeV1, attempt_id: &str) -> TerminalEvidenceV1 {
         let action = key();
         let owner = attempt(attempt_id);
@@ -2362,7 +2381,7 @@ mod tests {
         .unwrap();
 
         let mut model = AtomicActionFenceModelV1::new();
-        model.admit(&key, &owner, record).unwrap();
+        model_admit(&mut model, &key, &owner, record).unwrap();
 
         assert_eq!(
             model.mark_dispatch_pending(&key, &owner, "owner-token-attempt-1"),
@@ -2417,7 +2436,7 @@ mod tests {
         second.native_replay_identity = "native-replay-operation-1".into();
         second.action_key_digest = key.digest().into();
         assert!(matches!(
-            model.admit(&key, &attempt("attempt-2"), second).unwrap(),
+            model_admit(&mut model, &key, &attempt("attempt-2"), second).unwrap(),
             AtomicAdmissionDecision::NativeReplayConflict { .. }
         ));
         assert!(model.attempt("constitutional-attempt-identity-v1:attempt-2").is_none());
@@ -2496,8 +2515,8 @@ mod tests {
         let owner = attempt("attempt-1");
         let record = record("attempt-1", "operation-1", AttemptRecordState::Consumed);
 
-        assert!(model.admit(&key_b, &owner, record.clone()).is_err());
-        assert!(model.admit(&key_a, &attempt("attempt-2"), record).is_err());
+        assert!(model_admit(&mut model, &key_b, &owner, record.clone()).is_err());
+        assert!(model_admit(&mut model, &key_a, &attempt("attempt-2"), record).is_err());
         assert!(model.fence(key_a.digest()).is_none());
         assert!(model.attempt(owner.digest()).is_none());
     }
@@ -2565,11 +2584,11 @@ mod tests {
         let attempt1 = attempt("attempt-1");
         let attempt2 = attempt("attempt-2");
         assert_eq!(
-            model.admit(&key1, &attempt1, first).unwrap(),
+            model_admit(&mut model, &key1, &attempt1, first).unwrap(),
             AtomicAdmissionDecision::Admitted
         );
         assert_eq!(
-            model.admit(&key2, &attempt2, second).unwrap(),
+            model_admit(&mut model, &key2, &attempt2, second).unwrap(),
             AtomicAdmissionDecision::Admitted
         );
         assert!(model.validate_invariants().is_ok());
@@ -2963,7 +2982,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            model.admit(
+            model_admit(&mut model, 
                 &key(),
                 &attempt("attempt-2"),
                 record("attempt-2", "operation-2", AttemptRecordState::Consumed),
@@ -3031,7 +3050,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            model.admit(
+            model_admit(&mut model, 
                 &key(),
                 &attempt("attempt-2"),
                 record("attempt-2", "operation-2", AttemptRecordState::Consumed),
