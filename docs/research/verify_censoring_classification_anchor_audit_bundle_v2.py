@@ -6,7 +6,7 @@ from pathlib import Path
 
 BUNDLE_SCHEMA="mycelix.continual-adaptation.censoring-classification-anchor-audit-bundle.v2"
 CAMPAIGN_SCHEMA="mycelix.continual-adaptation.censoring-classification-anchor-audit-bundle-campaign.v2"
-STACK_HEAD="62a12a46d450bc6f9fe8a4994c5fa05b44204011"
+STACK_HEAD="7d048d06b2b3fc837ae3e749a0c0483c48ea3576"
 EXPECTED_BUNDLE_ID="mycelix.audit-bundle.v2@"+STACK_HEAD
 WREG_ID="mycelix.research.anchor-witness-registry.v2"
 VDS_ID="mycelix.research.anchor-statement-sequence.v1"
