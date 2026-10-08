@@ -1839,7 +1839,7 @@
       "reason": "attempt census scope identity diverges from the anchored claim"
     },
     {
-      "case_id": "CCP-041",
+      "case_id": "CCP-045",
       "mutation": [
         [
           "add_node",
@@ -1902,7 +1902,7 @@
       "reason": "known non-base object identity matches its external anchor"
     },
     {
-      "case_id": "CCP-042",
+      "case_id": "CCP-046",
       "mutation": [
         [
           "add_node",
@@ -1965,7 +1965,7 @@
       "reason": "known object c02 is rebound by changing censoring_reason while preserving its logical identifier"
     },
     {
-      "case_id": "CCP-043",
+      "case_id": "CCP-047",
       "mutation": [
         [
           "add_node",
@@ -2028,7 +2028,7 @@
       "reason": "known object c02 is rebound by changing basis_id while preserving its logical identifier"
     },
     {
-      "case_id": "CCP-044",
+      "case_id": "CCP-048",
       "mutation": [
         [
           "add_node",
@@ -2099,7 +2099,7 @@
       "reason": "known object c02 is rebound by changing revision while preserving its logical identifier"
     },
     {
-      "case_id": "CCP-045",
+      "case_id": "CCP-049",
       "mutation": [
         [
           "add_node",
@@ -2162,7 +2162,7 @@
       "reason": "known object c02 is rebound by changing claim_scope_anchor while preserving its logical identifier"
     },
     {
-      "case_id": "CCP-046",
+      "case_id": "CCP-050",
       "mutation": [
         [
           "add_node",
@@ -2225,7 +2225,7 @@
       "reason": "known object c02 is rebound by changing classification_epoch while preserving its logical identifier"
     },
     {
-      "case_id": "CCP-047",
+      "case_id": "CCP-051",
       "mutation": [
         [
           "add_node",
@@ -2288,7 +2288,7 @@
       "reason": "genuinely new unanchored object ID is not an identity-rebinding violation"
     },
     {
-      "case_id": "CCP-048",
+      "case_id": "CCP-052",
       "mutation": [
         [
           "add_node",
