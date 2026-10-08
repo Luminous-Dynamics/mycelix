@@ -72,6 +72,10 @@ jobs:
           assert 'verifier_run_attempt' in text
           assert 'attestor_run_attempt' in text
           assert 'publication_handoff_sha256' in text
+          assert "predicate['attestor']['run_id']==receipt['attestor']['run_id']==attestor_meta['run_id']" in text
+          assert "receipt['verifier_run']['attempt']==signing_meta['workflow_run_attempt']" in text
+          assert "predicate['attestor']['workflow_sha']==receipt['attestor']['workflow_sha']" in text
+          assert "predicate['qualification_manifest_artifact']['id']" in text
           assert "receipt['attestor']['run_attempt']" in text
           assert "receipt['attestor']['run_id']" in text
           assert "receipt['trust_root']['main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']" in text
