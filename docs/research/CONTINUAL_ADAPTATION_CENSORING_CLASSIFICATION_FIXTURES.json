@@ -1,0 +1,74 @@
+{
+  "schema": "mycelix.continual-adaptation.censoring-classification-fixtures.v1",
+  "status": "research-fixture-only",
+  "policy_binding": {
+    "git_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a"
+  },
+  "history_anchors": {
+    "c01": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+  },
+  "base_graph": {
+    "nodes": [
+      {"id": "claim", "type": "Claim"},
+      {"id": "attempts", "type": "AttemptCensus"},
+      {
+        "id": "a01",
+        "type": "Attempt",
+        "censoring_reason": "ActionInducedCensoring",
+        "outcome_epoch": "t1",
+        "action": "UPDATE"
+      },
+      {
+        "id": "c01",
+        "type": "CensoringClassification",
+        "attempt_id": "a01",
+        "censoring_reason": "ActionInducedCensoring",
+        "classification_epoch": "t0",
+        "frozen_epoch": "t0",
+        "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+        "basis_id": "B1",
+        "revision": "0",
+        "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+      },
+      {
+        "id": "p01",
+        "type": "ClassificationPolicy",
+        "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+        "frozen_epoch": "t0"
+      },
+      {"id": "b01", "type": "ClassificationBasis", "basis_commitment": "B1"}
+    ],
+    "edges": [
+      ["claim", "attempts", "requires"],
+      ["attempts", "a01", "uses"],
+      ["attempts", "c01", "uses"],
+      ["c01", "a01", "classifies"],
+      ["c01", "p01", "frozen_by"],
+      ["c01", "b01", "supported_by"]
+    ]
+  },
+  "cases": [
+    {"case_id":"CCP-001","mutation":[],"expected_verdict":"qualified","reason":"valid classification provenance chain"},
+    {"case_id":"CCP-002","mutation":[["set_node","c01","censoring_reason","InfrastructureCensoring"]],"expected_verdict":"unqualified","reason":"classification class diverges from the attempted episode"},
+    {"case_id":"CCP-003","mutation":[["set_node","c01","frozen_epoch","t1"],["set_node","c01","commitment","sha256:db6bae0005a9a6336ddda4e486f3b9b1daa9412c13844300da8344177cc293b1"]],"expected_verdict":"unresolved","reason":"classification policy is frozen only at or after the outcome"},
+    {"case_id":"CCP-004","mutation":[["set_node","c01","classification_epoch","t2"],["set_node","c01","commitment","sha256:f4c03a870b355308303c47ce783ff65840b47b45ca18be6d631e0c70a609fc53"]],"expected_verdict":"unresolved","reason":"classification is recorded after the outcome"},
+    {"case_id":"CCP-005","mutation":[["set_node","c01","policy_blob_sha","P2"]],"expected_verdict":"unqualified","reason":"exact policy content identity diverges"},
+    {"case_id":"CCP-006","mutation":[["remove_edge",["c01","p01","frozen_by"]]],"expected_verdict":"unresolved","reason":"missing policy provenance"},
+    {"case_id":"CCP-007","mutation":[["remove_edge",["c01","b01","supported_by"]]],"expected_verdict":"unresolved","reason":"missing classification basis provenance"},
+    {"case_id":"CCP-008","mutation":[["add_edge",["c01","a01","classifies"]]],"expected_verdict":"unresolved","reason":"duplicate target relation"},
+    {"case_id":"CCP-009","mutation":[["add_node",{"id":"a02","type":"Attempt","censoring_reason":"ActionInducedCensoring","outcome_epoch":"t1","action":"UPDATE"}],["add_edge",["c01","a02","classifies"]]],"expected_verdict":"unresolved","reason":"one classification object is reused across incompatible attempts"},
+    {"case_id":"CCP-010","mutation":[["add_node",{"id":"r01","type":"Result"}],["add_edge",["c01","r01","supported_by"]]],"expected_verdict":"unqualified","reason":"classification cannot cite the result it is meant to explain"},
+    {"case_id":"CCP-011","mutation":[["set_node","c01","commitment","sha256:bad"]],"expected_verdict":"unqualified","reason":"classification content commitment mismatch"},
+    {"case_id":"CCP-012","mutation":[["add_node",{"id":"c02","type":"CensoringClassification","attempt_id":"a01","censoring_reason":"ActionInducedCensoring","classification_epoch":"t0","frozen_epoch":"t0","policy_blob_sha":"1c8a577e7e572a0ca95f2e91b5debab3ee8c752a","basis_id":"B1","revision":"1","commitment":"sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"}],["add_edge",["attempts","c02","uses"]],["add_edge",["c02","a01","classifies"]],["add_edge",["c02","p01","frozen_by"]],["add_edge",["c02","b01","supported_by"]],["add_edge",["c02","c01","supersedes"]]],"expected_verdict":"qualified","reason":"new revision supersedes history without rewriting the original"},
+    {"case_id":"CCP-013","mutation":[["add_node",{"id":"c02","type":"CensoringClassification","attempt_id":"a01","censoring_reason":"ActionInducedCensoring","classification_epoch":"t2","frozen_epoch":"t0","policy_blob_sha":"1c8a577e7e572a0ca95f2e91b5debab3ee8c752a","basis_id":"B1","revision":"1","commitment":"sha256:773e9813a42456b1b1f2c695ebfabebb02851050fdecace8adb501ed4c91b5a3"}],["add_edge",["attempts","c02","uses"]],["add_edge",["c02","a01","classifies"]],["add_edge",["c02","p01","frozen_by"]],["add_edge",["c02","b01","supported_by"]],["add_edge",["c02","c01","supersedes"]]],"expected_verdict":"unresolved","reason":"supersession after outcome cannot rewrite an active claim"},
+    {"case_id":"CCP-014","mutation":[["add_node",{"id":"c02","type":"CensoringClassification","attempt_id":"a01","censoring_reason":"ActionInducedCensoring","classification_epoch":"t0","frozen_epoch":"t0","policy_blob_sha":"1c8a577e7e572a0ca95f2e91b5debab3ee8c752a","basis_id":"B1","revision":"1","commitment":"sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"}],["add_edge",["attempts","c02","uses"]],["add_edge",["c02","a01","classifies"]],["add_edge",["c02","p01","frozen_by"]],["add_edge",["c02","b01","supported_by"]],["add_edge",["c02","r01","supported_by"]],["add_edge",["c02","c01","supersedes"]],["add_node",{"id":"r01","type":"Result"}]],"expected_verdict":"unqualified","reason":"result support is forbidden even in a superseding revision"},
+    {"case_id":"CCP-015","mutation":[["remove_edge",["attempts","c01","uses"]]],"expected_verdict":"unresolved","reason":"classification is outside the claim-local provenance projection"},
+    {"case_id":"CCP-016","mutation":[["add_node",{"id":"i01","type":"InvalidationRecord","reason":"classification invalidated","epoch":"t1"}],["add_edge",["c01","i01","invalidated_by"]]],"expected_verdict":"unresolved","reason":"active classification was invalidated"},
+    {"case_id":"CCP-017","mutation":[["set_node","c01","censoring_reason","InfrastructureCensoring"],["set_node","c01","basis_id","B2"]],"expected_verdict":"unqualified","reason":"historical classification rewrite violates content and anchor binding"},
+    {"case_id":"CCP-018","mutation":[["add_node",{"id":"c02","type":"CensoringClassification","attempt_id":"a01","censoring_reason":"ActionInducedCensoring","classification_epoch":"t0","frozen_epoch":"t1","policy_blob_sha":"1c8a577e7e572a0ca95f2e91b5debab3ee8c752a","basis_id":"B1","revision":"1","commitment":"sha256:c98fabdf9bcf93de254b6d622a61b1fbd4f33bb47fdbb50541fe752d9afbbcc5"}],["add_edge",["attempts","c02","uses"]],["add_edge",["c02","a01","classifies"]],["add_edge",["c02","p01","frozen_by"]],["add_edge",["c02","b01","supported_by"]],["add_edge",["c02","c01","supersedes"]]],"expected_verdict":"unresolved","reason":"policy freeze occurs at or after the outcome"},
+    {"case_id":"CCP-019","mutation":[["add_node",{"id":"c02","type":"CensoringClassification","attempt_id":"a01","censoring_reason":"ActionInducedCensoring","classification_epoch":"t2","frozen_epoch":"t0","policy_blob_sha":"1c8a577e7e572a0ca95f2e91b5debab3ee8c752a","basis_id":"B1","revision":"1","commitment":"sha256:773e9813a42456b1b1f2c695ebfabebb02851050fdecace8adb501ed4c91b5a3"}],["add_edge",["attempts","c02","uses"]],["add_edge",["c02","a01","classifies"]],["add_edge",["c02","p01","frozen_by"]],["add_edge",["c02","b01","supported_by"]],["add_edge",["c02","c01","supersedes"]]],"expected_verdict":"unresolved","reason":"classification is recorded after the outcome"},
+    {"case_id":"CCP-020","mutation":[["add_node",{"id":"c02","type":"CensoringClassification","attempt_id":"a01","censoring_reason":"ActionInducedCensoring","classification_epoch":"t0","frozen_epoch":"t0","policy_blob_sha":"1c8a577e7e572a0ca95f2e91b5debab3ee8c752a","basis_id":"B1","revision":"1","commitment":"sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"}],["add_edge",["attempts","c02","uses"]],["add_edge",["c02","a01","classifies"]],["add_edge",["c02","p01","frozen_by"]],["add_edge",["c02","b01","supported_by"]]],"expected_verdict":"unresolved","reason":"nonzero revision lacks explicit supersession lineage"},
+    {"case_id":"CCP-021","mutation":[["set_node","c01","censoring_reason","AcciónInducedCensoring"]],"expected_verdict":"unresolved","reason":"the restricted deterministic dialect rejects non-ASCII evidence before semantic evaluation"},
+    {"case_id":"CCP-022","mutation":[["add_node",{"id":"c02","type":"CensoringClassification","attempt_id":"a01","censoring_reason":"InfrastructureCensoring","classification_epoch":"t0","frozen_epoch":"t0","policy_blob_sha":"1c8a577e7e572a0ca95f2e91b5debab3ee8c752a","basis_id":"B1","revision":"1","commitment":"sha256:b4d9ed99b48ef2bd160d5267743ac86da74d851b3142227eab6ac464ffc62879"}],["add_edge",["attempts","c02","uses"]],["add_edge",["c02","a01","classifies"]],["add_edge",["c02","p01","frozen_by"]],["add_edge",["c02","b01","supported_by"]],["add_edge",["c02","c01","supersedes"]]],"expected_verdict":"unqualified","reason":"a new revision misclassifies the same attempted episode"}
+  ]
+}
