@@ -1878,7 +1878,7 @@ fn find_executed_resolution_for_prepared_execution(
     else {
         return Ok(None);
     };
-    match resolution.outcome {
+    match &resolution.outcome {
         ExecutionResolutionOutcome::Executed => Ok(Some(resolution)),
         ExecutionResolutionOutcome::Failed => Ok(None),
     }
@@ -1895,7 +1895,7 @@ fn find_failed_resolution_for_prepared_execution(
     else {
         return Ok(None);
     };
-    match resolution.outcome {
+    match &resolution.outcome {
         ExecutionResolutionOutcome::Failed => Ok(Some(resolution)),
         ExecutionResolutionOutcome::Executed => Ok(None),
     }
