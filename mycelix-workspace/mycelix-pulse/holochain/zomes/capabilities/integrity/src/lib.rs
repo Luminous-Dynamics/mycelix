@@ -453,3 +453,27 @@ fn validate_delegation_chain(
 
     Ok(ValidateCallbackResult::Valid)
 }
+
+#[cfg(test)]
+mod serialization_compat_tests {
+    use super::*;
+
+    #[test]
+    fn legacy_capability_without_binding_deserializes_as_unbound() {
+        let encoded = serde_json::json!({
+            "id": "cap_legacy",
+            "grantor": "uhCAklegacygrantor",
+            "grantee": "uhCAklegacygrantee",
+            "access_type": "ReadOnly",
+            "permissions": MailboxPermissions::default(),
+            "restrictions": serde_json::Value::Null,
+            "granted_at": 0,
+            "expires_at": serde_json::Value::Null,
+            "revoked": false,
+            "revocation_reason": serde_json::Value::Null,
+            "secret_hash": [1, 2, 3]
+        });
+        let capability: MailboxCapability = serde_json::from_value(encoded).expect("legacy capability must deserialize");
+        assert_eq!(capability.system_grant_action_hash, None);
+    }
+}
