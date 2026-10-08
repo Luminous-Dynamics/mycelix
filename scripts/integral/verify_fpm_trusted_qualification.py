@@ -94,6 +94,10 @@ ENUMERATION_KEYS = frozenset(
         "terminal_page",
         "artifact_identity_sha256",
         "complete",
+        "repeat_enumeration_verified",
+        "repeat_total_count_reported",
+        "repeat_page_counts",
+        "repeat_artifact_identity_sha256",
     }
 )
 
@@ -415,6 +419,14 @@ def verify_artifact_enumeration(
         fail("page counts do not sum to artifact count")
     if counts[-1] >= 100:
         fail("artifact enumeration did not observe a short/empty terminal page")
+    if enumeration["repeat_enumeration_verified"] is not True:
+        fail("artifact enumeration repeat-consistency check did not pass")
+    if enumeration["repeat_total_count_reported"] != enumeration["total_count_reported"]:
+        fail("repeat artifact total count differs")
+    if enumeration["repeat_page_counts"] != counts:
+        fail("repeat artifact page counts differ")
+    if enumeration["repeat_artifact_identity_sha256"] != enumeration["artifact_identity_sha256"]:
+        fail("repeat artifact identity commitment differs")
     identities = [
         {"id": item["id"], "name": item["name"]}
         for item in items
