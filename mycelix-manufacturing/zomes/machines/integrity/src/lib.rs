@@ -52,11 +52,21 @@ pub struct MachineTemporalEvidenceObservation {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum MachineTemporalEvidenceResolution {
     NoEvidence,
+
+    /// All valid witnesses agree on the same attested time and accuracy.
+    ///
+    /// This represents temporal agreement only; it is deliberately not a trust
+    /// score or an assertion of witness independence.
     Unique {
         time: Timestamp,
         evidence: Vec<MachineTemporalEvidenceObservation>,
     },
+
+    /// Valid witnesses disagree on attested time and/or declared accuracy.
+    /// No winner is selected.
     Conflicting(Vec<MachineTemporalEvidenceObservation>),
+
+    /// At least one validation-critical dependency or semantic invariant failed.
     InvalidEvidence,
 }
 
@@ -87,7 +97,18 @@ pub fn resolve_temporal_evidence(
 }
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum MachineTemporalEvidenceKind {
+    /// Time evidence attached to an exact, immutable transition approval.
+    ///
+    /// The temporal claim is about the approval datum and its signed validity
+    /// interval. It is not an external proof that the authorized physical work
+    /// occurred at attested_at.
     TransitionApproval,
+
+    /// Time evidence attached to an exact machine action/record.
+    ///
+    /// The temporal claim is that the referenced datum was presented to the
+    /// selected temporal authority at the attested time, subject to declared
+    /// accuracy. It is not proof that a physical/business event occurred then.
     MachineActionExistence,
 }
 
