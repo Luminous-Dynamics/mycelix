@@ -9,6 +9,7 @@
 use hdk::prelude::*;
 use mycelix_bridge_proc::{mycelix_zome_fn, sovereign_gated};
 use mycelix_zome_helpers as _;
+use mycelix_zome_helpers::get_latest_record;
 use proposals_integrity::*;
 
 // ============================================================================
@@ -157,7 +158,7 @@ pub fn get_proposal(proposal_id: String) -> ExternResult<Option<Record>> {
         ) {
             if let Some(link) = links.into_iter().max_by_key(|l| l.timestamp) {
                 if let Ok(ah) = ActionHash::try_from(link.target) {
-                    if let Some(record) = get(ah, GetOptions::default())? {
+                    if let Some(record) = get_latest_record(ah)? {
                         return Ok(Some(record));
                     }
                 }
