@@ -76,6 +76,7 @@ def main():
     if fixture.get("schema")!=FIXTURE or campaign.get("schema")!=CAMPAIGN or campaign.get("case_count")!=15 or len(campaign.get("cases",[]))!=15:return 1
     ids=[c.get("case_id") for c in campaign["cases"]]
     if len(ids)!=len(set(ids)):return 1
+    if [("sha256:"+x.hex()) for x in subproof(4,fixture["entries"][:7],True)] != fixture["consistency_proof_4_to_7"]: return 1
     rows=[];failures=[]
     for c in campaign["cases"]:
         actual,reason=evaluate(fixture,c)
