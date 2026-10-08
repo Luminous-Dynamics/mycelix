@@ -91,6 +91,7 @@ jobs:
           grep -Fq 'provider adapter identity is not registered in the constructor-pinned registry' "$boundary"
           grep -Fq 'fn adapter_identity(&self)' "$boundary"
           grep -Fq 'provider_adapter_selection_requires_pinned_registry_entry' "$boundary"
+          grep -Fq 'MAX_EXECUTION_RESOLUTION_BINDINGS' mycelix-governance/zomes/execution/integrity/src/lib.rs
           grep -Fq 'pinned_provider_registry_rejects_duplicate_identities' "$boundary"
           grep -Fq 'pinned_provider_registry_exposes_only_registered_identity' "$boundary"
           grep -Fq 'AUTHORIZATION_PROOF_TABLE' "$source"
