@@ -1020,6 +1020,38 @@ mod tests {
     }
 
     #[test]
+    fn provider_idempotency_key_excludes_operation_identifier() {
+        let action_key = action();
+        let attempt_identity_a = identity("attempt-idempotency-a");
+        let mut first = attempt_record(
+            "attempt-idempotency-a",
+            "operation-one",
+            AttemptRecordState::DispatchPending,
+        );
+        first.native_replay_identity = "native-replay-stable".into();
+        first.operation_id = "operation-one".into();
+        first.validate().unwrap();
+
+        let mut second = first.clone();
+        second.operation_id = "operation-two".into();
+        second.validate().unwrap();
+
+        let first_key = derive_provider_idempotency_key(&first, &action_key);
+        let second_key = derive_provider_idempotency_key(&second, &action_key);
+        assert_eq!(first_key, second_key);
+
+        let mut different_replay = second.clone();
+        different_replay.native_replay_identity = "native-replay-different".into();
+        different_replay.validate().unwrap();
+
+        assert_ne!(
+            second_key,
+            derive_provider_idempotency_key(&different_replay, &action_key)
+        );
+        assert_eq!(first.attempt_identity, attempt_identity_a.digest());
+    }
+
+    #[test]
     fn provider_is_not_called_before_confirmed_dispatch_pending() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("dispatch.db")).unwrap();
