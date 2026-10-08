@@ -29,6 +29,7 @@ jobs:
       - name: Compile and validate exact oracle
         run: |
           set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
           python3 -m py_compile \
             mycelix-governance/tools/formal/compound_subsumption_counterexamples.py \
             mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py
@@ -36,6 +37,7 @@ jobs:
       - name: Execute controls and independently replay witnesses
         run: |
           set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
           mkdir -p "$RUNNER_TEMP/auth-v20-evidence"
           python3 mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py \
             --evidence-dir "$RUNNER_TEMP/auth-v20-evidence"
