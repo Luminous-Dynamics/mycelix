@@ -86,6 +86,7 @@ jobs:
           assert contract["raw_payloads_required"] is True
           assert contract["raw_payload_sha256_required"] is True
           assert contract["admin_observation_required_for_verified"] is True
+          assert contract["admin_capability_probe_required_when_branch_protection_unavailable"] is True
           assert contract["secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists"] is True
           assert contract["applicable_rulesets_must_be_aggregated"] is True
           assert contract["ruleset_repository_targeting_must_be_evaluated"] is True
@@ -169,6 +170,9 @@ jobs:
           assert "observer_workflow_sha" in scanned_text
           assert "observer_workflow_file_blob_sha" in scanned_text
           assert "observer_run_id" in scanned_text
+          assert "admin-capability-probe-payload.json" in scanned_text
+          assert "admin-capability-probe-http-status.txt" in scanned_text
+          assert "admin_capability_probe" in scanned_text
           assert "base_sha" in scanned_text
           assert "base_ref" in scanned_text
           assert 'test "${base_ref}" = "main"' in scanned_text
