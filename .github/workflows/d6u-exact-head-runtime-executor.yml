@@ -52,7 +52,7 @@ jobs:
           D6S_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           D6S_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           D6S_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
-          EXPECTED_ARTIFACT_NAME: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
+          EXPECTED_ARTIFACT_NAME: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}-attempt-${{ github.event.workflow_run.run_attempt }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
