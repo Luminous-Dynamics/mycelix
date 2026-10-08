@@ -1,5 +1,5 @@
 {
-  "schema": "mycelix.continual-adaptation.censoring-classification-policy-liveness.v1",
+  "schema": "mycelix.continual-adaptation.censoring-classification-policy-liveness.v2",
   "status": "research-fixture-only",
   "mutations": [
     {
@@ -95,6 +95,28 @@
         "supersession_must_be_claim_local"
       ],
       "value": false,
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CPL-009",
+      "source_case_id": "CCP-041",
+      "policy_path": [
+        "classification",
+        "claim_scope_binding_required"
+      ],
+      "value": false,
+      "preserve_history_anchor": true,
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CPL-010",
+      "source_case_id": "CCP-042",
+      "policy_path": [
+        "classification",
+        "claim_scope_binding_required"
+      ],
+      "value": false,
+      "preserve_history_anchor": true,
       "expected_verdict": "qualified"
     }
   ]
