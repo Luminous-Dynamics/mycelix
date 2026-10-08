@@ -190,6 +190,9 @@ function checkCase(base, policy, testCase) {
     case "required_dependency_rejection":
       row.status = row.verdict === "unresolved" && row.semantic_digest !== "invalid" ? "pass" : "fail";
       break;
+    case "endpoint_rejection":
+      row.status = row.verdict === "unresolved" && row.semantic_digest === "invalid" ? "pass" : "fail";
+      break;
     case "structural_rejection":
       row.status = row.verdict === "unresolved" && row.semantic_digest === "invalid" ? "pass" : "fail";
       break;
