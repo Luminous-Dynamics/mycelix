@@ -323,6 +323,12 @@ jobs:
           assert "MYCELIX-COS-QUALIFICATION-CLAIM-ID-V1" in scanned
           assert "expected_claim_id = hashlib.sha256" in scanned
           assert "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V2" in scanned
+          receipt_step_start = scanned.index("      - name: Write attestor run receipt")
+          receipt_step_end = scanned.index("\n\n      - name: Preserve attestor evidence", receipt_step_start)
+          receipt_step = scanned[receipt_step_start:receipt_step_end]
+          receipt_builder_end = receipt_step.index("\n          PY", receipt_step.index("          python - <<'PY'"))
+          receipt_builder = receipt_step[:receipt_builder_end]
+          assert receipt_builder.index("          import hashlib") < receipt_builder.index("              \"qualification_claim_id\": hashlib.sha256")
           assert "def validate_receipt(receipt):" in scanned
           assert "receipt = strict_json_loads(receipt_path.read_text())" in scanned
           assert 'extra["unexpected"] = True' in scanned
@@ -1373,6 +1379,7 @@ jobs:
           test -s attestor-evidence/attestation-bundle-verification.json
           set -euo pipefail
           python - <<'PY'
+          import hashlib
           import json
           import os
           from pathlib import Path
@@ -1417,7 +1424,6 @@ jobs:
               },
           }
           bundle_path = Path("attestor-evidence/qualification-attestation-bundle.json")
-          import hashlib
           receipt["attestation"]["bundle_sha256"] = hashlib.sha256(bundle_path.read_bytes()).hexdigest()
           Path("attestor-evidence/attestor-run-receipt.json").write_text(
               json.dumps(receipt, indent=2, sort_keys=True) + "\n"
