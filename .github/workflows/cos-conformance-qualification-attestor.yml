@@ -313,6 +313,14 @@ jobs:
           assert "EXPECTED_MAIN_HEAD_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}" in scanned
           assert 'test "${live_main_sha}" = "${EXPECTED_MAIN_HEAD_SHA}"' in scanned
           assert "TRUST_ROOT_CURRENT_MAIN_HEAD_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}" in scanned
+          assert "expected_receipt_keys" in scanned
+          assert "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1" in scanned
+          assert "def validate_receipt(receipt):" in scanned
+          assert "receipt = strict_json_loads(receipt_path.read_text())" in scanned
+          assert 'extra["unexpected"] = True' in scanned
+          assert 'nested["trust_root"]["unexpected"] = True' in scanned
+          assert 'wrong_type["verifier_run"]["attempt"]' in scanned
+          assert scanned.index("validate_receipt(receipt)") < scanned.index("LC_ALL=C find . -type f ! -name SHA256SUMS")
           assert "Revalidate trust-root at signing time" in scanned
           assert "git/ref/heads/main" in scanned
           assert "trust root rotated after validation" in scanned
@@ -1388,6 +1396,146 @@ jobs:
           Path("attestor-evidence/attestor-run-receipt.json").write_text(
               json.dumps(receipt, indent=2, sort_keys=True) + "\n"
           )
+          PY
+          python - <<'PY
+          import copy
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          def validate_receipt(receipt):
+              sha40 = re.compile(r"^[0-9a-f]{40}$")
+              sha64 = re.compile(r"^[0-9a-f]{64}$")
+              expected_receipt_keys = {
+                  "schema", "predicate_type", "repository", "attestor",
+                  "trust_root", "verifier_run", "qualification_topology",
+                  "qualification_manifest_sha256", "predicate_sha256",
+                  "signing_input_artifact", "attestation",
+              }
+              assert set(receipt) == expected_receipt_keys
+              assert receipt["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1"
+              assert receipt["predicate_type"] == os.environ["PREDICATE_TYPE"]
+              assert receipt["repository"] == os.environ["GITHUB_REPOSITORY"]
+
+              assert set(receipt["attestor"]) == {"workflow_ref", "workflow_sha"}
+              assert receipt["attestor"]["workflow_ref"] == f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main"
+              assert receipt["attestor"]["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
+              assert sha40.fullmatch(receipt["attestor"]["workflow_sha"])
+
+              assert set(receipt["trust_root"]) == {
+                  "manifest_path", "manifest_blob_sha1", "manifest_sha256",
+                  "status", "main_snapshot_sha", "current_main_head_sha",
+              }
+              assert receipt["trust_root"]["manifest_path"] == ".github/cos/qualification-trust-root-v2.json"
+              assert receipt["trust_root"]["manifest_blob_sha1"] == os.environ["TRUST_ROOT_MANIFEST_BLOB_SHA1"]
+              assert receipt["trust_root"]["manifest_sha256"] == os.environ["TRUST_ROOT_MANIFEST_SHA256"]
+              assert receipt["trust_root"]["status"] == "candidate_not_authoritative_until_protected_adoption"
+              assert receipt["trust_root"]["main_snapshot_sha"] == os.environ["TRUST_ROOT_MAIN_SNAPSHOT_SHA"]
+              assert receipt["trust_root"]["current_main_head_sha"] == os.environ["TRUST_ROOT_CURRENT_MAIN_HEAD_SHA"]
+              assert receipt["trust_root"]["current_main_head_sha"] == receipt["trust_root"]["main_snapshot_sha"]
+              assert sha40.fullmatch(receipt["trust_root"]["manifest_blob_sha1"])
+              assert sha64.fullmatch(receipt["trust_root"]["manifest_sha256"])
+              assert sha40.fullmatch(receipt["trust_root"]["main_snapshot_sha"])
+              assert sha40.fullmatch(receipt["trust_root"]["current_main_head_sha"])
+
+              assert set(receipt["verifier_run"]) == {"workflow_id", "id", "attempt"}
+              assert receipt["verifier_run"]["workflow_id"] == int(os.environ["VERIFIER_WORKFLOW_ID"])
+              assert receipt["verifier_run"]["id"] == int(os.environ["VERIFIER_RUN_ID"])
+              assert receipt["verifier_run"]["attempt"] == int(os.environ["VERIFIER_RUN_ATTEMPT"])
+              assert receipt["verifier_run"]["workflow_id"] > 0
+              assert receipt["verifier_run"]["id"] > 0
+              assert receipt["verifier_run"]["attempt"] > 0
+
+              assert set(receipt["qualification_topology"]) == {"head_sha", "base_sha"}
+              assert receipt["qualification_topology"]["head_sha"] == os.environ["EXPECTED_HEAD_SHA"]
+              assert receipt["qualification_topology"]["base_sha"] == os.environ["EXPECTED_BASE_SHA"]
+              assert sha40.fullmatch(receipt["qualification_topology"]["head_sha"])
+              assert sha40.fullmatch(receipt["qualification_topology"]["base_sha"])
+
+              assert sha64.fullmatch(receipt["qualification_manifest_sha256"])
+              assert receipt["qualification_manifest_sha256"] == os.environ["MANIFEST_SHA256"]
+              assert sha64.fullmatch(receipt["predicate_sha256"])
+              assert receipt["predicate_sha256"] == os.environ["PREDICATE_SHA256"]
+
+              assert set(receipt["signing_input_artifact"]) == {"id", "digest"}
+              assert receipt["signing_input_artifact"]["id"] == int(os.environ["INPUT_ARTIFACT_ID"])
+              assert receipt["signing_input_artifact"]["digest"] == os.environ["INPUT_ARTIFACT_DIGEST"]
+              assert receipt["signing_input_artifact"]["id"] > 0
+              assert re.fullmatch(r"sha256:[0-9a-f]{64}", receipt["signing_input_artifact"]["digest"])
+
+              assert set(receipt["attestation"]) == {"id", "url", "bundle_sha256"}
+              assert receipt["attestation"]["id"] == int(os.environ["ATTESTATION_ID"])
+              assert receipt["attestation"]["url"] == os.environ["ATTESTATION_URL"]
+              assert receipt["attestation"]["id"] > 0
+              assert isinstance(receipt["attestation"]["url"], str) and receipt["attestation"]["url"]
+              assert sha64.fullmatch(receipt["attestation"]["bundle_sha256"])
+              bundle_path = Path("attestor-evidence/qualification-attestation-bundle.json")
+              assert receipt["attestation"]["bundle_sha256"] == hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+
+          assert_strict_json_rejects_ambiguous_inputs()
+          receipt_path = Path("attestor-evidence/attestor-run-receipt.json")
+          receipt = strict_json_loads(receipt_path.read_text())
+          validate_receipt(receipt)
+
+          extra = copy.deepcopy(receipt)
+          extra["unexpected"] = True
+          try:
+              validate_receipt(extra)
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError("receipt accepted unexpected top-level field")
+
+          nested = copy.deepcopy(receipt)
+          nested["trust_root"]["unexpected"] = True
+          try:
+              validate_receipt(nested)
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError("receipt accepted unexpected nested field")
+
+          wrong_type = copy.deepcopy(receipt)
+          wrong_type["verifier_run"]["attempt"] = str(wrong_type["verifier_run"]["attempt"])
+          try:
+              validate_receipt(wrong_type)
+          except (AssertionError, TypeError, ValueError):
+              pass
+          else:
+              raise AssertionError("receipt accepted incorrect field type")
           PY
           (
             cd attestor-evidence
