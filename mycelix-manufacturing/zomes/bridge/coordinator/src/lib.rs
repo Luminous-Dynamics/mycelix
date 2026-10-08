@@ -633,7 +633,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn test_active_work_order_requires_known_non_terminal_status() {
         use manufacturing_common::WorkOrderStatus;
 
