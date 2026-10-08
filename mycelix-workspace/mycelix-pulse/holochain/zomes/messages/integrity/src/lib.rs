@@ -28,7 +28,7 @@ const MAX_ENCRYPTED_BODY_BYTES: usize = 2 * 1024 * 1024;
 const MAX_MESSAGE_ID_BYTES: usize = 512;
 
 // Phase 0.8 client-authoritative timestamp bounds.
-// `email.timestamp` is client-signed (RFC 5322 Date:). `action.timestamp` is
+// `email.timestamp` is client-signed (RFC 5322 Date:). `action.timestamp()` is
 // hc-chain-assigned when the entry is committed. We bound the skew between
 // them to prevent spoofing without rejecting legitimate offline mail.
 const MAX_FUTURE_SKEW_MICROS: i64 = 5 * 60 * 1_000_000; // 5 min — clock drift tolerance
@@ -440,7 +440,7 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -469,7 +469,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             tag,
             action,
         ),
-        FlatOp::StoreRecord(store_record) => match store_record {
+        FlatOp::CreateRecord(store_record) => match store_record {
             OpRecord::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
             OpRecord::UpdateEntry {
                 app_entry, action, ..
@@ -482,7 +482,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<CreateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::EncryptedEmail(email) => validate_encrypted_email(&email, &action),
@@ -499,7 +499,7 @@ fn validate_create_entry(
 
 fn validate_update_entry(
     entry: EntryTypes,
-    action: Update,
+    action: TypedAction<UpdateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         // Emails are immutable once sent
@@ -511,7 +511,7 @@ fn validate_update_entry(
         )),
         // Drafts can be updated by owner
         EntryTypes::EmailDraft(draft) => {
-            if draft.owner != action.author {
+            if draft.owner != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only draft owner can update".to_string(),
                 ));
@@ -520,7 +520,7 @@ fn validate_update_entry(
         }
         // State can be updated by owner
         EntryTypes::EmailState(state) => {
-            if state.owner != action.author {
+            if state.owner != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only state owner can update".to_string(),
                 ));
@@ -529,7 +529,7 @@ fn validate_update_entry(
         }
         // Folders can be updated by owner
         EntryTypes::EmailFolder(folder) => {
-            if folder.owner != action.author {
+            if folder.owner != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only folder owner can update".to_string(),
                 ));
@@ -574,7 +574,7 @@ fn validate_encrypted_email_v2(
     email: &EncryptedEmailV2,
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
-    if email.sender != action.author {
+    if email.sender != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "V2 sender must match action author".into(),
         ));
@@ -601,7 +601,7 @@ fn validate_encrypted_email_v2(
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
     let created = email.created_at_micros;
-    let action_time = action.timestamp.as_micros();
+    let action_time = action.timestamp().as_micros();
     if created.saturating_sub(action_time) > MAX_FUTURE_SKEW_MICROS
         || action_time.saturating_sub(created) > MAX_PAST_SKEW_MICROS
     {
@@ -739,7 +739,7 @@ fn validate_encrypted_email(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Sender must be the author
-    if email.sender != action.author {
+    if email.sender != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Email sender must match action author".to_string(),
         ));
@@ -795,7 +795,7 @@ fn validate_encrypted_email(
     // top of inbox). Unreasonably-old emails (> 30 d behind) are a replay
     // vector. Legitimate offline mail composed hours/days ago still validates.
     let email_ts = email.timestamp.as_micros();
-    let action_ts = action.timestamp.as_micros();
+    let action_ts = action.timestamp().as_micros();
     let future_skew = email_ts.saturating_sub(action_ts);
     if future_skew > MAX_FUTURE_SKEW_MICROS {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -925,7 +925,7 @@ fn validate_attachment(
             "EncryptedAttachment.email_hash does not reference an EncryptedEmail or EncryptedEmailV2".into(),
         ));
     };
-    if sender != action.author {
+    if sender != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Attachment's email_hash is not owned by the attachment's committer".to_string(),
         ));
@@ -974,7 +974,7 @@ fn validate_attachment(
 
 fn validate_folder(folder: &EmailFolder, action: &Create) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if folder.owner != action.author {
+    if folder.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Folder owner must match author".to_string(),
         ));
@@ -988,7 +988,7 @@ fn validate_email_state(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if state.owner != action.author {
+    if state.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "State owner must match author".to_string(),
         ));
@@ -999,7 +999,7 @@ fn validate_email_state(
 
 fn validate_draft(draft: &EmailDraft, action: &Create) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if draft.owner != action.author {
+    if draft.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Draft owner must match author".to_string(),
         ));
@@ -1020,7 +1020,7 @@ fn validate_read_receipt(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Reader must be author
-    if receipt.reader != action.author {
+    if receipt.reader != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Read receipt reader must match author".to_string(),
         ));
@@ -1054,7 +1054,7 @@ fn validate_delivery_receipt(
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
     // Recipient must be author
-    if receipt.recipient != action.author {
+    if receipt.recipient != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Delivery receipt recipient must match author".to_string(),
         ));
@@ -1099,7 +1099,7 @@ fn validate_create_link(
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
     _tag: LinkTag,
-    action: CreateLink,
+    action: TypedAction<CreateLinkData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match link_type {
         LinkTypes::AgentToSent
@@ -1109,7 +1109,7 @@ fn validate_create_link(
         | LinkTypes::AgentToThreads
         | LinkTypes::AgentToScheduled => {
             // Agent links must be created by the agent themselves
-            let author_hash: AnyLinkableHash = action.author.into();
+            let author_hash: AnyLinkableHash = action.author().into();
             if base_address != author_hash {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Agent link base must match action author".to_string(),
@@ -1136,7 +1136,7 @@ fn validate_create_link(
 fn validate_inbox_link_v2(
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
-    action: CreateLink,
+    action: TypedAction<CreateLinkData>,
 ) -> ExternResult<ValidateCallbackResult> {
     let inbox_owner = match base_address.into_agent_pub_key() {
         Some(agent) => agent,
@@ -1178,7 +1178,7 @@ fn validate_inbox_link_v2(
             "AgentToInboxV2 base does not match envelope recipient".into(),
         ));
     }
-    if email.sender != action.author {
+    if email.sender != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "AgentToInboxV2 author does not match envelope sender".into(),
         ));
@@ -1197,12 +1197,12 @@ fn validate_inbox_link_v2(
 ///    unrelated entry types into the inbox namespace.
 /// 3. **Identity coherence.** The link's base must equal `email.recipient`, and
 ///    the link's author must equal `email.sender` (which in turn already equals
-///    the email's `action.author` via `validate_encrypted_email`). This means
+///    the email's `action.author()` via `validate_encrypted_email`). This means
 ///    Eve cannot deliver to Bob's inbox an envelope Alice authored.
 fn validate_inbox_link(
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
-    action: CreateLink,
+    action: TypedAction<CreateLinkData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // 1. Base must be an AgentPubKey (inbox owner).
     let inbox_owner = match base_address.into_agent_pub_key() {
@@ -1256,7 +1256,7 @@ fn validate_inbox_link(
         ));
     }
 
-    if email.sender != action.author {
+    if email.sender != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "AgentToInbox link author does not match envelope sender".to_string(),
         ));
@@ -1267,14 +1267,14 @@ fn validate_inbox_link(
 
 fn validate_delete_link(
     _link_type: LinkTypes,
-    original_action: CreateLink,
+    original_action: TypedAction<CreateLinkData>,
     _base_address: AnyLinkableHash,
     _target_address: AnyLinkableHash,
     _tag: LinkTag,
-    action: DeleteLink,
+    action: TypedAction<DeleteLinkData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Only the original link author can delete the link
-    if original_action.author != action.author {
+    if original_action.author != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the link author can delete a link".to_string(),
         ));
