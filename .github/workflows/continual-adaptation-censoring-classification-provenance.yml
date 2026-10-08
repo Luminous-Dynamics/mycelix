@@ -25,39 +25,71 @@ on:
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_PROVENANCE_V1.md"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+      base_sha:
+        description: 'Optional base SHA recorded as provenance only'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
 
-jobs:
-  regression:
+concurrency:
+  group: continual-adaptation-censoring-classification-${{ github.event.pull_request.number || inputs.subject_sha || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || inputs.subject_sha || github.sha }}
+  QUALIFICATION_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base_sha || '' }}
+
+jobs:  regression:
     name: Classification provenance research regression (non-authoritative)
-    runs-on: ubuntu-latest
-    steps:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      github.event.pull_request.draft == false ||
+      contains(github.event.pull_request.labels.*.name, 'ci:qualify')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30    steps:
       - name: Fetch exact verification commit
         shell: bash
         env:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          EVENT_SHA: ${{ github.sha }}
+          SUBJECT_SHA: ${{ env.QUALIFICATION_SUBJECT_SHA }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           git init .
           git remote add origin "https://github.com/${{ github.repository }}.git"
+          test "${SUBJECT_SHA}" =~ ^[0-9a-f]{40}$
           if [ "${EVENT_NAME}" = "pull_request" ]; then
             test -n "${PR_HEAD_SHA}"
             test -n "${PR_NUMBER}"
+            test "${PR_HEAD_SHA}" = "${SUBJECT_SHA}"
             git fetch --depth=1 origin "refs/pull/${PR_NUMBER}/head:refs/remotes/origin/pr-head"
-            target_sha="${PR_HEAD_SHA}"
             git checkout --detach refs/remotes/origin/pr-head
           else
-            target_sha="${EVENT_SHA}"
-            git fetch --depth=1 origin "${target_sha}"
-            git checkout --detach "${target_sha}"
+            git fetch --depth=1 origin "${SUBJECT_SHA}"
+            git checkout --detach "${SUBJECT_SHA}"
           fi
-          test "$(git rev-parse HEAD)" = "${target_sha}"
-          printf 'verification_head=%s\n' "${target_sha}"
+          actual_head="$(git rev-parse HEAD)"
+          test "${actual_head}" = "${SUBJECT_SHA}"
+          mkdir -p evidence
+          {
+            echo "declared_subject_sha=${SUBJECT_SHA}"
+            echo "base_sha=${QUALIFICATION_BASE_SHA:-}"
+            echo "event_sha=${GITHUB_SHA}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event_name=${GITHUB_EVENT_NAME}"
+          } > evidence/exact-head.env
+          printf 'verification_head=%s\n' "${actual_head}"
 
       - name: Run fixed corpus with Python
         shell: bash
@@ -129,12 +161,25 @@ jobs:
           python3 docs/research/verify_censoring_classification_policy_liveness.py             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY_LIVENESS_FIXTURES.json             docs/research/verify_censoring_classification.py             docs/research/verify_censoring_classification.mjs
 
       - name: Emit exact-head receipt
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           actual_head="$(git rev-parse HEAD)"
-          test "$actual_head" = "$GITHUB_SHA"
+          test "$actual_head" = "$QUALIFICATION_SUBJECT_SHA"
           printf 'exact_head=%s\n' "$actual_head"
+          printf 'declared_subject=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+          printf 'event_sha=%s\n' "$GITHUB_SHA"
+
+      - name: Prove qualification did not mutate tracked checkout
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --porcelain=v1 --untracked-files=no
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          git diff --exit-code -- .
+          git diff --cached --exit-code
 
       - name: State non-authoritative boundary
         shell: bash

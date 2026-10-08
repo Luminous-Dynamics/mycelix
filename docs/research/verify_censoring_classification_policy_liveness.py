@@ -18,6 +18,7 @@ FIELDS = (
     "policy_blob_sha",
     "basis_id",
     "revision",
+    "claim_scope_anchor",
 )
 
 
@@ -122,7 +123,7 @@ def main() -> int:
                             anchors[node["id"]] = commitment(node)
 
             corpus = {
-                "schema": "mycelix.continual-adaptation.censoring-classification-policy-liveness.single-case.v1",
+                "schema": "mycelix.continual-adaptation.censoring-classification-policy-liveness.single-case.v2",
                 "status": "research-fixture-only",
                 "policy_binding": {"git_blob_sha": mutated_sha},
                 "history_anchors": anchors,

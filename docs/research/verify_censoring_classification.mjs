@@ -10,7 +10,8 @@ const IDENTITY_FIELDS = [
   "frozen_epoch",
   "policy_blob_sha",
   "basis_id",
-  "revision"
+  "revision",
+  "claim_scope_anchor"
 ];
 const RELATIONS = new Set([
   "requires","uses","classifies","frozen_by","supported_by","supersedes","invalidated_by"
@@ -65,6 +66,19 @@ function validateStructure(graph, policy) {
   const claimRoots = [...nodes.values()].filter(n => n.type === "Claim");
   if (claimRoots.length !== 1 || !nodes.has("claim") || nodes.get("claim").type !== "Claim") {
     return [false, "claim-root"];
+  }
+  const scopeCfg = policy.classification;
+  if (scopeCfg.claim_scope_binding_required ?? true) {
+    const claim = nodes.get("claim");
+    const claimScopeAnchor = claim.claim_scope_anchor;
+    const expectedScopeAnchor = digest({id: claim.id, type: claim.type});
+    if (claimScopeAnchor !== expectedScopeAnchor) return [false, "claim-scope-root"];
+    for (const node of nodes.values()) {
+      if (["AttemptCensus", "Attempt", "CensoringClassification", "InvalidationRecord"].includes(node.type) &&
+          node.claim_scope_anchor !== claimScopeAnchor) {
+        return [false, "claim-scope-mismatch"];
+      }
+    }
   }
   if (!Array.isArray(graph.edges)) return [false, "edge-structure"];
   const seen = new Set();
@@ -240,7 +254,15 @@ function verify(graph, policy, actualPolicySha, anchors) {
   const superseded = supersededIds(graph);
   for (const node of nodes.values()) {
     if (node.type !== "CensoringClassification") continue;
-    const invalidated = graph.edges.some(e => e[0] === node.id && e[2] === "invalidated_by");
+    const invalidations = graph.edges
+      .filter(e => e[0] === node.id && e[2] === "invalidated_by")
+      .map(e => nodes.get(e[1]));
+    if (invalidations.some(invalidation =>
+      !invalidation ||
+      invalidation.type !== "InvalidationRecord" ||
+      invalidation.claim_scope_anchor !== nodes.get("claim").claim_scope_anchor
+    )) return "unresolved";
+    const invalidated = invalidations.length > 0;
     if (invalidated && !superseded.has(node.id)) return "unresolved";
   }
 
@@ -281,6 +303,16 @@ const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
 if (fixture.policy_binding?.git_blob_sha !== actualSha) process.exit(1);
 
+const baseVerdict = verify(
+  fixture.base_graph, policy, actualSha, fixture.history_anchors
+);
+if (baseVerdict !== "qualified") {
+  console.error("base graph is not qualified: " + baseVerdict);
+  process.exitCode = 1;
+  // Do not generate a mutation-campaign report from an invalid base fixture.
+  process.exit();
+}
+
 const failures = [];
 const rows = [];
 for (const c of fixture.cases) {
@@ -304,7 +336,7 @@ const report = {
   cases: rows,
   failures,
   policy_blob_sha: actualSha,
-  schema: "mycelix.continual-adaptation.censoring-classification-provenance-report.v1",
+  schema: "mycelix.continual-adaptation.censoring-classification-provenance-report.v2",
   status: "research-evidence-only"
 };
 fs.writeFileSync(reportPath, canonical(report) + "\n");

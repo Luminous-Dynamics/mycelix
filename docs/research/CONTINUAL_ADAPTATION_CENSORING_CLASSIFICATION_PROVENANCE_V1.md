@@ -69,8 +69,23 @@ The classification commitment covers:
     policy_blob_sha
     basis_id
     revision
+    claim_scope_anchor
 
 The verifier recomputes this commitment rather than trusting the declared value.
+
+## Scope identity
+
+Claim-locality is not treated as a property that can be inferred solely from final graph reachability. The claim root has an anchored scope identity, and every `AttemptCensus`, `Attempt`, and `CensoringClassification` in this dialect carries the same `claim_scope_anchor`.
+
+The anchor is derived from the canonical identity of the claim root. A classification that is structurally reachable from a claim but carries a different scope anchor is unresolved. This blocks lineage grafting in which a foreign classification is pulled into the local projection by a later relation.
+
+This is deliberately a separate invariant from supersession locality:
+
+    relation is local
+        !=
+    relation target is allowed to become local
+
+The remaining claim is bounded: the scope anchor proves consistency with the declared claim identity, not that an external issuer originally assigned the object to that claim.
 
 Base-revision history is additionally anchored by an immutable fixture-level commitment. Thus changing the historical class, basis, or policy identity without creating a new revision fails closed.
 
@@ -117,6 +132,8 @@ This follows the same general provenance principle used by W3C PROV: revisions a
 
 ## Anti-self-evidence boundary
 
+An `invalidated_by` relation is claim-local when it affects active-state classification. Its `InvalidationRecord` must carry the same `claim_scope_anchor` as the Claim root; an off-scope invalidation cannot change whether an in-scope classification is active. This establishes locality, not temporal authenticity; the separate relation-materialization boundary remains independent.
+
 A classification cannot use a `Result` as its supporting evidence.
 
 This blocks the circular pattern:
@@ -130,7 +147,7 @@ The policy-liveness campaign deliberately disables this rule and checks that the
 
 ## Current fixed attack corpus
 
-The fixed fixture covers 22 cases across:
+The fixed fixture covers 45 cases across:
 
 1. valid claim-local classification;
 2. class mismatch;
@@ -147,7 +164,7 @@ The fixed fixture covers 22 cases across:
 13. post-outcome supersession;
 14. result-backed superseding revision;
 15. classification hidden from the claim-local projection;
-16. active classification invalidation;
+16. active classification invalidation (claim-local anchor required);
 17. history rewrite;
 18. isolated late policy-freeze revision;
 19. isolated late-recording revision;
@@ -164,7 +181,7 @@ Neither state is treated as a positive qualification result.
 
 ## Generated campaign
 
-`generate_censoring_classification_properties.py` creates 128 deterministic mutations from seed `0x43505601` across:
+`generate_censoring_classification_properties.py` creates 168 deterministic mutations from seed `0x43505601` across:
 
 - representation invariance;
 - content/identity binding;
@@ -192,14 +209,15 @@ During hardening, the cross-language campaign exposed the same kind of subtle fa
 
 ## Policy liveness
 
-`CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY_LIVENESS_FIXTURES.json` contains six one-rule mutations:
+`CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY_LIVENESS_FIXTURES.json` contains nine one-rule mutations:
 
 - class/attempt reason compatibility;
 - result-as-support prohibition;
 - claim-local active-classification requirement;
 - historical immutability anchor;
 - classification-before-outcome requirement;
-- supersession requirement for nonzero revisions.
+- supersession requirement for nonzero revisions;
+- claim-scope identity binding.
 
 For policy mutations, the liveness harness rebinds the temporary policy blob and recomputes the affected classification commitments. Historical anchors are only rebound when the policy itself legitimately changes; a dedicated history mutation preserves the original anchor. This separation prevents policy change from being mistaken for historical rewriting.
 
@@ -269,7 +287,7 @@ The closure therefore requires each declared base anchor to be both claim-local 
 
 This preserves the distinction between historical continuity and current reachability while preventing an unrelated revision-0 replacement from inheriting the anchor.
 
-The generated campaign now exercises 160 cases, including anchor-lineage and representation-composition mutations.
+The generated campaign now exercises 168 deterministic cases, including anchor-lineage and representation-composition mutations.
 
 
 ## Claim-local supersession scope closure
@@ -279,3 +297,8 @@ A second-order review found that an off-claim `supersedes` edge could still muta
 An off-claim superseder is unresolved rather than ignored. Valid historical supersession remains directional and local, preserving the base revision as claim-local history.
 
 Policy liveness covers this rule, and the generated campaign now contains 168 deterministic cases.
+
+
+## Scope-identity closure follow-up
+
+A composition review found that claim-local membership was partly a reachability property. Without an explicit scope binding, a foreign classification could become claim-local merely by adding a lineage path from the local claim. The dialect now anchors the claim scope and includes that anchor in classification commitments. Scope mismatches are unresolved, while the policy-liveness campaign confirms that disabling the scope rule changes the verdict as expected.
