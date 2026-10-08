@@ -2117,19 +2117,21 @@ mod tests {
     }
 
     #[test]
-    fn provider_adapter_must_match_pinned_attempt_identity() {
+    fn provider_adapter_selection_requires_pinned_registry_entry() {
         let dir = tempdir().unwrap();
-        let store = SqliteActionFenceStore::open(dir.path().join("adapter-identity.db")).unwrap();
+        let store =
+            SqliteActionFenceStore::open(dir.path().join("adapter-registry.db")).unwrap();
         let mut boundary = test_host(store);
         let action_key = action();
-        let owner = identity("attempt-adapter-identity");
+        let owner = identity("attempt-adapter-registry");
         boundary
             .admit(
                 &action_key,
                 &owner,
-                attempt_record(
-                    "attempt-adapter-identity",
-                    "operation-adapter-identity",
+                attempt_record_with_adapter(
+                    "attempt-adapter-registry",
+                    "operation-adapter-registry",
+                    "unregistered-provider-adapter-v1",
                     AttemptRecordState::Consumed,
                 ),
             )
@@ -2138,13 +2140,12 @@ mod tests {
         let result = boundary.dispatch(
             &action_key,
             &owner,
-            "owner-attempt-adapter-identity",
-            &mut WrongAdapter,
+            "owner-attempt-adapter-registry",
         );
         assert!(matches!(
             result,
             Err(BoundaryError::Semantic(message))
-                if message.contains("provider adapter identity does not match the attempt")
+                if message.contains("not registered in the constructor-pinned registry")
         ));
 
         let attempt = boundary.store.durably_read_attempt(&owner).unwrap().unwrap();
@@ -2156,7 +2157,6 @@ mod tests {
             .unwrap()
             .is_none());
     }
-
     #[test]
     fn admission_proof_identity_must_match_pinned_trust_root() {
         let dir = tempdir().unwrap();
@@ -2254,7 +2254,6 @@ mod tests {
     fn provider_is_not_called_before_confirmed_dispatch_pending() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("dispatch.db")).unwrap();
-        let mut boundary = test_host(store);
         let action = action();
         let owner = identity("attempt-1");
         boundary
@@ -2276,13 +2275,13 @@ mod tests {
             invoked_states: Arc::clone(&states),
         };
 
+        let mut boundary = test_host_with_provider(store, Box::new(provider));
         assert_eq!(
             boundary
                 .dispatch(
                     &action,
                     &owner,
                     "owner-attempt-1",
-                    &mut provider,
                 )
                 .unwrap(),
             BoundaryOutcome::ExecutedConfirmed
@@ -2308,7 +2307,6 @@ mod tests {
 
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("ambiguous.db")).unwrap();
-        let mut boundary = test_host(store);
         let action = action();
         let owner = identity("attempt-ambiguous");
         boundary
@@ -2319,10 +2317,10 @@ mod tests {
             )
             .unwrap();
 
-        let mut provider = ErrorProvider;
+        let provider = ErrorProvider;
+        let mut boundary = test_host_with_provider(store, Box::new(provider));
         assert!(matches!(
-            boundary
-                .dispatch(&action, &owner, "owner-attempt-ambiguous", &mut provider)
+            boundary.dispatch(&action, &owner, "owner-attempt-ambiguous")
                 .unwrap(),
             BoundaryOutcome::IndeterminateHeld { .. }
         ));
