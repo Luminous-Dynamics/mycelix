@@ -28,6 +28,7 @@ env:
   FPM_TOOLCHAIN_ROOT: ${{ runner.temp }}/fpm-rust-toolchain
   FPM_UNTRUSTED_TMP: ${{ runner.temp }}/fpm-untrusted-tmp
   FPM_EVIDENCE_DIR: ${{ runner.temp }}/fpm-trusted-evidence-${{ github.run_id }}
+  FPM_SANDBOX_IMAGE: ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
 
 jobs:
   qualify:
@@ -221,6 +222,36 @@ jobs:
           printf 'lock_sha256=%s
 ' "$lock_sha" >> "$GITHUB_OUTPUT"
 
+      - name: Materialize dependency cache before hostile execution
+        id: dependencies
+        working-directory: candidate
+        env:
+          PATH: ${{ env.FPM_TOOLCHAIN_ROOT }}/bin:${{ env.PATH }}
+          CARGO_HOME: ${{ env.FPM_RESOLVER_CARGO_HOME }}
+        run: |
+          set -euo pipefail
+          cargo fetch --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+          rm -rf "${FPM_CARGO_HOME}"
+          cp -a "${CARGO_HOME}" "${FPM_CARGO_HOME}"
+          test -d "${FPM_CARGO_HOME}"
+          test -z "$(find "${FPM_CARGO_HOME}" -type l -print -quit)"
+          chmod -R a-w "${FPM_CARGO_HOME}"
+          cache_digest="$(tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner --format=gnu -cf - -C "${FPM_CARGO_HOME}" . | sha256sum | awk '{print $1}')"
+          printf 'dependency_cache_sha256=%s\n' "$cache_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare pinned hostile-code sandbox image
+        id: sandbox_image
+        run: |
+          set -euo pipefail
+          docker pull --quiet "${FPM_SANDBOX_IMAGE}"
+          docker image inspect "${FPM_SANDBOX_IMAGE}" >/dev/null
+          repo_digests="$(docker image inspect --format '{{json .RepoDigests}}' "${FPM_SANDBOX_IMAGE}")"
+          printf '%s' "$repo_digests" | grep -Fq 'sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b'
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${FPM_SANDBOX_IMAGE}")" = "linux/amd64"
+          image_id="$(docker image inspect --format '{{.Id}}' "${FPM_SANDBOX_IMAGE}")"
+          test -n "$image_id"
+          printf 'sandbox_image_digest=%s\n' 'sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b' >> "$GITHUB_OUTPUT"
+
       - name: Create non-privileged candidate identity and freeze source
         id: sandbox
         run: |
@@ -236,7 +267,10 @@ jobs:
           test "$candidate_uid" != "0"
           test "$candidate_uid" != "$(id -u)"
           printf 'candidate_uid=%s\n' "$candidate_uid" >> "$GITHUB_OUTPUT"
-          printf 'candidate_execution_profile=%s\n' "fpm-untrusted.env-i.v2" >> "$GITHUB_OUTPUT"
+          candidate_gid="$(sudo -n -u fpm-untrusted id -g)"
+          test "$candidate_gid" != "0"
+          printf 'candidate_gid=%s\n' "$candidate_gid" >> "$GITHUB_OUTPUT"
+          printf 'candidate_execution_profile=%s\n' "fpm-docker-offline-v1" >> "$GITHUB_OUTPUT"
           chmod -R a-w candidate
           test -r candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
 
@@ -266,16 +300,95 @@ jobs:
           set -euo pipefail
           sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             TMPDIR="${FPM_UNTRUSTED_TMP}"             CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'umask 077; cd "$1" && cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
 
-      - name: Cargo test against immutable candidate source
-        id: tests
+      - name: Probe hostile-code sandbox boundary
+        id: sandbox_probe
+        if: success()
         env:
+          SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
+        run: |
+          set -euo pipefail
+          docker run --rm --pull=never --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit 256 --memory 6g --memory-swap 6g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m \
+            --mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly \
+            --mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly \
+            --mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly \
+            --mount type=bind,src="${FPM_TARGET_DIR}",dst=/target \
+            --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+              test ! -e /var/run/docker.sock
+              test ! -d /github
+              test ! -d /home/runner
+              test ! -d /opt/hostedtoolcache
+              test -z "$(env | grep '^GITHUB_' || true)"
+              probe=/candidate/.fpm-sandbox-write-probe
+              if touch "$probe" 2>/dev/null; then
+                echo "candidate source mount is writable" >&2
+                rm -f "$probe"
+                exit 1
+              fi
+              mkdir -p /target/.fpm-sandbox-write-probe
+              touch /target/.fpm-sandbox-write-probe/ok
+              rm -rf /target/.fpm-sandbox-write-probe
+              if timeout 2 bash -c "exec 3<>/dev/tcp/1.1.1.1/443" 2>/dev/null; then
+                echo "network namespace is not isolated" >&2
+                exit 1
+              fi
+              test -s /proc/1/cmdline
+              case "$(tr "\\0" " " </proc/1/cmdline)" in
+                *runsvc*|*Runner.Listener*|*dockerd*)
+                  echo "host control-plane process visible in sandbox" >&2
+                  exit 1
+                  ;;
+              esac
+            '
+          printf 'sandbox_probe=passed\n' >> "$GITHUB_OUTPUT"
+
+      - name: Cargo test inside immutable offline sandbox
+        id: tests
+        if: success()
+        env:
+          SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
+          DEP_CACHE_SHA256: ${{ steps.dependencies.outputs.dependency_cache_sha256 }}
           GITHUB_ENV: /dev/null
           GITHUB_OUTPUT: /dev/null
           GITHUB_PATH: /dev/null
           GITHUB_STEP_SUMMARY: /dev/null
         run: |
           set -euo pipefail
-          sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"             PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"             CARGO_HOME="${FPM_CARGO_HOME}"             CARGO_TARGET_DIR="${FPM_TARGET_DIR}"             TMPDIR="${FPM_UNTRUSTED_TMP}"             CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse             GITHUB_ENV=/dev/null             GITHUB_OUTPUT=/dev/null             GITHUB_PATH=/dev/null             GITHUB_STEP_SUMMARY=/dev/null             RUSTC_WRAPPER=             bash --noprofile --norc -ceu             'umask 077; cd "$1" && cargo test --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml'             _ "${GITHUB_WORKSPACE}/candidate"
+          test -n "$DEP_CACHE_SHA256"
+          docker run --rm --pull=never --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit 512 --memory 6g --memory-swap 6g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m \
+            --mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly \
+            --mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly \
+            --mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly \
+            --mount type=bind,src="${FPM_TARGET_DIR}",dst=/target \
+            --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+              umask 077
+              mkdir -p /tmp/home /tmp/cargo
+              ln -s /cargo-ro/registry /tmp/cargo/registry
+              if [ -d /cargo-ro/git ]; then ln -s /cargo-ro/git /tmp/cargo/git; fi
+              export HOME=/tmp/home
+              export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
+              export CARGO_HOME=/tmp/cargo
+              export CARGO_TARGET_DIR=/target
+              export TMPDIR=/tmp
+              export CARGO_NET_OFFLINE=true
+              export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+              export RUSTC_WRAPPER=
+              test ! -e /var/run/docker.sock
+              test ! -d /github
+              test ! -d /home/runner
+              test ! -d /opt/hostedtoolcache
+              test -z "$(env | grep '^GITHUB_' || true)"
+              cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+            '
 
       - name: Postflight source and live-PR reconciliation
         id: postflight
@@ -361,6 +474,9 @@ jobs:
           CARGO_VERSION: ${{ steps.toolchain.outputs.cargo_version || '' }}
           CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid || '' }}
           CANDIDATE_EXECUTION_PROFILE: ${{ steps.sandbox.outputs.candidate_execution_profile || '' }}
+          SANDBOX_IMAGE_DIGEST: ${{ steps.sandbox_image.outputs.sandbox_image_digest || '' }}
+          SANDBOX_PROBE: ${{ steps.sandbox_probe.outputs.sandbox_probe || '' }}
+          DEPENDENCY_CACHE_SHA256: ${{ steps.dependencies.outputs.dependency_cache_sha256 || '' }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -409,6 +525,9 @@ jobs:
               "cargo_version": os.environ["CARGO_VERSION"],
               "candidate_uid": int(os.environ["CANDIDATE_UID"]),
               "candidate_execution_profile": os.environ["CANDIDATE_EXECUTION_PROFILE"],
+              "sandbox_image_digest": os.environ["SANDBOX_IMAGE_DIGEST"],
+              "sandbox_probe": os.environ["SANDBOX_PROBE"],
+              "dependency_cache_sha256": os.environ["DEPENDENCY_CACHE_SHA256"],
               "steps": outcomes,
               "execution_pass": execution_pass,
               "procedure_trust": "trusted_default_branch_snapshot",
