@@ -85,8 +85,8 @@ jobs:
             exit 1
           }
 
-          if grep -Fq 'execute_actions(&current_timelock.actions)' <<<"$window"; then
-            echo "NOT QUALIFIED: execute_timelock still reaches execute_actions directly."
+          if grep -Fq 'execute_actions(' <<<"$window"; then
+            echo "NOT QUALIFIED: execute_timelock still reaches an in-WASM action dispatcher directly."
             exit 1
           fi
 
