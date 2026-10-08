@@ -330,6 +330,31 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         )));
     }
 
+    if input.attempt_identities.is_empty()
+        || input.attempt_identities.len() != input.action_key_digests.len()
+        || input.attempt_identities.len() != input.terminal_evidence_digests.len()
+        || input.attempt_identities.len()
+            != input.authorization_admission_proof_digests.len()
+        || input.attempt_identities.len()
+            != input.final_provider_entry_proof_digests.len()
+        || input.attempt_identities.iter().any(|v| v.is_empty())
+        || input.action_key_digests.iter().any(|v| v.is_empty())
+        || input.terminal_evidence_digests.iter().any(|v| v.is_empty())
+        || input
+            .authorization_admission_proof_digests
+            .iter()
+            .any(|v| v.is_empty())
+        || input
+            .final_provider_entry_proof_digests
+            .iter()
+            .any(|v| v.is_empty())
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Execution resolution evidence vectors must have equal non-empty lengths"
+                .into()
+        )));
+    }
+
     // Find the timelock via O(1) link-based lookup
     let current_record = find_timelock_by_id(&input.timelock_id)?;
 
@@ -541,6 +566,10 @@ pub struct RecordPreparedExecutionResolutionInput {
     pub attempt_identities: Vec<String>,
     pub action_key_digests: Vec<String>,
     pub terminal_evidence_digests: Vec<String>,
+    #[serde(default)]
+    pub authorization_admission_proof_digests: Vec<String>,
+    #[serde(default)]
+    pub final_provider_entry_proof_digests: Vec<String>,
     pub outcome: ExecutionResolutionOutcome,
 }
 
@@ -637,6 +666,10 @@ pub fn record_prepared_execution_resolution(
                         && existing.action_key_digests == input.action_key_digests
                         && existing.terminal_evidence_digests
                             == input.terminal_evidence_digests
+                        && existing.authorization_admission_proof_digests
+                            == input.authorization_admission_proof_digests
+                        && existing.final_provider_entry_proof_digests
+                            == input.final_provider_entry_proof_digests
                         && existing.outcome == input.outcome;
 
                     if same {
@@ -662,6 +695,8 @@ pub fn record_prepared_execution_resolution(
         attempt_identities: input.attempt_identities,
         action_key_digests: input.action_key_digests,
         terminal_evidence_digests: input.terminal_evidence_digests,
+        authorization_admission_proof_digests: input.authorization_admission_proof_digests,
+        final_provider_entry_proof_digests: input.final_provider_entry_proof_digests,
         outcome: input.outcome,
         resolved_at: sys_time()?,
     };
