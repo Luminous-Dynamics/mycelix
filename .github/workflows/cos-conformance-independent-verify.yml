@@ -404,6 +404,25 @@ jobs:
           GH_TOKEN="${effective_rules_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" \
             | jq 'add' > evidence/governance/effective-rules-payload.json
 
+          if [[ -n "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
+            set +e
+            curl -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
+              -o evidence/governance/admin-capability-probe-payload-after.json \
+              -w "%{http_code}" \
+              "https://api.github.com/orgs/Luminous-Dynamics/rulesets?per_page=1" \
+              > evidence/governance/admin-capability-probe-http-status-after.txt
+            capability_probe_curl_status_after=$?
+            set -e
+            test "${capability_probe_curl_status_after}" -eq 0
+          else
+            printf '[]\n' > evidence/governance/admin-capability-probe-payload-after.json
+            printf '0\n' > evidence/governance/admin-capability-probe-http-status-after.txt
+          fi
+
+
           protection_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
           admin_source="repository_administration_secret"
           if [[ -z "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
