@@ -128,14 +128,14 @@ jobs:
           {
             echo "### D6U independent verifier evaluation"
             echo
-            echo "- Candidate SHA: `$observed_candidate_sha`"
-            echo "- Candidate verifier blob: `$candidate_verifier_blob`"
-            echo "- Candidate policy blob: `$candidate_policy_blob`"
-            echo "- Trusted evaluator blob: `$observed_evaluator_blob`"
-            echo "- Workflow file commit: `$GITHUB_WORKFLOW_SHA`"
-            echo "- Run: `$GITHUB_RUN_ID`, attempt `$GITHUB_RUN_ATTEMPT`"
-            echo "- Claim ceiling: `ReferenceModelOnly`"
-            echo "- Receipt SHA-256: `$receipt_sha256`"
+            printf '%s\\n' "- Candidate SHA: \\`$observed_candidate_sha\\`"
+            printf '%s\\n' "- Candidate verifier blob: \\`$candidate_verifier_blob\\`"
+            printf '%s\\n' "- Candidate policy blob: \\`$candidate_policy_blob\\`"
+            printf '%s\\n' "- Trusted evaluator blob: \\`$observed_evaluator_blob\\`"
+            printf '%s\\n' "- Workflow file commit: \\`$GITHUB_WORKFLOW_SHA\\`"
+            printf '%s\\n' "- Run: \\`$GITHUB_RUN_ID\\`, attempt \\`$GITHUB_RUN_ATTEMPT\\`"
+            printf '%s\\n' "- Claim ceiling: \\`ReferenceModelOnly\\`"
+            printf '%s\\n' "- Receipt SHA-256: \\`$receipt_sha256\\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload attempt-bound evaluation receipt
