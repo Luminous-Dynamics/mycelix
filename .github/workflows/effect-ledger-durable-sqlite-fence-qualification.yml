@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - hardening/effect-ledger-durable-sqlite-fence-v1
+      - hardening/effect-ledger-verifier-affirmation-v1
   pull_request:
   workflow_dispatch:
 
@@ -77,6 +78,10 @@ jobs:
           grep -Fq 'reconciliation_token_digest' "$source"
           grep -Fq 'TerminalEvidenceV1::from_attempt' "$source"
           grep -Fq 'DurableActionFenceStore' "$boundary"
+          grep -Fq 'VerifiedTerminalOutcomeV1::new' "$boundary"
+          grep -Fq 'terminal verification proof is not bound to the exact attempt' "$boundary"
+          grep -Fq 'VerificationPurpose::InitialInvocation' "$boundary"
+          grep -Fq 'VerificationPurpose::Reconciliation' "$boundary"
 
           if grep -R -Fq 'InvocationClaimed' mycelix-governance/crates/constitutional-effect-ledger crates/constitutional-effect-ledger-sqlite; then
             echo 'Found a state variant outside the exact v2 model.'
