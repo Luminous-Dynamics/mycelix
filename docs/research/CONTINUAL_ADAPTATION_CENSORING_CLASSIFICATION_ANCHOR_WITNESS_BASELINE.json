@@ -1,15 +1,17 @@
 {
-  "schema": "mycelix.continual-adaptation.censoring-classification-anchor-witness-attestation.v1",
-  "registry_id": "mycelix.research.anchor-witness-registry.v1",
-  "registry_version": 1,
-  "root_reference_sha256": "sha256:e348519511273f9a64e39f9267c0231803d342d89e0d17be1e93ffbbe9fdd7a8",
-  "authority_id": "mycelix.research.anchor-authority.v1",
-  "manifest_version": 2,
-  "manifest_sha256": "sha256:290649ab061c8ec5cdfb81c0add4946fbb597c4df96a8ac613fbc4f9b371f31f",
-  "previous_manifest_sha256": "sha256:c501fb1f3a76e47d1e3dde9295803f82e2e18b7d551b0fff42d33c7b585bbad1",
-  "attestations": {
-    "w01": "sha256:a26906d8865c1fbd69ed2da7d381813f8ef7dd2a8e65c7aafeaf171713818ab4",
-    "w02": "sha256:50039abe671c7bb396d0326f34142876719ddb8ad391436492f46d04e35c4e74",
-    "w03": "sha256:9442bbea9533c7ebf5c4c3c1999a6fd8df1e2e37ee29680314fd33f43a25a092"
+  "schema":"mycelix.continual-adaptation.censoring-classification-anchor-witness-checkpoint.v1",
+  "status":"research-witness-checkpoint-only",
+  "root_reference_sha256":"sha256:46bbd3215736596eef8f8c0423590c1098f05a6fdd016b2ba10a6e232fc71d61",
+  "registry_id":"mycelix.research.anchor-witness-registry.v1",
+  "registry_version":1,
+  "authority_id":"mycelix.research.anchor-authority.v1",
+  "manifest_version":2,
+  "manifest_sha256":"sha256:290649ab061c8ec5cdfb81c0add4946fbb597c4df96a8ac613fbc4f9b371f31f",
+  "previous_manifest_sha256":"sha256:c501fb1f3a76e47d1e3dde9295803f82e2e18b7d551b0fff42d33c7b585bbad1",
+  "attestations":{
+    "w01":"sha256:63bf8cffa2b56fb765feae844883e934823681793932204c7436a770373d0cb5",
+    "w02":"sha256:b0530806f6399b764f266b79c4bf43e2e09e51e8fa8a1cae5739426539ac3878",
+    "w03":"sha256:51596fc4b438471f49f1be85fc079029e4b7f5034bf5487c5c0f9d815dccac39",
+    "w04":"sha256:7fca0d5e52e5752689c7e7159f0738c06403fa854d0a769ae35858669867cf1f"
   }
 }
