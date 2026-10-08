@@ -19,6 +19,7 @@ use constitutional_effect_ledger::{
     AtomicAdmissionDecision, AttemptIdentityV1, AttemptRecordState, AttemptRecordV1,
     AuthorizationAdmissionProofV1, DurableActionFenceStore, NativeReplayBindingV1,
     ProviderEntryClaimV1, TerminalEvidenceV1, TerminalOutcomeV1,
+    ACTION_KEY_PREFIX, ATTEMPT_IDENTITY_PREFIX,
     ACTION_FENCE_SCHEMA_VERSION, ATTEMPT_RECORD_SCHEMA_VERSION,
     NATIVE_REPLAY_BINDING_SCHEMA_VERSION,
 };
@@ -38,6 +39,25 @@ const FENCE_TABLE: &str = "effect_action_fences";
 const REPLAY_TABLE: &str = "effect_native_replay_bindings";
 const ENTRY_CLAIM_TABLE: &str = "effect_provider_entry_claims";
 const AUTHORIZATION_PROOF_TABLE: &str = "effect_authorization_admission_proofs";
+
+/// One per-action reference tuple received from a DHT execution resolution.
+///
+/// This is deliberately separate from the Holochain zome type so the host-side
+/// store does not depend on Holochain/WASM crates.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DurableResolutionBindingV1 {
+    pub attempt_identity: String,
+    pub action_key_digest: String,
+    pub terminal_evidence_digest: String,
+    pub authorization_admission_proof_digest: String,
+    pub final_provider_entry_proof_digest: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DurableResolutionOutcomeV1 {
+    Executed,
+    Failed,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqliteActionFenceStore {
@@ -71,6 +91,108 @@ impl SqliteActionFenceStore {
         let mut conn = open_connection(&self.path)?;
         ensure_schema(&mut conn)?;
         validate_persisted_state(&conn)
+    }
+
+    /// Reconcile a DHT resolution tuple against the durable host ledger.
+    ///
+    /// expected_action_digest and expected_effecting_target_identity must be
+    /// derived by the caller from the exact prepared action under the configured
+    /// native action profile. This method checks those values against the
+    /// durable attempt and confirms that its admission, final-entry, and
+    /// terminal commitments are the same values recorded by the host boundary.
+    ///
+    /// It does not reconstruct final-entry or terminal-evidence preimages: only
+    /// their accepted digests are currently persisted on the attempt record.
+    pub fn reconcile_resolution_binding(
+        &self,
+        binding: &DurableResolutionBindingV1,
+        expected_action_digest: &str,
+        expected_effecting_target_identity: &str,
+        expected_outcome: DurableResolutionOutcomeV1,
+    ) -> Result<AttemptRecordV1, String> {
+        self.audit_integrity()?;
+
+        if !is_tagged_digest(&binding.attempt_identity, ATTEMPT_IDENTITY_PREFIX)
+            || !is_tagged_digest(&binding.action_key_digest, ACTION_KEY_PREFIX)
+            || binding.terminal_evidence_digest.trim().is_empty()
+            || binding.authorization_admission_proof_digest.trim().is_empty()
+            || binding.final_provider_entry_proof_digest.trim().is_empty()
+        {
+            return Err("resolution binding contains an invalid or empty durable root".into());
+        }
+        if expected_action_digest.trim().is_empty()
+            || expected_effecting_target_identity.trim().is_empty()
+        {
+            return Err("expected action digest and effecting target are required".into());
+        }
+
+        let conn = open_connection(&self.path)?;
+        let attempt = load_attempt_txless(&conn, &binding.attempt_identity)?
+            .ok_or_else(|| {
+                format!(
+                    "resolution references unknown durable attempt {}",
+                    binding.attempt_identity
+                )
+            })?;
+        attempt.validate()?;
+
+        if attempt.action_key_digest != binding.action_key_digest {
+            return Err("resolution action-key digest does not match durable attempt".into());
+        }
+        if attempt.action_digest != expected_action_digest {
+            return Err("durable attempt action digest does not match prepared action".into());
+        }
+        if attempt.effecting_target_identity != expected_effecting_target_identity {
+            return Err("durable attempt effecting target does not match prepared action".into());
+        }
+        if attempt.authorization_admission_proof_digest.as_deref()
+            != Some(binding.authorization_admission_proof_digest.as_str())
+        {
+            return Err("resolution admission-proof digest does not match durable attempt".into());
+        }
+        if attempt.entry_admission_proof_digest.as_deref()
+            != Some(binding.final_provider_entry_proof_digest.as_str())
+        {
+            return Err("resolution final-entry-proof digest does not match durable attempt".into());
+        }
+        if attempt.terminal_evidence_digest.as_deref()
+            != Some(binding.terminal_evidence_digest.as_str())
+        {
+            return Err("resolution terminal-evidence digest does not match durable attempt".into());
+        }
+
+        let admission_proof =
+            load_authorization_admission_proof_conn(&conn, &binding.attempt_identity)?
+                .ok_or_else(|| {
+                    "durable attempt is missing its full authorization admission receipt".to_owned()
+                })?;
+        admission_proof.validate()?;
+        if admission_proof.digest() != binding.authorization_admission_proof_digest
+            || admission_proof.attempt_identity() != attempt.attempt_identity
+            || admission_proof.action_key_digest() != attempt.action_key_digest
+            || admission_proof.action_digest() != attempt.action_digest
+            || admission_proof.effecting_target_identity() != attempt.effecting_target_identity
+            || admission_proof.operation_id() != attempt.operation_id
+            || admission_proof.native_replay_identity() != attempt.native_replay_identity
+            || admission_proof.provider_environment() != attempt.provider_environment
+            || admission_proof.provider_audience() != attempt.provider_audience
+            || admission_proof.adapter_identity() != attempt.adapter_identity
+        {
+            return Err("durable admission receipt does not match resolution attempt scope".into());
+        }
+
+        let expected_state = match expected_outcome {
+            DurableResolutionOutcomeV1::Executed => AttemptRecordState::Executed,
+            DurableResolutionOutcomeV1::Failed => AttemptRecordState::Failed,
+        };
+        if attempt.state != expected_state {
+            return Err(format!(
+                "resolution outcome {:?} does not match durable attempt state {:?}",
+                expected_outcome, attempt.state
+            ));
+        }
+
+        Ok(attempt)
     }
 
     fn with_transaction<F, T>(&self, f: F) -> Result<T, ActionFenceMutationError>
@@ -836,6 +958,15 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
     }
 
 
+}
+
+fn is_tagged_digest(value: &str, prefix: &str) -> bool {
+    value.strip_prefix(prefix).is_some_and(|digest| {
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    })
 }
 
 fn storage_error(error: impl ToString) -> ActionFenceMutationError {
