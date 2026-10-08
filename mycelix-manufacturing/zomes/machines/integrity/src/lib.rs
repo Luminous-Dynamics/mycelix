@@ -209,6 +209,30 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
     }
 }
 
+fn resolve_machine_root_action_hash(
+    start: ActionHash,
+) -> ExternResult<ActionHash> {
+    let mut current = start;
+    for _ in 0..4096 {
+        let record = must_get_valid_record(current.clone())?;
+        match record.action() {
+            Action::Create(_) => return Ok(current),
+            Action::Update(update) => {
+                current = update.original_action_address.clone();
+            }
+            _ => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "machine update lineage terminated at a non-entry action".into(),
+                )));
+            }
+        }
+    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "machine update lineage exceeds safety bound".into(),
+    )))
+}
+
 fn validate_update_entry(
     original_action_hash: ActionHash,
     action: TypedAction<UpdateData>,
@@ -253,7 +277,10 @@ fn validate_update_entry(
                         "machine status authority reference is not an authority record".into(),
                     ));
                 };
-                if authority.machine_hash != original_action_hash {
+                let machine_root = resolve_machine_root_action_hash(
+                    original_action_hash.clone(),
+                )?;
+                if authority.machine_hash != machine_root {
                     return Ok(ValidateCallbackResult::Invalid(
                         "machine status authority is bound to a different machine".into(),
                     ));
