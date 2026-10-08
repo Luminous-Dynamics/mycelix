@@ -19,7 +19,7 @@ public final class AgentDelegationAuthorityAlloyRunner {
     }
 
     private static String json(String value) {
-        return value.replace("\\", "\\\\").replace(""", "\"");
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     public static void main(String[] args) {
