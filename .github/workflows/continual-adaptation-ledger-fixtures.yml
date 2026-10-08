@@ -40,14 +40,38 @@ jobs:
         run: |
           set -euo pipefail
           POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
-          python3 docs/research/verify_continual_adaptation_ledger.py             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+          python3 docs/research/verify_continual_adaptation_ledger.py \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+
+      - name: Verify policy substitution fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          tmp_policy="$(mktemp)"
+          trap 'rm -f "$tmp_policy"' EXIT
+          cp docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json "$tmp_policy"
+          printf '\n' >> "$tmp_policy"
+          ! python3 docs/research/verify_continual_adaptation_ledger.py \
+            "$POLICY_BLOB_SHA" \
+            "$tmp_policy" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+          ! node docs/research/verify_continual_adaptation_ledger.mjs \
+            "$POLICY_BLOB_SHA" \
+            "$tmp_policy" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
 
       - name: Run Node ledger verifier
         shell: bash
         run: |
           set -euo pipefail
           POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
-          node docs/research/verify_continual_adaptation_ledger.mjs             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+          node docs/research/verify_continual_adaptation_ledger.mjs \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
 
       - name: Regenerate generated property corpus and verify determinism
         shell: bash
@@ -56,7 +80,11 @@ jobs:
           tmp="$(mktemp)"
           trap 'rm -f "$tmp"' EXIT
           POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
-          python3 docs/research/generate_continual_adaptation_ledger.py             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json "$tmp"
+          python3 docs/research/generate_continual_adaptation_ledger.py \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json \
+            "$tmp"
           cmp -s "$tmp" docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json
 
       - name: Run Python generated property evaluator
@@ -64,14 +92,22 @@ jobs:
         run: |
           set -euo pipefail
           POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
-          python3 docs/research/verify_continual_adaptation_ledger_properties.py             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json             python-generated-properties.json
+          python3 docs/research/verify_continual_adaptation_ledger_properties.py \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json \
+            python-generated-properties.json
 
       - name: Run Node generated property evaluator
         shell: bash
         run: |
           set -euo pipefail
           POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
-          node docs/research/verify_continual_adaptation_ledger_properties.mjs             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json             node-generated-properties.json
+          node docs/research/verify_continual_adaptation_ledger_properties.mjs \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json \
+            node-generated-properties.json
 
       - name: Differential-compare generated reports
         shell: bash
