@@ -36,6 +36,7 @@ pub struct MachineControllerAuthorityEntry {
 #[derive(Clone, PartialEq)]
 pub struct MachineStatusLog {
     pub machine_hash: ActionHash,
+    pub machine_update_hash: ActionHash,
     pub authority_hash: ActionHash,
     pub previous_status: MachineStatus,
     pub new_status: MachineStatus,
@@ -56,6 +57,7 @@ pub enum LinkTypes {
     AllMachines,
     TypeToMachines,
     MachineToStatusLog,
+    MachineUpdateToStatusLog,
     MachineToAuthorities,
     AllMachineControllerAuthorities,
     LocationToMachines,
@@ -174,6 +176,48 @@ fn validate_create_status_log(
             "machine status changed_at must equal the action timestamp".into(),
         ));
     }
+
+    let update_record = must_get_valid_record(log.machine_update_hash.clone())?;
+    if !matches!(update_record.action(), Action::Update(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log must reference a machine update action".into(),
+        ));
+    }
+    let updated_machine: Option<MachineEntry> = update_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let Some(updated_machine) = updated_machine else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log update reference is not a machine record".into(),
+        ));
+    };
+
+    let update_root = resolve_machine_root_action_hash(log.machine_update_hash.clone())?;
+    if update_root != log.machine_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log update belongs to a different machine".into(),
+        ));
+    }
+    if update_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log and machine update have different authors".into(),
+        ));
+    }
+    if update_record.action().timestamp() > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log cannot predate its referenced machine update".into(),
+        ));
+    }
+    if updated_machine.status != log.new_status
+        || updated_machine.current_work_order != log.work_order_hash
+        || updated_machine.last_status_authority_hash != Some(log.authority_hash.clone())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "machine status log does not match its referenced machine update".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -424,6 +468,7 @@ mod content_restriction_tests {
     fn status_log_rejects_invalid_transition() {
         let log = MachineStatusLog {
             machine_hash: ActionHash::from_raw_36(vec![0u8; 36]),
+            machine_update_hash: ActionHash::from_raw_36(vec![8u8; 36]),
             authority_hash: ActionHash::from_raw_36(vec![9u8; 36]),
             previous_status: MachineStatus::Offline,
             new_status: MachineStatus::Running,
