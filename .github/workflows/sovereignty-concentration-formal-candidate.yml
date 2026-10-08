@@ -81,13 +81,27 @@ jobs:
               javac -cp "$RUNNER_TEMP/sov-concentration-tools/alloy.jar"                 -d "$RUNNER_TEMP/sov-concentration-java"                 mycelix-governance/tools/formal/SovereigntyConcentrationAlloyRunner.java
             '
 
+      - name: Record pinned JDK runtime
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sov-concentration-evidence"
+          nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#jdk17_headless" --command bash -euo pipefail -c '
+            java_version="$(java -version 2>&1 | head -n 1)"
+            javac_version="$(javac -version 2>&1 | head -n 1)"
+            java_json="${java_version//\\/\\\\}"
+            java_json="${java_json//\"/\\\"}"
+            javac_json="${javac_version//\\/\\\\}"
+            javac_json="${javac_json//\"/\\\"}"
+            printf "{\"schema\":\"mycelix.sovereignty-concentration-formal-runtime.v1\",\"nixpkgs_rev\":\"%s\",\"jdk_package\":\"jdk17_headless\",\"java_major\":17,\"java_version\":\"%s\",\"javac_version\":\"%s\"}\n" "$NIXPKGS_REV" "$java_json" "$javac_json" > "$RUNNER_TEMP/sov-concentration-evidence/runtime.json"
+          '
       - name: Execute candidate formal classifier
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/sov-concentration-evidence"
           nix shell "github:NixOS/nixpkgs/$NIXPKGS_REV#jdk17_headless"             "github:NixOS/nixpkgs/$NIXPKGS_REV#coreutils"             --command bash -euo pipefail -c '
-              python3 mycelix-governance/tools/formal/qualify_sovereignty_concentration_candidate.py                 --profile docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json                 --pins mycelix-governance/tools/formal/sovereignty_concentration_pins.json                 --tla mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.tla                 --cfg mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.cfg                 --negative-tla mycelix-governance/specs/ArtificialSovereigntyConcentrationV1NegativeControls.tla                 --alloy mycelix-governance/specs/alloy/ArtificialSovereigntyConcentrationV1.als                 --alloy-runner-class-dir "$RUNNER_TEMP/sov-concentration-java"                 --tla-jar "$RUNNER_TEMP/sov-concentration-tools/tla2tools.jar"                 --alloy-jar "$RUNNER_TEMP/sov-concentration-tools/alloy.jar"                 --evidence-dir "$RUNNER_TEMP/sov-concentration-evidence"
-            '
+              python3 mycelix-governance/tools/formal/qualify_sovereignty_concentration_candidate.py                 --profile docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_QUALIFICATION_PROFILE_V1.json                 --pins mycelix-governance/tools/formal/sovereignty_concentration_pins.json                 --tla mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.tla                 --cfg mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.cfg                 --negative-tla mycelix-governance/specs/ArtificialSovereigntyConcentrationV1NegativeControls.tla                 --alloy mycelix-governance/specs/alloy/ArtificialSovereigntyConcentrationV1.als                 --alloy-runner-class-dir "$RUNNER_TEMP/sov-concentration-java"                 --tla-jar "$RUNNER_TEMP/sov-concentration-tools/tla2tools.jar"                 --alloy-jar "$RUNNER_TEMP/sov-concentration-tools/alloy.jar"                 --evidence-dir "$RUNNER_TEMP/sov-concentration-evidence" \
+              --runtime-metadata "$RUNNER_TEMP/sov-concentration-evidence/runtime.json" \
+              --alloy-runner-class "$RUNNER_TEMP/sov-concentration-java/SovereigntyConcentrationAlloyRunner.class"            '
 
       - name: Verify candidate repository postflight
         if: always()
