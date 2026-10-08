@@ -1154,7 +1154,6 @@ jobs:
           }
           live_main_sha_after="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
           printf '%s\n' "${live_main_sha_after}" | grep -Eq '^[0-9a-f]{40}
-
           test "${live_main_sha}" = "${live_main_sha_after}" || {
             echo "main moved during trust-root read at signing time" >&2
             exit 1
@@ -1194,6 +1193,751 @@ jobs:
           }
           live_main_sha_after="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
           printf '%s\n' "${live_main_sha_after}" | grep -Eq '^[0-9a-f]{40}
+          test "${live_main_sha}" = "${live_main_sha_after}" || {
+            echo "main moved during trust-root read after signing" >&2
+            exit 1
+          }
+          printf 'live_main_head_sha=%s\n' "${live_main_sha_after}" >> "${GITHUB_OUTPUT}"
+      - name: Preserve attestation bundle
+        run: |
+          set -euo pipefail
+          mkdir -p attestor-evidence
+          cp "${{ steps.attest.outputs.bundle-path }}" attestor-evidence/qualification-attestation-bundle.json
+          sha256sum attestor-evidence/qualification-attestation-bundle.json | awk '{print $1}' > attestor-evidence/qualification-attestation-bundle.sha256
+
+      - name: Verify exact preserved attestation bundle
+        id: verify_bundle
+        env:
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
+          SIGNER_DIGEST: ${{ github.workflow_sha }}
+          SUBJECT_FILE: signing-input/qualification-manifest-v1.json
+          SUBJECT_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_TYPE: ${{ env.PREDICATE_TYPE }}
+        run: |
+          set -euo pipefail
+          test -s attestor-evidence/qualification-attestation-bundle.json
+          gh attestation verify "${SUBJECT_FILE}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --bundle attestor-evidence/qualification-attestation-bundle.json \
+            --predicate-type "${EXPECTED_PREDICATE_TYPE}" \
+            --signer-workflow "${SIGNER_WORKFLOW}" \
+            --signer-digest "${SIGNER_DIGEST}" \
+            --deny-self-hosted-runners \
+            --format json > attestor-evidence/attestation-bundle-verification.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+          verification = strict_json_loads(Path("attestor-evidence/attestation-bundle-verification.json").read_text())
+          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v1.json").read_text())
+          assert isinstance(verification, list) and verification
+          exact = []
+          for item in verification:
+              statement = item["verificationResult"]["statement"]
+              assert statement["predicateType"] == os.environ["EXPECTED_PREDICATE_TYPE"]
+              assert any(
+                  subject.get("name") == "qualification-manifest-v1.json" and
+                  subject.get("digest", {}).get("sha256") == os.environ["SUBJECT_SHA256"]
+                  for subject in statement["subject"]
+              )
+              predicate = statement["predicate"]
+              if predicate == expected_predicate:
+                  exact.append(predicate)
+          assert len(exact) == 1
+          PY
+
+      - name: Verify signed attestation independently
+        id: verify_attestation
+        env:
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
+          SIGNER_DIGEST: ${{ github.workflow_sha }}
+          SUBJECT_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_TYPE: ${{ env.PREDICATE_TYPE }}
+        run: |
+          set -euo pipefail
+          rm -f attestor-evidence/attestation-verification.json
+          status=1
+          for attempt in 1 2 3 4 5; do
+            if gh attestation verify signing-input/qualification-manifest-v1.json \
+              --repo "${GITHUB_REPOSITORY}" \
+              --predicate-type "${EXPECTED_PREDICATE_TYPE}" \
+              --signer-workflow "${SIGNER_WORKFLOW}" \
+              --signer-digest "${SIGNER_DIGEST}" \
+              --deny-self-hosted-runners \
+              --format json > attestor-evidence/attestation-verification.json; then
+              status=0
+              break
+            fi
+            sleep 5
+          done
+          test "${status}" = "0"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+          data = strict_json_loads(Path("attestor-evidence/attestation-verification.json").read_text())
+          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v1.json").read_text())
+          assert isinstance(data, list) and data
+          matches = []
+          for item in data:
+              result = item["verificationResult"]
+              statement = result["statement"]
+              assert statement["predicateType"] == os.environ["EXPECTED_PREDICATE_TYPE"]
+              subjects = statement["subject"]
+              assert subjects
+              assert any(
+                  subj.get("name") == "qualification-manifest-v1.json" and
+                  subj.get("digest", {}).get("sha256") == os.environ["SUBJECT_SHA256"]
+                  for subj in subjects
+              )
+              predicate = statement["predicate"]
+              if (
+                  predicate.get("schema") == "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V1"
+                  and predicate == expected_predicate
+              ):
+                  matches.append(predicate)
+          assert len(matches) >= 1
+          PY
+
+      - name: Write attestor run receipt
+        env:
+          VERIFIER_RUN_ID: ${{ needs.validate.outputs.verifier_run_id }}
+          VERIFIER_RUN_ATTEMPT: ${{ needs.validate.outputs.verifier_run_attempt }}
+          EXPECTED_HEAD_SHA: ${{ needs.validate.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ needs.validate.outputs.expected_base_sha }}
+          MANIFEST_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          PREDICATE_SHA256: ${{ needs.validate.outputs.predicate_sha256 }}
+          INPUT_ARTIFACT_ID: ${{ needs.validate.outputs.signing_input_artifact_id }}
+          INPUT_ARTIFACT_DIGEST: ${{ needs.validate.outputs.signing_input_artifact_digest }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+          TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          TRUST_ROOT_MANIFEST_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          TRUST_ROOT_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+          TRUST_ROOT_CURRENT_MAIN_HEAD_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}
+        run: |
+          test -s attestor-evidence/attestation-bundle-verification.json
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          receipt = {
+              "schema": "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1",
+              "publication_disposition": "Finalized",
+              "predicate_type": os.environ["PREDICATE_TYPE"],
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "attestor": {
+                  "workflow_ref": f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main",
+                  "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+              },
+              "trust_root": {
+                  "manifest_path": ".github/cos/qualification-trust-root-v2.json",
+                  "manifest_blob_sha1": os.environ["TRUST_ROOT_MANIFEST_BLOB_SHA1"],
+                  "manifest_sha256": os.environ["TRUST_ROOT_MANIFEST_SHA256"],
+                  "status": "candidate_not_authoritative_until_protected_adoption",
+                  "main_snapshot_sha": os.environ["TRUST_ROOT_MAIN_SNAPSHOT_SHA"],
+                  "current_main_head_sha": os.environ["TRUST_ROOT_CURRENT_MAIN_HEAD_SHA"],
+              },
+              "verifier_run": {
+                  "workflow_id": int(os.environ["VERIFIER_WORKFLOW_ID"]),
+                  "id": int(os.environ["VERIFIER_RUN_ID"]),
+                  "attempt": int(os.environ["VERIFIER_RUN_ATTEMPT"]),
+              },
+              "qualification_topology": {
+                  "head_sha": os.environ["EXPECTED_HEAD_SHA"],
+                  "base_sha": os.environ["EXPECTED_BASE_SHA"],
+              },
+              "qualification_manifest_sha256": os.environ["MANIFEST_SHA256"],
+              "predicate_sha256": os.environ["PREDICATE_SHA256"],
+              "signing_input_artifact": {
+                  "id": int(os.environ["INPUT_ARTIFACT_ID"]),
+                  "digest": os.environ["INPUT_ARTIFACT_DIGEST"],
+              },
+              "attestation": {
+                  "id": int(os.environ["ATTESTATION_ID"]),
+                  "url": os.environ["ATTESTATION_URL"],
+              },
+          }
+          bundle_path = Path("attestor-evidence/qualification-attestation-bundle.json")
+          import hashlib
+          receipt["attestation"]["bundle_sha256"] = hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+          receipt_path = Path("attestor-evidence/attestor-run-receipt.json")
+          receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+
+          saved = json.loads(
+              receipt_path.read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          assert set(saved) == {
+              "schema", "publication_disposition", "predicate_type", "repository",
+              "attestor", "trust_root", "verifier_run", "qualification_topology",
+              "qualification_manifest_sha256", "predicate_sha256", "signing_input_artifact",
+              "attestation",
+          }
+          assert saved["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1"
+          assert saved["publication_disposition"] == "Finalized"
+          assert saved["trust_root"]["status"] == "candidate_not_authoritative_until_protected_adoption"
+          assert saved["attestation"]["id"] > 0
+          assert saved["attestation"]["url"]
+          assert len(saved["attestation"]["bundle_sha256"]) == 64
+          PY
+          (
+            cd attestor-evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+
+      - name: Validate attestor run receipt
+        id: validate_receipt
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.validate.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ needs.validate.outputs.expected_base_sha }}
+          EXPECTED_MANIFEST_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_SHA256: ${{ needs.validate.outputs.predicate_sha256 }}
+          EXPECTED_INPUT_ARTIFACT_ID: ${{ needs.validate.outputs.signing_input_artifact_id }}
+          EXPECTED_INPUT_ARTIFACT_DIGEST: ${{ needs.validate.outputs.signing_input_artifact_digest }}
+          EXPECTED_ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          EXPECTED_ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+          EXPECTED_TRUST_ROOT_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          EXPECTED_TRUST_ROOT_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          EXPECTED_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+          EXPECTED_POST_SIGNING_MAIN_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -s attestor-evidence/attestor-run-receipt.json
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          receipt = strict_json_loads(Path("attestor-evidence/attestor-run-receipt.json").read_text())
+          expected_keys = {
+              "schema", "predicate_type", "repository", "attestor", "trust_root",
+              "verifier_run", "qualification_topology", "qualification_manifest_sha256",
+              "predicate_sha256", "signing_input_artifact", "attestation",
+          }
+          assert set(receipt) == expected_keys
+          assert set(receipt["attestor"]) == {"workflow_ref", "workflow_sha"}
+          assert set(receipt["trust_root"]) == {
+              "manifest_path", "manifest_blob_sha1", "manifest_sha256", "status",
+              "main_snapshot_sha", "current_main_head_sha",
+          }
+          assert set(receipt["verifier_run"]) == {"workflow_id", "id", "attempt"}
+          assert set(receipt["qualification_topology"]) == {"head_sha", "base_sha"}
+          assert set(receipt["signing_input_artifact"]) == {"id", "digest"}
+          assert set(receipt["attestation"]) == {"id", "url", "bundle_sha256"}
+
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          sha64 = re.compile(r"^[0-9a-f]{64}$")
+          assert receipt["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1"
+          assert receipt["predicate_type"] == os.environ["PREDICATE_TYPE"]
+          assert receipt["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert receipt["attestor"]["workflow_ref"] == f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main"
+          assert receipt["attestor"]["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
+          assert receipt["trust_root"]["manifest_path"] == ".github/cos/qualification-trust-root-v2.json"
+          assert receipt["trust_root"]["manifest_blob_sha1"] == os.environ["EXPECTED_TRUST_ROOT_BLOB_SHA1"]
+          assert receipt["trust_root"]["manifest_sha256"] == os.environ["EXPECTED_TRUST_ROOT_SHA256"]
+          assert receipt["trust_root"]["status"] == "candidate_not_authoritative_until_protected_adoption"
+          assert receipt["trust_root"]["main_snapshot_sha"] == os.environ["EXPECTED_MAIN_SNAPSHOT_SHA"]
+          assert receipt["trust_root"]["current_main_head_sha"] == os.environ["EXPECTED_POST_SIGNING_MAIN_SHA"]
+          assert sha40.fullmatch(receipt["trust_root"]["manifest_blob_sha1"])
+          assert sha64.fullmatch(receipt["trust_root"]["manifest_sha256"])
+          assert sha40.fullmatch(receipt["trust_root"]["current_main_head_sha"])
+
+          assert receipt["qualification_topology"]["head_sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          assert receipt["qualification_topology"]["base_sha"] == os.environ["EXPECTED_BASE_SHA"]
+          assert sha64.fullmatch(receipt["qualification_manifest_sha256"])
+          assert receipt["qualification_manifest_sha256"] == os.environ["EXPECTED_MANIFEST_SHA256"]
+          assert sha64.fullmatch(receipt["predicate_sha256"])
+          assert receipt["predicate_sha256"] == os.environ["EXPECTED_PREDICATE_SHA256"]
+          assert receipt["signing_input_artifact"]["id"] == int(os.environ["EXPECTED_INPUT_ARTIFACT_ID"])
+          assert receipt["signing_input_artifact"]["digest"] == os.environ["EXPECTED_INPUT_ARTIFACT_DIGEST"]
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", receipt["signing_input_artifact"]["digest"])
+          assert receipt["attestation"]["id"] == int(os.environ["EXPECTED_ATTESTATION_ID"])
+          assert receipt["attestation"]["url"] == os.environ["EXPECTED_ATTESTATION_URL"]
+          assert receipt["attestation"]["url"].startswith("https://github.com/")
+          assert sha64.fullmatch(receipt["attestation"]["bundle_sha256"])
+
+          verifier_run = receipt["verifier_run"]
+          assert verifier_run["workflow_id"] > 0
+          assert verifier_run["id"] > 0
+          assert verifier_run["attempt"] > 0
+
+          manifest_path = Path("signing-input/qualification-manifest-v1.json")
+          predicate_path = Path("signing-input/qualification-attestation-predicate-v1.json")
+          bundle_path = Path("attestor-evidence/qualification-attestation-bundle.json")
+          assert hashlib.sha256(manifest_path.read_bytes()).hexdigest() == receipt["qualification_manifest_sha256"]
+          assert hashlib.sha256(predicate_path.read_bytes()).hexdigest() == receipt["predicate_sha256"]
+          assert hashlib.sha256(bundle_path.read_bytes()).hexdigest() == receipt["attestation"]["bundle_sha256"]
+          PY
+
+      - name: Seal attestor evidence
+        id: seal_attestor_evidence
+        run: |
+          set -euo pipefail
+          (
+            cd attestor-evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+          ) > attestor-evidence/SHA256SUMS
+      - name: Preserve attestor evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-qualification-attestation-${{ needs.validate.outputs.expected_head_sha }}
+          path: attestor-evidence/
+          if-no-files-found: error
+          retention-days: 30
+
+
+          test "${live_main_sha}" = "${live_main_sha_after}" || {
+            echo "main moved during trust-root read at signing time" >&2
+            exit 1
+          }
+          printf 'live_main_head_sha=%s\n' "${live_main_sha_after}" >> "${GITHUB_OUTPUT}"
+
+      - name: Generate signed qualification attestation
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: qualification-manifest-v1.json
+          subject-digest: sha256:${{ needs.validate.outputs.manifest_sha256 }}
+          predicate-path: signing-input/qualification-attestation-predicate-v1.json
+
+      - name: Revalidate trust-root after signing
+        id: trust_root_post_signing
+        env:
+          EXPECTED_ROOT_BLOB_SHA: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          EXPECTED_ROOT_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          live_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
+          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          root_path=".github/cos/qualification-trust-root-v2.json"
+          api_blob_sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".sha")"
+          test "${api_blob_sha}" = "${EXPECTED_ROOT_BLOB_SHA}" || {
+            echo "trust root rotated during attestation publication: expected ${EXPECTED_ROOT_BLOB_SHA}, got ${api_blob_sha}" >&2
+            exit 1
+          }
+          gh api "repos/${GITHUB_REPOSITORY}/contents/${root_path}?ref=${live_main_sha}" --jq ".content" |
+            tr -d "\n" | base64 --decode > live-qualification-trust-root-v2-post-signing.json
+          live_sha256="$(sha256sum live-qualification-trust-root-v2-post-signing.json | awk '{print $1}')"
+          test "${live_sha256}" = "${EXPECTED_ROOT_SHA256}" || {
+            echo "trust root content changed during attestation publication: expected ${EXPECTED_ROOT_SHA256}, got ${live_sha256}" >&2
+            exit 1
+          }
+          live_main_sha_after="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq ".object.sha")"
+          printf '%s\n' "${live_main_sha_after}" | grep -Eq '^[0-9a-f]{40}          test "${live_main_sha_before}" = "${live_main_sha_after}" || {
+            echo "main moved during trust-root read after signing" >&2
+            exit 1
+          }
+          printf 'live_main_head_sha=%s\n' "${live_main_sha_after}" >> "${GITHUB_OUTPUT}"
+      - name: Preserve attestation bundle
+        run: |
+          set -euo pipefail
+          mkdir -p attestor-evidence
+          cp "${{ steps.attest.outputs.bundle-path }}" attestor-evidence/qualification-attestation-bundle.json
+          sha256sum attestor-evidence/qualification-attestation-bundle.json | awk '{print $1}' > attestor-evidence/qualification-attestation-bundle.sha256
+
+      - name: Verify exact preserved attestation bundle
+        id: verify_bundle
+        env:
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
+          SIGNER_DIGEST: ${{ github.workflow_sha }}
+          SUBJECT_FILE: signing-input/qualification-manifest-v1.json
+          SUBJECT_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_TYPE: ${{ env.PREDICATE_TYPE }}
+        run: |
+          set -euo pipefail
+          test -s attestor-evidence/qualification-attestation-bundle.json
+          gh attestation verify "${SUBJECT_FILE}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --bundle attestor-evidence/qualification-attestation-bundle.json \
+            --predicate-type "${EXPECTED_PREDICATE_TYPE}" \
+            --signer-workflow "${SIGNER_WORKFLOW}" \
+            --signer-digest "${SIGNER_DIGEST}" \
+            --deny-self-hosted-runners \
+            --format json > attestor-evidence/attestation-bundle-verification.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+          verification = strict_json_loads(Path("attestor-evidence/attestation-bundle-verification.json").read_text())
+          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v1.json").read_text())
+          assert isinstance(verification, list) and verification
+          exact = []
+          for item in verification:
+              statement = item["verificationResult"]["statement"]
+              assert statement["predicateType"] == os.environ["EXPECTED_PREDICATE_TYPE"]
+              assert any(
+                  subject.get("name") == "qualification-manifest-v1.json" and
+                  subject.get("digest", {}).get("sha256") == os.environ["SUBJECT_SHA256"]
+                  for subject in statement["subject"]
+              )
+              predicate = statement["predicate"]
+              if predicate == expected_predicate:
+                  exact.append(predicate)
+          assert len(exact) == 1
+          PY
+
+      - name: Verify signed attestation independently
+        id: verify_attestation
+        env:
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
+          SIGNER_DIGEST: ${{ github.workflow_sha }}
+          SUBJECT_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_TYPE: ${{ env.PREDICATE_TYPE }}
+        run: |
+          set -euo pipefail
+          rm -f attestor-evidence/attestation-verification.json
+          status=1
+          for attempt in 1 2 3 4 5; do
+            if gh attestation verify signing-input/qualification-manifest-v1.json \
+              --repo "${GITHUB_REPOSITORY}" \
+              --predicate-type "${EXPECTED_PREDICATE_TYPE}" \
+              --signer-workflow "${SIGNER_WORKFLOW}" \
+              --signer-digest "${SIGNER_DIGEST}" \
+              --deny-self-hosted-runners \
+              --format json > attestor-evidence/attestation-verification.json; then
+              status=0
+              break
+            fi
+            sleep 5
+          done
+          test "${status}" = "0"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+          data = strict_json_loads(Path("attestor-evidence/attestation-verification.json").read_text())
+          expected_predicate = strict_json_loads(Path("signing-input/qualification-attestation-predicate-v1.json").read_text())
+          assert isinstance(data, list) and data
+          matches = []
+          for item in data:
+              result = item["verificationResult"]
+              statement = result["statement"]
+              assert statement["predicateType"] == os.environ["EXPECTED_PREDICATE_TYPE"]
+              subjects = statement["subject"]
+              assert subjects
+              assert any(
+                  subj.get("name") == "qualification-manifest-v1.json" and
+                  subj.get("digest", {}).get("sha256") == os.environ["SUBJECT_SHA256"]
+                  for subj in subjects
+              )
+              predicate = statement["predicate"]
+              if (
+                  predicate.get("schema") == "MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V1"
+                  and predicate == expected_predicate
+              ):
+                  matches.append(predicate)
+          assert len(matches) >= 1
+          PY
+
+      - name: Write attestor run receipt
+        env:
+          VERIFIER_RUN_ID: ${{ needs.validate.outputs.verifier_run_id }}
+          VERIFIER_RUN_ATTEMPT: ${{ needs.validate.outputs.verifier_run_attempt }}
+          EXPECTED_HEAD_SHA: ${{ needs.validate.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ needs.validate.outputs.expected_base_sha }}
+          MANIFEST_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          PREDICATE_SHA256: ${{ needs.validate.outputs.predicate_sha256 }}
+          INPUT_ARTIFACT_ID: ${{ needs.validate.outputs.signing_input_artifact_id }}
+          INPUT_ARTIFACT_DIGEST: ${{ needs.validate.outputs.signing_input_artifact_digest }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+          TRUST_ROOT_MANIFEST_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          TRUST_ROOT_MANIFEST_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          TRUST_ROOT_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+          TRUST_ROOT_CURRENT_MAIN_HEAD_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}
+        run: |
+          test -s attestor-evidence/attestation-bundle-verification.json
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          receipt = {
+              "schema": "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1",
+              "publication_disposition": "Finalized",
+              "predicate_type": os.environ["PREDICATE_TYPE"],
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "attestor": {
+                  "workflow_ref": f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main",
+                  "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+              },
+              "trust_root": {
+                  "manifest_path": ".github/cos/qualification-trust-root-v2.json",
+                  "manifest_blob_sha1": os.environ["TRUST_ROOT_MANIFEST_BLOB_SHA1"],
+                  "manifest_sha256": os.environ["TRUST_ROOT_MANIFEST_SHA256"],
+                  "status": "candidate_not_authoritative_until_protected_adoption",
+                  "main_snapshot_sha": os.environ["TRUST_ROOT_MAIN_SNAPSHOT_SHA"],
+                  "current_main_head_sha": os.environ["TRUST_ROOT_CURRENT_MAIN_HEAD_SHA"],
+              },
+              "verifier_run": {
+                  "workflow_id": int(os.environ["VERIFIER_WORKFLOW_ID"]),
+                  "id": int(os.environ["VERIFIER_RUN_ID"]),
+                  "attempt": int(os.environ["VERIFIER_RUN_ATTEMPT"]),
+              },
+              "qualification_topology": {
+                  "head_sha": os.environ["EXPECTED_HEAD_SHA"],
+                  "base_sha": os.environ["EXPECTED_BASE_SHA"],
+              },
+              "qualification_manifest_sha256": os.environ["MANIFEST_SHA256"],
+              "predicate_sha256": os.environ["PREDICATE_SHA256"],
+              "signing_input_artifact": {
+                  "id": int(os.environ["INPUT_ARTIFACT_ID"]),
+                  "digest": os.environ["INPUT_ARTIFACT_DIGEST"],
+              },
+              "attestation": {
+                  "id": int(os.environ["ATTESTATION_ID"]),
+                  "url": os.environ["ATTESTATION_URL"],
+              },
+          }
+          bundle_path = Path("attestor-evidence/qualification-attestation-bundle.json")
+          import hashlib
+          receipt["attestation"]["bundle_sha256"] = hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+          receipt_path = Path("attestor-evidence/attestor-run-receipt.json")
+          receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+
+          saved = json.loads(
+              receipt_path.read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          assert set(saved) == {
+              "schema", "publication_disposition", "predicate_type", "repository",
+              "attestor", "trust_root", "verifier_run", "qualification_topology",
+              "qualification_manifest_sha256", "predicate_sha256", "signing_input_artifact",
+              "attestation",
+          }
+          assert saved["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1"
+          assert saved["publication_disposition"] == "Finalized"
+          assert saved["trust_root"]["status"] == "candidate_not_authoritative_until_protected_adoption"
+          assert saved["attestation"]["id"] > 0
+          assert saved["attestation"]["url"]
+          assert len(saved["attestation"]["bundle_sha256"]) == 64
+          PY
+          (
+            cd attestor-evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+
+      - name: Validate attestor run receipt
+        id: validate_receipt
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.validate.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ needs.validate.outputs.expected_base_sha }}
+          EXPECTED_MANIFEST_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          EXPECTED_PREDICATE_SHA256: ${{ needs.validate.outputs.predicate_sha256 }}
+          EXPECTED_INPUT_ARTIFACT_ID: ${{ needs.validate.outputs.signing_input_artifact_id }}
+          EXPECTED_INPUT_ARTIFACT_DIGEST: ${{ needs.validate.outputs.signing_input_artifact_digest }}
+          EXPECTED_ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          EXPECTED_ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+          EXPECTED_TRUST_ROOT_SHA256: ${{ needs.validate.outputs.trust_root_manifest_sha256 }}
+          EXPECTED_TRUST_ROOT_BLOB_SHA1: ${{ needs.validate.outputs.trust_root_manifest_blob_sha1 }}
+          EXPECTED_MAIN_SNAPSHOT_SHA: ${{ needs.validate.outputs.trust_root_main_snapshot_sha }}
+          EXPECTED_POST_SIGNING_MAIN_SHA: ${{ steps.trust_root_post_signing.outputs.live_main_head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -s attestor-evidence/attestor-run-receipt.json
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          receipt = strict_json_loads(Path("attestor-evidence/attestor-run-receipt.json").read_text())
+          expected_keys = {
+              "schema", "predicate_type", "repository", "attestor", "trust_root",
+              "verifier_run", "qualification_topology", "qualification_manifest_sha256",
+              "predicate_sha256", "signing_input_artifact", "attestation",
+          }
+          assert set(receipt) == expected_keys
+          assert set(receipt["attestor"]) == {"workflow_ref", "workflow_sha"}
+          assert set(receipt["trust_root"]) == {
+              "manifest_path", "manifest_blob_sha1", "manifest_sha256", "status",
+              "main_snapshot_sha", "current_main_head_sha",
+          }
+          assert set(receipt["verifier_run"]) == {"workflow_id", "id", "attempt"}
+          assert set(receipt["qualification_topology"]) == {"head_sha", "base_sha"}
+          assert set(receipt["signing_input_artifact"]) == {"id", "digest"}
+          assert set(receipt["attestation"]) == {"id", "url", "bundle_sha256"}
+
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          sha64 = re.compile(r"^[0-9a-f]{64}$")
+          assert receipt["schema"] == "MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V1"
+          assert receipt["predicate_type"] == os.environ["PREDICATE_TYPE"]
+          assert receipt["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert receipt["attestor"]["workflow_ref"] == f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['ATTESTOR_WORKFLOW_PATH']}@refs/heads/main"
+          assert receipt["attestor"]["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
+          assert receipt["trust_root"]["manifest_path"] == ".github/cos/qualification-trust-root-v2.json"
+          assert receipt["trust_root"]["manifest_blob_sha1"] == os.environ["EXPECTED_TRUST_ROOT_BLOB_SHA1"]
+          assert receipt["trust_root"]["manifest_sha256"] == os.environ["EXPECTED_TRUST_ROOT_SHA256"]
+          assert receipt["trust_root"]["status"] == "candidate_not_authoritative_until_protected_adoption"
+          assert receipt["trust_root"]["main_snapshot_sha"] == os.environ["EXPECTED_MAIN_SNAPSHOT_SHA"]
+          assert receipt["trust_root"]["current_main_head_sha"] == os.environ["EXPECTED_POST_SIGNING_MAIN_SHA"]
+          assert sha40.fullmatch(receipt["trust_root"]["manifest_blob_sha1"])
+          assert sha64.fullmatch(receipt["trust_root"]["manifest_sha256"])
+          assert sha40.fullmatch(receipt["trust_root"]["current_main_head_sha"])
+
+          assert receipt["qualification_topology"]["head_sha"] == os.environ["EXPECTED_HEAD_SHA"]
+          assert receipt["qualification_topology"]["base_sha"] == os.environ["EXPECTED_BASE_SHA"]
+          assert sha64.fullmatch(receipt["qualification_manifest_sha256"])
+          assert receipt["qualification_manifest_sha256"] == os.environ["EXPECTED_MANIFEST_SHA256"]
+          assert sha64.fullmatch(receipt["predicate_sha256"])
+          assert receipt["predicate_sha256"] == os.environ["EXPECTED_PREDICATE_SHA256"]
+          assert receipt["signing_input_artifact"]["id"] == int(os.environ["EXPECTED_INPUT_ARTIFACT_ID"])
+          assert receipt["signing_input_artifact"]["digest"] == os.environ["EXPECTED_INPUT_ARTIFACT_DIGEST"]
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", receipt["signing_input_artifact"]["digest"])
+          assert receipt["attestation"]["id"] == int(os.environ["EXPECTED_ATTESTATION_ID"])
+          assert receipt["attestation"]["url"] == os.environ["EXPECTED_ATTESTATION_URL"]
+          assert receipt["attestation"]["url"].startswith("https://github.com/")
+          assert sha64.fullmatch(receipt["attestation"]["bundle_sha256"])
+
+          verifier_run = receipt["verifier_run"]
+          assert verifier_run["workflow_id"] > 0
+          assert verifier_run["id"] > 0
+          assert verifier_run["attempt"] > 0
+
+          manifest_path = Path("signing-input/qualification-manifest-v1.json")
+          predicate_path = Path("signing-input/qualification-attestation-predicate-v1.json")
+          bundle_path = Path("attestor-evidence/qualification-attestation-bundle.json")
+          assert hashlib.sha256(manifest_path.read_bytes()).hexdigest() == receipt["qualification_manifest_sha256"]
+          assert hashlib.sha256(predicate_path.read_bytes()).hexdigest() == receipt["predicate_sha256"]
+          assert hashlib.sha256(bundle_path.read_bytes()).hexdigest() == receipt["attestation"]["bundle_sha256"]
+          PY
+
+      - name: Seal attestor evidence
+        id: seal_attestor_evidence
+        run: |
+          set -euo pipefail
+          (
+            cd attestor-evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+          ) > attestor-evidence/SHA256SUMS
+      - name: Preserve attestor evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-qualification-attestation-${{ needs.validate.outputs.expected_head_sha }}
+          path: attestor-evidence/
+          if-no-files-found: error
+          retention-days: 30
+
           test "${live_main_sha_before}" = "${live_main_sha_after}" || {
             echo "main moved during trust-root read after signing" >&2
             exit 1
