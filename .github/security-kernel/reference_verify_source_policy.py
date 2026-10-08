@@ -976,7 +976,7 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         fail("S2 source-policy verifier self-pin mismatch")
     if exact_count(l, 'assert len(jobs) == 3, f"trusted dispatcher must have exactly three jobs: {len(jobs)}"') != 1:
         fail("S2 must require the resolver, decision witness, and qualification job topology")
-    if exact_count(l, 'r"Dispatch decision: (trusted-dispatch|scheduled-fallback)/(qualified|suppressed)/eligible=(event|[1-9][0-9]?|0)"') != 1:
+    if exact_count(l, 'r"Dispatch decision: (trusted-dispatch|scheduled-fallback)/(qualified|suppressed)/eligible=(event|0|[1-9][0-9]?|1[0-9]{2})"') != 1:
         fail("S2 dispatch-decision witness parser missing")
     if exact_count(l, 'print("SUPPRESSED: scheduled Security Kernel dispatcher completed with no eligible candidate in its bounded discovery window; no candidate qualification was executed")') != 1:
         fail("S2 scheduled suppression witness missing")
@@ -1022,8 +1022,8 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
     require_no_duplicate_github_output_keys(l, S2)
     require_no_forbidden_github_command_files(l, "S2")
     require_step_execution_modes(l, S2)
-    require_following(l, "Verify retained negative-control evidence binding", "if: success()", "S2 retention gate")
-    require_following(l, "Download retained qualification receipt through official artifact client", "if: success()", "S2 receipt download gate")
+    require_following(l, "Verify retained negative-control evidence binding", "if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}", "S2 retention gate")
+    require_following(l, "Download retained qualification receipt through official artifact client", "if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}", "S2 receipt download gate")
     require_following(l, "Download retained sandbox negative-control transcript through official artifact client", "if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}", "S2 transcript download gate")
     require_following(l, "Verify official receipt transport and publish verified result", "if: ${{ !cancelled() && (steps.verify_result.outputs.dispatch_decision == 'qualified' || steps.verify_result.outputs.dispatch_decision == 'suppressed') }}", "S2 final witness gate")
     require_no_escalation(l, "S2")
