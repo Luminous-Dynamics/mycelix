@@ -1,0 +1,58 @@
+name: Pulse Holochain 0.7 Migration
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-pulse/holochain/**"
+      - "mycelix-workspace/mycelix-pulse/tests/**"
+      - "mycelix-workspace/mycelix-pulse/docs/HOLOCHAIN_0_7_MIGRATION.md"
+      - ".github/workflows/pulse-holochain-07-migration.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-pulse/holochain/**"
+      - "mycelix-workspace/mycelix-pulse/tests/**"
+      - "mycelix-workspace/mycelix-pulse/docs/HOLOCHAIN_0_7_MIGRATION.md"
+      - ".github/workflows/pulse-holochain-07-migration.yml"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  holochain-07:
+    name: Holochain 0.7 workspace compile and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-pulse/holochain
+
+      - name: Assert coherent version pins
+        run: |
+          grep -F 'hdk = "=0.7.0"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+          grep -F 'hdi = "=0.8.0"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+          grep -F 'holochain = { version = "=0.7.0"' mycelix-workspace/mycelix-pulse/tests/Cargo.toml
+          if grep -R -nE 'hdk[[:space:]]*=[[:space:]]*"0\.6|hdi[[:space:]]*=[[:space:]]*"0\.7' mycelix-workspace/mycelix-pulse/holochain/zomes; then
+            echo "Found a zome-local Holochain 0.6 dependency pin"
+            exit 1
+          fi
+
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml --all -- --check
+
+      - name: Compile all active zomes and test targets
+        run: cargo check --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml --workspace --all-targets
+
+      - name: Run active zome unit tests
+        run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml --workspace
