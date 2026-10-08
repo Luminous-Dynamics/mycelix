@@ -535,22 +535,26 @@ mod tests {
         <T as TryInto<SerializedBytes>>::Error: std::fmt::Debug,
     {
         let entry = Entry::App(AppEntryBytes::try_from(value.try_into().unwrap()).unwrap());
-        let action = Action::Create(Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
+        let action = Action {
+            header: ActionHeader {
+                author,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 0,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: ActionData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
                 EntryDefIndex(0),
                 ZomeIndex(0),
                 EntryVisibility::Public,
             )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
-        });
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+                weight: Default::default(),
+            }),
+        };
         let hashed = HoloHashed::from_content_sync(action);
         let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
-        Record::new(signed_action, Some(entry))
+        Record::new(signed_action, RecordEntry::Present(entry))
     }
 
     fn test_manifest(agent: AgentPubKey, backup_id: &str) -> BackupManifest {
