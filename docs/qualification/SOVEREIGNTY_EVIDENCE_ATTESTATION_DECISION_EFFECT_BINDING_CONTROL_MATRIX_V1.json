@@ -2,6 +2,16 @@
   "schema": "mycelix.evidence-attestation-decision-effect-binding-control-matrix.v1",
   "controls": [
     {
+      "id": "decision-identity",
+      "boundary": "effect admission remains bound to the exact authorization decision identity",
+      "tla_invariant": "DecisionIdentityBound",
+      "tla_control": "decision-identity",
+      "alloy_witness": "DecisionIdentitySubstitutionWitness",
+      "alloy_assertion": "DecisionIdentityBound",
+      "alloy_mutant_fact": "DecisionIdentityBound",
+      "reference_marker": "CANONICAL PASS: decision identity, issuance time, authority epoch, request, target, policy, adapter, invocation, and horizons are bound"
+    },
+    {
       "id": "authority-epoch",
       "boundary": "decision-to-effect admission cannot outlive or change any bound authority/request/target/policy/adapter/invocation condition",
       "tla_invariant": "AuthorityEpochBound",
