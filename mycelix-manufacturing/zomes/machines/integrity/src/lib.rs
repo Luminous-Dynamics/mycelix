@@ -302,6 +302,18 @@ fn validate_create_transition_approval(
             "transition approval predecessor is not a machine entry action".into(),
         ));
     }
+    let predecessor_machine: MachineEntry = predecessor_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "transition approval predecessor is not a machine record".into(),
+        )))?;
+    if !predecessor_machine.status.can_transition_to(&approval.new_status) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "transition approval does not describe a valid machine transition".into(),
+        ));
+    }
     let predecessor_root = resolve_machine_root_action_hash(approval.predecessor_action.clone())?;
     if predecessor_root != approval.machine_hash {
         return Ok(ValidateCallbackResult::Invalid(
@@ -515,6 +527,7 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::MachineControllerAuthority(_) => unreachable!(),
+        EntryTypes::MachineControllerTransitionApproval(_) => unreachable!(),
     }
 }
 
