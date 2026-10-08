@@ -783,10 +783,10 @@ pub fn select_live_capability(
             rejected.push(CapabilityPlanDecision {
                 machine_hash: Some(machine_hash),
                 capability_contract_hash: contract_hash,
-                qualification_attestation_hashes: Vec::new(),
+                qualification_attestation_hashes: attestation_hashes,
+                machine_state_authority_hash: Some(authority_hash),
                 machine_status: Some(status),
                 machine_state_head: Some(head_action),
-                qualification_attestation_hashes: attestation_hashes,
                 eligible: false,
                 mismatch: None,
                 rejection: Some(CapabilityPlanRejection::MultipleContractsForMachine),
@@ -807,7 +807,7 @@ pub fn select_live_capability(
     for decision in selection.decisions {
         if let Some((_, machine_hash, contract_hash, status, head_action, attestation_hashes, authority_hash)) = candidate_meta
             .iter()
-            .find(|(id, _, _, _, _)| *id == decision.machine_id)
+            .find(|(id, _, _, _, _, _, _)| *id == decision.machine_id)
         {
             decisions.push(CapabilityPlanDecision {
                 machine_hash: Some(machine_hash.clone()),
@@ -1126,6 +1126,48 @@ pub fn list_mrp_runs(_: ()) -> ExternResult<Vec<Link>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn machine_state_authority_currentness_is_inclusive() {
+        let authority = MachineStateAuthorityProjection {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            valid_from: Timestamp::from_micros(100),
+            valid_until: Timestamp::from_micros(200),
+        };
+        let machine = ActionHash::from_raw_36(vec![1; 36]);
+
+        assert!(machine_state_authority_is_current(
+            &authority,
+            &machine,
+            Timestamp::from_micros(100)
+        ).is_ok());
+        assert!(machine_state_authority_is_current(
+            &authority,
+            &machine,
+            Timestamp::from_micros(200)
+        ).is_ok());
+    }
+
+    #[test]
+    fn machine_state_authority_rejects_expired_or_wrong_machine() {
+        let authority = MachineStateAuthorityProjection {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            valid_from: Timestamp::from_micros(100),
+            valid_until: Timestamp::from_micros(200),
+        };
+        let wrong_machine = ActionHash::from_raw_36(vec![2; 36]);
+
+        assert!(machine_state_authority_is_current(
+            &authority,
+            &wrong_machine,
+            Timestamp::from_micros(150)
+        ).is_err());
+        assert!(machine_state_authority_is_current(
+            &authority,
+            &authority.machine_hash,
+            Timestamp::from_micros(201)
+        ).is_err());
+    }
 
     #[test]
     fn qualification_currentness_is_inclusive() {
