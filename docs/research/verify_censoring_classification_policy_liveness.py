@@ -18,6 +18,7 @@ FIELDS = (
     "policy_blob_sha",
     "basis_id",
     "revision",
+    "claim_scope_anchor",
 )
 
 
