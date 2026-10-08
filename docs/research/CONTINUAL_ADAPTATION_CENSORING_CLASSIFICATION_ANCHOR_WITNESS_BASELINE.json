@@ -1,0 +1,17 @@
+{
+  "schema":"mycelix.continual-adaptation.censoring-classification-anchor-witness-checkpoint.v1",
+  "status":"research-witness-checkpoint-only",
+  "root_reference_sha256":"sha256:46bbd3215736596eef8f8c0423590c1098f05a6fdd016b2ba10a6e232fc71d61",
+  "registry_id":"mycelix.research.anchor-witness-registry.v1",
+  "registry_version":1,
+  "authority_id":"mycelix.research.anchor-authority.v1",
+  "manifest_version":2,
+  "manifest_sha256":"sha256:290649ab061c8ec5cdfb81c0add4946fbb597c4df96a8ac613fbc4f9b371f31f",
+  "previous_manifest_sha256":"sha256:c501fb1f3a76e47d1e3dde9295803f82e2e18b7d551b0fff42d33c7b585bbad1",
+  "attestations":{
+    "w01":"sha256:63bf8cffa2b56fb765feae844883e934823681793932204c7436a770373d0cb5",
+    "w02":"sha256:b0530806f6399b764f266b79c4bf43e2e09e51e8fa8a1cae5739426539ac3878",
+    "w03":"sha256:51596fc4b438471f49f1be85fc079029e4b7f5034bf5487c5c0f9d815dccac39",
+    "w04":"sha256:7fca0d5e52e5752689c7e7159f0738c06403fa854d0a769ae35858669867cf1f"
+  }
+}
