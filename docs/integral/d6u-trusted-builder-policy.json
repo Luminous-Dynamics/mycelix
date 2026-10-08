@@ -243,7 +243,7 @@
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-    "blob_sha": "82a043a0e05319890f8f5e649d5a2aafc45aba70"
+    "blob_sha": "900609dc11dca28e558793896ea19c8042d35bbe"
   },
   "attestation_publication": {
     "push_to_registry": false,
@@ -296,11 +296,11 @@
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
       "path": "scripts/integral/verify_d6u_trusted_artifacts.py",
-      "blob_sha": "8da78aa75ec1b35631ec52e28406e5cccad4c470"
+      "blob_sha": "4bd4314dce49a15f38c5e7db27ffa96bfdcb3752"
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-      "blob_sha": "82a043a0e05319890f8f5e649d5a2aafc45aba70"
+      "blob_sha": "900609dc11dca28e558793896ea19c8042d35bbe"
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
