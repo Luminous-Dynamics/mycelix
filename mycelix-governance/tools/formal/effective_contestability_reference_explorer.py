@@ -67,9 +67,9 @@ def check_invariants(state: State) -> list[str]:
             failures.append("MigrationPreservesObligationsAndHistory")
         if state.switched[i]:
             if state.authority[i] != state.authority_before_switch[i]:
-                failures.append("ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority")
+                failures.append("ProviderSwitchDoesNotTransferAuthority")
             if state.jurisdiction[i] != state.jurisdiction_before_switch[i]:
-                failures.append("ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:jurisdiction")
+                failures.append("ProviderSwitchDoesNotTransferJurisdiction")
         if state.switching_cost[i] >= REVIEW_THRESHOLD and not state.review_required[i]:
             failures.append("HighSwitchingCostTriggersReview")
     return sorted(set(failures))
@@ -195,8 +195,8 @@ def main() -> int:
         "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
         "failure-authority": "ProviderFailureDoesNotExpandAuthority",
         "switch-obligation": "MigrationPreservesObligationsAndHistory",
-        "switch-authority": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:authority",
-        "switch-jurisdiction": "ProviderSwitchDoesNotTransferAuthorityOrJurisdiction:jurisdiction",
+        "switch-authority": "ProviderSwitchDoesNotTransferAuthority",
+        "switch-jurisdiction": "ProviderSwitchDoesNotTransferJurisdiction",
         "switch-review": "HighSwitchingCostTriggersReview",
     }
     for name, target in controls.items():
