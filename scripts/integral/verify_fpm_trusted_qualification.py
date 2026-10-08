@@ -532,6 +532,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         )
     candidate_lock = json.loads((snapshot_dir / "candidate-lock.json").read_text(encoding="utf-8"))
     main_ref = json.loads((snapshot_dir / "main-ref.json").read_text(encoding="utf-8"))
+    main_sha = require_hex(main_ref.get("object", {}).get("sha"), 40, "live main ref SHA")
     artifacts = json.loads((snapshot_dir / "artifacts.json").read_text(encoding="utf-8"))
     enumeration = load_canonical_json(snapshot_dir / "artifact-enumeration.json")
 
@@ -626,6 +627,7 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         and pr["draft"] is False
         and pr["head"]["sha"] == receipt_subject
         and pr["base"]["sha"] == main_sha
+        and trusted_run["head_sha"] == main_sha
     )
 
     return {
