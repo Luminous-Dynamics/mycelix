@@ -577,8 +577,8 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 trusted shell syntax audit helper missing")
     if "assert_bash_run_blocks_compile(dispatcher_text)" not in joined:
         fail("S0 trusted shell syntax audit invocation missing")
-    if "assert blocks == 1" not in joined:
-        fail("S0 shell syntax audit must require exactly one trusted run block")
+    if "assert blocks == 2" not in joined:
+        fail("S0 shell syntax audit must require exactly two trusted run blocks")
     if exact_count(l, "name: Security Kernel Qualification — Trusted Dispatcher") != 1:
         fail("S0 name mismatch")
     if top_level_keys_after(l, "on:") != ("pull_request_target", "schedule"):
@@ -636,6 +636,8 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 scheduled qualification witness branch missing")
     if exact_count(l, '            scheduled-fallback:suppressed)') != 1:
         fail("S0 scheduled suppression witness branch missing")
+    if exact_count(l, '              printf "%s" "$ELIGIBLE_COUNT" | grep -Eq "^(1[0-9]{2}|[1-9][0-9]?)$"') != 1:
+        fail("S0 scheduled eligibility-count bound mismatch")
     if exact_count(l, "    if: ${{ needs.resolve.outputs.dispatch_decision == 'qualified' }}") != 1:
         fail("S0 qualification job must be conditional on a qualified decision")
     if local_uses(l) != ("./.github/workflows/security-kernel-independent-qualification.yml",):
@@ -1229,6 +1231,18 @@ def main() -> None:
             s1_sha,
         ),
         "immediate dispatch decision initialization removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(
+            raw["s0"].replace(
+                b'printf "%s" "$ELIGIBLE_COUNT" | grep -Eq "^(1[0-9]{2}|[1-9][0-9]?)$"',
+                b'printf "%s" "$ELIGIBLE_COUNT" | grep -Eq "^[1-9][0-9]?$"',
+                1,
+            ),
+            s1_sha,
+        ),
+        "scheduled eligibility-count bound weakened below the 200-PR discovery ceiling",
     )
 
     expect_rejection(
