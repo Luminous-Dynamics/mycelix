@@ -101,11 +101,11 @@ receipt["reference"] = {
     "stdout_sha256": sha(reference.stdout.encode()),
 }
 
-def tlc(cfg, label):
+def tlc(cfg, module_path, label):
     result = run([
         "java", "-cp", str(a.tla_jar),
         "tlc2.TLC", "-workers", "1",
-        "-config", str(cfg), str(a.tla),
+        "-config", str(cfg), str(module_path),
     ])
     (a.evidence_dir / f"{label}.log").write_text(result.stdout, encoding="utf-8")
     if result.returncode == 0 and "Model checking completed. No error has been found." in result.stdout:
@@ -115,10 +115,10 @@ def tlc(cfg, label):
         result.stdout,
     ))
 
-canonical_violations = tlc(a.canonical_cfg, "tla-canonical")
+canonical_violations = tlc(a.canonical_cfg, a.tla, "tla-canonical")
 if canonical_violations:
     raise RuntimeError("canonical TLA violated: " + repr(sorted(canonical_violations)))
-negative_violations = tlc(a.negative_cfg, "tla-negative")
+negative_violations = tlc(a.negative_cfg, a.negative_tla, "tla-negative")
 if negative_violations != {control["tla_invariant"]}:
     raise RuntimeError("TLA negative not isolated: " + repr(sorted(negative_violations)))
 receipt["tla"] = {"canonical": "PASS", "negative": sorted(negative_violations)}
