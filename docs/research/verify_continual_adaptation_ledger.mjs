@@ -65,6 +65,43 @@ function semanticDigest(graph, policy) {
   return normalized === null ? "invalid" : digest(normalized);
 }
 
+function claimLocalProjection(graph, policy) {
+  const normalized = semanticNormalize(graph, policy);
+  if (normalized === null) return null;
+
+  const root = policy.claim_local_projection.root;
+  const allowed = new Set(policy.claim_local_projection.relation_allowlist);
+  const included = new Set([root]);
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const edge of normalized.edges) {
+      if (!allowed.has(edge[2])) continue;
+      const [left, right] = edge;
+      if (included.has(left) && !included.has(right)) {
+        included.add(right);
+        changed = true;
+      } else if (included.has(right) && !included.has(left)) {
+        included.add(left);
+        changed = true;
+      }
+    }
+  }
+
+  return {
+    nodes: normalized.nodes.filter(node => included.has(node.id)),
+    edges: normalized.edges.filter(
+      edge => included.has(edge[0]) && included.has(edge[1]) && allowed.has(edge[2])
+    )
+  };
+}
+
+function claimLocalDigest(graph, policy) {
+  const projection = claimLocalProjection(graph, policy);
+  return projection === null ? "invalid" : digest(projection);
+}
+
 function validateGraphStructure(graph, policy) {
   const nodes = nodeIndex(graph);
   if (!nodes) return false;
@@ -159,7 +196,7 @@ function verify(graph, policy) {
   const dependence = policy.derived_dependence;
   if (graph.nodes.some(node =>
     node.type === dependence.node_type &&
-    node[dependence.derived_from_field] === dependence.source_node
+    edges.has(node.id + "|" + dependence.source_node + "|" + dependence.edge_relation)
   )) return dependence.verdict;
 
   return "qualified";
@@ -180,11 +217,13 @@ for (const testCase of corpus.cases) {
   const graph = applyMutations(corpus.base_graph, testCase.mutation);
   const serialized = digest(graph);
   const semantic = semanticDigest(graph, policy);
+  const claimLocal = claimLocalDigest(graph, policy);
   const verdict = verify(graph, policy);
 
   for (const [field, actual] of [
     ["expected_graph_digest_sha256", serialized],
     ["expected_semantic_graph_digest_sha256", semantic],
+    ["expected_claim_local_graph_digest_sha256", claimLocal],
     ["expected_verdict", verdict]
   ]) {
     if (actual !== testCase[field]) {
