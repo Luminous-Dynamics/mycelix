@@ -46,8 +46,11 @@ def invariant_failures(state: State) -> list[str]:
             failures.append("ActiveGrantCurrent")
         if g.active and g.power not in amap.get(g.issuer, set()):
             failures.append("DelegationNonAmplification")
-        if g.active and len(ancestor_chain(g, gmap)) >= 2 and not amap.get(g.grantee, set()).issubset(amap.get(g.issuer, set())):
-            failures.append("TransitiveDelegationBounded")
+        if g.active and ancestor_chain(g, gmap):
+            for ancestor_name in ancestor_chain(g, gmap):
+                ancestor = gmap[ancestor_name]
+                if g.power not in amap.get(ancestor.issuer, set()):
+                    failures.append("TransitiveDelegationBounded")
         if g.parent and g.parent in gmap and g.active:
             parent = gmap[g.parent]
             if parent.grantee != g.issuer:
@@ -75,7 +78,7 @@ def main() -> int:
     g1 = Grant("G1", "Root", "A", "P1")
     g2 = Grant("G2", "A", "B", "P1", parent="G1")
     g3 = Grant("G3", "B", "C", "P1", parent="G2")
-    g4 = Grant("G4", "Root", "C", "P2")
+    g4 = Grant("G4", "Root", "B", "P2")
 
     initial = State(
         grants=(g1, g2, g3),
@@ -99,14 +102,15 @@ def main() -> int:
     valid_with_four = replace(
         valid,
         grants=(replace(g1, active=True), replace(g2, active=True), replace(g3, active=True), replace(g4, active=True)),
-        authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1",)), ("C", ("P1", "P2"))),
+        authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1", "P2")), ("C", ("P1",))),
     )
     assert not invariant_failures(valid_with_four), invariant_failures(valid_with_four)
 
+    g3_bad = replace(g3, power="P2")
     bad_transitive = replace(
         valid_with_four,
-        authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1",)), ("C", ("P1", "P2"))),
-        grants=(replace(g1, active=True), replace(g2, active=True), replace(g3, active=True), replace(g4, active=True)),
+        grants=(replace(g1, active=True), replace(g2, active=True), replace(g3_bad, active=True), replace(g4, active=True)),
+        authority=(("Root", ("P1", "P2")), ("A", ("P1",)), ("B", ("P1", "P2")), ("C", ("P2",))),
     )
     assert "TransitiveDelegationBounded" in invariant_failures(bad_transitive)
 
