@@ -1222,9 +1222,11 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
             justified_by: Some(debit_record.action_address().clone()),
         })?;
 
-        // Route fee to commons via treasury (if fee > 0)
+        // Route fee to Commons. Because zome-function writes are atomic, returning
+        // an error here rolls back the preceding debit/credit rather than silently
+        // destroying the fee.
         if fee > 0 {
-            if let Err(e) = call(
+            match call(
                 CallTargetCell::Local,
                 ZomeName::from("treasury"),
                 FunctionName::from("receive_compost"),
@@ -1235,7 +1237,19 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
                     source_member_did: input.from_did.clone(),
                 },
             ) {
-                debug!("Fee routing to global-fee-pool failed: {:?}", e);
+                Ok(ZomeCallResponse::Ok(_)) => {}
+                Ok(other) => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "SAP fee routing returned an unexpected response: {:?}",
+                        other
+                    ))));
+                }
+                Err(e) => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "SAP fee routing failed; payment rolled back: {:?}",
+                        e
+                    ))));
+                }
             }
         }
 
