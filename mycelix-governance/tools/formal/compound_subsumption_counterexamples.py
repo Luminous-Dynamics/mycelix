@@ -277,6 +277,11 @@ def ordered_difference(left: frozenset[Request], right: frozenset[Request],
     return sorted(left - right, key=universe.key)
 
 
+def explain_atom(atom: Atom, request: Request) -> dict[str, Any]:
+    return {"clause_id": atom.id, "matched": atom.matches(request),
+            "failed_dimensions": atom.mismatch_dimensions(request)}
+
+
 def classify_compounds(parent: Compound, child: Compound, universe: Universe) -> dict[str, Any]:
     unsupported = unsupported_atoms([parent, child])
     if unsupported:
