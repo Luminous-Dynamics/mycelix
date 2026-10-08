@@ -61,7 +61,12 @@ function semanticNormalize(graph) {
 function validateStructure(graph, policy) {
   if (containsNonAscii(graph)) return [false, "non-ascii"];
   const nodes = nodeIndex(graph);
-  if (!nodes || !Array.isArray(graph.edges)) return [false, "structure"];
+  if (!nodes) return [false, "structure"];
+  const claimRoots = [...nodes.values()].filter(n => n.type === "Claim");
+  if (claimRoots.length !== 1 || !nodes.has("claim") || nodes.get("claim").type !== "Claim") {
+    return [false, "claim-root"];
+  }
+  if (!Array.isArray(graph.edges)) return [false, "edge-structure"];
   const seen = new Set();
   for (const edge of graph.edges) {
     if (!Array.isArray(edge) || edge.length !== 3 || edge.some(v => typeof v !== "string") ||
@@ -74,6 +79,12 @@ function validateStructure(graph, policy) {
     if (!rule || !rule.source_types.includes(nodes.get(edge[0]).type) ||
         !rule.target_types.includes(nodes.get(edge[1]).type)) return [false, "typed-endpoint"];
   }
+
+  const claimEntryEdges = graph.edges.filter(e =>
+    e[0] === "claim" && e[2] === "requires" &&
+    nodes.get(e[1]).type === "AttemptCensus"
+  );
+  if (claimEntryEdges.length !== 1) return [false, "claim-root-edge"];
 
   const order = policy.epoch_order;
   const cfg = policy.classification;
@@ -134,7 +145,7 @@ function validateStructure(graph, policy) {
 }
 function claimLocalNodes(graph, policy) {
   const nodes = nodeIndex(graph);
-  if (!nodes) return new Set();
+  if (!nodes || !nodes.has("claim") || nodes.get("claim").type !== "Claim") return new Set();
   const included = new Set(["claim"]);
   let changed = true;
   while (changed) {
@@ -196,10 +207,13 @@ function verify(graph, policy, actualPolicySha, anchors) {
     }
   }
 
-  if (policy.classification.history_is_immutable) {
+  if (policy.classification.history_is_immutable && policy.classification.base_revision_anchor_required) {
     for (const [cid, anchor] of Object.entries(anchors)) {
       const node = nodes.get(cid);
-      if (node?.revision === "0" && node.commitment !== anchor) return "unqualified";
+      if (!node) return "unresolved";
+      if (node.type !== "CensoringClassification") return "unresolved";
+      if (node.revision !== "0") return "unresolved";
+      if (node.commitment !== anchor) return "unqualified";
     }
   }
 
@@ -230,6 +244,10 @@ function applyMutations(base, mutations) {
       const i = out.edges.findIndex(e => JSON.stringify(e) === target);
       if (i < 0) throw new Error("missing edge");
       out.edges.splice(i, 1);
+    } else if (op[0] === "remove_node") {
+      const nodeId = op[1];
+      out.nodes = out.nodes.filter(n => n.id !== nodeId);
+      out.edges = out.edges.filter(e => e[0] !== nodeId && e[1] !== nodeId);
     } else if (op[0] === "reverse_collection") out[op[1]].reverse();
     else throw new Error("unknown mutation: " + op[0]);
   }

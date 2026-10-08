@@ -243,3 +243,19 @@ The resulting boundary is:
     estimand identity
       !=
     automatic causal truth
+
+## Omission closure follow-up
+
+Follow-up issue #4740 identified two omission classes not covered by the original corpus:
+
+1. an immutable base anchor could disappear without being checked, allowing a replacement revision-0 classification to become active;
+2. claim-local projection could begin from an implicit string root even when no Claim entity existed.
+
+The closure hardening now requires an actual Claim root plus its claim-to-AttemptCensus entry edge, requires every declared base anchor to be present as the revision-0 classification it anchors, and adds fixed/generated node-omission mutations.
+
+The research distinction remains:
+
+    missing provenance -> unresolved
+    forged/incompatible provenance -> unqualified
+
+A green result still establishes only bounded synthetic verifier behaviour.

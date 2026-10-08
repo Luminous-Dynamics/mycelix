@@ -89,6 +89,14 @@ def validate_structure(graph: dict, policy: dict) -> tuple[bool, str]:
     if nodes is None:
         return False, "node-structure"
 
+    claim_roots = [node for node in nodes.values() if node.get("type") == "Claim"]
+    if (
+        len(claim_roots) != 1
+        or "claim" not in nodes
+        or nodes["claim"].get("type") != "Claim"
+    ):
+        return False, "claim-root"
+
     edges = graph.get("edges")
     if not isinstance(edges, list):
         return False, "edge-structure"
@@ -117,6 +125,16 @@ def validate_structure(graph: dict, policy: dict) -> tuple[bool, str]:
             or nodes[edge[1]].get("type") not in rule["target_types"]
         ):
             return False, "typed-endpoint"
+
+    claim_entry_edges = [
+        edge
+        for edge in edges
+        if edge[0] == "claim"
+        and edge[2] == "requires"
+        and nodes[edge[1]].get("type") == "AttemptCensus"
+    ]
+    if len(claim_entry_edges) != 1:
+        return False, "claim-root-edge"
 
     order = policy["epoch_order"]
     cfg = policy["classification"]
@@ -227,7 +245,11 @@ def validate_structure(graph: dict, policy: dict) -> tuple[bool, str]:
 
 def claim_local_nodes(graph: dict, policy: dict) -> set[str]:
     nodes = node_index(graph)
-    if nodes is None:
+    if (
+        nodes is None
+        or "claim" not in nodes
+        or nodes["claim"].get("type") != "Claim"
+    ):
         return set()
 
     allowed = set(policy["relations"])
@@ -333,12 +355,17 @@ def verify(
             if len(active) != 1:
                 return "unresolved"
 
-    if policy["classification"].get("history_is_immutable", True):
+    if policy["classification"].get("history_is_immutable", True) and policy["classification"].get("base_revision_anchor_required", True):
         for cid, anchor in history_anchors.items():
             node = nodes.get(cid)
-            if node is not None and node.get("revision") == "0":
-                if node.get("commitment") != anchor:
-                    return "unqualified"
+            if node is None:
+                return "unresolved"
+            if node.get("type") != "CensoringClassification":
+                return "unresolved"
+            if node.get("revision") != "0":
+                return "unresolved"
+            if node.get("commitment") != anchor:
+                return "unqualified"
 
     # Exact policy identity is external to the graph and cannot be substituted.
     for node in nodes.values():
@@ -375,6 +402,12 @@ def apply_mutations(base: dict, mutations: list[list[object]]) -> dict:
             graph["edges"].append(copy.deepcopy(op[1]))
         elif kind == "remove_edge":
             graph["edges"].remove(op[1])
+        elif kind == "remove_node":
+            node_id = op[1]
+            graph["nodes"] = [n for n in graph["nodes"] if n["id"] != node_id]
+            graph["edges"] = [
+                e for e in graph["edges"] if e[0] != node_id and e[1] != node_id
+            ]
         elif kind == "reverse_collection":
             graph[op[1]].reverse()
         else:
