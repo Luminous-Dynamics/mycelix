@@ -564,13 +564,8 @@ pub struct RecordPreparedExecutionResolutionInput {
     pub execution_id: String,
     pub timelock_id: String,
     pub executor_did: String,
-    pub attempt_identities: Vec<String>,
-    pub action_key_digests: Vec<String>,
-    pub terminal_evidence_digests: Vec<String>,
     #[serde(default)]
-    pub authorization_admission_proof_digests: Vec<String>,
-    #[serde(default)]
-    pub final_provider_entry_proof_digests: Vec<String>,
+    pub bindings: Vec<ExecutionResolutionBindingV1>,
     pub outcome: ExecutionResolutionOutcome,
 }
 
@@ -642,17 +637,11 @@ pub fn record_prepared_execution_resolution(
     let prepared_action_count = validate_actions(&timelock.actions)?;
     check_prepared_resolution_action_count(
         prepared_action_count,
-        input.attempt_identities.len(),
+        input.bindings.len(),
     )
     .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
-    check_execution_resolution_bindings(
-        &input.attempt_identities,
-        &input.action_key_digests,
-        &input.terminal_evidence_digests,
-        &input.authorization_admission_proof_digests,
-        &input.final_provider_entry_proof_digests,
-    )
+    check_execution_resolution_bindings(&input.bindings)
     .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
     // Resolution is source-chain scoped to the single executor identity.
@@ -679,14 +668,7 @@ pub fn record_prepared_execution_resolution(
                         && existing.timelock_id == input.timelock_id
                         && existing.proposal_id == execution.proposal_id
                         && existing.executor == input.executor_did
-                        && existing.attempt_identities == input.attempt_identities
-                        && existing.action_key_digests == input.action_key_digests
-                        && existing.terminal_evidence_digests
-                            == input.terminal_evidence_digests
-                        && existing.authorization_admission_proof_digests
-                            == input.authorization_admission_proof_digests
-                        && existing.final_provider_entry_proof_digests
-                            == input.final_provider_entry_proof_digests
+                        && existing.bindings == input.bindings
                         && existing.outcome == input.outcome;
 
                     if same {
@@ -709,11 +691,7 @@ pub fn record_prepared_execution_resolution(
         timelock_id: input.timelock_id,
         proposal_id: execution.proposal_id,
         executor: input.executor_did,
-        attempt_identities: input.attempt_identities,
-        action_key_digests: input.action_key_digests,
-        terminal_evidence_digests: input.terminal_evidence_digests,
-        authorization_admission_proof_digests: input.authorization_admission_proof_digests,
-        final_provider_entry_proof_digests: input.final_provider_entry_proof_digests,
+        bindings: input.bindings,
         outcome: input.outcome,
         resolved_at: sys_time()?,
     };
