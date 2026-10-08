@@ -250,6 +250,12 @@ def verify(graph: dict, policy: dict) -> str:
     return "qualified"
 
 
+def git_blob_sha(path: Path) -> str:
+    data = path.read_bytes()
+    header = f"blob {len(data)}\\0".encode("ascii")
+    return hashlib.sha1(header + data).hexdigest()
+
+
 def main() -> int:
     if len(sys.argv) != 4:
         print(
@@ -260,11 +266,16 @@ def main() -> int:
         return 2
 
     expected_policy_blob_sha = sys.argv[1]
-    policy = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+    policy_path = Path(sys.argv[2])
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
     corpus = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
 
+    actual_policy_blob_sha = git_blob_sha(policy_path)
     binding = corpus.get("policy_binding", {})
-    if binding.get("git_blob_sha") != expected_policy_blob_sha:
+    if (
+        expected_policy_blob_sha != actual_policy_blob_sha
+        or binding.get("git_blob_sha") != actual_policy_blob_sha
+    ):
         print("policy binding mismatch", file=sys.stderr)
         return 1
     failures: list[tuple[str, str, str, str]] = []
