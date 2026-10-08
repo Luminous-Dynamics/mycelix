@@ -37,9 +37,20 @@ pub struct CreateRoutingInput {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+struct InspectionCriterionProjection {
+    requirement_id: String,
+    revision: String,
+    characteristic: String,
+    unit: String,
+    lower_bound: Option<f64>,
+    upper_bound: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RoutingStepInput {
     pub sequence: u32,
     pub capability_requirement_hash: Option<ActionHash>,
+    pub required_inspection_criterion_hashes: Vec<ActionHash>,
     pub operation_name: String,
     pub machine_type: String,
     pub setup_time_min: u32,
@@ -143,12 +154,52 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
         }
     }
 
+    for step in &input.steps {
+        let mut step_criteria = std::collections::HashSet::new();
+        for criterion_hash in &step.required_inspection_criterion_hashes {
+            if !step_criteria.insert(criterion_hash.clone()) {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "routing step cannot require the same inspection criterion more than once".to_string()
+                )));
+            }
+
+            let response = call(
+                CallTargetCell::Local,
+                ZomeName::from("execution"),
+                FunctionName::from("get_inspection_criterion"),
+                None,
+                ExternIO::encode(criterion_hash.clone())?,
+            )?;
+            match response {
+                ZomeCallResponse::Ok(data) => {
+                    let criterion: Option<InspectionCriterionProjection> =
+                        data.decode().map_err(|e| {
+                            wasm_error!(WasmErrorInner::Guest(format!(
+                                "failed to decode inspection criterion: {e}"
+                            )))
+                        })?;
+                    if criterion.is_none() {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "routing inspection criterion not found or is not an inspection criterion".to_string()
+                        )));
+                    }
+                }
+                _ => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "routing inspection criterion lookup failed".to_string()
+                    )));
+                }
+            }
+        }
+    }
+
     let steps: Vec<RoutingStepEntry> = input
         .steps
         .into_iter()
         .map(|s| RoutingStepEntry {
             sequence: s.sequence,
             capability_requirement_hash: s.capability_requirement_hash,
+            required_inspection_criterion_hashes: s.required_inspection_criterion_hashes,
             operation_name: s.operation_name,
             machine_type: s.machine_type,
             setup_time_min: s.setup_time_min,
@@ -176,6 +227,17 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
         LinkTypes::DesignToRouting,
         (),
     )?;
+
+    for step in &entry.steps {
+        for criterion_hash in &step.required_inspection_criterion_hashes {
+            create_link(
+                action_hash.clone(),
+                criterion_hash.clone(),
+                LinkTypes::RoutingToInspectionCriteria,
+                (),
+            )?;
+        }
+    }
 
     Ok(action_hash)
 }
@@ -274,6 +336,7 @@ mod tests {
             RoutingStepInput {
                 sequence: 10,
                 capability_requirement_hash: None,
+                required_inspection_criterion_hashes: vec![],
                 operation_name: "Cut".to_string(),
                 machine_type: "Saw".to_string(),
                 setup_time_min: 5,
@@ -283,6 +346,7 @@ mod tests {
             RoutingStepInput {
                 sequence: 20,
                 capability_requirement_hash: None,
+                required_inspection_criterion_hashes: vec![],
                 operation_name: "Mill".to_string(),
                 machine_type: "CNC".to_string(),
                 setup_time_min: 15,
@@ -304,6 +368,7 @@ mod tests {
             steps: vec![RoutingStepInput {
                 sequence: 10,
                 capability_requirement_hash: None,
+                required_inspection_criterion_hashes: vec![],
                 operation_name: "Cut".to_string(),
                 machine_type: "Saw".to_string(),
                 setup_time_min: 5,
