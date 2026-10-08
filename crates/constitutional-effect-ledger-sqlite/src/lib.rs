@@ -1128,9 +1128,16 @@ fn validate_no_managed_triggers(conn: &Connection) -> Result<(), String> {
             "SELECT EXISTS(
                 SELECT 1 FROM sqlite_master
                 WHERE type = 'trigger'
-                  AND tbl_name IN (?1, ?2, ?3, ?4, ?5)
+                  AND tbl_name IN (?1, ?2, ?3, ?4, ?5, ?6)
             )",
-            params![META_TABLE, ATTEMPT_TABLE, FENCE_TABLE, REPLAY_TABLE, ENTRY_CLAIM_TABLE],
+            params![
+                META_TABLE,
+                ATTEMPT_TABLE,
+                FENCE_TABLE,
+                REPLAY_TABLE,
+                ENTRY_CLAIM_TABLE,
+                AUTHORIZATION_PROOF_TABLE,
+            ],
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
@@ -1242,6 +1249,51 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
         claims.insert(claim.attempt_identity.clone(), claim);
     }
 
+    let mut authorization_proofs = HashMap::new();
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT attempt_identity, action_key_digest, operation_id, native_replay_identity,
+                    action_digest, effecting_target_identity, provider_environment, provider_audience,
+                    adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
+                    status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms,
+                    verifier_identity, digest
+             FROM {AUTHORIZATION_PROOF_TABLE}
+             ORDER BY attempt_identity"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            AuthorizationAdmissionProofV1::from_persisted(
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+                row.get(9)?,
+                row.get(10)?,
+                row.get(11)?,
+                row.get::<_, i64>(12)? as u64,
+                row.get::<_, i64>(13)? as u64,
+                row.get(14)?,
+                row.get(15)?,
+            )
+            .map_err(|e| rusqlite::Error::InvalidParameterName(e))
+        })
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        let proof = row.map_err(|e| e.to_string())?;
+        if authorization_proofs
+            .insert(proof.attempt_identity().to_owned(), proof)
+            .is_some()
+        {
+            return Err("duplicate authorization admission proof attempt identity".into());
+        }
+    }
+
     for record in attempts.values() {
         if record
             .authorization_admission_proof_digest
@@ -1253,6 +1305,35 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
                 record.attempt_identity
             ));
         }
+        let authorization_proof = authorization_proofs
+            .get(&record.attempt_identity)
+            .ok_or_else(|| {
+                format!(
+                    "attempt {} has no durable authorization admission receipt",
+                    record.attempt_identity
+                )
+            })?;
+        if authorization_proof.digest() != record.authorization_admission_proof_digest.as_deref().unwrap() {
+            return Err(format!(
+                "attempt {} authorization admission receipt digest mismatch",
+                record.attempt_identity
+            ));
+        }
+        if authorization_proof.action_key_digest() != record.action_key_digest
+            || authorization_proof.operation_id() != record.operation_id
+            || authorization_proof.native_replay_identity() != record.native_replay_identity
+            || authorization_proof.action_digest() != record.action_digest
+            || authorization_proof.effecting_target_identity() != record.effecting_target_identity
+            || authorization_proof.provider_environment() != record.provider_environment
+            || authorization_proof.provider_audience() != record.provider_audience
+            || authorization_proof.adapter_identity() != record.adapter_identity
+        {
+            return Err(format!(
+                "attempt {} authorization admission receipt does not match attempt scope",
+                record.attempt_identity
+            ));
+        }
+
         if let Some(proof_digest) = record.entry_admission_proof_digest.as_deref() {
             if proof_digest.trim().is_empty() {
                 return Err(format!(
@@ -1277,6 +1358,15 @@ fn validate_persisted_state(conn: &Connection) -> Result<(), String> {
                     record.attempt_identity
                 ));
             }
+        }
+    }
+
+    for proof in authorization_proofs.values() {
+        if !attempts.contains_key(proof.attempt_identity()) {
+            return Err(format!(
+                "authorization admission receipt {} references unknown attempt",
+                proof.attempt_identity()
+            ));
         }
     }
 
