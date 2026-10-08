@@ -355,6 +355,7 @@ jobs:
           predicate=strict(predicate_path.read_text())
           receipt=strict(receipt_path.read_text())
           publication=strict(publication_path.read_text())
+          assert receipt['attestation']['bundle_sha256'] == bundle_sha256
           assert set(durable_manifest) == {
               'schema','repository','repository_id','release_tag','release_id',
               'asset_name','expected_main_sha','qualification_claim_id',
