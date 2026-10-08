@@ -6,6 +6,10 @@
 //!
 //! This zome records what physically happened, separately from planning.
 //! Entries are immutable: corrections are new records, never in-place edits.
+//!
+//! Qualification attestations record who/what asserted a qualification under
+//! an explicit method and validity interval. They do not themselves imply
+//! independence or regulatory certification; those are trust-policy claims.
 
 use hdi::prelude::*;
 use std::collections::HashSet;
@@ -54,6 +58,20 @@ pub struct CapabilityContractEntry {
     pub supported_protocols: Vec<String>,
     pub qualification: CapabilityQualification,
     pub qualification_evidence_hashes: Vec<ActionHash>,
+    pub created_at: Timestamp,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct QualificationAttestationEntry {
+    pub capability_contract_hash: ActionHash,
+    pub outcome: CapabilityQualification,
+    pub evidence_hashes: Vec<ActionHash>,
+    pub method: String,
+    pub authority_reference: String,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    pub external_reference_hash: Option<String>,
     pub created_at: Timestamp,
 }
 
@@ -114,6 +132,9 @@ pub struct CalibrationEntry {
 #[derive(Clone, PartialEq)]
 pub struct ExecutionReceiptEntry {
     pub execution_id: String,
+    /// Optional during migration; accepted executions require an attributed qualification attestation.
+    #[serde(default)]
+    pub qualification_attestation_hash: Option<ActionHash>,
     pub work_order_hash: ActionHash,
     pub bom_hash: Option<ActionHash>,
     pub routing_hash: Option<ActionHash>,
@@ -139,6 +160,7 @@ pub enum EntryTypes {
     Measurement(MeasurementEntry),
     Calibration(CalibrationEntry),
     InspectionCriterion(InspectionCriterionEntry),
+    QualificationAttestation(QualificationAttestationEntry),
     CapabilityContract(CapabilityContractEntry),
     Evidence(EvidenceEntry),
     ExecutionReceipt(ExecutionReceiptEntry),
@@ -150,6 +172,7 @@ pub enum LinkTypes {
     AllMeasurements,
     AllCalibrations,
     AllInspectionCriteria,
+    AllQualificationAttestations,
     AllCapabilityContracts,
     AllEvidence,
     AllExecutions,
@@ -282,6 +305,69 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 return Ok(ValidateCallbackResult::Invalid(
                     "calibration validity window is inverted".into(),
                 ));
+            }
+        }
+        EntryTypes::QualificationAttestation(a) => {
+            if a.method.is_empty() || a.authority_reference.is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "qualification attestation requires method and authority_reference".into(),
+                ));
+            }
+            if a.evidence_hashes.is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "qualification attestation requires evidence".into(),
+                ));
+            }
+            if a.valid_until < a.valid_from {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "qualification attestation validity window is inverted".into(),
+                ));
+            }
+            if !matches!(a.outcome, CapabilityQualification::Qualified) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "qualification attestation must carry the Qualified outcome".into(),
+                ));
+            }
+            if !all_unique(&a.evidence_hashes) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "qualification attestation evidence hashes must be unique".into(),
+                ));
+            }
+
+            let contract_record = must_get_valid_record(a.capability_contract_hash.clone())?;
+            let contract: Option<CapabilityContractEntry> = contract_record
+                .entry()
+                .to_app_option()
+                .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+            let Some(contract) = contract else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "qualification attestation must reference a capability contract".into(),
+                ));
+            };
+            if !matches!(contract.qualification, CapabilityQualification::Qualified) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "qualification attestation cannot upgrade a non-Qualified capability contract".into(),
+                ));
+            }
+
+            for hash in &a.evidence_hashes {
+                let record = must_get_valid_record(hash.clone())?;
+                let evidence: Option<EvidenceEntry> = record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                let Some(evidence) = evidence else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "qualification attestation evidence must reference an Evidence record".into(),
+                    ));
+                };
+                if evidence.subject_id != contract.contract_id
+                    || !matches!(evidence.kind, EvidenceKind::CapabilityQualification)
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "qualification attestation evidence is not bound to its capability contract".into(),
+                    ));
+                }
             }
         }
         EntryTypes::CapabilityContract(c) => {
@@ -491,11 +577,37 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 }
                 if matches!(e.disposition, Disposition::Accepted)
                     && (!matches!(contract.qualification, CapabilityQualification::Qualified)
-                        || contract.qualification_evidence_hashes.is_empty())
+                        || contract.qualification_evidence_hashes.is_empty()
+                        || e.qualification_attestation_hash.is_none())
                 {
                     return Ok(ValidateCallbackResult::Invalid(
-                        "accepted execution requires a Qualified capability contract with evidence".into(),
+                        "accepted execution requires a Qualified capability contract, evidence, and qualification attestation".into(),
                     ));
+                }
+                if let Some(attestation_hash) = e.qualification_attestation_hash.clone() {
+                    let attestation_record = must_get_valid_record(attestation_hash)?;
+                    let attestation: Option<QualificationAttestationEntry> = attestation_record
+                        .entry()
+                        .to_app_option()
+                        .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                    let Some(attestation) = attestation else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "qualification attestation reference is not a qualification attestation".into(),
+                        ));
+                    };
+                    if attestation.capability_contract_hash != hash {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "qualification attestation is bound to a different capability contract".into(),
+                        ));
+                    }
+                    if !matches!(attestation.outcome, CapabilityQualification::Qualified)
+                        || attestation.valid_from > e.started_at
+                        || attestation.valid_until < e.completed_at
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "qualification attestation is not Qualified and valid for the execution interval".into(),
+                        ));
+                    }
                 }
             }
             if let Some(hash) = e.bom_hash.clone() {
@@ -665,6 +777,40 @@ mod tests {
     }
 
     #[test]
+    fn rejects_inverted_qualification_attestation_window() {
+        let entry = QualificationAttestationEntry {
+            capability_contract_hash: ActionHash::from_raw_36(vec![1; 36]),
+            outcome: CapabilityQualification::Qualified,
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![2; 36])],
+            method: "peer qualification".into(),
+            authority_reference: "authority-v1".into(),
+            valid_from: Timestamp::from_micros(10),
+            valid_until: Timestamp::from_micros(0),
+            external_reference_hash: None,
+            created_at: Timestamp::from_micros(0),
+        };
+        let result = validate_create(EntryTypes::QualificationAttestation(entry)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn rejects_nonqualified_attestation_outcome() {
+        let entry = QualificationAttestationEntry {
+            capability_contract_hash: ActionHash::from_raw_36(vec![1; 36]),
+            outcome: CapabilityQualification::Verified,
+            evidence_hashes: vec![ActionHash::from_raw_36(vec![2; 36])],
+            method: "peer qualification".into(),
+            authority_reference: "authority-v1".into(),
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(10),
+            external_reference_hash: None,
+            created_at: Timestamp::from_micros(0),
+        };
+        let result = validate_create(EntryTypes::QualificationAttestation(entry)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn rejects_invalid_measurement() {
         let entry = MeasurementEntry {
             measurement_id: "M1".into(),
@@ -713,6 +859,7 @@ mod tests {
     fn rejects_unproven_execution() {
         let entry = ExecutionReceiptEntry {
             execution_id: "EXEC-TEST".into(),
+            qualification_attestation_hash: None,
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: None,
             routing_hash: None,
