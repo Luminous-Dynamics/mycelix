@@ -787,6 +787,10 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
             fail(f"{label} artifact repository mismatch")
         if item["workflow_run"]["head_repository_id"] != BASE_REPOSITORY_ID:
             fail(f"{label} artifact head repository mismatch")
+        if item["workflow_run"]["head_sha"] != trusted_run["head_sha"]:
+            fail(f"{label} artifact trusted-run head SHA mismatch")
+        if item["workflow_run"]["head_branch"] != BASE_BRANCH:
+            fail(f"{label} artifact trusted-run branch mismatch")
         require_sha256_prefixed(item["digest"], f"{label} artifact digest")
 
     receipt_archive = verify_raw_artifact_archive(
