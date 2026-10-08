@@ -166,6 +166,15 @@ jobs:
 
 
           assert "permissions: {}" in scanned_text
+          assert "strict_json_loads" in scanned_text
+          assert "reject_duplicate_keys" in scanned_text
+          assert "reject_nonstandard_constant" in scanned_text
+          assert "assert_strict_json_rejects_ambiguous_inputs()" in scanned_text
+          assert 'manifest = json.loads(Path("trusted-federation-semantic-manifest.json").read_text())' not in scanned_text
+          assert 'report = json.loads(path.read_text())' not in scanned_text
+          assert 'envelope = json.loads(path.read_text())' not in scanned_text
+          assert 'envelope = json.loads(envelope_bytes.decode("utf-8"))' not in scanned_text
+          assert 'manifest = json.loads(path.read_text())' not in scanned_text
           # This trusted source profile deliberately forbids YAML anchors,
           # aliases, and merge keys. The self-audit reasons over literal
           # workflow structure, so YAML indirection must not change that graph.
@@ -664,7 +673,40 @@ jobs:
           import re
           from pathlib import Path
 
-          manifest = json.loads(Path("trusted-federation-semantic-manifest.json").read_text())
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          manifest = strict_json_loads(Path("trusted-federation-semantic-manifest.json").read_text())
           source = Path("candidate-federation.rs").read_text()
           scope = "exact_rust_test_function_body_v1"
 
@@ -1036,7 +1078,40 @@ jobs:
 
           path = Path("evidence/cos-conformance-report.json")
           assert path.is_file() and path.stat().st_size > 0
-          report = json.loads(path.read_text())
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          report = strict_json_loads(path.read_text())
           assert report["corpus_id"] == "COS-CONF-001"
           assert report["case_count"] == 32
           assert report["untested_formal_obligations"] == []
@@ -1264,7 +1339,40 @@ jobs:
           from pathlib import Path
 
           path = Path("evidence/independent-run-envelope.json")
-          envelope = json.loads(path.read_text())
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          envelope = strict_json_loads(path.read_text())
           sha40 = re.compile(r"^[0-9a-f]{40}$")
           sha64 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -1401,7 +1509,40 @@ jobs:
               )
 
           envelope_bytes = envelope_path.read_bytes()
-          envelope = json.loads(envelope_bytes.decode("utf-8"))
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          envelope = strict_json_loads(envelope_bytes.decode("utf-8"))
           manifest = {
               "schema": "MYCELIX-COS-CONFORMANCE-QUALIFICATION-MANIFEST-V1",
               "manifest_scope": "validated_independent_evidence_set",
@@ -1451,7 +1592,40 @@ jobs:
 
           evidence = Path("evidence")
           path = evidence / "qualification-manifest-v1.json"
-          manifest = json.loads(path.read_text())
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          manifest = strict_json_loads(path.read_text())
           assert manifest["schema"] == "MYCELIX-COS-CONFORMANCE-QUALIFICATION-MANIFEST-V1"
           assert manifest["manifest_scope"] == "validated_independent_evidence_set"
           assert manifest["claim_ceiling"] == "ReferenceModelOnly"
