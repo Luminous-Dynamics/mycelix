@@ -28,6 +28,8 @@ jobs:
             --output "${archive}" \
             "https://github.com/rhysd/actionlint/releases/download/v${version}/${archive}"
           test "$(sha256sum "${archive}" | awk '{print $1}')" = "${expected_sha256}"
+          gh attestation verify -R rhysd/actionlint "${archive}" --format json > actionlint-attestation.json
+          test -s actionlint-attestation.json
           tar -xzf "${archive}" actionlint
           ./actionlint -version
 
