@@ -116,6 +116,11 @@ EffectiveAuthorityMatchesCurrentTime ==
 GrantCapabilitiesRemainStructurallyValid ==
   \A g \in activeGrants : Capability(g) \in authority[issuer[g]]
 
+RecordedEvidenceValid ==
+  \A e \in evidenceRecorded :
+    SignatureValid[e] /\ SignerTrusted[e] /\ ClaimAuthorized[e] /\
+    EvidenceSubject[e] = TargetSubject[e]
+
 NoAuthorityWithoutCurrentGrant ==
   \A a \in Agents \ {Root}, c \in authority[a] :
     \E g \in activeGrants :
