@@ -59,6 +59,7 @@ pred canonicalEnvironment {
 }
 
 pred mutationEnvironment {
+  RunState.control != Canonical
   Parent.allow = R1+R2+R3
   CanonicalChild.allow = R1
   CanonicalChild.deny = R2
