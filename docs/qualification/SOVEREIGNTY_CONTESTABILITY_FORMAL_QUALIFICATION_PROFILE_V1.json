@@ -6,8 +6,8 @@
   "subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v6-contestability-subject",
-    "head_sha": "09283f2d44e7608aebc4b2e6c6870d25ca5a84da",
-    "tree_sha": "802d6141cde139e7cebc0a4a594032341cc1fa07",
+    "head_sha": "45dbaf293265034a32af26fc8f3176e9517c80a8",
+    "tree_sha": "4b18aa716b239d2bf3311e9356a31c2e4ac809a4",
     "tree_binding": "verified-exact-tree; independently resolved from the exact subject commit"
   },
   "models": {
@@ -46,7 +46,7 @@
     },
     "alloy": {
       "path": "mycelix-governance/specs/alloy/EffectiveContestabilityV1.als",
-      "git_blob_sha": "5788400cd459c645f4567ccb8b8900cbdc966f4a",
+      "git_blob_sha": "5e0f197b1b58885d15037cf8aec3589765559c44",
       "runner_path": "mycelix-governance/tools/formal/EffectiveContestabilityAlloyRunner.java",
       "runner_git_blob_sha": "8376243468c8560f8e9f9baacf51ae3b38d2c284",
       "solver": "SAT4J",
@@ -111,7 +111,7 @@
     "pins_path": "mycelix-governance/tools/formal/effective_contestability_pins.json",
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json",
     "tree_binding_required": true,
-    "crosswalk_git_blob_sha": "895c42680ca068dcdc94146173e935872c1c6814",
+    "crosswalk_git_blob_sha": "bb9dc041b5bc1364a318b350efa52b0c21d40526",
     "fixture_paths": {
       "tla": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla",
       "cfg": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.cfg",
