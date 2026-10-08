@@ -1842,6 +1842,41 @@ mod tests {
     }
 
     #[test]
+    fn terminal_evidence_digest_binds_provider_idempotency_key() {
+        let action = key();
+        let owner = attempt("attempt-idempotency-binding");
+        let record = record(
+            "attempt-idempotency-binding",
+            "operation-idempotency-binding",
+            AttemptRecordState::Invoked,
+        );
+
+        let first = TerminalEvidenceV1::from_attempt(
+            &action,
+            &record,
+            TerminalOutcomeV1::Executed,
+            "provider-idempotency-a",
+            "provider-evidence",
+            "qualified-verifier-v1",
+        )
+        .unwrap();
+        let second = TerminalEvidenceV1::from_attempt(
+            &action,
+            &record,
+            TerminalOutcomeV1::Executed,
+            "provider-idempotency-b",
+            "provider-evidence",
+            "qualified-verifier-v1",
+        )
+        .unwrap();
+
+        assert_ne!(first.digest(), second.digest());
+        assert_eq!(first.provider_idempotency_key(), "provider-idempotency-a");
+        assert_eq!(second.provider_idempotency_key(), "provider-idempotency-b");
+        assert_eq!(first.attempt_identity(), owner.digest());
+    }
+
+    #[test]
     fn state_transition_contract_is_exhaustive_and_fail_closed() {
         let states = [
             AttemptRecordState::Consumed,
