@@ -97,6 +97,22 @@ ENUMERATION_KEYS = frozenset(
     }
 )
 
+CONTROL_KEYS = frozenset(
+    {
+        "repository",
+        "repository_id",
+        "path",
+        "ref",
+        "workflow_ref",
+        "workflow_sha",
+        "workflow_blob_sha",
+        "reference_verifier_path",
+        "reference_verifier_blob_sha",
+        "artifact_collector_path",
+        "artifact_collector_blob_sha",
+    }
+)
+
 INDEX_ARTIFACT_KEYS = frozenset(
     {
         "id",
@@ -371,6 +387,20 @@ def verify_receipt(
     verifier_blob_sha = require_hex(
         verifier_control["workflow_blob_sha"], 40, "independent verifier workflow_blob_sha"
     )
+    if verifier_control["reference_verifier_path"] != "scripts/integral/verify_fpm_trusted_qualification.py":
+        fail("reference verifier path mismatch")
+    require_hex(
+        verifier_control["reference_verifier_blob_sha"],
+        40,
+        "reference verifier blob SHA",
+    )
+    if verifier_control["artifact_collector_path"] != "scripts/integral/collect_fpm_trusted_artifacts.py":
+        fail("artifact collector path mismatch")
+    require_hex(
+        verifier_control["artifact_collector_blob_sha"],
+        40,
+        "artifact collector blob SHA",
+    )
     expected_workflow_ref = f"{BASE_REPOSITORY}/{INDEPENDENT_WORKFLOW_PATH}@refs/heads/main"
     if verifier_control["workflow_ref"] != expected_workflow_ref:
         fail("independent verifier workflow_ref mismatch")
@@ -489,7 +519,13 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     commit = json.loads((snapshot_dir / "subject-commit.json").read_text(encoding="utf-8"))
     manifest = json.loads((snapshot_dir / "manifest.json").read_text(encoding="utf-8"))
     policy_file = json.loads((snapshot_dir / "policy-file.json").read_text(encoding="utf-8"))
-    verifier_control = json.loads((snapshot_dir / "verifier-control.json").read_text(encoding="utf-8"))
+    verifier_control = load_canonical_json(snapshot_dir / "verifier-control.json")
+    if set(verifier_control) != CONTROL_KEYS:
+        fail(
+            "verifier-control closed-world mismatch: "
+            f"missing={sorted(CONTROL_KEYS - set(verifier_control))!r} "
+            f"extra={sorted(set(verifier_control) - CONTROL_KEYS)!r}"
+        )
     candidate_lock = json.loads((snapshot_dir / "candidate-lock.json").read_text(encoding="utf-8"))
     main_ref = json.loads((snapshot_dir / "main-ref.json").read_text(encoding="utf-8"))
     artifacts = json.loads((snapshot_dir / "artifacts.json").read_text(encoding="utf-8"))
