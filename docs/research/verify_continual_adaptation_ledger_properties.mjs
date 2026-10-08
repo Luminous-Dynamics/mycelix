@@ -166,6 +166,9 @@ function checkCase(base, policy, testCase) {
     case "identity_sensitivity":
       row.status = row.verdict !== "qualified" && row.semantic_digest !== baseSemantic ? "pass" : "fail";
       break;
+    case "required_dependency_rejection":
+      row.status = row.verdict === "unresolved" && row.semantic_digest !== "invalid" ? "pass" : "fail";
+      break;
     case "structural_rejection":
       row.status = row.verdict === "unresolved" && row.semantic_digest === "invalid" ? "pass" : "fail";
       break;
@@ -192,7 +195,10 @@ if (!policyPath || !corpusPath || !reportPath) {
 const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
 const corpus = JSON.parse(fs.readFileSync(corpusPath, "utf8"));
 const report = corpus.cases.map(c => checkCase(corpus.base_graph, policy, c));
-fs.writeFileSync(reportPath, JSON.stringify(report.sort((a,b) => a.case_id.localeCompare(b.case_id)), null, 0) + "\n");
+const sortedReport = report
+  .sort((a,b) => a.case_id.localeCompare(b.case_id))
+  .map(row => Object.fromEntries(Object.entries(row).sort(([a],[b]) => a.localeCompare(b))));
+fs.writeFileSync(reportPath, JSON.stringify(sortedReport) + "\n");
 const failures = report.filter(r => r.status !== "pass");
 console.log("cases=" + report.length + " failures=" + failures.length);
 for (const failure of failures.slice(0,10)) console.log("FAIL", failure);
