@@ -107,6 +107,17 @@
       "value": false,
       "preserve_history_anchor": true,
       "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CPL-010",
+      "source_case_id": "CCP-042",
+      "policy_path": [
+        "classification",
+        "claim_scope_binding_required"
+      ],
+      "value": false,
+      "preserve_history_anchor": true,
+      "expected_verdict": "qualified"
     }
   ]
 }
