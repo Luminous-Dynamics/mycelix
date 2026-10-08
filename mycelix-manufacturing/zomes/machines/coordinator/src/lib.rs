@@ -57,6 +57,7 @@ pub struct CreateMachineTimeAuthorityProfileInput {
     pub profile_id: String,
     pub source_profile: String,
     pub source_authority_commitment: Vec<u8>,
+    pub commitment_algorithm: MachineTemporalCommitmentAlgorithm,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
     pub max_accuracy_micros: i64,
@@ -393,6 +394,7 @@ pub fn create_machine_time_authority_profile(
         profile_id: input.profile_id.clone(),
         source_profile: input.source_profile.clone(),
         source_authority_commitment: input.source_authority_commitment.clone(),
+        commitment_algorithm: input.commitment_algorithm.clone(),
         valid_from: input.valid_from,
         valid_until: input.valid_until,
         max_accuracy_micros: input.max_accuracy_micros,
@@ -404,6 +406,7 @@ pub fn create_machine_time_authority_profile(
         profile_id: input.profile_id,
         source_profile: input.source_profile,
         source_authority_commitment: input.source_authority_commitment,
+        commitment_algorithm: input.commitment_algorithm,
         valid_from: input.valid_from,
         valid_until: input.valid_until,
         max_accuracy_micros: input.max_accuracy_micros,
@@ -551,6 +554,7 @@ pub fn resolve_machine_temporal_attestations(
         if profile_record.machine_hash != attestation.machine_hash
             || profile_record.authority_agent != record.action().author()
             || attestation.accuracy_micros > profile_record.max_accuracy_micros
+            || attestation.source_commitment_algorithm != profile_record.commitment_algorithm
             || !temporal_interval_contains_interval(
                 profile_record.valid_from,
                 profile_record.valid_until,
