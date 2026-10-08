@@ -1641,6 +1641,28 @@ mod tests {
         }
     }
 
+    struct MustNotInvoke;
+
+    impl ProviderAdapter for MustNotInvoke {
+        fn adapter_identity(&self) -> &str {
+            "provider-adapter-v1"
+        }
+
+        fn invoke(
+            &mut self,
+            _permit: &ProviderEntryPermitV1,
+        ) -> Result<ProviderObservation, String> {
+            panic!("provider invocation must not be reached in this test");
+        }
+
+        fn reconcile(
+            &mut self,
+            _context: &ProviderActionContextV1,
+        ) -> Result<ProviderObservation, String> {
+            panic!("provider reconciliation must not be reached in this test");
+        }
+    }
+
     struct RejectAdmission;
 
     impl AdmissionAuthorizer for RejectAdmission {
@@ -2467,16 +2489,12 @@ mod tests {
     fn final_entry_verifier_identity_must_match_pinned_trust_root() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("pinned-final-identity.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(
+        let mut boundary = test_host_with_final(
             store,
-            test_root_with(
-                Box::new(Verifier),
-                "verified-provider-v1",
-                Box::new(AllowFinalEntry),
-                "pinned-final-entry-v2",
-            ),
-        )
-        .unwrap();
+            Box::new(AllowFinalEntry),
+            "pinned-final-entry-v2",
+            Box::new(MustNotInvoke),
+        );
         let action_key = action();
         let owner = identity("attempt-pinned-final-identity");
         boundary
@@ -2491,33 +2509,11 @@ mod tests {
             )
             .unwrap();
 
-        struct MustNotInvoke;
-        impl ProviderAdapter for MustNotInvoke {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("pinned verifier identity mismatch must prevent provider invocation");
-            }
-
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                unreachable!()
-            }
-        }
-
         let result = boundary
             .dispatch(
                 &action_key,
                 &owner,
                 "owner-attempt-pinned-final-identity",
-                &mut MustNotInvoke,
             )
             .unwrap();
         assert!(matches!(
@@ -2537,7 +2533,12 @@ mod tests {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("final-gate-rejected.db")).unwrap();
         let mut boundary =
-            test_host_with_final(store, Box::new(RejectFinalEntry), "reject-final-entry-v1");
+            test_host_with_final(
+                store,
+                Box::new(RejectFinalEntry),
+                "reject-final-entry-v1",
+                Box::new(MustNotInvoke),
+            );
         let action_key = action();
         let owner = identity("attempt-final-gate-rejected");
         boundary
@@ -2552,33 +2553,11 @@ mod tests {
             )
             .unwrap();
 
-        struct MustNotInvoke;
-        impl ProviderAdapter for MustNotInvoke {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("final-entry rejection must prevent provider invocation");
-            }
-
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                unreachable!()
-            }
-        }
-
         let result = boundary
             .dispatch(
                 &action_key,
                 &owner,
                 "owner-attempt-final-gate-rejected",
-                &mut MustNotInvoke,
             )
             .unwrap();
 
@@ -2603,7 +2582,12 @@ mod tests {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("final-gate-expired.db")).unwrap();
         let mut boundary =
-            test_host_with_final(store, Box::new(ExpiredFinalEntry), "expired-entry-verifier-v1");
+            test_host_with_final(
+                store,
+                Box::new(ExpiredFinalEntry),
+                "expired-entry-verifier-v1",
+                Box::new(MustNotInvoke),
+            );
         let action_key = action();
         let owner = identity("attempt-final-gate-expired");
         boundary
@@ -2618,33 +2602,11 @@ mod tests {
             )
             .unwrap();
 
-        struct MustNotInvoke;
-        impl ProviderAdapter for MustNotInvoke {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("expired final-entry proof must prevent provider invocation");
-            }
-
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                unreachable!()
-            }
-        }
-
         let result = boundary
             .dispatch(
                 &action_key,
                 &owner,
                 "owner-attempt-final-gate-expired",
-                &mut MustNotInvoke,
             )
             .unwrap();
 
@@ -2671,7 +2633,12 @@ mod tests {
         let store =
             SqliteActionFenceStore::open(dir.path().join("final-gate-post-verify.db")).unwrap();
         let mut boundary =
-            test_host_with_final(store, Box::new(SlowExpiryFinalEntry), "slow-final-entry-verifier-v1");
+            test_host_with_final(
+                store,
+                Box::new(SlowExpiryFinalEntry),
+                "slow-final-entry-verifier-v1",
+                Box::new(MustNotInvoke),
+            );
         let action_key = action();
         let owner = identity("attempt-final-gate-post-verify");
         boundary
@@ -2686,33 +2653,11 @@ mod tests {
             )
             .unwrap();
 
-        struct MustNotInvoke;
-        impl ProviderAdapter for MustNotInvoke {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("post-verifier expiry must prevent provider invocation");
-            }
-
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                unreachable!()
-            }
-        }
-
         let result = boundary
             .dispatch(
                 &action_key,
                 &owner,
                 "owner-attempt-final-gate-post-verify",
-                &mut MustNotInvoke,
             )
             .unwrap();
 
@@ -2743,16 +2688,21 @@ mod tests {
         let dir = tempdir().unwrap();
         let store =
             SqliteActionFenceStore::open(dir.path().join("pinned-terminal-identity.db")).unwrap();
-        let mut boundary = EffectBoundaryHostV1::new(
+        let provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
+        let mut boundary = test_host_with_outcome(
             store,
-            test_root_with(
-                Box::new(Verifier),
-                "pinned-terminal-v2",
-                Box::new(AllowFinalEntry),
-                "final-entry-verifier-v1",
-            ),
-        )
-        .unwrap();
+            Box::new(Verifier),
+            "pinned-terminal-v2",
+            Box::new(provider),
+        );
         let action_key = action();
         let owner = identity("attempt-pinned-terminal-identity");
         boundary
@@ -2782,7 +2732,6 @@ mod tests {
                 &action_key,
                 &owner,
                 "owner-attempt-pinned-terminal-identity",
-                &mut provider,
             )
             .unwrap();
         assert!(matches!(
@@ -2801,10 +2750,20 @@ mod tests {
     fn mismatched_provider_idempotency_proof_holds_the_fence() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("mismatch-idempotency.db")).unwrap();
+        let provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
         let mut boundary = test_host_with_outcome(
             store,
             Box::new(MismatchedIdempotencyVerifier),
             "malbound-verifier",
+            Box::new(provider),
         );
         let action_key = action();
         let owner = identity("attempt-mismatch-idempotency");
@@ -2815,16 +2774,6 @@ mod tests {
         );
 
         boundary.admit(&action_key, &owner, record).unwrap();
-
-        let mut provider = FakeProvider {
-            invocation: ProviderObservation::Executed {
-                evidence_commitment: "provider-proof".into(),
-            },
-            reconciliation: ProviderObservation::Executed {
-                evidence_commitment: "reconciled-proof".into(),
-            },
-            invoked_states: Arc::new(Mutex::new(Vec::new())),
-        };
 
         let result = boundary.dispatch(
             &action_key,
@@ -2855,10 +2804,20 @@ mod tests {
     fn mismatched_terminal_verification_proof_holds_the_fence() {
         let dir = tempdir().unwrap();
         let store = SqliteActionFenceStore::open(dir.path().join("mismatch.db")).unwrap();
+        let provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "provider-proof".into(),
+            },
+            reconciliation: ProviderObservation::Executed {
+                evidence_commitment: "reconciled-proof".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
         let mut boundary = test_host_with_outcome(
             store,
             Box::new(MismatchedVerifier),
             "malbound-verifier",
+            Box::new(provider),
         );
         let action_key = action();
         let owner = identity("attempt-mismatch");
@@ -2868,16 +2827,6 @@ mod tests {
             boundary.admit(&action_key, &owner, record).unwrap(),
             BoundaryOutcome::Admitted(AtomicAdmissionDecision::Admitted)
         );
-
-        let mut provider = FakeProvider {
-            invocation: ProviderObservation::Executed {
-                evidence_commitment: "provider-proof".into(),
-            },
-            reconciliation: ProviderObservation::Executed {
-                evidence_commitment: "reconciled-proof".into(),
-            },
-            invoked_states: Arc::new(Mutex::new(Vec::new())),
-        };
 
         let result = boundary.dispatch(
             &action_key,
@@ -2938,31 +2887,10 @@ mod tests {
             .unwrap();
         assert_eq!(claim.action_key_digest, action_key.digest());
 
-        struct MustNotRun;
-        impl ProviderAdapter for MustNotRun {
-        fn adapter_identity(&self) -> &str {
-            "provider-adapter-v1"
-        }
-
-            fn invoke(
-                &mut self,
-                _permit: &ProviderEntryPermitV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("reconciliation test must not invoke provider");
-            }
-            fn reconcile(
-                &mut self,
-                _context: &ProviderActionContextV1,
-            ) -> Result<ProviderObservation, String> {
-                panic!("active claim must block reconciliation before provider access");
-            }
-        }
-
         let result = boundary.reconcile(
             &action_key,
             &owner,
             "owner-attempt-claim-race",
-            &mut MustNotRun,
         );
         assert!(matches!(
             result,
