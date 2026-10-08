@@ -800,7 +800,6 @@ mod tests {
         assert!(!result.feasible);
         assert_eq!(result.material_shortages[0].short_quantity, 80);
     }
-    }
 
     #[test]
     fn test_mrp_result_constructs_material_infeasible() {
