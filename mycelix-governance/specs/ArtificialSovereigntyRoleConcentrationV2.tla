@@ -68,7 +68,7 @@ OpenExternalReview(s, reviewer) ==
     /\ s \in Subjects
     /\ reviewer \in Subjects
     /\ reviewer # s
-    /\ ~activeReviewers[s] # {}
+    /\ activeReviewers[s] = {}
     /\ reviewer \notin reviewHistory[s]
     /\ \A role \in Roles : reviewer \notin roleHolder[role]
     /\ activeReviewers' = [activeReviewers EXCEPT ![s] = @ \cup {reviewer}]
