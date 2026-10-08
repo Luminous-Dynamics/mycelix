@@ -627,6 +627,16 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 must declare exactly one cache-mode: none gate")
     if exact_count(l, "SCHEDULE_RATE_LIMIT_MIN_REMAINING=400") != 1:
         fail("S0 schedule must reserve a deterministic GitHub API rate-limit floor")
+    if exact_count(l, "import base64, json, os, re, urllib.error, urllib.parse, urllib.request") != 1:
+        fail("S0 API client must import explicit HTTP error handling for redirect rejection")
+    if exact_count(l, "class NoRedirect(urllib.request.HTTPRedirectHandler):") != 1:
+        fail("S0 API client must install an explicit no-redirect handler")
+    if exact_count(l, "api_opener=urllib.request.build_opener(NoRedirect)") != 1:
+        fail("S0 API client must use the no-redirect opener")
+    if exact_count(l, 'if error.code in (301,302,303,307,308):') != 1:
+        fail("S0 API client must fail closed on all standard HTTP redirect statuses")
+    if exact_count(l, 'raise SystemExit(f"GitHub API endpoint unexpectedly redirected with HTTP {error.code}; refusing to follow")') != 1:
+        fail("S0 API redirect rejection witness missing")
     if exact_count(l, 'if event=="schedule":') != 1:
         fail("S0 schedule rate-limit guard must not affect immediate pull_request_target dispatch")
     if exact_count(l, 'remaining=response.headers.get("x-ratelimit-remaining")') != 1:
@@ -1205,6 +1215,15 @@ def main() -> None:
             1,
         ), s1_sha),
         "S0 scheduled GitHub API rate-limit reserve removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s0(raw["s0"].replace(
+            b'class NoRedirect(urllib.request.HTTPRedirectHandler):',
+            b'class NoRedirectRemoved:',
+            1,
+        ), s1_sha),
+        "S0 GitHub API no-redirect handler removed",
     )
 
     expect_rejection(
