@@ -323,10 +323,20 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
         )));
     }
 
+    let authority_hash = input.authority_hash.clone();
+    let updated = MachineEntry {
+        status: input.new_status,
+        current_work_order: input.work_order_hash.clone(),
+        last_status_authority_hash: Some(authority_hash.clone()),
+        ..machine
+    };
+    let update_hash = update_entry(head_action, EntryTypes::Machine(updated))?;
+
     let log = MachineStatusLog {
         machine_hash: input.machine_hash.clone(),
-        authority_hash: input.authority_hash,
-        previous_status: machine.status.clone(),
+        machine_update_hash: update_hash.clone(),
+        authority_hash,
+        previous_status: machine.status,
         new_status: input.new_status.clone(),
         work_order_hash: input.work_order_hash.clone(),
         changed_at: now,
@@ -334,18 +344,19 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
     let log_hash = create_entry(EntryTypes::StatusLog(log))?;
     create_link(
         input.machine_hash.clone(),
-        log_hash,
+        log_hash.clone(),
         LinkTypes::MachineToStatusLog,
         (),
     )?;
+    create_link(
+        update_hash.clone(),
+        log_hash,
+        LinkTypes::MachineUpdateToStatusLog,
+        (),
+    )?;
 
-    let updated = MachineEntry {
-        status: input.new_status,
-        current_work_order: input.work_order_hash,
-        last_status_authority_hash: Some(input.authority_hash),
-        ..machine
-    };
-    update_entry(head_action, EntryTypes::Machine(updated))
+    Ok(update_hash)
+
 }
 
 /// Get all machines that are currently Available.
