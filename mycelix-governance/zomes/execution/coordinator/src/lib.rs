@@ -330,14 +330,6 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         )));
     }
 
-    check_execution_resolution_bindings(
-        &input.attempt_identities,
-        &input.action_key_digests,
-        &input.terminal_evidence_digests,
-        &input.authorization_admission_proof_digests,
-        &input.final_provider_entry_proof_digests,
-    )
-    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
     // Find the timelock via O(1) link-based lookup
     let current_record = find_timelock_by_id(&input.timelock_id)?;
