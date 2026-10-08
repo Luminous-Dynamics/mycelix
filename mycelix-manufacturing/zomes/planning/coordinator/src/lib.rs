@@ -76,6 +76,7 @@ pub enum CapabilityPlanRejection {
     MachineNotFound,
     MachineMalformed,
     MachineLookupFailed,
+    MachineNotFound,
     MachineStateAmbiguous,
     MachineDeleted,
     MachineUnavailable,
@@ -281,11 +282,22 @@ pub fn select_live_capability(
                 });
                 continue;
             }
-            MachineStateResolutionProjection::Ambiguous { statuses } => {
+            MachineStateResolutionProjection::NotFound => {
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
-                    machine_status: statuses.first().cloned(),
+                    machine_status: None,
+                    eligible: false,
+                    mismatch: None,
+                    rejection: Some(CapabilityPlanRejection::MachineNotFound),
+                });
+                continue;
+            }
+            MachineStateResolutionProjection::Ambiguous { .. } => {
+                rejected.push(CapabilityPlanDecision {
+                    machine_hash: Some(machine_hash),
+                    capability_contract_hash: contract_hash,
+                    machine_status: None,
                     eligible: false,
                     mismatch: None,
                     rejection: Some(CapabilityPlanRejection::MachineStateAmbiguous),
