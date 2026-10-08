@@ -98,7 +98,7 @@ def main() -> int:
     for i in range(32):
         cases.append({
             "case_id": f"GEN-MISSING-{i:03d}",
-            "property": "structural_rejection",
+            "property": "required_dependency_rejection",
             "mutation": [["remove_edge", required_edges[i % len(required_edges)]]],
         })
 
