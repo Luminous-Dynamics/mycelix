@@ -25,6 +25,26 @@ pub enum CapabilityQualification {
     Qualified,
 }
 
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum EvidenceKind {
+    CapabilityQualification,
+    Execution,
+    MachineObservation,
+    ProcessTrace,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct EvidenceEntry {
+    pub evidence_id: String,
+    pub subject_id: String,
+    pub kind: EvidenceKind,
+    pub payload_hash: String,
+    pub source: String,
+    pub observed_at: Timestamp,
+}
+
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct CapabilityContractEntry {
@@ -80,6 +100,7 @@ pub struct CalibrationEntry {
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ExecutionReceiptEntry {
+    pub execution_id: String,
     pub work_order_hash: ActionHash,
     pub bom_hash: Option<ActionHash>,
     pub routing_hash: Option<ActionHash>,
@@ -105,6 +126,7 @@ pub enum EntryTypes {
     Measurement(MeasurementEntry),
     Calibration(CalibrationEntry),
     CapabilityContract(CapabilityContractEntry),
+    Evidence(EvidenceEntry),
     ExecutionReceipt(ExecutionReceiptEntry),
 }
 
@@ -114,6 +136,7 @@ pub enum LinkTypes {
     AllMeasurements,
     AllCalibrations,
     AllCapabilityContracts,
+    AllEvidence,
     AllExecutions,
     WorkOrderToExecutions,
     MachineToExecutions,
@@ -219,7 +242,34 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 ));
             }
             for hash in &c.qualification_evidence_hashes {
-                must_get_valid_record(hash.clone())?;
+                let record = must_get_valid_record(hash.clone())?;
+                let evidence: Option<EvidenceEntry> = record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                let Some(evidence) = evidence else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "capability qualification evidence must reference an Evidence record".into(),
+                    ));
+                };
+                if evidence.subject_id != c.contract_id
+                    || !matches!(evidence.kind, EvidenceKind::CapabilityQualification)
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "capability qualification evidence is not semantically bound to the contract".into(),
+                    ));
+                }
+            }
+        }
+        EntryTypes::Evidence(e) => {
+            if e.evidence_id.is_empty()
+                || e.subject_id.is_empty()
+                || e.payload_hash.is_empty()
+                || e.source.is_empty()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "evidence_id, subject_id, payload_hash and source are required".into(),
+                ));
             }
         }
         EntryTypes::ExecutionReceipt(e) => {
@@ -248,8 +298,34 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                     "at least one evidence hash is required".into(),
                 ));
             }
+            if e.execution_id.is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "execution_id is required".into(),
+                ));
+            }
             for hash in &e.evidence_hashes {
-                must_get_valid_record(hash.clone())?;
+                let record = must_get_valid_record(hash.clone())?;
+                let evidence: Option<EvidenceEntry> = record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                let Some(evidence) = evidence else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution evidence hash must reference an Evidence record".into(),
+                    ));
+                };
+                if evidence.subject_id != e.execution_id
+                    || !matches!(
+                        evidence.kind,
+                        EvidenceKind::Execution
+                            | EvidenceKind::MachineObservation
+                            | EvidenceKind::ProcessTrace
+                    )
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "execution evidence is not semantically bound to the execution".into(),
+                    ));
+                }
             }
 
             // A claim of accepted production requires measured and calibrated
@@ -443,8 +519,23 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unbound_evidence() {
+        let entry = EvidenceEntry {
+            evidence_id: "EV-1".into(),
+            subject_id: "OTHER".into(),
+            kind: EvidenceKind::Execution,
+            payload_hash: "sha256:abc".into(),
+            source: "machine".into(),
+            observed_at: Timestamp::from_micros(0),
+        };
+        assert_eq!(entry.subject_id, "OTHER");
+        assert!(matches!(entry.kind, EvidenceKind::Execution));
+    }
+
+    #[test]
     fn rejects_unproven_execution() {
         let entry = ExecutionReceiptEntry {
+            execution_id: "EXEC-TEST".into(),
             work_order_hash: ActionHash::from_raw_36(vec![0; 36]),
             bom_hash: None,
             routing_hash: None,
