@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import importlib.util
 import pathlib
 import subprocess
@@ -162,6 +163,47 @@ def valid_record() -> dict[str, str]:
     }
 
 
+def git_blob_sha1(content: bytes) -> str:
+    header = f"blob {len(content)}\\0".encode("utf-8")
+    return hashlib.sha1(header + content).hexdigest()
+
+
+def verify_candidate_policy(
+    candidate_policy: dict,
+    expected_record_fields: list[str],
+    observed_verifier_blob: str,
+) -> None:
+    assert isinstance(candidate_policy, dict), "candidate trusted policy is not an object"
+    assert candidate_policy.get("record_fields") == expected_record_fields, (
+        "candidate trusted policy record schema mismatch"
+    )
+    assert candidate_policy.get("claim_ceiling") == "ReferenceModelOnly", (
+        "candidate trusted policy widened claim ceiling"
+    )
+    runtime = candidate_policy.get("runtime")
+    assert isinstance(runtime, dict), "candidate trusted policy runtime is not an object"
+    assert runtime.get("holochain") == "0.7.0"
+    assert runtime.get("hdk") == "0.7.0"
+    assert runtime.get("hdi") == "0.8.0"
+
+    trusted_programs = candidate_policy.get("trusted_programs")
+    assert isinstance(trusted_programs, dict), (
+        "candidate trusted policy programs are not an object"
+    )
+    verifier_entry = trusted_programs.get(
+        "scripts/integral/verify_d6u_trusted_artifacts.py"
+    )
+    assert isinstance(verifier_entry, dict), (
+        "candidate trusted policy verifier pin is missing"
+    )
+    assert verifier_entry.get("path") == (
+        "scripts/integral/verify_d6u_trusted_artifacts.py"
+    )
+    assert verifier_entry.get("blob_sha") == observed_verifier_blob, (
+        "candidate verifier blob pin mismatch"
+    )
+
+
 def run(candidate_root: pathlib.Path) -> None:
     verifier_path = candidate_root / "scripts/integral/verify_d6u_trusted_artifacts.py"
     assert verifier_path.is_file(), f"candidate verifier missing: {verifier_path}"
@@ -169,6 +211,49 @@ def run(candidate_root: pathlib.Path) -> None:
     verifier = load_module(verifier_path)
 
     p = policy()
+    policy_path = candidate_root / "docs/integral/d6u-trusted-builder-policy.json"
+    candidate_policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    observed_verifier_blob = git_blob_sha1(verifier_path.read_bytes())
+    verify_candidate_policy(candidate_policy, p["record_fields"], observed_verifier_blob)
+
+    tampered_policy = dict(candidate_policy)
+    tampered_policy["record_fields"] = list(candidate_policy["record_fields"]) + ["extra"]
+    assert_rejected(
+        lambda: verify_candidate_policy(
+            tampered_policy, p["record_fields"], observed_verifier_blob
+        ),
+        "candidate trusted policy record schema mismatch",
+        "candidate policy accepted an extra runtime record field",
+    )
+
+    tampered_policy = dict(candidate_policy)
+    tampered_policy["claim_ceiling"] = "OperationallyQualified"
+    assert_rejected(
+        lambda: verify_candidate_policy(
+            tampered_policy, p["record_fields"], observed_verifier_blob
+        ),
+        "candidate trusted policy widened claim ceiling",
+        "candidate policy accepted a widened claim ceiling",
+    )
+
+    tampered_policy = dict(candidate_policy)
+    tampered_programs = dict(candidate_policy["trusted_programs"])
+    tampered_verifier_entry = dict(
+        tampered_programs["scripts/integral/verify_d6u_trusted_artifacts.py"]
+    )
+    tampered_verifier_entry["blob_sha"] = "0" * 40
+    tampered_programs["scripts/integral/verify_d6u_trusted_artifacts.py"] = (
+        tampered_verifier_entry
+    )
+    tampered_policy["trusted_programs"] = tampered_programs
+    assert_rejected(
+        lambda: verify_candidate_policy(
+            tampered_policy, p["record_fields"], observed_verifier_blob
+        ),
+        "candidate verifier blob pin mismatch",
+        "candidate policy accepted a verifier blob pin mismatch",
+    )
+
     record = valid_record()
     verifier.verify_record_metadata(record, p)
 
