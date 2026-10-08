@@ -35,6 +35,7 @@ jobs:
       - name: Static matrix alignment
         run: |
           set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
           python3 -m py_compile mycelix-governance/tools/formal/compound_constraint_witness_reference.py mycelix-governance/tools/formal/test_compound_constraint_witness_matrix.py mycelix-governance/tools/formal/compound_constraint_witness_formal_runner.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_CONSTRAINT_WITNESS_CONTROL_MATRIX_V1.json >/dev/null
           python3 mycelix-governance/tools/formal/test_compound_constraint_witness_matrix.py --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_CONSTRAINT_WITNESS_CONTROL_MATRIX_V1.json --reference mycelix-governance/tools/formal/compound_constraint_witness_reference.py
