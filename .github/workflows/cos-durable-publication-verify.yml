@@ -401,6 +401,12 @@ jobs:
           assert main_branch_policy['required_status_checks']['checks']
           assert main_branch_policy['allow_force_pushes'] is False
           assert main_branch_policy['allow_deletions'] is False
+          assert 'additional_policy' in main_branch_policy
+          assert 'required_signatures' in main_branch_policy['additional_policy']
+          assert 'restrictions' in main_branch_policy['additional_policy']
+          assert 'lock_branch' in main_branch_policy['additional_policy']
+          assert 'block_creations' in main_branch_policy['additional_policy']
+          assert 'allow_fork_syncing' in main_branch_policy['additional_policy']
           assert environment_policy['schema']=='MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1'
           assert effective_rules['schema']=='MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1'
           assert main_branch_policy['schema']=='MYCELIX-COS-PROTECTED-MAIN-POLICY-V1'
