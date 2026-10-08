@@ -504,10 +504,11 @@ pub fn get_machine_temporal_attestation(hash: ActionHash) -> ExternResult<Option
     get(hash, GetOptions::default())
 }
 
-/// Resolve all valid temporal attestations for an exact subject.
+/// Resolve the temporal attestations observable through the current DHT link query.
 ///
-/// Resolution is fail-closed and provenance-preserving: agreeing authorities remain
-/// visible in a Unique result, while distinct attested times remain Conflicting.
+/// The result is explicitly observational, not a proof of global DHT completeness.
+/// NoEvidenceObserved means this query returned no evidence; UniqueObserved means
+/// the returned witnesses agree, not that no unseen witness can disagree.
 #[hdk_extern]
 pub fn resolve_machine_temporal_attestations(
     subject_hash: ActionHash,
@@ -519,6 +520,11 @@ pub fn resolve_machine_temporal_attestations(
         )?
         .build(),
     )?;
+    if links.len() > MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
+        return Ok(MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
+            limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
+        });
+    }
     let mut evidence = Vec::with_capacity(links.len());
     for link in links {
         let Some(hash) = link.target.into_action_hash() else {
