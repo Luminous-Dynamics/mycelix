@@ -21,5 +21,19 @@
     "mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_CBOR_ENCODING_V1.md": "1d92fc0304402ff61316313a6df5b5230b0803ef",
     "mycelix-workspace/docs/civic-resilience/sym_civic_018_cbor_encoding_v1.json": "b9be91fb92b929809d580c6f4b86f5516d5144eb",
     "scripts/qualification/sym_civic_018_cbor_encoding_v1.py": "af388f237c4b99b028464caf173d586d4ef1b352"
+  },
+  "independent_semantic_workflow": {
+    "name": "SYM-CIVIC-018 Independent Semantic Recompute",
+    "path": ".github/workflows/sym-civic-018-independent-semantic.yml",
+    "workflow_file_blob_sha": "d331019e7419b0f24e609d7fb983b9d42e141604",
+    "candidate_sha": "11d5586c555f47b9e682a24597e04340a5234373",
+    "candidate_green_run_id": 37714865009,
+    "candidate_green_job_id": 113108933070,
+    "expected_artifact_name": "sym-civic-018-independent-semantic-receipt-37714865009",
+    "join_strategy": "successful workflow_run with exact non-expired artifact name",
+    "independent_manifest_blob_sha": "335c3f8d77594ee599533967405f3d980503aa21",
+    "independent_verifier_blob_sha": "67ba1577a782e85a292b6ac911fd42138dba5aec",
+    "receipt_contract_blob_sha": "4adb87364fe1702d8366cd81adb4301fb4e7deda",
+    "receipt_builder_blob_sha": "f0b246cf884b3bd2f65b071eec7a0c7ac71ee3e5"
   }
 }

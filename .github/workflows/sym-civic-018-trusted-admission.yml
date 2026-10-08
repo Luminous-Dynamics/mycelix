@@ -113,15 +113,16 @@ jobs:
           print("parent:", parent)
           PY
 
-          gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.workflow_run.pull_requests[0].number }}" > /tmp/pr.json
+          gh api "repos/$GITHUB_REPOSITORY/pulls/4322" > /tmp/pr.json
 
-          python3 - "${manifest}" /tmp/pr.json <<'PY'
+          python3 - "${manifest}" /tmp/pr.json /tmp/trigger.json <<'PY'
           import json
           import re
           import sys
 
           manifest = json.load(open(sys.argv[1], encoding="utf-8"))
           pr = json.load(open(sys.argv[2], encoding="utf-8"))
+          run = json.load(open(sys.argv[3], encoding="utf-8"))
           sha40 = re.compile(r"^[0-9a-f]{40}$")
           assert pr["number"] == manifest["pr_number"]
           assert pr["state"] == "open"
@@ -134,6 +135,7 @@ jobs:
           assert sha40.fullmatch(pr["head"]["sha"])
           assert sha40.fullmatch(pr["base"]["sha"])
           print("live PR identity: PASS")
+          print("trigger workflow_sha:", run["workflow_sha"])
           PY
 
           git fetch --no-tags origin "${TARGET_SHA}"
@@ -177,6 +179,215 @@ jobs:
           print("candidate research-surface blob identities: PASS")
           for path in manifest["expected_changed_files"]:
               print(f"{path}={actual[path]}")
+          PY
+
+          TRIGGER_WORKFLOW_SHA="$(python3 -c 'import json; print(json.load(open("/tmp/trigger.json", encoding="utf-8"))["workflow_sha"])")"
+          python3 - "$TRIGGER_WORKFLOW_SHA" <<'PY'
+          import re
+          import sys
+          assert re.fullmatch(r"[0-9a-f]{40}", sys.argv[1])
+          print("trigger workflow revision: PASS")
+          PY
+          INDEPENDENT_RUN_ID="$(python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          manifest = json.load(open("mycelix-workspace/docs/civic-resilience/sym_civic_018_trusted_admission_v1.json", encoding="utf-8"))
+          independent = manifest["independent_semantic_workflow"]
+          expected_name = independent["name"]
+          expected_artifact = independent["expected_artifact_name"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GH_TOKEN"]
+
+          def get(path):
+              req = urllib.request.Request(
+                  f"https://api.github.com/repos/{repo}/{path}",
+                  headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+              )
+              with urllib.request.urlopen(req, timeout=20) as response:
+                  return json.load(response)
+
+          runs = get("actions/runs?event=workflow_run&per_page=100")
+          candidates = [
+              r for r in runs.get("workflow_runs", [])
+              if r.get("name") == expected_name
+              and r.get("event") == "workflow_run"
+              and r.get("status") == "completed"
+              and r.get("conclusion") == "success"
+          ]
+          matches = []
+          for r in candidates:
+              artifacts = get(f"actions/runs/{r['id']}/artifacts?per_page=100")
+              if any(
+                  item.get("name") == expected_artifact
+                  and item.get("expired") is False
+                  for item in artifacts.get("artifacts", [])
+              ):
+                  matches.append(r)
+          assert len(matches) == 1, {
+              "successful_independent_runs": len(candidates),
+              "artifact_bound_runs": [r["id"] for r in matches],
+          }
+          print(matches[0]["id"])
+          PY
+          )"
+          test "$INDEPENDENT_RUN_ID" -gt 0
+
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$INDEPENDENT_RUN_ID/artifacts?per_page=100" > /tmp/independent-artifacts.json
+
+          python3 - <<'PY'
+          import json
+          manifest = json.load(open("mycelix-workspace/docs/civic-resilience/sym_civic_018_trusted_admission_v1.json", encoding="utf-8"))
+          expected = manifest["independent_semantic_workflow"]["expected_artifact_name"]
+          payload = json.load(open("/tmp/independent-artifacts.json", encoding="utf-8"))
+          matches = [item for item in payload.get("artifacts", []) if item.get("name") == expected and item.get("expired") is False]
+          assert len(matches) == 1, {"expected_artifact": expected, "matches": len(matches)}
+          print("independent semantic artifact identity: PASS")
+          PY
+
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+          artifacts = json.load(open("/tmp/independent-artifacts.json", encoding="utf-8"))["artifacts"]
+          expected = json.load(open("mycelix-workspace/docs/civic-resilience/sym_civic_018_trusted_admission_v1.json", encoding="utf-8"))["independent_semantic_workflow"]["expected_artifact_name"]
+          item = next(x for x in artifacts if x.get("name") == expected and x.get("expired") is False)
+          req = urllib.request.Request(item["archive_download_url"], headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"})
+          archive = Path("/tmp/independent-semantic-receipt.zip")
+          with urllib.request.urlopen(req, timeout=30) as response:
+              archive.write_bytes(response.read())
+          root = Path("/tmp/independent-semantic-receipt")
+          root.mkdir(exist_ok=True)
+          with zipfile.ZipFile(archive) as zf:
+              for info in zf.infolist():
+                  target = (root / info.filename).resolve()
+                  if not str(target).startswith(str(root.resolve()) + "/"):
+                      raise SystemExit("artifact path traversal")
+                  if info.is_dir():
+                      continue
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(zf.read(info))
+          required = [
+              root / "sym-civic-018-independent-semantic-receipt.json",
+              root / "sym-civic-018-independent-semantic-result.json",
+              root / "sym-civic-018-independent-semantic-receipt-verification.json",
+          ]
+          assert all(p.is_file() for p in required), "receipt artifact incomplete"
+          print("independent semantic artifact extraction: PASS")
+          PY
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import re
+          from pathlib import Path
+
+          root = Path("/tmp/independent-semantic-receipt")
+
+          def load(path):
+              def hook(items):
+                  out = {}
+                  for key, value in items:
+                      if key in out:
+                          raise AssertionError("duplicate JSON object key")
+                      out[key] = value
+                  return out
+              with path.open(encoding="utf-8") as handle:
+                  return json.load(handle, object_pairs_hook=hook)
+
+          def canonical(value):
+              return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+          def sha_file(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          receipt = load(root / "sym-civic-018-independent-semantic-receipt.json")
+          result = load(root / "sym-civic-018-independent-semantic-result.json")
+          verification = load(root / "sym-civic-018-independent-semantic-receipt-verification.json")
+          trigger = load(Path("/tmp/trigger.json"))
+          admission = load(Path("mycelix-workspace/docs/civic-resilience/sym_civic_018_trusted_admission_v1.json"))
+          semantic_manifest = load(Path("scripts/qualification/sym_civic_018_independent_semantic_v1.json"))
+
+          assert receipt["schema"] == "MYCELIX-SYM-CIVIC-018-INDEPENDENT-SEMANTIC-RECEIPT-V1"
+          assert receipt["subject"]["repository_id"] == 1176351975
+          assert receipt["subject"]["repository"] == "Luminous-Dynamics/mycelix"
+          assert receipt["subject"]["pr_number"] == 4322
+          assert receipt["subject"]["parent_sha"] == "1196889eb2a849ddc359d8d05edf063aa9537699"
+          assert receipt["subject"]["candidate_sha"] == "11d5586c555f47b9e682a24597e04340a5234373"
+          assert re.fullmatch(r"[0-9a-f]{40}", receipt["subject"]["candidate_tree_sha"])
+
+          te = receipt["trigger_execution"]
+          assert te["run_id"] == 37714865009
+          assert te["run_attempt"] == trigger["run_attempt"]
+          assert te["job_id"] == 113108933070
+          assert te["workflow_id"] == 375144995
+          assert te["workflow_path"] == ".github/workflows/sym-civic-018-cbor-encoding.yml"
+          assert te["workflow_sha"] == trigger["workflow_sha"]
+          assert te["workflow_file_blob_sha"] == admission["expected_blob_sha"][".github/workflows/sym-civic-018-cbor-encoding.yml"]
+
+          trusted = receipt["trusted_control_plane"]
+          ie = admission["independent_semantic_workflow"]
+          expected_trusted = {
+              "workflow_ref": ie["path"],
+              "workflow_file_blob_sha": ie["workflow_file_blob_sha"],
+              "manifest_blob_sha": ie["independent_manifest_blob_sha"],
+              "verifier_blob_sha": ie["independent_verifier_blob_sha"],
+              "receipt_contract_blob_sha": ie["receipt_contract_blob_sha"],
+              "receipt_builder_blob_sha": ie["receipt_builder_blob_sha"],
+          }
+          for key, expected_value in expected_trusted.items():
+              assert trusted[key] == expected_value
+
+          surface = receipt["candidate_surface"]
+          assert surface["changed_files"] == sorted(admission["expected_changed_files"])
+          assert surface["blob_sha"] == admission["expected_blob_sha"]
+
+          sem = receipt["semantic_result"]
+          assert sem["candidate_schema"] == semantic_manifest["candidate_schema"]
+          assert sem["candidate_program"] == semantic_manifest["candidate_program"]
+          assert sem["message_corpus_sha256"] == semantic_manifest["expected_message_corpus_sha256"]
+          assert sem["depth_corpus_sha256"] == semantic_manifest["expected_depth_corpus_sha256"]
+          assert sem["resource_corpus_sha256"] == semantic_manifest["expected_resource_corpus_sha256"]
+          assert sem["message_results_sha256"] == semantic_manifest["expected_message_results_sha256"]
+          assert sem["counts"] == semantic_manifest["expected_counts"]
+          assert sem["depth_results"] == semantic_manifest["depth_results"]
+          assert sem["resource_results"] == semantic_manifest["resource_results"]
+          anchors = {
+              "C-03": "CBOR_MESSAGE_REJECT",
+              "C-04": "CBOR_MESSAGE_REJECT",
+              "C-11": "CBOR_ENCODING_REJECT",
+              "C-12": "CBOR_ENCODING_REJECT",
+              "C-28": "CBOR_ENCODING_SUFFICIENT",
+              "C-29": "CBOR_ENCODING_REJECT",
+              "C-30": "CBOR_ENCODING_SUFFICIENT",
+              "C-31": "CBOR_ENCODING_REJECT",
+          }
+          for key, value in anchors.items():
+              assert sem["anchors"][key] == value
+          assert sem["metamorphic"] == "NOT_RECOMPUTED"
+
+          assert result["schema"] == "MYCELIX-SYM-CIVIC-018-INDEPENDENT-SEMANTIC-RESULT-V1"
+          assert result["candidate_sha"] == receipt["subject"]["candidate_sha"]
+          assert result["parent_sha"] == receipt["subject"]["parent_sha"]
+          assert result["run_id"] == te["run_id"]
+          assert result["job_id"] == te["job_id"]
+          assert result["disposition"] == "TRUSTED_INDEPENDENT_SEMANTIC_RECOMPUTATION_PASS"
+          assert result["boundary"] == "trusted_candidate_independent_semantic_recomputation"
+          assert result["claim_ceiling"] == "SYNTHETIC_RESEARCH_ONLY"
+          assert sha_file(root / "sym-civic-018-independent-semantic-result.json") == sem["semantic_result_sha256"]
+
+          core = dict(receipt)
+          receipt_id = core.pop("receipt_id_sha256")
+          assert hashlib.sha256(canonical(core)).hexdigest() == receipt_id
+          assert verification["verified"] is True
+          assert verification["receipt_id_sha256"] == receipt_id
+          assert verification["receipt_file_sha256"] == sha_file(root / "sym-civic-018-independent-semantic-receipt.json")
+          assert verification["semantic_result_sha256"] == sha_file(root / "sym-civic-018-independent-semantic-result.json")
+
+          print("independent semantic receipt binding: PASS")
           PY
 
           test "$(git rev-parse "${{ github.workflow_sha }}:.github/workflows/sym-civic-018-trusted-admission.yml")" != ""
